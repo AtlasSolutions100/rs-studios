@@ -1,7 +1,7 @@
-{% extends "auth_base.html" %}{% block title %}Create your account · RS Studios{% endblock %}
+{% extends "auth_base.html" %}{% block title %}Create your account · Campaignify{% endblock %}
 {% block auth %}
-  <h2>{{ 'Set up your admin account' if owner else 'Join RS Studios' }}</h2>
-  <p class="muted">{% if owner %}This link is for {{ owner }}. Pick your password and you're in, as an admin of the Rector &amp; Stull workspace.{% else %}Invite-only for now. Your team lead sent you a code.{% endif %}</p>
+  <h2>{{ 'Set up your admin account' if owner else 'Join Campaignify' }}</h2>
+  <p class="muted">{% if owner %}This link is for {{ owner }}. Pick your password and you're in, as an admin of your team's Campaignify workspace.{% else %}Invite-only for now. Your team lead sent you a code.{% endif %}</p>
   <form method="post">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
     <label for="name">Your name</label><input id="name" type="text" name="name" autocomplete="name">

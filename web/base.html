@@ -2,17 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{% block title %}RS Studios{% endblock %}</title>
-<link rel="icon" href="{{ url_for('static', filename='img/lion-badge-128.png') }}">
+<title>{% block title %}Campaignify{% endblock %}</title>
+<link rel="icon" href="{{ url_for('static', filename='img/campaignify-icon-128.png') }}">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/campaignify-icon-512.png') }}">
+<meta name="theme-color" content="#0B0E10">
+<meta property="og:site_name" content="Campaignify">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 {% block shell %}
 <div class="shell">
   <aside class="side">
-    <a class="logo" href="{{ url_for('studio') }}"><img src="{{ url_for('static', filename='img/lion.svg') }}" alt=""><div><b>RS Studios</b><span>Ad creation studio</span></div></a>
+    <a class="logo" href="{{ url_for('studio') }}"><img src="{{ url_for('static', filename='img/campaignify-mark.svg') }}" alt=""><div><b>Campaignify</b><span>Create your own creatives</span></div></a>
     <a class="nav {{ 'on' if request.endpoint in ('studio','new') }}" href="{{ url_for('studio') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/></svg><span>Create</span></a>
     <a class="nav {{ 'on' if request.endpoint=='library' }}" href="{{ url_for('library') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M10 9l5 3-5 3z" fill="currentColor"/></svg><span>Library</span></a>
     <a class="nav {{ 'on' if request.endpoint=='brand_kit' }}" href="{{ url_for('brand_kit') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a9 9 0 100 18c1 0 1.5-.8 1.5-1.6 0-1-.8-1.4-.8-2.4 0-1 .8-1.6 1.8-1.6H17a4 4 0 004-4c0-4.4-4-8.4-9-8.4z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor"/><circle cx="10.5" cy="7" r="1.2" fill="currentColor"/><circle cx="15" cy="7.5" r="1.2" fill="currentColor"/></svg><span>Brand kit</span></a>

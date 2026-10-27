@@ -1,4 +1,4 @@
-"""RS Studios: make ads for your products from templates that already work.
+"""Campaignify: make ads for your products from templates that already work.
 
 Flask app: accounts by invite, one workspace per team, a brand kit (product
 name, approved claims, product photos), templates and tools, a library of
@@ -182,7 +182,7 @@ def signup():
             else:
                 inv = conn.execute("SELECT * FROM invites WHERE code=? AND used_by IS NULL", (code,)).fetchone()
                 if not inv:
-                    flash("RS Studios is invite-only. Check your invite code.")
+                    flash("Campaignify is invite-only. Check your invite code.")
                     return render_template("signup.html", invite=code, owner=None)
                 if inv["workspace_id"]:
                     ws_id = inv["workspace_id"]

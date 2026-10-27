@@ -1,4 +1,4 @@
-"""Thin client for the generation API that powers RS Studios.
+"""Thin client for the generation API that powers Campaignify.
 
 The vendor is never named in the product UI; this module is the only place
 that knows it. API shape (from the vendor's official SDKs):
@@ -75,7 +75,7 @@ def _headers():
     if not cred:
         raise GenError("The generation service is not configured yet (no API key).")
     return {"Authorization": f"Key {cred}", "Content-Type": "application/json",
-            "User-Agent": "rs-studios/1.0"}
+            "User-Agent": "campaignify/1.0"}
 
 
 def _check(r):

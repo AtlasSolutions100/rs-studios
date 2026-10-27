@@ -1,7 +1,7 @@
-name: Deploy to studio.rectorandstull.com
+name: Deploy Campaignify (campaignify.ai)
 
 # Every push to main: run the tests, then hand this commit and the settings
-# below to the server's deploy hook (https://studio.rectorandstull.com/_deploy).
+# below to the server's deploy hook (https://campaignify.ai/_deploy).
 # No SSH key is involved: the hook accepts a request only with a GitHub-signed
 # token proving it comes from this repo's main branch (OIDC, audience
 # "rs-deploy"), and it rebuilds only this app.
@@ -23,7 +23,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  HOOK: https://studio.rectorandstull.com/_deploy
+  HOOK: https://campaignify.ai/_deploy
 
 jobs:
   test:
@@ -92,7 +92,7 @@ jobs:
       - name: Health check
         run: |
           for i in $(seq 1 20); do
-            if curl -fsS --max-time 20 "https://studio.rectorandstull.com/health?deep=1"; then echo; exit 0; fi
+            if curl -fsS --max-time 20 "https://campaignify.ai/health?deep=1"; then echo; exit 0; fi
             sleep 6
           done
           exit 1
