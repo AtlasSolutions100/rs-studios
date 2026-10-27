@@ -10,7 +10,7 @@ our cost x `RS_MARKUP`). Invite-only.
     pip install -r requirements.txt
     RS_DATA=./data HIGGSFIELD_API_KEY=key:secret python app.py      # http://localhost:8080
 
-The first account to sign up becomes the admin. Admin: top up credits, create
+Owners (Koby, Travis) sign up with their one-time setup links (`owners.py` holds only the code hashes) and become admins of the Rector & Stull workspace; everyone else needs an invite. Admin: top up credits, create
 invite links (join a workspace or get your own), upload reference videos for
 "Copy a video's motion".
 
