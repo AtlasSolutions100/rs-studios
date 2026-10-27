@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% block title %}Create your account · RS Studios{% endblock %}
+{% block body %}
+<div class="authbox card">
+  <h1>{{ 'Set up RS Studios' if first else 'Join RS Studios' }}</h1>
+  <p class="muted">{{ 'You are the first account, so you will be the admin.' if first else 'Invite-only for now. Your team lead sent you a code.' }}</p>
+  <form method="post">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <label for="name">Your name</label><input id="name" type="text" name="name" autocomplete="name">
+    <label for="email">Email</label><input id="email" type="email" name="email" required autocomplete="email">
+    <label for="pw">Password (8+ characters)</label><input id="pw" type="password" name="password" required minlength="8" autocomplete="new-password">
+    {% if not first %}<label for="inv">Invite code</label><input id="inv" type="text" name="invite" value="{{ invite }}" required>{% endif %}
+    <p style="margin-top:18px"><button class="btn">Create account</button></p>
+  </form>
+  <p class="small muted">Already have one? <a href="{{ url_for('login') }}">Log in</a>.</p>
+</div>
+{% endblock %}

@@ -1,0 +1,25 @@
+# RS Studios: one container behind Caddy (automatic HTTPS).
+#   docker compose up -d --build
+# Settings come from settings.txt (never committed): HF_KEY, RS_SECRET_KEY, RS_MARKUP, ...
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: [settings.txt]
+    environment:
+      - RS_COOKIE_SECURE=1
+    volumes:
+      - ./data:/srv/rs/data
+    expose: ["8080"]
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      - DOMAIN=${DOMAIN:-studio.rectorandstull.com}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on: [app]
+volumes:
+  caddy_data:

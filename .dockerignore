@@ -1,0 +1,5 @@
+data/
+settings.txt
+.git/
+tests/
+__pycache__/
