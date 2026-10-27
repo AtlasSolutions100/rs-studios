@@ -1,6 +1,6 @@
-# RS Studios
+# Campaignify
 
-Rector & Stull's ad studio: templates that already sell, a brand kit (product
+Campaignify (campaignify.ai), Rector & Stull's ad studio: templates that already sell, a brand kit (product
 name, approved claims, product photos), and generation of image ads, photo-to-video
 clips and motion-copy videos. Members pay in RS credits (1 credit = $0.01; price =
 our cost x `RS_MARKUP`). Invite-only.
@@ -25,7 +25,7 @@ settings from GitHub secrets (`HIGGSFIELD_API_KEY`, optional variable
 `RS_MARKUP`) to the deploy hook on the Crowdcut server, authenticated with a
 GitHub OIDC token (no SSH key). The hook writes `/opt/rs-studios`, keeps
 `data/` and `settings.txt`, and runs `docker compose -p rs-studios up -d --build`.
-Crowdcut's Caddy serves studio.rectorandstull.com and proxies to
+Crowdcut's Caddy serves campaignify.ai (studio.rectorandstull.com redirects there) and proxies to
 `rs-studios-app:8080`. Data (SQLite + media) lives in `/opt/rs-studios/data`.
 
 ## Pieces
@@ -35,3 +35,7 @@ Crowdcut's Caddy serves studio.rectorandstull.com and proxies to
 - `compliance.py` brief checks (weight-loss, health, discount, income, recruiting)
 - `worker.py` submits, polls, saves results, refunds failures
 - `hf.py` the generation API client (the only file that knows the vendor)
+
+## Brand
+
+Name Campaignify, tagline "Create your own creatives". Mark: `static/img/campaignify-mark.svg` (lime #9BFF3C C of two strokes around a play triangle); app icon `static/img/campaignify-icon-512.png`. Palette lives in the `:root` variables of `static/style.css` (charcoal #0B0E10, lime #9BFF3C, cyan #5BD3FF). Env vars, the repo, the container and `/opt/rs-studios` keep their old names on purpose: renaming them would break the running deploy.

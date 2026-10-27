@@ -87,7 +87,7 @@ def _save_outputs(conn, job, result):
         ext = ".mp4" if o["kind"] == "video" else ".png"
         if "." in o["url"].rsplit("/", 1)[-1].split("?")[0]:
             ext = "." + o["url"].rsplit("/", 1)[-1].split("?")[0].rsplit(".", 1)[-1][:5]
-        path = os.path.join(folder, f"rs-studios-{job['id']}-{i}{ext}")
+        path = os.path.join(folder, f"campaignify-{job['id']}-{i}{ext}")
         try:
             r = requests.get(o["url"], timeout=300)
             r.raise_for_status()

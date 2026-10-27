@@ -1,4 +1,4 @@
-"""Owner accounts: one-time setup links for the Rector & Stull admins.
+"""Owner accounts: one-time setup links for the owners (Koby and Travis).
 
 Only the SHA-256 of each code lives here; the codes themselves were handed to
 Koby. A code works once, only with its own email, and makes that person an

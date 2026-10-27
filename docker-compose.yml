@@ -1,5 +1,5 @@
-# RS Studios runs on the Crowdcut server, behind Crowdcut's Caddy (which owns
-# ports 80/443 and the certificate for studio.rectorandstull.com). The app
+# Campaignify (repo rs-studios) runs on the Crowdcut server, behind Crowdcut's Caddy (which owns
+# ports 80/443 and the certificates for campaignify.ai). The app
 # joins Crowdcut's network so Caddy reaches it as rs-studios-app:8080.
 #
 # Deploys: every push to main (see .github/workflows/deploy.yml) sends this

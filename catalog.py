@@ -1,4 +1,4 @@
-"""What RS Studios can make: the tools (each backed by one model), what they
+"""What Campaignify can make: the tools (each backed by one model), what they
 cost, and the ready-made templates (the angles that sell for us).
 
 Costs are the vendor's list prices in USD at the settings we use. Members pay
