@@ -1,30 +1,33 @@
 {% extends "base.html" %}{% block title %}Brand kit · RS Studios{% endblock %}
 {% block body %}
-<h1>Brand kit</h1>
-<p class="muted">Templates fill these in, so every ad starts on-brand and on-label.</p>
-<div class="split">
-  <form method="post" class="card">
-    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-    <label for="bn">Brand name</label><input id="bn" type="text" name="brand_name" value="{{ ws.brand_name or '' }}" placeholder="The Morning Upgrade">
-    <label for="pn">Product name <span class="muted small">(templates say "the ___ bag", so just the name)</span></label><input id="pn" type="text" name="product_name" value="{{ ws.product_name or '' }}" placeholder="CoreJava">
-    <label for="cl">Approved claims (copy them from the label)</label><textarea id="cl" name="claims" placeholder="Natural caffeine, L-theanine, MCT powder from coconut, 30 servings, hot water and 30 seconds">{{ ws.claims or '' }}</textarea>
-    <label for="au">Main audience</label><input id="au" type="text" name="audience" value="{{ ws.audience or '' }}" placeholder="Women 25-44 who love their morning coffee">
-    <p style="margin-top:18px"><button class="btn">Save</button></p>
-  </form>
-  <div class="card">
-    <h2>Product photos</h2>
-    <p class="small muted">Clear photos of the real product on a clean background work best. Never edit the label or colors.</p>
-    <form method="post" action="{{ url_for('upload_photos') }}" enctype="multipart/form-data" class="row">
+<div class="page full">
+  <p class="eyebrow">Brand kit</p>
+  <h1>Start every ad <span class="gold">on-brand</span></h1>
+  <p class="muted">Templates fill these in, so every brief starts with your product and only the claims you're allowed to make.</p>
+  <div class="create" style="grid-template-columns:1fr 1fr;margin-top:24px">
+    <form method="post" class="panel">
       <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-      <input type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple required>
-      <button class="btn sm">Upload</button>
+      <label for="bn">Brand name</label><input id="bn" type="text" name="brand_name" value="{{ ws.brand_name or '' }}" placeholder="The Morning Upgrade">
+      <label for="pn">Product name <span class="dim">(templates say "the ___ bag", so just the name)</span></label><input id="pn" type="text" name="product_name" value="{{ ws.product_name or '' }}" placeholder="CoreJava">
+      <label for="cl">Approved claims <span class="dim">(copy them from the label)</span></label><textarea id="cl" name="claims" placeholder="Natural caffeine, L-theanine, MCT powder from coconut, 30 servings, hot water and 30 seconds">{{ ws.claims or '' }}</textarea>
+      <label for="au">Main audience</label><input id="au" type="text" name="audience" value="{{ ws.audience or '' }}" placeholder="Women 25-44 who love their morning coffee">
+      <p style="margin-top:20px"><button class="btn">Save brand kit</button></p>
     </form>
-    <div class="photos" style="margin-top:14px">
-      {% for p in photos %}
-      <div class="photo"><img src="{{ url_for('photo', pid=p.id) }}" alt="{{ p.filename }}">
-        <form class="del" method="post" action="{{ url_for('delete_photo', pid=p.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn sm ghost" style="background:#fff;padding:2px 8px" title="Remove">×</button></form>
+    <div class="panel">
+      <h2>Product photos</h2>
+      <p class="small muted">Clear photos of the real product on a clean background work best. Never edit the label or colors.</p>
+      <form method="post" action="{{ url_for('upload_photos') }}" enctype="multipart/form-data" class="row" style="margin:14px 0">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <input type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple required>
+        <button class="btn sm">Upload</button>
+      </form>
+      <div class="photos">
+        {% for p in photos %}
+        <div class="photo"><img src="{{ url_for('photo', pid=p.id) }}" alt="{{ p.filename }}">
+          <form class="del" method="post" action="{{ url_for('delete_photo', pid=p.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm" style="padding:2px 9px" title="Remove">×</button></form>
+        </div>
+        {% else %}<div class="empty" style="grid-column:1/-1">No photos yet.</div>{% endfor %}
       </div>
-      {% else %}<p class="muted small">No photos yet.</p>{% endfor %}
     </div>
   </div>
 </div>

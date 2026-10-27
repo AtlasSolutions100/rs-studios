@@ -1,0 +1,16 @@
+{% macro status(j) -%}
+<span class="status {{ j.status }}"><span class="dot"></span>{{ {'done':'Ready','pending':'Queued','running':'Rendering','failed':'Failed'}[j.status] }}</span>
+{%- endmacro %}
+
+{% macro job_thumb(j, outs, templates, tools, tall=True) -%}
+{% set o = (outs.get(j.id) or [None])[0] %}
+{% set pv = templates[j.template_id].preview if j.template_id in templates else tools[j.tool].preview %}
+<div class="thumb {{ 'tall' if tall }}" data-hoverplay>
+  {% if o and o.kind == 'video' %}<video src="{{ url_for('media', oid=o.id) }}" poster="{{ url_for('media', oid=o.id, poster=1) }}" muted loop playsinline preload="none"></video><span class="play"><svg viewBox="0 0 10 10"><path d="M2 1l7 4-7 4z"/></svg></span>
+  {% elif o %}<img src="{{ url_for('media', oid=o.id) }}" alt="Generated ad">
+  {% else %}<img src="{{ url_for('static', filename='previews/' ~ pv ~ '.jpg') }}" alt="" style="opacity:.25;filter:blur(2px)">
+    {% if j.status in ('pending','running') %}<div class="wait"><div><div class="spinner"></div>Making it…<br><span class="dim">1–3 minutes</span></div></div>
+    {% else %}<div class="wait"><div>{{ j.error or 'No result' }}</div></div>{% endif %}
+  {% endif %}
+</div>
+{%- endmacro %}

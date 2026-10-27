@@ -140,6 +140,7 @@ def login():
         if u and check_password_hash(u["pw_hash"], request.form.get("password") or ""):
             session.clear()
             session["uid"] = u["id"]
+            csrf_token()
             nxt = request.args.get("next") or ""
             return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else url_for("studio"))
         flash("That email and password don't match.")
@@ -187,6 +188,7 @@ def signup():
             conn.commit()
             session.clear()
             session["uid"] = cur.lastrowid
+            csrf_token()
         return redirect(url_for("brand_kit") if first else url_for("studio"))
     return render_template("signup.html", first=first, invite=request.args.get("invite", ""))
 
@@ -206,8 +208,19 @@ def studio():
         recent = conn.execute("SELECT * FROM jobs WHERE workspace_id=? ORDER BY id DESC LIMIT 6",
                               (g.ws["id"],)).fetchall()
         photos = conn.execute("SELECT COUNT(*) c FROM photos WHERE workspace_id=?", (g.ws["id"],)).fetchone()["c"]
-    return render_template("studio.html", templates=catalog.TEMPLATES, recent=recent, photos=photos,
-                           brand=brand(), configured=hf.configured())
+        outs = _outputs(conn, [j["id"] for j in recent])
+    return render_template("studio.html", templates=catalog.TEMPLATES, templates_by_id=catalog.TEMPLATE_BY_ID,
+                           recent=recent, outs=outs, photos=photos, brand=brand(), configured=hf.configured())
+
+
+def _outputs(conn, job_ids):
+    if not job_ids:
+        return {}
+    outs = {}
+    for o in conn.execute(f"SELECT * FROM outputs WHERE job_id IN ({','.join('?' * len(job_ids))}) ORDER BY id",
+                          job_ids):
+        outs.setdefault(o["job_id"], []).append(o)
+    return outs
 
 
 @app.route("/app/new")
@@ -292,10 +305,7 @@ def library():
     with db.connect() as conn:
         jobs = conn.execute("SELECT * FROM jobs WHERE workspace_id=? ORDER BY id DESC LIMIT 200",
                             (g.ws["id"],)).fetchall()
-        outs = {}
-        for o in conn.execute("SELECT o.* FROM outputs o JOIN jobs j ON j.id=o.job_id WHERE j.workspace_id=?",
-                              (g.ws["id"],)):
-            outs.setdefault(o["job_id"], []).append(o)
+        outs = _outputs(conn, [j["id"] for j in jobs])
     return render_template("library.html", jobs=jobs, outs=outs, templates=catalog.TEMPLATE_BY_ID,
                            highlight=request.args.get("highlight", type=int))
 
@@ -319,6 +329,11 @@ def media(oid):
         o = conn.execute("SELECT o.* FROM outputs o JOIN jobs j ON j.id=o.job_id WHERE o.id=? AND j.workspace_id=?",
                          (oid, g.ws["id"])).fetchone()
     if not o:
+        abort(404)
+    if request.args.get("poster") == "1":
+        p = (o["path"] or "") + ".jpg"
+        if o["path"] and os.path.exists(p):
+            return send_file(p, conditional=True, max_age=86400)
         abort(404)
     if o["path"] and os.path.exists(o["path"]):
         return send_file(o["path"], as_attachment=request.args.get("download") == "1",

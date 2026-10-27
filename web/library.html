@@ -1,25 +1,21 @@
-{% extends "base.html" %}{% block title %}Library · RS Studios{% endblock %}
+{% extends "base.html" %}{% from "_macros.html" import status, job_thumb %}
+{% block title %}Library · RS Studios{% endblock %}
 {% block body %}
-<h1>Library</h1>
-<p class="muted">Everything your team made. Downloads are full quality and yours to post.</p>
-{% if not jobs %}<div class="card"><p>Nothing yet. <a href="{{ url_for('studio') }}">Make your first ad</a>.</p></div>{% endif %}
-<div class="grid g4">
-  {% for j in jobs %}
-  <div class="card job {{ 'hl' if highlight == j.id }}" data-job="{{ j.id }}" data-status="{{ j.status }}">
-    <div class="row" style="justify-content:space-between"><span class="small muted">#{{ j.id }} · {{ templates[j.template_id].name if j.template_id in templates else tools[j.tool].name }}</span><span class="status {{ j.status }}">{{ j.status }}</span></div>
-    {% for o in outs.get(j.id, []) %}
-      <div style="margin:10px 0">
-      {% if o.kind == 'video' %}<video class="out" src="{{ url_for('media', oid=o.id) }}" controls playsinline preload="metadata"></video>
-      {% else %}<img class="out" src="{{ url_for('media', oid=o.id) }}" alt="Generated ad">{% endif %}
-      <a class="btn sm ghost" href="{{ url_for('media', oid=o.id, download=1) }}">Download</a>
-      </div>
-    {% else %}
-      {% if j.status in ('pending','running') %}<p class="muted small" style="margin:20px 0">Making it… usually 1–3 minutes.</p>{% endif %}
+<div class="page full">
+  <p class="eyebrow">Library</p>
+  <h1>Everything you've <span class="gold">made</span></h1>
+  <p class="muted">Full-quality downloads, yours to post. Hover to play.</p>
+  {% if not jobs %}<div class="empty" style="margin-top:20px">Nothing yet. <a href="{{ url_for('studio') }}">Make your first ad</a>.</div>{% endif %}
+  <div class="lgrid" style="margin-top:24px">
+    {% for j in jobs %}
+    <div class="litem {{ 'hl' if highlight == j.id }}" data-job="{{ j.id }}" data-status="{{ j.status }}">
+      {{ job_thumb(j, outs, templates, tools) }}
+      <div class="meta"><b>{{ templates[j.template_id].name if j.template_id in templates else tools[j.tool].name }}</b>{{ status(j) }}</div>
+      {% if outs.get(j.id) %}<div class="row" style="margin-top:8px">{% for o in outs[j.id] %}<a class="btn dark sm" href="{{ url_for('media', oid=o.id, download=1) }}">Download{{ ' ' ~ loop.index if outs[j.id]|length > 1 }}</a>{% endfor %}</div>{% endif %}
+      <p class="brief">{{ (j.brief or '')[:110] }}</p>
+    </div>
     {% endfor %}
-    {% if j.error %}<p class="small" style="color:var(--bad)">{{ j.error }}</p>{% endif %}
-    <p class="small muted" style="margin:6px 0 0">{{ (j.brief or '')[:120] }}</p>
   </div>
-  {% endfor %}
 </div>
 <script>
 (function(){

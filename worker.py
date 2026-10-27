@@ -95,9 +95,23 @@ def _save_outputs(conn, job, result):
                 f.write(r.content)
         except Exception:  # noqa: BLE001 — keep the remote URL if the copy fails
             path = None
+        if path and o["kind"] == "video":
+            make_poster(path)
         conn.execute("INSERT INTO outputs (job_id, kind, url, path) VALUES (?,?,?,?)",
                      (job["id"], o["kind"], o["url"], path))
     conn.commit()
+
+
+def make_poster(video_path: str) -> str | None:
+    """A still for the library grid (<video poster>): <file>.jpg next to the video."""
+    import shutil
+    import subprocess
+    if not shutil.which("ffmpeg"):
+        return None
+    out = video_path + ".jpg"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", "0.5", "-i", video_path, "-frames:v", "1",
+                    "-vf", "scale=540:-2", "-q:v", "4", out], capture_output=True, timeout=60)
+    return out if os.path.exists(out) else None
 
 
 def tick() -> int:

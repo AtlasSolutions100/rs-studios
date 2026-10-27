@@ -1,37 +1,67 @@
-{% extends "base.html" %}{% block title %}Create · RS Studios{% endblock %}
+{% extends "base.html" %}{% from "_macros.html" import status, job_thumb %}
+{% block title %}Create · RS Studios{% endblock %}
 {% block body %}
-<section class="hero">
-  <div>
-    <h1>Make this week's ads</h1>
-    <p>Pick a template that already sells, add your product photos, and generate. {{ g.ws.credits }} credits left.</p>
-  </div>
-  {% if photos == 0 %}<a class="btn gold" href="{{ url_for('brand_kit') }}">Add product photos first</a>{% endif %}
-</section>
-{% if not configured %}<div class="card warn" style="margin-bottom:20px"><b>Generation isn't switched on yet.</b> <span class="muted">You can set up your brand kit now; making ads starts once the admin connects the service.</span></div>{% endif %}
-{% if not brand.product %}<div class="card warn" style="margin-bottom:20px">Add your product name in the <a href="{{ url_for('brand_kit') }}">brand kit</a> so templates fill it in for you.</div>{% endif %}
+<div class="page">
+  <section>
+    <p class="eyebrow">Templates that sell · {{ brand.name or 'Your brand' }}</p>
+    <h1>Make this <span class="gold">week's ads</span></h1>
+    <p class="muted">Pick a template that already works, add your product photos, and generate. Every brief is checked against the rules before it runs.</p>
+    <div class="search">
+      <label class="field" style="margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="q" type="search" placeholder="Search templates, styles, or ideas…" aria-label="Search templates"></label>
+      <a class="btn" href="{{ url_for('new', tool='ad_image') }}"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.6L19.5 9l-5.7 1.6L12 16l-1.8-5.4L4.5 9l5.7-1.4z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>New ad</a>
+    </div>
+    {% if not configured %}<div class="flash">Generation isn't switched on yet. Set up your brand kit now; making ads starts once the admin connects the service.</div>{% endif %}
+    {% if photos == 0 %}<div class="flash">Add product photos in the <a href="{{ url_for('brand_kit') }}">brand kit</a> first. Every template starts from them.</div>{% endif %}
 
-<h2>Templates that sell</h2>
-<div class="grid g3" style="margin-bottom:32px">
-  {% for t in templates %}
-  <a class="card tpl" href="{{ url_for('new', template=t.id) }}">
-    <span class="tag {{ 'video' if tools[t.tool].kind == 'video' }}">{{ tools[t.tool].name }}</span>
-    <h3>{{ t.name }}</h3>
-    <span class="muted small">{{ (t.overlay or t.brief.replace('{product}', brand.product or 'your product'))[:110] }}{% if not t.overlay and t.brief|length > 110 %}…{% endif %}</span>
-  </a>
-  {% endfor %}
+    <div class="tgrid" id="tgrid">
+      {% for t in templates %}
+      {% set tool = tools[t.tool] %}
+      <a class="tcard" href="{{ url_for('new', template=t.id) }}" data-hoverplay data-search="{{ (t.name ~ ' ' ~ t.line ~ ' ' ~ tool.name)|lower }}">
+        <div class="thumb">
+          <video src="{{ url_for('static', filename='previews/' ~ t.preview ~ '.mp4') }}" poster="{{ url_for('static', filename='previews/' ~ t.preview ~ '.jpg') }}" muted loop playsinline preload="none"></video>
+          <span class="play"><svg viewBox="0 0 10 10"><path d="M2 1l7 4-7 4z"/></svg></span>
+          <span class="dur">{{ '0:%02d'|format(t.duration) if t.duration else ('Image' if tool.kind == 'image' else '0:15') }}</span>
+          <span class="chip {{ 'motion' if t.tool=='motion_copy' else tool.kind }}">{{ tool.name }}</span>
+        </div>
+        <div class="t">{{ t.name }}</div><div class="s">{{ t.line }}</div>
+      </a>
+      {% endfor %}
+    </div>
+
+    <div class="section-h"><h2>Start from scratch</h2><span class="muted small">Your own brief, any product photo</span></div>
+    <div class="tgrid">
+      {% for key, tl in tools.items() %}
+      <a class="tcard" href="{{ url_for('new', tool=key) }}" data-hoverplay>
+        <div class="thumb"><video src="{{ url_for('static', filename='previews/' ~ tl.preview ~ '.mp4') }}" poster="{{ url_for('static', filename='previews/' ~ tl.preview ~ '.jpg') }}" muted loop playsinline preload="none"></video>
+          <span class="chip {{ 'motion' if key=='motion_copy' else tl.kind }}">{{ tl.kind|capitalize }}</span></div>
+        <div class="t">{{ tl.name }}</div><div class="s">{{ tl.blurb }}</div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+
+  <aside class="rail">
+    <div class="panel">
+      <h2>Recent</h2><p class="muted small" style="margin:0 0 6px">Your latest ads</p>
+      {% for j in recent[:4] %}
+      <div class="ritem">
+        {{ job_thumb(j, outs, templates_by_id, tools) }}
+        <div>
+          <b>{{ templates_by_id[j.template_id].name if j.template_id in templates_by_id else tools[j.tool].name }}</b>
+          {{ status(j) }}
+          <p class="dim small" style="margin:8px 0">{{ j.created_at[:16].replace('T', ' ') }} UTC</p>
+          {% if outs.get(j.id) %}<a class="btn dark sm" href="{{ url_for('media', oid=outs[j.id][0].id, download=1) }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/></svg>Download</a>{% endif %}
+        </div>
+      </div>
+      {% else %}<div class="empty" style="margin-top:14px">Nothing yet. Your ads show up here as they finish.</div>{% endfor %}
+      {% if recent %}<p style="margin:14px 0 0"><a href="{{ url_for('library') }}">View all →</a></p>{% endif %}
+    </div>
+  </aside>
 </div>
-
-<h2>Start from scratch</h2>
-<div class="grid g3" style="margin-bottom:32px">
-  {% for key, t in tools.items() %}
-  <a class="card tpl" href="{{ url_for('new', tool=key) }}"><span class="tag {{ 'video' if t.kind=='video' }}">{{ t.kind }}</span><h3>{{ t.name }}</h3><span class="muted small">{{ t.blurb }}</span></a>
-  {% endfor %}
-</div>
-
-{% if recent %}
-<div class="row" style="justify-content:space-between"><h2>Recent</h2><a href="{{ url_for('library') }}">Open library →</a></div>
-<div class="card"><table>
-  {% for j in recent %}<tr><td>#{{ j.id }}</td><td>{{ tools[j.tool].name }}</td><td class="muted">{{ (j.brief or '')[:80] }}</td><td><span class="status {{ j.status }}">{{ j.status }}</span></td></tr>{% endfor %}
-</table></div>
-{% endif %}
+<script>
+document.getElementById('q').addEventListener('input', function(e){
+  var q = e.target.value.trim().toLowerCase();
+  document.querySelectorAll('#tgrid .tcard').forEach(function(c){ c.style.display = !q || c.dataset.search.indexOf(q) > -1 ? '' : 'none'; });
+});
+</script>
 {% endblock %}

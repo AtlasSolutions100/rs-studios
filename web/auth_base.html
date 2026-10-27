@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block shell %}
+<div class="auth"><div class="panel">
+  <div class="logo"><img src="{{ url_for('static', filename='img/lion.svg') }}" alt=""><div><b>RS Studios</b><span>Ad creation studio</span></div></div>
+  {% for m in get_flashed_messages() %}<div class="flash">{{ m }}</div>{% endfor %}
+  {% block auth %}{% endblock %}
+</div></div>
+{% endblock %}

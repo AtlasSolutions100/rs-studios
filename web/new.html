@@ -1,67 +1,79 @@
 {% extends "base.html" %}{% block title %}{{ tpl.name if tpl else t.name }} · RS Studios{% endblock %}
 {% block body %}
-<p><a href="{{ url_for('studio') }}">← All templates</a></p>
-<form method="post" action="{{ url_for('generate') }}" class="split">
+<div class="page full">
+<p style="margin:0 0 14px"><a href="{{ url_for('studio') }}">← All templates</a></p>
+<form method="post" action="{{ url_for('generate') }}" class="create">
   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
   <input type="hidden" name="tool" value="{{ tool }}">
   {% if tpl %}<input type="hidden" name="template" value="{{ tpl.id }}">{% endif %}
-  <div class="card">
-    <span class="tag {{ 'video' if t.kind=='video' }}">{{ t.name }}</span>
-    <h1 style="margin-top:8px">{{ tpl.name if tpl else t.name }}</h1>
-    <p class="muted">{{ t.blurb }}</p>
 
-    <label>Product photo{{ 's' if t.max_photos > 1 }} <span class="muted small">({{ 'pick one' if t.max_photos == 1 else 'up to ' ~ t.max_photos }})</span></label>
+  <div class="preview">
+    <div class="thumb tall"><video src="{{ url_for('static', filename='previews/' ~ (tpl.preview if tpl else t.preview) ~ '.mp4') }}" poster="{{ url_for('static', filename='previews/' ~ (tpl.preview if tpl else t.preview) ~ '.jpg') }}" autoplay muted loop playsinline></video>
+      <span class="chip {{ 'motion' if tool=='motion_copy' else t.kind }}">{{ t.name }}</span></div>
+    <p class="dim small" style="margin:10px 2px">Example of this {{ 'template' if tpl else 'tool' }}. Yours uses your photos and brief.</p>
+  </div>
+
+  <div class="panel">
+    <p class="eyebrow">{{ t.name }}</p>
+    <h1 style="font-size:34px">{{ tpl.name if tpl else t.name }}</h1>
+    <p class="muted" style="margin-top:0">{{ tpl.line if tpl else t.blurb }}</p>
+
+    <label>Product photo{{ 's' if t.max_photos > 1 }} <span class="dim">({{ 'pick one' if t.max_photos == 1 else 'up to ' ~ t.max_photos }})</span></label>
     {% if photos %}
     <div class="photos">
       {% for p in photos %}<label class="photo"><input type="{{ 'radio' if t.max_photos == 1 else 'checkbox' }}" name="photo" value="{{ p.id }}" {{ 'checked' if loop.first }}><img src="{{ url_for('photo', pid=p.id) }}" alt="{{ p.filename }}"></label>{% endfor %}
     </div>
-    {% else %}<p class="muted">No photos yet. <a href="{{ url_for('brand_kit') }}">Add product photos</a> in the brand kit.</p>{% endif %}
+    {% else %}<div class="empty">No photos yet. <a href="{{ url_for('brand_kit') }}">Add product photos</a> in the brand kit.</div>{% endif %}
 
     {% if tool == 'motion_copy' %}
-    <label>Reference video</label>
-    {% if refs %}<div class="chips">{% for r in refs %}<label class="chip"><input type="radio" name="ref" value="{{ r.id }}" data-price="{{ prices.motion_copy[r.id] }}" {{ 'checked' if loop.first }}>{{ r.title }}{% if r.seconds %} · {{ r.seconds|round|int }}s{% endif %}</label>{% endfor %}</div>
-    {% else %}<p class="muted">No reference videos in the library yet. Your admin adds them.</p>{% endif %}
+    <label>Reference video <span class="dim">(the moves to copy)</span></label>
+    {% if refs %}<div class="tgrid" style="grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px">
+      {% for r in refs %}<label class="tcard" style="cursor:pointer;margin:0" data-hoverplay><div class="thumb tall"><video src="{{ url_for('ref_video', rid=r.id) }}#t=0.1" muted loop playsinline preload="metadata"></video></div>
+        <span class="choice" style="display:block;margin-top:8px;text-align:center"><input type="radio" name="ref" value="{{ r.id }}" data-price="{{ prices.motion_copy[r.id] }}" {{ 'checked' if loop.first }}>{{ r.title }}{% if r.seconds %} · {{ r.seconds|round|int }}s{% endif %}</span></label>{% endfor %}
+    </div>
+    {% else %}<div class="empty">No reference videos yet. Your admin adds them.</div>{% endif %}
     {% endif %}
 
-    <label for="brief">Brief <span class="muted small">(what the {{ 'video' if t.kind=='video' else 'ad' }} should show)</span></label>
+    <label for="brief">Brief <span class="dim">(what the {{ 'video' if t.kind=='video' else 'ad' }} should show)</span></label>
     <textarea id="brief" name="brief" required>{{ brief }}</textarea>
-    {% if tpl and tpl.overlay %}<p class="small muted">Suggested on-screen text: <b>{{ tpl.overlay }}</b> Add it in your editor or the app's text tool.</p>{% endif %}
+    {% if tpl and tpl.overlay %}<p class="small muted">Suggested on-screen text: <b class="gold">{{ tpl.overlay }}</b></p>{% endif %}
 
     {% if tool == 'ad_image' %}
     <label for="aud">Who it's for</label><input id="aud" type="text" name="audience" value="{{ tpl.audience if tpl and tpl.audience else brand.audience }}">
     <label>Shape</label>
-    <div class="chips">{% for a in t.aspects %}<label class="chip"><input type="radio" name="aspect" value="{{ a }}" {{ 'checked' if (tpl and tpl.aspect == a) or (not (tpl and tpl.aspect) and loop.first) }}>{{ a }}</label>{% endfor %}</div>
-    <label>How many versions</label>
-    <div class="chips">{% for n, c in prices.ad_image.items() %}<label class="chip"><input type="radio" name="batch" value="{{ n }}" data-price="{{ c }}" {{ 'checked' if loop.first }}>{{ n }}</label>{% endfor %}</div>
+    <div class="choices">{% for a in t.aspects %}<label class="choice"><input type="radio" name="aspect" value="{{ a }}" {{ 'checked' if (tpl and tpl.aspect == a) or (not (tpl and tpl.aspect) and loop.first) }}>{{ a }}</label>{% endfor %}</div>
+    <label>Versions</label>
+    <div class="choices">{% for n, c in prices.ad_image.items() %}<label class="choice"><input type="radio" name="batch" value="{{ n }}" data-price="{{ c }}" {{ 'checked' if loop.first }}>{{ n }}</label>{% endfor %}</div>
     {% elif tool == 'photo_to_video' %}
     <label>Length</label>
-    <div class="chips">{% for d, c in prices.photo_to_video.items() %}<label class="chip"><input type="radio" name="duration" value="{{ d }}" data-price="{{ c }}" {{ 'checked' if (tpl and tpl.duration == d) or (not tpl and loop.first) }}>{{ d }} seconds</label>{% endfor %}</div>
-    <label class="row" style="font-weight:400"><input type="checkbox" name="audio" value="1"> Generate sound</label>
+    <div class="choices">{% for d, c in prices.photo_to_video.items() %}<label class="choice"><input type="radio" name="duration" value="{{ d }}" data-price="{{ c }}" {{ 'checked' if (tpl and tpl.duration == d) or (not tpl and loop.first) }}>{{ d }} seconds</label>{% endfor %}</div>
+    <label class="choice" style="display:inline-flex;gap:8px;margin-top:12px"><input type="checkbox" name="audio" value="1">Generate sound</label>
     {% endif %}
   </div>
-  <aside>
-    <div class="card" style="position:sticky;top:20px">
-      <span class="muted small">This costs</span>
-      <div class="price"><span id="price">–</span> credits</div>
-      <p class="small muted">You have {{ g.ws.credits }}. Failed generations are refunded automatically.</p>
-      <p><button class="btn gold" style="width:100%;justify-content:center">Generate</button></p>
-      <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
-      <h3>Before you post</h3>
-      <ul class="small muted" style="padding-left:18px;margin:0">
-        <li>Claims only from the label{% if brand.claims %}: {{ brand.claims[:140] }}{% endif %}</li>
-        <li>No weight-loss, health or result claims</li>
-        <li>No discounts or free shipping</li>
-        <li>#ad first in the caption, AI label on</li>
-      </ul>
-    </div>
+
+  <aside class="panel" style="position:sticky;top:24px">
+    <span class="muted small">This costs</span>
+    <div class="price"><span id="price">–</span></div>
+    <span class="muted small">credits · you have {{ '{:,}'.format(g.ws.credits) }}</span>
+    <p style="margin:18px 0 6px"><button class="btn" style="width:100%">Generate</button></p>
+    <p class="dim small" style="margin:0">Failed generations are refunded automatically.</p>
+    <hr class="line">
+    <h3>Before you post</h3>
+    <ul class="rules">
+      <li>Claims only from the label{% if brand.claims %}: <span class="gold">{{ brand.claims[:140] }}</span>{% endif %}</li>
+      <li>No weight-loss, health or result claims</li>
+      <li>No discounts or free shipping</li>
+      <li>#ad first in the caption, AI label on</li>
+    </ul>
   </aside>
 </form>
+</div>
 <script>
 (function(){
-  function upd(){ var el=document.querySelector('input[data-price]:checked'); document.getElementById('price').textContent = el ? el.dataset.price : '–'; }
+  function upd(){ var el=document.querySelector('input[data-price]:checked'); document.getElementById('price').textContent = el ? Number(el.dataset.price).toLocaleString() : '–'; }
   document.querySelectorAll('input[data-price]').forEach(function(i){ i.addEventListener('change', upd); }); upd();
   document.querySelectorAll('.photos input[type=checkbox]').forEach(function(cb){ cb.addEventListener('change', function(){
-    var on=document.querySelectorAll('.photos input:checked'); if(on.length > {{ t.max_photos }}) cb.checked=false; }); });
+    if(document.querySelectorAll('.photos input:checked').length > {{ t.max_photos }}) cb.checked=false; }); });
 })();
 </script>
 {% endblock %}

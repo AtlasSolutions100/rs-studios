@@ -1,14 +1,12 @@
-{% extends "base.html" %}{% block title %}Log in · RS Studios{% endblock %}
-{% block body %}
-<div class="authbox card">
-  <h1>Welcome back</h1>
+{% extends "auth_base.html" %}{% block title %}Log in · RS Studios{% endblock %}
+{% block auth %}
+  <h2>Welcome back</h2>
   <p class="muted">Make this week's ads in one sitting.</p>
   <form method="post">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
     <label for="email">Email</label><input id="email" type="email" name="email" required autocomplete="email">
     <label for="pw">Password</label><input id="pw" type="password" name="password" required autocomplete="current-password">
-    <p style="margin-top:18px"><button class="btn">Log in</button></p>
+    <p style="margin-top:22px"><button class="btn" style="width:100%">Log in</button></p>
   </form>
   <p class="small muted">Have an invite? <a href="{{ url_for('signup') }}">Create your account</a>.</p>
-</div>
 {% endblock %}

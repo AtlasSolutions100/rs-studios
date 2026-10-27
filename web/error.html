@@ -1,3 +1,1 @@
-{% extends "base.html" %}{% block body %}
-<div class="card authbox"><h1>{{ code }}</h1><p class="muted">{{ message or 'Something went wrong.' }}</p><p><a class="btn ghost" href="{{ url_for('index') }}">Back</a></p></div>
-{% endblock %}
+{% extends "auth_base.html" %}{% block auth %}<h2>{{ code }}</h2><p class="muted">{{ message or 'Something went wrong.' }}</p><p><a class="btn dark" href="{{ url_for('index') }}">Back</a></p>{% endblock %}
