@@ -11,7 +11,11 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 TMP = tempfile.mkdtemp(prefix="rs_test_")
-os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret", RS_MARKUP="2.0")
+import hashlib  # noqa: E402
+OWNER_CODE, OWNER2_CODE = "owner-code-koby", "owner-code-travis"
+os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret", RS_MARKUP="2.0",
+                  RS_OWNER_INVITES=f"koby@example.com:{hashlib.sha256(OWNER_CODE.encode()).hexdigest()},"
+                                   f"travis@example.com:{hashlib.sha256(OWNER2_CODE.encode()).hexdigest()}")
 
 import app as appmod  # noqa: E402
 import catalog  # noqa: E402
@@ -95,9 +99,24 @@ check(catalog.price_credits("photo_to_video", duration=5) == 206, "5s video: $1.
 check(catalog.price_credits("motion_copy", ref_seconds=8.2) == 180, "motion copy bills whole seconds")
 
 print("== accounts")
+x = client()
+r = x.post("/signup", data={"csrf": csrf(x), "email": "stranger@example.com", "password": "longpassword"})
+check("invite-only" in r.get_data(as_text=True), "no open first-signup: a stranger can't become admin")
+check(b"koby@example.com" in x.get(f"/signup?invite={OWNER_CODE}").data, "owner link pre-fills its email")
+r = x.post("/signup", data={"csrf": csrf(x), "email": "travis@example.com", "password": "longpassword", "invite": OWNER_CODE})
+check("different email" in r.get_data(as_text=True), "owner code only works for its own email")
 a = client()
-r = a.post("/signup", data={"csrf": csrf(a), "email": "koby@example.com", "password": "longpassword", "name": "Koby"})
-check(r.status_code == 302 and "/app/brand" in r.headers["Location"], "first signup becomes admin, lands on brand kit")
+r = a.post("/signup", data={"csrf": csrf(a), "email": "koby@example.com", "password": "longpassword", "name": "Koby",
+                            "invite": OWNER_CODE})
+check(r.status_code == 302 and "/app/brand" in r.headers["Location"], "owner link makes an admin, lands on brand kit")
+r = x.post("/signup", data={"csrf": csrf(x), "email": "koby@example.com", "password": "otherpassword", "invite": OWNER_CODE})
+check("already has an account" in r.get_data(as_text=True), "owner link can't be used twice")
+t2 = client()
+r = t2.post("/signup", data={"csrf": csrf(t2), "email": "travis@example.com", "password": "longpassword", "invite": OWNER2_CODE})
+with db.connect() as conn:
+    us = conn.execute("SELECT * FROM users WHERE email IN ('koby@example.com','travis@example.com')").fetchall()
+check(len(us) == 2 and all(u["is_admin"] for u in us) and len({u["workspace_id"] for u in us}) == 1,
+      "both owners are admins of one Rector & Stull workspace")
 r = a.post("/app/brand", data={"brand_name": "TMU", "product_name": "CoreJava", "claims": "30 servings"})
 check(r.status_code == 400, "POST without CSRF refused")
 a.post("/app/brand", data={"csrf": csrf(a), "brand_name": "TMU", "product_name": "CoreJava",

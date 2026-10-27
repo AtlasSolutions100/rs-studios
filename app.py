@@ -18,6 +18,7 @@ from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, r
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import catalog
+import owners
 import compliance
 import db
 import hf
@@ -152,29 +153,37 @@ def login():
 
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
-    with db.connect() as conn:
-        first = conn.execute("SELECT COUNT(*) c FROM users").fetchone()["c"] == 0
+    """Invite-only. Owner codes (owners.py) make a Rector & Stull admin and work
+    only with their own email; ordinary invites come from Admin."""
     if request.method == "POST":
         email = (request.form.get("email") or "").strip().lower()
         pw = request.form.get("password") or ""
         name = (request.form.get("name") or "").strip()[:80]
         code = (request.form.get("invite") or "").strip()
+        owner = owners.owner_email(code)
         if "@" not in email or len(pw) < 8:
             flash("Use a real email and a password of at least 8 characters.")
-            return render_template("signup.html", first=first, invite=code)
+            return render_template("signup.html", invite=code, owner=owner)
         with db.connect() as conn:
             if conn.execute("SELECT 1 FROM users WHERE email=?", (email,)).fetchone():
                 flash("That email already has an account. Log in instead.")
-                return render_template("signup.html", first=first, invite=code)
-            if first:
-                cur = conn.execute("INSERT INTO workspaces (name, credits, created_at) VALUES (?,?,?)",
-                                   ("Rector & Stull", 0, db.now()))
-                ws_id, is_admin = cur.lastrowid, 1
+                return render_template("signup.html", invite=code, owner=owner)
+            inv = None
+            if owner:
+                if owner != email:
+                    flash("This setup link is for a different email.")
+                    return render_template("signup.html", invite=code, owner=owner)
+                ws = conn.execute("SELECT id FROM workspaces WHERE name=? ORDER BY id LIMIT 1",
+                                  ("Rector & Stull",)).fetchone()
+                ws_id = ws["id"] if ws else conn.execute(
+                    "INSERT INTO workspaces (name, credits, created_at) VALUES (?,?,?)",
+                    ("Rector & Stull", 0, db.now())).lastrowid
+                is_admin = 1
             else:
                 inv = conn.execute("SELECT * FROM invites WHERE code=? AND used_by IS NULL", (code,)).fetchone()
                 if not inv:
                     flash("RS Studios is invite-only. Check your invite code.")
-                    return render_template("signup.html", first=first, invite=code)
+                    return render_template("signup.html", invite=code, owner=None)
                 if inv["workspace_id"]:
                     ws_id = inv["workspace_id"]
                 else:
@@ -186,14 +195,15 @@ def signup():
                 is_admin = 0
             cur = conn.execute("INSERT INTO users (email, name, pw_hash, is_admin, workspace_id, created_at) "
                                "VALUES (?,?,?,?,?,?)", (email, name, generate_password_hash(pw), is_admin, ws_id, db.now()))
-            if not first:
+            if inv:
                 conn.execute("UPDATE invites SET used_by=? WHERE code=?", (cur.lastrowid, code))
             conn.commit()
             session.clear()
             session["uid"] = cur.lastrowid
             csrf_token()
-        return redirect(url_for("brand_kit") if first else url_for("studio"))
-    return render_template("signup.html", first=first, invite=request.args.get("invite", ""))
+        return redirect(url_for("brand_kit") if is_admin else url_for("studio"))
+    code = request.args.get("invite", "")
+    return render_template("signup.html", invite=code, owner=owners.owner_email(code))
 
 
 @app.route("/logout", methods=["POST"])
