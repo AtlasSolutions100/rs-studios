@@ -1,5 +1,5 @@
 # Copy to settings.txt on the server and fill in. Never commit settings.txt.
-HF_KEY=api_key:api_secret
+HF_KEY=api_key:api_secret   # or HIGGSFIELD_API_KEY
 RS_SECRET_KEY=change-me-to-a-long-random-string
 RS_MARKUP=2.0
 RS_WELCOME_CREDITS=0

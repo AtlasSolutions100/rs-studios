@@ -1,0 +1,98 @@
+name: Deploy to studio.rectorandstull.com
+
+# Every push to main: run the tests, then hand this commit and the settings
+# below to the server's deploy hook (https://studio.rectorandstull.com/_deploy).
+# No SSH key is involved: the hook accepts a request only with a GitHub-signed
+# token proving it comes from this repo's main branch (OIDC, audience
+# "rs-deploy"), and it rebuilds only this app.
+#
+# Settings: add or change a repo secret, then push (or re-run this workflow).
+#   HIGGSFIELD_API_KEY  the generation API key ("key:secret")
+#   RS_MARKUP           optional repo variable, default 2.0
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-rs-studios
+  cancel-in-progress: false
+
+env:
+  HOOK: https://studio.rectorandstull.com/_deploy
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python tests/test_app.py
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package the app and its settings
+        env:
+          HF_KEY: ${{ secrets.HIGGSFIELD_API_KEY }}
+          RS_MARKUP: ${{ vars.RS_MARKUP }}
+        run: |
+          git archive --format=tar.gz -o /tmp/app.tgz HEAD
+          python3 - <<'PY'
+          import base64, json, os
+          settings = {k: os.environ[k] for k in ("HF_KEY", "RS_MARKUP") if os.environ.get(k)}
+          print("settings sent:", ", ".join(settings) or "none")
+          body = {"commit": os.environ["GITHUB_SHA"], "settings": settings,
+                  "archive": base64.b64encode(open("/tmp/app.tgz", "rb").read()).decode()}
+          json.dump(body, open("/tmp/deploy.json", "w"))
+          PY
+          ls -la /tmp/app.tgz
+
+      - name: Send to the server
+        run: |
+          token() { curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+                      "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=rs-deploy" | jq -r .value; }
+          for i in 1 2 3 4 5; do
+            code=$(curl -sS -o /tmp/resp.json -w '%{http_code}' --max-time 120 -X POST "$HOOK" \
+                     -H "Authorization: Bearer $(token)" -H "Content-Type: application/json" \
+                     --data-binary @/tmp/deploy.json) || code=000
+            echo "attempt $i: HTTP $code"; cat /tmp/resp.json 2>/dev/null; echo
+            [ "$code" = "202" ] && break
+            [ "$code" = "401" ] || [ "$code" = "403" ] || [ "$code" = "400" ] && exit 1
+            sleep 15
+          done
+          [ "$code" = "202" ] || exit 1
+          echo "JOB=$(jq -r .job /tmp/resp.json)" >> "$GITHUB_ENV"
+
+      - name: Wait for the build
+        run: |
+          for i in $(seq 1 120); do
+            s=$(curl -fsS --max-time 20 "$HOOK/$JOB" || echo '{"status":"unknown"}')
+            st=$(echo "$s" | jq -r .status)
+            if [ "$st" = "done" ] || [ "$st" = "failed" ]; then
+              echo "$s" | jq -r '.log'; echo "status: $st"
+              [ "$st" = "done" ] && exit 0 || exit 1
+            fi
+            sleep 10
+          done
+          echo "deploy did not finish in 20 minutes"; exit 1
+
+      - name: Health check
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS --max-time 20 "https://studio.rectorandstull.com/health?deep=1"; then echo; exit 0; fi
+            sleep 6
+          done
+          exit 1

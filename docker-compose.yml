@@ -1,9 +1,15 @@
-# RS Studios: one container behind Caddy (automatic HTTPS).
-#   docker compose up -d --build
-# Settings come from settings.txt (never committed): HF_KEY, RS_SECRET_KEY, RS_MARKUP, ...
+# RS Studios runs on the Crowdcut server, behind Crowdcut's Caddy (which owns
+# ports 80/443 and the certificate for studio.rectorandstull.com). The app
+# joins Crowdcut's network so Caddy reaches it as rs-studios-app:8080.
+#
+# Deploys: every push to main (see .github/workflows/deploy.yml) sends this
+# repo and the settings from GitHub secrets to the server's deploy hook, which
+# writes /opt/rs-studios and runs `docker compose -p rs-studios up -d --build`.
+# Settings live in settings.txt next to this file (never committed).
 services:
   app:
     build: .
+    container_name: rs-studios-app
     restart: unless-stopped
     env_file: [settings.txt]
     environment:
@@ -11,15 +17,13 @@ services:
     volumes:
       - ./data:/srv/rs/data
     expose: ["8080"]
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports: ["80:80", "443:443"]
-    environment:
-      - DOMAIN=${DOMAIN:-studio.rectorandstull.com}
-    volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-    depends_on: [app]
-volumes:
-  caddy_data:
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  default:
+    name: crowdcut_default
+    external: true

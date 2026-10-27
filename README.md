@@ -8,7 +8,7 @@ our cost x `RS_MARKUP`). Invite-only.
 ## Run locally
 
     pip install -r requirements.txt
-    RS_DATA=./data HF_KEY=key:secret python app.py      # http://localhost:8080
+    RS_DATA=./data HIGGSFIELD_API_KEY=key:secret python app.py      # http://localhost:8080
 
 The first account to sign up becomes the admin. Admin: top up credits, create
 invite links (join a workspace or get your own), upload reference videos for
@@ -20,9 +20,13 @@ invite links (join a workspace or get your own), upload reference videos for
 
 ## Deploy
 
-`docker compose up -d --build` with a `settings.txt` next to it (see
-`settings.example.txt`). Caddy serves `$DOMAIN` (default studio.rectorandstull.com)
-with automatic HTTPS. Data (SQLite + media) lives in `./data`.
+Push to main. The workflow runs the tests, then sends the commit and the
+settings from GitHub secrets (`HIGGSFIELD_API_KEY`, optional variable
+`RS_MARKUP`) to the deploy hook on the Crowdcut server, authenticated with a
+GitHub OIDC token (no SSH key). The hook writes `/opt/rs-studios`, keeps
+`data/` and `settings.txt`, and runs `docker compose -p rs-studios up -d --build`.
+Crowdcut's Caddy serves studio.rectorandstull.com and proxies to
+`rs-studios-app:8080`. Data (SQLite + media) lives in `/opt/rs-studios/data`.
 
 ## Pieces
 

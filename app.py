@@ -128,7 +128,10 @@ def index():
 
 @app.route("/health")
 def health():
-    return jsonify({"ok": True, "generation_configured": hf.configured()})
+    out = {"ok": True, "generation_configured": hf.configured()}
+    if request.args.get("deep"):
+        out["generation"] = hf.probe()
+    return jsonify(out)
 
 
 @app.route("/login", methods=["GET", "POST"])

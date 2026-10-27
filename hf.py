@@ -28,15 +28,46 @@ class GenError(RuntimeError):
 
 
 def credential() -> str | None:
-    key = os.environ.get("HF_KEY")
-    if key:
-        return key
-    k, s = os.environ.get("HF_API_KEY"), os.environ.get("HF_API_SECRET")
-    return f"{k}:{s}" if k and s else None
+    """HF_KEY ("key:secret"), or HIGGSFIELD_API_KEY (the deploy secret's name;
+    "key:secret" too, with HIGGSFIELD_API_SECRET when the halves are separate),
+    or HF_API_KEY + HF_API_SECRET."""
+    for name, secret in (("HF_KEY", None), ("HIGGSFIELD_API_KEY", "HIGGSFIELD_API_SECRET"),
+                         ("HF_API_KEY", "HF_API_SECRET")):
+        key = (os.environ.get(name) or "").strip()
+        if not key:
+            continue
+        sec = (os.environ.get(secret) or "").strip() if secret else ""
+        if sec and ":" not in key:
+            return f"{key}:{sec}"
+        if ":" in key or name == "HIGGSFIELD_API_KEY":
+            return key
+    return None
 
 
 def configured() -> bool:
     return bool(credential())
+
+
+_probe = {"at": 0.0, "result": None}
+
+
+def probe(max_age: float = 600) -> str:
+    """Is the key accepted? One free call (asking for an upload URL costs
+    nothing), cached. ok | rejected | out_of_credit | unreachable | unconfigured."""
+    import time
+    if not configured():
+        return "unconfigured"
+    if _probe["result"] and time.time() - _probe["at"] < max_age:
+        return _probe["result"]
+    try:
+        r = requests.post(f"{BASE}/files/generate-upload-url", json={"content_type": "image/png"},
+                          headers=_headers(), timeout=10)
+        res = ("rejected" if r.status_code in (401, 403) else "out_of_credit" if r.status_code == 402
+               else "ok" if r.status_code < 400 else f"error {r.status_code}")
+    except requests.RequestException:
+        res = "unreachable"
+    _probe.update(at=time.time(), result=res)
+    return res
 
 
 def _headers():
