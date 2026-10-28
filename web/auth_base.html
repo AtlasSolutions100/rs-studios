@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block shell %}
 <div class="auth"><div class="panel">
-  <div class="logo">{% include "_wordmark.svg" %}<span>Create your own creatives</span></div>
+  <a class="logo" href="{{ url_for('index') }}" aria-label="Campaignify home">{% include "_wordmark.svg" %}<span>Create your own creatives</span></a>
   <button type="button" class="theme" data-theme-toggle aria-label="Switch light or dark theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg><span>Theme</span></button>
   {% for m in get_flashed_messages() %}<div class="flash">{{ m }}</div>{% endfor %}
   {% block auth %}{% endblock %}

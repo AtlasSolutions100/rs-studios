@@ -1,5 +1,12 @@
 # Copy to settings.txt on the server and fill in. Never commit settings.txt.
-HF_KEY=api_key:api_secret   # or HIGGSFIELD_API_KEY
+# The deploy workflow fills most of these from GitHub secrets/variables.
+# Generation API key ("key:secret"); HIGGSFIELD_API_KEY also works.
+HF_KEY=api_key:api_secret
 RS_SECRET_KEY=change-me-to-a-long-random-string
 RS_MARKUP=2.0
-RS_WELCOME_CREDITS=0
+# Free credits for a new self-serve account (default when unset: 2 image ads = 44).
+RS_STARTER_CREDITS=44
+# Credit-pack checkout: a Stripe key with Checkout Sessions write access, and the
+# signing secret of the https://campaignify.ai/webhooks/stripe endpoint.
+STRIPE_SECRET_KEY=rk_live_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx

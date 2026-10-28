@@ -1,0 +1,95 @@
+{% extends "base.html" %}{% block title %}Your first ad · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <p class="eyebrow">Your first ad</p>
+  <h1>Three steps to your <span class="gold">first ad</span></h1>
+  <p class="muted">Add your product, pick a template, and we'll make it. Your product is saved to your brand kit as you go, so next time it's one click.</p>
+
+  <form method="post" action="{{ url_for('start') }}" enctype="multipart/form-data" class="fr" id="fr">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+
+    <section class="panel fr-step">
+      <div class="fr-h"><span class="lp-num">1</span><div><h2>Your product</h2><p class="muted small">One clear photo of the real product on a clean background works best. Don't edit the label.</p></div></div>
+      <div class="fr-two">
+        <div>
+          <label for="pn">Product name</label>
+          <input id="pn" type="text" name="product_name" required maxlength="80" value="{{ form.get('product_name') or brand.product }}" placeholder="e.g. CoreJava">
+          <label for="bn">Brand name <span class="dim">(optional)</span></label>
+          <input id="bn" type="text" name="brand_name" maxlength="80" value="{{ form.get('brand_name') or g.ws.brand_name or '' }}" placeholder="e.g. The Morning Upgrade">
+        </div>
+        <div>
+          <label for="photo">Product photo</label>
+          <label class="drop" for="photo" id="drop">
+            <img id="dropimg" alt="" hidden>
+            <span id="droptxt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg><b>Upload a photo</b><span class="small dim">JPG, PNG or WebP, up to 25 MB</span></span>
+          </label>
+          <input id="photo" class="sr" type="file" name="photo" accept="image/jpeg,image/png,image/webp">
+          {% if photos %}
+          <p class="small muted" style="margin:12px 0 8px">Or use one you've added:</p>
+          <div class="photos">{% for p in photos %}<label class="photo"><input type="radio" name="photo_id" value="{{ p.id }}" {{ 'checked' if loop.first }}><img src="{{ url_for('photo', pid=p.id) }}" alt="{{ p.filename }}"></label>{% endfor %}</div>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+    <section class="panel fr-step">
+      <div class="fr-h"><span class="lp-num">2</span><div><h2>Pick a template</h2><p class="muted small">Image ads, the quickest way to see what Campaignify does. Videos are in the studio.</p></div></div>
+      <div class="fr-tpls">
+        {% for t in tpls %}
+        <label class="fr-tpl">
+          <input type="radio" name="template" value="{{ t.id }}" {{ 'checked' if t.id == pick }} data-brief="{{ t.brief }}">
+          <div class="thumb"><img src="{{ url_for('static', filename='previews/' ~ t.preview ~ '.jpg') }}" alt="" loading="lazy">
+            <span class="chip {{ 'image' if t.fits == 'any' else 'video' }}">{{ 'Any product' if t.fits == 'any' else 'Coffee' }}</span></div>
+          <div class="t">{{ t.name }}</div><div class="s">{{ t.line }}</div>
+        </label>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel fr-step">
+      <div class="fr-h"><span class="lp-num">3</span><div><h2>Make it</h2><p class="muted small">This is the brief we'll use. Edit it if you like; it's checked before anything runs.</p></div></div>
+      <div class="fr-two">
+        <div>
+          <label for="brief">Brief</label>
+          <textarea id="brief" name="brief">{{ form.get('brief') or '' }}</textarea>
+          <label for="aud">Who it's for <span class="dim">(optional)</span></label>
+          <input id="aud" type="text" name="audience" maxlength="200" value="{{ form.get('audience') or brand.audience }}" placeholder="e.g. Busy parents who love their morning coffee">
+        </div>
+        <div class="fr-go">
+          <span class="muted small">This costs</span>
+          <div class="price">{{ price }}</div>
+          <span class="muted small">credits · you have {{ '{:,}'.format(g.ws.credits) }}</span>
+          <p style="margin:18px 0 8px"><button class="btn" style="width:100%">Make my first ad</button></p>
+          <p class="dim small" style="margin:0">Failed generations are refunded automatically.</p>
+          <ul class="rules">
+            <li>No income, earnings or recruiting claims</li>
+            <li>No weight-loss or health claims beyond the label</li>
+            <li>#ad first in the caption, AI label on</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </form>
+  <p class="small muted">Rather look around first? <a href="{{ url_for('studio') }}">Go to the studio</a>.</p>
+</div>
+<script>
+(function(){
+  var brief=document.getElementById('brief'), pn=document.getElementById('pn'), bn=document.getElementById('bn');
+  var edited = brief.value.trim() !== '';
+  brief.addEventListener('input', function(){ edited = true; });
+  function fill(){
+    if(edited) return;
+    var t=document.querySelector('input[name=template]:checked'); if(!t) return;
+    brief.value = t.dataset.brief.split('{product}').join(pn.value.trim() || 'the product').split('{brand}').join(bn.value.trim());
+  }
+  document.querySelectorAll('input[name=template]').forEach(function(r){ r.addEventListener('change', function(){ edited=false; fill(); }); });
+  pn.addEventListener('input', fill); bn.addEventListener('input', fill); fill();
+  var f=document.getElementById('photo'), img=document.getElementById('dropimg'), txt=document.getElementById('droptxt');
+  f.addEventListener('change', function(){
+    if(!f.files[0]) return;
+    img.src = URL.createObjectURL(f.files[0]); img.hidden=false; txt.hidden=true;
+    document.querySelectorAll('input[name=photo_id]').forEach(function(r){ r.checked=false; });
+  });
+})();
+</script>
+{% endblock %}

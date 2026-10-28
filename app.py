@@ -1,11 +1,14 @@
 """Campaignify: make ads for your products from templates that already work.
 
-Flask app: accounts by invite, one workspace per team, a brand kit (product
+Flask app: a public landing page, self-serve accounts (invites still join an
+existing workspace), one workspace per team, a brand kit (product
 name, approved claims, product photos), templates and tools, a library of
-everything made, and RS credits. Generation runs in worker.py.
+everything made, and RS credits (free starter credits, then packs bought
+through Stripe Checkout, billing.py). Generation runs in worker.py.
 """
 import functools
 import json
+import logging
 import mimetypes
 import os
 import secrets
@@ -15,8 +18,10 @@ import uuid
 
 from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file,
                    session, url_for)
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
+import billing
 import catalog
 import owners
 import compliance
@@ -30,13 +35,19 @@ PHOTO_TYPES = {"image/jpeg", "image/png", "image/webp"}
 VIDEO_TYPES = {"video/mp4", "video/quicktime", "video/webm"}
 MAX_PHOTO_MB = 25
 MAX_VIDEO_MB = 150
-WELCOME_CREDITS = int(os.environ.get("RS_WELCOME_CREDITS", "0"))
+# Signup abuse limits (per client IP): new accounts per hour and per day.
+SIGNUPS_PER_HOUR, SIGNUPS_PER_DAY = 5, 10
+# Failed logins allowed per IP+email and per IP in 15 minutes.
+LOGIN_FAILS_PER_EMAIL, LOGIN_FAILS_PER_IP = 8, 30
+log = logging.getLogger("campaignify")
 
 app = Flask(__name__, template_folder=os.path.join(HERE, "web"), static_folder=os.path.join(HERE, "static"))
 app.secret_key = os.environ.get("RS_SECRET_KEY") or secrets.token_hex(32)
 app.config.update(MAX_CONTENT_LENGTH=(MAX_VIDEO_MB + 5) * 1024 * 1024,
                   SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
                   SESSION_COOKIE_SECURE=os.environ.get("RS_COOKIE_SECURE", "0") == "1")
+# Behind Crowdcut's Caddy: trust its one hop for the client IP and https.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 db.init()
 worker.start()
@@ -50,7 +61,11 @@ def csrf_token():
     return session["csrf"]
 
 
-app.jinja_env.globals.update(csrf_token=csrf_token, tools=catalog.TOOLS)
+app.jinja_env.globals.update(csrf_token=csrf_token, tools=catalog.TOOLS, packs=catalog.PACKS,
+                             starter_credits=catalog.starter_credits, rates=catalog.rates,
+                             billing_configured=billing.configured, starter_image_ads=catalog.STARTER_IMAGE_ADS)
+
+CSRF_EXEMPT = {"static", "stripe_webhook"}
 
 
 @app.before_request
@@ -63,7 +78,7 @@ def load_user():
             if u:
                 g.user = u
                 g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (u["workspace_id"],)).fetchone()
-    if request.method == "POST" and request.endpoint not in ("static",):
+    if request.method == "POST" and request.endpoint not in CSRF_EXEMPT:
         sent = request.form.get("csrf") or request.headers.get("X-CSRF")
         if not sent or not secrets.compare_digest(sent, session.get("csrf", "")):
             abort(400, "This form expired. Go back, refresh and try again.")
@@ -122,9 +137,45 @@ def _video_seconds(path):
 
 # ---------------------------------------------------------------- auth
 
+def client_ip() -> str:
+    return request.remote_addr or "unknown"
+
+
+# Real ads from our own brand for the landing page. Only add work we actually
+# made; never mock-ups presented as customer results.
+GALLERY = [
+    {"kind": "video", "src": "previews/swap.mp4", "poster": "previews/swap.jpg", "title": "The swap", "tool": "Video"},
+    {"kind": "image", "src": "gallery/tmu-presenter-640.jpg", "title": "Presenter still", "tool": "Image",
+     "alt": "A woman in a white shirt holds a coffee pouch at a marble kitchen counter."},
+    {"kind": "video", "src": "previews/two-pm.mp4", "poster": "previews/two-pm.jpg", "title": "The 2 PM moment", "tool": "Video"},
+    {"kind": "video", "src": "previews/label.mp4", "poster": "previews/label.jpg", "title": "Label read", "tool": "Video"},
+    {"kind": "image", "src": "gallery/tmu-kitchen-640.jpg", "title": "Lifestyle still", "tool": "Image",
+     "alt": "A woman in a knit sweater pours hot water into a mug beside a coffee pouch."},
+    {"kind": "video", "src": "previews/iced.mp4", "poster": "previews/iced.jpg", "title": "Iced", "tool": "Video"},
+    {"kind": "video", "src": "previews/gym.mp4", "poster": "previews/gym.jpg", "title": "Gym bag", "tool": "Video"},
+    {"kind": "image", "src": "gallery/tmu-product-720.jpg", "title": "Product composition", "tool": "Image", "square": True,
+     "alt": "A dark coffee pouch surrounded by coffee beans, a wooden scoop, coconut and green tea leaves."},
+    {"kind": "video", "src": "previews/how.mp4", "poster": "previews/how.jpg", "title": "How to make it", "tool": "Video"},
+    {"kind": "video", "src": "previews/cost.mp4", "poster": "previews/cost.jpg", "title": "Cost per cup", "tool": "Video"},
+]
+
+
 @app.route("/")
 def index():
-    return redirect(url_for("studio") if g.user else url_for("login"))
+    """Logged in: the studio. Logged out: the public landing page."""
+    if g.user:
+        return redirect(url_for("studio"))
+    return render_template("landing.html", gallery=GALLERY, hero=[GALLERY[0], GALLERY[2], GALLERY[5]])
+
+
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html")
+
+
+@app.route("/terms")
+def terms():
+    return render_template("terms.html")
 
 
 @app.route("/health")
@@ -139,6 +190,11 @@ def health():
 def login():
     if request.method == "POST":
         email = (request.form.get("email") or "").strip().lower()
+        ip = client_ip()
+        if db.throttled(f"login:{ip}:{email}", LOGIN_FAILS_PER_EMAIL, 900) or \
+                db.throttled(f"login:{ip}", LOGIN_FAILS_PER_IP, 900):
+            flash("Too many tries. Wait 15 minutes and try again.")
+            return render_template("login.html"), 429
         with db.connect() as conn:
             u = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
         if u and check_password_hash(u["pw_hash"], request.form.get("password") or ""):
@@ -147,52 +203,69 @@ def login():
             csrf_token()
             nxt = request.args.get("next") or ""
             return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else url_for("studio"))
+        db.hit(f"login:{ip}:{email}")
+        db.hit(f"login:{ip}")
         flash("That email and password don't match.")
     return render_template("login.html")
 
 
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
-    """Invite-only. Owner codes (owners.py) make a Rector & Stull admin and work
-    only with their own email; ordinary invites come from Admin."""
+    """Open to anyone: a new account gets its own workspace and the starter
+    credits, then the guided first ad. An invite link joins an existing
+    workspace instead; owner setup links (owners.py) make a Rector & Stull admin
+    and work only with their own email."""
+    code = (request.form.get("invite") if request.method == "POST" else request.args.get("invite")) or ""
+    code = code.strip()
+    owner = owners.owner_email(code)
+
+    def again(msg, status=200):
+        flash(msg)
+        return render_template("signup.html", invite=code, owner=owner,
+                               email=request.form.get("email", ""), name=request.form.get("name", "")), status
+
+    if g.user:
+        return redirect(url_for("studio"))
     if request.method == "POST":
         email = (request.form.get("email") or "").strip().lower()
         pw = request.form.get("password") or ""
         name = (request.form.get("name") or "").strip()[:80]
-        code = (request.form.get("invite") or "").strip()
-        owner = owners.owner_email(code)
-        if "@" not in email or len(pw) < 8:
-            flash("Use a real email and a password of at least 8 characters.")
-            return render_template("signup.html", invite=code, owner=owner)
+        ip = client_ip()
+        if request.form.get("website"):            # honeypot: people never see this field
+            return again("Something went wrong. Please try again.", 400)
+        if "@" not in email or "." not in email.split("@")[-1] or len(email) > 200 or len(pw) < 8:
+            return again("Use a real email and a password of at least 8 characters.")
+        if not owner and (db.throttled(f"signup:{ip}", SIGNUPS_PER_HOUR, 3600) or
+                          db.throttled(f"signup:{ip}", SIGNUPS_PER_DAY, 86400)):
+            return again("Too many new accounts from your network. Try again later.", 429)
+        dest = "start"
         with db.connect() as conn:
             if conn.execute("SELECT 1 FROM users WHERE email=?", (email,)).fetchone():
-                flash("That email already has an account. Log in instead.")
-                return render_template("signup.html", invite=code, owner=owner)
+                return again("That email already has an account. Log in instead.")
             inv = None
+            is_admin = 0
             if owner:
                 if owner != email:
-                    flash("This setup link is for a different email.")
-                    return render_template("signup.html", invite=code, owner=owner)
+                    return again("This setup link is for a different email.")
                 ws = conn.execute("SELECT id FROM workspaces WHERE name=? ORDER BY id LIMIT 1",
                                   ("Rector & Stull",)).fetchone()
                 ws_id = ws["id"] if ws else conn.execute(
                     "INSERT INTO workspaces (name, credits, created_at) VALUES (?,?,?)",
                     ("Rector & Stull", 0, db.now())).lastrowid
-                is_admin = 1
+                is_admin, dest = 1, "brand_kit"
             else:
-                inv = conn.execute("SELECT * FROM invites WHERE code=? AND used_by IS NULL", (code,)).fetchone()
-                if not inv:
-                    flash("Campaignify is invite-only. Check your invite code.")
-                    return render_template("signup.html", invite=code, owner=None)
-                if inv["workspace_id"]:
-                    ws_id = inv["workspace_id"]
+                if code:
+                    inv = conn.execute("SELECT * FROM invites WHERE code=? AND used_by IS NULL", (code,)).fetchone()
+                    if not inv:
+                        return again("That invite link has expired or was already used. Clear the invite code "
+                                     "to create your own free account instead.")
+                if inv and inv["workspace_id"]:
+                    ws_id, dest = inv["workspace_id"], "studio"
                 else:
-                    cur = conn.execute("INSERT INTO workspaces (name, credits, created_at) VALUES (?,?,?)",
-                                       ((name or email.split("@")[0]) + "'s studio", 0, db.now()))
-                    ws_id = cur.lastrowid
-                    if WELCOME_CREDITS:
-                        db.adjust_credits(conn, ws_id, WELCOME_CREDITS, "welcome credits")
-                is_admin = 0
+                    ws_id = conn.execute("INSERT INTO workspaces (name, credits, created_at) VALUES (?,?,?)",
+                                         ((name or email.split("@")[0]) + "'s studio", 0, db.now())).lastrowid
+                    if catalog.starter_credits():
+                        db.adjust_credits(conn, ws_id, catalog.starter_credits(), "starter credits")
             cur = conn.execute("INSERT INTO users (email, name, pw_hash, is_admin, workspace_id, created_at) "
                                "VALUES (?,?,?,?,?,?)", (email, name, generate_password_hash(pw), is_admin, ws_id, db.now()))
             if inv:
@@ -201,9 +274,10 @@ def signup():
             session.clear()
             session["uid"] = cur.lastrowid
             csrf_token()
-        return redirect(url_for("brand_kit") if is_admin else url_for("studio"))
-    code = request.args.get("invite", "")
-    return render_template("signup.html", invite=code, owner=owners.owner_email(code))
+        if not owner:
+            db.hit(f"signup:{ip}")
+        return redirect(url_for(dest))
+    return render_template("signup.html", invite=code, owner=owner, email="", name="")
 
 
 @app.route("/logout", methods=["POST"])
@@ -223,7 +297,8 @@ def studio():
         photos = conn.execute("SELECT COUNT(*) c FROM photos WHERE workspace_id=?", (g.ws["id"],)).fetchone()["c"]
         outs = _outputs(conn, [j["id"] for j in recent])
     return render_template("studio.html", templates=catalog.TEMPLATES, templates_by_id=catalog.TEMPLATE_BY_ID,
-                           recent=recent, outs=outs, photos=photos, brand=brand(), configured=hf.configured())
+                           recent=recent, outs=outs, photos=photos, brand=brand(), configured=hf.configured(),
+                           first_run=not recent)
 
 
 def _outputs(conn, job_ids):
@@ -267,7 +342,7 @@ def generate():
     brief = (f.get("brief") or "").strip()[:2000]
     photo_ids = [int(x) for x in f.getlist("photo") if x.isdigit()][: catalog.TOOLS[tool]["max_photos"]]
     params = {"photo_ids": photo_ids}
-    check = compliance.check(brief, f.get("audience") or "")
+    check = compliance.check(brief, f.get("audience") or "", f.get("niche") or "")
     if not check["ok"]:
         for m in check["blocks"]:
             flash(m)
@@ -295,20 +370,107 @@ def generate():
             params.update(ref_id=ref["id"])
             secs = ref["seconds"] or 15
             usd, credits = catalog.cost_usd(tool, ref_seconds=secs), catalog.price_credits(tool, ref_seconds=secs)
-        now = db.now()
-        cur = conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, template_id, brief, params_json, "
-                           "status, credits, cost_usd, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                           (g.ws["id"], g.user["id"], tool, tpl_id, brief, json.dumps(params), "pending",
-                            credits, round(usd, 4), now, now))
-        jid = cur.lastrowid
-        if not db.adjust_credits(conn, g.ws["id"], -credits, "generation", jid):
-            conn.rollback()
-            flash(f"That needs {credits} credits and you have {g.ws['credits']}. Ask your team lead to top up.")
+        jid = _queue_job(conn, tool, tpl_id, brief, params, usd, credits)
+        if not jid:
             return redirect(url_for("new", template=tpl_id) if tpl_id else url_for("new", tool=tool))
-        conn.commit()
     for w in check["warnings"]:
         flash("Heads up: " + w)
     flash("Started. It shows up in your library in a minute or two.")
+    return redirect(url_for("library", highlight=jid))
+
+
+def _queue_job(conn, tool, tpl_id, brief, params, usd, credits):
+    """Insert a pending job and take its credits in one transaction. None (and a
+    message) when the workspace can't afford it."""
+    now = db.now()
+    cur = conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, template_id, brief, params_json, "
+                       "status, credits, cost_usd, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                       (g.ws["id"], g.user["id"], tool, tpl_id, brief, json.dumps(params), "pending",
+                        credits, round(usd, 4), now, now))
+    jid = cur.lastrowid
+    if not db.adjust_credits(conn, g.ws["id"], -credits, "generation", jid):
+        conn.rollback()
+        flash(f"That needs {credits:,} credits and you have {g.ws['credits']:,}. Buy a credit pack on the Billing page.")
+        return None
+    conn.commit()
+    return jid
+
+
+# ---------------------------------------------------------------- guided first ad
+
+@app.route("/app/start", methods=["GET", "POST"])
+@login_required
+def start():
+    """One flow for a new account: product name + one photo, pick a template,
+    first ad. Fills the brand kit as a side effect."""
+    tpls = catalog.first_run_templates()
+    by_id = {t["id"]: t for t in tpls}
+    with db.connect() as conn:
+        photos = conn.execute("SELECT * FROM photos WHERE workspace_id=? ORDER BY id DESC LIMIT 12",
+                              (g.ws["id"],)).fetchall()
+    form = request.form if request.method == "POST" else {}
+    price = catalog.price_credits("ad_image", batch=1)
+
+    def page(status=200):
+        return render_template("start.html", tpls=tpls, photos=photos, form=form, price=price,
+                               brand=brand(), pick=form.get("template") or tpls[0]["id"]), status
+
+    if request.method == "GET":
+        return page()
+    f = request.form
+    product = (f.get("product_name") or "").strip()[:80]
+    brand_name = (f.get("brand_name") or "").strip()[:80]
+    audience = (f.get("audience") or "").strip()[:200]
+    tpl = by_id.get(f.get("template") or "")
+    if not product:
+        flash("Add your product's name.")
+        return page(400)
+    if not tpl:
+        flash("Pick a template.")
+        return page(400)
+    b = {"name": brand_name or g.ws["brand_name"] or "", "product": product}
+    brief = (f.get("brief") or "").strip()[:2000] or catalog.fill(tpl["brief"], b)
+    if "{product}" in brief or "{brand}" in brief:
+        brief = catalog.fill(brief, b)
+    check = compliance.check(brief, audience, product, brand_name)
+    if not check["ok"]:
+        for m in check["blocks"]:
+            flash(m)
+        return page(400)
+    fs = request.files.get("photo")
+    photo_id = None
+    if fs and fs.filename:
+        try:
+            path, ctype = _save_upload(fs, os.path.join(UPLOADS, str(g.ws["id"])), PHOTO_TYPES, MAX_PHOTO_MB)
+        except ValueError as e:
+            flash(f"{fs.filename}: {e}")
+            return page(400)
+    else:
+        path = None
+        chosen = f.get("photo_id", type=int)
+        if chosen and any(p["id"] == chosen for p in photos):
+            photo_id = chosen
+        else:
+            flash("Add one photo of your product.")
+            return page(400)
+    with db.connect() as conn:
+        if path:
+            photo_id = conn.execute("INSERT INTO photos (workspace_id, path, filename, content_type, created_at) "
+                                    "VALUES (?,?,?,?,?)", (g.ws["id"], path, (fs.filename or "")[:120], ctype,
+                                                           db.now())).lastrowid
+        conn.execute("UPDATE workspaces SET product_name=?, brand_name=COALESCE(NULLIF(?, ''), brand_name), "
+                     "audience=COALESCE(NULLIF(audience, ''), NULLIF(?, '')) WHERE id=?",
+                     (product, brand_name, audience, g.ws["id"]))
+        conn.commit()
+        params = {"photo_ids": [photo_id], "batch": 1, "aspect": tpl.get("aspect") or "9:16",
+                  "audience": audience or tpl.get("audience") or "", "niche": ""}
+        jid = _queue_job(conn, "ad_image", tpl["id"], brief, params, catalog.cost_usd("ad_image", batch=1), price)
+    if not jid:
+        return redirect(url_for("billing_page"))
+    for w in check["warnings"]:
+        flash("Heads up: " + w)
+    flash("Your first ad is on its way. It shows up here in a minute or two, and your product is saved in the "
+          "brand kit for next time.")
     return redirect(url_for("library", highlight=jid))
 
 
@@ -371,6 +533,12 @@ def photo(pid):
 def brand_kit():
     if request.method == "POST":
         f = request.form
+        check = compliance.check(f.get("brand_name") or "", f.get("product_name") or "", f.get("claims") or "",
+                                 f.get("audience") or "")
+        if not check["ok"]:
+            for m in check["blocks"]:
+                flash("Not saved: " + m)
+            return redirect(url_for("brand_kit"))
         with db.connect() as conn:
             conn.execute("UPDATE workspaces SET brand_name=?, product_name=?, claims=?, audience=? WHERE id=?",
                          ((f.get("brand_name") or "")[:80], (f.get("product_name") or "")[:80],
@@ -420,6 +588,104 @@ def delete_photo(pid):
     return redirect(url_for("brand_kit"))
 
 
+# ---------------------------------------------------------------- billing
+
+@app.route("/app/billing")
+@login_required
+def billing_page():
+    if request.args.get("checkout") == "success":
+        flash("Payment received, thank you. Your credits land in a few seconds; refresh if the balance hasn't moved.")
+    elif request.args.get("checkout") == "cancel":
+        flash("Checkout canceled. Nothing was charged.")
+    with db.connect() as conn:
+        purchases = conn.execute("SELECT * FROM purchases WHERE workspace_id=? AND status IN ('paid','open') "
+                                 "ORDER BY id DESC LIMIT 50", (g.ws["id"],)).fetchall()
+        ledger = conn.execute("SELECT * FROM ledger WHERE workspace_id=? ORDER BY id DESC LIMIT 30",
+                              (g.ws["id"],)).fetchall()
+    return render_template("billing.html", purchases=purchases, ledger=ledger, packs_by=catalog.PACK_BY_CODE)
+
+
+@app.route("/app/billing/checkout", methods=["POST"])
+@login_required
+def checkout():
+    pack = catalog.PACK_BY_CODE.get(request.form.get("pack") or "")
+    if not pack:
+        abort(400)
+    if not billing.configured():
+        flash("Checkout is coming soon. Your free credits work in the meantime.")
+        return redirect(url_for("billing_page"))
+    with db.connect() as conn:
+        pid = conn.execute("INSERT INTO purchases (workspace_id, user_id, pack, credits, amount_cents, currency, "
+                           "status, created_at) VALUES (?,?,?,?,?,?,?,?)",
+                           (g.ws["id"], g.user["id"], pack["code"], pack["credits"], pack["usd"] * 100, "usd",
+                            "open", db.now())).lastrowid
+        conn.commit()
+    base = request.host_url.rstrip("/")
+    try:
+        sess = billing.create_checkout_session(
+            price_id=pack["price_id"],
+            success_url=f"{base}{url_for('billing_page')}?checkout=success",
+            cancel_url=f"{base}{url_for('billing_page')}?checkout=cancel",
+            email=g.user["email"],
+            client_reference_id=f"cfy-{pid}",
+            description=f"Campaignify {pack['name']} pack ({pack['credits']:,} credits)",
+            metadata={"app": billing.APP_TAG, "purchase_id": pid, "workspace_id": g.ws["id"],
+                      "pack": pack["code"], "credits": pack["credits"]},
+            idempotency_key=f"campaignify-purchase-{pid}")
+    except billing.BillingError as e:
+        log.warning("checkout failed for purchase %s: %s", pid, e)
+        with db.connect() as conn:
+            conn.execute("UPDATE purchases SET status='failed' WHERE id=?", (pid,))
+            conn.commit()
+        flash("Checkout couldn't start. Try again in a minute.")
+        return redirect(url_for("billing_page"))
+    with db.connect() as conn:
+        conn.execute("UPDATE purchases SET stripe_session_id=? WHERE id=?", (sess["id"], pid))
+        conn.commit()
+    return redirect(sess["url"], code=303)
+
+
+@app.route("/webhooks/stripe", methods=["POST"])
+def stripe_webhook():
+    """checkout.session.completed -> add the pack's credits, once. The Stripe
+    account is shared, so anything that isn't one of our purchases is ignored."""
+    payload = request.get_data()
+    try:
+        event = billing.verify_event(payload, request.headers.get("Stripe-Signature", ""))
+    except billing.SignatureError as e:
+        log.warning("stripe webhook rejected: %s", e)
+        return jsonify({"error": "bad signature"}), 400
+    if event.get("type") not in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
+        return jsonify({"ignored": event.get("type")})
+    sess = (event.get("data") or {}).get("object") or {}
+    meta = sess.get("metadata") or {}
+    if meta.get("app") != billing.APP_TAG or not str(meta.get("purchase_id", "")).isdigit():
+        return jsonify({"ignored": "not a campaignify purchase"})
+    if sess.get("payment_status") not in ("paid", "no_payment_required"):
+        return jsonify({"pending": "payment not settled"})
+    with db.connect() as conn:
+        p = conn.execute("SELECT * FROM purchases WHERE id=?", (int(meta["purchase_id"]),)).fetchone()
+        if not p:
+            log.error("stripe webhook: purchase %s not found (session %s)", meta["purchase_id"], sess.get("id"))
+            return jsonify({"ignored": "unknown purchase"})
+        if p["status"] == "paid":
+            return jsonify({"ok": True, "duplicate": True})
+        if (str(p["workspace_id"]) != str(meta.get("workspace_id")) or p["pack"] != meta.get("pack")
+                or sess.get("amount_total") != p["amount_cents"] or (sess.get("currency") or "").lower() != p["currency"]):
+            log.error("stripe webhook: session %s does not match purchase %s", sess.get("id"), p["id"])
+            return jsonify({"error": "mismatch"}), 400
+        cur = conn.execute("UPDATE purchases SET status='paid', paid_at=?, stripe_session_id=?, stripe_payment_intent=? "
+                           "WHERE id=? AND status!='paid'",
+                           (db.now(), sess.get("id"), sess.get("payment_intent"), p["id"]))
+        if cur.rowcount != 1:
+            conn.rollback()
+            return jsonify({"ok": True, "duplicate": True})
+        db.adjust_credits(conn, p["workspace_id"], p["credits"],
+                          f"{catalog.PACK_BY_CODE.get(p['pack'], {}).get('name', p['pack'])} pack")
+        conn.commit()
+    return jsonify({"ok": True, "credited": p["credits"]})
+
+
 # ---------------------------------------------------------------- admin
 
 @app.route("/admin")
@@ -436,7 +702,10 @@ def admin():
         refs = conn.execute("SELECT * FROM refs ORDER BY id DESC").fetchall()
         jobs = conn.execute("SELECT j.*, w.name ws_name FROM jobs j JOIN workspaces w ON w.id=j.workspace_id "
                             "ORDER BY j.id DESC LIMIT 30").fetchall()
-    return render_template("admin.html", wss=wss, invites=invites, refs=refs, jobs=jobs,
+        purchases = conn.execute("SELECT p.*, w.name ws_name FROM purchases p JOIN workspaces w ON w.id=p.workspace_id "
+                                 "WHERE p.status='paid' ORDER BY p.id DESC LIMIT 30").fetchall()
+    return render_template("admin.html", wss=wss, invites=invites, refs=refs, jobs=jobs, purchases=purchases,
+                           billing_on=billing.configured(),
                            markup=catalog.MARKUP, configured=hf.configured(), base=request.host_url)
 
 

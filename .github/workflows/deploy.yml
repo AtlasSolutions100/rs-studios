@@ -7,8 +7,15 @@ name: Deploy Campaignify (campaignify.ai)
 # "rs-deploy"), and it rebuilds only this app.
 #
 # Settings: add or change a repo secret, then push (or re-run this workflow).
-#   HIGGSFIELD_API_KEY  the generation API key ("key:secret")
-#   RS_MARKUP           optional repo variable, default 2.0
+#   HIGGSFIELD_API_KEY     the generation API key ("key:secret")
+#   STRIPE_SECRET_KEY      Rector & Stull Stripe key for credit-pack checkout
+#                          (a restricted key with Checkout Sessions: write is enough)
+#   STRIPE_WEBHOOK_SECRET  signing secret of the https://campaignify.ai/webhooks/stripe
+#                          endpoint (Stripe dashboard > Developers > Webhooks)
+#   RS_MARKUP              optional repo variable, default 2.0
+#   RS_STARTER_CREDITS     optional repo variable; default = 2 image ads (44 credits)
+# A secret or variable that isn't set is simply not sent, so the server keeps
+# whatever it already has.
 on:
   push:
     branches: [main]
@@ -47,12 +54,16 @@ jobs:
       - name: Package the app and its settings
         env:
           HF_KEY: ${{ secrets.HIGGSFIELD_API_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           RS_MARKUP: ${{ vars.RS_MARKUP }}
+          RS_STARTER_CREDITS: ${{ vars.RS_STARTER_CREDITS }}
         run: |
           git archive --format=tar.gz -o /tmp/app.tgz HEAD
           python3 - <<'PY'
           import base64, json, os
-          settings = {k: os.environ[k] for k in ("HF_KEY", "RS_MARKUP") if os.environ.get(k)}
+          settings = {k: os.environ[k] for k in ("HF_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET",
+                                             "RS_MARKUP", "RS_STARTER_CREDITS") if os.environ.get(k)}
           print("settings sent:", ", ".join(settings) or "none")
           body = {"commit": os.environ["GITHUB_SHA"], "settings": settings,
                   "archive": base64.b64encode(open("/tmp/app.tgz", "rb").read()).decode()}

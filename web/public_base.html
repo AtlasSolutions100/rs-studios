@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block shell %}
+<a class="skip" href="#main">Skip to content</a>
+<header class="lp-nav">
+  <div class="lp-wrap lp-nav-in">
+    <a class="lp-logo" href="{{ url_for('index') }}" aria-label="Campaignify home">{% include "_wordmark.svg" %}</a>
+    <nav class="lp-links" aria-label="Main">
+      <a href="{{ url_for('index') }}#how">How it works</a>
+      <a href="{{ url_for('index') }}#reps">For reps</a>
+      <a href="{{ url_for('index') }}#pricing">Pricing</a>
+      <a href="{{ url_for('index') }}#faq">FAQ</a>
+    </nav>
+    <div class="lp-actions">
+      <button type="button" class="theme icon" data-theme-toggle aria-label="Switch light or dark theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg></button>
+      <a class="lp-login" href="{{ url_for('login') }}">Log in</a>
+      <a class="btn sm" href="{{ url_for('signup') }}">Start free</a>
+    </div>
+  </div>
+</header>
+<main id="main">
+{% for m in get_flashed_messages() %}<div class="lp-wrap"><div class="flash" style="margin-top:20px">{{ m }}</div></div>{% endfor %}
+{% block main %}{% endblock %}
+</main>
+<footer class="lp-foot">
+  <div class="lp-wrap lp-foot-in">
+    <div>
+      <a class="lp-logo sm" href="{{ url_for('index') }}" aria-label="Campaignify home">{% include "_wordmark.svg" %}</a>
+      <p class="small muted" style="margin:10px 0 0">A <a href="https://rectorandstull.com">Rector &amp; Stull</a> company.</p>
+    </div>
+    <nav class="lp-foot-links" aria-label="Footer">
+      <a href="{{ url_for('index') }}#pricing">Pricing</a>
+      <a href="{{ url_for('login') }}">Log in</a>
+      <a href="{{ url_for('privacy') }}">Privacy</a>
+      <a href="{{ url_for('terms') }}">Terms</a>
+      <a href="mailto:hello@rectorandstull.com">hello@rectorandstull.com</a>
+    </nav>
+  </div>
+  <div class="lp-wrap">
+    <p class="small dim lp-legal">Campaignify is made by Rector &amp; Stull LLC and isn't affiliated with or endorsed by any direct-sales company. Product names and packaging in our examples belong to their owners. People in the example ads are AI-generated.</p>
+    <p class="small dim">© 2026 Rector &amp; Stull LLC · 30 N Gould St Ste R, Sheridan, WY 82801</p>
+  </div>
+</footer>
+{% endblock %}
