@@ -1,8 +1,8 @@
 {% extends "public_base.html" %}
-{% block title %}Campaignify · The ad studio we use for our own brands{% endblock %}
+{% block title %}Campaignify · The ad studio for people who sell{% endblock %}
 {% block head %}
-<meta name="description" content="Campaignify is the ad studio Rector & Stull uses for its own brands, open to anyone selling a product. Add a product photo, pick a template, get a finished ad. Compliance checks built in for independent reps.">
-<meta property="og:title" content="Campaignify · The ad studio we use for our own brands">
+<meta name="description" content="Campaignify turns a product photo into finished image and video ads. Pick a template, get an ad in minutes. Compliance checks built in for independent reps and direct sellers.">
+<meta property="og:title" content="Campaignify · The ad studio for people who sell">
 <meta property="og:description" content="Add a product photo, pick a template that already works, get a finished ad. Built for independent reps and direct sellers.">
 <meta property="og:image" content="{{ url_for('static', filename='img/campaignify-icon-512.png', _external=True) }}">
 {% endblock %}
@@ -13,12 +13,12 @@
 <section class="lp-hero">
   <div class="lp-wrap lp-hero-in">
     <div class="lp-hero-copy">
-      <p class="eyebrow">From Rector &amp; Stull</p>
-      <h1>The ad studio we use for <span class="gold">our own brands.</span></h1>
-      <p class="lp-lede">We make the ads for The Morning Upgrade, our coffee brand, in Campaignify. Now it's open to anyone with a product to sell, especially independent reps. Add a product photo, pick a template that already works for us, and get a finished ad in minutes.</p>
+      <p class="eyebrow">AI ad studio</p>
+      <h1>The ad studio for <span class="gold">people who sell.</span></h1>
+      <p class="lp-lede">Add a product photo, pick a proven ad format, and get a finished image or video ad in minutes. Compliance checks are built in, so it works for independent reps and direct sellers too.</p>
       <div class="lp-cta">
         <a class="btn lg" href="{{ url_for('signup') }}">Start free</a>
-        <a class="lp-textlink" href="#gallery">See ads we made →</a>
+        <a class="lp-textlink" href="#gallery">See example ads →</a>
       </div>
       <p class="small muted lp-note">{{ '{:,}'.format(sc) }} free credits when you sign up, enough for {{ sc // r.image }} image ads. No card needed.</p>
     </div>
@@ -33,9 +33,9 @@
 
 <section class="lp-sec" id="gallery">
   <div class="lp-wrap">
-    <p class="eyebrow">Made in Campaignify</p>
-    <h2 class="lp-h2">Real ads from our own brand.</h2>
-    <p class="lp-sub muted">We made these for The Morning Upgrade, our coffee brand. They're the examples behind the templates in the studio. The people in them are AI-generated.</p>
+    <p class="eyebrow">Examples</p>
+    <h2 class="lp-h2">Ads made in minutes.</h2>
+    <p class="lp-sub muted">Example ads made with Campaignify's templates. The people in them are AI-generated.</p>
     <div class="lp-gallery">
       {% for gi in gallery %}
       <figure class="lp-g {{ 'sq' if gi.square }}" {% if gi.kind == 'video' %}data-hoverplay{% endif %}>
@@ -60,7 +60,7 @@
     <h2 class="lp-h2">Three steps, one sitting.</h2>
     <ol class="lp-steps">
       <li><span class="lp-num">1</span><h3>Add your product</h3><p class="muted">One clear photo and the product's name. That becomes your brand kit, along with the claims printed on your label, so every brief starts on-brand.</p></li>
-      <li><span class="lp-num">2</span><h3>Pick a template</h3><p class="muted">Angles that already work for us: a clean product hero, the daily routine, the 2 PM moment, label read, the swap and more. Each one starts with a brief you can edit.</p></li>
+      <li><span class="lp-num">2</span><h3>Pick a template</h3><p class="muted">Proven ad angles: a clean product hero, the daily routine, the 2 PM moment, label read, the swap and more. Each one starts with a brief you can edit.</p></li>
       <li><span class="lp-num">3</span><h3>Get your ad</h3><p class="muted">Image ads in about a minute, video clips in a few. Download full quality and post it wherever you sell.</p></li>
     </ol>
   </div>
@@ -124,10 +124,10 @@
       <details><summary>Do I need a subscription?</summary><p>No. Start with your free credits, then buy a credit pack when you need more. Credits are only used when you generate something.</p></details>
       <details><summary>What does a credit buy?</summary><p>1 credit is $0.01. An image ad is {{ r.image }} credits, a 5-second video {{ r.video5 }}, a 10-second video {{ r.video10 }}, and copying a reference video's motion is {{ r.motion_per_s }} credits per second of the reference (up to {{ r.motion_max }}). You always see the price before you generate.</p></details>
       <details><summary>What if a generation fails?</summary><p>Your credits come back automatically. You only pay for ads that finish.</p></details>
-      <details><summary>Is it only for coffee?</summary><p>No. Our first templates come from our coffee brand, but Product hero, Daily routine and your own brief work for anything you can photograph.</p></details>
+      <details><summary>Is it only for coffee?</summary><p>No. Some templates were built around a coffee product, but Product hero, Daily routine and your own brief work for anything you can photograph.</p></details>
       <details><summary>Who owns the ads I make?</summary><p>You can use the ads you make in your own marketing, including paid ads. They're AI-generated, so similar images can come out for other people, and you're responsible for what you post. See the <a href="{{ url_for('terms') }}">terms</a>.</p></details>
       <details><summary>Does Campaignify guarantee results?</summary><p>No. Campaignify makes ads. It doesn't promise sales, views or income, and your ads shouldn't either.</p></details>
-      <details><summary>Is this from my direct-sales company?</summary><p>No. We built Campaignify for our own ads. It isn't a company program and isn't sponsored or endorsed by any direct-sales company. Check your company's policies on advertising and AI content before you post.</p></details>
+      <details><summary>Is this from my direct-sales company?</summary><p>No. Campaignify is an independent product. It isn't a company program and isn't sponsored or endorsed by any direct-sales company. Check your company's policies on advertising and AI content before you post.</p></details>
       <details><summary>Do my ads say they're AI?</summary><p>Put #ad first in your caption and turn on the platform's AI label. Don't present AI people as real customers or let them describe personal results.</p></details>
       <details><summary>My team lead sent me an invite</summary><p>Use the invite link to sign up and you'll join their workspace and share its credits.</p></details>
     </div>
