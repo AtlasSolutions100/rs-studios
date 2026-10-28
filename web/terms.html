@@ -1,0 +1,54 @@
+{% extends "public_base.html" %}
+{% block title %}Terms · Campaignify{% endblock %}
+{% block main %}
+<article class="lp-wrap lp-doc">
+  <h1>Terms</h1>
+  <p class="muted">Last updated October 2026</p>
+
+  <h2>The short version</h2>
+  <p>Campaignify makes AI-generated ads from your product photos and briefs. You pay in credits, you're responsible for what you post, and you can't use it to make ads that mislead people.</p>
+
+  <h2>Your account</h2>
+  <p>Use a real email, keep your password to yourself, and one person per account. If your team lead invited you into their workspace, the workspace's credits and ads are shared with that team.</p>
+
+  <h2>Credits and payments</h2>
+  <ul>
+    <li>1 credit = $0.01 of generation. Prices are shown before you generate.</li>
+    <li>Credit packs are one-time purchases processed by Stripe. There is no subscription.</li>
+    <li>If a generation fails, its credits are refunded to your balance automatically.</li>
+    <li>Credits have no cash value and can't be transferred or exchanged for money. Purchases are non-refundable except where the law requires otherwise; if something went wrong, email us and we'll make it right.</li>
+    <li>Free starter credits are one per person. We may remove credits from accounts made to collect them more than once.</li>
+  </ul>
+
+  <h2>Your ads</h2>
+  <ul>
+    <li>You can use the ads you make in your own marketing, including paid ads, and you can pass them on to clients.</li>
+    <li>Ads are AI-generated. Similar results can come out for other people, so they aren't guaranteed to be unique.</li>
+    <li>You're responsible for checking every ad before you post it, and for following the law, the platform's rules and your company's policies.</li>
+    <li>Disclose ads as ads (for example, #ad first in the caption) and turn on the platform's AI label where it's offered or required. Don't present AI-generated people as real customers or as human-made content.</li>
+  </ul>
+
+  <h2>What you can't make</h2>
+  <p>Our checks block some of this automatically, but the responsibility is yours. Don't use Campaignify for:</p>
+  <ul>
+    <li>Income, earnings or lifestyle claims, or recruiting and business-opportunity pitches.</li>
+    <li>Health, disease, weight-loss or before-and-after claims beyond what's printed on the product's label.</li>
+    <li>Fake reviews or testimonials, or anything that imitates a real person without their permission.</li>
+    <li>Products you don't have the right to sell or advertise, or photos you don't have the right to use.</li>
+    <li>Anything illegal, hateful, sexual, or harmful to minors.</li>
+  </ul>
+  <p>We can refuse a generation or close an account that breaks these rules.</p>
+
+  <h2>Your uploads</h2>
+  <p>You keep the rights to your photos and briefs. You give us permission to store them and send them to our AI generation provider to make your ads. See <a href="{{ url_for('privacy') }}">Privacy</a>.</p>
+
+  <h2>No guarantees</h2>
+  <p>Campaignify makes ads; it doesn't promise sales, views or income. The compliance checks are a guard rail, not legal advice. The service is provided as is, and to the extent the law allows, Rector &amp; Stull's liability is limited to what you paid us in the last three months.</p>
+
+  <h2>Changes</h2>
+  <p>We may update these terms. If a change matters, we'll tell you by email or in the app before it applies.</p>
+
+  <h2>Who we are</h2>
+  <p>Rector &amp; Stull LLC, 30 N Gould St Ste R, Sheridan, WY 82801 · <a href="mailto:hello@rectorandstull.com">hello@rectorandstull.com</a></p>
+</article>
+{% endblock %}

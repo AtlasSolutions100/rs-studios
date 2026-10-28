@@ -1,0 +1,53 @@
+{% extends "base.html" %}{% block title %}Billing · Campaignify{% endblock %}
+{% block body %}
+{% set r = rates() %}
+<div class="page full">
+  <p class="eyebrow">Billing</p>
+  <h1>Credits for <span class="gold">your ads</span></h1>
+  <p class="muted">1 credit = $0.01. Image ad {{ r.image }} · 5-second video {{ r.video5 }} · 10-second video {{ r.video10 }} credits. Failed generations are refunded automatically. No subscription.</p>
+
+  <div class="bill-top">
+    <div class="panel bal">
+      <span class="muted small">Balance</span>
+      <div class="price">{{ '{:,}'.format(g.ws.credits) }}</div>
+      <span class="muted small">{% set n = g.ws.credits // r.image %}credits · about {{ '{:,}'.format(n) }} image ad{{ '' if n == 1 else 's' }}</span>
+    </div>
+    <div class="bill-packs">
+      {% for p in packs %}
+      <div class="panel pack {{ 'hot' if p.code == 'pro' }}">
+        {% if p.code == 'pro' %}<span class="lp-badge">Most popular</span>{% endif %}
+        <h3>{{ p.name }} pack</h3>
+        <div class="lp-amt">${{ p.usd }}</div>
+        <p class="lp-cr">{{ '{:,}'.format(p.credits) }} credits{% if p.bonus %} <span class="gold">· {{ '{:,}'.format(p.bonus) }} bonus</span>{% endif %}</p>
+        <p class="muted small">About {{ '{:,}'.format(p.credits // r.image) }} image ads or {{ p.credits // r.video5 }} five-second videos.</p>
+        {% if billing_configured() %}
+        <form method="post" action="{{ url_for('checkout') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="pack" value="{{ p.code }}"><button class="btn {{ '' if p.code == 'pro' else 'dark' }}" style="width:100%">Buy for ${{ p.usd }}</button></form>
+        {% else %}
+        <span class="btn dark disabled" aria-disabled="true" style="width:100%">Checkout coming soon</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <p class="small dim">Payments are processed securely by Stripe. We never see your card details.</p>
+
+  <div class="grid2">
+    <div class="panel">
+      <h2>Purchases</h2>
+      {% if purchases %}
+      <table><tr><th>Date</th><th>Pack</th><th>Credits</th><th>Paid</th><th>Status</th></tr>
+      {% for p in purchases %}<tr><td>{{ (p.paid_at or p.created_at)[:10] }}</td><td>{{ packs_by[p.pack].name if p.pack in packs_by else p.pack }}</td><td>{{ '{:,}'.format(p.credits) }}</td><td>${{ '%.2f'|format(p.amount_cents / 100) }}</td><td>{{ 'Paid' if p.status == 'paid' else 'Not completed' }}</td></tr>{% endfor %}
+      </table>
+      {% else %}<div class="empty">No purchases yet.</div>{% endif %}
+    </div>
+    <div class="panel">
+      <h2>Credit activity</h2>
+      {% if ledger %}
+      <table><tr><th>Date</th><th>What</th><th style="text-align:right">Credits</th></tr>
+      {% for l in ledger %}<tr><td>{{ l.created_at[:10] }}</td><td>{{ (l.reason or '')|capitalize }}</td><td style="text-align:right" class="{{ 'gold' if l.delta > 0 }}">{{ '%+d'|format(l.delta) }}</td></tr>{% endfor %}
+      </table>
+      {% else %}<div class="empty">Nothing yet.</div>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

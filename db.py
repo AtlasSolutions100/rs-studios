@@ -71,6 +71,24 @@ CREATE TABLE IF NOT EXISTS ledger (
     reason TEXT,
     job_id INTEGER,
     created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS purchases (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    user_id INTEGER,
+    pack TEXT NOT NULL,
+    credits INTEGER NOT NULL,
+    amount_cents INTEGER NOT NULL,
+    currency TEXT NOT NULL DEFAULT 'usd',
+    stripe_session_id TEXT UNIQUE,
+    stripe_payment_intent TEXT,
+    status TEXT NOT NULL DEFAULT 'open',      -- open | paid | failed
+    created_at TEXT NOT NULL,
+    paid_at TEXT);
+CREATE INDEX IF NOT EXISTS idx_purchases_ws ON purchases(workspace_id, id);
+CREATE TABLE IF NOT EXISTS throttle (
+    key TEXT NOT NULL,
+    at REAL NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_throttle ON throttle(key, at);
 """
 
 
@@ -104,3 +122,21 @@ def adjust_credits(conn, workspace_id: int, delta: int, reason: str, job_id=None
     conn.execute("INSERT INTO ledger (workspace_id, delta, reason, job_id, created_at) VALUES (?,?,?,?,?)",
                  (workspace_id, delta, reason, job_id, now()))
     return True
+
+
+def throttled(key: str, limit: int, window_s: float) -> bool:
+    """True when `key` has been hit `limit` times in the last `window_s` seconds."""
+    import time
+    with connect() as conn:
+        n = conn.execute("SELECT COUNT(*) FROM throttle WHERE key=? AND at>?", (key, time.time() - window_s)).fetchone()[0]
+    return n >= limit
+
+
+def hit(key: str):
+    """Record one attempt for `key` (and forget anything older than a day)."""
+    import time
+    t = time.time()
+    with connect() as conn:
+        conn.execute("INSERT INTO throttle (key, at) VALUES (?,?)", (key, t))
+        conn.execute("DELETE FROM throttle WHERE at<?", (t - 86400,))
+        conn.commit()

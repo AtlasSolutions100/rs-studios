@@ -62,38 +62,52 @@ def price_credits(tool: str, **kw) -> int:
 
 # Templates: the angles from the playbook. {product} and {brand} are filled from
 # the workspace's brand kit; members can edit the brief before generating.
+# "fits": "any" works for any product you can photograph; "coffee" templates
+# come from The Morning Upgrade and assume a coffee product.
 TEMPLATES = [
-    {"id": "swap", "preview": "swap", "line": "One scoop, hot water, 30 seconds", "name": "The swap", "tool": "photo_to_video", "duration": 5,
+    {"id": "hero", "preview": "ad_image", "line": "Clean studio shot, headline on top", "name": "Product hero", "tool": "ad_image",
+     "aspect": "4:5", "fits": "any",
+     "brief": "Premium studio product shot: the {product} centred on a clean surface, soft directional light, a "
+              "subtle shadow and plenty of empty space for a headline. Packaging, label and colors exactly as in "
+              "the photo. Headline: \"{product}\" in clean, modern type.",
+     "audience": ""},
+    {"id": "routine", "preview": "how", "line": "Your product in an everyday moment", "name": "Daily routine", "tool": "ad_image",
+     "aspect": "9:16", "fits": "any",
+     "brief": "Everyday lifestyle scene in a bright, tidy kitchen: the {product} on the counter as part of someone's "
+              "morning routine, hands in frame, no faces. Natural window light. The label stays sharp and "
+              "unchanged. Headline: \"Part of the morning.\"",
+     "audience": ""},
+    {"id": "swap", "fits": "coffee", "preview": "swap", "line": "One scoop, hot water, 30 seconds", "name": "The swap", "tool": "photo_to_video", "duration": 5,
      "brief": "Morning kitchen, soft window light. A hand slides a drip coffee maker aside, scoops "
               "{product} from the bag into a mug of hot water and stirs. Steam rises. The bag stays "
               "in frame with its label facing camera, unchanged.",
      "overlay": "One scoop. Hot water. 30 seconds."},
-    {"id": "label", "preview": "label", "line": "Slow pan across the label", "name": "Label read", "tool": "photo_to_video", "duration": 5,
+    {"id": "label", "fits": "coffee", "preview": "label", "line": "Slow pan across the label", "name": "Label read", "tool": "photo_to_video", "duration": 5,
      "brief": "Slow, steady camera pan across the {product} bag's ingredient panel on a wooden "
               "counter. Shallow depth of field, warm light. The label text stays sharp and unchanged.",
      "overlay": "What's in it, as printed on the bag"},
-    {"id": "how", "preview": "how", "line": "Real-time how-to, first sip", "name": "How to make it", "tool": "photo_to_video", "duration": 10,
+    {"id": "how", "fits": "coffee", "preview": "how", "line": "Real-time how-to, first sip", "name": "How to make it", "tool": "photo_to_video", "duration": 10,
      "brief": "Real-time how-to: one scoop of {product} into a mug, hot water poured from a kettle, "
               "a quick stir, first sip. Bright, clean kitchen. Product label unchanged.",
      "overlay": "No machine, no pods"},
-    {"id": "two-pm", "preview": "two-pm", "line": "The afternoon-slump desk shot", "name": "The 2 PM moment", "tool": "ad_image", "aspect": "9:16",
+    {"id": "two-pm", "fits": "coffee", "preview": "two-pm", "line": "The afternoon-slump desk shot", "name": "The 2 PM moment", "tool": "ad_image", "aspect": "9:16",
      "brief": "Afternoon desk scene: laptop, notebook, a fresh mug of coffee beside the {product} bag, "
               "warm 2 PM light. Headline: \"Your afternoon cup, in 30 seconds.\" Clean, premium, "
               "no people's faces.",
      "audience": "Remote workers and office workers 25-45"},
-    {"id": "iced", "preview": "iced", "line": "Iced coffee, sunny patio", "name": "Iced", "tool": "ad_image", "aspect": "4:5",
+    {"id": "iced", "fits": "coffee", "preview": "iced", "line": "Iced coffee, sunny patio", "name": "Iced", "tool": "ad_image", "aspect": "4:5",
      "brief": "Tall glass of iced coffee on a sunny patio table next to the {product} bag. Ice, "
               "condensation, a few coffee beans. Headline: \"Iced in 30 seconds.\"",
      "audience": "Women 22-40 who love iced coffee"},
-    {"id": "cost", "preview": "cost", "line": "Café cup vs. $2.33 a morning", "name": "Cost per cup", "tool": "ad_image", "aspect": "1:1",
+    {"id": "cost", "fits": "coffee", "preview": "cost", "line": "Café cup vs. $2.33 a morning", "name": "Cost per cup", "tool": "ad_image", "aspect": "1:1",
      "brief": "Split layout: a $7 café cup on the left, a mug made with {product} on the right with "
               "the bag behind it. Headline: \"$2.33 a morning on Subscribe & Save.\"",
      "audience": "Budget-minded daily coffee drinkers"},
-    {"id": "gym", "preview": "gym", "line": "Packed for the early gym", "name": "Gym bag", "tool": "ad_image", "aspect": "9:16",
+    {"id": "gym", "fits": "coffee", "preview": "gym", "line": "Packed for the early gym", "name": "Gym bag", "tool": "ad_image", "aspect": "9:16",
      "brief": "Gym bag packed for an early morning: shaker, towel, earbuds and the {product} bag. "
               "Morning light through a window. Headline: \"Packed the night before.\"",
      "audience": "Gym-goers 22-35"},
-    {"id": "copy-trend", "preview": "copy-trend", "line": "Your product in a trending video's moves", "name": "Copy a trending video", "tool": "motion_copy",
+    {"id": "copy-trend", "fits": "coffee", "preview": "copy-trend", "line": "Your product in a trending video's moves", "name": "Copy a trending video", "tool": "motion_copy",
      "brief": "Same moves and timing as the reference video, with the {product} bag as the hero "
               "product. Keep the label and bag colors exactly as in the photo.",
      "overlay": ""},
@@ -105,3 +119,49 @@ TEMPLATE_BY_ID = {t["id"]: t for t in TEMPLATES}
 def fill(text: str, brand: dict) -> str:
     return (text or "").replace("{product}", brand.get("product") or "the product") \
                        .replace("{brand}", brand.get("name") or "")
+
+
+def first_run_templates() -> list[dict]:
+    """Image templates for the guided first ad: cheapest tool, any-product ones first."""
+    imgs = [t for t in TEMPLATES if t["tool"] == "ad_image"]
+    return sorted(imgs, key=lambda t: t.get("fits") != "any")
+
+
+# ---------------------------------------------------------------- credits
+
+def starter_credits() -> int:
+    """Free credits for a new self-serve workspace: enough for STARTER_IMAGE_ADS
+    single image ads at today's price. RS_STARTER_CREDITS overrides."""
+    env = os.environ.get("RS_STARTER_CREDITS", "").strip()
+    if env.isdigit():
+        return int(env)
+    return STARTER_IMAGE_ADS * price_credits("ad_image", batch=1)
+
+
+STARTER_IMAGE_ADS = int(os.environ.get("RS_STARTER_IMAGE_ADS", "2"))
+
+# Credit packs: one-time Prices on the Rector & Stull Stripe account (product
+# metadata brand=Campaignify, pack=<code>). Face value is 100 credits per dollar;
+# the bigger packs add bonus credits, paid for out of the markup (at 2x the
+# Studio pack still sells credits at ~1.73x our cost, before Stripe's fee).
+# STRIPE_PRICE_<CODE> overrides a price id (e.g. for a test-mode account).
+PACKS = [
+    {"code": "starter", "name": "Starter", "usd": 29, "credits": 2900, "bonus": 0,
+     "price_id": "price_1UVd2ERskSkrZOvOBwL2BJVU"},
+    {"code": "pro", "name": "Pro", "usd": 79, "credits": 8500, "bonus": 600,
+     "price_id": "price_1UVd2FRskSkrZOvOxLP4KMcR"},
+    {"code": "studio", "name": "Studio", "usd": 199, "credits": 23000, "bonus": 3100,
+     "price_id": "price_1UVd2GRskSkrZOvOegXnFALF"},
+]
+for _p in PACKS:
+    _p["price_id"] = os.environ.get(f"STRIPE_PRICE_{_p['code'].upper()}", _p["price_id"])
+PACK_BY_CODE = {p["code"]: p for p in PACKS}
+
+
+def rates() -> dict:
+    """What credits buy, for pricing pages."""
+    return {"image": price_credits("ad_image", batch=1),
+            "video5": price_credits("photo_to_video", duration=5),
+            "video10": price_credits("photo_to_video", duration=10),
+            "motion_per_s": price_credits("motion_copy", ref_seconds=1),
+            "motion_max": price_credits("motion_copy", ref_seconds=TOOLS["motion_copy"]["max_seconds"])}

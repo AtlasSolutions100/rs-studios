@@ -1,0 +1,144 @@
+{% extends "public_base.html" %}
+{% block title %}Campaignify · The ad studio we use for our own brands{% endblock %}
+{% block head %}
+<meta name="description" content="Campaignify is the ad studio Rector & Stull uses for its own brands, open to anyone selling a product. Add a product photo, pick a template, get a finished ad. Compliance checks built in for independent reps.">
+<meta property="og:title" content="Campaignify · The ad studio we use for our own brands">
+<meta property="og:description" content="Add a product photo, pick a template that already works, get a finished ad. Built for independent reps and direct sellers.">
+<meta property="og:image" content="{{ url_for('static', filename='img/campaignify-icon-512.png', _external=True) }}">
+{% endblock %}
+{% block main %}
+{% set r = rates() %}
+{% set sc = starter_credits() %}
+
+<section class="lp-hero">
+  <div class="lp-wrap lp-hero-in">
+    <div class="lp-hero-copy">
+      <p class="eyebrow">From Rector &amp; Stull</p>
+      <h1>The ad studio we use for <span class="gold">our own brands.</span></h1>
+      <p class="lp-lede">We make the ads for The Morning Upgrade, our coffee brand, in Campaignify. Now it's open to anyone with a product to sell, especially independent reps. Add a product photo, pick a template that already works for us, and get a finished ad in minutes.</p>
+      <div class="lp-cta">
+        <a class="btn lg" href="{{ url_for('signup') }}">Start free</a>
+        <a class="lp-textlink" href="#gallery">See ads we made →</a>
+      </div>
+      <p class="small muted lp-note">{{ '{:,}'.format(sc) }} free credits when you sign up, enough for {{ sc // r.image }} image ads. No card needed.</p>
+    </div>
+    <div class="lp-hero-art" aria-hidden="true">
+      {% for gi in hero %}
+      <div class="lp-phone p{{ loop.index }}"><video src="{{ url_for('static', filename=gi.src) }}" poster="{{ url_for('static', filename=gi.poster) }}" muted loop playsinline autoplay preload="metadata"></video></div>
+      {% endfor %}
+      <div class="lp-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><div><b>Brief checked</b><span>No income, health or discount claims</span></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="lp-sec" id="gallery">
+  <div class="lp-wrap">
+    <p class="eyebrow">Made in Campaignify</p>
+    <h2 class="lp-h2">Real ads from our own brand.</h2>
+    <p class="lp-sub muted">We made these for The Morning Upgrade, our coffee brand. They're the examples behind the templates in the studio. The people in them are AI-generated.</p>
+    <div class="lp-gallery">
+      {% for gi in gallery %}
+      <figure class="lp-g {{ 'sq' if gi.square }}" {% if gi.kind == 'video' %}data-hoverplay{% endif %}>
+        <div class="lp-g-media">
+          {% if gi.kind == 'video' %}
+          <video src="{{ url_for('static', filename=gi.src) }}" poster="{{ url_for('static', filename=gi.poster) }}" muted loop playsinline preload="none" aria-label="{{ gi.title }} example ad"></video>
+          <span class="play"><svg viewBox="0 0 10 10"><path d="M2 1l7 4-7 4z"/></svg></span>
+          {% else %}
+          <img src="{{ url_for('static', filename=gi.src) }}" alt="{{ gi.alt }}" loading="lazy" decoding="async">
+          {% endif %}
+        </div>
+        <figcaption><b>{{ gi.title }}</b><span>{{ gi.tool }}</span></figcaption>
+      </figure>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="lp-sec" id="how">
+  <div class="lp-wrap">
+    <p class="eyebrow">How it works</p>
+    <h2 class="lp-h2">Three steps, one sitting.</h2>
+    <ol class="lp-steps">
+      <li><span class="lp-num">1</span><h3>Add your product</h3><p class="muted">One clear photo and the product's name. That becomes your brand kit, along with the claims printed on your label, so every brief starts on-brand.</p></li>
+      <li><span class="lp-num">2</span><h3>Pick a template</h3><p class="muted">Angles that already work for us: a clean product hero, the daily routine, the 2 PM moment, label read, the swap and more. Each one starts with a brief you can edit.</p></li>
+      <li><span class="lp-num">3</span><h3>Get your ad</h3><p class="muted">Image ads in about a minute, video clips in a few. Download full quality and post it wherever you sell.</p></li>
+    </ol>
+  </div>
+</section>
+
+<section class="lp-sec lp-reps" id="reps">
+  <div class="lp-wrap lp-reps-in">
+    <div>
+      <p class="eyebrow">Built for direct sellers</p>
+      <h2 class="lp-h2">Compliance checks on every brief.</h2>
+      <p class="muted">If you're an independent rep, your company has rules about what your ads can say, and so does the FTC. Campaignify checks every brief before anything is generated and stops the ones that would get you in trouble. It's the same guard rail we use on our own ads.</p>
+      <p class="small dim">The checks are a guard rail, not legal advice. Always follow your company's policies and the FTC's guidance on endorsements and earnings claims.</p>
+    </div>
+    <ul class="lp-rules">
+      <li><b>No income or earnings claims</b><span>Promises about pay, income or lifestyle are blocked on every account. Your ads sell the product, not the opportunity.</span></li>
+      <li><b>No recruiting in product ads</b><span>Team-building and business-opportunity pitches don't belong in a product creative, so they're blocked.</span></li>
+      <li><b>No weight-loss or health claims beyond the label</b><span>Disease, cure and before-and-after language is blocked. Use the claims printed on your label, nothing more.</span></li>
+      <li><b>No discount promises</b><span>Coupons, percent-off and free-shipping offers are blocked. Most direct-sales companies set the price, not the rep.</span></li>
+      <li><b>Disclosure built in</b><span>Every ad comes with the reminder: #ad first in the caption, AI label on. We flag briefs where an AI presenter speaks as a customer.</span></li>
+    </ul>
+  </div>
+</section>
+
+<section class="lp-sec" id="pricing">
+  <div class="lp-wrap">
+    <p class="eyebrow">Pricing</p>
+    <h2 class="lp-h2">Pay for what you make. No subscription.</h2>
+    <p class="lp-sub muted">1 credit = $0.01. An image ad is {{ r.image }} credits, a 5-second video {{ r.video5 }}, a 10-second video {{ r.video10 }}. Failed generations are refunded automatically.</p>
+    <div class="lp-prices">
+      <div class="lp-price free">
+        <h3>Free start</h3>
+        <div class="lp-amt">$0</div>
+        <p class="muted">{{ '{:,}'.format(sc) }} credits when you sign up: {{ sc // r.image }} image ads to try it on your own product.</p>
+        <a class="btn dark" href="{{ url_for('signup') }}">Start free</a>
+      </div>
+      {% for p in packs %}
+      <div class="lp-price {{ 'hot' if p.code == 'pro' }}">
+        {% if p.code == 'pro' %}<span class="lp-badge">Most popular</span>{% endif %}
+        <h3>{{ p.name }} pack</h3>
+        <div class="lp-amt">${{ p.usd }}</div>
+        <p class="lp-cr">{{ '{:,}'.format(p.credits) }} credits{% if p.bonus %} <span class="gold">· {{ '{:,}'.format(p.bonus) }} bonus</span>{% endif %}</p>
+        <p class="muted small">About {{ '{:,}'.format(p.credits // r.image) }} image ads or {{ p.credits // r.video5 }} five-second videos.</p>
+        {% if billing_configured() %}
+        <a class="btn {{ '' if p.code == 'pro' else 'dark' }}" href="{{ url_for('signup') }}">Get started</a>
+        {% else %}
+        <span class="btn dark disabled" aria-disabled="true">Checkout coming soon</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="lp-sec" id="faq">
+  <div class="lp-wrap lp-faq">
+    <div>
+      <p class="eyebrow">FAQ</p>
+      <h2 class="lp-h2">Questions.</h2>
+    </div>
+    <div>
+      <details><summary>Do I need a subscription?</summary><p>No. Start with your free credits, then buy a credit pack when you need more. Credits are only used when you generate something.</p></details>
+      <details><summary>What does a credit buy?</summary><p>1 credit is $0.01. An image ad is {{ r.image }} credits, a 5-second video {{ r.video5 }}, a 10-second video {{ r.video10 }}, and copying a reference video's motion is {{ r.motion_per_s }} credits per second of the reference (up to {{ r.motion_max }}). You always see the price before you generate.</p></details>
+      <details><summary>What if a generation fails?</summary><p>Your credits come back automatically. You only pay for ads that finish.</p></details>
+      <details><summary>Is it only for coffee?</summary><p>No. Our first templates come from our coffee brand, but Product hero, Daily routine and your own brief work for anything you can photograph.</p></details>
+      <details><summary>Who owns the ads I make?</summary><p>You can use the ads you make in your own marketing, including paid ads. They're AI-generated, so similar images can come out for other people, and you're responsible for what you post. See the <a href="{{ url_for('terms') }}">terms</a>.</p></details>
+      <details><summary>Does Campaignify guarantee results?</summary><p>No. Campaignify makes ads. It doesn't promise sales, views or income, and your ads shouldn't either.</p></details>
+      <details><summary>Are you part of my direct-sales company?</summary><p>No. Campaignify is made by Rector &amp; Stull LLC and isn't affiliated with or endorsed by any direct-sales company. Check your company's policies on advertising and AI content before you post.</p></details>
+      <details><summary>Do my ads say they're AI?</summary><p>Put #ad first in your caption and turn on the platform's AI label. Don't present AI people as real customers or let them describe personal results.</p></details>
+      <details><summary>My team lead sent me an invite</summary><p>Use the invite link to sign up and you'll join their workspace and share its credits.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="lp-sec lp-final">
+  <div class="lp-wrap">
+    <h2 class="lp-h2">Make your first ad today.</h2>
+    <p class="muted">One product photo, one template, a few minutes.</p>
+    <a class="btn lg" href="{{ url_for('signup') }}">Start free</a>
+  </div>
+</section>
+{% endblock %}

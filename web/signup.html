@@ -1,14 +1,27 @@
 {% extends "auth_base.html" %}{% block title %}Create your account · Campaignify{% endblock %}
 {% block auth %}
-  <h2>{{ 'Set up your admin account' if owner else 'Join Campaignify' }}</h2>
-  <p class="muted">{% if owner %}This link is for {{ owner }}. Pick your password and you're in, as an admin of your team's Campaignify workspace.{% else %}Invite-only for now. Your team lead sent you a code.{% endif %}</p>
-  <form method="post">
+  {% set r = rates() %}{% set sc = starter_credits() %}
+  {% if owner %}
+  <h2>Set up your admin account</h2>
+  <p class="muted">This link is for {{ owner }}. Pick your password and you're in, as an admin of your team's Campaignify workspace.</p>
+  {% elif invite %}
+  <h2>Join your team</h2>
+  <p class="muted">Your invite puts you in your team's workspace. Pick a password and you're in.</p>
+  {% else %}
+  <h2>Start free</h2>
+  <p class="muted">{{ '{:,}'.format(sc) }} free credits, enough for {{ sc // r.image }} image ads. No card needed.</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('signup') }}">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-    <label for="name">Your name</label><input id="name" type="text" name="name" autocomplete="name">
-    <label for="email">Email</label><input id="email" type="email" name="email" required autocomplete="email" value="{{ owner or '' }}">
+    <div class="hp" aria-hidden="true"><label for="website">Website</label><input id="website" type="text" name="website" tabindex="-1" autocomplete="off"></div>
+    <label for="name">Your name</label><input id="name" type="text" name="name" autocomplete="name" value="{{ name }}">
+    <label for="email">Email</label><input id="email" type="email" name="email" required autocomplete="email" value="{{ owner or email }}">
     <label for="pw">Password (8+ characters)</label><input id="pw" type="password" name="password" required minlength="8" autocomplete="new-password">
-    {% if owner %}<input type="hidden" name="invite" value="{{ invite }}">{% else %}<label for="inv">Invite code</label><input id="inv" type="text" name="invite" value="{{ invite }}" required>{% endif %}
+    {% if owner %}<input type="hidden" name="invite" value="{{ invite }}">
+    {% elif invite %}<label for="inv">Invite code</label><input id="inv" type="text" name="invite" value="{{ invite }}">
+    {% else %}<details class="inv"><summary class="small muted">Have an invite code?</summary><label for="inv">Invite code</label><input id="inv" type="text" name="invite" value=""></details>{% endif %}
     <p style="margin-top:22px"><button class="btn" style="width:100%">Create account</button></p>
+    <p class="small dim" style="margin:0">By creating an account you agree to the <a href="{{ url_for('terms') }}">terms</a> and <a href="{{ url_for('privacy') }}">privacy policy</a>.</p>
   </form>
   <p class="small muted">Already have one? <a href="{{ url_for('login') }}">Log in</a>.</p>
 {% endblock %}
