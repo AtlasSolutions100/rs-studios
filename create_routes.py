@@ -16,6 +16,7 @@ import creator
 import db
 import llm
 import platforms
+import presenter_stills
 import products
 from core import brand, can_afford, charge_ai, login_required, queue_job
 
@@ -129,10 +130,14 @@ def index():
         refs = conn.execute("SELECT id, title, seconds FROM refs WHERE active=1 ORDER BY id DESC").fetchall()
     prices = {"ugc_video": {d: catalog.price_credits("ugc_video", duration=d) for d in catalog.TOOLS["ugc_video"]["durations"]},
               "photo_to_video": {d: catalog.price_credits("photo_to_video", duration=d) for d in (5, 10)},
+              "ugc_video_1080p": {d: catalog.price_credits("ugc_video", duration=d, resolution="1080p")
+                                  for d in catalog.TOOLS["ugc_video"]["durations"]},
+              "photo_to_video_1080p": {d: catalog.price_credits("photo_to_video", duration=d, resolution="1080p")
+                                       for d in (5, 10)},
               "ad_image": {n: catalog.price_credits("ad_image", batch=n) for n in (1, 2, 3, 4)},
               "motion_copy": {r["id"]: catalog.price_credits("motion_copy", ref_seconds=r["seconds"] or 15) for r in refs}}
     boot = {"product": st, "prefill": prefill, "types": catalog.ad_types(), "caps": catalog.capabilities(),
-            "presenters": catalog.PRESENTERS, "voices": catalog.VOICES, "prices": prices,
+            "presenters": presenter_stills.with_photos(url_for), "voices": catalog.VOICES, "prices": prices,
             "templates": [{"id": t["id"], "name": t["name"], "line": t["line"], "tool": t["tool"],
                            "preview": url_for("static", filename="previews/" + t["preview"] + ".jpg")} for t in catalog.TEMPLATES],
             "refs": [{"id": r["id"], "title": r["title"], "seconds": r["seconds"], "url": url_for("ref_video", rid=r["id"])}
@@ -372,6 +377,13 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
         raise ConfigError("Write or pick at least one hook, headline or scene.", "script")
     b = brand(p["id"])
     jobs = []
+    res = str(d.get("resolution") or catalog.DEFAULT_RESOLUTION)
+    if catalog.resolutions(tool):
+        if res not in catalog.resolutions(tool):
+            raise ConfigError("Pick 720p or 1080p.", "format")
+    else:
+        res = ""
+    hd = " · 1080p" if res == "1080p" else ""
     aspects_ok = catalog.TOOLS[tool].get("aspects") or []
     aspects = list(dict.fromkeys(a for a in d.get("aspects") or [] if a in aspects_ok))[:MAX_ASPECTS] or \
         (aspects_ok[:1] if aspects_ok else [None])
@@ -390,7 +402,8 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
         if len(cast) > MAX_PRESENTERS:
             raise ConfigError(f"Pick at most {MAX_PRESENTERS} {'presenters' if typ == 'ugc' else 'voices'} per batch.", "cast")
         voice = d.get("voice") if d.get("voice") in catalog.VOICE_BY_ID else ""
-        credits, usd = catalog.price_credits(tool, duration=dur), catalog.cost_usd(tool, duration=dur)
+        credits, usd = catalog.price_credits(tool, duration=dur, resolution=res), catalog.cost_usd(tool, duration=dur,
+                                                                                                    resolution=res)
         for i, item in enumerate(items):
             said = (item + " " + body).strip()
             if len(said.split()) > limit:
@@ -401,13 +414,13 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
                 raise ConfigError(f"Script {i + 1}: " + " ".join(chk["blocks"] or [creator.CUSTOMER_VOICE]), "script")
             for who in cast:
                 for asp in aspects:
-                    params = dict(base, duration=dur, aspect=asp, setting=str(d.get("setting") or "")[:120])
+                    params = dict(base, duration=dur, aspect=asp, setting=str(d.get("setting") or "")[:120], resolution=res)
                     if typ == "ugc":
                         params.update(presenter=who, voice=voice or _default_voice(who))
-                        label = f"{catalog.PRESENTER_BY_ID[who]['name']} · {asp}"
+                        label = f"{catalog.PRESENTER_BY_ID[who]['name']} · {asp}{hd}"
                     else:
                         params.update(voice=who)
-                        label = f"{catalog.VOICE_BY_ID[who]['name']} · {asp}"
+                        label = f"{catalog.VOICE_BY_ID[who]['name']} · {asp}{hd}"
                     jobs.append({"tool": tool, "brief": said, "params": params, "credits": credits, "usd": usd,
                                  "label": label, "hook": item, "key": f"{i}:{who}:{asp}"})
     elif kind == "image":
@@ -424,14 +437,15 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
                              "label": f"{asp} · {n} version{'s' if n > 1 else ''}", "hook": item, "key": f"{i}::{asp}"})
     elif tool == "photo_to_video":
         dur = 10 if int(d.get("duration") or 5) == 10 else 5
-        credits, usd = catalog.price_credits(tool, duration=dur), catalog.cost_usd(tool, duration=dur)
+        credits, usd = catalog.price_credits(tool, duration=dur, resolution=res), catalog.cost_usd(tool, duration=dur,
+                                                                                                    resolution=res)
         for i, item in enumerate(items):
             chk = compliance.check(item)
             if not chk["ok"]:
                 raise ConfigError(f"Scene {i + 1}: " + " ".join(chk["blocks"]), "script")
             jobs.append({"tool": tool, "brief": item, "params": dict(base, photo_ids=photo_ids[:1], duration=dur,
-                                                                      audio=bool(d.get("audio"))),
-                         "credits": credits, "usd": usd, "label": f"{dur}s", "hook": item, "key": f"{i}::"})
+                                                                      audio=bool(d.get("audio")), resolution=res),
+                         "credits": credits, "usd": usd, "label": f"{dur}s{hd}", "hook": item, "key": f"{i}::"})
     else:
         ref = conn.execute("SELECT * FROM refs WHERE id=? AND active=1", (d.get("ref") or 0,)).fetchone()
         if not ref:
@@ -535,7 +549,7 @@ def generate():
         aid = save_angle(conn, p["id"], angle, "ai" if angle.get("ai") else "user") if angle.get("title") else None
         save_script(conn, p["id"], meta["type"]["id"], d.get("items"), d.get("body"), angle.get("title"), aid)
         cfg = {k: d.get(k) for k in ("type", "angle", "items", "body", "presenters", "voices", "voice", "duration",
-                                     "aspects", "platforms", "versions", "ref", "photos", "setting", "audio")}
+                                     "aspects", "platforms", "versions", "ref", "photos", "setting", "audio", "resolution")}
         cfg["made"] = [j["key"] for j in jobs]
         cfg["every"] = meta["every"]
         cfg["product"] = p["id"]

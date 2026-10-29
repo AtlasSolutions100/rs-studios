@@ -188,7 +188,7 @@ def _refs():
 
 
 def catalog_view(brand, photos, refs):
-    tools = {k: {"name": t["name"], "what": t["blurb"], "kind": t["kind"]} for k, t in catalog.TOOLS.items()}
+    tools = {k: {"name": t["name"], "what": t["blurb"], "kind": t["kind"]} for k, t in catalog.offered_tools().items()}
     tools["ad_image"]["credits"] = {f"{n} version{'s' if n > 1 else ''}": catalog.price_credits("ad_image", batch=n)
                                     for n in (1, 2, 4)}
     tools["ad_image"]["aspects"] = catalog.TOOLS["ad_image"]["aspects"]
@@ -214,7 +214,7 @@ def catalog_view(brand, photos, refs):
 def propose(conn, cid, ws_id, inp, photos, refs):
     """Validate one proposed ad and store it. Returns what the agent sees."""
     tool = inp.get("tool")
-    if tool not in catalog.TOOLS:
+    if tool not in catalog.offered_tools():
         return {"error": "unknown tool"}
     if tool == "motion_copy" and not refs:
         return {"error": "no reference videos are available; use another tool"}

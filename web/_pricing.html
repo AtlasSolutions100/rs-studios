@@ -1,4 +1,5 @@
 {# Plans + packs, shared by the landing page and /features. Needs r = rates(), sc = starter_credits(). #}
+<p class="lp-anchor">Talking videos from <b>{{ credits_usd(r.talk8) }}</b> · product videos from <b>{{ credits_usd(r.video5) }}</b> · image ads from <b>{{ credits_usd(r.image) }}</b>, paid in credits (1 credit = $0.01). You see the price before anything runs.</p>
 <div class="lp-prices plans">
   <div class="lp-price free">
     <h3>Free</h3>
@@ -14,6 +15,7 @@
     <h3>{{ p.name }}</h3>
     <div class="lp-amt">${{ p.usd }}<span class="per">/mo</span></div>
     <p class="lp-cr">{{ '{:,}'.format(p.credits) }} credits every month</p>
+    <p class="small plan-out">≈ {{ p.credits // r.talk10 }} talking videos or {{ p.credits // r.video5 }} product videos a month</p>
     <p class="muted small">{{ p.line }}</p>
     {% include "_plan_features.html" %}
     {% if billing_configured() %}
@@ -31,7 +33,7 @@
   <div class="lp-pack">
     <b>{{ p.name }} pack</b>
     <span class="lp-pack-amt">${{ p.usd }}</span>
-    <span class="muted small">{{ '{:,}'.format(p.credits) }} credits{% if p.bonus %} · <span class="gold">{{ '{:,}'.format(p.bonus) }} bonus</span>{% endif %} · about {{ '{:,}'.format(p.credits // r.image) }} image ads</span>
+    <span class="muted small">{{ '{:,}'.format(p.credits) }} credits{% if p.bonus %} · <span class="gold">{{ '{:,}'.format(p.bonus) }} bonus</span>{% endif %} · about {{ p.credits // r.talk10 }} talking videos or {{ '{:,}'.format(p.credits // r.image) }} image ads</span>
   </div>
   {% endfor %}
 </div>

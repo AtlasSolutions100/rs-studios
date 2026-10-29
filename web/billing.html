@@ -5,14 +5,15 @@
 <div class="page full">
   <p class="eyebrow">Billing</p>
   <h1>Your plan and <span class="gold">credits</span></h1>
-  <p class="muted">1 credit = $0.01. Image ad {{ r.image }} · 5-second video {{ r.video5 }} · 10-second video {{ r.video10 }} credits. Failed generations are refunded automatically.</p>
+  <p class="muted">1 credit = $0.01. Talking videos from {{ '{:,}'.format(r.talk8) }} credits ({{ credits_usd(r.talk8) }}) · 10-second talking video {{ '{:,}'.format(r.talk10) }} ({{ '{:,}'.format(r.talk10_1080) }} in 1080p) · 5-second product video {{ r.video5 }} · image ad {{ r.image }}. Failed generations are refunded automatically.</p>
 
   <div class="bill-top">
     <div class="panel bal">
       <span class="muted small">Balance</span>
       <div class="price">{{ '{:,}'.format(balance()) }}</div>
       {% set n = balance() // r.image %}
-      <span class="muted small">credits · about {{ '{:,}'.format(n) }} image ad{{ '' if n == 1 else 's' }}</span>
+      {% set tv = balance() // r.talk10 %}{% set pv = balance() // r.video5 %}
+      <span class="muted small">credits · {{ credits_usd(balance()) }} · ≈ {{ tv }} talking video{{ '' if tv == 1 else 's' }} (10 s), {{ pv }} product video{{ '' if pv == 1 else 's' }} (5 s) or {{ '{:,}'.format(n) }} image ad{{ '' if n == 1 else 's' }}</span>
       {% if g.ws.plan_credits %}<p class="small muted" style="margin:12px 0 0">{{ '{:,}'.format(g.ws.plan_credits) }} plan credits{% if g.ws.plan_period_end %} (renew {{ g.ws.plan_period_end|localtime('date') }}){% endif %} · {{ '{:,}'.format(g.ws.credits) }} pack credits</p>{% endif %}
     </div>
     <div class="panel planbox">
@@ -37,6 +38,7 @@
       <h3>{{ p.name }}</h3>
       <div class="lp-amt">${{ p.usd }}<span class="per">/mo</span></div>
       <p class="lp-cr">{{ '{:,}'.format(p.credits) }} credits every month</p>
+      <p class="small plan-out">≈ {{ p.credits // r.talk10 }} talking videos or {{ p.credits // r.video5 }} product videos a month</p>
       <p class="muted small">{{ p.line }}</p>
       {% include "_plan_features.html" %}
       {% if not owner %}
@@ -60,7 +62,7 @@
       <h3>{{ p.name }} pack</h3>
       <div class="lp-amt">${{ p.usd }}</div>
       <p class="lp-cr">{{ '{:,}'.format(p.credits) }} credits{% if p.bonus %} <span class="gold">· {{ '{:,}'.format(p.bonus) }} bonus</span>{% endif %}</p>
-      <p class="muted small">About {{ '{:,}'.format(p.credits // r.image) }} image ads or {{ p.credits // r.video5 }} five-second videos.</p>
+      <p class="muted small">About {{ p.credits // r.talk10 }} talking videos (10 s), {{ p.credits // r.video5 }} product videos (5 s) or {{ '{:,}'.format(p.credits // r.image) }} image ads.</p>
       {% if billing_configured() %}
       <form method="post" action="{{ url_for('checkout') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="pack" value="{{ p.code }}"><button class="btn dark" style="width:100%">Buy for ${{ p.usd }}</button></form>
       {% else %}

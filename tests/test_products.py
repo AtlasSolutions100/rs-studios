@@ -621,6 +621,11 @@ check(not ck["ok"] and [x["over"] for x in ck["items"]] == [False, True, False] 
       "step checks flag a too-long hook and a rule break, for free")
 check(jpost(u, "/app/create/check", {"type": "image", "items": ["Glow in a minute"], "body": "Serum on a shelf."}).get_json()["ok"],
       "a clean headline passes the step check")
+q = jpost(u, "/app/create/quote", dict(cfg, resolution="1080p")).get_json()
+check(q["each"] == catalog.price_credits("ugc_video", duration=10, resolution="1080p") == 1593 and "1080p" in q["lines"][0]["label"],
+      "Create quotes 1080p at its own price and labels the lines")
+e = jpost(u, "/app/create/quote", dict(cfg, resolution="480p")).get_json()
+check(e["count"] == 0 and e["step"] == "format", "480p can't be ordered")
 html = u.get("/app/create?type=ugc").get_data(as_text=True)
 check("data-formula" in html and "data-bar" in html and "data-one" in html and "data-many" in html and "confirm(" not in html,
       "Create shows the running total, the phone bar, make 1 first and the big-batch tick")

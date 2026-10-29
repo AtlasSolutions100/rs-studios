@@ -31,6 +31,7 @@ import creator
 import db
 import hf
 import plans
+import presenter_stills
 import preview
 import products
 import worker
@@ -76,7 +77,7 @@ def _balance():
 import llm  # noqa: E402
 import platforms as platforms_mod  # noqa: E402
 
-app.jinja_env.globals.update(csrf_token=csrf_token, tools=catalog.TOOLS, packs=catalog.PACKS, llm_on=llm.configured,
+app.jinja_env.globals.update(csrf_token=csrf_token, tools=catalog.DISPLAY_TOOLS, packs=catalog.PACKS, llm_on=llm.configured,
                              assistant_on=llm.anthropic_ready,
                              PLATFORMS=platforms_mod.PLATFORMS, PLATFORM_ORDER=platforms_mod.ORDER,
                              COPY_KINDS=platforms_mod.KINDS,
@@ -149,6 +150,14 @@ def localtime(iso, mode="datetime"):
 app.jinja_env.filters.update(first_upper=first_upper, localtime=localtime, usd=credits_usd,
                               failure_text=worker.failure_text)
 app.jinja_env.globals.update(credits_usd=credits_usd, categories=products.CATEGORIES, category_of=products.category_of)
+
+
+def _hd_offer(job):
+    import jobs_routes
+    return jobs_routes.hd_offer(job)
+
+
+app.jinja_env.globals["hd_offer"] = _hd_offer
 
 
 # platform -> setup guide link (the planner's launch checklist links to these).
@@ -594,8 +603,7 @@ def _first_ad_context(conn, form):
     kind = form.get("kind") or ("preview" if pv["ok"] else "image")
     tpls = catalog.first_run_templates(brand())
     return {"tpls": tpls, "photos": photos, "form": form, "preview": pv, "kind": kind,
-            "price": catalog.price_credits("ad_image", batch=1), "presenters": [catalog.PRESENTER_BY_ID[x] for x in
-                                                                               preview.PRESENTERS],
+            "price": catalog.price_credits("ad_image", batch=1), "presenters": [p for p in presenter_stills.with_photos(url_for) if p["id"] in preview.PRESENTERS],
             "line": form.get("line") or "", "default_line": preview.DEFAULT_LINE, "pick": form.get("template") or
             tpls[0]["id"], "seconds": preview.SECONDS,
             "max_words": int(catalog.max_words(preview.SECONDS) * 1.2)}
@@ -628,7 +636,7 @@ def new():
 def generate():
     f = request.form
     tool = f.get("tool")
-    if tool not in catalog.TOOLS or tool == "ugc_video":
+    if tool not in catalog.offered_tools() or tool == "ugc_video":
         abort(400)
     pid = picked_product() or g.ws["product_id"]
     tpl_id = f.get("template") or None
@@ -1474,11 +1482,43 @@ def admin():
         purchases = conn.execute("SELECT p.*, w.name ws_name FROM purchases p JOIN workspaces w ON w.id=p.workspace_id "
                                  "WHERE p.status='paid' ORDER BY p.id DESC LIMIT 30").fetchall()
         row = conn.execute("SELECT value FROM meta WHERE key='vendor_prices'").fetchone()
+        stills = presenter_stills.state(conn)
+        if any(j.get("status") == "running" for j in stills["jobs"].values()) and hf.configured():
+            presenter_stills.collect(conn)
+            stills = presenter_stills.state(conn)
     vendor = json.loads(row["value"]) if row else None
     return render_template("admin.html", wss=wss, invites=invites, refs=refs, jobs=jobs, purchases=purchases,
                            billing_on=billing.configured(), vendor=vendor,
-                           markup=catalog.MARKUP, configured=hf.configured(), base=request.host_url,
+                           markup=catalog.MARKUP, hd_markup=catalog.HD_MARKUP, configured=hf.configured(),
+                           base=request.host_url, stills=stills, presenters=presenter_stills.with_photos(url_for),
+                           stills_cap=presenter_stills.CAP_USD,
                            ai_status=llm.status())
+
+
+@app.route("/admin/presenters", methods=["POST"])
+@admin_required
+def admin_presenter_stills():
+    """Make the presenter sample stills (once, capped). See presenter_stills.py."""
+    if not hf.configured():
+        flash("The generation service isn't connected (HF_KEY).")
+        return redirect(url_for("admin") + "#presenters")
+    with db.connect() as conn:
+        try:
+            msg = presenter_stills.start(conn) if request.form.get("do") == "start" else \
+                f"Saved {presenter_stills.collect(conn)} finished still(s)."
+        except hf.GenError as e:
+            msg = f"The vendor refused: {e}"
+    flash(msg, "ok")
+    return redirect(url_for("admin") + "#presenters")
+
+
+@app.route("/presenter/<pid>.jpg")
+@login_required
+def presenter_photo(pid):
+    p = presenter_stills.path_for(pid) if pid in catalog.PRESENTER_BY_ID else None
+    if not p:
+        abort(404)
+    return send_file(p, mimetype="image/jpeg", max_age=86400)
 
 
 @app.route("/admin/prices", methods=["POST"])
@@ -1493,7 +1533,16 @@ def admin_prices():
                                                     "resolution": "720p", "bitrate_mode": "high", "generate_audio": False}),
                ("ugc_video", {"duration": 10}, {"prompt": "A presenter holds the product and says hello.",
                                                 "image_urls": [img], "duration": 10, "aspect_ratio": "9:16",
-                                                "resolution": "720p", "bitrate_mode": "high", "generate_audio": True})]
+                                                "resolution": "720p", "bitrate_mode": "high", "generate_audio": True}),
+               ("photo_to_video", {"duration": 5, "resolution": "1080p"},
+                {"prompt": "Slow pan", "image_url": img, "duration": 5, "resolution": "1080p", "bitrate_mode": "high",
+                 "generate_audio": False}),
+               ("ugc_video", {"duration": 10, "resolution": "1080p"},
+                {"prompt": "A presenter holds the product and says hello.", "image_urls": [img], "duration": 10,
+                 "aspect_ratio": "9:16", "resolution": "1080p", "bitrate_mode": "high", "generate_audio": True})]
+    if catalog.upscale_on():
+        samples.append(("video_upscale", {"duration": 5},
+                        {"video_url": url_for("static", filename="site/ugc-coffee.mp4", _external=True)}))
     rows = []
     for tool, kw, inputs in samples:
         ours = catalog.cost_usd(tool, **kw)

@@ -114,6 +114,7 @@
           <div data-aspects-wrap><label>Shapes <span class="dim">(each shape is its own version)</span></label><div class="choices" data-aspects></div></div>
           <div data-vdur-wrap><label>Length</label><div class="choices" data-vdurs></div>
             <label class="choice" style="display:inline-flex;gap:8px;margin-top:10px"><input type="checkbox" data-audio>Generate sound</label></div>
+          <div data-res-wrap><label>Quality</label><div class="choices" data-res></div><p class="small muted" style="margin:6px 0 0" data-res-note></p></div>
           <div data-versions-wrap><label>Versions of each headline</label><div class="choices" data-versions></div></div>
           <div data-ref-wrap><label>Reference clip <span class="dim">(the moves to copy)</span></label><div class="cf-refs" data-refs></div></div>
           <label>Product photos used <span class="dim" data-photo-max></span></label><div class="photos" data-photos></div>
@@ -169,7 +170,7 @@
            duration: P.duration || 10, aspects: P.aspects || [], platforms: P.platforms || [], versions: P.versions || 1,
            ref: P.ref || (B.refs[0] && B.refs[0].id) || null, photos: P.photos || [], audio: !!P.audio, ideas: [],
            step: 'product', from_ad: P.from_ad || null, aiAngle: false,
-           lines: null, skip: P.skip || null, many: false, flags: null};
+           lines: null, skip: P.skip || null, many: false, flags: null, resolution: P.resolution || '720p'};
   var $ = function(s, r){ return (r||document).querySelector(s); }, $$ = function(s, r){ return [].slice.call((r||document).querySelectorAll(s)); };
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   function n(x){ return Number(x || 0).toLocaleString(); }
@@ -190,9 +191,10 @@
   function est(){
     var t = T(); if(!S.product || !t) return null;
     var k = kind(), items = liveItems(), cast = 1, shapes = Math.max(1, S.aspects.length), each = 0, f = [];
-    if(k === 'spoken'){ cast = S.type === 'ugc' ? S.presenters.length : Math.max(1, S.voices.length); each = B.prices.ugc_video[S.duration] || 0; }
+    var hd = S.resolution === '1080p' ? '_1080p' : '';
+    if(k === 'spoken'){ cast = S.type === 'ugc' ? S.presenters.length : Math.max(1, S.voices.length); each = B.prices['ugc_video' + hd][S.duration] || 0; }
     else if(t.tool === 'ad_image'){ each = B.prices.ad_image[S.versions] || 0; }
-    else if(t.tool === 'photo_to_video'){ shapes = 1; each = B.prices.photo_to_video[S.duration == 10 ? 10 : 5] || 0; }
+    else if(t.tool === 'photo_to_video'){ shapes = 1; each = B.prices['photo_to_video' + hd][S.duration == 10 ? 10 : 5] || 0; }
     else { shapes = 1; each = B.prices.motion_copy[S.ref] || 0; }
     f.push(plural(items, noun()));
     if(talking()) f.push(plural(cast, S.type === 'ugc' ? 'presenter' : 'voice'));
@@ -315,7 +317,7 @@
     function short(x){ var w = x.split(/\s+/); return w.length > 4 ? w.slice(0, 4).join(' ') + '…' : x; }
     $('[data-sum=script]').textContent = items.length ? plural(items.length, noun()) + ': ' + items.slice(0, 2).map(function(x){ return '“' + short(x) + '”'; }).join(', ') + (items.length > 2 ? ', +' + (items.length - 2) : '') + (kind() === 'spoken' ? ' · ' + S.duration + ' s' : '') : '';
     $('[data-sum=cast]').textContent = S.type === 'ugc' ? S.presenters.map(function(id){ return pres(id).name; }).join(', ') : S.voices.map(function(id){ return voice(id).name; }).join(', ');
-    $('[data-sum=format]').textContent = [S.aspects.join(', '), kind() !== 'spoken' && S.type === 'product_video' ? S.duration + ' s' : '', S.type === 'image' ? plural(+S.versions, 'version') + ' each' : '', S.photos.length ? plural(S.photos.length, 'photo') : ''].filter(Boolean).join(' · ');
+    $('[data-sum=format]').textContent = [S.aspects.join(', '), kind() !== 'spoken' && S.type === 'product_video' ? S.duration + ' s' : '', S.type === 'image' ? plural(+S.versions, 'version') + ' each' : '', isVideo() && S.type !== 'motion' ? S.resolution : '', S.photos.length ? plural(S.photos.length, 'photo') : ''].filter(Boolean).join(' · ');
   }
   function pres(id){ return B.presenters.filter(function(p){ return p.id === id; })[0] || {name: id}; }
   function voice(id){ return B.voices.filter(function(v){ return v.id === id; })[0] || {name: id}; }
@@ -390,6 +392,11 @@
       return '<label class="choice chk"><input type="checkbox" value="' + k + '"' + (on ? ' checked' : '') + ' data-plat>' + esc(B.platforms[k]) + ' <span class="dim">' + B.platform_aspects[k] + '</span></label>'; }).join('');
     var hint = S.type === 'ugc' ? {'1:1': 'feed · rarely for selfie video', '16:9': 'landscape · rarely for selfie video'} : {};
     $('[data-aspects]').innerHTML = asp.map(function(a){ var on = S.aspects.indexOf(a) > -1; return '<label class="choice chk"><input type="checkbox" value="' + a + '"' + (on ? ' checked' : '') + ' data-asp>' + a + (hint[a] ? ' <span class="cf-chipp">' + hint[a] + '</span>' : '') + '</label>'; }).join('');
+    var resd = tool === 'ugc_video' || tool === 'photo_to_video', d = tool === 'photo_to_video' ? (S.duration == 10 ? 10 : 5) : S.duration;
+    $('[data-res-wrap]').hidden = !resd;
+    if(resd){ var p7 = B.prices[tool][d], p10 = B.prices[tool + '_1080p'][d];
+      $('[data-res]').innerHTML = [['720p', p7, ''], ['1080p', p10, ' (+' + n(p10 - p7) + ')']].map(function(r){ return '<label class="choice"><input type="radio" name="cf-res" value="' + r[0] + '"' + (S.resolution === r[0] ? ' checked' : '') + '>' + r[0] + ' <span class="cf-chipp">' + n(r[1]) + r[2] + '</span></label>'; }).join('');
+      $('[data-res-note]').textContent = S.resolution === '1080p' ? 'Sharper on big screens. Per video: ' + n(p10) + ' credits (' + usd(p10) + '), ' + n(p10 - p7) + ' more than 720p.' : '720p looks right on phones. You can re-render a finished video in 1080p later.'; }
     $('[data-vdur-wrap]').hidden = tool !== 'photo_to_video';
     $('[data-vdurs]').innerHTML = [5, 10].map(function(d){ return '<label class="choice"><input type="radio" name="cf-vdur" value="' + d + '"' + ((S.duration == d || (d == 5 && S.duration != 10)) ? ' checked' : '') + '>' + d + ' s <span class="cf-chipp">' + n(B.prices.photo_to_video[d]) + '</span></label>'; }).join('');
     $('[data-audio]').checked = S.audio;
@@ -416,7 +423,8 @@
   }
   function config(){ readItems(); var c = {product: S.product && S.product.id, type: S.type, angle: S.angle, items: S.items.filter(Boolean), body: S.body,
       presenters: S.presenters, voices: S.voices, voice: S.voice, setting: S.setting, duration: S.duration, aspects: S.aspects,
-      platforms: S.platforms, versions: S.versions, ref: S.ref, photos: S.photos, audio: S.audio, from_ad: S.from_ad};
+      platforms: S.platforms, versions: S.versions, ref: S.ref, photos: S.photos, audio: S.audio, from_ad: S.from_ad,
+      resolution: (T() && (T().tool === 'ugc_video' || T().tool === 'photo_to_video')) ? S.resolution : undefined};
     if(S.lines) c.lines = S.lines; return c; }
   var qt = null, lastQuote = null, qseq = 0;
   function liveQuote(){ clearTimeout(qt); showTotals(); if(steps().indexOf(S.step) < steps().indexOf('script') || !S.items.filter(Boolean).length) return; qt = setTimeout(function(){ quote(false); }, 300); }
@@ -478,9 +486,10 @@
     if(t.name === 'cf-type'){ S.type = t.value; S.aspects = []; dirty(); if(S.type === 'ugc' && !S.presenters.length) S.presenters = ['maya']; if(S.type === 'product_video') S.duration = 5; else if(kind() === 'spoken' && B.durations.ugc_video.indexOf(+S.duration) < 0) S.duration = 10; render(); }
     if(t.name === 'cf-angle'){ var x = ($('[data-angles]')._list || []).filter(function(y){ return y.key === t.value; })[0]; if(x){ S.angle = x.a; if(x.tag === 'Idea') S.angle.ai = true; render(); } }
     if(t.name === 'cf-dur'){ S.duration = +t.value; dirty(); count(); markItems(); summaries(); liveQuote(); }
-    if(t.name === 'cf-vdur'){ S.duration = +t.value; dirty(); liveQuote(); }
+    if(t.name === 'cf-vdur'){ S.duration = +t.value; dirty(); renderFormat(); liveQuote(); var vf = $('input[name=cf-vdur][value="' + t.value + '"]'); if(vf) vf.focus(); }
     if(t.name === 'cf-ver'){ S.versions = +t.value; dirty(); liveQuote(); }
     if(t.name === 'cf-ref'){ S.ref = +t.value; dirty(); liveQuote(); }
+    if(t.name === 'cf-res'){ S.resolution = t.value; dirty(); renderFormat(); summaries(); liveQuote(); var rf = $('input[name=cf-res][value="' + t.value + '"]'); if(rf) rf.focus(); }
     if(t.matches('[data-pres]')){ S.presenters = $$('[data-pres]:checked').map(function(x){ return x.value; }); dirty(); renderCast(); var f = $('[data-pres][value="' + t.value + '"]'); if(f) f.focus(); summaries(); side(); liveQuote(); }
     if(t.matches('[data-narr]')){ S.voices = $$('[data-narr]:checked').map(function(x){ return x.value; }); dirty(); renderCast(); var fv = $('[data-narr][value="' + t.value + '"]'); if(fv) fv.focus(); summaries(); side(); liveQuote(); }
     if(t.matches('[data-voice]')){ S.voice = t.value; }
