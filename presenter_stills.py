@@ -51,7 +51,7 @@ def inputs(pr: dict) -> dict:
                        f"famous person): a {pr['look']}, in {pr['setting']}. Friendly, natural expression, looking at "
                        "the camera like a phone selfie video, soft natural light, shallow depth of field. No text, no "
                        "logos, no watermark."),
-            "num_images": 1, "resolution": "2K", "aspect_ratio": "3:4"}
+            "num_images": 1, "resolution": "1080p", "aspect_ratio": "3:4"}   # the model takes 720p or 1080p
 
 
 def state(conn) -> dict:
