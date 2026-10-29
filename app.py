@@ -11,6 +11,8 @@ import json
 import logging
 import mimetypes
 import os
+import threading
+import time
 import secrets
 import shutil
 import subprocess
@@ -880,6 +882,12 @@ def billing_page():
     elif request.args.get("plan") == "success":
         flash("You're subscribed, thank you. Your plan and its monthly credits switch on in a few seconds; "
               "refresh if they haven't yet.")
+    try:
+        if _maybe_reconcile(g.ws["id"], force=request.args.get("plan") == "success"):
+            with db.connect() as conn:
+                g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone()
+    except Exception:  # noqa: BLE001
+        log.exception("plan sync on billing page failed")
     with db.connect() as conn:
         purchases = conn.execute("SELECT * FROM purchases WHERE workspace_id=? AND status IN ('paid','open') "
                                  "ORDER BY id DESC LIMIT 50", (g.ws["id"],)).fetchall()
@@ -1152,6 +1160,85 @@ def _plan_subscription_changed(sub, deleted=False):
                       _iso(billing.subscription_period_end(sub)), sub_id, customer, ws["id"]))
         conn.commit()
     return jsonify({"ok": True, "plan": code, "status": status})
+
+
+# ---------------------------------------------------------------- plan sync
+# Webhooks are the fast path; this is the safety net. It reads the workspace's
+# plan subscription and newest paid invoice straight from Stripe and applies
+# whatever the webhook missed. Invoices apply once (plan_invoices), so running
+# it again is harmless.
+
+_last_sync: dict = {}
+
+
+def _reconcile_plan(ws_id: int) -> int:
+    """Returns the credits granted by this sync (0 when nothing was missing)."""
+    if not billing.configured():
+        return 0
+    with db.connect() as conn:
+        ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+    if not ws:
+        return 0
+    try:
+        subs = [billing.get_subscription(ws["stripe_subscription_id"])] if ws["stripe_subscription_id"] \
+            else billing.find_plan_subscriptions(ws_id)
+    except billing.BillingError as e:
+        log.warning("plan sync for workspace %s: %s", ws_id, e)
+        return 0
+    granted = 0
+    for sub in sorted(subs, key=lambda x: x.get("created") or 0):
+        meta = sub.get("metadata") or {}
+        if meta.get("app") != billing.APP_TAG or str(meta.get("workspace_id")) != str(ws_id):
+            continue
+        status = sub.get("status")
+        if status in plans.LIVE_STATUSES:
+            try:
+                inv = billing.latest_paid_invoice(sub["id"])
+            except billing.BillingError as e:
+                log.warning("plan sync for workspace %s: %s", ws_id, e)
+                inv = None
+            if inv:
+                out = _plan_invoice_paid(inv).get_json() or {}
+                granted += int(out.get("credited") or 0)
+        _plan_subscription_changed(sub, deleted=status == "canceled")
+    if granted:
+        log.info("plan sync for workspace %s granted %s credits", ws_id, granted)
+    return granted
+
+
+def _maybe_reconcile(ws_id: int, force: bool = False) -> int:
+    now = time.time()
+    if not force and now - _last_sync.get(ws_id, 0) < 60:
+        return 0
+    _last_sync[ws_id] = now
+    return _reconcile_plan(ws_id)
+
+
+def _reconcile_all():
+    with db.connect() as conn:
+        ids = [r["id"] for r in conn.execute(
+            "SELECT id FROM workspaces WHERE stripe_subscription_id IS NOT NULL AND stripe_subscription_id != ''")]
+    for ws_id in ids:
+        try:
+            _reconcile_plan(ws_id)
+        except Exception:  # noqa: BLE001
+            log.exception("plan sync failed for workspace %s", ws_id)
+
+
+def _start_plan_sync():
+    if os.environ.get("RS_PLAN_SYNC", "1") != "1":
+        return
+
+    def loop():
+        while True:
+            time.sleep(3600)
+            with app.app_context():
+                _reconcile_all()
+
+    threading.Thread(target=loop, name="rs-plan-sync", daemon=True).start()
+
+
+_start_plan_sync()
 
 
 # ---------------------------------------------------------------- admin

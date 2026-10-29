@@ -118,6 +118,35 @@ def create_portal_session(*, customer: str, return_url: str) -> str:
     return _post("/billing_portal/sessions", form)["url"]
 
 
+def _get(path: str, params: list | None = None) -> dict:
+    try:
+        r = requests.get(f"{API}{path}", params=params or [], auth=(secret_key(), ""), timeout=30)
+    except requests.RequestException as e:
+        raise BillingError(f"Stripe unreachable: {e.__class__.__name__}") from e
+    if r.status_code >= 400:
+        try:
+            msg = r.json().get("error", {}).get("message") or r.text
+        except ValueError:
+            msg = r.text
+        raise BillingError(f"Stripe {r.status_code}: {str(msg)[:300]}")
+    return r.json()
+
+
+def get_subscription(sub_id: str) -> dict:
+    return _get(f"/subscriptions/{sub_id}")
+
+
+def find_plan_subscriptions(workspace_id: int) -> list[dict]:
+    """Our plan subscriptions for a workspace, found by the metadata we set at checkout."""
+    q = f"metadata['app']:'{APP_TAG}' AND metadata['workspace_id']:'{int(workspace_id)}'"
+    return _get("/subscriptions/search", [("query", q), ("limit", "10")]).get("data") or []
+
+
+def latest_paid_invoice(sub_id: str) -> dict | None:
+    data = _get("/invoices", [("subscription", sub_id), ("status", "paid"), ("limit", "1")]).get("data") or []
+    return data[0] if data else None
+
+
 def _post(path: str, form: list, idempotency_key: str | None = None) -> dict:
     headers = {"Idempotency-Key": idempotency_key} if idempotency_key else {}
     try:

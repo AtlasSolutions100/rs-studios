@@ -321,6 +321,16 @@ with db.connect() as conn:
           "no Stripe keys: buy button doesn't crash, nothing recorded")
 WHSEC = "whsec_test_only"
 os.environ.update(STRIPE_SECRET_KEY="sk_test_fake", STRIPE_WEBHOOK_SECRET=WHSEC)
+stripe_reads = []
+STRIPE_GET = {}
+
+
+def fake_get(path, params=None):
+    stripe_reads.append((path, params))
+    return STRIPE_GET.get(path, {"data": []})
+
+
+billing._get = fake_get  # no network in tests; the plan sync reads through this
 sessions = []
 
 
@@ -1342,6 +1352,29 @@ check(n.get("/app/community").status_code in (402, 200) and b"Glow Club" not in 
 a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "growth"})
 check(mia.get("/c/glow-club").status_code == 404, "community goes offline when the plan no longer includes it")
 a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "scale"})
+
+print("== plan sync (webhook missed)")
+with db.connect() as conn:
+    cur = conn.execute("INSERT INTO workspaces (name, created_at) VALUES ('Sync test', ?)", (db.now(),))
+    sws = cur.lastrowid
+    conn.commit()
+sub_obj = {"id": "sub_sync", "object": "subscription", "status": "active", "created": 1, "customer": "cus_sync",
+           "metadata": {"app": "campaignify", "kind": "plan", "workspace_id": str(sws), "plan": "scale"},
+           "items": {"data": [{"price": {"id": plans.PLANS["scale"]["price_id"]}, "current_period_end": 1893456000}]}}
+free_inv = plan_invoice("in_sync", sws, "scale", sub="sub_sync", new_shape=True, amount=0)["data"]["object"]
+STRIPE_GET.update({"/subscriptions/search": {"data": [sub_obj]}, "/invoices": {"data": [free_inv]}})
+with appmod.app.test_request_context():
+    got = appmod._reconcile_plan(sws)
+w = wsrow(sws)
+check(got == 18000 and w["plan_credits"] == 18000 and plans.plan_code(w) == "scale"
+      and w["stripe_subscription_id"] == "sub_sync", "sync finds the subscription by metadata and grants a missed $0 invoice")
+with appmod.app.test_request_context():
+    check(appmod._reconcile_plan(sws) == 0 and wsrow(sws)["plan_credits"] == 18000, "sync again: nothing granted twice")
+check(any(pth == "/subscriptions/sub_sync" for pth, _ in stripe_reads[-3:]), "known subscription is read by id")
+STRIPE_GET.update({"/subscriptions/sub_sync": dict(sub_obj, metadata={"app": "other", "workspace_id": str(sws)})})
+with appmod.app.test_request_context():
+    check(appmod._reconcile_plan(sws) == 0, "a subscription that isn't ours is ignored")
+STRIPE_GET.clear()
 
 print("== pages")
 a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": ws1["id"], "plan": "scale"})
