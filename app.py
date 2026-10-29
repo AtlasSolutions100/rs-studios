@@ -30,6 +30,7 @@ import hf
 import plans
 import worker
 from core import admin_required, brand, feature_required, is_owner, login_required, owner_required  # noqa: F401
+from core import queue_job as _queue_job  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 UPLOADS = os.path.join(db.DATA, "uploads")
@@ -84,6 +85,7 @@ app.jinja_env.globals.update(csrf_token=csrf_token, tools=catalog.TOOLS, packs=c
 # Sidebar: (endpoint, label, icon, feature or None, endpoints that light it up).
 NAV = [
     ("studio", "Create", "create", None, ("studio", "new", "start")),
+    ("campaigns.index", "Campaigns", "planner", "planner", ("campaigns.index", "campaigns.show")),
     ("copy.studio", "Copy", "copy", "copy", ("copy.studio", "copy.run", "copy.optimize", "copy.optimized")),
     ("library", "Library", "library", None, ("library",)),
     ("brand_kit", "Brand kit", "brand", None, ("brand_kit",)),
@@ -95,9 +97,13 @@ NAV = [
 app.jinja_env.filters["fromjson"] = lambda s: json.loads(s or "{}")
 
 
+# platform -> setup guide link, filled in by the ad-account hub when it ships.
+ADHUB_LINKS = {}
+
+
 @app.context_processor
 def _nav():
-    return {"nav_items": NAV}
+    return {"nav_items": NAV, "adhub_links": ADHUB_LINKS}
 
 
 CSRF_EXEMPT = {"static", "stripe_webhook"}
@@ -218,6 +224,11 @@ FEATURE_DETAILS = {
     "brand_kit": ["Approved claims copied from your label", "Product photos reused across every ad",
                   "More than one brand on Growth and Scale"],
     "priority": ["Scale workspaces' generations start before the rest of the queue"],
+    "planner": ["Give it the offer, audience, goal, budget and platforms",
+                "It proposes angles, writes hooks and scripts, and lines up ads from Campaignify's own templates",
+                "Writes the copy for each platform, a budget split, what to watch and a launch checklist",
+                "You watch every step; ads are only generated when you confirm them, at the price shown",
+                "Planning costs what the AI actually used (capped, shown before you start)"],
     "copy": ["Ad copy with every text field each platform takes, sized to its display lengths",
              "Hooks with on-screen text, captions with hashtags, headlines, emails and landing-page copy",
              "Facebook & Instagram, TikTok, YouTube, Google Search, X, LinkedIn, Pinterest, Snapchat and Reddit",
@@ -453,24 +464,6 @@ def generate():
         flash("Heads up: " + w)
     flash("Started. It shows up in your library in a minute or two.")
     return redirect(url_for("library", highlight=jid))
-
-
-def _queue_job(conn, tool, tpl_id, brief, params, usd, credits):
-    """Insert a pending job and take its credits in one transaction. None (and a
-    message) when the workspace can't afford it."""
-    now = db.now()
-    cur = conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, template_id, brief, params_json, "
-                       "status, credits, cost_usd, created_at, updated_at, priority) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                       (g.ws["id"], g.user["id"], tool, tpl_id, brief, json.dumps(params), "pending",
-                        credits, round(usd, 4), now, now, plans.priority(g.ws)))
-    jid = cur.lastrowid
-    if not db.adjust_credits(conn, g.ws["id"], -credits, "generation", jid):
-        conn.rollback()
-        flash(f"That needs {credits:,} credits and you have {db.balance(g.ws):,}. Buy a credit pack or pick a plan "
-              "on the Billing page.")
-        return None
-    conn.commit()
-    return jid
 
 
 # ---------------------------------------------------------------- guided first ad
@@ -1192,9 +1185,11 @@ def ref_video(rid):
     return send_file(r["path"], conditional=True)
 
 
+import campaign_routes  # noqa: E402
 import copy_routes  # noqa: E402  (blueprints import core, never app)
 
 app.register_blueprint(copy_routes.bp)
+app.register_blueprint(campaign_routes.bp)
 
 
 @app.errorhandler(400)

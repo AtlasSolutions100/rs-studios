@@ -12,6 +12,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 TMP = tempfile.mkdtemp(prefix="rs_test_")
 import hashlib  # noqa: E402
+import json  # noqa: E402
 OWNER_CODE, OWNER2_CODE = "owner-code-koby", "owner-code-travis"
 os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret", RS_MARKUP="2.0",
                   RS_OWNER_INVITES=f"koby@example.com:{hashlib.sha256(OWNER_CODE.encode()).hexdigest()},"
@@ -702,11 +703,153 @@ check(r.status_code == 302 and db.balance(wsrow(xws["id"])) == bal2, "writer err
 llm._anthropic = fake_anthropic
 check(b"AI writing (planner, copy, SEO): <b>on" in a.get("/admin").data, "admin shows the AI writing status")
 
+print("== campaign planner")
+import planner  # noqa: E402
+check(client().get("/app/campaigns").status_code == 302, "planner needs a login")
+fz = client()
+fz.post("/signup", data={"csrf": csrf(fz), "email": "free2@example.com", "password": "longpassword"})
+check(fz.get("/app/campaigns").status_code == 402, "free account: planner shows the upgrade page")
+plan_bodies = []
+
+
+def tu(i, name, inp):
+    return {"type": "tool_use", "id": f"toolu_{i}_{name}", "name": name, "input": inp}
+
+
+def fake_agent(body):
+    if not any(t.get("name") == "get_brand_and_catalog" for t in body.get("tools") or []):
+        return fake_anthropic(body)
+    plan_bodies.append(body)
+    turn = sum(1 for m in body["messages"] if m["role"] == "assistant")
+    script = [
+        [{"type": "text", "text": "Reading the brand kit first."}, tu(0, "get_brand_and_catalog", {})],
+        [tu(1, "save_angles", {"angles": [
+            {"name": "Seven a.m. skin", "insight": "Mornings are rushed", "audience": "Busy women 30-45", "why": "Specific moment"},
+            {"name": "Desk drawer", "insight": "Reapply at work", "audience": "Office workers"},
+            {"name": "Gift", "insight": "Easy gift", "audience": "Partners"}]}),
+         tu(2, "save_creative", {"angle": "Seven a.m. skin", "format": "UGC talking video",
+                                 "hooks": ["Your 7am routine is too long.", "One drop, out the door."],
+                                 "script": "Beat 1: alarm. Beat 2: one drop. Beat 3: out the door.",
+                                 "on_screen_text": ["One drop", "Done"]}),
+         tu(3, "save_creative", {"angle": "Desk drawer", "hooks": ["Make $500 a week sharing this"], "script": "x"})],
+        [tu(4, "propose_ad", {"angle": "Seven a.m. skin", "platform": "meta", "tool": "ad_image", "template_id": "hero",
+                              "brief": "Glow serum on a bathroom shelf at sunrise, label sharp", "versions": 2}),
+         tu(5, "propose_ad", {"angle": "Seven a.m. skin", "platform": "tiktok", "tool": "photo_to_video", "duration": 5,
+                              "brief": "Hand picks up the serum, one drop, morning light"}),
+         tu(6, "propose_ad", {"angle": "Desk drawer", "platform": "meta", "tool": "ad_image",
+                              "brief": "Quit your 9-to-5 with this serum"}),
+         tu(7, "write_copy", {"platform": "meta", "kind": "ad", "angle": "Seven a.m. skin", "variants": 3})],
+        [tu(8, "finish", {"summary": "Test three morning angles on Meta and TikTok.",
+                          "budget_split": [{"platform": "meta", "share_percent": 60, "note": "Image ads"},
+                                           {"platform": "tiktok", "share_percent": 40}],
+                          "kpis": ["Click-through rate", "Cost per purchase"], "test_plan": "Run 7 days, keep the winner.",
+                          "checklist": [{"title": "Install the Meta pixel", "detail": "Events Manager", "platform": "meta"},
+                                        {"title": "Upload the ads", "platform": "tiktok"}]})],
+    ]
+    content = script[min(turn, len(script) - 1)]
+    return {"model": body["model"], "stop_reason": "tool_use", "usage": {"input_tokens": 2000, "output_tokens": 800},
+            "content": content}
+
+
+llm._anthropic = fake_agent
+os.environ.pop("ANTHROPIC_API_KEY", None)
+r = x.post("/app/campaigns", data={"csrf": csrf(x), "offer": "Glow serum", "platforms": ["meta", "tiktok"]})
+with db.connect() as conn:
+    check(conn.execute("SELECT COUNT(*) FROM campaigns WHERE workspace_id=?", (xws["id"],)).fetchone()[0] == 0,
+          "no AI key: no campaign is planned, nothing charged")
+os.environ["ANTHROPIC_API_KEY"] = "sk-ant-test"
+check(b"Plan my campaign" in x.get("/app/campaigns").data, "planner brief form renders")
+r = x.post("/app/campaigns", data={"csrf": csrf(x), "offer": "Join my team and earn", "platforms": ["meta"]})
+check(not plan_bodies, "recruiting brief is refused before planning")
+bal3 = db.balance(wsrow(xws["id"]))
+r = x.post("/app/campaigns", data={"csrf": csrf(x), "offer": "Glow serum", "audience": "Women 30-45", "goal": "sales",
+                                   "budget": "$300 for two weeks", "platforms": ["meta", "tiktok", "nope"]})
+check(r.status_code == 302 and r.headers["Location"].endswith("/app/campaigns"), "not enough credits for the planning cap: refused")
+a.post("/admin/credits", data={"csrf": csrf(a), "workspace_id": xws["id"], "amount": "3000"})
+bal3 = db.balance(wsrow(xws["id"]))
+r = x.post("/app/campaigns", data={"csrf": csrf(x), "offer": "Glow serum", "audience": "Women 30-45", "goal": "sales",
+                                   "budget": "$300 for two weeks", "platforms": ["meta", "tiktok", "nope"]})
+check(r.status_code == 302 and "/app/campaigns/" in r.headers["Location"], "planning runs and opens the campaign")
+with db.connect() as conn:
+    camp = conn.execute("SELECT * FROM campaigns WHERE workspace_id=? ORDER BY id DESC", (xws["id"],)).fetchone()
+    cads = conn.execute("SELECT * FROM campaign_ads WHERE campaign_id=? ORDER BY id", (camp["id"],)).fetchall()
+cplan = json.loads(camp["plan_json"])
+check(camp["status"] == "ready" and json.loads(camp["brief_json"])["platforms"] == ["meta", "tiktok"], "plan ready; unknown platforms dropped")
+check(len(cplan["angles"]) == 3 and len(cplan["creative"]) == 1, "angles saved; the income-claim script was rejected")
+check(len(cads) == 2 and {a["tool"] for a in cads} == {"ad_image", "photo_to_video"} and all(a["status"] == "proposed" for a in cads),
+      "two ads proposed (the non-compliant one refused), none generated")
+check(cads[0]["credits"] == catalog.price_credits("ad_image", batch=2) and cads[0]["template_id"] == "hero",
+      "proposal carries its credit price and template")
+check(len(cplan["copy"]) == 1 and cplan["copy"][0]["platform"] == "meta" and cplan["final"]["checklist"],
+      "copy written through the copy studio; launch checklist saved")
+first = plan_bodies[0]
+check(first["system"][0]["cache_control"]["type"] == "ephemeral" and first["tools"][0]["name"] == "get_brand_and_catalog"
+      and "Glow serum" in first["messages"][0]["content"][0]["text"], "agent gets the brief, the tools and a cached system prompt")
+res_msgs = [m for m in plan_bodies[2]["messages"] if m["role"] == "user" and isinstance(m["content"], list)
+            and m["content"] and m["content"][0].get("type") == "tool_result"]
+check(any(b.get("is_error") and "income" in b["content"] for m in res_msgs for b in m["content"]),
+      "rule breaks go back to the agent as tool errors")
+spent = bal3 - db.balance(wsrow(xws["id"]))
+check(spent == 18 and camp["credits"] == 18, "planning charged its actual AI cost once (5 calls = 18 credits)")
+html = x.get(f"/app/campaigns/{camp['id']}").get_data(as_text=True)
+for bit in ("Seven a.m. skin", "Your 7am routine is too long.", "Ads to make", "Generate selected ads", "Launch checklist",
+            "Install the Meta pixel", "Test three morning angles", "How it was planned", "60%"):
+    check(bit in html, f"campaign page shows {bit!r}")
+check(x.get(f"/app/campaigns/{camp['id']}/status").get_json()["status"] == "ready", "status endpoint")
+check(n.get(f"/app/campaigns/{camp['id']}").status_code == 404, "other workspaces can't open the campaign")
+img, vid = cads[0], cads[1]
+bal4 = db.balance(wsrow(xws["id"]))
+r = x.post(f"/app/campaigns/{camp['id']}/generate", data={"csrf": csrf(x), "ad": [str(img["id"])], "total": "1"})
+check(db.balance(wsrow(xws["id"])) == bal4, "a total that doesn't match what's selected is refused")
+r = x.post(f"/app/campaigns/{camp['id']}/ads/{img['id']}", data={"csrf": csrf(x), "brief": "Lose 10 pounds with serum"})
+with db.connect() as conn:
+    check(conn.execute("SELECT brief FROM campaign_ads WHERE id=?", (img["id"],)).fetchone()[0] == img["brief"],
+          "editing a brief re-runs the compliance checks")
+x.post(f"/app/campaigns/{camp['id']}/ads/{img['id']}", data={"csrf": csrf(x), "brief": "Serum on a sunny shelf"})
+tot = img["credits"] + vid["credits"]
+r = x.post(f"/app/campaigns/{camp['id']}/generate", data={"csrf": csrf(x), "ad": [str(img["id"]), str(vid["id"])], "total": str(tot)})
+with db.connect() as conn:
+    cads = conn.execute("SELECT * FROM campaign_ads WHERE campaign_id=? ORDER BY id", (camp["id"],)).fetchall()
+    gj = conn.execute("SELECT * FROM jobs WHERE id=?", (cads[0]["job_id"],)).fetchone()
+check(cads[0]["status"] == "queued" and gj and gj["brief"] == "Serum on a sunny shelf" and gj["credits"] == img["credits"],
+      "confirmed image ad queued as a real job with the edited brief")
+check(cads[1]["status"] == "proposed" and db.balance(wsrow(xws["id"])) == bal4 - img["credits"],
+      "video without a product photo isn't started or charged")
+check(b"couldn&#39;t start" in x.get(f"/app/campaigns/{camp['id']}").data, "skipped ads are explained")
+plan_bodies.clear()
+r = x.post(f"/app/campaigns/{camp['id']}/revise", data={"csrf": csrf(x), "notes": "TikTok only please"})
+with db.connect() as conn:
+    camp2 = conn.execute("SELECT * FROM campaigns WHERE id=?", (camp["id"],)).fetchone()
+    kept = conn.execute("SELECT COUNT(*) FROM campaign_ads WHERE campaign_id=? AND status='queued'", (camp["id"],)).fetchone()[0]
+check(camp2["status"] == "ready" and "TikTok only please" in plan_bodies[0]["messages"][0]["content"][0]["text"]
+      and kept == 1 and camp2["credits"] == 36, "revise re-plans with the notes, keeps generated ads, adds its cost")
+with db.connect() as conn:
+    conn.execute("UPDATE campaigns SET status='planning', updated_at='2000-01-01T00:00:00+00:00' WHERE id=?", (camp["id"],))
+    conn.commit()
+x.get(f"/app/campaigns/{camp['id']}")
+with db.connect() as conn:
+    check(conn.execute("SELECT status FROM campaigns WHERE id=?", (camp["id"],)).fetchone()[0] == "ready",
+          "an interrupted run stops showing as planning")
+
+
+def agent_down(body):
+    raise llm.LLMError("503: overloaded")
+
+
+llm._anthropic = agent_down
+bal5 = db.balance(wsrow(xws["id"]))
+x.post("/app/campaigns", data={"csrf": csrf(x), "offer": "Glow serum", "platforms": ["meta"]})
+with db.connect() as conn:
+    cf = conn.execute("SELECT * FROM campaigns WHERE workspace_id=? ORDER BY id DESC", (xws["id"],)).fetchone()
+check(cf["status"] == "failed" and db.balance(wsrow(xws["id"])) == bal5, "AI down: plan fails, nothing charged")
+check(b"couldn't make this plan" in x.get(f"/app/campaigns/{cf['id']}").data, "failed plan explains itself")
+llm._anthropic = fake_anthropic
+
 print("== pages")
 a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": ws1["id"], "plan": "scale"})
 for path in ("/app", "/app/library", "/app/brand", "/admin", "/app/new?tool=motion_copy", "/app/new?template=cost",
              "/app/start", "/app/billing", "/app/new?template=hero", "/app/team", "/app/copy", "/app/optimize",
-             "/app/copy?kind=landing&platform=landing"):
+             "/app/copy?kind=landing&platform=landing", "/app/campaigns"):
     check(a.get(path).status_code == 200, f"{path} renders")
 check(a.get("/health").get_json()["generation_configured"], "health reports configured")
 for path in ("/app", "/app/start", "/app/billing", "/", "/features"):

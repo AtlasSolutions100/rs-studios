@@ -58,7 +58,7 @@ FEATURES = {
                    "blurb": "Every brief is checked for income, health, discount and recruiting claims."},
     "copy": {"plan": "starter", "name": "Copy studio", "shipped": True,
              "blurb": "Ad copy, hooks, captions, headlines, emails and landing copy for each platform."},
-    "planner": {"plan": "starter", "name": "AI campaign planner", "shipped": False,
+    "planner": {"plan": "starter", "name": "AI campaign planner", "shipped": True,
                 "blurb": "From a brief to angles, hooks, scripts, ad variants, copy and a launch checklist."},
     "adhub": {"plan": "starter", "name": "Ad-account setup hub", "shipped": False,
               "blurb": "Step-by-step setup for each ad platform, pixel basics and export specs."},

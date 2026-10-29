@@ -116,6 +116,35 @@ CREATE TABLE IF NOT EXISTS copy_runs (
     cost_usd REAL NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_copy_ws ON copy_runs(workspace_id, id);
+CREATE TABLE IF NOT EXISTS campaigns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    user_id INTEGER,
+    brand_id INTEGER,
+    name TEXT NOT NULL,
+    brief_json TEXT,
+    status TEXT NOT NULL DEFAULT 'planning',   -- planning | ready | failed
+    plan_json TEXT,
+    steps_json TEXT,
+    credits INTEGER NOT NULL DEFAULT 0,
+    cost_usd REAL NOT NULL DEFAULT 0,
+    error TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_campaigns_ws ON campaigns(workspace_id, id);
+CREATE TABLE IF NOT EXISTS campaign_ads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    campaign_id INTEGER NOT NULL,
+    workspace_id INTEGER NOT NULL,
+    angle TEXT, platform TEXT,
+    tool TEXT NOT NULL, template_id TEXT,
+    brief TEXT, params_json TEXT,
+    credits INTEGER NOT NULL DEFAULT 0,
+    cost_usd REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'proposed',   -- proposed | queued
+    job_id INTEGER,
+    created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_cads_c ON campaign_ads(campaign_id, id);
 """
 
 # Columns added after the first release: (table, column, definition).
