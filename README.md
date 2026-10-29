@@ -9,6 +9,14 @@ image ads), a guided first ad (`/app/start`), and credit packs bought through
 Stripe Checkout (`/app/billing`). Built for independent reps: income, earnings
 and recruiting claims are blocked on every brief.
 
+The public site sells the whole campaign, A to Z: `JOURNEY` in `app.py` is the
+landing page's spine (plan, make, write, get found, launch, capture leads, grow,
+measure) and also drives `/features` and `/llms.txt`. Landing media lives in
+`static/site/` (generated loops with unbranded, invented products, plus app
+screenshots taken from a seeded demo workspace, light and dark) and reuses the
+template previews in `static/previews/`. Keep it truthful: no real brands, no
+presenters or testimonials, no claims of posting ads or reading ad-platform results.
+
 ## Run locally
 
     pip install -r requirements.txt

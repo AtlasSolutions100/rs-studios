@@ -202,23 +202,93 @@ def client_ip() -> str:
     return request.remote_addr or "unknown"
 
 
-# Real ads from our own brand for the landing page. Only add work we actually
-# made; never mock-ups presented as customer results.
+# Landing-page media. Every example was generated for this site with AI: the
+# products are invented and unbranded, and nothing here is presented as a
+# customer's result. No presenters or people speaking to camera.
 GALLERY = [
-    {"kind": "video", "src": "previews/swap.mp4", "poster": "previews/swap.jpg", "title": "The swap", "tool": "Video"},
-    {"kind": "image", "src": "gallery/tmu-presenter-640.jpg", "title": "Presenter still", "tool": "Image",
-     "alt": "A woman in a white shirt holds a coffee pouch at a marble kitchen counter."},
-    {"kind": "video", "src": "previews/two-pm.mp4", "poster": "previews/two-pm.jpg", "title": "The 2 PM moment", "tool": "Video"},
-    {"kind": "video", "src": "previews/label.mp4", "poster": "previews/label.jpg", "title": "Label read", "tool": "Video"},
-    {"kind": "image", "src": "gallery/tmu-kitchen-640.jpg", "title": "Lifestyle still", "tool": "Image",
-     "alt": "A woman in a knit sweater pours hot water into a mug beside a coffee pouch."},
-    {"kind": "video", "src": "previews/iced.mp4", "poster": "previews/iced.jpg", "title": "Iced", "tool": "Video"},
-    {"kind": "video", "src": "previews/gym.mp4", "poster": "previews/gym.jpg", "title": "Gym bag", "tool": "Video"},
-    {"kind": "image", "src": "gallery/tmu-product-720.jpg", "title": "Product composition", "tool": "Image", "square": True,
-     "alt": "A dark coffee pouch surrounded by coffee beans, a wooden scoop, coconut and green tea leaves."},
-    {"kind": "video", "src": "previews/how.mp4", "poster": "previews/how.jpg", "title": "How to make it", "tool": "Video"},
-    {"kind": "video", "src": "previews/cost.mp4", "poster": "previews/cost.jpg", "title": "Cost per cup", "tool": "Video"},
+    {"src": "previews/ad_image.mp4", "poster": "previews/ad_image.jpg", "title": "Product hero", "tool": "Coffee bag",
+     "alt": "An unlabeled terracotta coffee bag on dark slate as a warm light sweeps across it."},
+    {"src": "previews/photo_to_video.mp4", "poster": "previews/photo_to_video.jpg", "title": "Floating hero",
+     "tool": "Sneaker", "alt": "A plain white sneaker turning slowly above a sand-colored pedestal."},
+    {"src": "previews/motion_copy.mp4", "poster": "previews/motion_copy.jpg", "title": "In hand", "tool": "Serum",
+     "alt": "A hand turning a frosted serum bottle against rippling green light."},
+    {"src": "previews/swap.mp4", "poster": "previews/swap.jpg", "title": "The routine", "tool": "Coffee bag",
+     "alt": "A hand scooping ground coffee into a white mug beside an unlabeled bag."},
+    {"src": "site/headphones.mp4", "poster": "site/headphones.jpg", "title": "Bold color", "tool": "Headphones",
+     "alt": "Blue over-ear headphones floating against a bright orange background."},
+    {"src": "previews/iced.mp4", "poster": "previews/iced.jpg", "title": "Summer moment", "tool": "Coffee bag",
+     "alt": "Iced coffee and an unlabeled bag on a sunny patio table."},
+    {"src": "site/candle.mp4", "poster": "site/candle.jpg", "title": "Mood", "tool": "Candle",
+     "alt": "A lit candle in an amber glass jar beside dried eucalyptus."},
+    {"src": "previews/two-pm.mp4", "poster": "previews/two-pm.jpg", "title": "The 2 PM moment", "tool": "Coffee bag",
+     "alt": "An afternoon desk with a laptop, a steaming mug and an unlabeled coffee bag."},
+    {"src": "previews/gym.mp4", "poster": "previews/gym.jpg", "title": "Packed and ready", "tool": "Coffee bag",
+     "alt": "An open gym bag with a towel, a shaker and an unlabeled coffee bag."},
+    {"src": "previews/copy-trend.mp4", "poster": "previews/copy-trend.jpg", "title": "Social energy", "tool": "Coffee bag",
+     "alt": "A hand turning an unlabeled coffee bag toward the camera in a bright apartment."},
 ]
+HERO_MEDIA = [GALLERY[2], GALLERY[0], GALLERY[1]]
+
+# The landing page's spine: one campaign, start to finish. `features` are
+# plans.FEATURES keys (their plan tags come from there); `shot` is a real
+# screenshot of the app (light/dark), `video` a generated loop.
+JOURNEY = [
+    {"id": "plan", "step": "Plan it", "title": "Plan the whole campaign",
+     "body": "Give the AI planner your offer, audience, goal, budget and platforms. It proposes angles, writes hooks "
+             "and scripts, lines up the ads with a credit quote for each, then adds a budget split, what to watch "
+             "and a launch checklist.",
+     "features": ["planner"], "shot": "plan", "alt": "A campaign plan with a budget split, what to watch and three angles."},
+    {"id": "make", "step": "Make the ads", "title": "Make the ads from one product photo",
+     "body": "Image ads in four shapes, 5 or 10 second videos, and motion copied from a reference clip, from "
+             "ready-made templates or your own brief. Your brand kit keeps every ad on-brand, and nothing is "
+             "generated until you've seen the price.",
+     "features": ["studio", "brand_kit"], "video": "site/moodboard",
+     "alt": "Hands placing printed product photos into a grid on a dark desk."},
+    {"id": "copy", "step": "Write the copy", "title": "Write the copy for every platform",
+     "body": "Every text field each platform takes, sized to its display lengths, plus hooks, captions, headlines, "
+             "emails and landing copy. Paste a draft into the content optimizer for a score and three rewrites.",
+     "features": ["copy", "optimizer"], "shot": "copy", "alt": "Ad copy variants for Facebook & Instagram and TikTok hooks."},
+    {"id": "found", "step": "Get found", "title": "Get found in search and in AI answers",
+     "body": "Audit a page for search engines, answer engines and AI assistants. You get the fixes in order, a "
+             "better title and description, an FAQ block, ready-to-paste schema and an llms.txt draft.",
+     "features": ["seo"], "shot": "seo", "alt": "An SEO, AEO and GEO audit with a score and the fixes in order."},
+    {"id": "launch", "step": "Set up and launch", "title": "Set up every ad account, then launch",
+     "body": "Step-by-step setup for eight ad platforms with links to each one's own guides, pixel and tag basics, "
+             "and ticks your team shares. Export each finished ad at every platform's sizes and launch it in that "
+             "platform's ads manager.",
+     "features": ["adhub"], "shot": "adhub", "alt": "The ad-account setup hub with progress for each platform."},
+    {"id": "leads", "step": "Capture leads", "title": "Turn clicks into contacts",
+     "body": "Publish a landing page from blocks, share smart links with your UTM tags, and add forms. Everyone who "
+             "fills one in lands in your contacts with the page, link and form they came through.",
+     "features": ["pages", "links", "forms"], "shot": "page", "themed": False,
+     "alt": "A published landing page with benefits and a sign-up form."},
+    {"id": "grow", "step": "Grow an audience", "title": "Keep the people you reach",
+     "body": "Run a community on campaignify.ai: spaces and posts, courses with lessons, members with their own "
+             "logins, and events with an add-to-calendar file.",
+     "features": ["community"], "shot": "community", "alt": "A community home with spaces, courses, posts and an event."},
+    {"id": "measure", "step": "See what's working", "title": "See what's working",
+     "body": "Clicks per day, referrers, countries, devices and UTM sources for every smart link, with page views "
+             "and form submissions alongside. It covers the pages, links and forms you run on Campaignify; ad "
+             "spend and results stay in each platform's ads manager.",
+     "features": ["link_analytics"], "shot": "links", "alt": "Smart-link analytics: clicks over 30 days and referrers."},
+]
+
+
+def _site_jsonld(root, description):
+    return json.dumps({"@context": "https://schema.org", "@graph": [
+        {"@type": "Organization", "@id": root + "#org", "name": "Campaignify", "url": root, "email": "hello@campaignify.ai",
+         "logo": url_for("static", filename="img/campaignify-icon-512.png", _external=True)},
+        {"@type": "WebSite", "name": "Campaignify", "url": root, "publisher": {"@id": root + "#org"}},
+        {"@type": "SoftwareApplication", "name": "Campaignify", "applicationCategory": "BusinessApplication",
+         "operatingSystem": "Web", "url": root, "description": description,
+         "featureList": [f["name"] for f in plans.FEATURES.values() if f["shipped"]],
+         "offers": [{"@type": "Offer", "name": f"{p['name']} plan", "price": p["usd"], "priceCurrency": "USD"}
+                    for p in plans.PAID]}]}).replace("</", "<\\/")
+
+
+SITE_DESCRIPTION = ("Campaignify plans, makes and runs a marketing campaign in one place: an AI campaign planner, "
+                    "image and video ads from a product photo, copy for every platform, SEO and AI-answer audits, "
+                    "ad-account setup, landing pages, smart links, forms, contacts and a community.")
 
 
 @app.route("/")
@@ -226,17 +296,8 @@ def index():
     """Logged in: the studio. Logged out: the public landing page."""
     if g.user:
         return redirect(url_for("studio"))
-    root = request.host_url
-    site = {"@context": "https://schema.org", "@graph": [
-        {"@type": "Organization", "@id": root + "#org", "name": "Campaignify", "url": root, "email": "hello@campaignify.ai",
-         "logo": url_for("static", filename="img/campaignify-icon-512.png", _external=True)},
-        {"@type": "WebSite", "name": "Campaignify", "url": root, "publisher": {"@id": root + "#org"}},
-        {"@type": "SoftwareApplication", "name": "Campaignify", "applicationCategory": "BusinessApplication",
-         "operatingSystem": "Web", "url": root,
-         "offers": [{"@type": "Offer", "name": f"{p['name']} plan", "price": p["usd"], "priceCurrency": "USD"}
-                    for p in plans.PAID]}]}
-    return render_template("landing.html", gallery=GALLERY, hero=[GALLERY[0], GALLERY[2], GALLERY[5]],
-                           site_jsonld=json.dumps(site).replace("</", "<\\/"))
+    return render_template("landing.html", gallery=GALLERY, hero=HERO_MEDIA, journey=JOURNEY,
+                           site_jsonld=_site_jsonld(request.host_url, SITE_DESCRIPTION))
 
 
 # Extra lines for the public features page, by feature key (only shipped ones show).
@@ -296,7 +357,7 @@ FEATURE_DETAILS = {
 
 @app.route("/features")
 def features():
-    return render_template("features.html", feature_details=FEATURE_DETAILS)
+    return render_template("features.html", feature_details=FEATURE_DETAILS, journey=JOURNEY)
 
 
 PUBLIC_PAGES = ["index", "features", "privacy", "terms"]
@@ -319,7 +380,7 @@ def sitemap_xml():
 
 @app.route("/llms.txt")
 def llms_txt():
-    return app.response_class(render_template("llms.txt", feature_details=FEATURE_DETAILS),
+    return app.response_class(render_template("llms.txt", feature_details=FEATURE_DETAILS, journey=JOURNEY),
                               mimetype="text/plain")
 
 

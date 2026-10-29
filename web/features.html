@@ -1,43 +1,62 @@
 {% extends "public_base.html" %}
 {% block title %}Features · Campaignify{% endblock %}
 {% block head %}{{ super() }}
-<meta name="description" content="What Campaignify does today: an AI ad studio with compliance checks, brand kits, team seats and the campaign tools included in each plan.">
+<meta name="description" content="Every tool in Campaignify, in the order a campaign runs: plan it, make the ads, write the copy, get found, set up and launch, capture leads, grow an audience and see what's working. With the plan that includes each one.">
 {% endblock %}
 {% block main %}
 {% set r = rates() %}{% set sc = starter_credits() %}
 <section class="lp-hero lp-hero-sm">
   <div class="lp-wrap">
     <p class="eyebrow">Features</p>
-    <h1>Everything in <span class="gold">Campaignify.</span></h1>
-    <p class="lp-lede">The ad studio for people who sell, and the tools around it to plan, write and launch a campaign. This page lists what's live today, and which plan includes it.</p>
+    <h1>Your whole campaign, <span class="gold">A to Z.</span></h1>
+    <p class="lp-lede">Every tool that's live today, in the order a campaign runs, and the plan that includes it. The free studio makes ads; the plans add the rest of the campaign.</p>
+    <ol class="lp-rail" aria-label="The steps of a campaign">
+      {% for s in journey %}<li><a href="#step-{{ s.id }}"><span>{{ '%02d'|format(loop.index) }}</span>{{ s.step }}</a></li>{% endfor %}
+    </ol>
   </div>
 </section>
-{% for code in plans.ORDER %}
-{% set feats = plans.plan_features(code) %}
-{% if feats %}
-<section class="lp-sec">
-  <div class="lp-wrap">
-    <p class="eyebrow">{{ 'Every account' if code == 'free' else plans.PLANS[code].name ~ ' plan and up' }}</p>
-    <h2 class="lp-h2">{{ {'free': 'The studio', 'starter': 'Campaign tools', 'growth': 'Grow and optimize', 'scale': 'Run a community'}[code] }}</h2>
-    <div class="feat-grid">
-      {% for f in feats %}
-      <article class="feat" id="{{ f.key }}">
-        <h3>{{ f.name }}</h3>
+{% for s in journey %}
+<section class="lp-sec" id="step-{{ s.id }}">
+  <div class="lp-wrap ft-step">
+    <div>
+      <p class="lp-step-n"><span class="lp-num">{{ loop.index }}</span>{{ s.step }}</p>
+      <h2 class="lp-h2" style="margin-top:14px">{{ s.title }}</h2>
+      <p class="muted">{{ s.body }}</p>
+    </div>
+    <div class="feat-grid ft-cards">
+      {% for k in s.features if plans.FEATURES[k].shipped %}{% set f = plans.FEATURES[k] %}
+      <article class="feat" id="{{ k }}">
+        <span class="tag ok">{{ 'Every account' if f.plan == 'free' else plans.PLANS[f.plan].name ~ ' and up' }}</span>
+        <h3 style="margin-top:12px">{{ f.name }}</h3>
         <p class="muted">{{ f.blurb }}</p>
-        {% if f.key in feature_details %}<ul>{% for d in feature_details[f.key] %}<li>{{ d }}</li>{% endfor %}</ul>{% endif %}
+        {% if k in feature_details %}<ul>{% for d in feature_details[k] %}<li>{{ d }}</li>{% endfor %}</ul>{% endif %}
       </article>
       {% endfor %}
-      {% if code != 'free' %}
-      <article class="feat feat-limits">
-        <h3>Seats and brands</h3>
-        <p class="muted">{{ plans.PLANS[code].name }}: {{ plans.PLANS[code].seats }} seat{{ 's' if plans.PLANS[code].seats != 1 }}, {{ 'unlimited brands' if plans.PLANS[code].brands is none else plans.PLANS[code].brands ~ ' brand' ~ ('s' if plans.PLANS[code].brands != 1 else '') }}, {{ '{:,}'.format(plans.PLANS[code].credits) }} credits a month.</p>
-      </article>
-      {% endif %}
     </div>
   </div>
 </section>
-{% endif %}
 {% endfor %}
+<section class="lp-sec" id="built-in">
+  <div class="lp-wrap">
+    <p class="eyebrow">Built in</p>
+    <h2 class="lp-h2">On every step</h2>
+    <div class="feat-grid">
+      {% for k, f in plans.FEATURES.items() if f.shipped and k in ('compliance', 'priority') %}
+      <article class="feat" id="{{ k }}">
+        <span class="tag ok">{{ 'Every account' if f.plan == 'free' else plans.PLANS[f.plan].name ~ ' and up' }}</span>
+        <h3 style="margin-top:12px">{{ f.name }}</h3>
+        <p class="muted">{{ f.blurb }}</p>
+        {% if k in feature_details %}<ul>{% for d in feature_details[k] %}<li>{{ d }}</li>{% endfor %}</ul>{% endif %}
+      </article>
+      {% endfor %}
+      <article class="feat feat-limits">
+        <h3>Seats, brands and credits</h3>
+        <ul>{% for p in plans.PAID %}<li>{{ p.name }}: {{ p.seats }} seat{{ 's' if p.seats != 1 }}, {{ 'unlimited brands' if p.brands is none else p.brands ~ ' brand' ~ ('s' if p.brands != 1 else '') }}, {{ '{:,}'.format(p.credits) }} credits a month</li>{% endfor %}</ul>
+      </article>
+    </div>
+    <p class="small dim" style="margin-top:20px">Campaignify guides ad-account setup and exports your ads at each platform's sizes; you launch them in each platform's ads manager. Analytics cover the pages, smart links and forms you run on Campaignify.</p>
+  </div>
+</section>
 <section class="lp-sec" id="pricing">
   <div class="lp-wrap">
     <p class="eyebrow">Pricing</p>
@@ -47,7 +66,7 @@
 </section>
 <section class="lp-sec lp-final">
   <div class="lp-wrap">
-    <h2 class="lp-h2">Make your first ad today.</h2>
+    <h2 class="lp-h2">Launch your next campaign here.</h2>
     <p class="muted">{{ '{:,}'.format(sc) }} free credits when you sign up. No card needed.</p>
     <a class="btn lg" href="{{ url_for('signup') }}">Start free</a>
   </div>

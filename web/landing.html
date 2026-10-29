@@ -1,92 +1,106 @@
 {% extends "public_base.html" %}
-{% block title %}Campaignify · The ad studio for people who sell{% endblock %}
+{% block title %}Campaignify · Launch and run your whole campaign, A to Z{% endblock %}
 {% block head %}{{ super() }}
-<meta name="description" content="Campaignify turns a product photo into finished image and video ads, and plans the campaign around them: angles, hooks, copy for each platform and a launch checklist. Compliance checks built in.">
-<meta property="og:title" content="Campaignify · The ad studio for people who sell">
-<meta property="og:description" content="Add a product photo, pick a template that already works, get a finished ad. Built for independent reps and direct sellers.">
-<meta property="og:image" content="{{ url_for('static', filename='img/campaignify-icon-512.png', _external=True) }}">
+<meta name="description" content="Plan the campaign, make the ads, write the copy, get found, set up your ad accounts, capture leads, grow an audience and see what's working. Campaignify puts every step in one place, with compliance checks on every brief.">
+<meta property="og:title" content="Campaignify · Your whole campaign, A to Z">
+<meta property="og:description" content="Plan it, make the ads, write the copy, get found, launch, capture leads, grow an audience and see what's working. One workspace for the whole campaign.">
+<meta property="og:image" content="{{ url_for('static', filename='site/phones.jpg', _external=True) }}">
+<link rel="preload" as="image" href="{{ url_for('static', filename=hero[1].poster) }}" fetchpriority="high">
 <script type="application/ld+json">{{ site_jsonld|safe }}</script>
 {% endblock %}
 {% block main %}
 {% set r = rates() %}
 {% set sc = starter_credits() %}
+{% macro plan_tag(key) -%}{% set f = plans.FEATURES[key] %}<span class="tag {{ 'ok' if f.plan == 'free' else '' }}">{{ f.name }} · {{ 'every account' if f.plan == 'free' else plans.PLANS[f.plan].name ~ '+' }}</span>{%- endmacro %}
 
 <section class="lp-hero">
   <div class="lp-wrap lp-hero-in">
     <div class="lp-hero-copy">
-      <p class="eyebrow">AI ad &amp; campaign studio</p>
-      <h1>The ad studio for <span class="gold">people who sell.</span></h1>
-      <p class="lp-lede">Add a product photo, pick a proven ad format, and get a finished image or video ad in minutes. On a plan, hand the AI planner your brief and get the whole campaign: angles, hooks, ads, copy for each platform and a launch checklist. Compliance checks are built in.</p>
+      <p class="eyebrow">The ad studio for people who sell</p>
+      <h1>Your whole campaign, <span class="gold">A to Z.</span></h1>
+      <p class="lp-lede">Plan it, make the ads, write the copy, get found, set up your ad accounts, capture leads, grow an audience and see what's working. One workspace for the whole campaign, with compliance checks on every brief.</p>
       <div class="lp-cta">
         <a class="btn lg" href="{{ url_for('signup') }}">Start free</a>
-        <a class="lp-textlink" href="#gallery">See example ads →</a>
+        <a class="lp-textlink" href="#journey">See how a campaign runs →</a>
       </div>
-      <p class="small muted lp-note">{{ '{:,}'.format(sc) }} free credits when you sign up, enough for {{ sc // r.image }} image ads. No card needed.</p>
+      <p class="small muted lp-note">{{ '{:,}'.format(sc) }} free credits when you sign up, enough for {{ sc // r.image }} image ads. No card needed. The campaign tools come with a plan.</p>
     </div>
     <div class="lp-hero-art" aria-hidden="true">
       {% for gi in hero %}
-      <div class="lp-phone p{{ loop.index }}"><video src="{{ url_for('static', filename=gi.src) }}" poster="{{ url_for('static', filename=gi.poster) }}" muted loop playsinline autoplay preload="metadata"></video></div>
+      <div class="lp-phone p{{ loop.index }}"><video src="{{ url_for('static', filename=gi.src) }}" poster="{{ url_for('static', filename=gi.poster) }}" muted loop playsinline autoplay preload="{{ 'auto' if loop.index == 2 else 'metadata' }}"></video></div>
       {% endfor %}
+      <div class="lp-float lp-plan"><span class="lp-dot"></span><div><b>Plan ready</b><span>3 angles · 4 ads · launch checklist</span></div></div>
       <div class="lp-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><div><b>Brief checked</b><span>No income, health or discount claims</span></div></div>
     </div>
   </div>
+  <div class="lp-wrap">
+    <ol class="lp-rail" aria-label="The steps of a campaign">
+      {% for s in journey %}<li><a href="#step-{{ s.id }}"><span>{{ '%02d'|format(loop.index) }}</span>{{ s.step }}</a></li>{% endfor %}
+    </ol>
+  </div>
 </section>
 
-<section class="lp-sec" id="gallery">
+<section class="lp-sec" id="journey">
   <div class="lp-wrap">
-    <p class="eyebrow">Examples</p>
-    <h2 class="lp-h2">Ads made in minutes.</h2>
-    <p class="lp-sub muted">Example ads made with Campaignify's templates. The people in them are AI-generated.</p>
+    <p class="eyebrow">How a campaign runs</p>
+    <h2 class="lp-h2">Eight steps. One workspace.</h2>
+    <p class="lp-sub muted">Most campaigns get stitched together from a dozen tools. Campaignify takes you from the first idea to the first lead in one place, and you see every step before anything is spent.</p>
+    <div class="lp-journey">
+      {% for s in journey %}
+      <article class="lp-step {{ 'flip' if loop.index is even }}" id="step-{{ s.id }}">
+        <div class="lp-step-copy">
+          <p class="lp-step-n"><span class="lp-num">{{ loop.index }}</span>{{ s.step }}</p>
+          <h3>{{ s.title }}</h3>
+          <p class="muted">{{ s.body }}</p>
+          <p class="lp-tags">{% for k in s.features if plans.FEATURES[k].shipped %}{{ plan_tag(k) }} {% endfor %}</p>
+        </div>
+        <figure class="lp-step-media {{ 'is-video' if s.video }}">
+          {% if s.video %}
+          <video data-inview muted loop playsinline preload="none" data-poster="{{ url_for('static', filename=s.video ~ '.jpg') }}" aria-label="{{ s.alt }}"><source src="{{ url_for('static', filename=s.video ~ '.mp4') }}" type="video/mp4"></video>
+          {% elif s.themed is defined and not s.themed %}
+          <img src="{{ url_for('static', filename='site/shot-' ~ s.shot ~ '.webp') }}" alt="{{ s.alt }}" loading="lazy" decoding="async" width="1200" height="936">
+          {% else %}
+          <img class="th-dark" src="{{ url_for('static', filename='site/shot-' ~ s.shot ~ '-dark.webp') }}" alt="{{ s.alt }}" loading="lazy" decoding="async" width="1200" height="936">
+          <img class="th-light" src="{{ url_for('static', filename='site/shot-' ~ s.shot ~ '-light.webp') }}" alt="{{ s.alt }}" loading="lazy" decoding="async" width="1200" height="936">
+          {% endif %}
+        </figure>
+      </article>
+      {% endfor %}
+    </div>
+    <p class="small dim lp-journey-note">Screens from the app with demo data. Campaignify guides your ad-account setup and exports your ads; you launch them in each platform's own ads manager.</p>
+  </div>
+</section>
+
+<section class="lp-sec lp-show" id="gallery">
+  <div class="lp-wrap">
+    <div class="lp-show-head">
+      <div>
+        <p class="eyebrow">Made in the studio</p>
+        <h2 class="lp-h2">Ads for anything you can photograph.</h2>
+        <p class="lp-sub muted">Product heroes, everyday moments and short vertical clips, sized for every feed. Start from a template or your own brief, then export each ad at every platform's sizes.</p>
+      </div>
+      <figure class="lp-wide"><video data-inview muted loop playsinline preload="none" data-poster="{{ url_for('static', filename='site/phones.jpg') }}" aria-label="Three phones showing vertical product ads."><source src="{{ url_for('static', filename='site/phones.mp4') }}" type="video/mp4"></video></figure>
+    </div>
     <div class="lp-gallery">
       {% for gi in gallery %}
-      <figure class="lp-g {{ 'sq' if gi.square }}" {% if gi.kind == 'video' %}data-hoverplay{% endif %}>
+      <figure class="lp-g">
         <div class="lp-g-media">
-          {% if gi.kind == 'video' %}
-          <video src="{{ url_for('static', filename=gi.src) }}" poster="{{ url_for('static', filename=gi.poster) }}" muted loop playsinline preload="none" aria-label="{{ gi.title }} example ad"></video>
-          <span class="play"><svg viewBox="0 0 10 10"><path d="M2 1l7 4-7 4z"/></svg></span>
-          {% else %}
-          <img src="{{ url_for('static', filename=gi.src) }}" alt="{{ gi.alt }}" loading="lazy" decoding="async">
-          {% endif %}
+          <video data-inview muted loop playsinline preload="none" data-poster="{{ url_for('static', filename=gi.poster) }}" aria-label="{{ gi.alt }}"><source src="{{ url_for('static', filename=gi.src) }}" type="video/mp4"></video>
         </div>
         <figcaption><b>{{ gi.title }}</b><span>{{ gi.tool }}</span></figcaption>
       </figure>
       {% endfor %}
     </div>
-  </div>
-</section>
-
-<section class="lp-sec" id="how">
-  <div class="lp-wrap">
-    <p class="eyebrow">How it works</p>
-    <h2 class="lp-h2">Three steps, one sitting.</h2>
-    <ol class="lp-steps">
-      <li><span class="lp-num">1</span><h3>Add your product</h3><p class="muted">One clear photo and the product's name. That becomes your brand kit, along with the claims printed on your label, so every brief starts on-brand.</p></li>
-      <li><span class="lp-num">2</span><h3>Pick a template</h3><p class="muted">Proven ad angles: a clean product hero, the daily routine, the 2 PM moment, label read, the swap and more. Each one starts with a brief you can edit.</p></li>
-      <li><span class="lp-num">3</span><h3>Get your ad</h3><p class="muted">Image ads in about a minute, video clips in a few. Download full quality and post it wherever you sell.</p></li>
-    </ol>
-  </div>
-</section>
-
-<section class="lp-sec" id="campaigns">
-  <div class="lp-wrap">
-    <p class="eyebrow">Beyond single ads</p>
-    <h2 class="lp-h2">From a brief to a campaign.</h2>
-    <p class="lp-sub muted">The plans add tools that plan and write around your ads. You see every step, and nothing is generated until you say so.</p>
-    <div class="feat-grid">
-      {% for key in ['planner', 'copy', 'optimizer', 'seo', 'adhub', 'pages', 'links', 'forms', 'community'] if plans.FEATURES[key].shipped %}{% set f = plans.FEATURES[key] %}
-      <article class="feat"><span class="tag ok">{{ plans.PLANS[f.plan].name }}+</span><h3 style="margin-top:12px">{{ f.name }}</h3><p class="muted">{{ f.blurb }}</p></article>
-      {% endfor %}
-    </div>
-    <p style="margin-top:22px"><a class="lp-textlink" href="{{ url_for('features') }}">Everything Campaignify does →</a></p>
+    <p class="small dim" style="margin-top:18px">Examples generated with AI for this page. The products are invented and unbranded; none of this is customer work or a customer's result.</p>
   </div>
 </section>
 
 <section class="lp-sec lp-reps" id="reps">
   <div class="lp-wrap lp-reps-in">
     <div>
-      <p class="eyebrow">Built for direct sellers</p>
-      <h2 class="lp-h2">Compliance checks on every brief.</h2>
-      <p class="muted">If you're an independent rep, your company has rules about what your ads can say, and so does the FTC. Campaignify checks every brief before anything is generated and stops the ones that would get you in trouble. It's the same guard rail we use on our own ads.</p>
+      <p class="eyebrow">Built for people who sell</p>
+      <h2 class="lp-h2">Compliance checks at every step.</h2>
+      <p class="muted">If you're an independent rep, your company has rules about what your ads can say, and so does the FTC. Campaignify checks every ad brief, every piece of copy and every landing page before it goes out, and stops the ones that would get you in trouble.</p>
       <p class="small dim">The checks are a guard rail, not legal advice. Always follow your company's policies and the FTC's guidance on endorsements and earnings claims.</p>
     </div>
     <ul class="lp-rules">
@@ -102,8 +116,8 @@
 <section class="lp-sec" id="pricing">
   <div class="lp-wrap">
     <p class="eyebrow">Pricing</p>
-    <h2 class="lp-h2">Start free. Add a plan when you're ready.</h2>
-    <p class="lp-sub muted">Plans come with credits every month, more brands and seats, and the plan features below. Credit packs top you up on any plan, or without one. 1 credit = $0.01: an image ad is {{ r.image }} credits, a 5-second video {{ r.video5 }}, a 10-second video {{ r.video10 }}.</p>
+    <h2 class="lp-h2">Start free. Add the campaign when you're ready.</h2>
+    <p class="lp-sub muted">The free studio makes ads. Starter adds the planner, copy, ad-account setup, a landing page and smart links; Growth adds search and AI-answer audits, forms, contacts and full link analytics; Scale adds your community. Every plan comes with monthly credits. 1 credit = $0.01: an image ad is {{ r.image }} credits, a 5-second video {{ r.video5 }}, a 10-second video {{ r.video10 }}.</p>
     {% include "_pricing.html" %}
   </div>
 </section>
@@ -115,13 +129,16 @@
       <h2 class="lp-h2">Questions.</h2>
     </div>
     <div>
+      <details><summary>Does Campaignify post or run my ads?</summary><p>No. It plans the campaign, makes the ads, writes the copy and walks you through setting up each ad account, then exports every ad at that platform's sizes. You upload and launch them in the platform's own ads manager, and your ad spend stays there too.</p></details>
+      <details><summary>Can I see how my campaign is doing?</summary><p>For what you run on Campaignify, yes: clicks on your smart links (per day, referrer, country, device and UTM source), views on your pages and submissions to your forms, with each contact's history. Campaignify doesn't read results from the ad platforms; see those in each platform's ads manager.</p></details>
+      <details><summary>Which plan do I need?</summary><p>The free studio makes ads with your starter credits and credit packs. Starter adds the AI campaign planner, copy studio, ad-account setup hub, one landing page and smart links. Growth adds the SEO, AEO &amp; GEO optimizer, the content optimizer, forms and contacts, link analytics and unlimited pages. Scale adds community and courses and the priority queue.</p></details>
       <details><summary>Do I need a subscription?</summary><p>No. Start with your free credits and buy credit packs when you need more. Plans add monthly credits and the campaign tools; you can cancel a plan anytime and it stays on until the end of the month you've paid for.</p></details>
       <details><summary>Do unused credits roll over?</summary><p>Plan credits arrive with each monthly payment and expire at your next renewal, and they're used before any other credits. Credits from packs and your free starter credits never expire.</p></details>
-      <details><summary>What does a credit buy?</summary><p>1 credit is $0.01. An image ad is {{ r.image }} credits, a 5-second video {{ r.video5 }}, a 10-second video {{ r.video10 }}, and copying a reference video's motion is {{ r.motion_per_s }} credits per second of the reference (up to {{ r.motion_max }}). You always see the price before you generate.</p></details>
+      <details><summary>What does a credit buy?</summary><p>1 credit is $0.01. An image ad is {{ r.image }} credits, a 5-second video {{ r.video5 }}, a 10-second video {{ r.video10 }}, and copying a reference video's motion is {{ r.motion_per_s }} credits per second of the reference (up to {{ r.motion_max }}). The AI writing tools charge what the AI actually used. You always see the price before you generate.</p></details>
       <details><summary>What if a generation fails?</summary><p>Your credits come back automatically. You only pay for ads that finish.</p></details>
-      <details><summary>Is it only for coffee?</summary><p>No. Some templates were built around a coffee product, but Product hero, Daily routine and your own brief work for anything you can photograph.</p></details>
+      <details><summary>Does it work for my product?</summary><p>If you can photograph it, yes. Product hero, Daily routine and your own brief work for anything; a few templates were written for coffee and say so.</p></details>
       <details><summary>Who owns the ads I make?</summary><p>You can use the ads you make in your own marketing, including paid ads. They're AI-generated, so similar images can come out for other people, and you're responsible for what you post. See the <a href="{{ url_for('terms') }}">terms</a>.</p></details>
-      <details><summary>Does Campaignify guarantee results?</summary><p>No. Campaignify makes ads. It doesn't promise sales, views or income, and your ads shouldn't either.</p></details>
+      <details><summary>Does Campaignify guarantee results?</summary><p>No. Campaignify helps you plan, make and run a campaign. It doesn't promise sales, views or income, and your ads shouldn't either.</p></details>
       <details><summary>Is this from my direct-sales company?</summary><p>No. Campaignify is an independent product. It isn't a company program and isn't sponsored or endorsed by any direct-sales company. Check your company's policies on advertising and AI content before you post.</p></details>
       <details><summary>Do my ads say they're AI?</summary><p>Put #ad first in your caption and turn on the platform's AI label. Don't present AI people as real customers or let them describe personal results.</p></details>
       <details><summary>My team lead sent me an invite</summary><p>Use the invite link to sign up and you'll join their workspace and share its credits.</p></details>
@@ -129,10 +146,11 @@
   </div>
 </section>
 
-<section class="lp-sec lp-final">
+<section class="lp-finale">
+  <video class="lp-finale-bg" data-inview muted loop playsinline preload="none" data-poster="{{ url_for('static', filename='site/kinetic.jpg') }}" aria-hidden="true"><source src="{{ url_for('static', filename='site/kinetic.mp4') }}" type="video/mp4"></video>
   <div class="lp-wrap">
-    <h2 class="lp-h2">Make your first ad today.</h2>
-    <p class="muted">One product photo, one template, a few minutes.</p>
+    <h2 class="lp-h2">Launch your next campaign here.</h2>
+    <p>Start with an ad today. Add the plan, the copy, the page and the community when you're ready.</p>
     <a class="btn lg" href="{{ url_for('signup') }}">Start free</a>
   </div>
 </section>
