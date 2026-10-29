@@ -1,0 +1,47 @@
+{% extends "base.html" %}{% block title %}{{ p.name }} setup · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <p style="margin:0 0 14px"><a href="{{ url_for('adhub.index') }}">← All platforms</a></p>
+  <p class="eyebrow">Ad-account setup</p>
+  <h1>{{ p.name }}</h1>
+  <p class="row"><a class="btn sm" href="{{ p.manager[1] }}" target="_blank" rel="noopener noreferrer">Open {{ p.manager[0] }} ↗</a>
+    {% if p.specs %}<a class="btn dark sm" href="{{ p.specs[1] }}" target="_blank" rel="noopener noreferrer">{{ p.specs[0] }} ↗</a>{% endif %}
+    <a class="btn dark sm" href="{{ p.policy[1] }}" target="_blank" rel="noopener noreferrer">{{ p.policy[0] }} ↗</a></p>
+  <p class="small dim">Platforms change their screens often. Follow the platform's current steps if they differ from ours.</p>
+  <div class="grid2 hubcols">
+    <section>
+      <h2>Steps</h2>
+      <ol class="hubsteps">
+        {% for title, detail, link in p.steps %}
+        <li id="s{{ loop.index0 }}" class="{{ 'done' if loop.index0 in done }}">
+          <form method="post" action="{{ url_for('adhub.toggle', platform=key, step=loop.index0) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="tick" aria-label="{{ 'Mark not done' if loop.index0 in done else 'Mark done' }}: {{ title }}">{% if loop.index0 in done %}✓{% else %}{{ loop.index }}{% endif %}</button></form>
+          <div><b>{{ title }}</b>{% if detail %}<p class="small muted">{{ detail }}</p>{% endif %}{% if link %}<a class="small" href="{{ link }}" target="_blank" rel="noopener noreferrer">Official guide ↗</a>{% endif %}</div>
+        </li>
+        {% endfor %}
+      </ol>
+    </section>
+    <section>
+      <div class="panel">
+        <h3>Tracking: {{ p.pixel[0] }}</h3>
+        <ul class="rules">{% for label, url in p.pixel[1] %}<li><a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ label }} ↗</a></li>{% endfor %}</ul>
+        <p class="small muted">Install it on every page, then check that your key event (purchase or lead) fires before you spend.</p>
+      </div>
+      <div class="panel" style="margin-top:18px">
+        <h3>Copy lengths</h3>
+        {% set cp = PLATFORMS[key] if key in PLATFORMS else none %}
+        {% if cp %}<table>{% for name, rec, hard in cp.ad_fields %}<tr><td>{{ name }}</td><td class="small muted">{% if hard and hard == rec %}up to {{ hard }} characters{% else %}{% if rec %}aim for {{ rec }}{% endif %}{% if hard %}{{ ', ' if rec }}max {{ hard }}{% endif %}{% if not rec and not hard %}no fixed limit{% endif %}{% endif %}</td></tr>{% endfor %}</table>
+        {% if has_feature('copy') %}<p style="margin:12px 0 0"><a class="btn dark sm" href="{{ url_for('copy.studio', platform=key, kind='ad') }}">Write {{ cp.short }} copy</a></p>{% endif %}{% endif %}
+      </div>
+      <div class="panel" style="margin-top:18px">
+        <h3>Export sizes</h3>
+        <ul class="rules">{% for code, label, w, h in p.exports %}<li>{{ label }} · {{ w }} × {{ h }}</li>{% endfor %}</ul>
+        <p class="small muted">Campaignify crops from the center and scales. Recommended sizes{% if p.specs %}; the <a href="{{ p.specs[1] }}" target="_blank" rel="noopener noreferrer">official specs</a> list every placement{% endif %}.</p>
+        {% if outs %}
+        <div class="exgrid">{% for o in outs %}<a class="exthumb" href="{{ url_for('adhub.export_page', oid=o.id) }}" title="Export">{% if o.kind == 'video' %}<img src="{{ url_for('media', oid=o.id, poster=1) }}" alt="Video ad" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'Video'}))">{% else %}<img src="{{ url_for('media', oid=o.id) }}" alt="Image ad">{% endif %}</a>{% endfor %}</div>
+        <p class="small muted">Pick an ad to export it.</p>
+        {% else %}<div class="empty">Make an ad first; it shows up here to export.</div>{% endif %}
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

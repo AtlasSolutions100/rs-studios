@@ -475,3 +475,25 @@ code{font-size:12px;color:var(--gold2);word-break:break-all}
 .fixes{margin:0 0 20px;padding-left:22px;display:grid;gap:8px;font-size:15px}
 pre.code{background:var(--thumb-bg);border:1px solid var(--line);border-radius:12px;padding:14px;font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:420px;overflow:auto;margin:10px 0 0}
 @media (max-width:1100px){.audit3{grid-template-columns:1fr}}
+
+/* ---------------------------------------------------------------- ad-account hub */
+.hubgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px;margin-top:24px}
+.hubcard{color:var(--ink);text-decoration:none;display:flex;flex-direction:column;gap:4px}
+.hubcard:hover{border-color:rgba(var(--accent-rgb),.6)}
+.hubcard h3{margin:0}
+.hubcols{align-items:start}
+.hubsteps{list-style:none;padding:0;margin:14px 0;display:grid;gap:12px}
+.hubsteps li{display:flex;gap:14px;align-items:flex-start;background:var(--panel-bg);border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+.hubsteps li.done{border-color:rgba(var(--accent-rgb),.6)}
+.hubsteps li.done b{color:var(--muted)}
+.hubsteps p{margin:4px 0}
+.hubsteps form{margin:0}
+.tick{width:34px;height:34px;border-radius:50%;border:2px solid var(--accent);background:transparent;color:var(--ink);font:700 14px var(--display);cursor:pointer;flex:none}
+.hubsteps li.done .tick{background:var(--accent);color:var(--on-accent)}
+.exgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:8px;margin-top:10px}
+.exthumb{aspect-ratio:9/16;border-radius:10px;overflow:hidden;background:var(--thumb-bg);border:1px solid var(--line);display:grid;place-items:center;color:var(--muted);font-size:12px;text-decoration:none}
+.exthumb img{width:100%;height:100%;object-fit:cover}
+.exlayout{display:grid;grid-template-columns:260px 1fr;gap:24px;align-items:start;margin-top:20px}
+.exlist{display:grid;gap:14px}
+.exlist .panel{padding:16px 18px}.exlist h3{margin:0 0 10px}
+@media (max-width:760px){.exlayout{grid-template-columns:1fr}.exlayout .thumb{max-width:220px}}

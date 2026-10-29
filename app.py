@@ -89,6 +89,7 @@ NAV = [
     ("copy.studio", "Copy", "copy", "copy", ("copy.studio", "copy.run", "copy.optimize", "copy.optimized")),
     ("seo.index", "SEO & AEO", "seo", "seo", ("seo.index", "seo.result")),
     ("library", "Library", "library", None, ("library",)),
+    ("adhub.index", "Ad accounts", "adhub", "adhub", ("adhub.index", "adhub.platform", "adhub.export_page")),
     ("brand_kit", "Brand kit", "brand", None, ("brand_kit",)),
     ("team", "Team", "team", None, ("team",)),
     ("billing_page", "Billing", "billing", None, ("billing_page",)),
@@ -98,8 +99,16 @@ NAV = [
 app.jinja_env.filters["fromjson"] = lambda s: json.loads(s or "{}")
 
 
-# platform -> setup guide link, filled in by the ad-account hub when it ships.
+# platform -> setup guide link (the planner's launch checklist links to these).
 ADHUB_LINKS = {}
+
+
+@app.before_request
+def _adhub_links():
+    if not ADHUB_LINKS:
+        for k in ("meta", "tiktok", "youtube", "x", "linkedin", "pinterest", "snapchat", "reddit"):
+            ADHUB_LINKS[k] = url_for("adhub.platform", platform=k)
+        ADHUB_LINKS["google"] = url_for("adhub.platform", platform="youtube")
 
 
 @app.context_processor
@@ -240,6 +249,10 @@ FEATURE_DETAILS = {
                 "Writes the copy for each platform, a budget split, what to watch and a launch checklist",
                 "You watch every step; ads are only generated when you confirm them, at the price shown",
                 "Planning costs what the AI actually used (capped, shown before you start)"],
+    "adhub": ["Facebook & Instagram, TikTok, YouTube & Google, X, LinkedIn, Pinterest, Snapchat and Reddit",
+              "Step-by-step setup with links to each platform's own guides, ticked off as a team",
+              "Pixel and tag basics for each platform",
+              "Export any finished ad at each platform's sizes (4:5, 9:16, 1:1, 2:3, 16:9, 1.91:1)"],
     "copy": ["Ad copy with every text field each platform takes, sized to its display lengths",
              "Hooks with on-screen text, captions with hashtags, headlines, emails and landing-page copy",
              "Facebook & Instagram, TikTok, YouTube, Google Search, X, LinkedIn, Pinterest, Snapchat and Reddit",
@@ -1228,10 +1241,12 @@ def ref_video(rid):
 import campaign_routes  # noqa: E402
 import copy_routes  # noqa: E402  (blueprints import core, never app)
 import seo_routes  # noqa: E402
+import adhub_routes  # noqa: E402
 
 app.register_blueprint(copy_routes.bp)
 app.register_blueprint(campaign_routes.bp)
 app.register_blueprint(seo_routes.bp)
+app.register_blueprint(adhub_routes.bp)
 
 
 @app.errorhandler(400)

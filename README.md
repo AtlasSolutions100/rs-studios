@@ -84,6 +84,15 @@ answer-first summary, FAQ, keyword and topic ideas; `seo.jsonld` serializes sche
 valid. The audit is free; AI suggestions are charged at cost. The planner gets an `audit_page` tool on Growth+.
 Our own site serves `/robots.txt`, `/sitemap.xml`, `/llms.txt`, canonical links and Organization JSON-LD.
 
+## Ad-account setup hub (`/app/ad-accounts`, Starter+)
+
+`adhub.py`: per platform (Meta, TikTok, YouTube/Google Ads, X, LinkedIn, Pinterest, Snapchat, Reddit) the setup steps,
+tracking (pixel/tag) links, spec and policy pages, and export sizes. Every URL was checked against the platform's own
+site in October 2026; deep links we couldn't confirm were left out rather than guessed (the tests assert every link is
+https on an allow-listed first-party host). Step ticks are stored per workspace (`adhub_progress`). `exporter.py`
+center-crops and scales a finished ad to a platform size (Pillow for images, ffmpeg for video), cached next to the
+original; Library shows "Export sizes". The planner's launch checklist links each platform to its guide.
+
 ## Tests
 
     python tests/test_app.py        # generation API and Stripe faked; 122 checks

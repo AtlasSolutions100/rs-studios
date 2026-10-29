@@ -11,7 +11,7 @@
     <div class="litem {{ 'hl' if highlight == j.id }}" data-job="{{ j.id }}" data-status="{{ j.status }}">
       {{ job_thumb(j, outs, templates, tools) }}
       <div class="meta"><b>{{ templates[j.template_id].name if j.template_id in templates else tools[j.tool].name }}</b>{{ status(j) }}</div>
-      {% if outs.get(j.id) %}<div class="row" style="margin-top:8px">{% for o in outs[j.id] %}<a class="btn dark sm" href="{{ url_for('media', oid=o.id, download=1) }}">Download{{ ' ' ~ loop.index if outs[j.id]|length > 1 }}</a>{% endfor %}</div>{% endif %}
+      {% if outs.get(j.id) %}<div class="row" style="margin-top:8px">{% for o in outs[j.id] %}<a class="btn dark sm" href="{{ url_for('media', oid=o.id, download=1) }}">Download{{ ' ' ~ loop.index if outs[j.id]|length > 1 }}</a>{% endfor %}{% if has_feature('adhub') %}<a class="btn dark sm" href="{{ url_for('adhub.export_page', oid=outs[j.id][0].id) }}">Export sizes</a>{% endif %}</div>{% endif %}
       <p class="brief">{{ (j.brief or '')[:110] }}</p>
     </div>
     {% endfor %}

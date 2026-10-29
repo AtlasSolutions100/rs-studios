@@ -941,11 +941,67 @@ check(pub.get("/llms.txt").status_code == 200 and b"# Campaignify" in pub.get("/
 own = seo.parse(pub.get("/").get_data(as_text=True), "https://campaignify.ai/")
 check("Organization" in own["jsonld_types"] and own["canonical"] and not own["jsonld_invalid"], "our landing page has canonical and valid JSON-LD")
 
+print("== ad-account hub + exports")
+import adhub  # noqa: E402
+from urllib.parse import urlsplit  # noqa: E402
+check(fz.get("/app/ad-accounts").status_code == 402, "free account: ad-account hub shows the upgrade page")
+urls = adhub.all_urls()
+check(len(urls) > 40 and all(u.startswith("https://") and urlsplit(u).hostname in adhub.OFFICIAL_HOSTS for u in urls),
+      "every hub link is https on the platform's own domain")
+check(set(adhub.ORDER) == {"meta", "tiktok", "youtube", "x", "linkedin", "pinterest", "snapchat", "reddit"},
+      "hub covers Meta, TikTok, YouTube/Google, X, LinkedIn, Pinterest, Snapchat, Reddit")
+r = x.get("/app/ad-accounts")
+check(r.status_code == 200 and b"Tracking basics" in r.data, "hub overview renders")
+for k in adhub.ORDER:
+    check(x.get(f"/app/ad-accounts/{k}").status_code == 200, f"{k} guide renders")
+check(x.get("/app/ad-accounts/myspace").status_code == 404, "unknown platform 404s")
+x.post("/app/ad-accounts/meta/steps/0", data={"csrf": csrf(x)})
+x.post("/app/ad-accounts/meta/steps/1", data={"csrf": csrf(x)})
+x.post("/app/ad-accounts/meta/steps/1", data={"csrf": csrf(x)})
+with db.connect() as conn:
+    steps_done = [r["step"] for r in conn.execute("SELECT step FROM adhub_progress WHERE workspace_id=? AND platform='meta'", (xws["id"],))]
+check(steps_done == [0], "ticking a step toggles it, saved for the workspace")
+check(x.post("/app/ad-accounts/meta/steps/99", data={"csrf": csrf(x)}).status_code == 404, "out-of-range step refused")
+from PIL import Image  # noqa: E402
+img_path = os.path.join(TMP, "ad_wide.png")
+Image.new("RGB", (1600, 900), (20, 120, 200)).save(img_path)
+with db.connect() as conn:
+    ej = conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, brief, status, credits, created_at, updated_at) "
+                      "VALUES (?,?,?,?,?,?,?,?)", (xws["id"], 1, "ad_image", "x", "done", 0, db.now(), db.now())).lastrowid
+    eo = conn.execute("INSERT INTO outputs (job_id, kind, url, path) VALUES (?,?,?,?)", (ej, "image", "https://x/y.png", img_path)).lastrowid
+    conn.commit()
+check(x.get(f"/app/export/{eo}").status_code == 200 and b"Export sizes" in x.get("/app/library").data, "export page and library button")
+r = x.get(f"/app/export/{eo}/meta/feed")
+check(r.status_code == 200 and "attachment" in r.headers["Content-Disposition"] and "1080x1350" in r.headers["Content-Disposition"],
+      "export downloads with the size in the name")
+with Image.open(io.BytesIO(r.data)) as im:
+    check(im.size == (1080, 1350), "Meta feed export is exactly 1080 x 1350 (center crop)")
+with Image.open(io.BytesIO(x.get(f"/app/export/{eo}/pinterest/pin").data)) as im:
+    check(im.size == (1000, 1500), "Pinterest pin export is 1000 x 1500")
+check(x.get(f"/app/export/{eo}/meta/nope").status_code == 404, "unknown export size 404s")
+check(n.get(f"/app/export/{eo}/meta/feed").status_code == 404, "other workspaces can't export your ads")
+import shutil as _sh  # noqa: E402
+if _sh.which("ffmpeg"):
+    vid_path = os.path.join(TMP, "ad.mp4")
+    import subprocess  # noqa: E402
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=720x1280:rate=24:duration=1",
+                    "-pix_fmt", "yuv420p", vid_path], check=True)
+    with db.connect() as conn:
+        vo = conn.execute("INSERT INTO outputs (job_id, kind, url, path) VALUES (?,?,?,?)", (ej, "video", "https://x/y.mp4", vid_path)).lastrowid
+        conn.commit()
+    r = x.get(f"/app/export/{vo}/youtube/instream")
+    out = os.path.join(TMP, "exp.mp4")
+    open(out, "wb").write(r.data)
+    dims = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
+                           "-of", "csv=p=0", out], capture_output=True, text=True).stdout.strip()
+    check(r.status_code == 200 and dims == "1920,1080", "video export re-frames 9:16 to 1920 x 1080")
+
 print("== pages")
 a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": ws1["id"], "plan": "scale"})
 for path in ("/app", "/app/library", "/app/brand", "/admin", "/app/new?tool=motion_copy", "/app/new?template=cost",
              "/app/start", "/app/billing", "/app/new?template=hero", "/app/team", "/app/copy", "/app/optimize",
-             "/app/copy?kind=landing&platform=landing", "/app/campaigns", "/app/seo"):
+             "/app/copy?kind=landing&platform=landing", "/app/campaigns", "/app/seo", "/app/ad-accounts",
+             "/app/ad-accounts/youtube"):
     check(a.get(path).status_code == 200, f"{path} renders")
 check(a.get("/health").get_json()["generation_configured"], "health reports configured")
 for path in ("/app", "/app/start", "/app/billing", "/", "/features"):

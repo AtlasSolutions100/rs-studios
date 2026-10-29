@@ -3,8 +3,7 @@
 Used by the copy studio (what to write and how long), the content optimizer
 (length checks) and the ad-account hub (export specs). `limit` is the hard cap
 where the platform enforces one; `rec` is the length that shows in full in most
-placements. Numbers come from each platform's own ad-spec pages (linked in
-adhub.py); check there when a platform changes its specs.
+placements. Numbers come from each platform's own ad-spec pages (linked in adhub.py); check there when a platform changes its specs.
 """
 
 PLATFORMS = {
@@ -15,7 +14,7 @@ PLATFORMS = {
                "ad_fields": [("Ad text", 100, 100)],
                "caption": 4000, "hashtags": (3, 5)},
     "youtube": {"name": "YouTube", "short": "YouTube",
-                "ad_fields": [("Headline", 15, 15), ("Long headline", 90, 90), ("Description", 90, 90)],
+                "ad_fields": [("Video title", 70, 100), ("Description", 150, 5000)],
                 "caption": 5000, "hashtags": (2, 3)},
     "google": {"name": "Google Search", "short": "Google",
                "ad_fields": [("Headline 1", 30, 30), ("Headline 2", 30, 30), ("Headline 3", 30, 30),
@@ -28,8 +27,8 @@ PLATFORMS = {
                  "ad_fields": [("Introductory text", 150, 600), ("Headline", 70, 200)],
                  "caption": 3000, "hashtags": (2, 3)},
     "pinterest": {"name": "Pinterest", "short": "Pinterest",
-                  "ad_fields": [("Title", 40, 100), ("Description", 50, 500)],
-                  "caption": 500, "hashtags": (0, 3)},
+                  "ad_fields": [("Title", 40, 100), ("Description", 100, 800)],
+                  "caption": 800, "hashtags": (0, 3)},
     "snapchat": {"name": "Snapchat", "short": "Snapchat",
                  "ad_fields": [("Brand name", 25, 25), ("Headline", 34, 34)],
                  "caption": 250, "hashtags": (0, 2)},
