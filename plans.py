@@ -66,7 +66,7 @@ FEATURES = {
               "blurb": "Build a page from blocks and publish it on campaignify.ai."},
     "links": {"plan": "starter", "name": "Smart links", "shipped": False,
               "blurb": "Short links with click counts."},
-    "seo": {"plan": "growth", "name": "SEO, AEO & GEO optimizer", "shipped": False,
+    "seo": {"plan": "growth", "name": "SEO, AEO & GEO optimizer", "shipped": True,
             "blurb": "Audit a page for search, answer engines and AI assistants; get fixes and schema."},
     "optimizer": {"plan": "growth", "name": "Content optimizer", "shipped": True,
                   "blurb": "Score and rewrite copy for a platform: hook, clarity, CTA and compliance."},

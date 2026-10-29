@@ -73,6 +73,17 @@ nothing costs nothing. Ads are generated only when the member picks them and con
 (`campaign_routes.generate` recomputes it and refuses a mismatch). Runs interrupted by a restart show as finished or
 failed after 12 minutes. Revising re-plans with notes and keeps generated ads.
 
+## SEO / AEO / GEO optimizer (`/app/seo`, Growth+)
+
+`fetcher.py` reads member-supplied URLs safely: http(s) on ports 80/443 only, no credentials, every DNS answer must be
+a public address (private, loopback, link-local, CGNAT, multicast, reserved and IPv4-mapped forms are refused), the
+connection goes to the checked IP (no DNS rebinding), redirects are re-checked hop by hop, 2 MB and short timeouts.
+Audits are rate-limited per workspace (30/hour). `seo.py` parses the page and scores three groups of checks (SEO,
+AEO, GEO including AI crawler rules in robots.txt and llms.txt), and the optional AI pass writes a title, description,
+answer-first summary, FAQ, keyword and topic ideas; `seo.jsonld` serializes schema.org JSON-LD itself so it's always
+valid. The audit is free; AI suggestions are charged at cost. The planner gets an `audit_page` tool on Growth+.
+Our own site serves `/robots.txt`, `/sitemap.xml`, `/llms.txt`, canonical links and Organization JSON-LD.
+
 ## Tests
 
     python tests/test_app.py        # generation API and Stripe faked; 122 checks

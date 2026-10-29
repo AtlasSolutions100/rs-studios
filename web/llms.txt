@@ -1,0 +1,22 @@
+# Campaignify
+
+> Campaignify (campaignify.ai) is an AI ad and campaign studio for small brands and independent sellers. It turns a product photo into image and video ads from proven templates, checks every brief for income, health, discount and recruiting claims, and on paid plans it also plans and writes whole campaigns.
+
+## Pages
+
+- [Home]({{ request.host_url }}): what Campaignify does, example ads, pricing and FAQ.
+- [Features]({{ request.host_url }}features): every tool that's live today and which plan includes it.
+- [Terms]({{ request.host_url }}terms): credits, plans, what you can't make.
+- [Privacy]({{ request.host_url }}privacy): what we collect and why.
+
+## Plans
+
+{% for p in plans.PAID %}- {{ p.name }}: ${{ p.usd }} a month, {{ '{:,}'.format(p.credits) }} credits a month.
+{% endfor %}- Free: starter credits and the ad studio. Credit packs ($29, $79, $199) top up any account.
+- 1 credit = $0.01. Plan credits expire at each renewal; pack credits never expire.
+
+## Tools
+{% for k, f in plans.FEATURES.items() if f.shipped %}
+- {{ f.name }} ({{ 'every account' if f.plan == 'free' else plans.PLANS[f.plan].name ~ ' and up' }}): {{ f.blurb }}{% endfor %}
+
+Contact: hello@campaignify.ai
