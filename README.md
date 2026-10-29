@@ -127,6 +127,25 @@ IP, no redirects), signed `X-Campaignify-Signature: sha256=<hmac of body>`; the 
 There is no mailer in the app, so email notifications are not sent (the form editor says so). Contacts: search, tag
 filter, notes, CSV export (formula-safe), delete (also wipes their answers).
 
+## Flows (`/app/flows`, Starter+; email Growth+, texts Scale)
+
+The follow-up after the ad: a trigger (form submitted, tag added, contact added, community joined, a date) and steps
+(email, text, wait, if/else, exit when, tag, stage, task, notify, webhook, community invite). Built in a vertical step
+editor, from a template, or drafted by AI from a sentence (charged at cost, saved off for review). `flows.py` holds the
+data model, validation, timeline and templates; `flows_engine.py` enrols contacts and walks runs from the worker loop
+(leases, versions, auto-pause on errors). Until a provider is connected, email and text steps become tasks in
+`/app/tasks` with the copy ready to send.
+
+**Email (F1, Resend).** Set `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET` and `RS_MAIL_DOMAIN` (deploy.yml passes them).
+In Resend: verify `mail.campaignify.ai` (SPF, DKIM, DMARC and the bounce MX records it shows) and add a webhook to
+`https://campaignify.ai/webhooks/resend` for email.sent/delivered/bounced/complained/opened/clicked. Mail goes out as
+"Brand via Campaignify" <ws-ID@mail.campaignify.ai> with Reply-To the workspace's address. Each workspace sets its
+sender name, reply-to and postal address and accepts the Messaging Policy in Settings → Sending before anything sends.
+Every email gets the postal address, a one-click unsubscribe link and `List-Unsubscribe` headers; links are tracked
+through `/t/<token>`, opens through a pixel. Consent comes from form checkboxes (stored with time, wording hash and
+IP hash), CSV import (`email_consent` column) or a manual setting. Caps: 300/day Growth, 2,000/day Scale, 50/day in a
+sender's first week, 2 a day per person; complaints over 0.3% or bounces over 5% pause the flow. 1 credit per email.
+
 ## Community and courses (Scale)
 
 `community_routes.py`. Workspace side `/app/community`: settings (name, address, optional open join link), spaces,

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>Unsubscribe · {{ sender }}</title>
+<style>
+:root{--bg:#F6F7F4;--panel:#fff;--ink:#0B0C0E;--muted:#585C63;--line:rgba(11,12,14,.12);--btn:#0B0C0E;--btnink:#fff}
+@media (prefers-color-scheme: dark){:root{--bg:#0B0C0E;--panel:#141519;--ink:#F5F6F2;--muted:#A0A3A9;--line:rgba(255,255,255,.12);--btn:#BDFA25;--btnink:#0B0C0E}}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;display:grid;place-items:center;min-height:100vh;padding:16px;box-sizing:border-box}
+main{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:28px;max-width:440px;width:100%}
+h1{font-size:22px;margin:0 0 8px}p{color:var(--muted);margin:0 0 16px}
+button{font:600 15px inherit;border:0;border-radius:12px;padding:12px 18px;background:var(--btn);color:var(--btnink);cursor:pointer;width:100%}
+input{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--ink);font:inherit;margin:0 0 12px}
+label{font-size:14px;color:var(--muted)}small{color:var(--muted)}
+</style></head>
+<body><main>
+{% if done %}
+  <h1>You're unsubscribed</h1>
+  <p>{{ sender }} won't email you again. If that was a mistake, you can sign up again on their page.</p>
+{% else %}
+  <h1>Unsubscribe from {{ sender }}?</h1>
+  <p>You'll stop getting emails from {{ sender }}. This takes one click; no login.</p>
+  <form method="post" action="{{ url_for('messaging.unsubscribe', token=token) }}">
+    <label for="why">Why? (optional)</label><input id="why" name="why" maxlength="200">
+    <button>Unsubscribe</button>
+  </form>
+{% endif %}
+<p style="margin:16px 0 0"><small>Sent with Campaignify on behalf of {{ sender }}.</small></p>
+</main></body></html>

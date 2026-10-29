@@ -32,9 +32,21 @@ def _forms(conn):
 
 
 def channels() -> dict:
-    """What can actually send right now (email from F1, SMS from F3; both on the workspace's plan)."""
-    return {"email": "email" in flows_engine.SENDERS and _feature("flows_email"),
-            "sms": "sms" in flows_engine.SENDERS and _feature("flows_sms")}
+    """What can actually send right now for this workspace (email from F1, SMS from F3)."""
+    import messaging
+    ws = g.ws
+    with db.connect() as conn:
+        ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone()
+    return {"email": "email" in flows_engine.SENDERS and not messaging.email_ready(ws),
+            "sms": "sms" in flows_engine.SENDERS and _feature("flows_sms") and _sms_ready(ws)}
+
+
+def _sms_ready(ws) -> bool:
+    try:
+        import sms
+        return not sms.sms_ready(ws)
+    except ImportError:
+        return False
 
 
 def _feature(key):
@@ -59,6 +71,11 @@ def readiness(conn, f, tree, probs) -> list[dict]:
     if "sms" in kinds:
         out.append({"ok": ch["sms"], "block": False, "label": "Text messages",
                     "detail": "Connected." if ch["sms"] else "Not connected yet: each text becomes a task for you."})
+    if ch["email"] and "email" in kinds and t.get("kind") == "form_submitted":
+        fm = conn.execute("SELECT * FROM forms WHERE id=? AND workspace_id=?", (t.get("form_id") or 0, g.ws["id"])).fetchone()
+        ok = bool(fm and fm["consent_email"])
+        out.append({"ok": ok, "block": True, "label": "The form asks for email consent",
+                    "detail": "" if ok else "Turn on “Ask to send emails” on the form, so people can agree to your emails."})
     if t.get("kind") in ("form_submitted", "contact_added", "tag_added", "date") and not plans.has(g.ws, "forms"):
         out.append({"ok": False, "block": False, "label": "Contacts",
                     "detail": f"Forms and contacts come with {plans.required('forms')['name']}; until then nobody can "
@@ -198,6 +215,10 @@ def edit(fid):
         stats = _stats(conn, fid)
         tree = boot["tree"]
         names = {s["id"]: flows.describe(s) for s, _ in flows.walk(tree["steps"])}
+        msgs = {r["node_id"]: dict(r) for r in conn.execute(
+            "SELECT node_id, SUM(status IN ('sent','delivered','bounced','complained')) sent, SUM(delivered_at IS NOT NULL) delivered, "
+            "SUM(opened_at IS NOT NULL) opened, SUM(clicked_at IS NOT NULL) clicked, SUM(status='bounced') bounced, "
+            "SUM(status IN ('skipped','suppressed')) skipped FROM messages WHERE flow_id=? GROUP BY node_id", (fid,))}
         by_node = {r["node_id"]: dict(r) for r in conn.execute(
             "SELECT node_id, SUM(kind='task') tasks, SUM(kind='sent') sent, SUM(kind='branch' AND detail='yes') yes, "
             "SUM(kind='branch' AND detail='no') no, SUM(kind='error') errors, COUNT(*) n FROM flow_events WHERE flow_id=? "
@@ -210,7 +231,7 @@ def edit(fid):
                             "WHERE r.flow_id=? AND r.status='waiting' ORDER BY r.wake_at LIMIT 100", (fid,)).fetchall()
         day30 = conn.execute("SELECT substr(started_at,1,10) d, COUNT(*) n FROM flow_runs WHERE flow_id=? AND "
                              "started_at>=date('now','-30 day') GROUP BY d ORDER BY d", (fid,)).fetchall()
-    return render_template("flow_edit.html", f=f, boot=boot, stats=stats, names=names, by_node=by_node, at_node=at_node,
+    return render_template("flow_edit.html", f=f, boot=boot, stats=stats, names=names, by_node=by_node, at_node=at_node, msgs=msgs,
                            events=events, runs=runs, day30=day30, tab=request.args.get("tab") or "steps")
 
 

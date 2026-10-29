@@ -1922,6 +1922,180 @@ check(r.status_code == 302 and x.get(r.headers["Location"]).status_code == 200, 
 nav = x.get("/app").get_data(as_text=True)
 check('href="/app/flows"' in nav, "Flows is in the nav (Grow)")
 
+print("== flows F1: email via Resend (phase 7)")
+import base64 as _b64  # noqa: E402
+import mailer  # noqa: E402
+import messaging  # noqa: E402
+_sub_ip = [0]
+
+
+def form_sub(**kw):
+    _sub_ip[0] += 1
+    return client(ip=f"10.88.{_sub_ip[0] // 200}.{_sub_ip[0] % 200 + 1}").post(f"/f/{fm['code']}", data=dict(good, **kw))
+
+
+with db.connect() as conn:
+    conn.execute("UPDATE flows SET status='paused' WHERE workspace_id=?", (xws["id"],))
+    conn.commit()
+    w = conn.execute("SELECT * FROM workspaces WHERE id=?", (xws["id"],)).fetchone()
+check(any("connected" in m for m in messaging.email_ready(w)) and any("postal" in m for m in messaging.email_ready(w)),
+      "without keys, an address and the policy, email doesn't send (steps stay tasks)")
+html = x.get("/app/settings/sending").get_data(as_text=True)
+check("isn't connected" in html and "Messaging Policy" in html, "Settings → Sending shows the not-connected state")
+SECRET = "whsec_" + _b64.b64encode(b"campaignify-test-webhook-secret!").decode()
+os.environ.update(RESEND_API_KEY="re_test", RS_MAIL_DOMAIN="mail.campaignify.ai", RESEND_WEBHOOK_SECRET=SECRET)
+sent_mail = []
+
+
+class _MailResp:
+    status_code = 200
+    text = "{}"
+
+    def __init__(self, i):
+        self._i = i
+
+    def json(self):
+        return {"id": f"re_{self._i}"}
+
+
+def fake_resend(url, json=None, headers=None, timeout=0):
+    sent_mail.append({"url": url, "body": json, "headers": headers})
+    return _MailResp(len(sent_mail))
+
+
+mailer.requests.post = fake_resend
+x.post("/app/settings/sending", data={"csrf": csrf(x), "sender_name": "Glow Co", "reply_to": "team@glow.example",
+                                      "postal_address": "1 Main St, Austin, TX 78701", "accept": "1"})
+with db.connect() as conn:
+    w = conn.execute("SELECT * FROM workspaces WHERE id=?", (xws["id"],)).fetchone()
+check(w["messaging_accepted_at"] and w["postal_address"].startswith("1 Main") and not messaging.email_ready(w),
+      "with keys, an address and the policy accepted, the workspace can send")
+x.post(f"/app/forms/{fm['id']}", data=dict(base_fields, action="save", consent_email="1",
+                                           consent_text="Yes, email me about {brand}. I can unsubscribe anytime."))
+with db.connect() as conn:
+    fm = conn.execute("SELECT * FROM forms WHERE id=?", (fm["id"],)).fetchone()
+check(fm["consent_email"] == 1, "the form asks for email consent")
+check('name="_consent_email"' in pubc.get(f"/f/{fm['code']}").get_data(as_text=True), "the public form shows the consent box")
+etree = {"trigger": {"kind": "form_submitted", "form_id": fm["id"]}, "steps": [
+    {"type": "email", "subject": "Welcome, {{first_name}}", "body": "Hi {{first_name}},\n\nHere it is: https://campaignify.ai/p/glow-launch\n\n{{brand}}"},
+    {"type": "wait", "days": 1},
+    {"type": "condition", "test": {"kind": "clicked", "node": ""}, "yes": [{"type": "notify", "message": "{{name}} clicked"}],
+     "no": [{"type": "notify", "message": "{{name}} did not click"}]}]}
+etree = flows.clean_tree(etree)
+etree["steps"][2]["test"]["node"] = etree["steps"][0]["id"]
+r = x.post("/app/flows/new", data={"csrf": csrf(x), "kind": "blank", "name": "Email test"})
+efid = int(r.headers["Location"].rstrip("/").split("/")[-1])
+x.post(f"/app/flows/{efid}/save", data=json.dumps({"tree": etree}), content_type="application/json", headers={"X-CSRF": csrf(x)})
+x.post(f"/app/flows/{efid}/state", data={"csrf": csrf(x), "action": "on"})
+form_sub(f_email="mia@flow.example", f_name="Mia Chen", _consent_email="yes")
+form_sub(f_email="noconsent@flow.example", f_name="Ned")
+with db.connect() as conn:
+    mia = conn.execute("SELECT * FROM contacts WHERE email='mia@flow.example'").fetchone()
+    ned = conn.execute("SELECT * FROM contacts WHERE email='noconsent@flow.example'").fetchone()
+det = json.loads(mia["email_consent_detail"])
+check(mia["email_consent"] == "form" and det["form"] == fm["id"] and len(det["text_sha256"]) == 32 and "ip_sha256" in det
+      and ned["email_consent"] == "none", "a ticked box records consent with the form, wording hash and IP hash")
+bal = db.balance(wsrow(xws["id"]))
+T0 = flows_engine.utcnow() + _tdl(seconds=2)
+flows_engine.tick(now=T0)
+with db.connect() as conn:
+    mm = conn.execute("SELECT * FROM messages WHERE contact_id=?", (mia["id"],)).fetchone()
+    nm = conn.execute("SELECT * FROM messages WHERE contact_id=?", (ned["id"],)).fetchone()
+mail = sent_mail[-1]
+b_ = mail["body"]
+check(mm["status"] == "sent" and mm["provider_id"] == f"re_{len(sent_mail)}" and b_["to"] == ["mia@flow.example"]
+      and b_["from"] == f'"Glow Co via Campaignify" <ws-{xws["id"]}@mail.campaignify.ai>' and b_["reply_to"] == "team@glow.example"
+      and b_["subject"] == "Welcome, Mia", "the email goes out as “Glow Co via Campaignify” with Reply-To the customer")
+check("1 Main St, Austin, TX 78701" in b_["html"] and f"/u/{mm['token']}" in b_["html"] and "Unsubscribe" in b_["text"]
+      and b_["headers"]["List-Unsubscribe"] == f"<https://campaignify.ai/u/{mm['token']}>"
+      and b_["headers"]["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"
+      and mail["headers"]["Idempotency-Key"] == f"cfy-msg-{mm['id']}", "footer with postal address + unsubscribe; List-Unsubscribe headers; idempotency key")
+check("https://campaignify.ai/t/" in b_["text"] and "glow-launch" not in b_["text"].split("Unsubscribe")[0],
+      "links are rewritten through tracked redirects")
+check(db.balance(wsrow(xws["id"])) == bal - messaging.EMAIL_CREDITS and nm["status"] == "skipped" and "consent" in nm["error"],
+      "1 credit per email sent; a contact without consent is skipped with a logged reason")
+with db.connect() as conn:
+    ln = conn.execute("SELECT * FROM message_links WHERE message_id=?", (mm["id"],)).fetchone()
+r = client().get(f"/t/{ln['token']}")
+check(r.status_code == 302 and r.headers["Location"].startswith("https://campaignify.ai/p/glow-launch?cfy_c="), "a tracked click redirects (and tags our pages)")
+check(client().get(f"/t/o/{mm['token']}.gif").mimetype == "image/gif", "open pixel")
+flows_engine.tick(now=T0 + _tdl(days=1, seconds=1))
+with db.connect() as conn:
+    notes = [t_["title"] for t_ in conn.execute("SELECT title FROM tasks WHERE flow_id=? ORDER BY id", (efid,))]
+check("Mia Chen clicked" in notes and "Ned did not click" in notes, "If clicked uses the tracked click")
+# webhooks
+raw = json.dumps({"type": "email.delivered", "data": {"email_id": mm["provider_id"]}}).encode()
+ts = str(int(_time.time()))
+hdr = {"svix-id": "msg_1", "svix-timestamp": ts, "svix-signature": mailer.sign_webhook(SECRET, "msg_1", ts, raw)}
+check(client().post("/webhooks/resend", data=raw, headers=dict(hdr, **{"svix-signature": "v1,AAAA"}),
+                    content_type="application/json").status_code == 400, "a webhook with a bad signature is refused")
+r = client().post("/webhooks/resend", data=raw, headers=hdr, content_type="application/json")
+r2 = client().post("/webhooks/resend", data=raw, headers=hdr, content_type="application/json")
+with db.connect() as conn:
+    mm = conn.execute("SELECT * FROM messages WHERE id=?", (mm["id"],)).fetchone()
+check(r.status_code == 200 and mm["status"] == "delivered" and r2.get_data(as_text=True) == "already seen", "delivered recorded; a replayed event is ignored")
+form_sub(f_email="bounce@flow.example", f_name="Bo", _consent_email="yes")
+flows_engine.tick(now=T0 + _tdl(days=1, seconds=5))
+with db.connect() as conn:
+    bm = conn.execute("SELECT m.* FROM messages m JOIN contacts c ON c.id=m.contact_id WHERE c.email='bounce@flow.example'").fetchone()
+raw = json.dumps({"type": "email.bounced", "data": {"email_id": bm["provider_id"], "bounce": {"type": "Permanent"}}}).encode()
+hdr = {"svix-id": "msg_2", "svix-timestamp": ts, "svix-signature": mailer.sign_webhook(SECRET, "msg_2", ts, raw)}
+client().post("/webhooks/resend", data=raw, headers=hdr, content_type="application/json")
+with db.connect() as conn:
+    bo = conn.execute("SELECT * FROM contacts WHERE email='bounce@flow.example'").fetchone()
+    sup = conn.execute("SELECT * FROM suppressions WHERE workspace_id=? AND address='bounce@flow.example'", (xws["id"],)).fetchone()
+check(sup and sup["reason"] == "bounce" and bo["email_consent"] == "none", "a hard bounce suppresses the address")
+# one-click unsubscribe
+uc = client()
+check("Unsubscribe from Glow Co?" in uc.get(f"/u/{mm['token']}").get_data(as_text=True), "unsubscribe page, no login")
+r = uc.post(f"/u/{mm['token']}")
+with db.connect() as conn:
+    mia = conn.execute("SELECT * FROM contacts WHERE id=?", (mia["id"],)).fetchone()
+    s_ = conn.execute("SELECT * FROM suppressions WHERE workspace_id=? AND address='mia@flow.example'", (xws["id"],)).fetchone()
+check(r.status_code == 200 and mia["unsubscribed_at"] and s_["reason"] == "unsubscribe", "one-click unsubscribe (mail-app POST) works without a login")
+with db.connect() as conn:
+    run_m = conn.execute("SELECT * FROM flow_runs WHERE flow_id=? AND contact_id=?", (efid, mia["id"])).fetchone()
+    vtree = flows.unpack(conn.execute("SELECT graph_json FROM flow_versions WHERE id=?", (run_m["version_id"],)).fetchone()[0])
+    conn.execute("INSERT INTO messages (workspace_id, contact_id, run_id, flow_id, node_id, channel, to_addr, subject, body_text, "
+                 "status, token, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                 (xws["id"], mia["id"], run_m["id"], efid, "late1", "email", mia["email"], "Hi", "Hello", "queued", "tok-late", db.now()))
+    conn.commit()
+messaging.send_queued()
+with db.connect() as conn:
+    check(conn.execute("SELECT status FROM messages WHERE token='tok-late'").fetchone()[0] == "suppressed", "nothing more goes to someone who unsubscribed")
+# daily cap: the warm-up limit pauses the flow and tells the owner
+with db.connect() as conn:
+    for i in range(messaging.WARMUP_CAP):
+        conn.execute("INSERT INTO messages (workspace_id, contact_id, flow_id, channel, status, token, created_at, sent_at) "
+                     "VALUES (?,?,?,?,?,?,?,?)", (xws["id"], ned["id"], efid, "email", "sent", f"cap{i}", db.now(), db.now()))
+    conn.commit()
+form_sub(f_email="capped@flow.example", f_name="Cap", _consent_email="yes")
+flows_engine.tick(now=flows_engine.utcnow() + _tdl(seconds=3))
+with db.connect() as conn:
+    fe = conn.execute("SELECT status FROM flows WHERE id=?", (efid,)).fetchone()[0]
+    capm = conn.execute("SELECT m.status FROM messages m JOIN contacts c ON c.id=m.contact_id WHERE c.email='capped@flow.example'").fetchone()
+    capnote = conn.execute("SELECT 1 FROM tasks WHERE flow_id=? AND title LIKE '%daily email limit%'", (efid,)).fetchone()
+check(fe == "paused" and capm["status"] == "queued" and capnote, "the daily cap pauses the flow, keeps the email queued and tells the owner")
+# CSV import with a consent column
+csvdata = "email,name,tags,email_consent\nimp1@flow.example,Ivy,vip,yes\nimp2@flow.example,Ian,,no\nnot-an-email,,,yes\n"
+x.post("/app/contacts/import", data={"csrf": csrf(x), "source": "Old newsletter (double opt-in)",
+                                     "file": (io.BytesIO(csvdata.encode()), "list.csv")}, content_type="multipart/form-data")
+with db.connect() as conn:
+    i1 = conn.execute("SELECT * FROM contacts WHERE email='imp1@flow.example'").fetchone()
+    i2 = conn.execute("SELECT * FROM contacts WHERE email='imp2@flow.example'").fetchone()
+check(i1["email_consent"] == "import" and "Old newsletter" in i1["email_consent_detail"] and i1["tags"] == "vip"
+      and i2["email_consent"] == "none", "CSV import records consent only where the column says yes")
+html = x.get(f"/app/contacts/{i1['id']}").get_data(as_text=True)
+check("Consent" in html and "in an import" in html, "the contact page shows consent")
+pol = client().get("/messaging-policy").get_data(as_text=True)
+check("STOP" in pol and "postal address" in pol and "Messaging Policy" in client().get("/terms").get_data(as_text=True)
+      and "Resend" in client().get("/privacy").get_data(as_text=True) and "/messaging-policy" in client().get("/sitemap.xml").get_data(as_text=True),
+      "Messaging Policy page; Terms and Privacy updated")
+for k in ("RESEND_API_KEY", "RS_MAIL_DOMAIN", "RESEND_WEBHOOK_SECRET"):
+    os.environ.pop(k)
+dy = open(os.path.join(os.path.dirname(HERE), ".github", "workflows", "deploy.yml")).read()
+check(all(k in dy for k in ("RESEND_API_KEY", "RESEND_WEBHOOK_SECRET", "RS_MAIL_DOMAIN")), "deploy passes the email settings")
+
 print("== phase 0: accessibility, copy, shell helpers")
 for t in catalog.TEMPLATES:
     for name in ("", "Sunrise Blend"):

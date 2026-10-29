@@ -1,0 +1,45 @@
+{% extends "base.html" %}{% block title %}Sending · Settings · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <p class="eyebrow">Settings</p>
+  <h1>Sending <span class="gold">email and texts</span></h1>
+  <p class="muted">How your flows' messages go out: who they're from, where replies go, and the details the law asks for.</p>
+  {% if not connected %}<div class="flash">Email sending isn't connected on Campaignify yet. You can fill this in now; until it's connected, email steps in your flows become tasks for you.</div>
+  {% elif not has_email %}<div class="flash">Sending email from flows comes with {{ plans.required('flows_email').name }}. Until then, email steps become tasks for you. <a href="{{ url_for('billing_page') }}#plans">See plans</a></div>
+  {% elif ready %}<div class="flash warn">To start sending: {{ ready|join(' ') }}</div>
+  {% else %}<div class="flash" style="border-color:rgba(61,214,140,.5)">Email sending is on for your flows.</div>{% endif %}
+
+  <div class="two-col" style="align-items:start">
+    <form method="post" class="panel">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <h2 style="margin-top:0">Who it's from</h2>
+      <label for="sn">Sender name</label><input id="sn" name="sender_name" maxlength="60" value="{{ ws.sender_name or '' }}" placeholder="Your brand">
+      <p class="small muted" style="margin:6px 0 0">Emails show as <b>“{{ ws.sender_name or 'Your brand' }} via Campaignify”</b> &lt;ws-{{ ws.id }}@{{ mail_domain }}&gt;{% if domains and domains[0].status == 'verified' %}, or from your own domain (below){% endif %}.</p>
+      <label for="rt">Replies go to</label><input id="rt" name="reply_to" maxlength="200" inputmode="email" value="{{ ws.reply_to or '' }}" placeholder="{{ g.user.email }}">
+      <label for="pa">Postal address <span class="dim">(required: it's in every email's footer)</span></label><textarea id="pa" name="postal_address" maxlength="300" style="min-height:70px" placeholder="Street, city, state, ZIP">{{ ws.postal_address or '' }}</textarea>
+      <label class="choice" style="display:flex;gap:10px;margin-top:14px;border-radius:12px;align-items:flex-start;padding:10px 12px"><input type="checkbox" name="consent_manual" value="1" {{ 'checked' if ws.consent_manual }} style="position:static;opacity:1;width:auto;height:auto;margin-top:3px"><span>I have permission to email the contacts I add by hand <span class="dim">(recorded as “manual” consent)</span></span></label>
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
+        {% if ws.messaging_accepted_at %}<p class="small muted" style="margin:0 0 10px">✓ Messaging Policy accepted {{ ws.messaging_accepted_at[:20]|localtime }}{% if accepted_by %} by {{ accepted_by }}{% endif %}.</p>
+        {% else %}<label class="choice" style="display:flex;gap:10px;border-radius:12px;align-items:flex-start;padding:10px 12px"><input type="checkbox" name="accept" value="1" style="position:static;opacity:1;width:auto;height:auto;margin-top:3px"><span>I agree to the <a href="{{ url_for('messaging.policy') }}" target="_blank">Messaging Policy</a> and the updated <a href="{{ url_for('terms') }}" target="_blank">Terms</a> and <a href="{{ url_for('privacy') }}" target="_blank">Privacy</a>. I'll only message people who agreed to hear from me.</span></label>{% endif %}
+        <button class="btn" style="margin-top:12px">Save</button>
+      </div>
+    </form>
+    <div class="grid" style="gap:16px">
+      <div class="panel">
+        <h2 style="margin-top:0">Prices and limits</h2>
+        <ul class="rules">
+          <li>Each email: <b>{{ credits }} credit{{ 's' if credits != 1 }}</b> ({{ credits_usd(credits) }}), charged when it's sent.</li>
+          <li>Daily limit: <b>{{ '{:,}'.format(cap) if cap else '—' }}</b> emails{% if cap == 50 %} (a new sender starts at 50 a day for the first week){% endif %}; at most 2 a day to one person.</li>
+          <li>A flow pauses itself if its emails draw spam complaints above 0.3% or bounce above 5%.</li>
+          <li>Texts (Scale): about 3 credits a segment, plus the number and carrier registration (shown before you start).</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h2 style="margin-top:0">Last 30 days</h2>
+        <p class="muted" style="margin:0">{{ stats.n or 0 }} sent · {{ stats.ok or 0 }} delivered · {{ stats.b or 0 }} bounced · {{ stats.c or 0 }} marked as spam · {{ n_sup }} address{{ 'es' if n_sup != 1 }} won't be emailed again</p>
+      </div>
+      {% for tpl, ctx in extra %}{% include tpl %}{% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
