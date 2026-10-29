@@ -176,31 +176,43 @@ def client_ip() -> str:
 
 
 # Landing-page media. Every example was generated for this site with AI: the
-# products are invented and unbranded, and nothing here is presented as a
-# customer's result. No presenters or people speaking to camera.
+# products, brands (Aurelle Roast, Petalune, ...) and presenters are invented,
+# and nothing here is presented as a customer's result. Presenter clips
+# (`talk`) are labeled as AI presenters, have sound and make no result claims.
+_PRODUCT_HERO = {"src": "previews/ad_image.mp4", "poster": "previews/ad_image.jpg", "title": "Product hero",
+                 "tool": "Coffee bag", "alt": "An unlabeled terracotta coffee bag on dark slate as a warm light sweeps across it."}
+_FLOATING_HERO = {"src": "previews/photo_to_video.mp4", "poster": "previews/photo_to_video.jpg", "title": "Floating hero",
+                  "tool": "Sneaker", "alt": "A plain white sneaker turning slowly above a sand-colored pedestal."}
+_IN_HAND = {"src": "previews/motion_copy.mp4", "poster": "previews/motion_copy.jpg", "title": "In hand", "tool": "Serum",
+            "alt": "A hand turning a frosted serum bottle against rippling green light."}
 GALLERY = [
-    {"src": "previews/ad_image.mp4", "poster": "previews/ad_image.jpg", "title": "Product hero", "tool": "Coffee bag",
-     "alt": "An unlabeled terracotta coffee bag on dark slate as a warm light sweeps across it."},
-    {"src": "previews/photo_to_video.mp4", "poster": "previews/photo_to_video.jpg", "title": "Floating hero",
-     "tool": "Sneaker", "alt": "A plain white sneaker turning slowly above a sand-colored pedestal."},
-    {"src": "previews/motion_copy.mp4", "poster": "previews/motion_copy.jpg", "title": "In hand", "tool": "Serum",
-     "alt": "A hand turning a frosted serum bottle against rippling green light."},
-    {"src": "previews/swap.mp4", "poster": "previews/swap.jpg", "title": "The routine", "tool": "Coffee bag",
-     "alt": "A hand scooping ground coffee into a white mug beside an unlabeled bag."},
+    {"src": "site/show-amber.mp4", "poster": "site/show-amber.jpg", "title": "Molten gold", "tool": "Coffee bag",
+     "alt": "A gold coffee bag floating before a wall of type, then landing in a splash of liquid gold."},
+    {"src": "site/ugc-coffee.mp4", "poster": "site/ugc-coffee.jpg", "title": "Coffee review", "tool": "AI presenter",
+     "talk": True, "alt": "An AI presenter in a sunny kitchen holds up a coffee bag and talks about how it smells."},
+    {"src": "site/show-kawaii.mp4", "poster": "site/show-kawaii.jpg", "title": "Kawaii summer", "tool": "Coffee bag",
+     "alt": "A coffee bag on a pink gingham beach picnic with glass hearts, a splash and cute speech bubbles."},
+    {"src": "site/ugc-serum.mp4", "poster": "site/ugc-serum.jpg", "title": "Serum routine", "tool": "AI presenter",
+     "talk": True, "alt": "An AI presenter in a bright bathroom shows a face serum and puts a drop on her hand."},
+    {"src": "site/show-y2k.mp4", "poster": "site/show-y2k.jpg", "title": "Y2K charms", "tool": "Coffee bag",
+     "alt": "A coffee bag on denim among chains, charms and a pink flip phone, ending as a backlit silhouette."},
+    {"src": "site/ugc-sneakers.mp4", "poster": "site/ugc-sneakers.jpg", "title": "Gym sneakers", "tool": "AI presenter",
+     "talk": True, "alt": "An AI presenter in a gym shows off a sage-green running sneaker."},
+    {"src": "site/show-pastel.mp4", "poster": "site/show-pastel.jpg", "title": "Pastel studio", "tool": "Coffee bag",
+     "alt": "A coffee bag tumbling among floating pastel cubes and landing on a white pedestal."},
+    {"src": "site/ugc-app.mp4", "poster": "site/ugc-app.jpg", "title": "App demo", "tool": "AI presenter",
+     "talk": True, "alt": "An AI presenter at a desk shows a to-do list app on his phone."},
+    {"src": "site/show-ingredients.mp4", "poster": "site/show-ingredients.jpg", "title": "Ingredient story",
+     "tool": "Coffee bag", "alt": "Macro shots of coffee beans and cinnamon with bold titles, ending on the bag."},
+    {"src": "site/ugc-bakery.mp4", "poster": "site/ugc-bakery.jpg", "title": "Local bakery", "tool": "AI presenter",
+     "talk": True, "alt": "An AI presenter behind a bakery counter shows a tray of fresh croissants."},
+    _PRODUCT_HERO, _FLOATING_HERO, _IN_HAND,
     {"src": "site/headphones.mp4", "poster": "site/headphones.jpg", "title": "Bold color", "tool": "Headphones",
      "alt": "Blue over-ear headphones floating against a bright orange background."},
-    {"src": "previews/iced.mp4", "poster": "previews/iced.jpg", "title": "Summer moment", "tool": "Coffee bag",
-     "alt": "Iced coffee and an unlabeled bag on a sunny patio table."},
     {"src": "site/candle.mp4", "poster": "site/candle.jpg", "title": "Mood", "tool": "Candle",
      "alt": "A lit candle in an amber glass jar beside dried eucalyptus."},
-    {"src": "previews/two-pm.mp4", "poster": "previews/two-pm.jpg", "title": "The 2 PM moment", "tool": "Coffee bag",
-     "alt": "An afternoon desk with a laptop, a steaming mug and an unlabeled coffee bag."},
-    {"src": "previews/gym.mp4", "poster": "previews/gym.jpg", "title": "Packed and ready", "tool": "Coffee bag",
-     "alt": "An open gym bag with a towel, a shaker and an unlabeled coffee bag."},
-    {"src": "previews/copy-trend.mp4", "poster": "previews/copy-trend.jpg", "title": "Social energy", "tool": "Coffee bag",
-     "alt": "A hand turning an unlabeled coffee bag toward the camera in a bright apartment."},
 ]
-HERO_MEDIA = [GALLERY[2], GALLERY[0], GALLERY[1]]
+HERO_MEDIA = [_IN_HAND, _PRODUCT_HERO, _FLOATING_HERO]
 
 # The landing page's spine: one campaign, start to finish. `features` are
 # plans.FEATURES keys (their plan tags come from there); `shot` is a real

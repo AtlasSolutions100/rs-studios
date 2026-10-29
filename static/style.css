@@ -227,8 +227,15 @@ code{font-size:12px;color:var(--gold2);word-break:break-all}
 .lp-g-media video,.lp-g-media img{width:100%;height:100%;object-fit:cover;display:block}
 .lp-g.sq .lp-g-media{background:#EFECE6}
 .lp-g.sq .lp-g-media img{object-fit:contain}
-.lp-g figcaption{display:flex;justify-content:space-between;gap:8px;margin-top:10px;font-size:13px}
-.lp-g figcaption span{color:var(--dim)}
+.lp-g figcaption{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 8px;margin-top:10px;font-size:13px}
+.lp-g figcaption span{color:var(--dim);white-space:nowrap}
+.lp-g-badge{position:absolute;top:10px;left:10px;padding:4px 9px;border-radius:999px;background:rgba(11,12,14,.62);color:#F5F6F2;font-size:11px;font-weight:600;line-height:1.3;pointer-events:none;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.lp-snd{position:absolute;right:10px;bottom:10px;width:38px;height:38px;padding:0;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:rgba(11,12,14,.62);color:#F5F6F2;display:grid;place-items:center;cursor:pointer;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.lp-snd svg{width:18px;height:18px}
+.lp-snd .on,.lp-snd[aria-pressed=true] .off{display:none}
+.lp-snd[aria-pressed=true] .on{display:block}
+.lp-snd[aria-pressed=true]{background:var(--accent);color:var(--on-accent);border-color:transparent}
+.lp-snd:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .lp-steps{list-style:none;padding:0;margin:34px 0 0;display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
 .lp-steps li{background:var(--panel-bg);border:1px solid var(--line);border-radius:20px;padding:26px}
 .lp-steps h3{font-size:20px;margin-top:16px}
@@ -323,7 +330,7 @@ code{font-size:12px;color:var(--gold2);word-break:break-all}
   .lp-rail{margin-top:40px}
   .lp-sec{padding:60px 0}
 }
-@media (max-width:700px){.lp-gallery{grid-template-columns:repeat(2,1fr)}.lp-g figcaption span{display:inline}}
+@media (max-width:700px){.lp-gallery{grid-template-columns:repeat(2,1fr)}.lp-g figcaption span{display:inline}.lp-g:nth-child(odd):last-child{display:none}}
 @media (max-width:560px){
   .lp-wrap{padding:0 16px}
   .lp-nav-in{height:60px;gap:10px}
