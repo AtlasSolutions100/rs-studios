@@ -1,6 +1,7 @@
 """Helpers every page module shares: access guards, the active brand, and
 charging credits for AI calls. Blueprints import from here (never from app.py)."""
 import functools
+import json
 
 from flask import abort, flash, g, redirect, render_template, request, url_for
 
@@ -81,3 +82,22 @@ def can_afford(credits: int) -> bool:
 
 def not_enough(credits: int):
     flash(f"That needs about {credits:,} credits and you have {db.balance(g.ws):,}. Top up on the Billing page.")
+
+
+def queue_job(conn, tool, tpl_id, brief, params, usd, credits, quiet=False):
+    """Insert a pending job and take its credits in one transaction. None (and a
+    message) when the workspace can't afford it."""
+    now = db.now()
+    cur = conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, template_id, brief, params_json, "
+                       "status, credits, cost_usd, created_at, updated_at, priority) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                       (g.ws["id"], g.user["id"], tool, tpl_id, brief, json.dumps(params), "pending",
+                        credits, round(usd, 4), now, now, plans.priority(g.ws)))
+    jid = cur.lastrowid
+    if not db.adjust_credits(conn, g.ws["id"], -credits, "generation", jid):
+        conn.rollback()
+        if not quiet:
+            flash(f"That needs {credits:,} credits and you have {db.balance(g.ws):,}. Buy a credit pack or pick a plan "
+                  "on the Billing page.")
+        return None
+    conn.commit()
+    return jid

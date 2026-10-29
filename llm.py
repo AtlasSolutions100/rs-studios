@@ -110,10 +110,12 @@ class Usage:
         self.usd = 0.0
         self.calls = 0
 
-    def add(self, model_id: str, tin: int, tout: int):
-        self.tokens_in += tin
+    def add(self, model_id: str, tin: int, tout: int, cache_write: int = 0, cache_read: int = 0):
+        """Prompt-cache writes bill at 1.25x the input price and reads at 0.1x."""
+        pin, pout = price_per_mtok(model_id)
+        self.tokens_in += tin + cache_write + cache_read
         self.tokens_out += tout
-        self.usd += cost_usd(model_id, tin, tout)
+        self.usd += (tin + cache_write * 1.25 + cache_read * 0.1) / 1e6 * pin + tout / 1e6 * pout
         self.calls += 1
 
     @property
@@ -162,7 +164,7 @@ def _groq(body: dict) -> dict:
     return r.json()
 
 
-def chat(*, system: str, messages: list, tools: list | None = None, tool_choice: dict | None = None,
+def chat(*, system, messages: list, tools: list | None = None, tool_choice: dict | None = None,
          max_tokens: int = 2000, usage: Usage | None = None, temperature: float = 0.7) -> dict:
     """One Anthropic Messages call. Returns the raw response (content blocks,
     stop_reason); adds its tokens to `usage`."""
@@ -175,10 +177,8 @@ def chat(*, system: str, messages: list, tools: list | None = None, tool_choice:
     resp = _anthropic(body)
     u = resp.get("usage") or {}
     if usage is not None:
-        usage.add(resp.get("model") or body["model"],
-                  int(u.get("input_tokens") or 0) + int(u.get("cache_creation_input_tokens") or 0)
-                  + int(u.get("cache_read_input_tokens") or 0),
-                  int(u.get("output_tokens") or 0))
+        usage.add(resp.get("model") or body["model"], int(u.get("input_tokens") or 0), int(u.get("output_tokens") or 0),
+                  int(u.get("cache_creation_input_tokens") or 0), int(u.get("cache_read_input_tokens") or 0))
     return resp
 
 

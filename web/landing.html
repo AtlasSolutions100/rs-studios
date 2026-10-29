@@ -1,7 +1,7 @@
 {% extends "public_base.html" %}
 {% block title %}Campaignify · The ad studio for people who sell{% endblock %}
 {% block head %}
-<meta name="description" content="Campaignify turns a product photo into finished image and video ads. Pick a template, get an ad in minutes. Compliance checks built in for independent reps and direct sellers.">
+<meta name="description" content="Campaignify turns a product photo into finished image and video ads, and plans the campaign around them: angles, hooks, copy for each platform and a launch checklist. Compliance checks built in.">
 <meta property="og:title" content="Campaignify · The ad studio for people who sell">
 <meta property="og:description" content="Add a product photo, pick a template that already works, get a finished ad. Built for independent reps and direct sellers.">
 <meta property="og:image" content="{{ url_for('static', filename='img/campaignify-icon-512.png', _external=True) }}">
@@ -13,9 +13,9 @@
 <section class="lp-hero">
   <div class="lp-wrap lp-hero-in">
     <div class="lp-hero-copy">
-      <p class="eyebrow">AI ad studio</p>
+      <p class="eyebrow">AI ad &amp; campaign studio</p>
       <h1>The ad studio for <span class="gold">people who sell.</span></h1>
-      <p class="lp-lede">Add a product photo, pick a proven ad format, and get a finished image or video ad in minutes. Compliance checks are built in, so it works for independent reps and direct sellers too.</p>
+      <p class="lp-lede">Add a product photo, pick a proven ad format, and get a finished image or video ad in minutes. On a plan, hand the AI planner your brief and get the whole campaign: angles, hooks, ads, copy for each platform and a launch checklist. Compliance checks are built in.</p>
       <div class="lp-cta">
         <a class="btn lg" href="{{ url_for('signup') }}">Start free</a>
         <a class="lp-textlink" href="#gallery">See example ads →</a>
@@ -63,6 +63,20 @@
       <li><span class="lp-num">2</span><h3>Pick a template</h3><p class="muted">Proven ad angles: a clean product hero, the daily routine, the 2 PM moment, label read, the swap and more. Each one starts with a brief you can edit.</p></li>
       <li><span class="lp-num">3</span><h3>Get your ad</h3><p class="muted">Image ads in about a minute, video clips in a few. Download full quality and post it wherever you sell.</p></li>
     </ol>
+  </div>
+</section>
+
+<section class="lp-sec" id="campaigns">
+  <div class="lp-wrap">
+    <p class="eyebrow">Beyond single ads</p>
+    <h2 class="lp-h2">From a brief to a campaign.</h2>
+    <p class="lp-sub muted">The plans add tools that plan and write around your ads. You see every step, and nothing is generated until you say so.</p>
+    <div class="feat-grid">
+      {% for key in ['planner', 'copy', 'optimizer', 'seo', 'adhub', 'pages', 'links', 'forms', 'community'] if plans.FEATURES[key].shipped %}{% set f = plans.FEATURES[key] %}
+      <article class="feat"><span class="tag ok">{{ plans.PLANS[f.plan].name }}+</span><h3 style="margin-top:12px">{{ f.name }}</h3><p class="muted">{{ f.blurb }}</p></article>
+      {% endfor %}
+    </div>
+    <p style="margin-top:22px"><a class="lp-textlink" href="{{ url_for('features') }}">Everything Campaignify does →</a></p>
   </div>
 </section>
 

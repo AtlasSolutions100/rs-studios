@@ -61,6 +61,18 @@ optimizer (`/app/optimize`, Growth+; its quick checks are free and need no key) 
 Shared guards (`login_required`, `feature_required`, `owner_required`, `brand`, `charge_ai`) live in `core.py` so
 blueprints never import `app.py`.
 
+## AI campaign planner (`/app/campaigns`, Starter+)
+
+`planner.py` is a tool-use agent (Anthropic only) over Campaignify's own tools: `get_brand_and_catalog`,
+`save_angles`, `save_creative` (hooks, script, on-screen text), `propose_ad` (validates tool/template, checks the brief,
+records a proposal with its credit price; never spends), `write_copy` (the copy studio), `check_compliance`, `finish`
+(summary, budget split, KPIs, test plan, launch checklist). It runs in a background thread (inline when `RS_WORKER=0`),
+saving each step so the page shows progress live. A run is capped at `RS_PLANNER_CAP` credits (default 150) and
+charged once at the end for what it actually used (prompt caching counted at cache prices); a run that produces
+nothing costs nothing. Ads are generated only when the member picks them and confirms the total
+(`campaign_routes.generate` recomputes it and refuses a mismatch). Runs interrupted by a restart show as finished or
+failed after 12 minutes. Revising re-plans with notes and keeps generated ads.
+
 ## Tests
 
     python tests/test_app.py        # generation API and Stripe faked; 122 checks

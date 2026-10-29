@@ -1,0 +1,148 @@
+{% extends "base.html" %}{% from "_macros.html" import status as job_status, job_thumb %}
+{% block title %}{{ c.name }} · Campaignify{% endblock %}
+{% block body %}
+{% set final = plan.final %}
+<div class="page full camp">
+  <p style="margin:0 0 14px"><a href="{{ url_for('campaigns.index') }}">← Campaigns</a></p>
+  <p class="eyebrow">Campaign · {{ (brief.goal or 'sales')|capitalize }}{% for p in brief.platforms or [] %}{{ ' · ' if loop.first else ', ' }}{{ PLATFORMS[p].short if p in PLATFORMS else p }}{% endfor %}</p>
+  <h1>{{ c.name }}</h1>
+  <p class="muted">{% if brief.audience %}{{ brief.audience }} · {% endif %}{% if brief.budget %}Budget {{ brief.budget }} · {% endif %}Planning cost {{ c.credits }} credits</p>
+
+  {% if c.status == 'planning' %}
+  <div class="panel planning" id="planning" data-steps="{{ steps|length }}">
+    <div class="row"><div class="spinner" style="margin:0"></div><b>Planning your campaign…</b><span class="muted small">This takes a minute or two. You can leave this page; it keeps going.</span></div>
+  </div>
+  {% elif c.status == 'failed' %}
+  <div class="flash bad">The planner couldn't make this plan{% if c.error %} ({{ c.error }}){% endif %}. Nothing was charged for a run that produced nothing. Try revising it below.</div>
+  {% elif c.error %}<div class="flash warn">{{ c.error }}</div>{% endif %}
+
+  <details class="panel steps" {{ 'open' if c.status == 'planning' or not final }}>
+    <summary><b>How it was planned</b> <span class="muted small">{{ steps|length }} steps</span></summary>
+    <ol class="steplist">{% for s in steps %}<li class="{{ s.kind }}"><b>{{ s.title }}</b>{% if s.detail and s.detail != s.title %}<span class="small muted">{{ s.detail }}</span>{% endif %}</li>{% else %}<li class="note"><b>Getting started…</b></li>{% endfor %}</ol>
+  </details>
+
+  {% if final %}
+  <section class="camp-sec">
+    <h2>The plan</h2>
+    <p class="lede">{{ final.summary }}</p>
+    <div class="grid2">
+      {% if final.budget_split %}<div class="panel"><h3>Budget split for the first test</h3>
+        {% for b in final.budget_split %}<div class="bar"><div class="bar-h"><span>{{ PLATFORMS[b.platform].name if b.platform in PLATFORMS else b.platform }}</span><b>{{ b.share_percent }}%</b></div><i style="--v:{{ b.share_percent }}%"></i>{% if b.note %}<p class="small muted">{{ b.note }}</p>{% endif %}</div>{% endfor %}
+      </div>{% endif %}
+      <div class="panel">
+        {% if final.kpis %}<h3>What to watch</h3><ul class="rules">{% for k in final.kpis %}<li>{{ k }}</li>{% endfor %}</ul>{% endif %}
+        {% if final.test_plan %}<h3 style="margin-top:16px">Test plan</h3><p class="muted">{{ final.test_plan }}</p>{% endif %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if plan.angles %}
+  <section class="camp-sec">
+    <h2>Angles, hooks and scripts</h2>
+    <div class="angles">
+      {% for a in plan.angles %}{% set cr = (plan.creative or [])|selectattr('angle', 'equalto', a.name)|first %}
+      <article class="panel angle">
+        <span class="lp-num">{{ loop.index }}</span>
+        <h3>{{ a.name }}</h3>
+        <p>{{ a.insight }}</p>
+        <p class="small muted">Audience: {{ a.audience }}{% if a.why %} · {{ a.why }}{% endif %}</p>
+        {% if cr %}
+        {% if cr.format %}<p class="small"><span class="tag ok">{{ cr.format }}</span></p>{% endif %}
+        <p class="small muted" style="margin:12px 0 4px">Hooks</p>
+        <ul class="hooks">{% for h in cr.hooks %}<li>“{{ h }}”</li>{% endfor %}</ul>
+        <details><summary class="small">Script{% if cr.on_screen_text %} and on-screen text{% endif %}</summary><p class="vtext small">{{ cr.script }}</p>{% if cr.on_screen_text %}<p class="small muted">On screen: {{ cr.on_screen_text|join(' · ') }}</p>{% endif %}</details>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if ads %}
+  <section class="camp-sec" id="ads">
+    <div class="section-h" style="margin-top:0"><h2>Ads to make</h2><span class="muted small">Pick the ones you want. Nothing is generated until you confirm.</span></div>
+    {% if photos == 0 %}<div class="flash">Videos need a product photo. <a href="{{ url_for('brand_kit') }}">Add one in the brand kit</a>; image ads work without one but look better with it.</div>{% endif %}
+    <form method="post" action="{{ url_for('campaigns.generate', cid=c.id) }}" id="adform">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="total" id="total" value="0">
+      <div class="adlist">
+      {% for a in ads %}
+        <div class="adrow {{ a.status }}" id="ad{{ a.id }}">
+          {% if a.status == 'proposed' %}<label class="adpick"><input type="checkbox" name="ad" value="{{ a.id }}" data-credits="{{ a.credits }}" {{ 'checked' if a.tool == 'ad_image' }}><span class="sr">Make this ad</span></label>
+          {% else %}{% set j = jobs.get(a.job_id) %}<div class="adthumb">{% if j %}{{ job_thumb(j, outs, templates, tools) }}{% endif %}</div>{% endif %}
+          <div class="adbody">
+            <div class="row"><span class="chip-inline {{ 'motion' if a.tool == 'motion_copy' else tools[a.tool].kind }}">{{ tools[a.tool].name }}</span>{% if a.template_id in templates %}<span class="small muted">{{ templates[a.template_id].name }}</span>{% endif %}<span class="small muted">{{ PLATFORMS[a.platform].short if a.platform in PLATFORMS else '' }} · {{ a.angle }}</span>{% if a.status == 'queued' and jobs.get(a.job_id) %}{{ job_status(jobs[a.job_id]) }}{% endif %}</div>
+            <p class="vtext small">{{ a.brief }}</p>
+            {% if a.status == 'proposed' %}<details class="small"><summary>Edit brief</summary><textarea name="brief" form="edit{{ a.id }}" maxlength="2000" aria-label="Brief">{{ a.brief }}</textarea><button class="btn dark sm" form="edit{{ a.id }}" style="margin-top:8px">Save brief</button></details>{% endif %}
+          </div>
+          <div class="adcost"><b>{{ a.credits }}</b><span class="small muted">credits</span></div>
+        </div>
+      {% endfor %}
+      </div>
+      {% if ads|selectattr('status', 'equalto', 'proposed')|list %}
+      <div class="go confirm"><span class="muted small">Selected: <b id="selcount">0</b> ads · <b id="seltotal">0</b> credits · you have {{ '{:,}'.format(balance()) }}</span>
+        <button class="btn" id="genbtn">Generate selected ads</button></div>
+      {% endif %}
+    </form>
+    {% for a in ads if a.status == 'proposed' %}<form method="post" id="edit{{ a.id }}" action="{{ url_for('campaigns.edit_ad', cid=c.id, aid=a.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"></form>{% endfor %}
+  </section>
+  {% endif %}
+
+  {% if plan['copy'] %}
+  <section class="camp-sec">
+    <h2>Copy for each platform</h2>
+    {% for cp in plan['copy'] %}
+    <h3 class="subh">{{ PLATFORMS[cp.platform].name }} · {{ COPY_KINDS[cp.kind].name }}{% if cp.angle and cp.angle != 'all' %} · <span class="muted">{{ cp.angle }}</span>{% endif %}</h3>
+    <div class="variants" style="margin-top:10px">{% set outer = loop.index %}{% for v in cp.variants %}{% set vid = outer ~ '-' ~ loop.index %}{% include "_variant.html" %}{% endfor %}</div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if final and final.checklist %}
+  <section class="camp-sec">
+    <h2>Launch checklist</h2>
+    <ul class="checklist" data-key="camp-{{ c.id }}">
+      {% for i in final.checklist %}
+      <li><label><input type="checkbox" data-i="{{ loop.index }}"><span><b>{{ i.title }}</b>{% if i.platform in PLATFORMS %} <span class="small muted">· {{ PLATFORMS[i.platform].short }}</span>{% endif %}{% if i.detail %}<span class="small muted d">{{ i.detail }}</span>{% endif %}</span></label>
+        {% if i.platform in adhub_links %}<a class="small" href="{{ adhub_links[i.platform] }}">Setup guide →</a>{% endif %}</li>
+      {% endfor %}
+      <li><label><input type="checkbox" data-i="lib"><span><b>Download the finished ads</b><span class="small muted d">Full quality from your <a href="{{ url_for('library') }}">library</a>.</span></span></label></li>
+      <li><label><input type="checkbox" data-i="disc"><span><b>Disclose and label</b><span class="small muted d">#ad first in captions where it's a paid partnership, and the platform's AI label on for AI-made media.</span></span></label></li>
+    </ul>
+    <p class="small dim">Ticks are saved in this browser only.</p>
+  </section>
+  {% endif %}
+
+  {% if c.status != 'planning' %}
+  <section class="camp-sec">
+    <form method="post" action="{{ url_for('campaigns.revise', cid=c.id) }}" class="panel copyform">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <h3>Revise the plan</h3>
+      <p class="small muted">Tell the planner what to change. Ads you haven't generated are replaced; generated ones stay. Up to {{ cap }} credits, you pay what it uses.</p>
+      <textarea name="notes" maxlength="1500" style="min-height:80px" placeholder="e.g. Focus on TikTok only, younger audience, more video"></textarea>
+      <div class="row" style="margin-top:12px"><button class="btn dark" {{ 'disabled' if not ai_on }}>Revise</button></div>
+    </form>
+    <form method="post" action="{{ url_for('campaigns.delete', cid=c.id) }}" onsubmit="return confirm('Delete this campaign? Generated ads stay in your library.')" style="margin-top:14px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn copybtn" style="color:var(--dim)">Delete campaign</button></form>
+  </section>
+  {% endif %}
+</div>
+{% include "_copyjs.html" %}
+<script>
+(function(){
+  var p = document.getElementById('planning');
+  if (p) { setInterval(function(){ fetch('{{ url_for("campaigns.status", cid=c.id) }}').then(function(r){ return r.json(); }).then(function(d){
+    if (d.status !== 'planning' || d.steps != p.dataset.steps) location.reload(); }); }, 3000); }
+  var f = document.getElementById('adform');
+  if (f) {
+    function upd(){ var n = 0, t = 0; f.querySelectorAll('input[name=ad]:checked').forEach(function(i){ n++; t += +i.dataset.credits; });
+      document.getElementById('total').value = t; var c = document.getElementById('selcount'); if (c) { c.textContent = n; document.getElementById('seltotal').textContent = t.toLocaleString(); }
+      var b = document.getElementById('genbtn'); if (b) { b.disabled = !n; b.textContent = n ? 'Generate ' + n + ' ad' + (n > 1 ? 's' : '') + ' for ' + t.toLocaleString() + ' credits' : 'Pick ads to generate'; } }
+    f.addEventListener('change', upd); upd();
+    f.addEventListener('submit', function(e){ if (e.submitter && e.submitter.id === 'genbtn' && !confirm('Spend ' + document.getElementById('total').value + ' credits on these ads?')) e.preventDefault(); });
+  }
+  var cl = document.querySelector('.checklist');
+  if (cl) { var key = cl.dataset.key, st = {}; try { st = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) {}
+    cl.querySelectorAll('input[data-i]').forEach(function(i){ i.checked = !!st[i.dataset.i]; i.addEventListener('change', function(){ st[i.dataset.i] = i.checked; try { localStorage.setItem(key, JSON.stringify(st)); } catch (e) {} }); }); }
+})();
+</script>
+{% endblock %}

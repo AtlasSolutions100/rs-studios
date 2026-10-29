@@ -1,0 +1,41 @@
+{% extends "base.html" %}{% block title %}Campaigns · Campaignify{% endblock %}
+{% block body %}
+<div class="page">
+  <section>
+    <p class="eyebrow">AI campaign planner · {{ b.name or 'Your brand' }}</p>
+    <h1>Plan the whole <span class="gold">campaign</span></h1>
+    <p class="muted">Give it the brief. The planner proposes angles, writes hooks and scripts, lines up ads from Campaignify's templates, writes the copy for each platform and hands you a launch checklist. You see every step, and nothing is generated until you confirm it.</p>
+    {% if not ai_on %}<div class="flash warn">The campaign planner isn't switched on for Campaignify yet, so it can't run right now. Nothing will be charged.{% if g.user.is_admin %} Admin: add the <code>ANTHROPIC_API_KEY</code> repo secret and redeploy.{% endif %}</div>{% endif %}
+    <form method="post" class="panel copyform">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <label for="offer">What are you promoting?</label>
+      <input id="offer" type="text" name="offer" maxlength="300" required value="{{ b.product }}" placeholder="Product, offer or launch">
+      <div class="two-col">
+        <div><label for="audience">Who is it for?</label><input id="audience" type="text" name="audience" maxlength="200" value="{{ b.audience }}" placeholder="Be specific"></div>
+        <div><label for="goal">Goal</label><select id="goal" name="goal"><option value="sales">Sales</option><option value="leads">Leads / sign-ups</option><option value="traffic">Traffic to a page</option><option value="awareness">Awareness</option><option value="engagement">Engagement</option><option value="installs">App installs</option></select></div>
+      </div>
+      <div class="two-col">
+        <div><label for="budget">Budget</label><input id="budget" type="text" name="budget" maxlength="80" placeholder="e.g. $300 for the first two weeks"></div>
+        <div><label for="dates">Timing <span class="dim">(optional)</span></label><input id="dates" type="text" name="dates" maxlength="120" placeholder="e.g. launches Nov 15"></div>
+      </div>
+      <label>Platforms</label>
+      <div class="choices">{% for k in ['meta','tiktok','youtube','google','x','linkedin','pinterest','snapchat','reddit'] %}<label class="choice chk"><input type="checkbox" name="platforms" value="{{ k }}" {{ 'checked' if k in ('meta','tiktok') }}>{{ PLATFORMS[k].short }}</label>{% endfor %}</div>
+      <label for="link">Landing page or store link <span class="dim">(optional)</span></label><input id="link" type="text" name="link" maxlength="300" placeholder="https://">
+      <label for="notes">Anything else <span class="dim">(optional)</span></label><textarea id="notes" name="notes" maxlength="1500" style="min-height:90px" placeholder="What makes it different, what you've tried, what to avoid…"></textarea>
+      {% if b.claims %}<p class="small muted" style="margin-top:16px">Claims the plan may use (brand kit): <span class="gold">{{ b.claims[:200] }}</span></p>{% else %}<p class="small muted" style="margin-top:16px">No approved claims in your <a href="{{ url_for('brand_kit') }}">brand kit</a>, so the plan won't make product claims.</p>{% endif %}
+      <div class="go">
+        <span class="muted small">Planning uses up to <b>{{ cap }}</b> credits (you pay what it actually uses, usually less). Ads are priced separately and only made when you confirm them. You have {{ '{:,}'.format(balance()) }}.</span>
+        <button class="btn" {{ 'disabled' if not ai_on }}>Plan my campaign</button>
+      </div>
+    </form>
+  </section>
+  <aside class="rail">
+    <div class="panel">
+      <h2>Your campaigns</h2>
+      {% for c in campaigns %}
+      <a class="runrow" href="{{ url_for('campaigns.show', cid=c.id) }}"><b>{{ c.name }}</b><span class="small"><span class="status {{ {'planning':'running','ready':'done','failed':'failed'}[c.status] }}"><span class="dot"></span>{{ {'planning':'Planning','ready':'Ready','failed':'Failed'}[c.status] }}</span></span><span class="small dim">{{ c.created_at[:10] }} · {{ c.credits }} credits</span></a>
+      {% else %}<div class="empty">No campaigns yet.</div>{% endfor %}
+    </div>
+  </aside>
+</div>
+{% endblock %}
