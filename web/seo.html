@@ -21,7 +21,7 @@
     <div class="panel">
       <h2>Recent audits</h2>
       {% for r in runs %}{% set i = r.input_json|fromjson %}{% set o = r.output_json|fromjson %}
-      <a class="runrow" href="{{ url_for('seo.result', rid=r.id) }}"><b>{{ o.report.score }}/100 · {{ (i.url or 'Pasted draft')[:48] }}</b><span class="small dim">{{ r.created_at[:16].replace('T',' ') }}{% if r.credits %} · {{ r.credits }} credits{% endif %}</span></a>
+      <a class="runrow" href="{{ url_for('seo.result', rid=r.id) }}"><b>{{ o.report.score }}/100 · {{ (i.url or 'Pasted draft')[:48] }}</b><span class="small dim">{{ r.created_at|localtime }}{% if r.credits %} · {{ r.credits }} credits{% endif %}</span></a>
       {% else %}<div class="empty">No audits yet.</div>{% endfor %}
     </div>
   </aside>

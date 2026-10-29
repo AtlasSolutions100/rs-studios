@@ -47,6 +47,6 @@
     </div>
     <div class="go savebar"><span class="small muted">Share: <a href="{{ url_for('forms.public', code=fm.code) }}" target="_blank" rel="noopener">{{ base }}f/{{ fm.code }}</a> · or add a Form block to a page</span><button class="btn" name="action" value="save">Save form</button></div>
   </form>
-  <form method="post" action="{{ url_for('forms.delete', fid=fm.id) }}" onsubmit="return confirm('Delete this form? Submissions and contacts are kept.')" style="margin-top:14px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn copybtn" style="color:var(--dim)">Delete form</button></form>
+  <form method="post" action="{{ url_for('forms.delete', fid=fm.id) }}" data-confirm="Delete this form? Submissions and contacts are kept." style="margin-top:14px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn copybtn" style="color:var(--dim)">Delete form</button></form>
 </div>
 {% endblock %}

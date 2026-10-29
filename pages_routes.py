@@ -194,7 +194,7 @@ def edit(pid):
     if action.startswith(("add:", "up:", "down:")):
         anchor = f"#b{len(blocks) - 1}" if action.startswith("add:") else ""
     if action == "save":
-        flash("Saved.")
+        flash("Saved.", "ok")
     return redirect(url_for("pages.edit", pid=pid) + anchor)
 
 

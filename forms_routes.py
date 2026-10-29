@@ -121,7 +121,7 @@ def edit(fid):
                                                   "data": {"email": "test@example.com"}, "sent_at": db.now()})
         flash(f"Test webhook sent: {st}")
     elif action == "save":
-        flash("Saved.")
+        flash("Saved.", "ok")
     return redirect(url_for("forms.edit", fid=fid))
 
 
@@ -360,7 +360,7 @@ def contact(cid):
                           (request.form.get("phone") or "").strip()[:30] or None,
                           ",".join(_clean_tags(request.form.get("tags"))), (request.form.get("notes") or "")[:4000], cid))
             conn.commit()
-            flash("Saved.")
+            flash("Saved.", "ok")
             return redirect(url_for("forms.contact", cid=cid))
         events = conn.execute("SELECT * FROM contact_events WHERE contact_id=? AND workspace_id=? ORDER BY id DESC LIMIT 200",
                               (cid, g.ws["id"])).fetchall()

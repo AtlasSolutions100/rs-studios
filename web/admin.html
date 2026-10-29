@@ -11,7 +11,7 @@
   <form method="post" action="{{ url_for('admin_prices') }}" style="margin:0 0 10px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Check vendor prices</button></form>
   {% if vendor %}<div class="scrollx"><table><tr><th>Format</th><th>Sample</th><th>We assume</th><th>Vendor now</th><th>We charge</th></tr>
   {% for r in vendor.rows %}<tr><td>{{ r.name }}</td><td class="small muted">{{ r.setting }}</td><td>${{ '%.3f'|format(r.ours) }}</td><td>{% if r.vendor is not none %}${{ '%.3f'|format(r.vendor) }}{% if r.vendor > r.ours * 1.05 %} <span class="tag bad">higher</span>{% endif %}{% else %}<span class="muted">no answer</span>{% if r.why %}<div class="small dim" style="max-width:420px;word-break:break-word">{{ r.model }} · {{ r.why }}</div>{% endif %}{% endif %}</td><td>{{ r.credits }} credits</td></tr>{% endfor %}
-  </table></div><p class="small dim">Checked {{ vendor.at[:16].replace('T', ' ') }} UTC</p>{% endif %}
+  </table></div><p class="small dim">Checked {{ vendor.at|localtime }}</p>{% endif %}
 </div>
 <div class="panel scrollx">
   <h2>Workspaces</h2>
@@ -29,7 +29,7 @@
     <input type="text" name="note" placeholder="who it's for" style="width:200px"><button class="btn sm">Create invite link</button>
   </form>
   <table style="margin-top:12px"><tr><th>Code</th><th>For</th><th>Used by</th><th>Created</th></tr>
-  {% for i in invites %}<tr><td><code>{{ base }}signup?invite={{ i.code }}</code></td><td>{{ i.note or '' }}</td><td>{{ i.used_email or '—' }}</td><td class="muted">{{ i.created_at[:10] }}</td></tr>{% endfor %}</table>
+  {% for i in invites %}<tr><td><code>{{ base }}signup?invite={{ i.code }}</code></td><td>{{ i.note or '' }}</td><td>{{ i.used_email or '—' }}</td><td class="muted">{{ i.created_at|localtime('date') }}</td></tr>{% endfor %}</table>
 </div>
 <div class="panel scrollx">
   <h2>Reference videos (Copy a video's motion)</h2>
@@ -46,7 +46,7 @@
   <h2>Purchases</h2>
   <p class="small muted">Stripe checkout: <b>{{ 'on' if billing_on else 'off (set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET)' }}</b></p>
   <table><tr><th>Paid</th><th>Workspace</th><th>Pack</th><th>Credits</th><th>Amount</th><th>Stripe session</th></tr>
-  {% for p in purchases %}<tr><td>{{ (p.paid_at or '')[:16].replace('T',' ') }}</td><td>{{ p.ws_name }}</td><td>{{ p.pack }}</td><td>{{ p.credits }}</td><td>${{ '%.2f'|format(p.amount_cents/100) }}</td><td><code>{{ p.stripe_session_id }}</code></td></tr>
+  {% for p in purchases %}<tr><td>{{ p.paid_at|localtime }}</td><td>{{ p.ws_name }}</td><td>{{ p.pack }}</td><td>{{ p.credits }}</td><td>${{ '%.2f'|format(p.amount_cents/100) }}</td><td><code>{{ p.stripe_session_id }}</code></td></tr>
   {% else %}<tr><td colspan="6" class="muted">No purchases yet.</td></tr>{% endfor %}</table>
 </div>
 <div class="panel scrollx">

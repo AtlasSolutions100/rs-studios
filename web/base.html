@@ -10,6 +10,7 @@
 <meta name="theme-color" content="#0B0C0E">
 <meta property="og:site_name" content="Campaignify">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="{{ url_for('static', filename='app.js') }}" defer></script>
 {% block head %}{% endblock %}
 </head>
 <body>
@@ -83,7 +84,7 @@
   </aside>
   <div class="scrim" data-nav-close hidden></div>
   <main class="main" id="main">
-    {% for m in get_flashed_messages() %}<div class="flash flash-top" role="status">{{ m }}</div>{% endfor %}
+    {% for cat, m in get_flashed_messages(with_categories=true) %}<div class="flash flash-top" role="status" data-cat="{{ cat }}"><span>{{ m }}</span></div>{% endfor %}
     {% block body %}{% endblock %}
   </main>
 </div>

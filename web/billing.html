@@ -13,13 +13,13 @@
       <div class="price">{{ '{:,}'.format(balance()) }}</div>
       {% set n = balance() // r.image %}
       <span class="muted small">credits · about {{ '{:,}'.format(n) }} image ad{{ '' if n == 1 else 's' }}</span>
-      {% if g.ws.plan_credits %}<p class="small muted" style="margin:12px 0 0">{{ '{:,}'.format(g.ws.plan_credits) }} plan credits{% if g.ws.plan_period_end %} (renew {{ g.ws.plan_period_end[:10] }}){% endif %} · {{ '{:,}'.format(g.ws.credits) }} pack credits</p>{% endif %}
+      {% if g.ws.plan_credits %}<p class="small muted" style="margin:12px 0 0">{{ '{:,}'.format(g.ws.plan_credits) }} plan credits{% if g.ws.plan_period_end %} (renew {{ g.ws.plan_period_end|localtime('date') }}){% endif %} · {{ '{:,}'.format(g.ws.credits) }} pack credits</p>{% endif %}
     </div>
     <div class="panel planbox">
       <span class="muted small">Plan</span>
       <h2 style="margin:4px 0 2px">{{ current.name }}</h2>
       {% if current.code != 'free' %}
-        <p class="muted small" style="margin:0">{{ '{:,}'.format(current.credits) }} credits a month{% if g.ws.plan_override and not subscribed %} · complimentary{% endif %}{% if g.ws.plan_status == 'past_due' %} · <span class="bad">payment past due</span>{% endif %}{% if g.ws.plan_cancel_at_period_end %} · cancels {{ (g.ws.plan_period_end or '')[:10] }}{% elif g.ws.plan_period_end and subscribed %} · renews {{ g.ws.plan_period_end[:10] }}{% endif %}</p>
+        <p class="muted small" style="margin:0">{{ '{:,}'.format(current.credits) }} credits a month{% if g.ws.plan_override and not subscribed %} · complimentary{% endif %}{% if g.ws.plan_status == 'past_due' %} · <span class="bad">payment past due</span>{% endif %}{% if g.ws.plan_cancel_at_period_end %} · cancels {{ (g.ws.plan_period_end or '')[:10] }}{% elif g.ws.plan_period_end and subscribed %} · renews {{ g.ws.plan_period_end|localtime('date') }}{% endif %}</p>
       {% else %}
         <p class="muted small" style="margin:0">Starter credits and credit packs. Pick a plan for monthly credits, more brands and seats.</p>
       {% endif %}
@@ -76,8 +76,8 @@
       <h2>Payments</h2>
       {% if purchases or invoices %}
       <table><tr><th>Date</th><th>What</th><th>Credits</th><th>Paid</th><th>Status</th></tr>
-      {% for i in invoices %}<tr><td>{{ i.created_at[:10] }}</td><td>{{ plans.PLANS[i.plan].name if i.plan in plans.PLANS else i.plan }} plan</td><td>{{ '{:,}'.format(i.credits) }}</td><td>${{ '%.2f'|format(i.amount_cents / 100) }}</td><td>Paid</td></tr>{% endfor %}
-      {% for p in purchases %}<tr><td>{{ (p.paid_at or p.created_at)[:10] }}</td><td>{{ packs_by[p.pack].name if p.pack in packs_by else p.pack }} pack</td><td>{{ '{:,}'.format(p.credits) }}</td><td>${{ '%.2f'|format(p.amount_cents / 100) }}</td><td>{{ 'Paid' if p.status == 'paid' else 'Not completed' }}</td></tr>{% endfor %}
+      {% for i in invoices %}<tr><td>{{ i.created_at|localtime('date') }}</td><td>{{ plans.PLANS[i.plan].name if i.plan in plans.PLANS else i.plan }} plan</td><td>{{ '{:,}'.format(i.credits) }}</td><td>${{ '%.2f'|format(i.amount_cents / 100) }}</td><td>Paid</td></tr>{% endfor %}
+      {% for p in purchases %}<tr><td>{{ (p.paid_at or p.created_at)|localtime('date') }}</td><td>{{ packs_by[p.pack].name if p.pack in packs_by else p.pack }} pack</td><td>{{ '{:,}'.format(p.credits) }}</td><td>${{ '%.2f'|format(p.amount_cents / 100) }}</td><td>{{ 'Paid' if p.status == 'paid' else 'Not completed' }}</td></tr>{% endfor %}
       </table>
       {% else %}<div class="empty">No purchases yet.</div>{% endif %}
     </div>
@@ -85,7 +85,7 @@
       <h2>Credit activity</h2>
       {% if ledger %}
       <table><tr><th>Date</th><th>What</th><th style="text-align:right">Credits</th></tr>
-      {% for l in ledger %}<tr><td>{{ l.created_at[:10] }}</td><td>{{ (l.reason or '')|capitalize }}</td><td style="text-align:right" class="{{ 'gold' if l.delta > 0 }}">{{ '%+d'|format(l.delta) }}</td></tr>{% endfor %}
+      {% for l in ledger %}<tr><td>{{ l.created_at|localtime('date') }}</td><td>{{ (l.reason or '')|first_upper }}</td><td style="text-align:right" class="{{ 'gold' if l.delta > 0 }}">{{ '%+d'|format(l.delta) }}</td></tr>{% endfor %}
       </table>
       {% else %}<div class="empty">Nothing yet.</div>{% endif %}
     </div>

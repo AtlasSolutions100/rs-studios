@@ -3,21 +3,21 @@
 <div class="page full">
   <p style="margin:0 0 14px"><a href="{{ url_for('forms.contacts') }}">← Contacts</a></p>
   <p class="eyebrow">Contact</p><h1 class="break">{{ c.name or c.email }}</h1>
-  <p class="muted"><a href="mailto:{{ c.email }}">{{ c.email }}</a>{% if c.phone %} · {{ c.phone }}{% endif %} · first seen {{ c.first_seen[:10] }} · {{ c.submissions }} form{{ '' if c.submissions == 1 else 's' }}</p>
+  <p class="muted"><a href="mailto:{{ c.email }}">{{ c.email }}</a>{% if c.phone %} · {{ c.phone }}{% endif %} · first seen {{ c.first_seen|localtime('date') }} · {{ c.submissions }} form{{ '' if c.submissions == 1 else 's' }}</p>
   <div class="grid2">
     <form method="post" class="panel copyform"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
       <label for="cn">Name</label><input id="cn" type="text" name="name" maxlength="120" value="{{ c.name or '' }}">
       <label for="cp">Phone</label><input id="cp" type="text" name="phone" maxlength="30" value="{{ c.phone or '' }}">
       <label for="ct">Tags</label><input id="ct" type="text" name="tags" maxlength="300" value="{{ c.tags or '' }}">
       <label for="cno">Notes</label><textarea id="cno" name="notes" maxlength="4000">{{ c.notes or '' }}</textarea>
-      <div class="row" style="margin-top:14px;justify-content:space-between"><button class="btn" name="action" value="save">Save</button><button class="btn dark sm" name="action" value="delete" onclick="return confirm('Delete this contact and their form answers?')">Delete contact</button></div>
+      <div class="row" style="margin-top:14px;justify-content:space-between"><button class="btn" name="action" value="save">Save</button><button class="btn dark sm" name="action" value="delete" data-confirm="Delete this contact and their form answers?">Delete contact</button></div>
     </form>
     <div class="panel"><h3>Engagement</h3>
-      <ol class="steplist">{% for e in events %}<li class="{{ 'done' if e.kind == 'form' else 'note' }}"><b>{{ {'form': 'Filled in', 'page': 'On page', 'link': 'Came through smart link'}[e.kind] }} {{ e.detail }}</b><span class="small muted">{{ e.at[:16].replace('T',' ') }}</span></li>{% else %}<li class="note"><b>Nothing yet</b></li>{% endfor %}</ol>
+      <ol class="steplist">{% for e in events %}<li class="{{ 'done' if e.kind == 'form' else 'note' }}"><b>{{ {'form': 'Filled in', 'page': 'On page', 'link': 'Came through smart link'}[e.kind] }} {{ e.detail }}</b><span class="small muted">{{ e.at|localtime }}</span></li>{% else %}<li class="note"><b>Nothing yet</b></li>{% endfor %}</ol>
     </div>
   </div>
   {% if subs %}<div class="section-h"><h2>Form answers</h2></div>
-  <div class="variants">{% for s in subs %}{% set d = loads(s.data_json) %}{% set fl = loads(s.fields_json) %}<article class="variant"><header><b>{{ s.form_name }}</b><span class="small muted">{{ s.created_at[:16].replace('T',' ') }}</span></header>
+  <div class="variants">{% for s in subs %}{% set d = loads(s.data_json) %}{% set fl = loads(s.fields_json) %}<article class="variant"><header><b>{{ s.form_name }}</b><span class="small muted">{{ s.created_at|localtime }}</span></header>
     {% for f in fl if d.get(f.key) %}<div class="vfield"><span class="small muted">{{ f.label }}</span><p class="vtext">{{ d[f.key] }}</p></div>{% endfor %}</article>{% endfor %}</div>{% endif %}
 </div>
 {% endblock %}

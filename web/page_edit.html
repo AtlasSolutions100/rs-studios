@@ -28,7 +28,7 @@
     <div class="panel block" id="b{{ i }}">
       <input type="hidden" name="b{{ i }}_type" value="{{ b.type }}">
       <div class="block-h"><b>{{ BLOCKS[b.type].name }}</b>
-        <div class="row"><button class="btn dark sm" name="action" value="up:{{ i }}" {{ 'disabled' if loop.first }} aria-label="Move up">↑</button><button class="btn dark sm" name="action" value="down:{{ i }}" {{ 'disabled' if loop.last }} aria-label="Move down">↓</button><button class="btn dark sm" name="action" value="del:{{ i }}" aria-label="Remove block" onclick="return confirm('Remove this block?')">×</button></div></div>
+        <div class="row"><button class="btn dark sm" name="action" value="up:{{ i }}" {{ 'disabled' if loop.first }} aria-label="Move up">↑</button><button class="btn dark sm" name="action" value="down:{{ i }}" {{ 'disabled' if loop.last }} aria-label="Move down">↓</button><button class="btn dark sm" name="action" value="del:{{ i }}" aria-label="Remove block" data-confirm="Remove this block?">×</button></div></div>
       {% for key, label, limit in BLOCKS[b.type].fields %}
         {% if key == 'media' %}
         <label>{{ label }}</label>
@@ -77,6 +77,6 @@
     <div class="row" style="margin-top:14px"><button class="btn dark" {{ 'disabled' if not ai_on }}>Draft copy</button>{% if not ai_on %}<span class="small muted">AI writing isn't switched on yet.</span>{% endif %}</div>
   </form>
   {% endif %}
-  <form method="post" action="{{ url_for('pages.delete', pid=p.id) }}" onsubmit="return confirm('Delete this page? Its address stops working.')" style="margin-top:14px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn copybtn" style="color:var(--dim)">Delete page</button></form>
+  <form method="post" action="{{ url_for('pages.delete', pid=p.id) }}" data-confirm="Delete this page? Its address stops working." style="margin-top:14px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn copybtn" style="color:var(--dim)">Delete page</button></form>
 </div>
 {% endblock %}

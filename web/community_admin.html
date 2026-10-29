@@ -19,16 +19,16 @@
         <input type="email" name="email" required placeholder="email@example.com" style="flex:1;min-width:160px"><input type="text" name="name" placeholder="Name" style="width:120px">
         <select name="role" style="width:auto"><option value="member">Member</option><option value="admin">Admin</option></select><button class="btn sm">Invite</button></form>
       <p class="small muted">You get a one-time invite link to send them (there's no email sending yet).</p>
-      <div class="scrollx"><table>{% for m in members %}<tr><td><b>{{ m.name or m.email }}</b><br><span class="small muted">{{ m.email }}</span></td><td class="small">{{ m.role|capitalize }}{% if m.status == 'invited' %} · <span class="muted">invited</span>{% endif %}</td>
+      <div class="scrollx"><table>{% for m in members %}<tr><td><b>{{ m.name or m.email }}</b><br><span class="small muted">{{ m.email }}</span></td><td class="small">{{ m.role|first_upper }}{% if m.status == 'invited' %} · <span class="muted">invited</span>{% endif %}</td>
         <td>{% if m.role != 'owner' and not m.user_id %}<div class="row">{% if m.status == 'invited' and m.invite_code %}<code class="small">{{ base }}c/{{ c.slug }}/join/{{ m.invite_code }}</code>{% endif %}
           <form method="post" action="{{ url_for('community.admin_item', what='members', oid=m.id, action='member' if m.role == 'admin' else 'admin') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">{{ 'Make member' if m.role == 'admin' else 'Make admin' }}</button></form>
-          <form method="post" action="{{ url_for('community.admin_item', what='members', oid=m.id, action='remove') }}" onsubmit="return confirm('Remove {{ m.email }}?')"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Remove</button></form></div>{% endif %}</td></tr>{% endfor %}</table></div>
+          <form method="post" action="{{ url_for('community.admin_item', what='members', oid=m.id, action='remove') }}" data-confirm="Remove {{ m.email }}?"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Remove</button></form></div>{% endif %}</td></tr>{% endfor %}</table></div>
     </div>
   </div>
   <div class="grid2">
     <div class="panel" id="spaces"><h2>Spaces</h2>
       <table>{% for s in spaces %}<tr><td><b>{{ s.name }}</b><br><span class="small muted">{{ s.about or '' }}</span></td><td class="small muted">{{ s.posts }} posts</td>
-        <td><form method="post" action="{{ url_for('community.admin_item', what='spaces', oid=s.id, action='delete') }}" onsubmit="return confirm('Delete this space and its posts?')"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Delete</button></form></td></tr>{% endfor %}</table>
+        <td><form method="post" action="{{ url_for('community.admin_item', what='spaces', oid=s.id, action='delete') }}" data-confirm="Delete this space and its posts?"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Delete</button></form></td></tr>{% endfor %}</table>
       <form method="post" action="{{ url_for('community.admin_add', what='spaces') }}" class="row" style="margin-top:12px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="text" name="name" maxlength="60" placeholder="Space name" required style="flex:1;min-width:140px"><input type="text" name="about" maxlength="300" placeholder="What goes here" style="flex:1;min-width:140px"><button class="btn sm">Add space</button></form>
     </div>
     <div class="panel" id="courses"><h2>Courses</h2>

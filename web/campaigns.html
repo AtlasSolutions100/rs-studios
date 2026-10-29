@@ -34,7 +34,7 @@
     <div class="panel">
       <h2>Your campaigns</h2>
       {% for c in campaigns %}
-      <a class="runrow" href="{{ url_for('campaigns.show', cid=c.id) }}"><b>{{ c.name }}</b><span class="small"><span class="status {{ {'planning':'running','ready':'done','failed':'failed'}[c.status] }}"><span class="dot"></span>{{ {'planning':'Planning','ready':'Ready','failed':'Failed'}[c.status] }}</span></span><span class="small dim">{{ c.created_at[:10] }} · {{ c.credits }} credits</span></a>
+      <a class="runrow" href="{{ url_for('campaigns.show', cid=c.id) }}"><b>{{ c.name }}</b><span class="small"><span class="status {{ {'planning':'running','ready':'done','failed':'failed'}[c.status] }}"><span class="dot"></span>{{ {'planning':'Planning','ready':'Ready','failed':'Failed'}[c.status] }}</span></span><span class="small dim">{{ c.created_at|localtime('date') }} · {{ c.credits }} credits</span></a>
       {% else %}<div class="empty">No campaigns yet.</div>{% endfor %}
     </div>
   </aside>

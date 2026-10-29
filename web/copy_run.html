@@ -4,7 +4,7 @@
   <p style="margin:0 0 14px"><a href="{{ url_for('copy.studio', kind=r.kind, platform=r.platform) }}">← Copy studio</a></p>
   <p class="eyebrow">{{ COPY_KINDS[r.kind].name }} · {{ PLATFORMS[r.platform].name }}</p>
   <h1>{{ (inp.offer or 'Your copy')[:80] }}</h1>
-  <p class="muted">{{ r.created_at[:16].replace('T',' ') }} UTC · {{ r.credits }} credits · {{ inp.goal|capitalize }}{% if inp.audience %} · {{ inp.audience }}{% endif %}</p>
+  <p class="muted">{{ r.created_at|localtime }} · {{ r.credits }} credits · {{ inp.goal|first_upper }}{% if inp.audience %} · {{ inp.audience }}{% endif %}</p>
   <div class="variants">
     {% for v in out.variants %}{% set vid = loop.index %}{% include "_variant.html" %}{% else %}<div class="empty">No variants came back.</div>{% endfor %}
   </div>

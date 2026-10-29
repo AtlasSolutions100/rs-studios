@@ -4,7 +4,7 @@
 {% set final = plan.final %}
 <div class="page full camp">
   <p style="margin:0 0 14px"><a href="{{ url_for('campaigns.index') }}">← Campaigns</a></p>
-  <p class="eyebrow">Campaign · {{ (brief.goal or 'sales')|capitalize }}{% for p in brief.platforms or [] %}{{ ' · ' if loop.first else ', ' }}{{ PLATFORMS[p].short if p in PLATFORMS else p }}{% endfor %}</p>
+  <p class="eyebrow">Campaign · {{ (brief.goal or 'sales')|first_upper }}{% for p in brief.platforms or [] %}{{ ' · ' if loop.first else ', ' }}{{ PLATFORMS[p].short if p in PLATFORMS else p }}{% endfor %}</p>
   <h1>{{ c.name }}</h1>
   <p class="muted">{% if brief.audience %}{{ brief.audience }} · {% endif %}{% if brief.budget %}Budget {{ brief.budget }} · {% endif %}Planning cost {{ c.credits }} credits</p>
 
@@ -122,7 +122,7 @@
       <textarea name="notes" maxlength="1500" style="min-height:80px" placeholder="e.g. Focus on TikTok only, younger audience, more video"></textarea>
       <div class="row" style="margin-top:12px"><button class="btn dark" {{ 'disabled' if not ai_on }}>Revise</button></div>
     </form>
-    <form method="post" action="{{ url_for('campaigns.delete', cid=c.id) }}" onsubmit="return confirm('Delete this campaign? Generated ads stay in your library.')" style="margin-top:14px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn copybtn" style="color:var(--dim)">Delete campaign</button></form>
+    <form method="post" action="{{ url_for('campaigns.delete', cid=c.id) }}" data-confirm="Delete this campaign? Generated ads stay in your library." style="margin-top:14px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn copybtn" style="color:var(--dim)">Delete campaign</button></form>
   </section>
   {% endif %}
 </div>
@@ -138,7 +138,6 @@
       document.getElementById('total').value = t; var c = document.getElementById('selcount'); if (c) { c.textContent = n; document.getElementById('seltotal').textContent = t.toLocaleString(); }
       var b = document.getElementById('genbtn'); if (b) { b.disabled = !n; b.textContent = n ? 'Generate ' + n + ' ad' + (n > 1 ? 's' : '') + ' for ' + t.toLocaleString() + ' credits' : 'Pick ads to generate'; } }
     f.addEventListener('change', upd); upd();
-    f.addEventListener('submit', function(e){ if (e.submitter && e.submitter.id === 'genbtn' && !confirm('Spend ' + document.getElementById('total').value + ' credits on these ads?')) e.preventDefault(); });
   }
   var cl = document.querySelector('.checklist');
   if (cl) { var key = cl.dataset.key, st = {}; try { st = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) {}

@@ -228,8 +228,13 @@ TEMPLATE_BY_ID = {t["id"]: t for t in TEMPLATES}
 
 
 def fill(text: str, brand: dict) -> str:
-    return (text or "").replace("{product}", brand.get("product") or "the product") \
-                       .replace("{brand}", brand.get("name") or "")
+    """Put the product and brand names into a template brief. With no product
+    name, "the {product}" reads "the product" (never "the the product") and a
+    bare {product} reads "your product"."""
+    import re
+    name = (brand.get("product") or "").strip()
+    text = re.sub(r"\b([Tt]he|[Yy]our) \{product\}", lambda m: f"{m.group(1)} {name or 'product'}", text or "")
+    return text.replace("{product}", name or "your product").replace("{brand}", (brand.get("name") or "").strip())
 
 
 def first_run_templates() -> list[dict]:

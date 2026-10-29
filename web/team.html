@@ -9,7 +9,7 @@
       <h2>Members</h2>
       <table><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr>
       {% for m in members %}<tr><td>{{ m.name or '—' }}</td><td>{{ m.email }}</td><td>{{ 'Owner' if m.role == 'owner' else 'Member' }}</td>
-        <td>{% if owner and m.id != g.user.id and m.role != 'owner' and not m.is_admin %}<form method="post" action="{{ url_for('team_remove', uid=m.id) }}" onsubmit="return confirm('Remove {{ m.email }} from the team?')"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Remove</button></form>{% endif %}</td></tr>{% endfor %}
+        <td>{% if owner and m.id != g.user.id and m.role != 'owner' and not m.is_admin %}<form method="post" action="{{ url_for('team_remove', uid=m.id) }}" data-confirm="Remove {{ m.email }} from the team?"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Remove</button></form>{% endif %}</td></tr>{% endfor %}
       </table>
     </div>
     <div class="panel">
@@ -26,7 +26,7 @@
       {% endif %}
       {% if invites %}
       <h3 style="margin-top:22px">Open invites</h3>
-      <table>{% for i in invites %}<tr><td><code>{{ base }}signup?invite={{ i.code }}</code><br><span class="small muted">{{ i.note or '' }} · {{ i.created_at[:10] }}</span></td>
+      <table>{% for i in invites %}<tr><td><code>{{ base }}signup?invite={{ i.code }}</code><br><span class="small muted">{{ i.note or '' }} · {{ i.created_at|localtime('date') }}</span></td>
         <td>{% if owner %}<form method="post" action="{{ url_for('team_invite_revoke', code=i.code) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Revoke</button></form>{% endif %}</td></tr>{% endfor %}</table>
       {% endif %}
     </div>

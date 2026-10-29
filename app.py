@@ -115,6 +115,36 @@ NAV = [item for _, items in NAV_GROUPS for item in items]
 app.jinja_env.filters["fromjson"] = lambda s: json.loads(s or "{}")
 
 
+def credits_usd(n) -> str:
+    """Credits as dollars (1 credit = $0.01): 925 -> "$9.25", 11100 -> "$111"."""
+    try:
+        cents = int(n or 0)
+    except (TypeError, ValueError):
+        return ""
+    return f"${cents // 100:,}" if cents % 100 == 0 else f"${cents / 100:,.2f}"
+
+
+def first_upper(s) -> str:
+    """Capitalise the first letter only ("AI angle ideas" stays "AI", unlike |capitalize)."""
+    s = str(s or "")
+    return s[:1].upper() + s[1:]
+
+
+def localtime(iso, mode="datetime"):
+    """A <time> the browser shows in the visitor's own zone (static/app.js);
+    without scripts it reads as UTC."""
+    from markupsafe import Markup, escape
+    iso = str(iso or "")
+    if not iso:
+        return ""
+    fallback = iso[:10] if mode == "date" else iso[:16].replace("T", " ") + " UTC"
+    return Markup(f'<time datetime="{escape(iso)}" data-local="{escape(mode)}">{escape(fallback)}</time>')
+
+
+app.jinja_env.filters.update(first_upper=first_upper, localtime=localtime, usd=credits_usd)
+app.jinja_env.globals.update(credits_usd=credits_usd)
+
+
 # platform -> setup guide link (the planner's launch checklist links to these).
 ADHUB_LINKS = {}
 
@@ -779,7 +809,7 @@ def brand_kit():
             except products.ProductError as e:
                 flash(str(e))
                 return redirect(url_for("brand_kit"))
-        flash("Saved.")
+        flash("Saved.", "ok")
         return redirect(url_for("brand_kit"))
     with db.connect() as conn:
         tree = products.tree(conn, g.ws)
@@ -928,7 +958,7 @@ def upload_photos():
             products.add_photo(conn, g.ws["id"], pid, path, fs.filename, ctype)
             n += 1
     if n:
-        flash(f"Added {n} photo{'s' if n != 1 else ''}.")
+        flash(f"Added {n} photo{'s' if n != 1 else ''}.", "ok")
     return redirect(_back(url_for("products.edit", pid=pid) if pid else url_for("brand_kit")))
 
 
@@ -1366,7 +1396,7 @@ def admin_prices():
         conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('vendor_prices', ?)",
                      (json.dumps({"at": db.now(), "rows": rows}),))
         conn.commit()
-    flash("Vendor prices checked.")
+    flash("Vendor prices checked.", "ok")
     return redirect(url_for("admin") + "#prices")
 
 
@@ -1397,7 +1427,7 @@ def admin_plan():
     with db.connect() as conn:
         conn.execute("UPDATE workspaces SET plan_override=? WHERE id=?", (code if code and code != "free" else None, ws_id))
         conn.commit()
-    flash("Plan updated.")
+    flash("Plan updated.", "ok")
     return redirect(url_for("admin"))
 
 
@@ -1432,7 +1462,7 @@ def admin_refs():
         conn.execute("INSERT INTO refs (title, path, content_type, seconds, created_at) VALUES (?,?,?,?,?)",
                      (title, path, ctype, _video_seconds(path), db.now()))
         conn.commit()
-    flash("Reference added.")
+    flash("Reference added.", "ok")
     return redirect(url_for("admin"))
 
 

@@ -40,7 +40,7 @@
     <div class="panel">
       <h2>Recent</h2>
       {% for r in runs %}{% set i = r.input_json|fromjson %}
-      <a class="runrow" href="{{ url_for('copy.run', rid=r.id) }}"><b>{{ COPY_KINDS[r.kind].name if r.kind in COPY_KINDS else r.kind }} · {{ PLATFORMS[r.platform].short if r.platform in PLATFORMS else '' }}</b><span class="small muted">{{ (i.offer or '')[:60] }}</span><span class="small dim">{{ r.created_at[:16].replace('T',' ') }} · {{ r.credits }} credits</span></a>
+      <a class="runrow" href="{{ url_for('copy.run', rid=r.id) }}"><b>{{ COPY_KINDS[r.kind].name if r.kind in COPY_KINDS else r.kind }} · {{ PLATFORMS[r.platform].short if r.platform in PLATFORMS else '' }}</b><span class="small muted">{{ (i.offer or '')[:60] }}</span><span class="small dim">{{ r.created_at|localtime }} · {{ r.credits }} credits</span></a>
       {% else %}<div class="empty">Nothing yet. Your copy shows up here.</div>{% endfor %}
     </div>
   </aside>
