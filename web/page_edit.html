@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block title %}{{ p.title }} · Pages · Campaignify{% endblock %}
+{% extends "base.html" %}{% from "_macros.html" import product_picker with context %}{% block title %}{{ p.title }} · Pages · Campaignify{% endblock %}
 {% block body %}
 <div class="page full">
   <p style="margin:0 0 14px"><a href="{{ url_for('pages.index') }}">← Pages</a></p>
@@ -70,7 +70,8 @@
   <form method="post" action="{{ url_for('pages.ai_draft', pid=p.id) }}" class="panel copyform" style="margin-top:20px">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
     <h3>Draft the copy with AI</h3>
-    <p class="small muted">Writes the hero, benefits, FAQ and button text from your brand kit. Save your edits first; this replaces those blocks' text. Up to {{ ai_quote }} credits.</p>
+    <p class="small muted">Writes the hero, benefits, FAQ and button text from the product's details and approved claims. Save your edits first; this replaces those blocks' text. Up to {{ ai_quote }} credits.</p>
+    {{ product_picker(g.ws.product_id, reload=False) }}
     <div class="two-col"><div><label for="ao">What's the page selling?</label><input id="ao" type="text" name="offer" maxlength="300" value="{{ p.title }}"></div>
       <div><label for="an">Notes <span class="dim">(optional)</span></label><input id="an" type="text" name="notes" maxlength="500"></div></div>
     <div class="row" style="margin-top:14px"><button class="btn dark" {{ 'disabled' if not ai_on }}>Draft copy</button>{% if not ai_on %}<span class="small muted">AI writing isn't switched on yet.</span>{% endif %}</div>

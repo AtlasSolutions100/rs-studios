@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block title %}Pages · Campaignify{% endblock %}
+{% extends "base.html" %}{% from "_macros.html" import product_picker with context %}{% block title %}Pages · Campaignify{% endblock %}
 {% block body %}
 <div class="page">
   <section>
@@ -8,7 +8,8 @@
     {% include "_pages_tabs.html" %}
     <form method="post" class="panel row" style="margin-bottom:22px">
       <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-      <input type="text" name="title" maxlength="120" placeholder="Page name, e.g. GlowSerum launch" style="flex:1;min-width:200px">
+      <input type="text" name="title" maxlength="120" placeholder="Page name, e.g. GlowSerum launch" style="flex:1;min-width:200px" aria-label="Page name">
+      {{ product_picker(pid, label='For', reload=False, compact=True) }}
       <button class="btn">New page</button>
     </form>
     <p class="small muted">Published: <b>{{ published }}</b> of {{ cap if cap is not none else 'unlimited' }} on your plan.{% if cap is not none and published >= cap and next_plan %} {{ next_plan.name }} includes unlimited pages. <a href="{{ url_for('billing_page') }}">See plans</a>{% endif %}</p>

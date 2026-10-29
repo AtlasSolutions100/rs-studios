@@ -1,0 +1,394 @@
+{% extends "base.html" %}{% block title %}Create an ad · Campaignify{% endblock %}
+{% block body %}
+<div class="page full cflow">
+  <p style="margin:0 0 12px"><a href="{{ url_for('studio') }}">← Create</a></p>
+  <p class="eyebrow">Create</p>
+  <h1 class="cf-title">Make ads for <span class="gold" data-pname>{{ boot.product.name if boot.product else 'your product' }}</span></h1>
+  {% if boot.prefill.from_ad %}<div class="flash">Started from your campaign plan. Change anything, then generate.</div>{% endif %}
+
+  <div class="cf">
+    <div class="cf-main">
+      <!-- 1 product -->
+      <section class="cf-sec" data-step="product" id="s-product">
+        <header class="cf-h"><span class="cf-n">1</span><div><h2>Product</h2><p class="cf-sum" data-sum="product"></p></div><button type="button" class="linkbtn" data-goto="product">Change</button></header>
+        <div class="cf-b">
+          {% if not tree or not (tree|map(attribute='products')|sum(start=[])) %}
+          <div class="empty">Add a product first: a name and one clear photo is enough. <a class="btn sm" href="{{ url_for('products.new') }}" style="margin-left:8px">Add product</a></div>
+          {% else %}
+          <div class="cf-prods" role="radiogroup" aria-label="Product">
+            {% for row in tree if not row.locked %}{% for p in row.products %}
+            <label class="cf-prod"><input type="radio" name="cf-product" value="{{ p.id }}" {{ 'checked' if boot.product and boot.product.id == p.id }}>
+              {% if p.primary_photo_id %}<img src="{{ url_for('photo', pid=p.primary_photo_id) }}" alt="">{% else %}<span class="sw-thumb sw-initial">{{ p.name[:1]|upper }}</span>{% endif %}
+              <span><b>{{ p.name }}</b><span class="small muted">{{ row.brand.brand_name or '' }}{% if p.price %} · {{ p.price }}{% endif %}</span></span></label>
+            {% endfor %}{% endfor %}
+          </div>
+          <p class="small muted" style="margin:12px 0 0">Not here? <a href="{{ url_for('products.new') }}">Add a product</a> or import one from its page.</p>
+          {% endif %}
+          <div class="cf-next"><button type="button" class="btn" data-next>Next: ad type</button></div>
+        </div>
+      </section>
+
+      <!-- 2 type -->
+      <section class="cf-sec" data-step="type" id="s-type">
+        <header class="cf-h"><span class="cf-n">2</span><div><h2>Ad type</h2><p class="cf-sum" data-sum="type"></p></div><button type="button" class="linkbtn" data-goto="type">Change</button></header>
+        <div class="cf-b">
+          <div class="cf-types" role="radiogroup" aria-label="Ad type">
+            {% for t in boot.types %}
+            <label class="cf-type"><input type="radio" name="cf-type" value="{{ t.id }}">
+              <span class="thumb"><img src="{{ url_for('static', filename='previews/' ~ t.preview ~ '.jpg') }}" alt="" loading="lazy">{% if t.talking %}<span class="chip motion">Speaks</span>{% endif %}</span>
+              <b>{{ t.name }}</b><span class="small muted">{{ t.line }}</span></label>
+            {% endfor %}
+          </div>
+          {% if not boot.caps.talking %}<p class="small muted">Talking presenter videos are switched off right now.</p>{% endif %}
+          <div class="cf-next"><button type="button" class="btn" data-next>Next: angle</button></div>
+        </div>
+      </section>
+
+      <!-- 3 angle -->
+      <section class="cf-sec" data-step="angle" id="s-angle">
+        <header class="cf-h"><span class="cf-n">3</span><div><h2>Angle</h2><p class="cf-sum" data-sum="angle"></p></div><button type="button" class="linkbtn" data-goto="angle">Change</button></header>
+        <div class="cf-b">
+          <p class="small muted" style="margin-top:0">The reason someone stops scrolling. Get ideas from the product's details, reuse a saved one, or write your own.</p>
+          <div class="row"><button type="button" class="btn dark" data-ideas {{ 'disabled' if not boot.ai }}><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.6L19.5 9l-5.7 1.6L12 16l-1.8-5.4L4.5 9l5.7-1.4z"/></svg>Get angle ideas</button><span class="small muted">{{ 'about ' ~ boot.quote_angles ~ ' credits' if boot.ai else 'AI ideas are off; write your own below' }}</span></div>
+          <div class="cf-angles" data-angles></div>
+          <details class="cf-own" data-own><summary>Write my own angle</summary>
+            <div class="two-col"><div><label for="an-t">Angle</label><input id="an-t" type="text" maxlength="80" placeholder="e.g. The 2 PM slump" data-own-title></div>
+              <div><label for="an-h">Hook <span class="dim">(first line)</span></label><input id="an-h" type="text" maxlength="200" placeholder="e.g. My afternoon coffee takes 30 seconds now." data-own-hook></div></div>
+            <p style="margin:12px 0 0"><button type="button" class="btn sm" data-own-use>Use this angle</button></p>
+          </details>
+          <div class="cf-next"><button type="button" class="btn" data-next>Next: script</button></div>
+        </div>
+      </section>
+
+      <!-- 4 script -->
+      <section class="cf-sec" data-step="script" id="s-script">
+        <header class="cf-h"><span class="cf-n">4</span><div><h2 data-script-title>Script</h2><p class="cf-sum" data-sum="script"></p></div><button type="button" class="linkbtn" data-goto="script">Change</button></header>
+        <div class="cf-b">
+          <div class="row cf-scriptbar">
+            <button type="button" class="btn dark" data-write {{ 'disabled' if not boot.ai }}><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.6L19.5 9l-5.7 1.6L12 16l-1.8-5.4L4.5 9l5.7-1.4z"/></svg>Write it for me</button>
+            <span class="small muted">{{ 'about ' ~ boot.quote_script ~ ' credits' if boot.ai else 'AI writing is off' }}</span>
+            <span class="grow"></span>
+            <label class="sr" for="cf-saved">Load a saved script</label><select id="cf-saved" data-saved><option value="">Load a saved script…</option></select>
+          </div>
+          <div class="cf-dur" data-dur-wrap><label>Length</label><div class="choices" data-durs></div></div>
+          <label data-items-label>Hooks <span class="dim">(each one makes its own video)</span></label>
+          <ol class="cf-items" data-items></ol>
+          <button type="button" class="linkbtn" data-add-item>+ Add another</button>
+          <div data-body-wrap><label for="cf-body" data-body-label>Body <span class="dim">(said after the hook)</span></label>
+            <textarea id="cf-body" data-body maxlength="2000"></textarea>
+            <p class="small muted cf-count" data-count></p></div>
+          <p class="small muted" data-claims-note></p>
+          <div class="cf-next"><button type="button" class="btn dark sm" data-save-script>Save to product</button><span class="grow"></span><button type="button" class="btn" data-next>Next</button></div>
+        </div>
+      </section>
+
+      <!-- 5 presenter / voice -->
+      <section class="cf-sec" data-step="cast" id="s-cast">
+        <header class="cf-h"><span class="cf-n">5</span><div><h2 data-cast-title>Presenter and voice</h2><p class="cf-sum" data-sum="cast"></p></div><button type="button" class="linkbtn" data-goto="cast">Change</button></header>
+        <div class="cf-b">
+          <div data-presenters-wrap>
+            <p class="small muted" style="margin-top:0">Pick one or more. Each presenter makes its own version of every hook. Presenters are AI, described not cloned: each video draws its presenter from the description, so versions look alike but not identical.</p>
+            <div class="cf-cast" data-presenters></div>
+            <div class="two-col"><div><label for="cf-voice">Voice</label><select id="cf-voice" data-voice><option value="">Auto: suits each presenter</option></select></div>
+              <div><label for="cf-setting">Where they are <span class="dim">(optional)</span></label><input id="cf-setting" type="text" maxlength="120" data-setting placeholder="Default: the presenter's own setting"></div></div>
+          </div>
+          <div data-narrators-wrap>
+            <p class="small muted" style="margin-top:0">Pick one or more narrator voices; each makes its own version.</p>
+            <div class="choices" data-narrators></div>
+          </div>
+          <p class="small dim" style="margin:14px 0 0">Not available yet: your own voice recording, lip-sync to an uploaded track, and a presenter that stays identical across videos.</p>
+          <div class="cf-next"><button type="button" class="btn" data-next>Next: format</button></div>
+        </div>
+      </section>
+
+      <!-- 6 format -->
+      <section class="cf-sec" data-step="format" id="s-format">
+        <header class="cf-h"><span class="cf-n" data-n-format>6</span><div><h2>Format</h2><p class="cf-sum" data-sum="format"></p></div><button type="button" class="linkbtn" data-goto="format">Change</button></header>
+        <div class="cf-b">
+          <label>Where it runs <span class="dim">(sets the shape)</span></label><div class="choices" data-platforms></div>
+          <div data-aspects-wrap><label>Shapes <span class="dim">(each shape is its own version)</span></label><div class="choices" data-aspects></div></div>
+          <div data-vdur-wrap><label>Length</label><div class="choices" data-vdurs></div>
+            <label class="choice" style="display:inline-flex;gap:8px;margin-top:10px"><input type="checkbox" data-audio style="display:inline">Generate sound</label></div>
+          <div data-versions-wrap><label>Versions of each headline</label><div class="choices" data-versions></div></div>
+          <div data-ref-wrap><label>Reference clip <span class="dim">(the moves to copy)</span></label><div class="cf-refs" data-refs></div></div>
+          <label>Product photos used <span class="dim" data-photo-max></span></label><div class="photos" data-photos></div>
+          <p class="small muted" data-nophoto hidden>This product has no photos yet. <a data-addphoto href="#">Add one</a>; videos start from it.</p>
+          <div class="cf-next"><button type="button" class="btn" data-next>Review the price</button></div>
+        </div>
+      </section>
+
+      <!-- 7 review -->
+      <section class="cf-sec" data-step="review" id="s-review">
+        <header class="cf-h"><span class="cf-n" data-n-review>7</span><div><h2>Review and generate</h2><p class="cf-sum"></p></div></header>
+        <div class="cf-b">
+          <div class="cf-matrix" data-matrix></div>
+          <ul class="cf-lines" data-lines></ul>
+          <div class="flash bad" data-err hidden></div>
+          <div class="cf-go">
+            <div><span class="muted small">Total</span><div class="price"><span data-total>–</span></div><span class="muted small">credits · you have <b data-bal>{{ '{:,}'.format(boot.balance) }}</b></span></div>
+            <button type="button" class="btn lg" data-generate disabled>Generate</button>
+          </div>
+          <p class="dim small" style="margin:12px 0 0">Nothing runs until you press Generate. Failed videos are refunded automatically. Scripts and the angle are saved to the product.</p>
+        </div>
+      </section>
+    </div>
+
+    <aside class="cf-side">
+      <div class="panel">
+        <div class="cf-sp" data-side-product></div>
+        <dl class="cf-dl" data-side></dl>
+        <hr class="line">
+        <span class="muted small">Estimated</span>
+        <div class="price"><span data-side-total>–</span></div>
+        <span class="muted small" data-side-count>Pick the steps to see a price</span>
+      </div>
+      <div class="panel cf-rules"><h3>Before you post</h3><ul class="rules"><li>Only approved claims: <span data-side-claims class="gold"></span></li><li>Presenters never speak as customers or promise results</li><li>Label it as an ad and AI-generated where the platform asks</li></ul></div>
+    </aside>
+  </div>
+</div>
+<script id="cf-boot" type="application/json">{{ boot|tojson }}</script>
+{% endblock %}
+{% block scripts %}
+<script>
+(function(){
+  var B = JSON.parse(document.getElementById('cf-boot').textContent), CSRF = {{ csrf_token()|tojson }};
+  var P = B.prefill || {};
+  var S = {product: B.product, type: P.type || '', angle: P.angle || null, items: P.items || [], body: P.body || '',
+           presenters: P.presenters || [], voices: P.voices || [], voice: P.voice || '', setting: P.setting || '',
+           duration: P.duration || 10, aspects: P.aspects || [], platforms: P.platforms || [], versions: P.versions || 1,
+           ref: P.ref || (B.refs[0] && B.refs[0].id) || null, photos: P.photos || [], audio: !!P.audio, ideas: [],
+           step: 'product', from_ad: P.from_ad || null, aiAngle: false};
+  var $ = function(s, r){ return (r||document).querySelector(s); }, $$ = function(s, r){ return [].slice.call((r||document).querySelectorAll(s)); };
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function T(){ return B.types.filter(function(t){ return t.id === S.type; })[0]; }
+  function kind(){ var t = T(); return t ? t.script : 'spoken'; }
+  function talking(){ var t = T(); return !!(t && t.talking); }
+  function steps(){ return ['product','type','angle','script'].concat(talking() ? ['cast'] : []).concat(['format','review']); }
+  function post(url, body){ return fetch(url, {method:'POST', headers:{'Content-Type':'application/json','X-CSRF':CSRF,'Accept':'application/json'}, body: JSON.stringify(body)})
+      .then(function(r){ return r.json().then(function(j){ j._status = r.status; return j; }); }); }
+  function setBal(b){ if(b != null){ $('[data-bal]').textContent = Number(b).toLocaleString(); } }
+
+  // ---- navigation
+  function go(step){ S.step = step; render(); var el = document.getElementById('s-' + step); if(el){ el.scrollIntoView({behavior: 'smooth', block: 'start'}); var f = el.querySelector('.cf-b input, .cf-b button, .cf-b select, .cf-b textarea'); if(f) setTimeout(function(){ f.focus({preventScroll:true}); }, 250); } }
+  function next(){ var st = steps(), i = st.indexOf(S.step); var err = check(S.step); if(err){ toast(err); return; } go(st[Math.min(st.length-1, i+1)]); }
+  function check(step){
+    if(step === 'product' && !S.product) return 'Pick a product.';
+    if(step === 'type' && !T()) return 'Pick an ad type.';
+    if(step === 'angle' && !(S.angle && (S.angle.title || S.angle.hook))) return 'Pick or write an angle.';
+    if(step === 'script'){ readItems(); if(!S.items.filter(Boolean).length) return 'Write or pick at least one ' + noun() + '.'; }
+    if(step === 'cast' && S.type === 'ugc' && !S.presenters.length) return 'Pick at least one presenter.';
+    return '';
+  }
+  function toast(m){ var e = $('[data-err]'); var sec = document.getElementById('s-' + S.step); var t = sec.querySelector('.cf-toast');
+    if(!t){ t = document.createElement('p'); t.className = 'flash warn cf-toast'; t.setAttribute('role','alert'); sec.querySelector('.cf-next').before(t); } t.textContent = m; }
+  function noun(){ return {spoken:'hook', image:'headline', scene:'scene'}[kind()]; }
+
+  // ---- render
+  function render(){
+    var st = steps(), cur = st.indexOf(S.step);
+    $$('.cf-sec').forEach(function(sec){
+      var k = sec.dataset.step, i = st.indexOf(k);
+      sec.hidden = i < 0; sec.classList.toggle('on', k === S.step); sec.classList.toggle('done', i > -1 && i < cur);
+      sec.classList.toggle('later', i > cur);
+      var n = sec.querySelector('.cf-n'); if(n && i > -1) n.textContent = i + 1;
+      var t = sec.querySelector('.cf-toast'); if(t && k !== S.step) t.remove();
+    });
+    $('[data-pname]').textContent = S.product ? S.product.name : 'your product';
+    summaries(); renderAngles(); renderScript(); renderCast(); renderFormat(); side(); if(S.step === 'review') quote(true); else liveQuote();
+  }
+  function summaries(){
+    var t = T();
+    $('[data-sum=product]').textContent = S.product ? S.product.name + (S.product.price ? ' · ' + S.product.price : '') : '';
+    $('[data-sum=type]').textContent = t ? t.name : '';
+    $('[data-sum=angle]').textContent = S.angle ? (S.angle.title || '') + (S.angle.hook ? ' · “' + S.angle.hook + '”' : '') : '';
+    var items = S.items.filter(Boolean);
+    $('[data-sum=script]').textContent = items.length ? items.length + ' ' + noun() + (items.length > 1 ? 's' : '') + (kind() === 'spoken' ? ' · ' + S.duration + 's' : '') : '';
+    $('[data-sum=cast]').textContent = S.type === 'ugc' ? S.presenters.map(function(id){ return pres(id).name; }).join(', ') : S.voices.map(function(id){ return voice(id).name; }).join(', ');
+    $('[data-sum=format]').textContent = [S.aspects.join(', '), kind() !== 'spoken' && S.type === 'product_video' ? S.duration + 's' : '', S.type === 'image' ? S.versions + ' version' + (S.versions > 1 ? 's' : '') + ' each' : ''].filter(Boolean).join(' · ');
+  }
+  function pres(id){ return B.presenters.filter(function(p){ return p.id === id; })[0] || {name: id}; }
+  function voice(id){ return B.voices.filter(function(v){ return v.id === id; })[0] || {name: id}; }
+
+  function renderAngles(){
+    var box = $('[data-angles]'), list = [];
+    S.ideas.forEach(function(a, i){ list.push({a: a, key: 'i' + i, tag: 'Idea'}); });
+    (S.product ? S.product.angles : []).forEach(function(a){ list.push({a: a, key: 's' + a.id, tag: 'Saved'}); });
+    if(S.angle && !list.some(function(x){ return x.a.title === S.angle.title && (x.a.hook||'') === (S.angle.hook||''); })) list.unshift({a: S.angle, key: 'cur', tag: 'Yours'});
+    box.innerHTML = list.map(function(x){ var on = S.angle && S.angle.title === x.a.title && (S.angle.hook||'') === (x.a.hook||'');
+      return '<label class="cf-angle' + (on ? ' on' : '') + '"><input type="radio" name="cf-angle" value="' + esc(x.key) + '"' + (on ? ' checked' : '') + '><span><b>' + esc(x.a.title) + '</b> <em class="lock">' + x.tag + '</em>' +
+        (x.a.hook ? '<span class="cf-hook">“' + esc(x.a.hook) + '”</span>' : '') + (x.a.insight ? '<span class="small muted">' + esc(x.a.insight) + '</span>' : '') + '</span></label>'; }).join('') ||
+      '<div class="empty" style="margin-top:14px">No angles yet. Get ideas or write your own.</div>';
+    box._list = list;
+  }
+  function renderScript(){
+    var k = kind(), t = T();
+    $('[data-script-title]').textContent = {spoken:'Script', image:'Headlines and image', scene:'Scenes'}[k];
+    $('[data-items-label]').innerHTML = {spoken:'Hooks <span class="dim">(each one makes its own video)</span>', image:'Headlines <span class="dim">(each one makes its own ad)</span>', scene:'Scenes <span class="dim">(each one makes its own clip)</span>'}[k];
+    $('[data-body-wrap]').hidden = k === 'scene';
+    $('[data-body-label]').innerHTML = k === 'spoken' ? 'Body <span class="dim">(said after the hook)</span>' : 'Image concept <span class="dim">(the scene behind the headline)</span>';
+    $('[data-dur-wrap]').hidden = k !== 'spoken';
+    $('[data-durs]').innerHTML = (B.durations.ugc_video || []).map(function(d){ return '<label class="choice"><input type="radio" name="cf-dur" value="' + d + '"' + (S.duration == d ? ' checked' : '') + '>' + d + ' seconds</label>'; }).join('');
+    var ol = $('[data-items]');
+    if(document.activeElement && ol.contains(document.activeElement)) { count(); return; }
+    if(!S.items.length) S.items = [''];
+    ol.innerHTML = S.items.map(function(it, i){ return '<li><label class="sr" for="cf-it' + i + '">' + noun() + ' ' + (i+1) + '</label>' +
+      (k === 'scene' ? '<textarea id="cf-it' + i + '" data-item rows="3" maxlength="900">' + esc(it) + '</textarea>' : '<input id="cf-it' + i + '" type="text" data-item maxlength="200" value="' + esc(it) + '" placeholder="' + (k === 'spoken' ? 'e.g. I stopped paying $7 for my afternoon coffee.' : 'e.g. Your afternoon cup, in 30 seconds.') + '">') +
+      '<button type="button" class="btn dark sm" data-del-item="' + i + '" aria-label="Remove">×</button></li>'; }).join('');
+    if(document.activeElement !== $('[data-body]')) $('[data-body]').value = S.body;
+    var sel = $('[data-saved]'), sv = (S.product ? S.product.scripts : []).filter(function(s){ return !S.type || s.ad_type === S.type || (B.types.filter(function(t){ return t.id === s.ad_type; })[0] || {}).script === k; });
+    sel.innerHTML = '<option value="">' + (sv.length ? 'Load a saved script…' : 'No saved scripts yet') + '</option>' + sv.map(function(s){ return '<option value="' + s.id + '">' + esc((s.title || s.hook || s.body).slice(0, 60)) + '</option>'; }).join('');
+    $('[data-claims-note]').textContent = S.product && S.product.claims ? 'Approved claims it may use: ' + S.product.claims.split('\n').join(' · ') : 'No approved claims on this product, so scripts describe it without claims.';
+    count();
+  }
+  function readItems(){ S.items = $$('[data-item]').map(function(e){ return e.value.trim(); }); S.body = $('[data-body]').value.trim(); }
+  function count(){
+    var el = $('[data-count]'); if(kind() !== 'spoken'){ el.textContent = ''; return; }
+    var lim = Math.floor(S.duration * B.wps), body = ($('[data-body]').value || '').trim().split(/\s+/).filter(Boolean).length;
+    var hooks = $$('[data-item]').map(function(e){ return e.value.trim().split(/\s+/).filter(Boolean).length; });
+    var worst = Math.max.apply(null, [0].concat(hooks)) + body;
+    el.textContent = 'Longest version: ' + worst + ' words · a ' + S.duration + '-second video fits about ' + lim + '.';
+    el.classList.toggle('warnc', worst > lim * 1.2);
+  }
+  function renderCast(){
+    var ugc = S.type === 'ugc';
+    $('[data-cast-title]').textContent = ugc ? 'Presenter and voice' : 'Narrator voice';
+    $('[data-presenters-wrap]').hidden = !ugc; $('[data-narrators-wrap]').hidden = ugc;
+    $('[data-presenters]').innerHTML = B.presenters.map(function(p){ var on = S.presenters.indexOf(p.id) > -1;
+      return '<label class="cf-pres' + (on ? ' on' : '') + '"><input type="checkbox" value="' + p.id + '"' + (on ? ' checked' : '') + ' data-pres><span class="cf-ava" style="--h:' + p.hue + '">' + esc(p.name[0]) + '</span><span><b>' + esc(p.name) + '</b><span class="small muted">' + esc(p.vibe) + '</span><span class="small dim">' + esc(p.look) + '</span></span></label>'; }).join('');
+    var vs = $('[data-voice]'); if(vs.options.length < 2){ B.voices.filter(function(v){ return v.who !== 'narrator'; }).forEach(function(v){ var o = document.createElement('option'); o.value = v.id; o.textContent = v.name + ' (' + v.who + ')'; vs.appendChild(o); }); }
+    vs.value = S.voice; $('[data-setting]').value = S.setting;
+    $('[data-narrators]').innerHTML = B.voices.map(function(v){ var on = S.voices.indexOf(v.id) > -1;
+      return '<label class="choice chk"><input type="checkbox" value="' + v.id + '"' + (on ? ' checked' : '') + ' data-narr>' + esc(v.name) + '</label>'; }).join('');
+  }
+  function renderFormat(){
+    var t = T(), tool = t ? t.tool : '';
+    var asp = B.aspects[tool] || [];
+    if(!S.aspects.length && asp.length){ S.aspects = [asp[0]]; }
+    S.aspects = S.aspects.filter(function(a){ return asp.indexOf(a) > -1; });
+    $('[data-aspects-wrap]').hidden = !asp.length;
+    $('[data-platforms]').parentNode && ($('[data-platforms]').previousElementSibling.hidden = !asp.length, $('[data-platforms]').hidden = !asp.length);
+    $('[data-platforms]').innerHTML = Object.keys(B.platforms).map(function(k){ var on = S.platforms.indexOf(k) > -1;
+      return '<label class="choice chk"><input type="checkbox" value="' + k + '"' + (on ? ' checked' : '') + ' data-plat>' + esc(B.platforms[k]) + ' <span class="dim">' + B.platform_aspects[k] + '</span></label>'; }).join('');
+    $('[data-aspects]').innerHTML = asp.map(function(a){ var on = S.aspects.indexOf(a) > -1; return '<label class="choice chk"><input type="checkbox" value="' + a + '"' + (on ? ' checked' : '') + ' data-asp>' + a + '</label>'; }).join('');
+    $('[data-vdur-wrap]').hidden = tool !== 'photo_to_video';
+    $('[data-vdurs]').innerHTML = [5, 10].map(function(d){ return '<label class="choice"><input type="radio" name="cf-vdur" value="' + d + '"' + ((S.duration == d || (d == 5 && S.duration != 10)) ? ' checked' : '') + '>' + d + ' seconds</label>'; }).join('');
+    $('[data-audio]').checked = S.audio;
+    $('[data-versions-wrap]').hidden = tool !== 'ad_image';
+    $('[data-versions]').innerHTML = [1,2,3,4].map(function(n){ return '<label class="choice"><input type="radio" name="cf-ver" value="' + n + '"' + (S.versions == n ? ' checked' : '') + '>' + n + '</label>'; }).join('');
+    $('[data-ref-wrap]').hidden = tool !== 'motion_copy';
+    $('[data-refs]').innerHTML = B.refs.length ? B.refs.map(function(r){ return '<label class="choice"><input type="radio" name="cf-ref" value="' + r.id + '"' + (S.ref == r.id ? ' checked' : '') + '>' + esc(r.title) + (r.seconds ? ' · ' + Math.round(r.seconds) + 's' : '') + '</label>'; }).join('') : '<div class="empty">No reference clips yet.</div>';
+    var ph = S.product ? S.product.photos : [], max = {ugc_video: 4, ad_image: 10, photo_to_video: 1, motion_copy: 8}[tool] || 4;
+    if(!S.photos.length || S.photos.some(function(id){ return !ph.some(function(p){ return p.id === id; }); })) S.photos = ph.slice(0, Math.min(max, tool === 'ad_image' ? 3 : max)).map(function(p){ return p.id; });
+    $('[data-photo-max]').textContent = '(' + (max === 1 ? 'pick one' : 'up to ' + max) + ')';
+    $('[data-photos]').innerHTML = ph.map(function(p){ var on = S.photos.indexOf(p.id) > -1; return '<label class="photo"><input type="' + (max === 1 ? 'radio' : 'checkbox') + '" name="cf-photo" value="' + p.id + '"' + (on ? ' checked' : '') + ' data-photo><img src="' + p.url + '" alt=""></label>'; }).join('');
+    $('[data-nophoto]').hidden = !!ph.length; var ap = $('[data-addphoto]'); if(ap && S.product) ap.href = B.urls.edit_product.replace(/0$/, S.product.id) + '#photos';
+  }
+  function side(){
+    var t = T(), sp = $('[data-side-product]');
+    sp.innerHTML = S.product ? ((S.product.photos[0] ? '<img src="' + S.product.photos[0].url + '" alt="">' : '<span class="sw-thumb sw-initial">' + esc(S.product.name[0]) + '</span>') + '<span><b>' + esc(S.product.name) + '</b><span class="small muted">' + esc(t ? t.name : 'Pick an ad type') + '</span></span>') : '<span class="muted">Pick a product</span>';
+    var rows = [];
+    if(S.angle) rows.push(['Angle', S.angle.title]);
+    var items = S.items.filter(Boolean); if(items.length) rows.push([noun().replace(/^./, function(c){ return c.toUpperCase(); }) + 's', items.length]);
+    if(talking()) rows.push([S.type === 'ugc' ? 'Presenters' : 'Voices', (S.type === 'ugc' ? S.presenters : S.voices).length || '–']);
+    if(S.aspects.length) rows.push(['Shapes', S.aspects.join(', ')]);
+    $('[data-side]').innerHTML = rows.map(function(r){ return '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>'; }).join('');
+    $('[data-side-claims]').textContent = S.product && S.product.claims ? S.product.claims.split('\n').slice(0, 3).join(' · ') : 'none yet';
+  }
+  function config(){ readItems(); return {product: S.product && S.product.id, type: S.type, angle: S.angle, items: S.items.filter(Boolean), body: S.body,
+      presenters: S.presenters, voices: S.voices, voice: S.voice, setting: S.setting, duration: S.duration, aspects: S.aspects,
+      platforms: S.platforms, versions: S.versions, ref: S.ref, photos: S.photos, audio: S.audio, from_ad: S.from_ad}; }
+  var qt = null, lastQuote = null;
+  function liveQuote(){ clearTimeout(qt); if(steps().indexOf(S.step) < steps().indexOf('script') || !S.items.filter(Boolean).length) { $('[data-side-total]').textContent = '–'; return; } qt = setTimeout(function(){ quote(false); }, 300); }
+  function quote(full){
+    if(!S.product || !T()) return;
+    post(B.urls.quote, config()).then(function(q){
+      lastQuote = q;
+      $('[data-side-total]').textContent = q.count ? q.total.toLocaleString() : '–';
+      $('[data-side-count]').textContent = q.count ? q.count + ' ad' + (q.count > 1 ? 's' : '') + ' · ' + q.each.toLocaleString() + ' each' : (q.error || 'Pick the steps to see a price');
+      if(!full) return;
+      var err = $('[data-err]'); err.hidden = !q.error; err.textContent = q.error || '';
+      $('[data-total]').textContent = q.count ? q.total.toLocaleString() : '–'; setBal(q.balance);
+      var it = S.items.filter(Boolean).length, cast = talking() ? (S.type === 'ugc' ? S.presenters.length : Math.max(1, S.voices.length)) : 1;
+      $('[data-matrix]').innerHTML = q.count ? '<b>' + it + ' ' + noun() + (it > 1 ? 's' : '') + '</b>' + (talking() ? ' × <b>' + cast + ' ' + (S.type === 'ugc' ? 'presenter' : 'voice') + (cast > 1 ? 's' : '') + '</b>' : '') + (S.aspects.length ? ' × <b>' + S.aspects.length + ' shape' + (S.aspects.length > 1 ? 's' : '') + '</b>' : '') + ' = <b class="gold">' + q.count + ' ad' + (q.count > 1 ? 's' : '') + '</b>' : '';
+      $('[data-lines]').innerHTML = (q.lines || []).map(function(l){ return '<li><span>“' + esc(l.hook) + '”<span class="small muted"> · ' + esc(l.label) + '</span></span><b>' + l.credits.toLocaleString() + '</b></li>'; }).join('');
+      var g = $('[data-generate]'); g.disabled = !q.count || q.total > q.balance;
+      g.textContent = q.count ? 'Generate ' + q.count + ' ad' + (q.count > 1 ? 's' : '') + ' · ' + q.total.toLocaleString() + ' credits' : 'Generate';
+      if(q.count && q.total > q.balance){ err.hidden = false; err.innerHTML = 'That needs ' + q.total.toLocaleString() + ' credits and you have ' + q.balance.toLocaleString() + '. Pick fewer, or <a href="{{ url_for('billing_page') }}">top up</a>.'; }
+    });
+  }
+
+  // ---- events
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    if(t.closest('[data-next]')){ e.preventDefault(); next(); return; }
+    var g = t.closest('[data-goto]'); if(g){ go(g.dataset.goto); return; }
+    if(t.closest('[data-add-item]')){ readItems(); if(S.items.length < 5){ S.items.push(''); var a = document.activeElement; a && a.blur(); renderScript(); var l = $$('[data-item]'); l[l.length-1].focus(); } return; }
+    var d = t.closest('[data-del-item]'); if(d){ readItems(); S.items.splice(+d.dataset.delItem, 1); renderScript(); liveQuote(); return; }
+    if(t.closest('[data-ideas]')){ ideas(t.closest('[data-ideas]')); return; }
+    if(t.closest('[data-write]')){ write(t.closest('[data-write]')); return; }
+    if(t.closest('[data-own-use]')){ var ti = $('[data-own-title]').value.trim(), ho = $('[data-own-hook]').value.trim(); if(!ti && !ho) return; S.angle = {title: ti || ho.slice(0, 60), hook: ho, insight: '', audience: ''}; renderAngles(); next(); return; }
+    if(t.closest('[data-save-script]')){ readItems(); post(B.urls.save, {what: 'script', product: S.product.id, type: S.type, angle: S.angle, items: S.items.filter(Boolean), body: S.body}).then(function(r){ var b = t.closest('[data-save-script]'); b.textContent = r.ok ? 'Saved' : (r.error || 'Not saved'); refreshProduct(); }); return; }
+    if(t.closest('[data-generate]')){ generate(t.closest('[data-generate]')); return; }
+  });
+  document.addEventListener('change', function(e){
+    var t = e.target;
+    if(t.name === 'cf-product'){ fetch(B.urls.state + '?id=' + t.value).then(function(r){ return r.json(); }).then(function(st){ S.product = st; S.photos = []; S.ideas = []; render(); }); }
+    if(t.name === 'cf-type'){ S.type = t.value; S.aspects = []; if(S.type === 'ugc' && !S.presenters.length) S.presenters = ['maya']; if(kind() !== 'spoken' && S.duration > 10) S.duration = 10; if(kind() === 'spoken' && B.durations.ugc_video.indexOf(+S.duration) < 0) S.duration = 10; render(); }
+    if(t.name === 'cf-angle'){ var x = ($('[data-angles]')._list || []).filter(function(y){ return y.key === t.value; })[0]; if(x){ S.angle = x.a; if(x.tag === 'Idea') S.angle.ai = true; render(); } }
+    if(t.name === 'cf-dur'){ S.duration = +t.value; count(); summaries(); liveQuote(); }
+    if(t.name === 'cf-vdur'){ S.duration = +t.value; liveQuote(); }
+    if(t.name === 'cf-ver'){ S.versions = +t.value; liveQuote(); }
+    if(t.name === 'cf-ref'){ S.ref = +t.value; liveQuote(); }
+    if(t.matches('[data-pres]')){ S.presenters = $$('[data-pres]:checked').map(function(x){ return x.value; }); t.closest('.cf-pres').classList.toggle('on', t.checked); summaries(); side(); liveQuote(); }
+    if(t.matches('[data-narr]')){ S.voices = $$('[data-narr]:checked').map(function(x){ return x.value; }); summaries(); side(); liveQuote(); }
+    if(t.matches('[data-voice]')){ S.voice = t.value; }
+    if(t.matches('[data-setting]')){ S.setting = t.value.trim(); }
+    if(t.matches('[data-asp]')){ S.aspects = $$('[data-asp]:checked').map(function(x){ return x.value; }); summaries(); side(); liveQuote(); }
+    if(t.matches('[data-plat]')){ S.platforms = $$('[data-plat]:checked').map(function(x){ return x.value; }); var asp = B.aspects[(T()||{}).tool] || [];
+      S.platforms.forEach(function(p){ var a = B.platform_aspects[p]; if(asp.indexOf(a) < 0) a = asp.indexOf('9:16') > -1 && (a === '4:5') ? (asp.indexOf('1:1') > -1 ? '1:1' : asp[0]) : a; if(asp.indexOf(a) > -1 && S.aspects.indexOf(a) < 0) S.aspects.push(a); });
+      renderFormat(); summaries(); side(); liveQuote(); }
+    if(t.matches('[data-audio]')){ S.audio = t.checked; }
+    if(t.matches('[data-photo]')){ S.photos = $$('[data-photo]:checked').map(function(x){ return +x.value; }); liveQuote(); }
+    if(t.matches('[data-saved]') && t.value){ var s = S.product.scripts.filter(function(x){ return String(x.id) === t.value; })[0]; if(s){ S.items = (s.items && s.items.length ? s.items : [s.hook]).slice(0, 5); S.body = s.items && s.items.length && s.body !== s.items[0] ? s.body : ''; renderScript(); liveQuote(); } }
+  });
+  document.addEventListener('input', function(e){ if(e.target.matches('[data-item], [data-body]')){ count(); } });
+  document.addEventListener('focusout', function(e){ if(e.target.matches('[data-item], [data-body]')){ readItems(); summaries(); side(); liveQuote(); } });
+
+  function busy(btn, on, label){ btn.disabled = on; if(on){ btn.dataset.l = btn.innerHTML; btn.innerHTML = '<span class="spinner sm"></span>' + label; } else if(btn.dataset.l){ btn.innerHTML = btn.dataset.l; } }
+  function ideas(btn){
+    if(!S.product || !T()) { toast('Pick a product and an ad type first.'); return; }
+    busy(btn, true, 'Thinking…');
+    post(B.urls.angles, {product: S.product.id, type: S.type, avoid: S.ideas.map(function(a){ return a.title; })}).then(function(r){
+      busy(btn, false); setBal(r.balance);
+      if(r.error && !(r.angles||[]).length){ toast(r.error); return; }
+      S.ideas = (r.angles || []).concat(S.ideas).slice(0, 10); renderAngles();
+    }).catch(function(){ busy(btn, false); toast('Something went wrong. Try again.'); });
+  }
+  function write(btn){
+    if(!S.angle){ toast('Pick an angle first.'); return; }
+    busy(btn, true, 'Writing…');
+    post(B.urls.script, {product: S.product.id, type: S.type, angle: S.angle, duration: S.duration, n: 3}).then(function(r){
+      busy(btn, false); setBal(r.balance);
+      if(r.error && !(r.items||[]).length){ toast(r.error); return; }
+      S.items = r.items; S.body = r.body || ''; var a = document.activeElement; a && a.blur(); renderScript(); summaries(); side(); liveQuote();
+    }).catch(function(){ busy(btn, false); toast('Something went wrong. Try again.'); });
+  }
+  function refreshProduct(){ if(!S.product) return; fetch(B.urls.state + '?id=' + S.product.id).then(function(r){ return r.json(); }).then(function(st){ var keep = S.photos; S.product = st; S.photos = keep; renderAngles(); renderScript(); }); }
+  function generate(btn){
+    if(!lastQuote || !lastQuote.count) return;
+    if(!confirm('Generate ' + lastQuote.count + ' ad' + (lastQuote.count > 1 ? 's' : '') + ' for ' + lastQuote.total.toLocaleString() + ' credits?')) return;
+    busy(btn, true, 'Starting…');
+    post(B.urls.generate, Object.assign(config(), {total: lastQuote.total})).then(function(r){
+      if(r.ok){ location.href = r.url; return; }
+      busy(btn, false); var e = $('[data-err]'); e.hidden = false; e.textContent = r.error || 'Couldn\'t start.'; if(r._status === 409) quote(true);
+    }).catch(function(){ busy(btn, false); });
+  }
+
+  // ---- start where the prefill says
+  if(S.type){ var r = document.querySelector('input[name=cf-type][value="' + S.type + '"]'); if(r) r.checked = true; }
+  if(S.type === 'ugc' && !S.presenters.length) S.presenters = ['maya'];
+  S.step = P.step && S.product && S.type ? P.step : (!S.product ? 'product' : (P.type ? (S.angle ? 'script' : 'angle') : (B.product ? 'type' : 'product')));
+  render();
+})();
+</script>
+{% endblock %}

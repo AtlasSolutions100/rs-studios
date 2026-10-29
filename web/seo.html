@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block title %}SEO, AEO & GEO · Campaignify{% endblock %}
+{% extends "base.html" %}{% from "_macros.html" import product_picker with context %}{% block title %}SEO, AEO & GEO · Campaignify{% endblock %}
 {% block body %}
 <div class="page">
   <section>
@@ -10,6 +10,7 @@
       <div class="choices" role="radiogroup" aria-label="What to check"><label class="choice"><input type="radio" name="mode" value="url" checked>A live page</label><label class="choice"><input type="radio" name="mode" value="text">A draft I paste</label></div>
       <div id="m-url"><label for="url">Page URL</label><input id="url" type="text" name="url" maxlength="500" placeholder="https://yourstore.com/product"></div>
       <div id="m-text" hidden><label for="text">Draft text <span class="dim">(Markdown headings are fine)</span></label><textarea id="text" name="text" maxlength="30000" style="min-height:200px"></textarea></div>
+      {{ product_picker(g.ws.product_id, label='Product it sells', reload=False) }}
       <label for="goal">What should this page win? <span class="dim">(optional)</span></label><input id="goal" type="text" name="goal" maxlength="200" placeholder="e.g. people searching for a vitamin C serum for mornings">
       <label class="choice" style="display:inline-flex;gap:8px;margin-top:16px"><input type="checkbox" name="ai" value="1" {{ 'checked' if ai_on else 'disabled' }}>AI suggestions (up to {{ quote }} credits)</label>
       {% if not ai_on %}<p class="small muted">AI suggestions aren't switched on yet; the audit, the JSON-LD skeleton and the llms.txt draft still work.</p>{% endif %}

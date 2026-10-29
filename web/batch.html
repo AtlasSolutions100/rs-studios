@@ -1,0 +1,45 @@
+{% extends "base.html" %}{% from "_macros.html" import status, job_thumb %}
+{% block title %}{{ b.title or 'Batch' }} · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <p style="margin:0 0 14px"><a href="{{ url_for('studio') }}">← Create</a></p>
+  <div class="phead">
+    <div>
+      <p class="eyebrow">{{ at.name or 'Batch' }}{% if p %} · {{ p.name }}{% endif %}</p>
+      <h1>{{ b.title or 'Your ads' }}</h1>
+      <p class="muted">{{ jobs|length }} ad{{ 's' if jobs|length != 1 }} · {{ '{:,}'.format(b.credits) }} credits · {{ b.created_at[:16].replace('T', ' ') }} UTC</p>
+    </div>
+    <div class="phead-actions">
+      <a class="btn dark" href="{{ url_for('create.index', batch=b.id) }}">Make more like this</a>
+      <a class="btn dark" href="{{ url_for('library', product=b.product_id) if b.product_id else url_for('library') }}">Library</a>
+    </div>
+  </div>
+  {% set running = jobs|selectattr('status', 'in', ['pending', 'running'])|list %}
+  {% if running %}<div class="flash" role="status"><span class="spinner sm"></span> Making {{ running|length }} of {{ jobs|length }}. Talking videos take a few minutes; this page updates by itself, and you can leave it.</div>{% endif %}
+  <div class="lgrid bgrid" style="margin-top:20px">
+    {% for j in jobs %}{% set pr = j.params_json|fromjson %}
+    <article class="litem" data-job="{{ j.id }}" data-status="{{ j.status }}">
+      {{ job_thumb(j, outs, templates, tools) }}
+      <div class="meta"><b>{{ pr.label or tools[j.tool].name }}</b>{{ status(j) }}</div>
+      {% if pr.hook %}<p class="brief">“{{ pr.hook[:120] }}”</p>{% endif %}
+      {% if outs.get(j.id) %}<div class="row" style="margin-top:8px">{% for o in outs[j.id] %}<a class="btn dark sm" href="{{ url_for('media', oid=o.id, download=1) }}">Download{{ ' ' ~ loop.index if outs[j.id]|length > 1 }}</a>{% endfor %}{% if has_feature('adhub') %}<a class="btn dark sm" href="{{ url_for('adhub.export_page', oid=outs[j.id][0].id) }}">Export sizes</a>{% endif %}</div>{% endif %}
+      <details class="small"><summary class="muted">What it says</summary><p class="vtext small">{{ j.brief }}</p></details>
+    </article>
+    {% endfor %}
+  </div>
+  {% if not jobs %}<div class="empty">Nothing in this batch started. Check your credits and try again.</div>{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function(){
+  var pending=[].slice.call(document.querySelectorAll('[data-job]')).filter(function(e){return /pending|running/.test(e.dataset.status)}).map(function(e){return e.dataset.job});
+  if(!pending.length) return;
+  setInterval(function(){
+    fetch('{{ url_for("api_jobs") }}?ids='+pending.join(',')).then(function(r){return r.json()}).then(function(d){
+      if(d.jobs.some(function(j){return !/pending|running/.test(j.status)})) location.reload();
+    });
+  }, 8000);
+})();
+</script>
+{% endblock %}

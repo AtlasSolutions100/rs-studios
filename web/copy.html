@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block title %}Copy studio · Campaignify{% endblock %}
+{% extends "base.html" %}{% from "_macros.html" import product_picker with context %}{% block title %}Copy studio · Campaignify{% endblock %}
 {% block body %}
 <div class="page">
   <section>
@@ -9,6 +9,7 @@
     {% include "_ai_off.html" %}
     <form method="post" class="panel copyform" id="copyform">
       <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      {{ product_picker(pid) }}
       <label>What to write</label>
       <div class="choices">{% for k, v in COPY_KINDS.items() %}<label class="choice"><input type="radio" name="kind" value="{{ k }}" data-q3="{{ quotes[k][0] }}" data-q5="{{ quotes[k][1] }}" {{ 'checked' if k == kind }}>{{ v.name }}</label>{% endfor %}</div>
       <p class="small muted" id="kindblurb" style="margin:8px 0 0">{{ COPY_KINDS[kind].blurb }}</p>
@@ -28,7 +29,7 @@
       <label for="notes">Anything else <span class="dim">(optional)</span></label><textarea id="notes" name="notes" maxlength="1000" style="min-height:90px" placeholder="Season, launch date, what makes it different…"></textarea>
       <label>Variants</label>
       <div class="choices"><label class="choice"><input type="radio" name="n" value="3" checked>3</label><label class="choice"><input type="radio" name="n" value="5">5</label></div>
-      {% if b.claims %}<p class="small muted" style="margin-top:16px">Claims it may use (from your brand kit): <span class="gold">{{ b.claims[:200] }}</span></p>{% else %}<p class="small muted" style="margin-top:16px">No approved claims in your <a href="{{ url_for('brand_kit') }}">brand kit</a>, so the copy won't make product claims.</p>{% endif %}
+      {% if b.claims %}<p class="small muted" style="margin-top:16px">Claims it may use (approved on the product): <span class="gold">{{ b.claims[:200] }}</span></p>{% else %}<p class="small muted" style="margin-top:16px">No approved claims on <a href="{{ url_for('products.edit', pid=pid) if pid else url_for('brand_kit') }}">this product</a>, so the copy won't make product claims.</p>{% endif %}
       <div class="go">
         <span class="muted small">Up to <b id="quote">{{ quotes[kind][0] }}</b> credits · you pay what it actually uses · you have {{ '{:,}'.format(balance()) }}</span>
         <button class="btn" {{ 'disabled' if not llm_on() }}>Write it</button>
