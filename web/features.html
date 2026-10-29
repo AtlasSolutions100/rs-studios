@@ -8,7 +8,7 @@
 <section class="lp-hero lp-hero-sm">
   <div class="lp-wrap">
     <p class="eyebrow">Features</p>
-    <h1>Your whole campaign, <span class="gold">A to Z.</span></h1>
+    <h1>Your whole campaign, <span class="gold">in minutes.</span></h1>
     <p class="lp-lede">Every tool that's live today, in the order a campaign runs, and the plan that includes it. The free studio makes ads; the plans add the rest of the campaign.</p>
     <ol class="lp-rail" aria-label="The steps of a campaign">
       {% for s in journey %}<li><a href="#step-{{ s.id }}"><span>{{ '%02d'|format(loop.index) }}</span>{{ s.step }}</a></li>{% endfor %}
