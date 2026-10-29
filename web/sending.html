@@ -31,12 +31,17 @@
           <li>Each email: <b>{{ credits }} credit{{ 's' if credits != 1 }}</b> ({{ credits_usd(credits) }}), charged when it's sent.</li>
           <li>Daily limit: <b>{{ '{:,}'.format(cap) if cap else '—' }}</b> emails{% if cap == 50 %} (a new sender starts at 50 a day for the first week){% endif %}; at most 2 a day to one person.</li>
           <li>A flow pauses itself if its emails draw spam complaints above 0.3% or bounce above 5%.</li>
-          <li>Texts (Scale): about 3 credits a segment, plus the number and carrier registration (shown before you start).</li>
+          <li>Texts ({{ plans.required('flows_sms').name }}): {{ sms_seg }} credits a segment, plus the number and carrier registration (shown before you start).</li>
         </ul>
       </div>
       <div class="panel">
         <h2 style="margin-top:0">Last 30 days</h2>
         <p class="muted" style="margin:0">{{ stats.n or 0 }} sent · {{ stats.ok or 0 }} delivered · {{ stats.b or 0 }} bounced · {{ stats.c or 0 }} marked as spam · {{ n_sup }} address{{ 'es' if n_sup != 1 }} won't be emailed again</p>
+      </div>
+      <div class="panel" id="sms">
+        <h2 style="margin-top:0">Text messaging</h2>
+        <p class="small muted" style="margin:0 0 10px">{{ sms_line }}</p>
+        <a class="btn dark sm" href="{{ url_for('sms.wizard') }}">{{ 'Set up texting' if not sms_status or sms_status in ('none', 'collecting') else 'See registration' }}</a>
       </div>
       <div class="panel" id="domain">
         <h2 style="margin-top:0">Your own domain</h2>

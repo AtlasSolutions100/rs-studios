@@ -2148,6 +2148,188 @@ with db.connect() as conn:
 x.post("/app/settings/sending/domain", data={"csrf": csrf(x), "action": "remove"})
 with db.connect() as conn:
     check(not conn.execute("SELECT 1 FROM sender_domains WHERE workspace_id=?", (xws["id"],)).fetchone(), "remove the domain")
+print("== flows F3: texts via Twilio, registration (phase 9)")
+import sms  # noqa: E402
+import smser  # noqa: E402
+check(flows.sms_segments("a" * 160) == (1, "GSM-7") and flows.sms_segments("a" * 180) == (2, "GSM-7")
+      and flows.sms_segments("Hi 😀" + "a" * 60)[0] == 1 and flows.sms_segments("😀" * 40)[0] == 2
+      and flows.sms_segments("é" * 70) == (1, "GSM-7") and flows.sms_segments("ł" * 71) == (2, "UCS-2"),
+      "segments: GSM-7 160/153, Unicode (emoji) 70/67")
+check(sms.credits_per_segment() == 2 and sms.fees("tollfree")["now"] == 430 and sms.fees("10dlc", 500)["once"]
+      == {"Brand registration (low volume)": 400, "Campaign vetting": 1500}, "prices: segment and number at 2x, registration at cost")
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "scale"})
+html = x.get("/app/settings/sms").get_data(as_text=True)
+check("isn't connected" in html and "Toll-free number" in html and "430 credits" in html and "Recommended" in html,
+      "the wizard shows routes, prices before anything is charged, and the not-connected state")
+os.environ.update(TWILIO_ACCOUNT_SID="ACtest", TWILIO_AUTH_TOKEN="tw-secret")
+tw_calls = []
+tw_state = {"tf": "PENDING_REVIEW", "profile": "pending-review", "brand": "PENDING", "campaign": "IN_PROGRESS"}
+
+
+class _TW:
+    def __init__(self, d):
+        self.status_code, self._d = 200, d
+        self.text = json.dumps(d)
+
+    def json(self):
+        return self._d
+
+
+def tw_post(url, data=None, auth=None, timeout=0):
+    tw_calls.append(("post", url, data))
+    if url.endswith("/Services"):
+        return _TW({"sid": "MG1"})
+    if url.endswith("IncomingPhoneNumbers.json"):
+        return _TW({"sid": "PN1", "phone_number": data["PhoneNumber"]})
+    if url.endswith("/Tollfree/Verifications"):
+        return _TW({"sid": "HH1"})
+    if url.endswith("/Messages.json"):
+        return _TW({"sid": f"SM{len(tw_calls)}"})
+    if url.endswith("/CustomerProfiles"):
+        return _TW({"sid": "BU2"})
+    if url.endswith("/BrandRegistrations"):
+        return _TW({"sid": "BN1"})
+    if url.endswith("/Usa2p"):
+        return _TW({"sid": "QE1"})
+    return _TW({"sid": "XX"})
+
+
+def tw_get(url, params=None, auth=None, timeout=0):
+    tw_calls.append(("get", url, params))
+    if "AvailablePhoneNumbers" in url:
+        return _TW({"available_phone_numbers": [{"phone_number": "+18005550100" if "TollFree" in url else "+15125550100"}]})
+    if "/Tollfree/Verifications/" in url:
+        return _TW({"status": tw_state["tf"]})
+    if "/CustomerProfiles/" in url:
+        return _TW({"status": tw_state["profile"]})
+    if "/BrandRegistrations/" in url:
+        return _TW({"status": tw_state["brand"]})
+    if "/Usa2p/" in url:
+        return _TW({"campaign_status": tw_state["campaign"]})
+    return _TW({})
+
+
+smser.requests.post, smser.requests.get = tw_post, tw_get
+biz = {"csrf": csrf(x), "path": "tollfree", "volume": "400", "legal_name": "Glow Co LLC", "business_type": "llc",
+       "website": "https://glow.example", "street": "1 Main St", "city": "Austin", "state": "TX", "zip": "78701",
+       "first_name": "Gia", "last_name": "Lo", "email": "gia@glow.example", "phone": "+15125550199",
+       "use_case": "Marketing texts to opted-in customers.", "message_flow": "Unchecked box on our web form."}
+r = x.post("/app/settings/sms", data=dict(biz, legal_name="", action="register"), follow_redirects=True)
+check("Fill in: legal name" in r.get_data(as_text=True), "missing details are listed before anything is charged")
+bal = db.balance(wsrow(xws["id"]))
+r = x.post("/app/settings/sms", data=dict(biz, action="register"), follow_redirects=True)
+with db.connect() as conn:
+    sp = conn.execute("SELECT * FROM sms_profiles WHERE workspace_id=?", (xws["id"],)).fetchone()
+check(sp["status"] == "submitted" and sp["phone_number"] == "+18005550100" and sp["messaging_service_sid"] == "MG1"
+      and sp["verification_sid"] == "HH1" and db.balance(wsrow(xws["id"])) == bal - 430
+      and any(c[1].endswith("/Services") and c[2]["InboundRequestUrl"].endswith("/webhooks/twilio/sms") for c in tw_calls),
+      "toll-free: number bought, Messaging Service with our webhooks, verification submitted, first month charged")
+with db.connect() as conn:
+    w = conn.execute("SELECT * FROM workspaces WHERE id=?", (xws["id"],)).fetchone()
+check(any("Finish registering" in m for m in sms.sms_ready(w)), "texts wait for approval (steps stay tasks meanwhile)")
+sms.advance_profiles()
+tw_state["tf"] = "TWILIO_APPROVED"
+sms.advance_profiles(flows_engine.utcnow() + _tdl(minutes=31))
+with db.connect() as conn:
+    sp = conn.execute("SELECT * FROM sms_profiles WHERE workspace_id=?", (xws["id"],)).fetchone()
+    w = conn.execute("SELECT * FROM workspaces WHERE id=?", (xws["id"],)).fetchone()
+    note = conn.execute("SELECT 1 FROM tasks WHERE workspace_id=? AND title LIKE '%texting number is approved%'", (xws["id"],)).fetchone()
+check(sp["status"] == "active" and note and not sms.sms_ready(w), "approval is picked up by polling; the owner gets a note")
+# 10DLC: each step taken when the last one is approved; state lives in the database (restart-safe)
+with db.connect() as conn:
+    conn.execute("INSERT INTO sms_profiles (workspace_id, path, status, fields_json, customer_profile_sid, brand_type, "
+                 "messaging_service_sid, phone_number, created_at, updated_at, number_fee_month) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                 (ws1["id"], "10dlc", "submitted", json.dumps(biz), "BU9", "low_volume", "MG9", "+15125550111", db.now(), db.now(),
+                  flows_engine.utcnow().strftime("%Y-%m")))
+    conn.commit()
+seq = []
+for st_, now_ in (({"profile": "twilio-approved"}, 62), ({"brand": "APPROVED"}, 124), ({"campaign": "VERIFIED"}, 186)):
+    tw_state.update(st_)
+    sms.advance_profiles(flows_engine.utcnow() + _tdl(minutes=now_))
+    with db.connect() as conn:
+        seq.append(conn.execute("SELECT status FROM sms_profiles WHERE workspace_id=?", (ws1["id"],)).fetchone()[0])
+check(seq == ["brand_pending", "campaign_pending", "active"], f"10DLC: profile → brand → campaign → active ({seq})")
+# sending: consent, quiet hours, opt-out line, segments and credits
+with db.connect() as conn:
+    conn.execute("UPDATE flows SET status='paused' WHERE workspace_id=?", (xws["id"],))
+    conn.execute("UPDATE workspaces SET timezone='America/Chicago' WHERE id=?", (xws["id"],))
+    tx = conn.execute("INSERT INTO contacts (workspace_id, email, name, phone, phone_e164, sms_consent, tags, first_seen, last_seen) "
+                      "VALUES (?,?,?,?,?,?,?,?,?)", (xws["id"], "tex@flow.example", "Tex", "512-555-0123", "+15125550123", "form",
+                                                     "", db.now(), db.now())).lastrowid
+    nx = conn.execute("INSERT INTO contacts (workspace_id, email, name, phone_e164, tags, first_seen, last_seen) VALUES (?,?,?,?,?,?,?)",
+                      (xws["id"], "nox@flow.example", "Nox", "+15125550124", "", db.now(), db.now())).lastrowid
+    conn.commit()
+stree = flows.clean_tree({"trigger": {"kind": "tag_added", "tag": "textme"}, "steps": [
+    {"type": "condition", "test": {"kind": "has_consent", "channel": "email"}, "yes": [], "no": []},
+    {"type": "sms", "body": "{{brand}}: your spot is saved. " + "Details at the link. " * 6}]})
+r = x.post("/app/flows/new", data={"csrf": csrf(x), "kind": "blank", "name": "Texts"})
+sfid = int(r.headers["Location"].rstrip("/").split("/")[-1])
+x.post(f"/app/flows/{sfid}/save", data=json.dumps({"tree": stree}), content_type="application/json", headers={"X-CSRF": csrf(x)})
+x.post(f"/app/flows/{sfid}/state", data={"csrf": csrf(x), "action": "on"})
+with db.connect() as conn:
+    for cid_ in (tx, nx):
+        flows_engine.enrol(conn, xws["id"], "tag_added", cid_, {"tags": ["textme"]})
+    conn.commit()
+night = _dtm(2026, 11, 10, 3, 30, tzinfo=_tzu.utc)       # 21:30 in Chicago
+flows_engine.tick(now=night)
+with db.connect() as conn:
+    tm = conn.execute("SELECT * FROM messages WHERE contact_id=? AND channel='sms'", (tx,)).fetchone()
+    nm_ = conn.execute("SELECT * FROM messages WHERE contact_id=? AND channel='sms'", (nx,)).fetchone()
+check(tm["status"] == "queued" and tm["scheduled_at"] == "2026-11-10T15:00:00+00:00", "a text due at 21:30 local waits for 9:00")
+check(nm_["status"] == "skipped" and "consent" in nm_["error"], "no text consent: never sent")
+bal = db.balance(wsrow(xws["id"]))
+n_before = len([c for c in tw_calls if c[1].endswith("/Messages.json")])
+flows_engine.tick(now=_dtm(2026, 11, 10, 15, 0, 5, tzinfo=_tzu.utc))
+with db.connect() as conn:
+    tm = conn.execute("SELECT * FROM messages WHERE id=?", (tm["id"],)).fetchone()
+sent_body = [c for c in tw_calls if c[1].endswith("/Messages.json")][-1][2]
+check(tm["status"] == "sent" and sent_body["Body"].endswith(sms.OPT_OUT_LINE) and sent_body["To"] == "+15125550123"
+      and sent_body["MessagingServiceSid"] == "MG1" and tm["segments"] == flows.sms_segments(sent_body["Body"])[0] == 2
+      and db.balance(wsrow(xws["id"])) == bal - 2 * sms.credits_per_segment()
+      and len([c for c in tw_calls if c[1].endswith("/Messages.json")]) == n_before + 1,
+      "at 9:00 it goes, with the opt-out line on the first text; 2 segments x 2 credits")
+# inbound: STOP, HELP, signatures
+url_in = flows_engine.PUBLIC_URL + "/webhooks/twilio/sms"
+def tw_in(body, sid):
+    p_ = {"From": "+15125550123", "To": "+18005550100", "Body": body, "MessageSid": sid}
+    return client().post("/webhooks/twilio/sms", data=p_, headers={"X-Twilio-Signature": smser.sign(url_in, p_)})
+check(client().post("/webhooks/twilio/sms", data={"From": "+1", "To": "+18005550100", "Body": "STOP"},
+                    headers={"X-Twilio-Signature": "nope"}).status_code == 403, "unsigned inbound texts are refused")
+h = tw_in("help", "SMh1").get_data(as_text=True)
+check("<Message>" in h and "Reply STOP to opt out" in h, "HELP gets the brand, contact and STOP line")
+with db.connect() as conn:
+    conn.execute("INSERT INTO messages (workspace_id, contact_id, flow_id, channel, to_addr, body_text, status, token, created_at) "
+                 "VALUES (?,?,?,?,?,?,?,?,?)", (xws["id"], tx, sfid, "sms", "+15125550123", "Glow Co: one more", "queued", "tq1", db.now()))
+    conn.commit()
+tw_in("Stop", "SMs1")
+tw_in("Stop", "SMs1")
+with db.connect() as conn:
+    txc = conn.execute("SELECT * FROM contacts WHERE id=?", (tx,)).fetchone()
+    q_ = conn.execute("SELECT status FROM messages WHERE token='tq1'").fetchone()[0]
+    sup = conn.execute("SELECT * FROM suppressions WHERE workspace_id=? AND channel='sms'", (xws["id"],)).fetchall()
+check(txc["sms_stopped_at"] and q_ == "suppressed" and len(sup) == 1 and sup[0]["reason"] == "stop",
+      "STOP suppresses at once (queued texts dropped); a replayed webhook is ignored")
+tw_in("START", "SMs2")
+with db.connect() as conn:
+    check(not conn.execute("SELECT sms_stopped_at FROM contacts WHERE id=?", (tx,)).fetchone()[0], "START opts back in")
+st_url = flows_engine.PUBLIC_URL + "/webhooks/twilio/status"
+pp = {"MessageSid": tm["provider_id"], "MessageStatus": "delivered"}
+client().post("/webhooks/twilio/status", data=pp, headers={"X-Twilio-Signature": smser.sign(st_url, pp)})
+with db.connect() as conn:
+    check(conn.execute("SELECT status FROM messages WHERE id=?", (tm["id"],)).fetchone()[0] == "delivered", "delivery status callbacks")
+# monthly number fee on the 1st
+with db.connect() as conn:
+    conn.execute("UPDATE sms_profiles SET number_fee_month='2026-11' WHERE workspace_id=?", (xws["id"],))
+    conn.commit()
+bal = db.balance(wsrow(xws["id"]))
+sms.advance_profiles(_dtm(2026, 12, 1, 6, 0, tzinfo=_tzu.utc))
+with db.connect() as conn:
+    led = conn.execute("SELECT * FROM ledger WHERE workspace_id=? ORDER BY id DESC LIMIT 1", (xws["id"],)).fetchone()
+check(led["reason"] == "SMS number · December" and led["delta"] == -430 and db.balance(wsrow(xws["id"])) == bal - 430,
+      "the number's rent is charged on the 1st (ledger: SMS number · December)")
+for k in ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"):
+    os.environ.pop(k)
+
 for k in ("RESEND_API_KEY", "RS_MAIL_DOMAIN", "RESEND_WEBHOOK_SECRET"):
     os.environ.pop(k)
 dy = open(os.path.join(os.path.dirname(HERE), ".github", "workflows", "deploy.yml")).read()

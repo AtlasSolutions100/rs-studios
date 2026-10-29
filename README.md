@@ -146,6 +146,15 @@ through `/t/<token>`, opens through a pixel. Consent comes from form checkboxes 
 IP hash), CSV import (`email_consent` column) or a manual setting. Caps: 300/day Growth, 2,000/day Scale, 50/day in a
 sender's first week, 2 a day per person; complaints over 0.3% or bounces over 5% pause the flow. 1 credit per email.
 
+**Texts (F3, Twilio, Scale).** Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_PRIMARY_PROFILE_SID`
+(Campaignify's approved ISV primary customer profile). Each workspace registers in Settings → Sending → Text messaging:
+toll-free verification (recommended under ~1,000 texts a month) or A2P 10DLC (business profile → brand → campaign). The
+app buys the number, makes a Messaging Service with inbound/status webhooks at `/webhooks/twilio/sms` and
+`/webhooks/twilio/status` (signature-checked), and polls the registration every 30 minutes. Texts only go to people
+with recorded text consent, 9:00-20:00 in their time zone, at most 1 a day and 4 a week; the first one carries the
+STOP/HELP line; STOP/START/HELP replies are handled. Prices: segment and number at the markup, carrier and
+registration fees at cost, charged before each step.
+
 ## Community and courses (Scale)
 
 `community_routes.py`. Workspace side `/app/community`: settings (name, address, optional open join link), spaces,

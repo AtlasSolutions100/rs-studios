@@ -195,7 +195,8 @@ def _nav():
     return out
 
 
-CSRF_EXEMPT = {"static", "stripe_webhook", "forms.public", "messaging.resend_webhook", "messaging.unsubscribe"}  # public forms carry their own signed token
+CSRF_EXEMPT = {"static", "stripe_webhook", "forms.public", "messaging.resend_webhook", "messaging.unsubscribe",
+               "sms.inbound", "sms.status"}  # public forms carry their own signed token
 
 
 @app.before_request
@@ -1659,6 +1660,8 @@ import jobs_routes  # noqa: E402
 import flows_routes  # noqa: E402
 import messaging  # noqa: E402
 import messaging_routes  # noqa: E402
+import sms  # noqa: E402
+import sms_routes  # noqa: E402
 import assistant_routes  # noqa: E402
 import campaign_routes  # noqa: E402
 import copy_routes  # noqa: E402  (blueprints import core, never app)
@@ -1673,7 +1676,9 @@ app.register_blueprint(create_routes.bp)
 app.register_blueprint(jobs_routes.bp)
 app.register_blueprint(flows_routes.bp)
 app.register_blueprint(messaging_routes.bp)
+app.register_blueprint(sms_routes.bp)
 messaging.register()
+sms.register_hooks()
 app.register_blueprint(assistant_routes.bp)
 app.register_blueprint(copy_routes.bp)
 app.register_blueprint(campaign_routes.bp)
