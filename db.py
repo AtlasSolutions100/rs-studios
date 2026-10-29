@@ -149,6 +149,18 @@ CREATE TABLE IF NOT EXISTS batches (
     credits INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_batches_ws ON batches(workspace_id, id);
+CREATE TABLE IF NOT EXISTS assistant_threads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    data_json TEXT NOT NULL DEFAULT '{}',     -- messages, cards, setup answers
+    credits INTEGER NOT NULL DEFAULT 0,       -- charged (beyond the free allowance)
+    free_credits INTEGER NOT NULL DEFAULT 0,  -- covered by the free allowance
+    cost_usd REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'open',      -- open | closed
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_asst_u ON assistant_threads(user_id, id);
 CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
     value TEXT);
@@ -362,6 +374,9 @@ COLUMNS = [
     ("jobs", "batch_id", "INTEGER"),
     ("copy_runs", "product_id", "INTEGER"),
     ("campaigns", "product_id", "INTEGER"),
+    # setup assistant
+    ("workspaces", "assistant_free_used", "INTEGER NOT NULL DEFAULT 0"),
+    ("workspaces", "setup_json", "TEXT"),
 ]
 
 

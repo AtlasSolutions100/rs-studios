@@ -72,7 +72,7 @@
     {% if g.user.is_admin %}<a class="nav {{ 'on' if request.endpoint=='admin' }}" href="{{ url_for('admin') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">{{ ICONS['admin']|safe }}</svg><span>Admin</span></a>{% endif %}
     </nav>
     <div class="grow"></div>
-    {% block side_help %}{% if has_endpoint is defined and has_endpoint('assistant.page') %}<button type="button" class="helpbtn" data-help-open><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.6 4.8L18.5 9l-4.9 1.4L12 15l-1.6-4.6L5.5 9l4.9-1.2z"/><path d="M18 15l.7 1.9 1.8.6-1.8.7L18 20l-.7-1.8-1.8-.7 1.8-.6z"/></svg>Help me<kbd>?</kbd></button>{% endif %}{% endblock %}
+    {% block side_help %}{% if has_endpoint is defined and has_endpoint('assistant.page') and assistant_on() %}<button type="button" class="helpbtn" data-help-open><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.6 4.8L18.5 9l-4.9 1.4L12 15l-1.6-4.6L5.5 9l4.9-1.2z"/><path d="M18 15l.7 1.9 1.8.6-1.8.7L18 20l-.7-1.8-1.8-.7 1.8-.6z"/></svg>Help me<kbd>?</kbd></button>{% endif %}{% endblock %}
     <a class="pill" href="{{ url_for('billing_page') }}" title="Credits left: buy more"><i></i>{{ '{:,}'.format(balance()) }} credits</a>
     <a class="planchip" href="{{ url_for('billing_page') }}">{{ plans.plan(g.ws).name }} plan{% if plans.plan_code(g.ws) == 'free' %} · <b>Upgrade</b>{% endif %}</a>
     <div class="side-foot">
@@ -87,6 +87,11 @@
   </main>
 </div>
 
+{% if has_endpoint is defined and has_endpoint('assistant.page') and assistant_on() %}
+{% if request.endpoint != 'assistant.page' %}{% with inline=False %}{% include "_assistant.html" %}{% endwith %}{% endif %}
+<script>window.CFY_ASST = {{ {'csrf': csrf_token(), 'product': g.ws.product_id, 'urls': {'thread': url_for('assistant.thread'), 'say': url_for('assistant.say'), 'action': url_for('assistant.action'), 'reset': url_for('assistant.reset'), 'ok': url_for('assistant.ok_paid'), 'page': url_for('assistant.page'), 'upload': url_for('upload_photos')}}|tojson }};</script>
+<script src="{{ url_for('static', filename='assistant.js') }}" defer></script>
+{% endif %}
 {% if switcher is defined %}
 <div class="sw-panel" id="sw-panel" role="dialog" aria-modal="false" aria-label="Switch brand or product" hidden>
   <div class="sw-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" placeholder="Find a product or brand" aria-label="Find a product or brand" data-sw-q autocomplete="off"><kbd>Esc</kbd></div>
