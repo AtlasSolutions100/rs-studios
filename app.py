@@ -91,6 +91,8 @@ NAV = [
     ("pages.index", "Pages & links", "pages", "pages", ("pages.index", "pages.edit", "pages.links", "pages.link_detail",
                                                           "forms.index", "forms.edit", "forms.submissions")),
     ("forms.contacts", "Contacts", "contacts", "forms", ("forms.contacts", "forms.contact")),
+    ("community.admin", "Community", "community", "community", ("community.admin", "community.course_edit",
+                                                                 "community.lesson_edit")),
     ("library", "Library", "library", None, ("library",)),
     ("adhub.index", "Ad accounts", "adhub", "adhub", ("adhub.index", "adhub.platform", "adhub.export_page")),
     ("brand_kit", "Brand kit", "brand", None, ("brand_kit",)),
@@ -264,6 +266,13 @@ FEATURE_DETAILS = {
               "Passes through the UTM tags and click ids already on the incoming link",
               "Click counts, without storing visitors' IP addresses"],
     "link_analytics": ["Clicks per day for 30 days", "Referrers, countries, devices and UTM breakdowns"],
+    "community": ["Spaces with posts, comments and pinned posts; members post and reply",
+                  "Courses: modules and lessons with text and video (from your library, YouTube, Vimeo or Loom), "
+                  "with progress saved per member",
+                  "Members with their own logins (they don't use your team's seats), invite links, an optional join "
+                  "link, and admin roles",
+                  "Events with a time zone, a join link and an add-to-calendar file",
+                  "Published at campaignify.ai/c/your-community"],
     "forms": ["Short text, email, phone, long text, dropdown and checkbox fields, with show-if logic",
               "On your pages as a block, or shared as a hosted form link",
               "A contacts list with tags, notes, search and CSV export",
@@ -1260,6 +1269,7 @@ import seo_routes  # noqa: E402
 import adhub_routes  # noqa: E402
 import pages_routes  # noqa: E402
 import forms_routes  # noqa: E402
+import community_routes  # noqa: E402
 
 app.register_blueprint(copy_routes.bp)
 app.register_blueprint(campaign_routes.bp)
@@ -1267,6 +1277,7 @@ app.register_blueprint(seo_routes.bp)
 app.register_blueprint(adhub_routes.bp)
 app.register_blueprint(pages_routes.bp)
 app.register_blueprint(forms_routes.bp)
+app.register_blueprint(community_routes.bp)
 app.jinja_env.globals["has_endpoint"] = lambda name: name in app.view_functions
 
 

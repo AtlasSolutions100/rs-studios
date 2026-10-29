@@ -1,0 +1,5 @@
+{% extends "c_base.html" %}{% block main %}
+<div class="panel cm-hero"><p class="eyebrow">Community</p><h1>{{ c.name }}</h1>{% if c.about %}<p class="muted lede">{{ c.about }}</p>{% endif %}
+  <p class="row"><a class="btn" href="{{ url_for('community.login', slug=c.slug) }}">Log in</a>{% if c.open_join %}<a class="btn dark" href="{{ url_for('community.join', slug=c.slug, code=c.join_code) }}">Join</a>{% endif %}</p>
+  {% if not c.open_join %}<p class="small muted">Members join with an invite link.</p>{% endif %}</div>
+{% endblock %}

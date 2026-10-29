@@ -1,0 +1,52 @@
+{% extends "base.html" %}{% block title %}{{ c.name }} · Community · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <div class="row" style="justify-content:space-between"><div><p class="eyebrow">Community &amp; courses</p><h1 style="margin:0">{{ c.name }}</h1></div>
+    <a class="btn sm" href="{{ url_for('community.home', slug=c.slug) }}" target="_blank" rel="noopener">Open the community ↗</a></div>
+  <p class="muted">{{ base }}c/{{ c.slug }} · {{ members|selectattr('status', 'equalto', 'active')|list|length }} members · {{ spaces|length }} spaces · {{ courses|length }} courses</p>
+  <div class="grid2">
+    <form method="post" class="panel copyform" id="settings"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <h2>Settings</h2>
+      <label for="n">Name</label><input id="n" type="text" name="name" maxlength="80" value="{{ c.name }}">
+      <label for="s">Address</label><div class="slugrow"><span class="dim small">{{ base }}c/</span><input id="s" type="text" name="slug" maxlength="60" value="{{ c.slug }}"></div>
+      <label for="a">About</label><textarea id="a" name="about" maxlength="1000" style="min-height:80px">{{ c.about or '' }}</textarea>
+      <label class="choice" style="display:inline-flex;gap:8px;margin-top:14px"><input type="checkbox" name="open_join" value="1" {{ 'checked' if c.open_join }}>Anyone with the join link can join</label>
+      {% if c.open_join %}<p class="small muted">Join link: <code>{{ base }}c/{{ c.slug }}/join/{{ c.join_code }}</code></p>{% endif %}
+      <div class="row" style="margin-top:14px"><button class="btn">Save</button></div>
+    </form>
+    <div class="panel" id="members"><h2>Members</h2>
+      <form method="post" action="{{ url_for('community.admin_add', what='members') }}" class="row"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <input type="email" name="email" required placeholder="email@example.com" style="flex:1;min-width:160px"><input type="text" name="name" placeholder="Name" style="width:120px">
+        <select name="role" style="width:auto"><option value="member">Member</option><option value="admin">Admin</option></select><button class="btn sm">Invite</button></form>
+      <p class="small muted">You get a one-time invite link to send them (there's no email sending yet).</p>
+      <div class="scrollx"><table>{% for m in members %}<tr><td><b>{{ m.name or m.email }}</b><br><span class="small muted">{{ m.email }}</span></td><td class="small">{{ m.role|capitalize }}{% if m.status == 'invited' %} · <span class="muted">invited</span>{% endif %}</td>
+        <td>{% if m.role != 'owner' and not m.user_id %}<div class="row">{% if m.status == 'invited' and m.invite_code %}<code class="small">{{ base }}c/{{ c.slug }}/join/{{ m.invite_code }}</code>{% endif %}
+          <form method="post" action="{{ url_for('community.admin_item', what='members', oid=m.id, action='member' if m.role == 'admin' else 'admin') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">{{ 'Make member' if m.role == 'admin' else 'Make admin' }}</button></form>
+          <form method="post" action="{{ url_for('community.admin_item', what='members', oid=m.id, action='remove') }}" onsubmit="return confirm('Remove {{ m.email }}?')"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Remove</button></form></div>{% endif %}</td></tr>{% endfor %}</table></div>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="panel" id="spaces"><h2>Spaces</h2>
+      <table>{% for s in spaces %}<tr><td><b>{{ s.name }}</b><br><span class="small muted">{{ s.about or '' }}</span></td><td class="small muted">{{ s.posts }} posts</td>
+        <td><form method="post" action="{{ url_for('community.admin_item', what='spaces', oid=s.id, action='delete') }}" onsubmit="return confirm('Delete this space and its posts?')"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Delete</button></form></td></tr>{% endfor %}</table>
+      <form method="post" action="{{ url_for('community.admin_add', what='spaces') }}" class="row" style="margin-top:12px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="text" name="name" maxlength="60" placeholder="Space name" required style="flex:1;min-width:140px"><input type="text" name="about" maxlength="300" placeholder="What goes here" style="flex:1;min-width:140px"><button class="btn sm">Add space</button></form>
+    </div>
+    <div class="panel" id="courses"><h2>Courses</h2>
+      <table>{% for co in courses %}<tr><td><a href="{{ url_for('community.course_edit', cid=co.id) }}"><b>{{ co.title }}</b></a><br><span class="small muted">{{ co.lessons }} lessons · {{ 'Published' if co.published else 'Draft' }}</span></td><td><a class="btn dark sm" href="{{ url_for('community.course_edit', cid=co.id) }}">Edit</a></td></tr>{% else %}<tr><td class="muted">No courses yet.</td></tr>{% endfor %}</table>
+      <form method="post" action="{{ url_for('community.admin_add', what='courses') }}" class="row" style="margin-top:12px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="text" name="title" maxlength="120" placeholder="Course title" required style="flex:1;min-width:160px"><button class="btn sm">New course</button></form>
+    </div>
+  </div>
+  <div class="panel" id="events" style="margin-top:20px"><h2>Events</h2>
+    <div class="scrollx"><table>{% for e in events %}<tr><td><b>{{ e.title }}</b><br><span class="small muted">{{ e.starts_at.replace('T', ' ')[:16] }} {{ e.tz }} · {{ e.duration_min }} min</span></td><td class="small muted" style="overflow-wrap:anywhere">{{ e.link or '' }}</td>
+      <td><form method="post" action="{{ url_for('community.admin_item', what='events', oid=e.id, action='delete') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Delete</button></form></td></tr>{% else %}<tr><td class="muted">No events yet.</td></tr>{% endfor %}</table></div>
+    <form method="post" action="{{ url_for('community.admin_add', what='events') }}" class="copyform" style="margin-top:12px"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <div class="two-col"><div><label for="et">Title</label><input id="et" type="text" name="title" maxlength="120" required placeholder="Live Q&amp;A"></div>
+        <div><label for="el">Link <span class="dim">(Zoom, Meet, livestream…)</span></label><input id="el" type="text" name="link" maxlength="500" placeholder="https://"></div>
+        <div><label for="es">Starts</label><input id="es" type="datetime-local" name="starts_at" required></div>
+        <div><label for="ez">Time zone</label><select id="ez" name="tz">{% for z in TZ %}<option {{ 'selected' if z == 'America/Chicago' }}>{{ z }}</option>{% endfor %}</select></div>
+        <div><label for="ed">Length (minutes)</label><input id="ed" type="number" name="duration" min="5" max="600" value="60"></div>
+        <div><label for="ea">Details</label><input id="ea" type="text" name="about" maxlength="1000"></div></div>
+      <div class="row" style="margin-top:12px"><button class="btn sm">Add event</button></div></form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,9 @@
+{% extends "c_base.html" %}{% block title %}{{ s.name }} · {{ c.name }}{% endblock %}{% block main %}
+<p><a href="{{ url_for('community.home', slug=c.slug) }}">← {{ c.name }}</a></p>
+<h1>{{ s.name }}</h1>{% if s.about %}<p class="muted">{{ s.about }}</p>{% endif %}
+<form method="post" class="panel copyform"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <label for="t">New post</label><input id="t" type="text" name="title" maxlength="160" placeholder="Title" required>
+  <textarea name="body" maxlength="8000" placeholder="Write something…" style="margin-top:10px;min-height:100px" aria-label="Post text"></textarea>
+  <div class="row" style="margin-top:12px;justify-content:flex-end"><button class="btn sm">Post</button></div></form>
+<div class="adlist" style="margin-top:18px">{% for p in posts %}<a class="panel pagerow" href="{{ url_for('community.post', slug=c.slug, pid=p.id) }}"><div><b>{% if p.pinned %}<span class="tag ok">Pinned</span> {% endif %}{{ p.title }}</b><span class="small muted">{{ p.author }} · {{ p.created_at[:10] }}</span></div><span class="small muted">{{ p.comments }} comments</span></a>{% else %}<div class="empty">No posts yet. Start the conversation.</div>{% endfor %}</div>
+{% endblock %}

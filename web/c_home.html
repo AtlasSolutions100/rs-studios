@@ -1,0 +1,16 @@
+{% extends "c_base.html" %}{% block main %}
+<h1>{{ c.name }}</h1>{% if c.about %}<p class="muted">{{ c.about }}</p>{% endif %}
+<div class="cm-grid">
+  <section>
+    <h2>Spaces</h2>
+    <div class="adlist">{% for s in spaces %}<a class="panel pagerow" href="{{ url_for('community.space', slug=c.slug, sid=s.id) }}"><div><b>{{ s.name }}</b><span class="small muted">{{ s.about or '' }}</span></div><span class="small muted">{{ s.posts }} posts</span></a>{% endfor %}</div>
+    {% if recent %}<h2 style="margin-top:28px">Latest posts</h2><div class="adlist">{% for p in recent %}<a class="panel pagerow" href="{{ url_for('community.post', slug=c.slug, pid=p.id) }}"><div><b>{{ p.title }}</b><span class="small muted">{{ p.author }} in {{ p.space }} · {{ p.created_at[:10] }}</span></div></a>{% endfor %}</div>{% endif %}
+  </section>
+  <aside>
+    <h2>Courses</h2>
+    {% for co in courses %}<a class="panel pagerow" href="{{ url_for('community.course', slug=c.slug, cid=co.id) }}" style="margin-bottom:10px"><div><b>{{ co.title }}</b><span class="small muted">{{ (co.about or '')[:90] }}</span></div></a>{% else %}<p class="small muted">No courses yet.</p>{% endfor %}
+    <h2 style="margin-top:24px">Upcoming events</h2>
+    {% for e in events %}{% set lt = event_times(e)[0] %}<div class="panel" style="margin-bottom:10px;padding:16px"><b>{{ e.title }}</b><p class="small muted" style="margin:4px 0">{{ lt.strftime('%a %b %-d, %Y · %-I:%M %p') }} ({{ e.tz }}) · {{ e.duration_min }} min</p>{% if e.about %}<p class="small">{{ e.about }}</p>{% endif %}<p class="row small">{% if e.link %}<a href="{{ e.link }}" rel="noopener nofollow">Join link</a>{% endif %}<a href="{{ url_for('community.event_ics', slug=c.slug, eid=e.id) }}">Add to calendar</a></p></div>{% else %}<p class="small muted">Nothing scheduled.</p>{% endfor %}
+  </aside>
+</div>
+{% endblock %}

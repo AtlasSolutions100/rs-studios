@@ -1,0 +1,9 @@
+{% extends "c_base.html" %}{% block title %}{{ ls.title }} · {{ c.name }}{% endblock %}{% block main %}
+<p><a href="{{ url_for('community.course', slug=c.slug, cid=ls.course_id) }}">← {{ ls.course_title }}</a></p>
+<h1>{{ ls.title }}</h1>
+{% if embed %}<div class="pp-embed cm-embed"><iframe src="{{ embed }}" title="{{ ls.title }}" loading="lazy" allow="encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-popups allow-presentation"></iframe></div>
+{% elif kind %}<div class="cm-media">{% if kind == 'video' %}<video src="{{ url_for('community.media', slug=c.slug, oid=ls.media_id) }}" controls playsinline preload="metadata"></video>{% else %}<img src="{{ url_for('community.media', slug=c.slug, oid=ls.media_id) }}" alt="">{% endif %}</div>{% endif %}
+<div class="cm-text">{% for para in (ls.body or '').split('\n\n') if para.strip() %}<p class="vtext">{{ para }}</p>{% endfor %}</div>
+<div class="go"><form method="post"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn {{ 'dark' if done }}">{{ 'Done ✓ (undo)' if done else 'Mark as done' }}</button></form>
+  <div class="row">{% if prev %}<a class="btn dark sm" href="{{ url_for('community.lesson', slug=c.slug, lid=prev.id) }}">← {{ prev.title }}</a>{% endif %}{% if nxt %}<a class="btn dark sm" href="{{ url_for('community.lesson', slug=c.slug, lid=nxt.id) }}">{{ nxt.title }} →</a>{% endif %}</div></div>
+{% endblock %}

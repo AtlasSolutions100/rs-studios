@@ -74,7 +74,7 @@ FEATURES = {
                        "blurb": "Clicks over time, referrers, countries and UTM sources."},
     "forms": {"plan": "growth", "name": "Forms & contacts", "shipped": True,
               "blurb": "Forms on your pages, a contacts list with tags, and webhooks out."},
-    "community": {"plan": "scale", "name": "Community & courses", "shipped": False,
+    "community": {"plan": "scale", "name": "Community & courses", "shipped": True,
                   "blurb": "Spaces, posts, courses with lessons, members and events."},
     "priority": {"plan": "scale", "name": "Priority queue", "shipped": True,
                  "blurb": "Your generations start ahead of the queue."},
