@@ -1331,10 +1331,39 @@ def admin():
                             "ORDER BY j.id DESC LIMIT 30").fetchall()
         purchases = conn.execute("SELECT p.*, w.name ws_name FROM purchases p JOIN workspaces w ON w.id=p.workspace_id "
                                  "WHERE p.status='paid' ORDER BY p.id DESC LIMIT 30").fetchall()
+        row = conn.execute("SELECT value FROM meta WHERE key='vendor_prices'").fetchone()
+    vendor = json.loads(row["value"]) if row else None
     return render_template("admin.html", wss=wss, invites=invites, refs=refs, jobs=jobs, purchases=purchases,
-                           billing_on=billing.configured(),
+                           billing_on=billing.configured(), vendor=vendor,
                            markup=catalog.MARKUP, configured=hf.configured(), base=request.host_url,
                            ai_status=llm.status())
+
+
+@app.route("/admin/prices", methods=["POST"])
+@admin_required
+def admin_prices():
+    """Ask the generation vendor what each format costs right now (free
+    estimates) and compare with what Campaignify charges."""
+    img = url_for("static", filename="previews/ad_image.jpg", _external=True)
+    samples = [("ad_image", {"batch": 1}, {"prompt": "A product on a table", "image_urls": [img], "batch_size": 1,
+                                           "aspect_ratio": "9:16", "language": "English", "niche": "", "target_audience": ""}),
+               ("photo_to_video", {"duration": 5}, {"prompt": "Slow pan", "image_url": img, "duration": 5,
+                                                    "resolution": "720p", "bitrate_mode": "high", "generate_audio": False}),
+               ("ugc_video", {"duration": 10}, {"prompt": "A presenter holds the product and says hello.",
+                                                "image_urls": [img], "duration": 10, "aspect_ratio": "9:16",
+                                                "resolution": "720p", "bitrate_mode": "high", "generate_audio": True})]
+    rows = []
+    for tool, kw, inputs in samples:
+        ours = catalog.cost_usd(tool, **kw)
+        rows.append({"tool": tool, "name": catalog.TOOLS[tool]["name"], "setting": ", ".join(f"{k} {v}" for k, v in kw.items()),
+                     "ours": round(ours, 4), "vendor": hf.estimate(catalog.TOOLS[tool]["model"], inputs),
+                     "credits": catalog.price_credits(tool, **kw)})
+    with db.connect() as conn:
+        conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('vendor_prices', ?)",
+                     (json.dumps({"at": db.now(), "rows": rows}),))
+        conn.commit()
+    flash("Vendor prices checked.")
+    return redirect(url_for("admin") + "#prices")
 
 
 @app.route("/admin/invites", methods=["POST"])

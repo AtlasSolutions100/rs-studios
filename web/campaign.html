@@ -88,10 +88,10 @@
   </section>
   {% endif %}
 
-  {% if plan['copy'] %}
+  {% if plan.get('copy') %}
   <section class="camp-sec">
     <h2>Copy for each platform</h2>
-    {% for cp in plan['copy'] %}
+    {% for cp in plan.get('copy') or [] %}
     <h3 class="subh">{{ PLATFORMS[cp.platform].name }} · {{ COPY_KINDS[cp.kind].name }}{% if cp.angle and cp.angle != 'all' %} · <span class="muted">{{ cp.angle }}</span>{% endif %}</h3>
     <div class="variants" style="margin-top:10px">{% set outer = loop.index %}{% for v in cp.variants %}{% set vid = outer ~ '-' ~ loop.index %}{% include "_variant.html" %}{% endfor %}</div>
     {% endfor %}

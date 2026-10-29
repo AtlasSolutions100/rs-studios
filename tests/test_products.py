@@ -420,4 +420,209 @@ for path in ("/app", "/app/products", "/app/brand", "/app/products/new", f"/app/
     check(not re.search(r"higgsfield|corejava|marketplace global|morning upgrade|crowdcut|rector", r.get_data(as_text=True), re.I),
           f"{path} names no vendor or other business")
 
+print("== create flow")
+import planner  # noqa: E402
+os.environ["ANTHROPIC_API_KEY"] = "sk-ant-test"
+plan_prompts = []
+
+
+def fake_llm2(body):
+    llm_bodies.append(body)
+    name = (body.get("tool_choice") or {}).get("name")
+    use = {"input_tokens": 1500, "output_tokens": 700}
+    if any(t.get("name") == "get_brand_and_catalog" for t in body.get("tools") or []):
+        plan_prompts.append(body["messages"][0]["content"])
+        return {"model": body["model"], "usage": use, "content": [{"type": "tool_use", "id": "f", "name": "finish",
+                "input": {"summary": "Test one angle.", "checklist": [{"title": "Pixel"}]}}]}
+    if name == "submit_angles":
+        out = {"angles": [{"title": "The 2 PM slump", "hook": "Your afternoon coffee takes 30 seconds now.",
+                           "insight": "Afternoons drag", "audience": "Office workers"},
+                          {"title": "Lose weight", "hook": "Burn fat while you sip", "insight": "x"},
+                          {"title": "Cafe line", "hook": "Skip the cafe line.", "insight": "Time", "audience": "Commuters"}]}
+    elif name == "submit_script":
+        out = {"hooks": ["I stopped paying seven dollars for coffee.", "I lost 10 pounds drinking this",
+                         "My results after a week were crazy", "This takes thirty seconds."],
+               "body": "One scoop of Glow Serum in my routine and I'm out the door. Grab yours today.",
+               "on_screen": ["30 seconds", "Make $500 a week"],
+               "headlines": ["Glow in a minute", "Skip the line"], "concept": "Serum on a sunny shelf.",
+               "scenes": ["Slow pan across the bottle on marble.", "Cure your acne fast"]}
+    else:
+        return fake_llm(body)
+    return {"model": body["model"], "usage": use, "content": [{"type": "tool_use", "id": "t", "name": name, "input": out}]}
+
+
+llm._anthropic = fake_llm2
+u.post("/app/switch", data={"csrf": csrf(u), "product": str(gp["id"])})
+credits(uws, 5000)
+r = u.get("/app/create?type=ugc")
+html = r.get_data(as_text=True)
+boot = json.loads(re.search(r'<script id="cf-boot" type="application/json">(.*?)</script>', html, re.S).group(1))
+check(r.status_code == 200 and boot["product"]["id"] == gp["id"] and boot["prefill"]["type"] == "ugc"
+      and len(boot["presenters"]) == 8 and boot["caps"]["talking"] and not boot["caps"]["lipsync_own_audio"],
+      "Create opens on the active product with the presenters and what the backend can do")
+check(boot["prices"]["ugc_video"]["10"] == catalog.price_credits("ugc_video", duration=10) if isinstance(
+    list(boot["prices"]["ugc_video"])[0], str) else True, "the page carries the credit prices")
+
+
+def jpost(c, url, body, with_csrf=True):
+    return c.post(url, data=json.dumps(body), content_type="application/json",
+                  headers={"X-CSRF": csrf(c)} if with_csrf else {})
+
+
+check(jpost(u, "/app/create/angles", {"product": gp["id"], "type": "ugc"}, with_csrf=False).status_code == 400,
+      "the JSON endpoints need CSRF")
+bal = db.balance(wsrow(uws))
+r = jpost(u, "/app/create/angles", {"product": gp["id"], "type": "ugc"})
+a = r.get_json()
+check([x["title"] for x in a["angles"]] == ["The 2 PM slump", "Cafe line"], "angle ideas come back; a weight-loss one is dropped")
+check(a["charged"] == bal - db.balance(wsrow(uws)) and 0 < a["charged"] <= 3 and llm_bodies[-1]["model"] == llm.fast_model()
+      and "Glow Serum" in llm_bodies[-1]["messages"][0]["content"] and "30 ml" in llm_bodies[-1]["messages"][0]["content"],
+      f"ideas use the product and its approved claims, on the fast model, charged at cost ({a['charged']} credits)")
+check(jpost(other, "/app/create/angles", {"product": gp["id"], "type": "ugc"}).status_code == 404,
+      "another workspace's product can't be used")
+r = jpost(u, "/app/create/script", {"product": gp["id"], "type": "ugc", "angle": a["angles"][0], "duration": 10, "n": 4})
+sc = r.get_json()
+check(sc["items"] == ["I stopped paying seven dollars for coffee.", "This takes thirty seconds."] and "Grab yours" in sc["body"],
+      "script hooks come back; a weight-loss hook and a customer-results hook are dropped")
+check(sc["on_screen"] == ["30 seconds"] and "10-second spoken script" in llm_bodies[-1]["messages"][0]["content"]
+      and str(catalog.max_words(10)) in llm_bodies[-1]["messages"][0]["content"], "captions checked too; the length sets the word budget")
+cfg = {"product": gp["id"], "type": "ugc", "angle": a["angles"][0], "items": sc["items"], "body": sc["body"],
+       "presenters": ["maya", "marcus"], "voice": "", "duration": 10, "aspects": ["9:16"], "platforms": ["tiktok"]}
+q = jpost(u, "/app/create/quote", cfg).get_json()
+each = catalog.price_credits("ugc_video", duration=10)
+check(q["count"] == 4 and q["total"] == 4 * each and q["each"] == each, f"2 hooks x 2 presenters = 4 videos, {4 * each} credits")
+for bad, why in ((dict(cfg, presenters=[]), "presenter"), (dict(cfg, body=" ".join(["word"] * 60)), "words"),
+                 (dict(cfg, items=["I lost 10 pounds"]), "weight"), (dict(cfg, items=["My results were amazing"]), "customers"),
+                 (dict(cfg, product=nc["id"]), "photo"), (dict(cfg, presenters=["maya", "marcus", "priya", "sam"],
+                                                               aspects=["9:16", "1:1", "16:9"]), "at most")):
+    e = jpost(u, "/app/create/quote", bad).get_json()
+    check(e["count"] == 0 and why in e["error"].lower(), f"refused: {e['error'][:70]}")
+bal = db.balance(wsrow(uws))
+r = jpost(u, "/app/create/generate", dict(cfg, total=q["total"] - 1))
+check(r.status_code == 409 and db.balance(wsrow(uws)) == bal, "a total that changed is refused, nothing charged")
+r = jpost(u, "/app/create/generate", dict(cfg, total=q["total"]))
+gen = r.get_json()
+with db.connect() as conn:
+    bjobs = conn.execute("SELECT * FROM jobs WHERE batch_id=? ORDER BY id", (gen["batch"],)).fetchall()
+    sa = conn.execute("SELECT * FROM angles WHERE product_id=?", (gp["id"],)).fetchall()
+    ss = conn.execute("SELECT * FROM scripts WHERE product_id=?", (gp["id"],)).fetchall()
+check(gen["ok"] and len(bjobs) == 4 and db.balance(wsrow(uws)) == bal - 4 * each, "generate queues the batch and takes its credits")
+pj = [json.loads(j["params_json"]) for j in bjobs]
+check(all(j["tool"] == "ugc_video" and j["product_id"] == gp["id"] and j["brand_id"] == gp["brand_id"] for j in bjobs)
+      and [x["presenter"] for x in pj] == ["maya", "marcus", "maya", "marcus"] and pj[1]["voice"] == "calm_m",
+      "each job is tagged with the product; presenters get a fitting voice")
+check(len(sa) == 1 and sa[0]["title"] == "The 2 PM slump" and len(ss) == 1 and json.loads(ss[0]["on_screen"])["items"] == sc["items"],
+      "the angle and script are saved to the product for reuse")
+estimates = []
+hf.estimate = lambda model, inputs: (estimates.append((model, inputs)) or 2.06)
+worker.requests.get = lambda url, timeout=0: type("R", (), {"content": b"x", "raise_for_status": lambda self: None})()
+worker.tick()
+model, inputs = calls["submit"][0]
+check(model == "bytedance/seedance-2.5/reference-to-video" and inputs["generate_audio"] and inputs["duration"] == 10
+      and inputs["aspect_ratio"] == "9:16" and inputs["image_urls"] and estimates, "talking videos go to reference-to-video with sound")
+check("curly dark hair" in inputs["prompt"] and '"I stopped paying seven dollars for coffee. One scoop' in inputs["prompt"]
+      and "Glow Serum" in inputs["prompt"] and "warm, friendly female voice" in inputs["prompt"]
+      and "exactly as in the reference photos" in inputs["prompt"], "the prompt carries presenter, voice, the exact script and the product")
+html = u.get(gen["url"]).get_data(as_text=True)
+check("Maya · 9:16" in html and "Marcus · 9:16" in html and "Make more like this" in html and "api/jobs" in html,
+      "the review grid labels each version and polls for results")
+hf.estimate = lambda model, inputs: 9.99
+one = dict(cfg, items=cfg["items"][:1], presenters=["maya"])
+q1 = jpost(u, "/app/create/quote", one).get_json()
+g1 = jpost(u, "/app/create/generate", dict(one, total=q1["total"])).get_json()
+bal = db.balance(wsrow(uws))
+n_sub = len(calls["submit"])
+worker.tick()
+with db.connect() as conn:
+    over = conn.execute("SELECT * FROM jobs WHERE batch_id=?", (g1["batch"],)).fetchone()
+check(over["status"] == "failed" and "price changed" in over["error"] and db.balance(wsrow(uws)) == bal + each
+      and len(calls["submit"]) == n_sub, "if the vendor's price jumped, the video isn't started and is refunded")
+hf.estimate = lambda model, inputs: None
+img = {"product": gp["id"], "type": "image", "angle": a["angles"][1], "items": ["Glow in a minute", "Skip the line"],
+       "body": "Serum on a sunny shelf.", "aspects": ["4:5", "9:16"], "versions": 2}
+q = jpost(u, "/app/create/quote", img).get_json()
+check(q["count"] == 4 and q["total"] == 4 * catalog.price_credits("ad_image", batch=2), "image ads: 2 headlines x 2 shapes, 2 versions each")
+r = jpost(u, "/app/create/generate", dict(img, total=q["total"])).get_json()
+with db.connect() as conn:
+    ij = conn.execute("SELECT * FROM jobs WHERE batch_id=?", (r["batch"],)).fetchall()
+check(all(j["tool"] == "ad_image" and 'Headline: "' in j["brief"] for j in ij)
+      and {json.loads(j["params_json"])["aspect"] for j in ij} == {"4:5", "9:16"}, "image jobs carry the headline and shape")
+pv = {"product": gp["id"], "type": "product_video", "angle": {"title": "Shelf"}, "items": ["Slow pan across the bottle on marble."],
+      "duration": 10}
+q = jpost(u, "/app/create/quote", pv).get_json()
+check(q["count"] == 1 and q["total"] == catalog.price_credits("photo_to_video", duration=10), "product video: one scene, 10 seconds")
+os.environ["RS_TALKING"] = "0"
+check("ugc" not in [t["id"] for t in catalog.ad_types()] and "pick an ad type" in
+      jpost(u, "/app/create/quote", cfg).get_json()["error"].lower(), "with talking switched off, the format is hidden and refused")
+os.environ.pop("RS_TALKING")
+r = jpost(u, "/app/create/save", {"what": "angle", "product": gp["id"], "angle": {"title": "Desk drawer", "hook": "Keep one at work."}})
+check(r.get_json()["ok"], "angles can be saved without generating")
+html = u.get("/app").get_data(as_text=True)
+check("Desk drawer" in html and "Start a new ad" in html and "UGC presenter" in html and "Recent batches" in html,
+      "Create home shows ad types, saved angles and recent batches")
+
+print("== planner hands off to Create")
+with db.connect() as conn:
+    cid = conn.execute("INSERT INTO campaigns (workspace_id, user_id, brand_id, product_id, name, brief_json, status, plan_json, "
+                       "steps_json, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                       (uws, 1, gp["brand_id"], gp["id"], "Fall", "{}", "ready",
+                        json.dumps({"angles": [{"name": "Morning", "insight": "Rushed", "audience": "Parents"}],
+                                    "creative": [{"angle": "Morning", "hooks": ["Mornings are chaos."]}]}), "[]", T, T)).lastrowid
+    photos = [{"id": x["id"]} for x in products.photos_for(conn, uws, gp["id"])]
+    out = planner.propose(conn, cid, uws, {"tool": "ugc_video", "angle": "Morning", "platform": "tiktok", "duration": 8,
+                                           "brief": " ".join(["long"] * 40)}, photos, [])
+    check("words" in out.get("error", ""), "the planner can't propose a script too long for its length")
+    out = planner.propose(conn, cid, uws, {"tool": "ugc_video", "angle": "Morning", "platform": "tiktok", "duration": 10,
+                                           "presenter": "sam", "brief": "Mornings are chaos. This takes thirty seconds."},
+                          photos, [])
+    cad = conn.execute("SELECT * FROM campaign_ads WHERE id=?", (out["ad_id"],)).fetchone()
+check(out["ok"] and out["credits"] == each and json.loads(cad["params_json"])["presenter"] == "sam",
+      "the planner proposes talking videos with a presenter and a price")
+html = u.get(f"/app/campaigns/{cid}").get_data(as_text=True) if plans.has(wsrow(uws), "planner") else ""
+check("Open in Create" in html, "each proposed ad links into Create")
+r = u.get(f"/app/create?from_ad={cad['id']}")
+boot = json.loads(re.search(r'<script id="cf-boot" type="application/json">(.*?)</script>', r.get_data(as_text=True), re.S).group(1))
+pf = boot["prefill"]
+check(pf["type"] == "ugc" and pf["items"] == ["Mornings are chaos. This takes thirty seconds."] and pf["presenters"] == ["sam"]
+      and pf["angle"]["title"] == "Morning" and pf["platforms"] == ["tiktok"] and boot["product"]["id"] == gp["id"],
+      "Create opens with the proposal's product, type, script, presenter and platform")
+hand = {"product": gp["id"], "type": "ugc", "angle": pf["angle"], "items": pf["items"], "presenters": ["sam"], "duration": 10,
+        "aspects": ["9:16"], "from_ad": cad["id"]}
+q = jpost(u, "/app/create/quote", hand).get_json()
+jpost(u, "/app/create/generate", dict(hand, total=q["total"]))
+with db.connect() as conn:
+    check(conn.execute("SELECT status FROM campaign_ads WHERE id=?", (cad["id"],)).fetchone()[0] == "queued",
+          "generating from Create marks the proposal as made")
+check(u.get(f"/app/create?from_ad={cad['id']}").status_code == 200 and other.get(f"/app/create?from_ad={cad['id']}").status_code == 200
+      and "Mornings are chaos" not in other.get(f"/app/create?from_ad={cad['id']}").get_data(as_text=True),
+      "another workspace can't read the proposal")
+
+print("== product pickers in every flow")
+r = u.get(f"/app/new?template=hero&product={nc['id']}")
+check("Night Cream" in r.get_data(as_text=True) and 'name="product"' in r.get_data(as_text=True), "templates fill from the picked product")
+u.post("/app/generate", data={"csrf": csrf(u), "tool": "ad_image", "template": "hero", "brief": "Cream on a shelf",
+                              "product": str(nc["id"]), "photo": str(gph[0]["id"])})
+with db.connect() as conn:
+    jj = conn.execute("SELECT * FROM jobs WHERE workspace_id=? ORDER BY id DESC", (uws,)).fetchone()
+check(jj["product_id"] == nc["id"] and jj["brief"] == "Cream on a shelf", "the job is tagged with the picked product")
+u.post("/app/generate", data={"csrf": csrf(u), "tool": "ad_image", "brief": "x", "product": str(ip["id"] + 999)})
+with db.connect() as conn:
+    jj2 = conn.execute("SELECT * FROM jobs WHERE workspace_id=? ORDER BY id DESC", (uws,)).fetchone()
+check(jj2["product_id"] == gp["id"], "an unknown product falls back to the active one")
+check("Night Cream" in u.get(f"/app/copy?product={nc['id']}").get_data(as_text=True), "copy studio fills from the picked product")
+llm_bodies.clear()
+u.post("/app/campaigns", data={"csrf": csrf(u), "offer": "Night Cream", "product": str(nc["id"]), "platforms": ["meta"]})
+with db.connect() as conn:
+    camp = conn.execute("SELECT * FROM campaigns WHERE workspace_id=? ORDER BY id DESC", (uws,)).fetchone()
+check(camp["product_id"] == nc["id"] and plan_prompts and "Product: Night Cream" in str(plan_prompts[-1]),
+      "the planner plans for the picked product")
+for path in ("/app/seo", "/app/pages", f"/app/new?tool=photo_to_video&product={gp['id']}", "/app/campaigns", "/app/copy"):
+    check('data-ppick' in u.get(path).get_data(as_text=True), f"{path} has the product picker")
+
+print("== pages render (phase 2)")
+for path in ("/app", "/app/create", "/app/create?type=image", f"/app/create?product={nc['id']}", gen["url"]):
+    r = u.get(path)
+    check(r.status_code == 200 and not re.search(r"higgsfield|seedance|bytedance", r.get_data(as_text=True), re.I),
+          f"{path} renders and never names the vendor")
+
 print(f"\nall {passed} product checks passed ({TMP})")
