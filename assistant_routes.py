@@ -82,7 +82,22 @@ def _links(card):
         card["url"] = url_for("create.index", type="ugc", product=card.get("product"))
     if card.get("kind") == "request_photo":
         card["upload"] = url_for("upload_photos")
+        card.update(_photo_choices(card.get("product")))
     return card
+
+
+def _photo_choices(pid):
+    """What the photo card shows in the chat: the product's photos so far and
+    the ones the page import found that aren't on it yet (to tick)."""
+    if not pid:
+        return {"have": [], "found": []}
+    with db.connect() as conn:
+        p = products.get_product(conn, g.ws["id"], pid)
+        if p is None:
+            return {"have": [], "found": []}
+        have = [url_for("photo", pid=r["id"]) for r in products.photos_for(conn, g.ws["id"], pid)][:8]
+    imp = products.import_info(p)
+    return {"have": have, "found": [u for u in imp.get("images", []) if u not in imp.get("taken", [])][:12]}
 
 
 def _items(items):
@@ -133,7 +148,7 @@ def ok_paid():
         return jsonify(_payload(conn, data))
 
 
-def _turn(conn, t, data, screen):
+def _turn(conn, t, data, screen, job_started=False):
     """Run the assistant on the conversation as it stands; charge for it."""
     free_left = _free_left(conn)
     est = assistant.estimate()
@@ -144,7 +159,7 @@ def _turn(conn, t, data, screen):
     usage = llm.Usage()
     err = None
     try:
-        shown = assistant.run(conn, g.ws, data, screen, usage)
+        shown = assistant.run(conn, g.ws, data, screen, usage, job_started=job_started)
     except llm.LLMError as e:
         shown, err = [], f"The guide didn't answer ({e}). Try again in a moment."
     credits = usage.credits if usage.calls else 0
@@ -180,6 +195,11 @@ def say():
         if free_left <= 0 and not data.get("paid_ok"):
             return jsonify(_payload(conn, data, {"need_ok": True, "items": []}))
         db.hit(key)
+        card = None if d.get("start") else assistant.confirmable_card(data)
+        if card and assistant.is_confirm(text):
+            # A typed "yes" / "confirmed" while a spend card is open is the same
+            # as pressing its button: the app does it, at the card's price.
+            return _confirm_by_text(conn, t, data, card, text, screen)
         assistant.add_member(data, text)
         shown, extra = _turn(conn, t, data, screen)
         if shown is None:
@@ -187,6 +207,25 @@ def say():
             return jsonify(_payload(conn, data, dict(extra, items=[])))
         mine = [] if d.get("start") else [{"role": "user", "text": text}]
         return jsonify(_payload(conn, data, dict(extra, items=_items(mine + shown))))
+
+
+def _confirm_by_text(conn, t, data, card, text, screen):
+    ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone()
+    if card["kind"] == "propose_import":
+        note, extra = _do_import(conn, card)
+    else:
+        note, extra = _do_first_ad(conn, ws, card)
+    data["cards"][card["id"]] = card
+    assistant.add_member(data, text)
+    if note is None:        # e.g. not enough credits for the import: nothing ran
+        assistant.add_member(data, "(app) The seller typed yes, but nothing ran: " + (extra.get("error") or "unknown"))
+        _save(conn, t, data)
+        return jsonify(_payload(conn, data, dict(extra, items=_items([{"role": "user", "text": text}]))))
+    assistant.add_member(data, "(app) The seller typed yes, so the app pressed the card's button. " + note)
+    _save(conn, t, data)
+    shown, more = _turn(conn, t, data, screen, job_started=bool(extra.get("job")))
+    items = [{"role": "user", "text": text}, {"role": "card", "card": card}, {"role": "note", "text": note}] + (shown or [])
+    return jsonify(_payload(conn, data, dict(extra, **more, items=_items(items), card=_links(card))))
 
 
 @bp.route("/app/assistant/action", methods=["POST"])
@@ -228,6 +267,16 @@ def action():
             note = f"The seller approved {len(took)} claim(s): " + "; ".join(took) if took else \
                 "The seller approved none of the suggested claims."
         elif card["kind"] == "request_photo":
+            picks = [str(u) for u in d.get("picks") or []][:10]
+            if picks:
+                import product_routes
+                p = products.get_product(conn, g.ws["id"], card.get("product"))
+                if p is None:
+                    abort(404)
+                added, failed = product_routes.add_candidate_photos(conn, g.ws["id"], p, picks)
+                if not added:
+                    return jsonify(_payload(conn, data, {"items": [], "error": "Those photos couldn't be downloaded. "
+                                                         "Upload your own below instead."}))
             n = conn.execute("SELECT COUNT(*) FROM photos WHERE product_id=?", (card.get("product"),)).fetchone()[0]
             card["status"] = "done" if n else "open"
             note = f"The seller added photos; the product has {n} photo(s) now." if n else None
@@ -244,7 +293,7 @@ def action():
             return jsonify(_payload(conn, data, dict(extra, items=[])))
         assistant.add_member(data, "(app) " + note)
         _save(conn, t, data)
-        shown, more = _turn(conn, t, data, str(d.get("screen") or "")[:80])
+        shown, more = _turn(conn, t, data, str(d.get("screen") or "")[:80], job_started=bool(extra.get("job")))
         items = [{"role": "note", "text": note}] + (shown or [])
         return jsonify(_payload(conn, data, dict(extra, **more, items=_items(items), card=_links(card))))
 

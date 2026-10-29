@@ -34,8 +34,14 @@
         h = '<b>Claims found on the page</b><span class="small muted">Tick only what\'s printed on the label or you\'re allowed to say.</span>' + (open ? '<ul class="acard-claims">' + c.claims.map(function(x, i){ return '<li><label><input type="checkbox" value="' + i + '"><span>' + esc(x) + '</span></label></li>'; }).join('') + '</ul><div class="row"><button class="btn sm" data-act="claims">Approve ticked</button><button class="btn dark sm" data-act="cancel">None of these</button></div>'
           : '<span class="small ' + (c.approved && c.approved.length ? 'ok' : 'muted') + '">' + (c.approved && c.approved.length ? 'Approved: ' + esc(c.approved.join(' · ')) : 'None approved') + '</span>');
       } else if(c.kind === 'request_photo'){
-        h = '<b>Add product photos</b>' + (open ? '<span class="small muted">One to three clear shots of the real product. JPG, PNG or WebP.</span><input type="file" accept="image/jpeg,image/png,image/webp" multiple data-files aria-label="Product photos"><div class="row"><button class="btn sm" data-act="upload">Upload</button><button class="btn dark sm" data-act="cancel">Later</button></div>'
-          : '<span class="small ' + (c.status === 'done' ? 'ok">Photos added' : 'muted">Skipped') + '</span>');
+        var found = c.found || [], have = c.have || [];
+        var haveH = have.length ? '<span class="acard-sub">On this product now</span><div class="acard-photos">' + have.map(function(u){ return '<span class="acard-ph have"><img src="' + esc(u) + '" alt="" loading="lazy"></span>'; }).join('') + '</div>' : '';
+        if(open){
+          h = '<b>' + (found.length ? 'Pick your product photos' : 'Add product photos') + '</b>' + haveH
+            + (found.length ? '<span class="small muted">Found on your product page. Tick the clear shots of the real product (one to three is plenty).</span><div class="acard-photos" data-found>' + found.map(function(u, i){ return '<label class="acard-ph"><input type="checkbox" value="' + esc(u) + '" aria-label="Photo ' + (i + 1) + '"><img src="' + esc(u) + '" alt="" loading="lazy" referrerpolicy="no-referrer"></label>'; }).join('') + '</div><div class="row"><button class="btn sm" data-act="pick">Use ticked photos</button></div><span class="acard-sub">Or upload your own</span>'
+              : '<span class="small muted">One to three clear shots of the real product. JPG, PNG or WebP.</span>')
+            + '<input type="file" accept="image/jpeg,image/png,image/webp" multiple data-files aria-label="Product photos"><div class="row"><button class="btn ' + (found.length ? 'dark ' : '') + 'sm" data-act="upload">Upload</button><button class="btn dark sm" data-act="cancel">Later</button></div>';
+        } else h = '<b>Product photos</b>' + haveH + '<span class="small ' + (c.status === 'done' ? 'ok">Photos added' : 'muted">Skipped') + '</span>';
       } else if(c.kind === 'propose_first_ad'){
         if(c.ad === 'ugc') h = '<b>A talking video of ' + esc(c.product_name) + '</b><span class="small muted">Create walks you through hooks, presenter and price (about ' + c.credits + ' credits for 10 seconds). Nothing runs until you press Generate there.</span><div class="row"><a class="btn sm" href="' + esc(c.url) + '">Open Create</a></div>';
         else h = '<b>Your first ad: ' + esc(c.template_name) + '</b><span class="small muted">An image ad of ' + esc(c.product_name) + ' from your photo.</span>' + (open ? '<span class="small">' + c.credits + ' credits · refunded if it fails</span><div class="row"><button class="btn sm" data-act="confirm">Make it · ' + c.credits + ' credits</button><button class="btn dark sm" data-act="cancel">Not now</button></div>'
@@ -78,6 +84,8 @@
       var b = t.closest('[data-act]'); if(b){
         var cd = b.closest('[data-card]'), id = cd.dataset.card, a = b.dataset.act;
         if(a === 'claims'){ act(id, 'confirm', {picks: [].slice.call(cd.querySelectorAll('input:checked')).map(function(x){ return +x.value; })}); return; }
+        if(a === 'pick'){ var picks = [].slice.call(cd.querySelectorAll('[data-found] input:checked')).map(function(x){ return x.value; });
+          if(!picks.length){ var f0 = cd.querySelector('[data-found] input'); f0 && f0.focus(); return; } act(id, 'confirm', {picks: picks}); return; }
         if(a === 'upload'){ var f = cd.querySelector('[data-files]'); if(!f.files.length){ f.focus(); return; }
           var fd = new FormData(); fd.append('csrf', C.csrf); fd.append('product', C.product || ''); [].slice.call(f.files).forEach(function(x){ fd.append('photos', x); });
           setBusy(true); var cardData = (cd._card || {}); fetch(C.urls.upload + '', {method:'POST', body: fd}).then(function(){ setBusy(false); act(id, 'confirm'); }); return; }

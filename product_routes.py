@@ -256,32 +256,41 @@ def import_page():
     return redirect(url_for("products.edit", pid=pid))
 
 
+def add_candidate_photos(conn, ws_id, p, urls) -> tuple[int, int]:
+    """Download photos the page import found (only those: never an arbitrary
+    URL) onto the product. Used by the product page and the setup guide.
+    Returns (added, failed)."""
+    imp = products.import_info(p)
+    picks = [u for u in dict.fromkeys(urls or []) if u in imp.get("images", []) and u not in imp.get("taken", [])][:10]
+    folder = os.path.join(UPLOADS, str(ws_id))
+    os.makedirs(folder, exist_ok=True)
+    added, failed = 0, 0
+    for u in picks:
+        try:
+            data, ctype = product_import.download_image(u)
+        except fetcher.FetchError:
+            failed += 1
+            continue
+        ext = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[ctype]
+        path = os.path.join(folder, f"{uuid.uuid4().hex}{ext}")
+        with open(path, "wb") as f:
+            f.write(data)
+        products.add_photo(conn, ws_id, p["id"], path, u.rsplit("/", 1)[-1].split("?")[0][:120], ctype)
+        imp.setdefault("taken", []).append(u)
+        added += 1
+    conn.execute("UPDATE products SET import_json=? WHERE id=?", (json.dumps(imp), p["id"]))
+    conn.commit()
+    return added, failed
+
+
 @bp.route("/app/products/<int:pid>/import-photos", methods=["POST"])
 @login_required
 def import_photos(pid):
     """Download the candidate photos the member picked (only ones the import found)."""
     p = _product(pid)
-    imp = products.import_info(p)
-    picks = [u for u in request.form.getlist("img") if u in imp.get("images", [])][:10]
-    folder = os.path.join(UPLOADS, str(g.ws["id"]))
-    os.makedirs(folder, exist_ok=True)
-    added, failed = 0, 0
+    picks = request.form.getlist("img")
     with db.connect() as conn:
-        for u in picks:
-            try:
-                data, ctype = product_import.download_image(u)
-            except fetcher.FetchError:
-                failed += 1
-                continue
-            ext = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[ctype]
-            path = os.path.join(folder, f"{uuid.uuid4().hex}{ext}")
-            with open(path, "wb") as f:
-                f.write(data)
-            products.add_photo(conn, g.ws["id"], pid, path, u.rsplit("/", 1)[-1].split("?")[0][:120], ctype)
-            imp.setdefault("taken", []).append(u)
-            added += 1
-        conn.execute("UPDATE products SET import_json=? WHERE id=?", (json.dumps(imp), pid))
-        conn.commit()
+        added, failed = add_candidate_photos(conn, g.ws["id"], p, picks)
     if added:
         flash(f"Added {added} photo{'s' if added != 1 else ''}." + (f" {failed} couldn't be used." if failed else ""))
     elif picks:
