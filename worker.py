@@ -77,6 +77,12 @@ def build_inputs(conn, job) -> dict:
                 "aspect_ratio": p.get("aspect") or "9:16", "resolution": p.get("resolution") or "720p",
                 "bitrate_mode": "high",
                 "generate_audio": True}
+    if tool == "video_upscale":
+        src = conn.execute("SELECT o.url FROM outputs o JOIN jobs j ON j.id=o.job_id WHERE o.job_id=? AND j.workspace_id=? "
+                           "AND o.kind='video' ORDER BY o.id LIMIT 1", (p.get("source_job"), job["workspace_id"])).fetchone()
+        if not src or not src["url"]:
+            raise hf.GenError("The original video isn't available to upscale.")
+        return {"video_url": src["url"]}
     if tool == "motion_copy":
         ref = conn.execute("SELECT * FROM refs WHERE id=?", (p.get("ref_id"),)).fetchone()
         if not ref:

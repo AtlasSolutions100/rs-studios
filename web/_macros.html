@@ -53,6 +53,12 @@
       <form method="post" action="{{ url_for('jobs.review', jid=j.id) }}" data-review><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ back }}"><input type="hidden" name="verdict" value="{{ '' if verdict == 'rejected' else 'rejected' }}"><button class="btn sm {{ 'on bad' if verdict == 'rejected' else 'dark' }} vbtn" aria-pressed="{{ 'true' if verdict == 'rejected' else 'false' }}" data-key="r" title="Reject (R)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg><span class="sr">Reject</span></button></form>
       <button type="button" class="btn dark sm" data-detail-open>Details</button>
     </div>
+    {% set hdo = hd_offer(j) %}{% if hdo %}
+    <div class="row cardacts">
+      <form method="post" action="{{ url_for('jobs.hd', jid=j.id) }}" data-confirm="Re-render this in 1080p for {{ '{:,}'.format(hdo.rerender) }} credits ({{ credits_usd(hdo.rerender) }})?" data-confirm-detail="A new 1080p version with the same settings (+{{ '{:,}'.format(hdo.delta) }} credits vs 720p). This one stays in your library." data-confirm-ok="Re-render in 1080p"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="how" value="rerender"><input type="hidden" name="total" value="{{ hdo.rerender }}"><input type="hidden" name="back" value="{{ back }}"><button class="btn dark sm">1080p · {{ '{:,}'.format(hdo.rerender) }}</button></form>
+      {% if hdo.upscale %}<form method="post" action="{{ url_for('jobs.hd', jid=j.id) }}" data-confirm="Upscale this video to 1080p for {{ '{:,}'.format(hdo.upscale) }} credits ({{ credits_usd(hdo.upscale) }})?" data-confirm-ok="Upscale"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="how" value="upscale"><input type="hidden" name="total" value="{{ hdo.upscale }}"><input type="hidden" name="back" value="{{ back }}"><button class="btn dark sm">Upscale · {{ '{:,}'.format(hdo.upscale) }}</button></form>{% endif %}
+    </div>
+    {% endif %}
   {% else %}
     <div class="row cardacts"><button type="button" class="btn dark sm" data-detail-open>Details</button></div>
   {% endif %}

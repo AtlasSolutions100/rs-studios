@@ -44,7 +44,7 @@
     <p class="small muted" data-words style="margin:6px 0 0"></p>
     <label style="margin-top:14px">Presenter <span class="dim">(AI, never a real person)</span></label>
     <div class="fa-pres" role="radiogroup" aria-label="Presenter">
-      {% for p in first.presenters %}<label class="choice"><input type="radio" name="presenter" value="{{ p.id }}" {{ 'checked' if (F.get('presenter') or first.presenters[0].id) == p.id }}>{{ p.name }} <span class="cf-chipp">{{ p.vibe }}</span></label>{% endfor %}
+      {% for p in first.presenters %}<label class="choice"><input type="radio" name="presenter" value="{{ p.id }}" {{ 'checked' if (F.get('presenter') or first.presenters[0].id) == p.id }}>{% if p.photo %}<img class="fa-ava" src="{{ p.photo }}" alt="">{% endif %}{{ p.name }} <span class="cf-chipp">{{ p.vibe }}</span></label>{% endfor %}
     </div>
   </div>
   {% endif %}

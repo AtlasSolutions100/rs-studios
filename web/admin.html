@@ -3,7 +3,7 @@
 <div class="page full">
 <p class="eyebrow">Admin</p><h1>Run the <span class="gold">studio</span></h1>
 <p class="muted">AI writing (planner, copy, SEO): <b>{{ ai_status }}</b></p>
-<p class="muted">Generation service: <b>{{ 'connected' if configured else 'not connected (set HF_KEY)' }}</b> · markup {{ markup }}× · 1 credit = $0.01</p>
+<p class="muted">Generation service: <b>{{ 'connected' if configured else 'not connected (set HF_KEY)' }}</b> · markup {{ markup }}× (1080p {{ hd_markup }}×) · 1 credit = $0.01</p>
 <div class="grid" style="gap:24px">
 <div class="panel scrollx">
   <h2 id="prices">Vendor prices</h2>
@@ -12,6 +12,12 @@
   {% if vendor %}<div class="scrollx"><table><tr><th>Format</th><th>Sample</th><th>We assume</th><th>Vendor now</th><th>We charge</th></tr>
   {% for r in vendor.rows %}<tr><td>{{ r.name }}</td><td class="small muted">{{ r.setting }}</td><td>${{ '%.3f'|format(r.ours) }}</td><td>{% if r.vendor is not none %}${{ '%.3f'|format(r.vendor) }}{% if r.vendor > r.ours * 1.05 %} <span class="tag bad">higher</span>{% endif %}{% else %}<span class="muted">no answer</span>{% if r.why %}<div class="small dim" style="max-width:420px;word-break:break-word">{{ r.model }} · {{ r.why }}</div>{% endif %}{% endif %}</td><td>{{ r.credits }} credits</td></tr>{% endfor %}
   </table></div><p class="small dim">Checked {{ vendor.at|localtime }}</p>{% endif %}
+</div>
+<div class="panel scrollx" id="presenters">
+  <h2>Presenter samples</h2>
+  <p class="small muted">One AI-generated still per presenter (never a real person), shown on the presenter cards in Create. Made once through the vendor's text-to-image model; each is priced with the vendor's free estimate first. Cap ${{ '%.2f'|format(stills_cap) }}, spent so far ${{ '%.2f'|format(stills.spent) }}.</p>
+  <div class="row" style="gap:10px;flex-wrap:wrap;margin:0 0 12px">{% for p in presenters %}<div style="text-align:center;width:72px">{% if p.photo %}<img src="{{ p.photo }}" alt="" style="width:64px;height:64px;border-radius:50%;object-fit:cover">{% else %}<span class="cf-ava" style="--h:{{ p.hue }};margin:0 auto">{{ p.name[:1] }}</span>{% endif %}<div class="small">{{ p.name }}</div><div class="small dim">{{ (stills.jobs.get(p.id) or {}).get('status') or ('done' if p.photo else 'none') }}</div></div>{% endfor %}</div>
+  <form method="post" action="{{ url_for('admin_presenter_stills') }}" class="row" style="gap:8px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn sm" name="do" value="start">Make missing stills</button><button class="btn dark sm" name="do" value="collect">Check results</button></form>
 </div>
 <div class="panel scrollx">
   <h2>Workspaces</h2>

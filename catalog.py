@@ -9,6 +9,11 @@ import math
 import os
 
 MARKUP = float(os.environ.get("RS_MARKUP", "2.0"))
+# 1080p carries a smaller markup of its own (owner decision D9): the vendor's
+# 1080p rate is ~2.5x its 720p rate, so 2x would price it out of reach.
+HD_MARKUP = float(os.environ.get("RS_HD_MARKUP", "1.4"))
+USD_PER_SECOND_1080P = float(os.environ.get("RS_VIDEO_USD_PER_SECOND_1080P", "1.1372"))
+DEFAULT_RESOLUTION = "720p"
 
 TOOLS = {
     "ad_image": {
@@ -32,6 +37,8 @@ TOOLS = {
         "usd_per_second": float(os.environ.get("RS_VIDEO_USD_PER_SECOND", "0.4622")),
         "durations": [5, 10],
         "max_photos": 1,
+        "resolutions": {"720p": float(os.environ.get("RS_VIDEO_USD_PER_SECOND", "0.4622")),
+                        "1080p": USD_PER_SECOND_1080P},
     },
     "ugc_video": {
         "preview": "how",
@@ -46,6 +53,8 @@ TOOLS = {
         "durations": [8, 10, 15],
         "max_photos": 4,
         "aspects": ["9:16", "1:1", "16:9"],
+        "resolutions": {"720p": float(os.environ.get("RS_TALKING_USD_PER_SECOND", "0.4622")),
+                        "1080p": USD_PER_SECOND_1080P},
     },
     "motion_copy": {
         "preview": "motion_copy",
@@ -60,11 +69,60 @@ TOOLS = {
 }
 
 
-def cost_usd(tool: str, *, batch: int = 1, duration: float = 5, ref_seconds: float = 0) -> float:
+# Upscaling a finished video to 1080p: off until a vendor model and its price are
+# confirmed (owner decision D10). Set both to switch it on.
+UPSCALE_MODEL = os.environ.get("RS_VIDEO_UPSCALE_MODEL", "").strip()
+UPSCALE_USD_PER_SECOND = float(os.environ.get("RS_VIDEO_UPSCALE_USD_PER_SECOND", "0") or 0)
+UPSCALE_TOOL = {"preview": "photo_to_video", "name": "Upscale to 1080p", "model": UPSCALE_MODEL, "kind": "video",
+                "usd_per_second": UPSCALE_USD_PER_SECOND, "max_photos": 0, "hidden": True,
+                "blurb": "Upscale a finished video to 1080p."}
+if UPSCALE_MODEL and UPSCALE_USD_PER_SECOND > 0:
+    TOOLS["video_upscale"] = UPSCALE_TOOL
+
+
+class _DisplayTools(dict):
+    """TOOLS for templates: also knows tools that are switched off now (an old upscale job still renders)."""
+
+    def __missing__(self, key):
+        return TOOLS.get(key) or (UPSCALE_TOOL if key == "video_upscale" else
+                                  {"name": key, "kind": "video", "preview": "photo_to_video"})
+
+    def __contains__(self, key):
+        return key in TOOLS or key == "video_upscale"
+
+
+DISPLAY_TOOLS = _DisplayTools()
+
+
+def offered_tools() -> dict:
+    """Tools a member (or the planner) can pick directly: not the hidden ones."""
+    return {k: t for k, t in TOOLS.items() if not t.get("hidden")}
+
+
+def upscale_on() -> bool:
+    return "video_upscale" in TOOLS
+
+
+def resolutions(tool: str) -> dict:
+    """{name: vendor USD per second} for a video tool that offers a choice (720p is the default)."""
+    return TOOLS.get(tool, {}).get("resolutions") or {}
+
+
+def markup_for(tool: str, resolution: str = "") -> float:
+    return HD_MARKUP if resolution == "1080p" or tool == "video_upscale" else MARKUP
+
+
+def cost_usd(tool: str, *, batch: int = 1, duration: float = 5, ref_seconds: float = 0,
+             resolution: str = DEFAULT_RESOLUTION) -> float:
     t = TOOLS[tool]
     if tool == "ad_image":
         return t["usd_each"] * max(1, batch)
     if tool in ("photo_to_video", "ugc_video"):
+        rate = resolutions(tool).get(resolution or DEFAULT_RESOLUTION)
+        if rate is None:
+            raise KeyError(resolution)
+        return rate * duration
+    if tool == "video_upscale":
         return t["usd_per_second"] * duration
     if tool == "motion_copy":
         secs = math.ceil(min(t["max_seconds"], ref_seconds or t["max_seconds"]))
@@ -73,7 +131,12 @@ def cost_usd(tool: str, *, batch: int = 1, duration: float = 5, ref_seconds: flo
 
 
 def price_credits(tool: str, **kw) -> int:
-    return int(math.ceil(cost_usd(tool, **kw) * MARKUP * 100))
+    return int(math.ceil(round(cost_usd(tool, **kw) * markup_for(tool, kw.get("resolution", "")) * 100, 6)))
+
+
+def hd_delta(tool: str, duration: float) -> int:
+    """Extra credits for 1080p over 720p at this length."""
+    return price_credits(tool, duration=duration, resolution="1080p") - price_credits(tool, duration=duration)
 
 
 # ---------------------------------------------------------------- creation flow
@@ -340,8 +403,11 @@ PACK_BY_CODE = {p["code"]: p for p in PACKS}
 def rates() -> dict:
     """What credits buy, for pricing pages."""
     return {"talk10": price_credits("ugc_video", duration=10),
+            "talk8": price_credits("ugc_video", duration=8),
             "image": price_credits("ad_image", batch=1),
             "video5": price_credits("photo_to_video", duration=5),
             "video10": price_credits("photo_to_video", duration=10),
+            "video5_1080": price_credits("photo_to_video", duration=5, resolution="1080p"),
+            "talk10_1080": price_credits("ugc_video", duration=10, resolution="1080p"),
             "motion_per_s": price_credits("motion_copy", ref_seconds=1),
             "motion_max": price_credits("motion_copy", ref_seconds=TOOLS["motion_copy"]["max_seconds"])}

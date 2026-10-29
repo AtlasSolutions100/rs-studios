@@ -33,12 +33,30 @@ def price_now(conn, job) -> tuple[int, float]:
         kw = {"batch": int(p.get("batch") or 1)}
     elif tool in ("photo_to_video", "ugc_video"):
         kw = {"duration": int(p.get("duration") or (10 if tool == "ugc_video" else 5))}
+        if p.get("resolution") in catalog.resolutions(tool):
+            kw["resolution"] = p["resolution"]
     elif tool == "motion_copy":
         ref = conn.execute("SELECT seconds FROM refs WHERE id=?", (p.get("ref_id"),)).fetchone()
         kw = {"ref_seconds": (ref["seconds"] if ref else 0) or 15}
     else:
         return job["credits"], job["cost_usd"]
     return catalog.price_credits(tool, **kw), catalog.cost_usd(tool, **kw)
+
+
+def hd_offer(job) -> dict | None:
+    """For a finished 720p video: what re-rendering it in 1080p (and, when the
+    flag is on, upscaling it) costs. None when it doesn't apply."""
+    if job["status"] != "done" or job["tool"] not in ("ugc_video", "photo_to_video"):
+        return None
+    p = json.loads(job["params_json"] or "{}")
+    if p.get("preview") or (p.get("resolution") or "720p") != "720p":
+        return None
+    dur = int(p.get("duration") or 5)
+    out = {"rerender": catalog.price_credits(job["tool"], duration=dur, resolution="1080p"),
+           "delta": catalog.hd_delta(job["tool"], dur), "upscale": None}
+    if catalog.upscale_on():
+        out["upscale"] = catalog.price_credits("video_upscale", duration=dur)
+    return out
 
 
 def retryable(job) -> bool:
@@ -83,6 +101,49 @@ def retry(jid):
     if _wants_json():
         return jsonify({"ok": True, "job": new})
     flash(f"Trying again for {credits:,} credits.", "ok")
+    return _back(url_for("create.batch", bid=j["batch_id"]) if j["batch_id"] else url_for("library", highlight=new))
+
+
+@bp.route("/app/jobs/<int:jid>/hd", methods=["POST"])
+@login_required
+def hd(jid):
+    """Re-render a finished 720p video in 1080p (same settings, a new linked
+    job), or upscale it when that's switched on. Price shown and checked."""
+    how = request.form.get("how") or (request.get_json(silent=True) or {}).get("how") or "rerender"
+    with db.connect() as conn:
+        j = _job(conn, jid)
+        offer = hd_offer(j)
+        if not offer or (how == "upscale" and not offer["upscale"]):
+            abort(400)
+        params = json.loads(j["params_json"] or "{}")
+        dur = int(params.get("duration") or 5)
+        if how == "upscale":
+            tool, credits, usd = "video_upscale", offer["upscale"], catalog.cost_usd("video_upscale", duration=dur)
+            params = {"source_job": j["id"], "duration": dur, "label": (params.get("label") or "") + " · upscaled 1080p",
+                      "hook": params.get("hook") or "", "resolution": "1080p"}
+        else:
+            tool, credits = j["tool"], offer["rerender"]
+            usd = catalog.cost_usd(tool, duration=dur, resolution="1080p")
+            label = (params.get("label") or "").replace(" · 1080p", "")
+            params = dict(params, resolution="1080p", label=(label + " · 1080p").lstrip(" ·"))
+        if str(request.form.get("total") or (request.get_json(silent=True) or {}).get("total")) != str(credits):
+            msg = f"The price is now {credits:,} credits. Check it and try again."
+            if _wants_json():
+                return jsonify({"error": msg, "total": credits}), 409
+            flash(msg)
+            return _back(url_for("library"))
+        new = queue_job(conn, tool, j["template_id"], j["brief"], params, usd, credits, quiet=_wants_json(),
+                        product_id=j["product_id"], batch_id=j["batch_id"])
+        if not new:
+            if _wants_json():
+                return jsonify({"error": f"That needs {credits:,} credits and you have {db.balance(g.ws):,}.",
+                                "billing": url_for("billing_page")}), 402
+            return _back(url_for("library"))
+        conn.execute("UPDATE jobs SET parent_job_id=? WHERE id=?", (j["id"], new))
+        conn.commit()
+    if _wants_json():
+        return jsonify({"ok": True, "job": new})
+    flash(f"Making it in 1080p for {credits:,} credits. Both versions stay in your library.", "ok")
     return _back(url_for("create.batch", bid=j["batch_id"]) if j["batch_id"] else url_for("library", highlight=new))
 
 
@@ -154,8 +215,8 @@ def eta_minutes(conn) -> dict:
     return out
 
 
-CARD = """{% from '_macros.html' import card %}{{ card(j, outs, templates, tools, ctx=ctx, verdict=verdict, price=price,
-          names=names, eta=eta) }}"""
+CARD = """{% from '_macros.html' import card with context %}{{ card(j, outs, templates, tools, ctx=ctx, verdict=verdict,
+          price=price, names=names, eta=eta) }}"""
 
 
 def card_html(conn, j, ctx):
@@ -163,7 +224,7 @@ def card_html(conn, j, ctx):
     for o in conn.execute("SELECT * FROM outputs WHERE job_id=? ORDER BY id", (j["id"],)):
         outs.setdefault(o["job_id"], []).append(o)
     names = {r["id"]: r["name"] for r in conn.execute("SELECT id, name FROM products WHERE workspace_id=?", (g.ws["id"],))}
-    return render_template_string(CARD, j=j, outs=outs, templates=catalog.TEMPLATE_BY_ID, tools=catalog.TOOLS, ctx=ctx,
+    return render_template_string(CARD, j=j, outs=outs, templates=catalog.TEMPLATE_BY_ID, tools=catalog.DISPLAY_TOOLS, ctx=ctx,
                                   verdict=verdicts(conn, [j["id"]]).get(j["id"]), price=price_now(conn, j)[0],
                                   names=names, eta=eta_minutes(conn))
 

@@ -1590,6 +1590,94 @@ css = open(os.path.join(os.path.dirname(HERE), "static", "app.js")).read()
 check("data-live-cards" in css and "navigator.share" in css and "ArrowRight" in css and "location.reload" not in
       a.get("/app/library").get_data(as_text=True), "live cards, share sheet and keyboard review; no page reloads")
 
+print("== 1080p, re-render, upscale flag, presenter stills (phase 5)")
+D10 = 1593 - catalog.price_credits("ugc_video", duration=10)
+check(catalog.price_credits("ugc_video", duration=10, resolution="1080p") == 1593 and catalog.hd_delta("ugc_video", 10) == D10
+      and catalog.price_credits("photo_to_video", duration=5, resolution="1080p") == 797, "1080p at the vendor's $1.1372/s x 1.4")
+try:
+    catalog.cost_usd("ugc_video", duration=10, resolution="480p")
+    check(False, "480p is not a choice")
+except KeyError:
+    check(True, "480p is never a paid choice (only the free preview)")
+# margin check: no credit pack or plan sells 1080p below the vendor's cost after Stripe's fees
+worst = 9.0
+for pk in catalog.PACKS:
+    net = (pk["usd"] - pk["usd"] * 0.029 - 0.30) / pk["credits"]
+    worst = min(worst, catalog.HD_MARKUP * 100 * net)
+for code in ("starter", "growth", "scale"):
+    pl = plans.PLANS[code]
+    net = (pl["usd"] - pl["usd"] * 0.036 - 0.30) / pl["credits"]
+    worst = min(worst, catalog.HD_MARKUP * 100 * net)
+check(worst > 1.1, f"every pack and plan sells 1080p above the vendor's cost (worst: {worst:.2f}x after fees)")
+with db.connect() as conn:
+    t0 = db.now()
+    vj = conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, brief, params_json, status, credits, cost_usd, created_at, "
+                      "updated_at, finished_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                      (ws1["id"], 1, "ugc_video", "Hello there.", json.dumps({"duration": 10, "aspect": "9:16", "presenter": "maya",
+                                                                              "label": "Maya · 9:16", "photo_ids": [photo["id"]]}),
+                       "done", 925, 4.622, t0, t0, t0)).lastrowid
+    conn.execute("INSERT INTO outputs (job_id, kind, url, path) VALUES (?,?,?,?)", (vj, "video", "https://cdn.example/v720.mp4", None))
+    conn.commit()
+lib = a.get("/app/library?type=talking").get_data(as_text=True)
+card_ = lib.split(f'data-job="{vj}"')[1].split("</article>")[0]
+check("1080p · 1,593" in card_ and f"+{D10:,} credits vs 720p" in card_ and "Upscale" not in card_,
+      "a finished 720p video offers Re-render in 1080p with its price and the delta; no upscale while the flag is off")
+r = a.post(f"/app/jobs/{vj}/hd", data={"csrf": csrf(a), "how": "rerender", "total": "1593"}, headers={"Accept": "application/json"})
+with db.connect() as conn:
+    hj = conn.execute("SELECT * FROM jobs WHERE id=?", (r.get_json()["job"],)).fetchone()
+hp = json.loads(hj["params_json"])
+check(hj["tool"] == "ugc_video" and hp["resolution"] == "1080p" and hj["credits"] == 1593 and hj["parent_job_id"] == vj
+      and hp["label"] == "Maya · 9:16 · 1080p" and abs(hj["cost_usd"] - 11.372) < 0.001, "re-render makes a linked 1080p job")
+with appmod.app.test_request_context():
+    with db.connect() as conn:
+        check(jobs_routes.hd_offer(hj) is None, "a 1080p (or unfinished) video isn't offered again")
+_n = len(calls["submit"])
+with db.connect() as conn:
+    conn.execute("UPDATE jobs SET status='done' WHERE status='pending' AND id<>?", (hj["id"],))
+    conn.commit()
+_est, hf.estimate = hf.estimate, (lambda m, i: 11.0)
+worker.tick()
+hf.estimate = _est
+check(calls["submit"][-1][1]["resolution"] == "1080p", "the vendor gets resolution 1080p")
+catalog.TOOLS["video_upscale"] = {"preview": "photo_to_video", "name": "Upscale to 1080p", "model": "vendor/upscale", "kind": "video",
+                                  "usd_per_second": 0.05, "max_photos": 0, "hidden": True}
+lib = a.get("/app/library?type=talking").get_data(as_text=True)
+up = catalog.price_credits("video_upscale", duration=10)
+check(f"Upscale · {up}" in lib, "with the upscale model set, an Upscale button shows its price")
+r = a.post(f"/app/jobs/{vj}/hd", data={"csrf": csrf(a), "how": "upscale", "total": str(up)}, headers={"Accept": "application/json"})
+with db.connect() as conn:
+    uj = conn.execute("SELECT * FROM jobs WHERE id=?", (r.get_json()["job"],)).fetchone()
+    check(uj["tool"] == "video_upscale" and worker.build_inputs(conn, uj) == {"video_url": "https://cdn.example/v720.mp4"},
+          "upscale sends the finished video's URL")
+    conn.execute("UPDATE jobs SET status='done' WHERE id=?", (uj["id"],))
+    conn.commit()
+del catalog.TOOLS["video_upscale"]
+# presenter stills: capped, estimated first, saved once
+import presenter_stills  # noqa: E402
+sub_before = len(calls["submit"])
+_est, hf.estimate = hf.estimate, (lambda m, i: 0.40)
+with db.connect() as conn:
+    msg = presenter_stills.start(conn)
+    st = presenter_stills.state(conn)
+check(len(st["jobs"]) == 7 and abs(st["spent"] - 2.80) < 0.001 and "cap" in msg and len(calls["submit"]) - sub_before == 7
+      and "AI-generated" in calls["submit"][-1][1]["prompt"] and "not a real" in calls["submit"][-1][1]["prompt"],
+      f"presenter stills stop at the $3 cap and describe fictional people ({msg})")
+hf.estimate = _est
+with db.connect() as conn:
+    for pid, j in st["jobs"].items():
+        results[j["rid"]] = {"status": "completed", "images": [{"url": f"https://cdn.example/{pid}.png"}]} if pid != "jordan" \
+            else {"status": "failed"}
+    saved = presenter_stills.collect(conn, fetch=lambda url: png().getvalue())
+    st2 = presenter_stills.state(conn)
+check(saved == 6 and abs(st2["spent"] - 2.40) < 0.001 and os.path.exists(os.path.join(presenter_stills.DATA_DIR, "maya.jpg")),
+      "finished stills are saved; a failed one isn't counted against the cap")
+r = a.get("/presenter/maya.jpg")
+check(r.status_code == 200 and r.mimetype == "image/jpeg" and a.get("/presenter/nobody.jpg").status_code == 404,
+      "stills are served to signed-in members")
+html = a.get("/app/create?type=ugc").get_data(as_text=True)
+check('/presenter/maya.jpg' in html and "Presenter samples" in a.get("/admin").get_data(as_text=True),
+      "presenter cards carry the stills; the admin page shows the tool")
+
 print("== phase 0: accessibility, copy, shell helpers")
 for t in catalog.TEMPLATES:
     for name in ("", "Sunrise Blend"):
