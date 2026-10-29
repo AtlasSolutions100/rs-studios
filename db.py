@@ -359,6 +359,10 @@ CREATE TABLE IF NOT EXISTS flow_runs (
     node_id TEXT, wake_at TEXT, lease_until TEXT, started_at TEXT NOT NULL, ended_at TEXT, exit_reason TEXT,
     context_json TEXT NOT NULL DEFAULT '{}', UNIQUE(flow_id, contact_id));
 CREATE INDEX IF NOT EXISTS idx_runs_wake ON flow_runs(status, wake_at);
+CREATE TABLE IF NOT EXISTS flow_runs_archive (
+    id INTEGER PRIMARY KEY, flow_id INTEGER NOT NULL, version_id INTEGER, workspace_id INTEGER NOT NULL,
+    contact_id INTEGER NOT NULL, status TEXT, node_id TEXT, started_at TEXT, ended_at TEXT, exit_reason TEXT,
+    context_json TEXT, archived_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS flow_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT, run_id INTEGER, flow_id INTEGER NOT NULL, workspace_id INTEGER NOT NULL,
     contact_id INTEGER, node_id TEXT, kind TEXT NOT NULL, detail TEXT, at TEXT NOT NULL);

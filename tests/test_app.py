@@ -2330,6 +2330,73 @@ check(led["reason"] == "SMS number · December" and led["delta"] == -430 and db.
 for k in ("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"):
     os.environ.pop(k)
 
+print("== flows F4: A/B split, re-entry, moving runs, analytics (phase 10)")
+ab = flows.clean_tree({"trigger": {"kind": "tag_added", "tag": "abtest"}, "steps": [
+    {"type": "split", "pct": 140, "yes": [{"type": "notify", "message": "A path"}], "no": [{"type": "wait", "days": 2},
+                                                                                       {"type": "notify", "message": "B path"}]},
+    {"type": "tag", "op": "add", "tag": "abdone"}]})
+check(ab["steps"][0]["pct"] == 99 and [r_["branch"] for r_ in flows.timeline(ab)][:2] == ["A (99%)", "B (1%)"]
+      and not flows.check_graph(flows.compile_tree(ab)), "A/B split: share clamped, both paths on the timeline, they rejoin")
+ab["steps"][0]["pct"] = 50
+r = x.post("/app/flows/new", data={"csrf": csrf(x), "kind": "blank", "name": "AB"})
+abid = int(r.headers["Location"].rstrip("/").split("/")[-1])
+x.post(f"/app/flows/{abid}/save", data=json.dumps({"tree": ab}), content_type="application/json", headers={"X-CSRF": csrf(x)})
+x.post(f"/app/flows/{abid}/state", data={"csrf": csrf(x), "action": "on"})
+abc = []
+with db.connect() as conn:
+    for i in range(40):
+        cid_ = conn.execute("INSERT INTO contacts (workspace_id, email, tags, first_seen, last_seen) VALUES (?,?,?,?,?)",
+                            (xws["id"], f"ab{i}@flow.example", "abtest", db.now(), db.now())).lastrowid
+        abc.append(cid_)
+        flows_engine.enrol(conn, xws["id"], "tag_added", cid_, {"tags": ["abtest"]})
+    conn.commit()
+TA = flows_engine.utcnow() + _tdl(seconds=2)
+flows_engine.tick(now=TA)
+with db.connect() as conn:
+    sides = [e["detail"] for e in conn.execute("SELECT detail FROM flow_events WHERE flow_id=? AND kind='branch'", (abid,))]
+check(len(sides) == 40 and 8 <= sides.count("A") <= 32, f"each person is assigned A or B ({sides.count('A')} A / {sides.count('B')} B)")
+flows_engine.tick(now=TA + _tdl(days=2, seconds=1))
+with db.connect() as conn:
+    done = conn.execute("SELECT COUNT(*) FROM flow_runs WHERE flow_id=? AND status='done'", (abid,)).fetchone()[0]
+    c0 = conn.execute("SELECT tags FROM contacts WHERE id=?", (abc[0],)).fetchone()[0]
+check(done == 40 and "abdone" in c0, "both paths rejoin and finish")
+html = x.get(f"/app/flows/{abid}?tab=activity").get_data(as_text=True)
+check("Funnel" in html and "Path A" in html and "Path B" in html and "Started" in html, "Activity: funnel and A/B side by side")
+csvr = x.get(f"/app/flows/{abid}/events.csv")
+check(csvr.mimetype == "text/csv" and "ab0@flow.example" in csvr.get_data(as_text=True) and "branch" in csvr.get_data(as_text=True),
+      "events export as CSV")
+# re-entry
+with db.connect() as conn:
+    flows_engine.enrol(conn, xws["id"], "tag_added", abc[0], {"tags": ["abtest"]})
+    n1 = conn.execute("SELECT COUNT(*) FROM flow_runs WHERE flow_id=? AND contact_id=?", (abid, abc[0])).fetchone()[0]
+    conn.commit()
+x.post(f"/app/flows/{abid}/settings", data={"csrf": csrf(x), "reenter": "after_finish", "cooldown_days": "3"})
+with db.connect() as conn:
+    ended = flows_engine.parse(conn.execute("SELECT ended_at FROM flow_runs WHERE flow_id=? AND contact_id=?",
+                                            (abid, abc[0])).fetchone()[0])
+    got_early = flows_engine.enrol(conn, xws["id"], "tag_added", abc[0], {"tags": ["abtest"]}, now=ended + _tdl(days=2))
+    got = flows_engine.enrol(conn, xws["id"], "tag_added", abc[0], {"tags": ["abtest"]}, now=ended + _tdl(days=3, seconds=1))
+    arch = conn.execute("SELECT COUNT(*) FROM flow_runs_archive WHERE flow_id=? AND contact_id=?", (abid, abc[0])).fetchone()[0]
+    conn.commit()
+check(n1 == 1 and not got_early and got and arch == 1, "re-entry: once by default; after finishing plus a cool-down when allowed (history kept)")
+# move everyone to the new version
+with db.connect() as conn:
+    conn.execute("UPDATE flow_runs SET status='waiting', node_id=?, wake_at=? WHERE flow_id=? AND contact_id IN (?,?)",
+                 (ab["steps"][1]["id"], "2030-01-01T00:00:00+00:00", abid, abc[1], abc[2]))
+    conn.execute("UPDATE flow_runs SET node_id='gone' WHERE flow_id=? AND contact_id=?", (abid, abc[2]))
+    v1 = conn.execute("SELECT version_id FROM flows WHERE id=?", (abid,)).fetchone()[0]
+    conn.commit()
+ab2 = json.loads(json.dumps(ab))
+ab2["steps"].append({"type": "notify", "message": "v2"})
+x.post(f"/app/flows/{abid}/save", data=json.dumps({"tree": ab2}), content_type="application/json", headers={"X-CSRF": csrf(x)})
+r = x.post(f"/app/flows/{abid}/state", data={"csrf": csrf(x), "action": "publish", "move": "1"}, follow_redirects=True)
+with db.connect() as conn:
+    v2 = conn.execute("SELECT version_id FROM flows WHERE id=?", (abid,)).fetchone()[0]
+    r1 = conn.execute("SELECT version_id FROM flow_runs WHERE flow_id=? AND contact_id=?", (abid, abc[1])).fetchone()[0]
+    r2 = conn.execute("SELECT version_id FROM flow_runs WHERE flow_id=? AND contact_id=?", (abid, abc[2])).fetchone()[0]
+check(v2 != v1 and r1 == v2 and r2 == v1 and "Moved 2 people" in r.get_data(as_text=True) and "1 stay" in r.get_data(as_text=True),
+      "publish and move: people whose next step still exists move to the new version; others stay")
+
 for k in ("RESEND_API_KEY", "RS_MAIL_DOMAIN", "RESEND_WEBHOOK_SECRET"):
     os.environ.pop(k)
 dy = open(os.path.join(os.path.dirname(HERE), ".github", "workflows", "deploy.yml")).read()

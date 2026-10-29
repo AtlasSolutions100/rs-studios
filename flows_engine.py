@@ -92,7 +92,7 @@ def _first_send(graph) -> str | None:
         node = nodes.get(nid) or {}
         if node.get("type") in ("email", "sms"):
             return node["type"]
-        if node.get("type") == "condition":
+        if node.get("type") in flows.BRANCH:
             return None   # depends on the person: checked when the message is due
         nid, n = node.get("next"), n + 1
     return None
@@ -111,8 +111,15 @@ def enrol(conn, ws_id, kind, contact_id, payload=None, now=None) -> list[int]:
         g = _graph(conn, f["version_id"])
         if not _matches(g["tree"].get("trigger") or {}, kind, payload):
             continue
-        if conn.execute("SELECT 1 FROM flow_runs WHERE flow_id=? AND contact_id=?", (f["id"], contact_id)).fetchone():
-            continue
+        prev = conn.execute("SELECT * FROM flow_runs WHERE flow_id=? AND contact_id=?", (f["id"], contact_id)).fetchone()
+        if prev:
+            if not _may_reenter(f, prev, now):
+                continue
+            conn.execute("INSERT INTO flow_runs_archive (id, flow_id, version_id, workspace_id, contact_id, status, node_id, "
+                         "started_at, ended_at, exit_reason, context_json, archived_at) SELECT id, flow_id, version_id, "
+                         "workspace_id, contact_id, status, node_id, started_at, ended_at, exit_reason, context_json, ? "
+                         "FROM flow_runs WHERE id=?", (iso(now), prev["id"]))
+            conn.execute("DELETE FROM flow_runs WHERE id=?", (prev["id"],))
         first = _first_send(g)
         if first == "sms" and not has_consent(c, "sms"):
             _event(conn, f["id"], ws_id, None, contact_id, g.get("start"), "skipped",
@@ -125,6 +132,35 @@ def enrol(conn, ws_id, kind, contact_id, payload=None, now=None) -> list[int]:
         _event(conn, f["id"], ws_id, rid, contact_id, None, "entered", flows.TRIGGERS.get(kind, kind), now)
         started.append(rid)
     return started
+
+
+def reentry(flow) -> dict:
+    s = json.loads(flow["settings_json"] or "{}")
+    return {"mode": s.get("reenter") if s.get("reenter") in ("once", "after_finish") else "once",
+            "cooldown_days": max(0, min(365, int(s.get("cooldown_days") or 0)))}
+
+
+def _may_reenter(flow, prev, now) -> bool:
+    """Once per person (default), or again after they've left the flow and the cool-down has passed."""
+    r = reentry(flow)
+    if r["mode"] != "after_finish" or prev["status"] == "waiting" or not prev["ended_at"]:
+        return False
+    return parse(prev["ended_at"]) <= now - timedelta(days=r["cooldown_days"])
+
+
+def move_runs(conn, flow) -> tuple[int, int]:
+    """After publishing: move people waiting on an older version to the current one where their next step
+    still exists (same step id). Returns (moved, stayed)."""
+    nodes = _graph(conn, flow["version_id"]).get("nodes") or {}
+    moved = stayed = 0
+    for r in conn.execute("SELECT id, node_id FROM flow_runs WHERE flow_id=? AND status='waiting' AND version_id<>?",
+                          (flow["id"], flow["version_id"])).fetchall():
+        if r["node_id"] is None or r["node_id"] in nodes:
+            conn.execute("UPDATE flow_runs SET version_id=? WHERE id=?", (flow["version_id"], r["id"]))
+            moved += 1
+        else:
+            stayed += 1
+    return moved, stayed
 
 
 def enrol_tags(conn, ws_id, contact_id, before: set, after: set, now=None) -> list[int]:
@@ -317,6 +353,12 @@ def advance(conn, run, now):
             ok = test(conn, run, node["test"], c)
             nxt = node.get("yes") if ok else node.get("no")
             _event(conn, fid, ws_id, run["id"], cid, nid, "branch", "yes" if ok else "no", now)
+        elif typ == "split":
+            import hashlib
+            a = int(hashlib.sha256(f"{run['id']}:{nid}".encode()).hexdigest(), 16) % 100 < int(node.get("pct") or 50)
+            nxt = node.get("yes") if a else node.get("no")
+            ctx.setdefault("ab", {})[nid] = "A" if a else "B"
+            _event(conn, fid, ws_id, run["id"], cid, nid, "branch", "A" if a else "B", now)
         elif typ == "exit_if":
             if test(conn, run, node["test"], c):
                 conn.execute("UPDATE flow_runs SET status='exited', exit_reason='goal reached', node_id=?, ended_at=?, "

@@ -231,7 +231,10 @@ def edit(fid):
                             "WHERE r.flow_id=? AND r.status='waiting' ORDER BY r.wake_at LIMIT 100", (fid,)).fetchall()
         day30 = conn.execute("SELECT substr(started_at,1,10) d, COUNT(*) n FROM flow_runs WHERE flow_id=? AND "
                              "started_at>=date('now','-30 day') GROUP BY d ORDER BY d", (fid,)).fetchall()
+    with db.connect() as conn:
+        an = analytics(conn, f, boot["tree"])
     return render_template("flow_edit.html", f=f, boot=boot, stats=stats, names=names, by_node=by_node, at_node=at_node, msgs=msgs,
+                           an=an, reentry=flows_engine.reentry(f),
                            events=events, runs=runs, day30=day30, tab=request.args.get("tab") or "steps")
 
 
@@ -271,6 +274,10 @@ def state(fid):
                 return redirect(url_for("flows.edit", fid=fid))
             if action == "publish" or not f["version_id"] or f["dirty"]:
                 flows_engine.publish(conn, f)
+            if action == "publish" and request.form.get("move") == "1":
+                moved, stayed = flows_engine.move_runs(conn, _flow(conn, fid))
+                flash(f"Moved {moved} {'person' if moved == 1 else 'people'} to the new version"
+                      + (f"; {stayed} stay on their version (their next step was removed)." if stayed else "."), "ok")
             if action == "on":
                 conn.execute("UPDATE flows SET status='on', turned_on_at=COALESCE(turned_on_at, ?), errors=0 WHERE id=?",
                              (db.now(), fid))
@@ -294,6 +301,85 @@ def state(fid):
         conn.execute("UPDATE flows SET updated_at=? WHERE id=?", (db.now(), fid))
         conn.commit()
     return redirect(url_for("flows.edit", fid=fid))
+
+
+@bp.route("/app/flows/<int:fid>/settings", methods=["POST"])
+@feature_required("flows")
+def flow_settings(fid):
+    with db.connect() as conn:
+        f = _flow(conn, fid)
+        s = json.loads(f["settings_json"] or "{}")
+        s["reenter"] = "after_finish" if request.form.get("reenter") == "after_finish" else "once"
+        try:
+            s["cooldown_days"] = max(0, min(365, int(request.form.get("cooldown_days") or 0)))
+        except ValueError:
+            s["cooldown_days"] = 0
+        conn.execute("UPDATE flows SET settings_json=?, updated_at=? WHERE id=?", (json.dumps(s), db.now(), fid))
+        conn.commit()
+    flash("Saved.", "ok")
+    return redirect(url_for("flows.edit", fid=fid))
+
+
+@bp.route("/app/flows/<int:fid>/events.csv")
+@feature_required("flows")
+def events_csv(fid):
+    import csv
+    import io
+    with db.connect() as conn:
+        f = _flow(conn, fid)
+        names = {}
+        for v in conn.execute("SELECT graph_json FROM flow_versions WHERE flow_id=?", (fid,)):
+            for nid, n in (flows.unpack(v["graph_json"]).get("nodes") or {}).items():
+                names[nid] = flows.describe(n)
+        rows = conn.execute("SELECT e.*, c.email, c.name cname FROM flow_events e LEFT JOIN contacts c ON c.id=e.contact_id "
+                            "WHERE e.flow_id=? ORDER BY e.id", (fid,)).fetchall()
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["at", "contact_email", "contact_name", "run", "step", "event", "detail"])
+    safe = lambda v: ("'" + v) if str(v).startswith(("=", "+", "-", "@")) else v
+    for r in rows:
+        w.writerow([r["at"], safe(r["email"] or ""), safe(r["cname"] or ""), r["run_id"] or "", safe(names.get(r["node_id"], "")),
+                    r["kind"], safe(r["detail"] or "")])
+    from flask import Response
+    return Response(buf.getvalue(), mimetype="text/csv",
+                    headers={"Content-Disposition": f"attachment; filename=flow-{fid}-events.csv"})
+
+
+def analytics(conn, f, tree) -> dict:
+    """Funnel along the main path, and each A/B split's two paths side by side."""
+    fid = f["id"]
+    entered = conn.execute("SELECT (SELECT COUNT(*) FROM flow_runs WHERE flow_id=?) + (SELECT COUNT(*) FROM flow_runs_archive "
+                           "WHERE flow_id=?)", (fid, fid)).fetchone()[0]
+    reached = {r["node_id"]: r["n"] for r in conn.execute(
+        "SELECT node_id, COUNT(DISTINCT run_id) n FROM flow_events WHERE flow_id=? AND node_id IS NOT NULL GROUP BY node_id", (fid,))}
+    finished = conn.execute("SELECT COUNT(*) FROM flow_runs WHERE flow_id=? AND status='done'", (fid,)).fetchone()[0] + \
+        conn.execute("SELECT COUNT(*) FROM flow_runs_archive WHERE flow_id=? AND status='done'", (fid,)).fetchone()[0]
+    funnel = [{"label": "Started", "n": entered}]
+    for s in tree["steps"]:
+        if s["type"] in ("email", "sms", "task", "notify", "condition", "split", "exit_if", "tag", "stage", "webhook", "community"):
+            funnel.append({"label": flows.describe(s), "n": reached.get(s["id"], 0)})
+    funnel.append({"label": "Finished", "n": finished})
+    splits = []
+    for s, _ in flows.walk(tree["steps"]):
+        if s["type"] != "split":
+            continue
+        out = {"label": flows.describe(s), "paths": []}
+        for side, steps in (("A", s.get("yes") or []), ("B", s.get("no") or [])):
+            runs = [r["run_id"] for r in conn.execute("SELECT run_id FROM flow_events WHERE flow_id=? AND node_id=? AND kind='branch' "
+                                                      "AND detail=?", (fid, s["id"], side))]
+            ids = [x["id"] for x, _ in flows.walk(steps)]
+            sent = clicked = 0
+            if runs and ids:
+                q = (f"SELECT COUNT(*) sent, SUM(clicked_at IS NOT NULL) clicked FROM messages WHERE run_id IN "
+                     f"({','.join('?' * len(runs))}) AND node_id IN ({','.join('?' * len(ids))}) AND sent_at IS NOT NULL")
+                row = conn.execute(q, (*runs, *ids)).fetchone()
+                sent, clicked = row["sent"] or 0, row["clicked"] or 0
+            done = conn.execute(f"SELECT COUNT(*) FROM flow_runs WHERE status='done' AND id IN ({','.join('?' * len(runs)) or 'NULL'})",
+                                runs).fetchone()[0] if runs else 0
+            out["paths"].append({"side": side, "people": len(runs), "finished": done, "sent": sent, "clicked": clicked,
+                                 "rate": round(100 * clicked / sent) if sent else None})
+        splits.append(out)
+    return {"funnel": funnel, "splits": splits, "entered": entered}
 
 
 @bp.route("/app/flows/runs/<int:rid>/exit", methods=["POST"])
