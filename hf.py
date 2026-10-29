@@ -85,8 +85,13 @@ def _check(r):
             msg = j.get("detail") or j.get("message") or j.get("error") or r.text
         except ValueError:
             msg = r.text
-        if r.status_code in (401, 403):
+        if r.status_code == 401:
             msg = "The generation service rejected our API key."
+        elif r.status_code == 403:
+            # Higgsfield answers 403 both for a bad key and for an API account with no
+            # billing credit, so say both and keep the vendor's own words for the log.
+            msg = ("The generation service refused the request (API key or API billing credit). "
+                   f"Vendor said: {str(msg)[:160]}")
         elif r.status_code == 402:
             msg = "The generation account is out of credit."
         raise GenError(f"{r.status_code}: {str(msg)[:300]}")
