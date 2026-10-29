@@ -93,7 +93,10 @@ def create_subscription_session(*, price_id: str, success_url: str, cancel_url: 
             ("line_items[0][price]", price_id), ("line_items[0][quantity]", "1"),
             ("success_url", success_url), ("cancel_url", cancel_url),
             ("client_reference_id", client_reference_id),
-            ("allow_promotion_codes", "false")]
+            # Promotion codes (e.g. an owner's 100%-off code) are accepted; with a
+            # fully discounted plan Stripe skips asking for a card.
+            ("allow_promotion_codes", "true"),
+            ("payment_method_collection", "if_required")]
     if customer:
         form.append(("customer", customer))
     elif email:
