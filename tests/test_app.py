@@ -1654,6 +1654,8 @@ with db.connect() as conn:
 del catalog.TOOLS["video_upscale"]
 # presenter stills: capped, estimated first, saved once
 import presenter_stills  # noqa: E402
+check(presenter_stills.inputs(catalog.PRESENTERS[0])["resolution"] in ("720p", "1080p"),
+      "presenter stills ask for a resolution the image model accepts (720p or 1080p)")
 sub_before = len(calls["submit"])
 _est, hf.estimate = hf.estimate, (lambda m, i: 0.40)
 with db.connect() as conn:
