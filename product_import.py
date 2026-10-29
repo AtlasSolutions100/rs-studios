@@ -177,6 +177,8 @@ def build(facts: dict, ai: dict | None) -> dict:
             "description": desc, "price": str(ai.get("price") or facts["price"])[:60], "offer": offer,
             "audience": str(ai.get("audience") or "")[:300] if compliance.check(str(ai.get("audience") or ""))["ok"] else "",
             "url": facts["url"][:500], "tags": ", ".join(str(t) for t in (ai.get("tags") or [])[:5])}
+    import products as _products
+    form["category"] = _products.guess_category(" ".join([form["tags"], form["name"], form["description"]]))
     return {"form": form, "pending": claims[:12], "brand": str(ai.get("brand") or facts["brand"] or "")[:80],
             "import": {"url": facts["url"], "images": facts["images"], "taken": []}}
 

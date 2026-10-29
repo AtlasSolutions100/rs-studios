@@ -188,6 +188,27 @@ TEMPLATES = [
               "morning routine, hands in frame, no faces. Natural window light. The label stays sharp and "
               "unchanged. Headline: \"Part of the morning.\"",
      "audience": ""},
+    {"id": "flatlay", "preview": "ad_image", "line": "Overhead flat lay with a few props", "name": "Flat lay",
+     "tool": "ad_image", "aspect": "4:5", "fits": "any",
+     "brief": "Overhead flat lay on a soft neutral surface: the {product} in the centre, a few simple everyday props "
+              "around it with plenty of breathing room, soft even daylight. Packaging, label and colors exactly as in "
+              "the photo. Headline: \"Made for your day.\"",
+     "audience": ""},
+    {"id": "inhand", "preview": "ad_image", "line": "A hand holding it, outdoors", "name": "In hand", "tool": "ad_image",
+     "aspect": "9:16", "fits": "any",
+     "brief": "A hand holds the {product} up against a bright, softly blurred outdoor background, natural light, no "
+              "face in frame. The label faces the camera, sharp and unchanged. Headline: \"Take it with you.\"",
+     "audience": ""},
+    {"id": "gift", "preview": "ad_image", "line": "Gift moment, ribbon and card", "name": "Gift idea", "tool": "ad_image",
+     "aspect": "1:1", "fits": "any",
+     "brief": "Warm gifting scene: the {product} next to a ribbon and a blank card on a wooden table, cozy evening light. "
+              "Packaging exactly as in the photo. Headline: \"An easy gift.\"",
+     "audience": ""},
+    {"id": "turn", "preview": "photo_to_video", "line": "Slow turn on a clean surface", "name": "Slow turn",
+     "tool": "photo_to_video", "duration": 5, "fits": "any",
+     "brief": "The {product} on a clean surface, the camera slowly circles it in soft studio light. The label and colors "
+              "stay sharp and unchanged.",
+     "overlay": ""},
     {"id": "swap", "fits": "coffee", "preview": "swap", "line": "One scoop, hot water, 30 seconds", "name": "The swap", "tool": "photo_to_video", "duration": 5,
      "brief": "Morning kitchen, soft window light. A hand slides a drip coffee maker aside, scoops "
               "{product} from the bag into a mug of hot water and stirs. Steam rises. The bag stays "
@@ -237,10 +258,52 @@ def fill(text: str, brand: dict) -> str:
     return text.replace("{product}", name or "your product").replace("{brand}", (brand.get("name") or "").strip())
 
 
-def first_run_templates() -> list[dict]:
-    """Image templates for the guided first ad: cheapest tool, any-product ones first."""
-    imgs = [t for t in TEMPLATES if t["tool"] == "ad_image"]
-    return sorted(imgs, key=lambda t: t.get("fits") != "any")
+COFFEE_WORDS = ("coffee", "espresso", "latte", "cold brew", "cappuccino", "mocha", "decaf", "arabica", "roast")
+
+
+def is_coffee(product) -> bool:
+    """Coffee templates assume a coffee product: only offered when it says so."""
+    if not product:
+        return False
+    if isinstance(product, dict) and "product" in product:   # a brand brief (core.brand())
+        text = " ".join(str(product.get(k) or "") for k in ("product", "description", "tags", "about"))
+    else:
+        keys = product.keys() if hasattr(product, "keys") else []
+        text = " ".join(str(product[k] or "") for k in ("name", "description", "tags") if k in keys)
+    text = text.lower()
+    return any(w in text for w in COFFEE_WORDS)
+
+
+def templates_for(product=None, tool=None) -> list[dict]:
+    """Templates that fit this product: the any-product ones first, coffee ones only for coffee."""
+    out = [t for t in TEMPLATES if (t.get("fits") == "any" or (t.get("fits") == "coffee" and is_coffee(product)))
+           and (tool is None or t["tool"] == tool)]
+    return sorted(out, key=lambda t: t.get("fits") != "any")
+
+
+def first_run_templates(product=None) -> list[dict]:
+    """Image templates for the first ad: cheapest tool; with no product yet, only ones that fit anything."""
+    return templates_for(product, "ad_image")
+
+
+def template_prefill(t: dict, b: dict) -> dict:
+    """A template as a starting point in Create: ad type, shape, the filled brief
+    (an image template's headline becomes its first headline), and length."""
+    import re
+    brief = fill(t["brief"], b)
+    typ = TOOL_AD_TYPE.get(t["tool"], "image")
+    out = {"type": typ, "angle": {"title": t["name"], "hook": "", "insight": t["line"], "audience": t.get("audience") or ""},
+           "step": "script", "template": t["id"]}
+    if t["tool"] == "ad_image":
+        m = re.search(r'Headline:\s*"([^"]+)"', brief)
+        out["items"] = [m.group(1)] if m else [t["name"]]
+        out["body"] = re.sub(r'\s*Headline:\s*"[^"]+"\.?', "", brief).strip()
+        out["aspects"] = [t.get("aspect") or "9:16"]
+    else:
+        out["items"], out["body"] = [brief], ""
+        if t.get("duration"):
+            out["duration"] = t["duration"]
+    return out
 
 
 # ---------------------------------------------------------------- credits

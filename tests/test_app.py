@@ -217,8 +217,8 @@ with db.connect() as conn:
     ws1 = conn.execute("SELECT * FROM workspaces WHERE name='Rector & Stull'").fetchone()
 check(photo and ws1["product_name"] == "CoreJava", "brand kit and photo stored")
 
-r = a.get("/app/new?template=swap")
-check(b"CoreJava" in r.data and b"206" in r.data, "template fills product name and shows price")
+r = a.get("/app/new?template=swap", follow_redirects=True)
+check(b"CoreJava" in r.data and b"206" in r.data and b"cf-boot" in r.data, "a template opens Create with the product name and the price")
 
 r = a.post("/app/generate", data={"csrf": csrf(a), "tool": "photo_to_video", "template": "swap",
                                   "brief": "pour and stir", "photo": str(photo["id"]), "duration": "5"})
@@ -1501,8 +1501,10 @@ STRIPE_GET.clear()
 
 print("== pages")
 a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": ws1["id"], "plan": "scale"})
-for path in ("/app", "/app/library", "/app/brand", "/admin", "/app/new?tool=motion_copy", "/app/new?template=cost",
-             "/app/billing", "/app/new?template=hero", "/app/team", "/app/copy", "/app/optimize",
+for path in ("/app/new?tool=motion_copy", "/app/new?template=cost"):
+    check(a.get(path).status_code == 302, f"{path} redirects into Create")
+for path in ("/app", "/app/library", "/app/brand", "/admin", "/app/create?template=cost", "/app/create?type=motion",
+             "/app/billing", "/app/team", "/app/copy", "/app/optimize",
              "/app/copy?kind=landing&platform=landing", "/app/campaigns", "/app/seo", "/app/ad-accounts",
              "/app/ad-accounts/youtube", "/app/pages", "/app/links", "/app/forms", "/app/contacts", "/app/community"):
     check(a.get(path).status_code == 200, f"{path} renders")

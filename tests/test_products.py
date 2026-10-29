@@ -671,9 +671,40 @@ check(u.get(f"/app/create?from_ad={cad['id']}").status_code == 200 and other.get
       and "Mornings are chaos" not in other.get(f"/app/create?from_ad={cad['id']}").get_data(as_text=True),
       "another workspace can't read the proposal")
 
+print("== templates fit the product; nav (phase 4)")
+r = u.post(f"/app/products/{nc['id']}", data={"csrf": csrf(u), "name": "Night Cream", "category": "beauty"})
+r = u.post(f"/app/products/{gp['id']}", data={"csrf": csrf(u), "name": gp["name"], "category": "nonsense"})
+with db.connect() as conn:
+    ncr = conn.execute("SELECT * FROM products WHERE id=?", (nc["id"],)).fetchone()
+    gpr = conn.execute("SELECT * FROM products WHERE id=?", (gp["id"],)).fetchone()
+check(ncr["category"] == "beauty" and not gpr["category"], "the product's category is saved; unknown ones are dropped")
+check(products.guess_category("vitamin c serum, skincare") == "beauty" and products.guess_category("cold brew coffee") == "food_drink"
+      and products.guess_category("") == "", "category guessed from tags and name")
+u.post("/app/switch", data={"csrf": csrf(u), "product": str(nc["id"])})
+home = u.get("/app").get_data(as_text=True)
+check("Cost per cup" not in home and "The 2 PM moment" not in home and "Product hero" in home and "Flat lay" in home
+      and "/app/new" not in home and "/app/create?template=hero" in home, "a skincare product sees no coffee templates; templates open Create")
+with db.connect() as conn:
+    cof = products.create_product(conn, wsrow(uws), gp["brand_id"], {"name": "Dawn Roast", "tags": "coffee, morning"})
+r = u.get(f"/app/create?product={cof}")
+bt = json.loads(re.search(r'<script id="cf-boot" type="application/json">(.*?)</script>', r.get_data(as_text=True), re.S).group(1))
+check("two-pm" in bt["product"]["templates"] and "hero" in bt["product"]["templates"], "a coffee product gets the coffee templates as presets")
+nav = re.findall(r'<a class="nav[^"]*" href="([^"]+)"[^>]*>.*?<span>([^<]+)</span>', home, re.S)
+labels = [x[1] for x in nav]
+check(labels[:4] == ["Home", "Create", "Library", "Products"] and "Plan" in home and ">Launch<" in home.replace("\n", ""),
+      f"nav: Home, Create, Library, Products, then Plan / Grow / Launch / Settings ({labels[:6]})")
+check(u.get("/app/new").status_code == 302 and "← Home" in r.get_data(as_text=True), "old URLs redirect; Create links back Home")
+u.post("/app/switch", data={"csrf": csrf(u), "product": str(gp["id"])})
+
 print("== product pickers in every flow")
 r = u.get(f"/app/new?template=hero&product={nc['id']}")
-check("Night Cream" in r.get_data(as_text=True) and 'name="product"' in r.get_data(as_text=True), "templates fill from the picked product")
+check(r.status_code == 302 and "/app/create?" in r.headers["Location"] and "template=hero" in r.headers["Location"],
+      "the old template form redirects into Create")
+r = u.get(r.headers["Location"])
+bt = json.loads(re.search(r'<script id="cf-boot" type="application/json">(.*?)</script>', r.get_data(as_text=True), re.S).group(1))
+check(bt["product"]["name"] == "Night Cream" and bt["prefill"]["type"] == "image" and bt["prefill"]["items"] == ["Night Cream"]
+      and "Night Cream" in bt["prefill"]["body"] and bt["prefill"]["aspects"] == ["4:5"] and "Headline" not in bt["prefill"]["body"],
+      "a template is a preset in Create: type, shape, headline and scene filled from the picked product")
 u.post("/app/generate", data={"csrf": csrf(u), "tool": "ad_image", "template": "hero", "brief": "Cream on a shelf",
                               "product": str(nc["id"]), "photo": str(gph[0]["id"])})
 with db.connect() as conn:
@@ -690,7 +721,7 @@ with db.connect() as conn:
     camp = conn.execute("SELECT * FROM campaigns WHERE workspace_id=? ORDER BY id DESC", (uws,)).fetchone()
 check(camp["product_id"] == nc["id"] and plan_prompts and "Product: Night Cream" in str(plan_prompts[-1]),
       "the planner plans for the picked product")
-for path in ("/app/seo", "/app/pages", f"/app/new?tool=photo_to_video&product={gp['id']}", "/app/campaigns", "/app/copy"):
+for path in ("/app/seo", "/app/pages", "/app/campaigns", "/app/copy"):
     check('data-ppick' in u.get(path).get_data(as_text=True), f"{path} has the product picker")
 
 print("== pages render (phase 2)")

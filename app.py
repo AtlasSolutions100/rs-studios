@@ -88,14 +88,17 @@ app.jinja_env.globals.update(csrf_token=csrf_token, tools=catalog.TOOLS, packs=c
 # in groups (title or None, items). NAV is the flat list.
 NAV_GROUPS = [
     (None, [
-        ("studio", "Create", "create", None, ("studio", "new", "start", "create.index", "create.batch")),
-        ("campaigns.index", "Campaigns", "planner", "planner", ("campaigns.index", "campaigns.show")),
-        ("brand_kit", "Products", "brand", None, ("brand_kit", "products.new", "products.edit", "products.brand_edit")),
+        ("studio", "Home", "home", None, ("studio",)),
+        ("create.index", "Create", "create", None, ("create.index", "create.batch", "new", "start")),
         ("library", "Library", "library", None, ("library",)),
+        ("brand_kit", "Products", "brand", None, ("brand_kit", "products.new", "products.edit", "products.brand_edit")),
+    ]),
+    ("Plan", [
+        ("campaigns.index", "Campaigns", "planner", "planner", ("campaigns.index", "campaigns.show")),
         ("copy.studio", "Copy", "copy", "copy", ("copy.studio", "copy.run", "copy.optimize", "copy.optimized")),
+        ("seo.index", "SEO & AEO", "seo", "seo", ("seo.index", "seo.result")),
     ]),
     ("Grow", [
-        ("seo.index", "SEO & AEO", "seo", "seo", ("seo.index", "seo.result")),
         ("pages.index", "Pages", "pages", "pages", ("pages.index", "pages.edit")),
         ("pages.links", "Links", "links", "links", ("pages.links", "pages.link_detail")),
         ("forms.index", "Forms", "forms", "forms", ("forms.index", "forms.edit", "forms.submissions")),
@@ -103,7 +106,7 @@ NAV_GROUPS = [
         ("community.admin", "Community", "community", "community", ("community.admin", "community.course_edit",
                                                                      "community.lesson_edit")),
     ]),
-    (None, [
+    ("Launch", [
         ("adhub.index", "Ad accounts", "adhub", "adhub", ("adhub.index", "adhub.platform", "adhub.export_page")),
     ]),
     ("Settings", [
@@ -145,7 +148,7 @@ def localtime(iso, mode="datetime"):
 
 app.jinja_env.filters.update(first_upper=first_upper, localtime=localtime, usd=credits_usd,
                               failure_text=worker.failure_text)
-app.jinja_env.globals.update(credits_usd=credits_usd)
+app.jinja_env.globals.update(credits_usd=credits_usd, categories=products.CATEGORIES, category_of=products.category_of)
 
 
 # platform -> setup guide link (the planner's launch checklist links to these).
@@ -576,7 +579,7 @@ def _studio_page(form=None, status=200):
             pv_ok = first["preview"]["ok"]
         else:
             pv_ok = preview.status(conn, g.ws, g.user["email"])["ok"]
-    return render_template("studio.html", templates=catalog.TEMPLATES, templates_by_id=catalog.TEMPLATE_BY_ID,
+    return render_template("studio.html", templates=catalog.templates_for(brand()), templates_by_id=catalog.TEMPLATE_BY_ID,
                            recent=recent, outs=outs, photos=photos, brand=brand(), configured=hf.configured(),
                            first_run=not recent or bool(first), ad_types=types, preview_ok=pv_ok, angles=angles, batches=batches,
                            nprod=nprod, pphotos=pphotos, from_price=from_price, ad_type_names=catalog.AD_TYPE_BY_ID,
@@ -589,11 +592,12 @@ def _first_ad_context(conn, form):
     photos = conn.execute("SELECT * FROM photos WHERE workspace_id=? ORDER BY id DESC LIMIT 12",
                           (g.ws["id"],)).fetchall()
     kind = form.get("kind") or ("preview" if pv["ok"] else "image")
-    return {"tpls": catalog.first_run_templates(), "photos": photos, "form": form, "preview": pv, "kind": kind,
+    tpls = catalog.first_run_templates(brand())
+    return {"tpls": tpls, "photos": photos, "form": form, "preview": pv, "kind": kind,
             "price": catalog.price_credits("ad_image", batch=1), "presenters": [catalog.PRESENTER_BY_ID[x] for x in
                                                                                preview.PRESENTERS],
             "line": form.get("line") or "", "default_line": preview.DEFAULT_LINE, "pick": form.get("template") or
-            catalog.first_run_templates()[0]["id"], "seconds": preview.SECONDS,
+            tpls[0]["id"], "seconds": preview.SECONDS,
             "max_words": int(catalog.max_words(preview.SECONDS) * 1.2)}
 
 
@@ -610,23 +614,13 @@ def _outputs(conn, job_ids):
 @app.route("/app/new")
 @login_required
 def new():
+    """Retired (owner decision D1): templates are presets in Create now. Old links redirect."""
     tpl = catalog.TEMPLATE_BY_ID.get(request.args.get("template", ""))
-    tool = tpl["tool"] if tpl else request.args.get("tool", "ad_image")
-    if tool not in catalog.TOOLS or tool == "ugc_video":
-        abort(404)
-    pid = picked_product() or g.ws["product_id"]
-    b = brand(pid)
-    with db.connect() as conn:
-        photos = products.photos_for(conn, g.ws["id"], pid, everything=True)
-        refs = conn.execute("SELECT * FROM refs WHERE active=1 ORDER BY id DESC").fetchall()
-    prices = {
-        "ad_image": {n: catalog.price_credits("ad_image", batch=n) for n in (1, 2, 4)},
-        "photo_to_video": {d: catalog.price_credits("photo_to_video", duration=d) for d in (5, 10)},
-        "motion_copy": {r["id"]: catalog.price_credits("motion_copy", ref_seconds=r["seconds"] or 15) for r in refs},
-    }
-    return render_template("new.html", tpl=tpl, tool=tool, t=catalog.TOOLS[tool], photos=photos, refs=refs,
-                           brief=catalog.fill(tpl["brief"], b) if tpl else "", brand=b, prices=prices, pid=pid,
-                           pphotos={p["id"] for p in photos if p["product_id"] == pid})
+    pid = picked_product()
+    if tpl:
+        return redirect(url_for("create.index", template=tpl["id"], product=pid))
+    typ = catalog.TOOL_AD_TYPE.get(request.args.get("tool", ""), "image")
+    return redirect(url_for("create.index", type=typ, product=pid))
 
 
 @app.route("/app/generate", methods=["POST"])
@@ -694,8 +688,8 @@ def start():
     product = (f.get("product_name") or "").strip()[:80]
     brand_name = (f.get("brand_name") or "").strip()[:80]
     audience = (f.get("audience") or "").strip()[:200]
-    tpls = {t["id"]: t for t in catalog.first_run_templates()}
-    tpl = tpls.get(f.get("template") or "")
+    tpl = catalog.TEMPLATE_BY_ID.get(f.get("template") or "")
+    tpl = tpl if tpl and tpl["tool"] == "ad_image" else None
 
     def again(msg):
         flash(msg)

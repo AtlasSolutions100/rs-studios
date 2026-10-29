@@ -84,7 +84,8 @@ def state_for(conn, pid):
                         "audience": a["audience"] or ""} for a in angles],
             "scripts": [{"id": s["id"], "ad_type": s["ad_type"], "title": s["title"] or "", "hook": s["hook"] or "",
                          "body": s["body"], "items": json.loads(s["on_screen"] or "{}").get("items") or
-                         ([s["hook"]] if s["hook"] else [])} for s in scripts]}
+                         ([s["hook"]] if s["hook"] else [])} for s in scripts],
+            "templates": [t["id"] for t in catalog.templates_for(p)]}
 
 
 @bp.route("/app/create")
@@ -111,6 +112,9 @@ def index():
         if request.args.get("retry", type=int):
             prefill = _from_job(conn, request.args.get("retry", type=int)) or prefill
             pid = prefill.get("product") or pid
+        tpl = catalog.TEMPLATE_BY_ID.get(request.args.get("template") or "")
+        if tpl and not prefill:
+            prefill = catalog.template_prefill(tpl, brand(pid if _product_row(conn, pid) is not None else None))
         if request.args.get("type") in catalog.AD_TYPE_BY_ID:
             prefill.setdefault("type", request.args["type"])
         if request.args.get("angle", type=int):
@@ -129,6 +133,8 @@ def index():
               "motion_copy": {r["id"]: catalog.price_credits("motion_copy", ref_seconds=r["seconds"] or 15) for r in refs}}
     boot = {"product": st, "prefill": prefill, "types": catalog.ad_types(), "caps": catalog.capabilities(),
             "presenters": catalog.PRESENTERS, "voices": catalog.VOICES, "prices": prices,
+            "templates": [{"id": t["id"], "name": t["name"], "line": t["line"], "tool": t["tool"],
+                           "preview": url_for("static", filename="previews/" + t["preview"] + ".jpg")} for t in catalog.TEMPLATES],
             "refs": [{"id": r["id"], "title": r["title"], "seconds": r["seconds"], "url": url_for("ref_video", rid=r["id"])}
                      for r in refs],
             "durations": {"ugc_video": catalog.TOOLS["ugc_video"]["durations"], "photo_to_video": [5, 10]},

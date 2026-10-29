@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% from "_macros.html" import status, job_thumb %}
-{% block title %}Create · Campaignify{% endblock %}
+{% block title %}Home · Campaignify{% endblock %}
 {% block body %}
 {% if first_run and first %}
 <div class="page full">
@@ -11,7 +11,7 @@
 {% else %}
 <div class="page">
   <section>
-    <p class="eyebrow">Create · {{ brand.name or 'Your brand' }}</p>
+    <p class="eyebrow">Home · {{ brand.name or 'Your brand' }}</p>
     <h1>{% if brand.product %}Make ads for <span class="gold">{{ brand.product }}</span>{% else %}Make this <span class="gold">week's ads</span>{% endif %}</h1>
     <p class="muted">Pick a format, choose an angle, get the script written, and see the price before anything runs. Every line is checked against the rules and your approved claims.</p>
     {% if preview_ok %}<a class="firstrun" href="{{ url_for('studio', preview=1) }}"><span class="lp-num">✦</span><div><b>Your free talking-video preview is waiting</b><span class="muted small">A presenter says one line about your product: {{ preview_seconds }} seconds, watermarked, free once.</span></div><span class="btn sm">Make it</span></a>{% endif %}
@@ -48,12 +48,12 @@
     <div class="section-h"><h2>Templates</h2><span class="muted small">Angles that already work, one click to a brief</span></div>
     <div class="search">
       <label class="field" style="margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="q" type="search" placeholder="Search templates, styles, or ideas…" aria-label="Search templates"></label>
-      <a class="btn dark" href="{{ url_for('new', tool='ad_image') }}">Blank image ad</a>
+      <a class="btn dark" href="{{ url_for('create.index', type='image') }}">Blank image ad</a>
     </div>
     <div class="tgrid" id="tgrid">
       {% for t in templates %}
       {% set tool = tools[t.tool] %}
-      <a class="tcard" href="{{ url_for('new', template=t.id) }}" data-hoverplay data-search="{{ (t.name ~ ' ' ~ t.line ~ ' ' ~ tool.name)|lower }}">
+      <a class="tcard" href="{{ url_for('create.index', template=t.id) }}" data-hoverplay data-search="{{ (t.name ~ ' ' ~ t.line ~ ' ' ~ tool.name)|lower }}">
         <div class="thumb">
           <video src="{{ url_for('static', filename='previews/' ~ t.preview ~ '.mp4') }}" poster="{{ url_for('static', filename='previews/' ~ t.preview ~ '.jpg') }}" muted loop playsinline preload="none"></video>
           <span class="play"><svg viewBox="0 0 10 10"><path d="M2 1l7 4-7 4z"/></svg></span>

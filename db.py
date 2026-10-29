@@ -387,6 +387,8 @@ COLUMNS = [
     ("jobs", "finished_at", "TEXT"),
     ("jobs", "parent_job_id", "INTEGER"),
     ("jobs", "deleted_at", "TEXT"),
+    # IA cleanup (phase 4): what kind of product, so templates fit
+    ("products", "category", "TEXT"),
 ]
 
 

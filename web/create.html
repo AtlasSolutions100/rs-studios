@@ -1,10 +1,11 @@
 {% extends "base.html" %}{% block title %}Create an ad · Campaignify{% endblock %}
 {% block body %}
 <div class="page full cflow">
-  <p style="margin:0 0 12px"><a href="{{ url_for('studio') }}">← Create</a></p>
+  <p style="margin:0 0 12px"><a href="{{ url_for('studio') }}">← Home</a></p>
   <p class="eyebrow">Create</p>
   <h1 class="cf-title">Make ads for <span class="gold" data-pname>{{ boot.product.name if boot.product else 'your product' }}</span></h1>
   {% if boot.prefill.from_ad %}<div class="flash">Started from your campaign plan. Change anything, then generate.</div>{% endif %}
+  {% if boot.prefill.template %}<div class="flash">Started from the “{{ boot.prefill.angle.title }}” template. Change anything, then see the price.</div>{% endif %}
 
   <div class="cf">
     <div class="cf-main">
@@ -40,6 +41,7 @@
             {% endfor %}
           </div>
           {% if not boot.caps.talking %}<p class="small muted">Talking presenter videos are switched off right now.</p>{% endif %}
+          <div class="cf-presets" data-presets-wrap hidden><p class="small muted" style="margin:16px 0 8px">Or start from a template <span class="dim">(fills in the type, shape and a first script)</span></p><div class="cf-presetrow" data-presets></div></div>
           <div class="cf-next"><button type="button" class="btn" data-next>Next: angle</button></div>
         </div>
       </section>
@@ -295,8 +297,14 @@
     });
     $('[data-pname]').textContent = S.product ? S.product.name : 'your product';
     var pn = $('#s-product [data-next]'); if(pn) pn.hidden = !S.product;
-    summaries(); renderAngles(); renderScript(); renderCast(); renderFormat(); side(); showTotals();
+    summaries(); renderAngles(); renderScript(); renderCast(); renderFormat(); side(); presets(); showTotals();
     if(S.step === 'review') quote(true); else liveQuote();
+  }
+  function presets(){
+    var ids = S.product && S.product.templates || [], box = $('[data-presets]');
+    var list = B.templates.filter(function(t){ return ids.indexOf(t.id) > -1 && (t.tool !== 'ugc_video'); });
+    $('[data-presets-wrap]').hidden = !list.length;
+    box.innerHTML = list.map(function(t){ return '<a class="cf-preset" href="?template=' + encodeURIComponent(t.id) + '&product=' + S.product.id + '"><img src="' + esc(t.preview) + '" alt="" loading="lazy"><span><b>' + esc(t.name) + '</b><span class="small muted">' + esc(t.line) + '</span></span></a>'; }).join('');
   }
   function summaries(){
     var t = T();
@@ -307,7 +315,7 @@
     function short(x){ var w = x.split(/\s+/); return w.length > 4 ? w.slice(0, 4).join(' ') + '…' : x; }
     $('[data-sum=script]').textContent = items.length ? plural(items.length, noun()) + ': ' + items.slice(0, 2).map(function(x){ return '“' + short(x) + '”'; }).join(', ') + (items.length > 2 ? ', +' + (items.length - 2) : '') + (kind() === 'spoken' ? ' · ' + S.duration + ' s' : '') : '';
     $('[data-sum=cast]').textContent = S.type === 'ugc' ? S.presenters.map(function(id){ return pres(id).name; }).join(', ') : S.voices.map(function(id){ return voice(id).name; }).join(', ');
-    $('[data-sum=format]').textContent = [S.aspects.join(', '), kind() !== 'spoken' && S.type === 'product_video' ? S.duration + ' s' : '', S.type === 'image' ? plural(+S.versions, 'version') + ' each' : '', plural(S.photos.length, 'photo')].filter(Boolean).join(' · ');
+    $('[data-sum=format]').textContent = [S.aspects.join(', '), kind() !== 'spoken' && S.type === 'product_video' ? S.duration + ' s' : '', S.type === 'image' ? plural(+S.versions, 'version') + ' each' : '', S.photos.length ? plural(S.photos.length, 'photo') : ''].filter(Boolean).join(' · ');
   }
   function pres(id){ return B.presenters.filter(function(p){ return p.id === id; })[0] || {name: id}; }
   function voice(id){ return B.voices.filter(function(v){ return v.id === id; })[0] || {name: id}; }
