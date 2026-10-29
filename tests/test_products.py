@@ -118,6 +118,9 @@ check(w3["brand_id"] and len(p3) == 1 and p3[0]["name"] == "GlowSerum", "a works
 db.init()
 with db.connect() as conn:
     check(conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 3, "running the migration again adds nothing")
+backups = [f for f in os.listdir(TMP) if f.startswith("rs.db.pre-products-")]
+check(len(backups) == 1 and sqlite3.connect(os.path.join(TMP, backups[0])).execute(
+    "SELECT product_name FROM workspaces WHERE id=1").fetchone()[0] == "Sunrise Blend", "a copy of the database was kept before migrating")
 
 # ---------------------------------------------------------------- the app
 import app as appmod  # noqa: E402

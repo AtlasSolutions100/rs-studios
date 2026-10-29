@@ -394,7 +394,27 @@ def init():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_p ON jobs(workspace_id, product_id, id)")
         conn.commit()
         if not conn.execute("SELECT 1 FROM meta WHERE key='products_v1'").fetchone():
-            migrate_products(conn)
+            _backup(conn, "pre-products")
+            try:
+                migrate_products(conn)
+            except Exception:  # noqa: BLE001 — never keep the app from starting; it retries next start
+                conn.rollback()
+                import logging
+                logging.getLogger("campaignify").exception("products migration failed; rolled back")
+
+
+def _backup(conn, tag: str):
+    """A consistent copy of the database next to it before a data migration
+    (only when there is data to protect)."""
+    try:
+        if not conn.execute("SELECT 1 FROM workspaces LIMIT 1").fetchone():
+            return
+        dest = f"{DB_PATH}.{tag}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+        with sqlite3.connect(dest) as out:
+            conn.backup(out)
+    except Exception:  # noqa: BLE001
+        import logging
+        logging.getLogger("campaignify").exception("database backup before %s failed", tag)
 
 
 def migrate_products(conn):

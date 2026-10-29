@@ -521,7 +521,7 @@ def new():
         abort(404)
     b = brand()
     with db.connect() as conn:
-        photos = conn.execute("SELECT * FROM photos WHERE workspace_id=? ORDER BY id DESC", (g.ws["id"],)).fetchall()
+        photos = products.photos_for(conn, g.ws["id"], g.ws["product_id"], everything=True)
         refs = conn.execute("SELECT * FROM refs WHERE active=1 ORDER BY id DESC").fetchall()
     prices = {
         "ad_image": {n: catalog.price_credits("ad_image", batch=n) for n in (1, 2, 4)},
