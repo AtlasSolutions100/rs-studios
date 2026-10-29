@@ -932,3 +932,30 @@ dialog.cdlg::backdrop{background:rgba(0,0,0,.55)}
 .cdlg-go{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;flex-wrap:wrap}
 .btn.danger{background:var(--bad);color:#fff;box-shadow:none}
 time[data-local]{white-space:nowrap}
+
+/* ---------------------------------------------------------------- Create: running total, line picks, phone bar */
+.cf-formula{margin:16px 0 0;font-size:14px;display:flex;flex-direction:column;gap:3px}
+.cf-formula:empty{display:none}
+.cf-formula .bad{color:var(--bad)}
+.cf-chipp{font-weight:500;opacity:.72;margin-left:2px}
+.choice:has(input:checked) .cf-chipp{opacity:.85}
+.cf-ierr{margin:6px 0 0;color:var(--bad);font-size:13px;flex-basis:100%}
+.cf-items li{flex-wrap:wrap}
+.cf-items [aria-invalid=true]{border-color:var(--bad)}
+.cf-lines li{align-items:center}
+.cf-lines li label{display:flex;align-items:center;gap:10px;min-width:0;margin:0;font-weight:400;color:var(--ink);cursor:pointer;flex:1}
+.cf-lines li label>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.cf-lines li input{width:16px;height:16px;flex:none;accent-color:var(--accent)}
+.cf-lines li.off{opacity:.55}
+.cf-lines li.off b{text-decoration:line-through}
+.cf-many{display:flex;gap:10px;align-items:flex-start;margin:0 0 14px;font-weight:600;color:var(--ink);cursor:pointer}
+.cf-many input{width:18px;height:18px;margin-top:1px;flex:none;accent-color:var(--accent)}
+.cf-go-btns{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.cf-pres.off{opacity:.5;cursor:not-allowed}
+.cf-bar{display:none}
+@media (max-width:760px){
+  .cflow{padding-bottom:84px}
+  .cf-bar:not([hidden]){display:flex;position:fixed;left:12px;right:12px;bottom:12px;z-index:30;align-items:center;justify-content:space-between;gap:12px;padding:10px 10px 10px 16px;border:1px solid var(--line);border-radius:16px;background:var(--panel);box-shadow:var(--shadow);font-size:14px}
+  .cf-bar>div{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cf-go-btns{width:100%}.cf-go-btns .btn{flex:1}
+}
