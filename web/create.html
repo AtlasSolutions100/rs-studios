@@ -132,7 +132,7 @@
           <label class="cf-many" data-many-wrap hidden><input type="checkbox" data-many> <span data-many-text></span></label>
           <div class="flash bad" data-err role="alert" hidden></div>
           <div class="cf-go">
-            <div><span class="muted small">Total</span><div class="price" aria-live="polite"><span data-total>–</span></div><span class="muted small"><span data-total-usd></span>credits · you have <b data-bal>{{ '{:,}'.format(boot.balance) }}</b></span></div>
+            <div><span class="muted small">Total</span><div class="price" aria-live="polite"><span data-total>–</span></div><span class="muted small">credits<span data-total-usd></span> · you have <b data-bal>{{ '{:,}'.format(boot.balance) }}</b></span></div>
             <div class="cf-go-btns"><button type="button" class="btn dark" data-one hidden>Make 1 first</button><button type="button" class="btn lg" data-generate disabled>Generate</button></div>
           </div>
           <p class="dim small" style="margin:12px 0 0">Nothing runs until you press Generate. Failed videos are refunded automatically. Scripts and the angle are saved to the product. “Make 1 first” makes only the first ticked line; the rest wait on the batch page.</p>
@@ -427,7 +427,7 @@
       $('[data-side-count]').textContent = q.count ? what(q.count) + ' · ' + usd(q.total) : (q.error || 'Pick the steps to see a price');
       var err = $('[data-err]'); err.hidden = !q.error;
       err.innerHTML = q.error ? esc(q.error) + (q.step && q.step !== 'review' && STEP_NAMES[q.step] ? ' <button type="button" class="linkbtn" data-goto="' + q.step + '">Fix it in ' + STEP_NAMES[q.step] + ' →</button>' : '') : '';
-      $('[data-total]').textContent = q.count ? n(q.total) : '–'; $('[data-total-usd]').textContent = q.count ? usd(q.total) + ' · ' : ''; setBal(q.balance);
+      $('[data-total]').textContent = q.count ? n(q.total) : '–'; $('[data-total-usd]').textContent = q.count ? ' · ' + usd(q.total) : ''; setBal(q.balance);
       var e = est();
       $('[data-matrix]').innerHTML = e && q.every ? '<b>' + esc(e.factors.join(' × ')) + '</b> = <b class="gold">' + esc(what(q.every)) + '</b>' + (q.count !== q.every ? ' <span class="muted">· ' + q.count + ' ticked</span>' : '') : '';
       $('[data-lines-hint]').hidden = !(q.lines && q.lines.length > 1);
