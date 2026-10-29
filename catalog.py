@@ -99,9 +99,9 @@ TEMPLATES = [
      "brief": "Tall glass of iced coffee on a sunny patio table next to the {product} bag. Ice, "
               "condensation, a few coffee beans. Headline: \"Iced in 30 seconds.\"",
      "audience": "Women 22-40 who love iced coffee"},
-    {"id": "cost", "fits": "coffee", "preview": "cost", "line": "Café cup vs. $2.33 a morning", "name": "Cost per cup", "tool": "ad_image", "aspect": "1:1",
+    {"id": "cost", "fits": "coffee", "preview": "cost", "line": "Café cup vs. your cup at home", "name": "Cost per cup", "tool": "ad_image", "aspect": "1:1",
      "brief": "Split layout: a $7 café cup on the left, a mug made with {product} on the right with "
-              "the bag behind it. Headline: \"$2.33 a morning on Subscribe & Save.\"",
+              "the bag behind it. Headline: \"Skip the café line, keep the café taste.\"",
      "audience": "Budget-minded daily coffee drinkers"},
     {"id": "gym", "fits": "coffee", "preview": "gym", "line": "Packed for the early gym", "name": "Gym bag", "tool": "ad_image", "aspect": "9:16",
      "brief": "Gym bag packed for an early morning: shaker, towel, earbuds and the {product} bag. "
