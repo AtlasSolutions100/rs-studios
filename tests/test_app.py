@@ -124,7 +124,7 @@ print("== accounts")
 x = client()
 r = x.get("/")
 html = r.get_data(as_text=True)
-check(r.status_code == 200 and "The ad studio for" in html and "Start free" in html, "logged out: / is the landing page")
+check(r.status_code == 200 and "The AI marketing studio" in html and "Start free" in html, "logged out: / is the landing page")
 for section in ('id="journey"', 'id="gallery"', 'id="reps"', 'id="pricing"', 'id="faq"', "© 2026 Campaignify",
                 "/privacy", "/terms", "$29", "$79", "$199", "Checkout coming soon"):
     check(section in html, f"landing has {section}")
