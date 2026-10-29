@@ -48,6 +48,7 @@
     <button type="button" class="mtop-btn" data-nav-open aria-label="Open menu" aria-controls="side" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <a class="mtop-logo" href="{{ url_for('studio') }}" aria-label="Campaignify home">{% include "_wordmark.svg" %}</a>
     {% if switcher is defined %}<button type="button" class="sw-btn compact" data-sw-open aria-haspopup="dialog" aria-controls="sw-panel" aria-label="Switch product">{{ thumb(ap) }}<span class="sw-txt"><b>{{ ap.name if ap else 'Add a product' }}</b></span><svg class="sw-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M7 10l5 5 5-5"/></svg></button>{% endif %}
+    {% if has_endpoint is defined and has_endpoint('assistant.page') and assistant_on() %}<button type="button" class="mtop-btn mtop-help" data-help-open aria-label="Help me (setup guide)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.6L19.5 9l-5.7 1.6L12 16l-1.8-5.4L4.5 9l5.7-1.4z"/></svg></button>{% endif %}
   </header>
   <aside class="side" id="side">
     <div class="side-top">
@@ -72,7 +73,7 @@
     {% if g.user.is_admin %}<a class="nav {{ 'on' if request.endpoint=='admin' }}" href="{{ url_for('admin') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">{{ ICONS['admin']|safe }}</svg><span>Admin</span></a>{% endif %}
     </nav>
     <div class="grow"></div>
-    {% block side_help %}{% if has_endpoint is defined and has_endpoint('assistant.page') %}<button type="button" class="helpbtn" data-help-open><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.6 4.8L18.5 9l-4.9 1.4L12 15l-1.6-4.6L5.5 9l4.9-1.2z"/><path d="M18 15l.7 1.9 1.8.6-1.8.7L18 20l-.7-1.8-1.8-.7 1.8-.6z"/></svg>Help me<kbd>?</kbd></button>{% endif %}{% endblock %}
+    {% block side_help %}{% if has_endpoint is defined and has_endpoint('assistant.page') and assistant_on() %}<button type="button" class="helpbtn" data-help-open><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.6 4.8L18.5 9l-4.9 1.4L12 15l-1.6-4.6L5.5 9l4.9-1.2z"/><path d="M18 15l.7 1.9 1.8.6-1.8.7L18 20l-.7-1.8-1.8-.7 1.8-.6z"/></svg>Help me<kbd>?</kbd></button>{% endif %}{% endblock %}
     <a class="pill" href="{{ url_for('billing_page') }}" title="Credits left: buy more"><i></i>{{ '{:,}'.format(balance()) }} credits</a>
     <a class="planchip" href="{{ url_for('billing_page') }}">{{ plans.plan(g.ws).name }} plan{% if plans.plan_code(g.ws) == 'free' %} · <b>Upgrade</b>{% endif %}</a>
     <div class="side-foot">
@@ -87,6 +88,11 @@
   </main>
 </div>
 
+{% if has_endpoint is defined and has_endpoint('assistant.page') and assistant_on() %}
+{% if request.endpoint != 'assistant.page' %}{% with inline=False %}{% include "_assistant.html" %}{% endwith %}{% endif %}
+<script>window.CFY_ASST = {{ {'csrf': csrf_token(), 'product': g.ws.product_id, 'urls': {'thread': url_for('assistant.thread'), 'say': url_for('assistant.say'), 'action': url_for('assistant.action'), 'reset': url_for('assistant.reset'), 'ok': url_for('assistant.ok_paid'), 'page': url_for('assistant.page'), 'upload': url_for('upload_photos')}}|tojson }};</script>
+<script src="{{ url_for('static', filename='assistant.js') }}" defer></script>
+{% endif %}
 {% if switcher is defined %}
 <div class="sw-panel" id="sw-panel" role="dialog" aria-modal="false" aria-label="Switch brand or product" hidden>
   <div class="sw-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" placeholder="Find a product or brand" aria-label="Find a product or brand" data-sw-q autocomplete="off"><kbd>Esc</kbd></div>

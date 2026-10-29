@@ -853,3 +853,54 @@ kbd{font:600 10.5px var(--body);color:var(--dim);border:1px solid var(--line);bo
 .photo.other{opacity:.75}
 @media (max-width:760px){.cf-sec{scroll-margin-top:72px}}
 .typecard .thumb video,.typecard .thumb img{object-position:center 30%}
+
+/* ---------------------------------------------------------------- setup guide (assistant) */
+.asst{display:flex;flex-direction:column;background:var(--panel);min-height:0}
+.asst[hidden]{display:none}
+.asst.drawer{position:fixed;z-index:70;top:0;right:0;bottom:0;width:min(420px,100vw);border-left:1px solid var(--line);box-shadow:var(--shadow),-20px 0 60px -30px rgba(0,0,0,.5)}
+.asst.inline{height:min(720px,calc(100vh - 120px));padding:0;overflow:hidden}
+.asst-h{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.asst-h>div{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.asst-icon{display:grid;place-items:center;width:34px;height:34px;flex:none;border-radius:10px;background:rgba(var(--accent-rgb),.16);color:var(--gold2)}
+.asst-icon svg{width:18px;height:18px}
+.asst-x{width:34px;height:34px;display:grid}
+.asst-prog{list-style:none;margin:0;padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid var(--line)}
+.asst-prog li{display:inline-flex;align-items:center;gap:4px;font:600 11.5px var(--body);color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:3px 9px}
+.asst-prog li svg{width:12px;height:12px}
+.asst-prog li.done{color:var(--gold2);border-color:rgba(var(--accent-rgb),.5);background:rgba(var(--accent-rgb),.08)}
+.asst-prog li.now{color:var(--ink);border-color:var(--ink)}
+.asst-log{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}
+.asst-msg{max-width:88%;padding:10px 13px;border-radius:14px;font-size:14.5px;line-height:1.5;overflow-wrap:anywhere}
+.asst-msg.assistant{align-self:flex-start;background:var(--chipbg);border:1px solid var(--line);border-bottom-left-radius:4px}
+.asst-msg.user{align-self:flex-end;background:var(--accent);color:var(--on-accent);border-bottom-right-radius:4px}
+.asst-msg.note{align-self:center;max-width:100%;font-size:12.5px;color:var(--muted);background:none;padding:2px 8px;text-align:center}
+.asst-msg.note.err{color:var(--bad)}
+.asst-typing{display:flex;gap:4px;padding:12px 14px}
+.asst-typing span{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:pulse 1s infinite}
+.asst-typing span:nth-child(2){animation-delay:.15s}.asst-typing span:nth-child(3){animation-delay:.3s}
+.acard{align-self:stretch;display:flex;flex-direction:column;gap:6px;padding:12px 14px;border:1px solid rgba(var(--accent-rgb),.5);border-radius:14px;background:rgba(var(--accent-rgb),.05)}
+.acard.done,.acard.cancelled,.acard.failed{border-color:var(--line);background:transparent}
+.acard.bare{border:0;background:none;padding:0}
+.acard .row{margin-top:4px}
+.acard-url{overflow-wrap:anywhere}
+.acard .ok{color:var(--ok)}
+.acard-claims{list-style:none;padding:0;margin:4px 0;display:grid;gap:6px}
+.acard-claims label{display:flex;gap:8px;align-items:flex-start;margin:0;color:var(--ink);font-weight:400;font-size:14px;cursor:pointer}
+.acard-claims input{margin-top:3px;accent-color:#7DBA00;width:16px;height:16px;flex:none}
+.acard-chips{display:flex;flex-wrap:wrap;gap:6px}
+.acard-chips .choice{font-size:13px;padding:7px 12px}
+.acard-chips .choice:hover{border-color:var(--accent);color:var(--ink)}
+.acard input[type=file]{font-size:13px}
+.asst-pay{padding:12px 16px;border-top:1px solid var(--line);background:rgba(248,193,62,.06)}
+.asst-pay p{margin:0 0 8px}
+.asst-in{display:flex;gap:8px;align-items:flex-end;padding:12px 14px;border-top:1px solid var(--line)}
+.asst-in[hidden]{display:none}
+.asst-in textarea{min-height:44px;max-height:140px;resize:none;padding:11px 12px;border-radius:12px}
+.asst-in .btn{height:44px}
+.asst.busy .asst-in textarea{opacity:.7}
+.asst-foot{margin:0;padding:0 16px 12px}
+.setup-grid{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:32px;align-items:start}
+.setup-intro{padding-top:10px}
+@media (max-width:1000px){.setup-grid{grid-template-columns:minmax(0,1fr)}.asst.inline{height:min(640px,calc(100vh - 100px))}}
+@media (max-width:760px){.asst.drawer{width:100vw}.asst-msg{max-width:94%}}
+@media (max-width:760px){.mtop .sw-btn{max-width:44%}.mtop-help{color:var(--gold2)}}

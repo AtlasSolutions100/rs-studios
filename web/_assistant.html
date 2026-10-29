@@ -1,0 +1,21 @@
+{# The setup guide chat: a drawer on every app screen, inline on /app/setup. #}
+<section class="asst {{ 'inline panel' if inline else 'drawer' }}" data-asst data-screen="{{ request.endpoint or '' }}" {{ 'hidden' if not inline }} aria-label="Setup guide" {% if not inline %}role="dialog"{% endif %}>
+  <header class="asst-h">
+    <span class="asst-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.6L19.5 9l-5.7 1.6L12 16l-1.8-5.4L4.5 9l5.7-1.4z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg></span>
+    <div><b>Setup guide</b><span class="small muted" data-asst-step>Brand, product, claims, first ad</span></div>
+    <button type="button" class="linkbtn" data-asst-reset>Start over</button>
+    {% if not inline %}<button type="button" class="mtop-btn asst-x" data-asst-close aria-label="Close the guide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>{% endif %}
+  </header>
+  <ol class="asst-prog" data-asst-prog aria-label="Setup progress"></ol>
+  <div class="asst-log" data-asst-log aria-live="polite"></div>
+  <div class="asst-pay" data-asst-pay hidden>
+    <p class="small">Your free setup help is used up. Replies now cost what they use, about <b data-asst-per></b> credits each. Cards still ask before anything else is spent.</p>
+    <div class="row"><button type="button" class="btn sm" data-asst-payok>Continue</button><a class="btn dark sm" href="{{ url_for('brand_kit') }}">Do it myself</a></div>
+  </div>
+  <form class="asst-in" data-asst-form>
+    <label class="sr" for="asst-t-{{ 'i' if inline else 'd' }}">Message the setup guide</label>
+    <textarea id="asst-t-{{ 'i' if inline else 'd' }}" rows="1" maxlength="1500" data-asst-text placeholder="Type a reply…"></textarea>
+    <button class="btn sm" data-asst-send>Send</button>
+  </form>
+  <p class="asst-foot small dim" data-asst-foot></p>
+</section>

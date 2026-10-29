@@ -75,6 +75,7 @@ import llm  # noqa: E402
 import platforms as platforms_mod  # noqa: E402
 
 app.jinja_env.globals.update(csrf_token=csrf_token, tools=catalog.TOOLS, packs=catalog.PACKS, llm_on=llm.configured,
+                             assistant_on=llm.anthropic_ready,
                              PLATFORMS=platforms_mod.PLATFORMS, PLATFORM_ORDER=platforms_mod.ORDER,
                              COPY_KINDS=platforms_mod.KINDS,
                              starter_credits=catalog.starter_credits, rates=catalog.rates,
@@ -489,6 +490,8 @@ def signup():
             csrf_token()
         if not owner:
             db.hit(f"signup:{ip}")
+        if dest == "start" and llm.anthropic_ready():
+            dest = "assistant.page"   # the setup guide; /app/start stays as the quick form
         return redirect(url_for(dest))
     return render_template("signup.html", invite=code, owner=owner, email="", name="")
 
@@ -1453,6 +1456,7 @@ def ref_video(rid):
 
 import product_routes  # noqa: E402
 import create_routes  # noqa: E402
+import assistant_routes  # noqa: E402
 import campaign_routes  # noqa: E402
 import copy_routes  # noqa: E402  (blueprints import core, never app)
 import seo_routes  # noqa: E402
@@ -1463,6 +1467,7 @@ import community_routes  # noqa: E402
 
 app.register_blueprint(product_routes.bp)
 app.register_blueprint(create_routes.bp)
+app.register_blueprint(assistant_routes.bp)
 app.register_blueprint(copy_routes.bp)
 app.register_blueprint(campaign_routes.bp)
 app.register_blueprint(seo_routes.bp)
