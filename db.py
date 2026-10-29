@@ -383,6 +383,10 @@ CREATE INDEX IF NOT EXISTS idx_msg_provider ON messages(provider_id);
 CREATE TABLE IF NOT EXISTS message_links (
     id INTEGER PRIMARY KEY AUTOINCREMENT, message_id INTEGER NOT NULL, token TEXT NOT NULL UNIQUE, url TEXT NOT NULL,
     clicks INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS sender_domains (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, domain TEXT NOT NULL, local_part TEXT NOT NULL DEFAULT 'hello',
+    resend_domain_id TEXT, status TEXT NOT NULL DEFAULT 'pending', dns_json TEXT, created_at TEXT NOT NULL, verified_at TEXT,
+    checked_at TEXT);
 CREATE TABLE IF NOT EXISTS webhook_events (
     provider TEXT NOT NULL, event_id TEXT NOT NULL, kind TEXT, at TEXT NOT NULL, PRIMARY KEY (provider, event_id));
 CREATE TABLE IF NOT EXISTS job_reviews (
