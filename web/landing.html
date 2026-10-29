@@ -83,15 +83,35 @@
     </div>
     <div class="lp-gallery">
       {% for gi in gallery %}
-      <figure class="lp-g">
+      <figure class="lp-g{{ ' talk' if gi.talk }}">
         <div class="lp-g-media">
           <video data-inview muted loop playsinline preload="none" data-poster="{{ url_for('static', filename=gi.poster) }}" aria-label="{{ gi.alt }}"><source src="{{ url_for('static', filename=gi.src) }}" type="video/mp4"></video>
+          {% if gi.talk %}<span class="lp-g-badge">AI presenter</span>
+          <button type="button" class="lp-snd" aria-pressed="false" aria-label="Play {{ gi.title|lower }} with sound"><svg class="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M22 9l-6 6M16 9l6 6"/></svg><svg class="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13"/></svg></button>{% endif %}
         </div>
         <figcaption><b>{{ gi.title }}</b><span>{{ gi.tool }}</span></figcaption>
       </figure>
       {% endfor %}
     </div>
-    <p class="small dim" style="margin-top:18px">Examples generated with AI for this page. The products are invented and unbranded; none of this is customer work or a customer's result.</p>
+    <p class="small dim" style="margin-top:18px">Examples generated with AI for this page. The products, brands, presenters and voices are invented; none of this is customer work or a customer's result.</p>
+    <script>
+    // Presenter clips: one at a time with sound; everything else stays muted.
+    (function(){
+      var btns = [].slice.call(document.querySelectorAll('.lp-g .lp-snd'));
+      function off(b){ var v = b.parentNode.querySelector('video'); v.muted = true; b.setAttribute('aria-pressed', 'false'); }
+      btns.forEach(function(b){
+        var v = b.parentNode.querySelector('video');
+        b.addEventListener('click', function(){
+          if (!v.muted) { off(b); return; }
+          btns.forEach(function(o){ if (o !== b) off(o); });
+          if (v.dataset.poster && !v.poster) v.poster = v.dataset.poster;
+          v.muted = false; v.currentTime = 0; b.setAttribute('aria-pressed', 'true');
+          var p = v.play(); if (p && p.catch) p.catch(function(){ off(b); });
+        });
+        v.addEventListener('pause', function(){ if (!v.muted) off(b); });
+      });
+    })();
+    </script>
   </div>
 </section>
 

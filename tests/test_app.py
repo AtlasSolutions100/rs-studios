@@ -132,6 +132,16 @@ check(not re.search(r"higgsfield", html, re.I), "landing never names the vendor"
 check(not re.search(r"\$\s?\d[\d,]*\s*(a|per)\s*(week|month)|financial freedom|passive income|six figures", html, re.I),
       "landing makes no income or earnings claims")
 check(html.count("previews/") >= 8 and "site/phones.mp4" in html, "gallery shows the example ads")
+gal = html.split('id="gallery"', 1)[1].split("</section>", 1)[0]
+check(gal.index("site/show-amber.mp4") < gal.index("previews/ad_image.mp4") and gal.count("site/show-") >= 10,
+      "the studio showcase clips lead the gallery")
+talk = [g for g in appmod.GALLERY if g.get("talk")]
+check(len(talk) >= 4 and gal.count('class="lp-snd"') == len(talk) and gal.count('class="lp-g-badge">AI presenter</span>') == len(talk),
+      "presenter clips are labeled as AI and get a sound button")
+check(all(g["src"].startswith(("site/", "previews/")) and g.get("alt") for g in appmod.GALLERY), "gallery items have alt text")
+check(not re.search(r"core\s*java|market\s*place\s*global|weight[- ]control|appetite", html, re.I)
+      and not any(re.search(r"corejava|marketplace", g["src"] + g["poster"], re.I) for g in appmod.GALLERY),
+      "no CoreJava / MarketPlace Global text or claims on the landing page")
 check(all(f'id="step-{s["id"]}"' in html for s in appmod.JOURNEY) and len(appmod.JOURNEY) == 8,
       "landing walks through the eight campaign steps")
 check(not re.search(r"corejava|marketplace global|morning upgrade|tmu-|crowdcut", html, re.I),
