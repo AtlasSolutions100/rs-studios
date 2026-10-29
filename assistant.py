@@ -28,6 +28,7 @@ import plans
 import products
 
 MAX_STEPS = 6            # model calls per member message
+KICKOFF = "(app) The seller opened the guide"
 TURN_TOKENS = 700
 KEEP_MESSAGES = 40
 STEPS = ["brand", "product", "photos", "claims", "audience", "goal", "first_ad"]
@@ -376,6 +377,8 @@ def display(thread: dict) -> list[dict]:
     out, cards = [], thread.get("cards") or {}
     for m in thread.get("messages") or []:
         if m["role"] == "user" and isinstance(m["content"], str):
+            if m["content"].startswith(KICKOFF):
+                continue
             if m["content"].startswith("(app)"):
                 out.append({"role": "note", "text": m["content"][5:].strip()})
             else:

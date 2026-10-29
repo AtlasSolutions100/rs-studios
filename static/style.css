@@ -903,3 +903,4 @@ kbd{font:600 10.5px var(--body);color:var(--dim);border:1px solid var(--line);bo
 .setup-intro{padding-top:10px}
 @media (max-width:1000px){.setup-grid{grid-template-columns:minmax(0,1fr)}.asst.inline{height:min(640px,calc(100vh - 100px))}}
 @media (max-width:760px){.asst.drawer{width:100vw}.asst-msg{max-width:94%}}
+@media (max-width:760px){.mtop .sw-btn{max-width:44%}.mtop-help{color:var(--gold2)}}

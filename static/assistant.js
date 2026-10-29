@@ -56,7 +56,7 @@
     function load(){
       if(loaded) return; loaded = true;
       fetch(C.urls.thread, {headers:{'Accept':'application/json'}}).then(function(r){ return r.json(); }).then(function(d){
-        log.innerHTML = ''; (d.items || []).forEach(add); meta(d);
+        log.innerHTML = ''; (d.items || []).forEach(add); meta(d); setTimeout(scroll, 60); setTimeout(scroll, 400);
         if(!(d.items || []).length && d.ai_on){ setBusy(true); post(C.urls.say, {start: true, screen: screen}).then(function(r){ setBusy(false); (r.items || []).forEach(add); meta(r); }); }
       });
     }

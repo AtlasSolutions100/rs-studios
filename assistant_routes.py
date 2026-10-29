@@ -173,7 +173,7 @@ def say():
         if d.get("start"):
             if data.get("messages"):
                 return jsonify(_payload(conn, data, {"items": []}))
-            text = f"(app) The seller opened the guide{' on ' + screen if screen else ''}. Greet them in one line and start."
+            text = f"{assistant.KICKOFF}{' on ' + screen if screen else ''}. Greet them in one line and start."
         elif not text:
             abort(400)
         free_left = _free_left(conn)
@@ -267,7 +267,7 @@ def _do_import(conn, card):
     g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone()
     return (f"Imported '{p['name']}' from the page ({charged} credits): price {p['price'] or 'not found'}, "
             f"{len(products.pending(p))} suggested claim(s) waiting for approval, "
-            f"{len(products.import_info(p).get('images') or [])} candidate photo(s) on its product page."), {"charged": charged}
+            f"{len(products.import_info(p).get('images') or [])} candidate photo(s) on its product page."), {"import_charged": charged}
 
 
 def _do_first_ad(conn, ws, card):

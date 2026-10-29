@@ -625,4 +625,154 @@ for path in ("/app", "/app/create", "/app/create?type=image", f"/app/create?prod
     check(r.status_code == 200 and not re.search(r"higgsfield|seedance|bytedance", r.get_data(as_text=True), re.I),
           f"{path} renders and never names the vendor")
 
+print("== setup assistant")
+import assistant  # noqa: E402
+asst_q, asst_bodies = [], []
+
+
+def tu2(name, inp, i=[0]):
+    i[0] += 1
+    return {"type": "tool_use", "id": f"toolu_a{i[0]}", "name": name, "input": inp}
+
+
+def txt(t):
+    return {"type": "text", "text": t}
+
+
+def fake_asst(body):
+    if any(t.get("name") == "get_setup_state" for t in body.get("tools") or []):
+        asst_bodies.append(body)
+        content = asst_q.pop(0) if asst_q else [txt("Okay.")]
+        if (body.get("tool_choice") or {}).get("type") == "none":
+            content = [b for b in content if b["type"] == "text"] or [txt("Done.")]
+        return {"model": body["model"], "usage": {"input_tokens": 3000, "output_tokens": 150}, "content": content,
+                "stop_reason": "tool_use" if any(b["type"] == "tool_use" for b in content) else "end_turn"}
+    return fake_llm2(body)
+
+
+llm._anthropic = fake_asst
+os.environ["ANTHROPIC_API_KEY"] = "sk-ant-test"
+z = client()
+r = z.post("/signup", data={"csrf": csrf(z), "email": "newbie@example.com", "password": "longpassword"})
+check(r.status_code == 302 and r.headers["Location"].endswith("/app/setup"), "with AI on, a new account lands on the setup guide")
+with db.connect() as conn:
+    zws = conn.execute("SELECT workspace_id FROM users WHERE email='newbie@example.com'").fetchone()[0]
+html = z.get("/app/setup").get_data(as_text=True)
+check('class="asst inline panel"' in html and 'asst drawer' not in html and "never writes claims for you" in html,
+      "the setup page shows the guide inline (no second drawer)")
+html = z.get("/app").get_data(as_text=True)
+check("data-help-open" in html and "asst drawer" in html and "assistant.js" in html, "every screen has the Help me drawer")
+bal0 = db.balance(wsrow(zws))
+
+
+def say(c, text=None, **kw):
+    body = dict(kw, text=text) if text else kw
+    return jpost(c, "/app/assistant/say", body).get_json()
+
+
+asst_q[:] = [[tu2("get_setup_state", {})], [txt("Hi! What's your brand called?"), tu2("offer_choices", {"choices": ["Hearth & Co", "I'll type it"]})],
+             [txt("Hi! What's your brand called?")]]
+r = say(z, start=True, screen="assistant.page")
+items = r["items"]
+check([i["role"] for i in items][:2] == ["assistant", "card"] and items[1]["card"]["kind"] == "offer_choices"
+      and items[1]["card"]["choices"][0] == "Hearth & Co", "the guide greets and offers quick replies")
+check(asst_bodies[0]["model"] == llm.fast_model() and "never" in asst_bodies[0]["system"][0]["text"].lower()
+      and r["progress"][0] == {"step": "brand", "done": False}, "it runs on the fast model with the rules in its system prompt")
+w = wsrow(zws)
+check(db.balance(w) == bal0 and w["assistant_free_used"] > 0 and r["free_left"] == assistant.free_credits() - w["assistant_free_used"],
+      "setup replies come out of the free allowance, not credits")
+check(say(z, start=True)["items"] == [], "opening it again doesn't greet twice")
+asst_q[:] = [[tu2("create_brand", {"name": "Hearth & Co"})], [txt("Nice. Do you have a product page link?")]]
+r = say(z, "It's called Hearth & Co")
+with db.connect() as conn:
+    zb = products.brands(conn, zws)
+check(len(zb) == 1 and zb[0]["brand_name"] == "Hearth & Co" and r["progress"][0]["done"], "it names the brand (no extra brand made)")
+n_prod = 0
+asst_q[:] = [[tu2("propose_import", {"url": "https://hearth.example/p/ember"})], [txt("Tap Import and I'll read it.")]]
+r = say(z, "Sure: https://hearth.example/p/ember")
+card = [i["card"] for i in r["items"] if i["role"] == "card"][0]
+with db.connect() as conn:
+    n_prod = conn.execute("SELECT COUNT(*) FROM products WHERE workspace_id=?", (zws,)).fetchone()[0]
+check(card["kind"] == "propose_import" and card["status"] == "open" and card["credits"] > 0 and n_prod == 0
+      and db.balance(wsrow(zws)) == bal0, "importing is only offered on a card; nothing is read or charged yet")
+asst_q[:] = [[tu2("review_suggested_claims", {})], [txt("Tick the ones on your label.")]]
+r = jpost(z, "/app/assistant/action", {"card": card["id"], "choice": "confirm"}).get_json()
+with db.connect() as conn:
+    zp = conn.execute("SELECT * FROM products WHERE workspace_id=?", (zws,)).fetchone()
+spent = bal0 - db.balance(wsrow(zws))
+check(zp and zp["name"] == "Ember Candle" and not zp["claims"] and len(products.pending(zp)) == 3 and r["card"]["status"] == "done"
+      and spent == r.get("import_charged") and 0 < spent <= 3, f"confirming imports the product (charged {spent} credits for the AI read)")
+ccard = [i["card"] for i in r["items"] if i["role"] == "card"][0]
+check(ccard["kind"] == "review_suggested_claims" and ccard["claims"][0] == "Hand-poured soy wax", "then it asks which suggested claims are true")
+check(jpost(z, "/app/assistant/action", {"card": card["id"], "choice": "confirm"}).get_json()["error"].startswith("That card"),
+      "a card can't be confirmed twice")
+asst_q[:] = [[txt("Got it. Anything else printed on the label?")]]
+jpost(z, "/app/assistant/action", {"card": ccard["id"], "choice": "confirm", "picks": [0, 2]})
+with db.connect() as conn:
+    zp = products.get_product(conn, zws, zp["id"])
+check(zp["claims"] == "Hand-poured soy wax\nCotton wick", "only the claims the member ticked are approved")
+asst_q[:] = [[tu2("save_claims", {"claims": ["Burns about 50 hours", "Clinically proven to calm you"]})], [txt("Saved.")]]
+say(z, "The label also says: burns about 50 hours")
+res = json.loads([b for m in asst_bodies[-1]["messages"] if m["role"] == "user" and isinstance(m["content"], list)
+                  for b in m["content"] if b.get("type") == "tool_result"][-1]["content"])
+with db.connect() as conn:
+    zp = products.get_product(conn, zws, zp["id"])
+check(res["saved"] == ["Burns about 50 hours"] and "didn't type" in res["refused"][0]
+      and zp["claims"].endswith("Burns about 50 hours"), "it saves claims the member typed and refuses ones it made up")
+asst_q[:] = [[tu2("save_claims", {"claims": ["It cures insomnia"]})], [txt("I can't save that one.")]]
+say(z, "It cures insomnia")
+with db.connect() as conn:
+    check("insomnia" not in products.get_product(conn, zws, zp["id"])["claims"], "typed claims still have to pass the rules")
+asst_q[:] = [[tu2("update_product", {"audience": "People who love cozy evenings at home"}), tu2("set_goal", {"goal": "sales", "platforms": ["meta", "tiktok", "nope"]})],
+             [tu2("propose_first_ad", {"kind": "image", "template": "hero"})], [txt("Want me to make it?")]]
+r = say(z, "Cozy home people, sales on Meta and TikTok")
+fa = [i["card"] for i in r["items"] if i["role"] == "card"][0]
+setup = json.loads(wsrow(zws)["setup_json"])
+with db.connect() as conn:
+    zp = products.get_product(conn, zws, zp["id"])
+    nj = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (zws,)).fetchone()[0]
+check(zp["audience"] == "People who love cozy evenings at home" and setup == {"goal": "sales", "platforms": ["meta", "tiktok"]},
+      "audience, goal and platforms saved")
+check(fa["kind"] == "propose_first_ad" and fa["credits"] == catalog.price_credits("ad_image", batch=1) and nj == 0,
+      "the first ad is offered on a card with its price; nothing made yet")
+bal1 = db.balance(wsrow(zws))
+asst_q[:] = [[txt("It's on its way. Want to set up your ad accounts next?"), tu2("show_link", {"target": "ad_accounts", "label": "Ad accounts"})], [txt("")]]
+r = jpost(z, "/app/assistant/action", {"card": fa["id"], "choice": "confirm"}).get_json()
+with db.connect() as conn:
+    fj = conn.execute("SELECT * FROM jobs WHERE workspace_id=?", (zws,)).fetchone()
+check(fj and fj["tool"] == "ad_image" and fj["template_id"] == "hero" and fj["product_id"] == zp["id"] and "Ember Candle" in fj["brief"]
+      and db.balance(wsrow(zws)) == bal1 - fj["credits"], "confirming makes the first ad at the price on the card")
+lk = [i["card"] for i in r["items"] if i["role"] == "card" and i["card"]["kind"] == "show_link"][0]
+check(lk["url"] == "/app/ad-accounts" and r["progress"][6] == {"step": "first_ad", "done": True}, "links resolve to real screens; progress updates")
+asst_q[:] = [[tu2("generate_ads", {"n": 50})], [txt("I can't do that from here.")]]
+say(z, "Make me 50 videos now")
+with db.connect() as conn:
+    check(conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (zws,)).fetchone()[0] == 1,
+          "the guide has no way to spend credits on its own")
+thread = z.get("/app/assistant").get_json()
+check([i["role"] for i in thread["items"]].count("card") >= 5 and thread["items"][0]["role"] == "assistant",
+      "the conversation is kept and can be resumed")
+check(jpost(u, "/app/assistant/action", {"card": fa["id"], "choice": "confirm"}).status_code == 404,
+      "another member can't answer this member's cards")
+with db.connect() as conn:
+    conn.execute("UPDATE workspaces SET assistant_free_used=? WHERE id=?", (assistant.free_credits(), zws))
+    conn.commit()
+n_calls = len(asst_bodies)
+r = say(z, "What next?")
+check(r.get("need_ok") and len(asst_bodies) == n_calls, "after the free allowance it asks before replies cost credits")
+jpost(z, "/app/assistant/ok", {})
+bal2 = db.balance(wsrow(zws))
+asst_q[:] = [[txt("Next, set up your ad accounts.")]]
+r = say(z, "What next?")
+check(r["charged"] == bal2 - db.balance(wsrow(zws)) == llm.credits_for(llm.cost_usd(llm.fast_model(), 3000, 150)),
+      f"then replies cost what they use ({r['charged']} credit)")
+jpost(z, "/app/assistant/reset", {})
+check(z.get("/app/assistant").get_json()["items"] == [], "start over begins a fresh conversation (the setup stays)")
+check(assistant.typed_by_member("Burns about 50 hours", ["the label says it burns about 50 hours"])
+      and not assistant.typed_by_member("Burns about 80 hours", ["burns about 50 hours"]), "claims must match what was typed")
+os.environ.pop("ANTHROPIC_API_KEY")
+check("data-help-open" not in z.get("/app").get_data(as_text=True) and z.get("/app/setup").status_code == 302,
+      "with AI off, the guide is hidden and /app/setup goes to the quick form")
+os.environ["ANTHROPIC_API_KEY"] = "sk-ant-test"
+
 print(f"\nall {passed} product checks passed ({TMP})")
