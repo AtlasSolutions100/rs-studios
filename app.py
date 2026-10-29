@@ -1358,8 +1358,9 @@ def admin_prices():
     rows = []
     for tool, kw, inputs in samples:
         ours = catalog.cost_usd(tool, **kw)
+        vendor, why = hf.estimate_detail(catalog.TOOLS[tool]["model"], inputs)
         rows.append({"tool": tool, "name": catalog.TOOLS[tool]["name"], "setting": ", ".join(f"{k} {v}" for k, v in kw.items()),
-                     "ours": round(ours, 4), "vendor": hf.estimate(catalog.TOOLS[tool]["model"], inputs),
+                     "ours": round(ours, 4), "vendor": vendor, "why": why, "model": catalog.TOOLS[tool]["model"],
                      "credits": catalog.price_credits(tool, **kw)})
     with db.connect() as conn:
         conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('vendor_prices', ?)",

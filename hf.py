@@ -141,6 +141,20 @@ def upload(data: bytes, content_type: str) -> str:
     return j["public_url"]
 
 
+def estimate_detail(model_id: str, inputs: dict) -> tuple[float | None, str | None]:
+    """(USD, None) or (None, why) — the admin price check shows the why."""
+    try:
+        r = requests.post(f"{BASE}/estimate/{model_id.strip('/')}", json=inputs, headers=_headers(), timeout=15)
+    except (requests.RequestException, GenError) as e:
+        return None, str(e)[:200]
+    if r.status_code >= 400:
+        return None, f"{r.status_code}: {r.text[:200]}"
+    try:
+        return float((r.json() or {}).get("usd")), None
+    except (ValueError, TypeError):
+        return None, f"unexpected reply: {r.text[:200]}"
+
+
 def estimate(model_id: str, inputs: dict) -> float | None:
     """The vendor's price in USD for these inputs (a free call), or None when
     it can't be had. Never raises."""
