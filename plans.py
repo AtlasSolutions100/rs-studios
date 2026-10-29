@@ -60,7 +60,7 @@ FEATURES = {
              "blurb": "Ad copy, hooks, captions, headlines, emails and landing copy for each platform."},
     "planner": {"plan": "starter", "name": "AI campaign planner", "shipped": True,
                 "blurb": "From a brief to angles, hooks, scripts, ad variants, copy and a launch checklist."},
-    "adhub": {"plan": "starter", "name": "Ad-account setup hub", "shipped": False,
+    "adhub": {"plan": "starter", "name": "Ad-account setup hub", "shipped": True,
               "blurb": "Step-by-step setup for each ad platform, pixel basics and export specs."},
     "pages": {"plan": "starter", "name": "Landing pages", "shipped": False,
               "blurb": "Build a page from blocks and publish it on campaignify.ai."},

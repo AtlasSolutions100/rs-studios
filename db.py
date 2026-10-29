@@ -145,6 +145,13 @@ CREATE TABLE IF NOT EXISTS campaign_ads (
     job_id INTEGER,
     created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_cads_c ON campaign_ads(campaign_id, id);
+CREATE TABLE IF NOT EXISTS adhub_progress (
+    workspace_id INTEGER NOT NULL,
+    platform TEXT NOT NULL,
+    step INTEGER NOT NULL,
+    done_by INTEGER,
+    done_at TEXT NOT NULL,
+    PRIMARY KEY (workspace_id, platform, step));
 """
 
 # Columns added after the first release: (table, column, definition).

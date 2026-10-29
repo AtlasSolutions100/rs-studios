@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block title %}Export · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <p style="margin:0 0 14px"><a href="{{ url_for('library') }}">← Library</a></p>
+  <p class="eyebrow">Export for platforms</p>
+  <h1>Sized for <span class="gold">every feed</span></h1>
+  <div class="exlayout">
+    <div class="thumb tall">{% if o.kind == 'video' %}<video src="{{ url_for('media', oid=o.id) }}" muted loop playsinline autoplay></video>{% else %}<img src="{{ url_for('media', oid=o.id) }}" alt="Your ad">{% endif %}</div>
+    <div class="exlist">
+      {% for k in hub.ORDER %}{% set p = hub.PLATFORMS[k] %}
+      <div class="panel"><h3>{{ p.name }}</h3>
+        <div class="row">{% for code, label, w, h in p.exports %}<a class="btn dark sm" href="{{ url_for('adhub.export_file', oid=o.id, platform=k, fmt=code) }}" download>{{ label }} <span class="dim">{{ w }}×{{ h }}</span></a>{% endfor %}</div>
+      </div>
+      {% endfor %}
+      <p class="small dim">Center crop, then scale. If the important part of your ad is near an edge, pick a template shape closer to the target{% if o.kind == 'video' %}; video exports take a few seconds{% endif %}.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
