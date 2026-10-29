@@ -57,9 +57,28 @@ How to work (be efficient: about 6-10 tool calls in total, several tools per tur
    exact words the presenter says (hook first, then the body, then a call to action), short enough for its length;
    the presenter is an AI and never speaks as a customer reporting results.
 5. write_copy for each selected platform (ad copy; add hooks or captions only when they add something).
-6. finish: a summary, how to split the budget across platforms and angles for a first test, the KPIs to watch, a
-   simple test plan, and a launch checklist (account, pixel/conversion tracking, audiences, creatives, copy, budget,
-   disclosure, review). Be concrete and honest; never promise results.
+6. finish: a summary, the offer, how to split the budget across platforms and angles for a first test, the KPIs to
+   watch, a simple test plan, and a launch checklist (account, pixel/conversion tracking, audiences, creatives, copy,
+   budget, disclosure, review). Be concrete and honest; never promise results.
+
+The offer (write it as finish.offer, one short paragraph). Before the ads, check what is actually being offered and
+say it plainly, using only the brief and the approved claims:
+- What the buyer gets, described as what it does for them rather than a list of parts.
+- Who it is for, and who it is not for.
+- What it costs and how they pay; if the price isn't in the brief, say it needs to be on the page.
+- What lowers the risk of saying yes (returns, a trial size, a guarantee) only if the brief states one; otherwise
+  suggest the member decides whether to offer one.
+- Why now: only a real reason (a season, a launch, limited stock the brief mentions). Never invent a deadline.
+If something on this list is missing, say what to add instead of making it up.
+
+When the goal is leads / sign-ups, people need a reason to give their email. Pick one lead magnet that matches where
+the audience is:
+- Not yet looking for a solution: something that explains the problem (a checklist, a short guide, a quiz).
+- Comparing options: something that helps them choose (a comparison sheet, a sample, a how-to-pick guide).
+- Ready to decide: something that makes the first step easy (a starter kit, a trial size, a setup template).
+It should solve one narrow problem, take a few minutes to use, and lead naturally to the product. Then add checklist
+items for the lead magnet itself and for a landing page with a short form that delivers it (Campaignify's Pages
+and Forms do both), and say which is which.
 
 """ + copywriter.RULES + """
 
@@ -120,6 +139,8 @@ TOOLS = [
      "description": "Finish the plan.",
      "input_schema": {"type": "object", "properties": {
          "summary": {"type": "string", "description": "3-5 sentences: the strategy in plain words"},
+         "offer": {"type": "string", "description": "One short paragraph: what they get, who it's for, the price, "
+                                                    "risk reversal and why now, or what's missing"},
          "budget_split": {"type": "array", "items": {"type": "object", "properties": {
              "platform": {"type": "string"}, "share_percent": {"type": "integer"}, "note": {"type": "string"}},
              "required": ["platform", "share_percent"]}},
@@ -138,6 +159,28 @@ SEO_TOOL = {"name": "audit_page",
             "description": "Audit the campaign's landing page for search, answer engines and AI assistants (free). "
                            "Use it once when the brief has a link, and turn the top issues into checklist items.",
             "input_schema": {"type": "object", "properties": {"url": {"type": "string"}}, "required": ["url"]}}
+
+
+LEADS_ITEMS = [
+    {"title": "Make the lead magnet", "platform": "all",
+     "detail": "One narrow problem it solves, a few minutes to use, and a clear link to the product. Match it to "
+               "where the audience is: a checklist or short guide if they're new to the problem, a comparison or "
+               "sample if they're choosing, a starter kit if they're ready."},
+    {"title": "Build the landing page and form", "platform": "all",
+     "detail": "One page in Pages with a short form (email first; ask for more only if you'll use it) that delivers "
+               "the lead magnet straight away, then a follow-up flow."},
+]
+
+
+def leads_items(checklist: list[dict]) -> list[dict]:
+    """A leads plan always has a lead-magnet item and a landing-page item (added when the model left them out)."""
+    text = " ".join((i.get("title", "") + " " + i.get("detail", "")).lower() for i in checklist)
+    add = []
+    if "lead magnet" not in text:
+        add.append(dict(LEADS_ITEMS[0]))
+    if "landing page" not in text:
+        add.append(dict(LEADS_ITEMS[1]))
+    return (add + checklist)[:24]
 
 
 class Plan:
@@ -342,7 +385,11 @@ def dispatch(name, inp, ctx):
     if name == "check_compliance":
         return compliance.check(str(inp.get("text") or ""))
     if name == "finish":
-        plan.final = {"summary": str(inp.get("summary") or "")[:2000],
+        offer = str(inp.get("offer") or "").strip()[:1500]
+        if offer and not compliance.check(offer)["ok"]:
+            _step(steps, "note", "Left out the offer paragraph", "It didn't pass the compliance checks.")
+            offer = ""
+        plan.final = {"summary": str(inp.get("summary") or "")[:2000], "offer": offer,
                       "budget_split": [{"platform": str(b.get("platform") or "")[:40],
                                         "share_percent": max(0, min(100, int(b.get("share_percent") or 0))),
                                         "note": str(b.get("note") or "")[:300]}
@@ -352,6 +399,8 @@ def dispatch(name, inp, ctx):
                       "checklist": [{"title": str(i.get("title") or "")[:160], "detail": str(i.get("detail") or "")[:500],
                                      "platform": str(i.get("platform") or "all")[:20]}
                                     for i in (inp.get("checklist") or []) if isinstance(i, dict)][:24]}
+        if (ctx.get("brief") or {}).get("goal") == "leads":
+            plan.final["checklist"] = leads_items(plan.final["checklist"])
         _step(steps, "done", "Finished the plan", f"{len(plan.final['checklist'])} launch steps")
         return {"ok": True}
     return {"error": f"unknown tool {name}"}

@@ -55,6 +55,8 @@ def studio():
             return redirect(url_for("copy.studio", kind=kind, platform=platform))
         brief = {k: (form.get(k) or "").strip()[:lim] for k, lim in
                  (("offer", 300), ("audience", 200), ("goal", 20), ("tone", 40), ("link", 300), ("notes", 1000))}
+        if kind == "email":
+            brief["email_type"] = copywriter.email_type({"email_type": form.get("email_type")})
         check = copywriter.compliance.check(brief["offer"], brief["audience"], brief["notes"])
         if not check["ok"]:
             for m in check["blocks"]:
@@ -72,8 +74,9 @@ def studio():
         with db.connect() as conn:
             rid = save_run(conn, kind, platform, dict(brief, n=n), {"variants": variants}, usage, product_id=pid)
         return redirect(url_for("copy.run", rid=rid))
+    etype = copywriter.email_type({"email_type": request.args.get("type")})
     return render_template("copy.html", b=b, pid=pid, kind=kind, platform=platform, runs=_runs(list(platforms.KINDS)),
-                           ai_on=llm.configured(),
+                           ai_on=llm.configured(), email_types=platforms.EMAIL_TYPES, etype=etype,
                            quotes={k: [copywriter.estimate(3, k), copywriter.estimate(5, k)] for k in platforms.KINDS})
 
 

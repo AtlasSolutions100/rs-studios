@@ -18,6 +18,7 @@ member's workspace. Three hard rules are enforced here, not just asked for:
 import json
 import os
 import re
+from datetime import datetime, timezone
 
 import catalog
 import compliance
@@ -66,6 +67,15 @@ Setup, in order (call get_setup_state first, and again after changes; skip anyth
    NEVER say an ad is being made, started, queued, on its way or done unless an "(app)" note in this conversation
    says it was started. Until then it has NOT started: point them to the Make it button on the card.
 8. Optional, after the first ad: ad-account setup and a landing page (show_link).
+
+What "set up" means: the seller is activated once their first ad exists. Everything before that is the shortest path
+to it; skip or postpone anything that isn't on that path. After it, the checklist continues in this order: a landing
+page to send people to, then an ad account to run the ad. Keep one goal per session: finish the step in front of them
+before raising the next, and don't list everything left at once.
+
+If get_setup_state has a "nudge" (the seller has stalled: an ad made days ago with nothing after it, or setup left
+half done), open with it once in your own short words and offer its link with show_link. Don't repeat it if they
+decline or move on.
 
 How to talk: 1-3 short sentences per message, one question at a time, plain friendly words, no hype, no emojis.
 Use offer_choices for quick answers when it helps. Don't repeat what a card already says. Never promise results,
@@ -136,8 +146,51 @@ def state(conn, ws, setup: dict, screen: str = "") -> dict:
                                                "suggested_claims_waiting": len(products.pending(p))},
             "goal": setup.get("goal"), "platforms": setup.get("platforms") or [],
             "credits": db.balance(ws), "plan": plans.plan(ws)["name"], "ads_made": made, "screen": screen,
+            "nudge": nudge(conn, ws, done),
             "ai_import_credits": _import_quote(), "first_image_ad_credits": catalog.price_credits("ad_image", batch=1),
             "talking_video_credits_10s": catalog.price_credits("ugc_video", duration=10)}
+
+
+def _days_since(iso: str | None) -> int | None:
+    if not iso:
+        return None
+    try:
+        t = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=timezone.utc)
+    return max(0, (datetime.now(timezone.utc) - t).days)
+
+
+def nudge(conn, ws, done: dict | None = None) -> dict | None:
+    """One free, rule-based suggestion for a seller who has stalled (no AI): {"id", "text", "label", "target"}.
+    `target` is a key of LINKS. None when there's nothing worth saying."""
+    if done is None:
+        done = state(conn, ws, {})["done"]
+    last = conn.execute("SELECT created_at FROM jobs WHERE workspace_id=? ORDER BY id DESC LIMIT 1", (ws["id"],)).fetchone()
+    if last is None:
+        age = _days_since(ws["created_at"])
+        if age is not None and age >= 1 and done.get("product"):
+            return {"id": "first_ad", "text": "Your product is in, but there's no ad yet. An image ad takes about a minute.",
+                    "label": "Make the first ad", "target": "create"}
+        return None
+    idle = _days_since(last["created_at"])
+    if idle is None or idle < 2:
+        return None
+    made = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=? AND status='done'", (ws["id"],)).fetchone()[0]
+    ads = f"{made} ad" + ("" if made == 1 else "s")
+    copies = conn.execute("SELECT COUNT(*) FROM copy_runs WHERE workspace_id=?", (ws["id"],)).fetchone()[0]
+    if made and not copies:
+        return {"id": "captions", "text": f"You made {ads} {idle} days ago. Want captions and ad copy to post with it?",
+                "label": "Write captions", "target": "copy"}
+    if made and not done.get("page"):
+        return {"id": "page", "text": f"You have {ads} ready. A short landing page gives the ad somewhere to send people.",
+                "label": "Build a page", "target": "pages"}
+    if made and not done.get("ad_accounts"):
+        return {"id": "ad_accounts", "text": f"You have {ads} ready. The ad-account checklist gets it running.",
+                "label": "Set up ad accounts", "target": "ad_accounts"}
+    return None
 
 
 def _import_quote():

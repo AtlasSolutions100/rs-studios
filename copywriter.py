@@ -22,6 +22,29 @@ SYSTEM = ("You are Campaignify's senior direct-response copywriter. You write sh
           "marketing copy for small brands and independent sellers. You know how each ad platform displays text "
           "and you write to its lengths.\n\n" + RULES)
 
+# How emails and landing pages are put together. Campaignify's own condensed wording of common email and landing-page
+# practice (see THIRD_PARTY_NOTICES.md); the compliance RULES above always win over anything here.
+EMAIL_GUIDE = """How to build each email:
+- Shape: the first line says why you're writing; then why it matters to this reader; then the useful part; then a
+  single next step; then a short, human sign-off from the brand.
+- Paragraphs of one to three sentences with a blank line between them. Most people read email on a phone.
+- One main call to action. Word the link or button as a verb plus what they get ("See how it works").
+- Subject line: plain and specific, like a note from a person. No fake "Re:" or "Fwd:", no clickbait, no emojis,
+  no em dashes. The preview text adds something the subject doesn't say rather than repeating it.
+- Voice: "we" or "I" talking to "you", active verbs, conversational. Skip stock openers ("I hope this finds you
+  well", "Great news!") and filler closers ("Feel free to reach out"); end on the one thing to do.
+- If you greet by name, write {{first_name}}. It becomes "there" when the name is missing, so the line must still
+  read well as "Hi there,".
+- Body length: {lo} to {hi} words."""
+
+LANDING_GUIDE = """How to build the page copy:
+- Headline: the outcome for the reader in plain words, not the product's feature list. The subheadline says who
+  it's for and how it works in one sentence.
+- Benefits: three to five short lines, each one concrete thing the reader gets, in the order they'd care about.
+- One call to action, repeated rather than competing with others. Word it as a verb plus what they get.
+- FAQ: the questions a careful buyer asks before saying yes (what's in it, how it's used, delivery, returns),
+  answered plainly. Never answer with claims that aren't on the approved list."""
+
 GOALS = {"awareness": "Awareness", "traffic": "Traffic to a page", "leads": "Leads / sign-ups",
          "sales": "Sales", "engagement": "Engagement", "installs": "App installs"}
 TONES = ["Friendly", "Bold", "Calm and premium", "Playful", "Straight-talking", "Expert"]
@@ -56,6 +79,9 @@ def brief_text(brand: dict, brief: dict) -> str:
              f"Audience: {brief.get('audience') or brand.get('audience') or '(not given)'}",
              f"Goal: {GOALS.get(brief.get('goal'), brief.get('goal') or 'Sales')}",
              f"Tone: {brief.get('tone') or 'Friendly'}"]
+    if brief.get("email_type") in platforms.EMAIL_TYPES:
+        et = platforms.EMAIL_TYPES[brief["email_type"]]
+        lines.append(f"Email type: {et['name']}. {et['hint']}")
     if brief.get("link"):
         lines.append(f"Destination link: {brief['link']}")
     if brief.get("notes"):
@@ -87,6 +113,21 @@ def _max_tokens(n: int, kind: str) -> int:
     return min(6000, 400 + per * n)
 
 
+def email_type(brief: dict) -> str:
+    t = (brief or {}).get("email_type")
+    return t if t in platforms.EMAIL_TYPES else platforms.EMAIL_TYPE_DEFAULT
+
+
+def guide(kind: str, brief: dict) -> str:
+    """The extra how-to for long-form kinds (emails and landing pages); empty for the rest."""
+    if kind == "email":
+        lo, hi = platforms.EMAIL_TYPES[email_type(brief)]["words"]
+        return "\n\n" + EMAIL_GUIDE.replace("{lo}", str(lo)).replace("{hi}", str(hi))
+    if kind == "landing":
+        return "\n\n" + LANDING_GUIDE
+    return ""
+
+
 def write(brand: dict, kind: str, platform: str, brief: dict, n: int = 3, usage: llm.Usage | None = None) -> list[dict]:
     """n variants of `kind` for `platform`, each checked. Raises llm.LLMError."""
     kind = kind if kind in platforms.KINDS else "ad"
@@ -98,7 +139,8 @@ def write(brand: dict, kind: str, platform: str, brief: dict, n: int = 3, usage:
               "Give each variant a different angle (for example: problem/solution, a specific moment of use, "
               "a curiosity gap, a direct benefit, social context without fake reviews). "
               + ("Hashtags go in their own field, space-separated. " if kind == "captions" else "")
-              + ("Write the FAQ as 3 short question-and-answer pairs. " if kind == "landing" else ""))
+              + ("Write the FAQ as 3 short question-and-answer pairs. " if kind == "landing" else "")
+              + guide(kind, brief))
     data = llm.structured(system=SYSTEM, prompt=prompt, schema=VARIANTS_SCHEMA, name="submit_copy",
                           max_tokens=_max_tokens(n, kind), usage=usage)
     return [check_variant(v, kind, platform) for v in (data.get("variants") or [])[:n]]

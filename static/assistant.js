@@ -8,7 +8,7 @@
 
   document.querySelectorAll('[data-asst]').forEach(function(root){
     var log = root.querySelector('[data-asst-log]'), form = root.querySelector('[data-asst-form]'), ta = root.querySelector('[data-asst-text]');
-    var loaded = false, busy = false, screen = root.dataset.screen || '';
+    var loaded = false, busy = false, nudged = false, screen = root.dataset.screen || '';
     function scroll(){ log.scrollTop = log.scrollHeight; }
     function setBusy(on){ busy = on; root.classList.toggle('busy', on); var b = root.querySelector('[data-asst-send]'); if(b) b.disabled = on;
       var t = log.querySelector('.asst-typing'); if(on && !t){ t = document.createElement('div'); t.className = 'asst-msg assistant asst-typing'; t.innerHTML = '<span></span><span></span><span></span>'; log.appendChild(t); scroll(); } else if(!on && t){ t.remove(); } }
@@ -22,6 +22,9 @@
       var pay = root.querySelector('[data-asst-pay]'); pay.hidden = !d.need_ok; root.querySelector('[data-asst-per]').textContent = d.per_reply;
       form.hidden = !!d.need_ok;
       if(d.error) add({role:'note', text: d.error, err: true});
+      if(d.nudge && !nudged){ nudged = true; var nd = document.createElement('div'); nd.className = 'acard bare asst-nudge';
+        nd.innerHTML = '<span class="small">' + esc(d.nudge.text) + '</span><a class="btn dark sm" href="' + esc(d.nudge.url) + '">' + esc(d.nudge.label) + ' →</a>';
+        log.appendChild(nd); scroll(); }
       if(d.balance != null) document.querySelectorAll('.pill').forEach(function(p){ p.lastChild.textContent = Number(d.balance).toLocaleString() + ' credits'; });
     }
     function card(c){

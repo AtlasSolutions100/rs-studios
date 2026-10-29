@@ -2451,6 +2451,149 @@ r = a.post("/app/brand", data={"csrf": csrf(a), "brand_name": "Aurora", "product
            follow_redirects=True)
 check('data-cat="ok"' in r.get_data(as_text=True), "success flashes are marked so they can fade")
 
+print("== phase 11: playbook-derived prompts, templates and attribution")
+import assistant as _asst
+import planner as _planner
+import platforms as _plat
+sys.path.insert(0, HERE)
+import playbook_guard as _pg
+import copy  # noqa: E402
+_root = os.path.dirname(HERE)
+tpn = open(os.path.join(_root, "THIRD_PARTY_NOTICES.md")).read()
+check("MIT License" in tpn and "Copyright (c) 2025 Corey Haines" in tpn and "Permission is hereby granted" in tpn
+      and all(f in tpn for f in ("copywriter.py", "planner.py", "flows.py", "assistant.py", "platforms.py")),
+      "THIRD_PARTY_NOTICES.md carries the MIT licence and lists the derived files")
+check("THIRD_PARTY_NOTICES.md" in open(os.path.join(_root, "README.md")).read(), "the README links the notices")
+_fp = _pg.stored()
+check(len(_fp) > 1000, f"playbook fingerprints are in the repo ({len(_fp)})")
+_hits = _pg.copied(_fp)
+check(not _hits, f"no playbook sentence over 12 words appears word for word in our files {_hits[:3]}")
+with tempfile.TemporaryDirectory() as _d:
+    os.makedirs(os.path.join(_d, "skills", "x"))
+    _s = "Every single one of these thirteen made up words must be caught by the copy guard today."
+    open(os.path.join(_d, "skills", "x", "SKILL.md"), "w").write("# Title\n\nShort line. " + _s + "\n")
+    open(os.path.join(_d, "ours.py"), "w").write('X = ("Intro. every single one of these thirteen made up words "\n    "must be caught by the copy guard today")\n')
+    _f2 = _pg.fingerprints(os.path.join(_d, "skills"))
+    check(len(_f2) == 1 and _pg.copied(_f2, [os.path.join(_d, "ours.py")]), "the copy guard catches a copied sentence split across lines")
+if os.environ.get("RS_PLAYBOOKS") and os.path.isdir(os.environ["RS_PLAYBOOKS"]):
+    _live = _pg.fingerprints(os.environ["RS_PLAYBOOKS"])
+    check(not _pg.copied(_live) and not (_live - _fp),
+          "against the playbooks themselves: nothing copied, and the stored fingerprints are current")
+
+# everything derived passes the compliance checks
+_texts = [("email guide", copywriter.EMAIL_GUIDE), ("landing guide", copywriter.LANDING_GUIDE)]
+_texts += [(f"email type {k}", t["hint"]) for k, t in _plat.EMAIL_TYPES.items()]
+_texts += [(f"leads item {i['title']}", i["title"] + " " + i["detail"]) for i in _planner.LEADS_ITEMS]
+_texts += [("planner offer section", _planner.SYSTEM.split("The offer (", 1)[1].split("Rules every line", 1)[0])]
+_texts += [("assistant activation", _asst.SYSTEM.split('What "set up" means', 1)[1].split("How to talk", 1)[0])]
+for _k, _v in flows.INTERNAL.items():
+    for _st, _ in flows.walk(flows.clean_tree(copy.deepcopy(_v["tree"]))["steps"]):
+        if _st["type"] in ("email", "sms"):
+            _texts.append((f"internal {_k} {_st.get('subject', '')}", _st.get("subject", "") + " " + _st["body"]))
+for _t in flows.TEMPLATES:
+    for _st, _ in flows.walk(flows.clean_tree(copy.deepcopy(_t["tree"]))["steps"]):
+        if _st["type"] in ("email", "sms"):
+            _texts.append((f"template {_t['id']}", _st.get("subject", "") + " " + _st["body"]))
+for _name, _txt in _texts:
+    check(compliance.check(_txt)["ok"], f"passes compliance: {_name}")
+check(len(flows.TEMPLATES) == 6, "Flows offers six starter templates")
+
+# Campaignify's own onboarding sequence (a draft until sending is connected)
+_ob = flows.INTERNAL["onboarding"]
+_obt = flows.clean_tree(copy.deepcopy(_ob["tree"]))
+_obg = flows.compile_tree(_obt)
+_obe = [s for s, _ in flows.walk(_obt["steps"]) if s["type"] == "email"]
+check(_ob["status"] == "draft" and _ob["from"] == "hello@campaignify.ai" and len(_obe) == 5 and _obg["start"]
+      and "onboarding" not in flows.TEMPLATE_BY_ID,
+      "onboarding: a 5-email draft from hello@campaignify.ai that compiles and isn't offered as a member template")
+_waits = [s["days"] for s, _ in flows.walk(_obt["steps"]) if s["type"] == "wait"]
+check(sum(_waits) == 14 and _waits[:1] == [1], "onboarding timing: day 0, day 1, day 3, day 7, day 14")
+check(all(len(e["body"].split()) <= 125 for e in _obe), "onboarding emails stay short")
+
+# Copy studio: the five kinds of email
+os.environ["ANTHROPIC_API_KEY"] = "sk-ant-test"
+llm._anthropic = fake_anthropic
+html = x.get("/app/copy?kind=email").get_data(as_text=True)
+check(all(f'value="{k}"' in html for k in _plat.EMAIL_TYPES) and 'id="etypes"' in html and 'id="etypes" hidden' not in html,
+      "Copy studio: Email shows the five kinds of email")
+check('id="etypes" hidden' in x.get("/app/copy?kind=ad").get_data(as_text=True), "the email kinds stay hidden for other copy")
+r = x.post("/app/copy", data={"csrf": csrf(x), "kind": "email", "platform": "email", "offer": "Glow serum", "goal": "sales",
+                              "tone": "Bold", "audience": "Women 30-50", "n": "3", "email_type": "launch"})
+body = llm_calls[-1]
+_p = body["messages"][0]["content"]
+check(r.status_code == 302 and "Email type: Launch or news" in _p and "100 to 200 words" in _p and "{{first_name}}" in _p
+      and "One main call to action" in _p and "No income" in body["system"],
+      "an email run asks for the chosen kind, its length and the email shape, under the compliance rules")
+with db.connect() as conn:
+    _cr = conn.execute("SELECT input_json FROM copy_runs WHERE workspace_id=? ORDER BY id DESC LIMIT 1", (xws["id"],)).fetchone()
+check(json.loads(_cr[0]).get("email_type") == "launch", "the run remembers the kind of email")
+check("Launch or news email" in x.get(r.headers["Location"]).get_data(as_text=True), "the result page names the kind of email")
+x.post("/app/copy", data={"csrf": csrf(x), "kind": "email", "platform": "email", "offer": "Glow serum", "goal": "sales",
+                          "tone": "Bold", "n": "3", "email_type": "nonsense"})
+check("Email type: Nurture" in llm_calls[-1]["messages"][0]["content"], "an unknown email kind falls back to nurture")
+x.post("/app/copy", data={"csrf": csrf(x), "kind": "landing", "platform": "landing", "offer": "Glow serum", "goal": "leads",
+                          "tone": "Bold", "n": "3"})
+check("FAQ: the questions a careful buyer asks" in llm_calls[-1]["messages"][0]["content"]
+      and "Email type" not in llm_calls[-1]["messages"][0]["content"], "landing copy gets the page guide")
+
+
+# Planner: the offer paragraph and lead-magnet items
+def _finish(goal, offer, checklist):
+    ctx = {"plan": _planner.Plan(), "steps": [], "brief": {"goal": goal}}
+    _planner.dispatch("finish", {"summary": "Test two angles.", "offer": offer, "checklist": checklist}, ctx)
+    return ctx["plan"].final, ctx["steps"]
+
+
+check("lead magnet" in _planner.SYSTEM.lower() and "finish.offer" in _planner.SYSTEM
+      and "offer" in _planner.TOOLS[-1]["input_schema"]["properties"], "the planner is asked for an offer and a lead magnet")
+_f, _ = _finish("leads", "A 30 ml serum for busy mornings, $24, with free returns from the brief.", [{"title": "Install the pixel"}])
+_titles = [i["title"] for i in _f["checklist"]]
+check(_f["offer"].startswith("A 30 ml serum") and "Make the lead magnet" in _titles and "Build the landing page and form" in _titles
+      and _titles[-1] == "Install the pixel", "a leads plan has an offer paragraph plus lead-magnet and landing-page items")
+_f, _ = _finish("leads", "", [{"title": "Write the lead magnet", "detail": "A checklist"}, {"title": "Landing page", "detail": "Pages"}])
+check(len(_f["checklist"]) == 2, "lead-magnet items aren't doubled when the plan has them")
+_f, _ = _finish("sales", "", [{"title": "Install the pixel"}])
+check(len(_f["checklist"]) == 1, "other goals don't get lead-magnet items")
+_f, _st = _finish("sales", "Make $500 a week from home with this serum", [])
+check(_f["offer"] == "" and any("offer" in s["title"].lower() for s in _st), "an offer that breaks the rules is left out")
+_cid = None
+with db.connect() as conn:
+    _cid = conn.execute("INSERT INTO campaigns (workspace_id, user_id, name, status, brief_json, plan_json, steps_json, created_at, updated_at) "
+                        "VALUES (?,?,?,?,?,?,?,?,?)",
+                        (xws["id"], conn.execute("SELECT id FROM users WHERE workspace_id=?", (xws["id"],)).fetchone()[0],
+                         "Offer test", "ready", json.dumps({"goal": "leads"}),
+                         json.dumps({"final": {"summary": "S", "offer": "The offer paragraph text.", "checklist": []}}),
+                         "[]", db.now(), db.now())).lastrowid
+    conn.commit()
+check("The offer paragraph text." in x.get(f"/app/campaigns/{_cid}").get_data(as_text=True), "the campaign page shows the offer")
+
+# Setup guide: one stalled-user nudge at a time
+n11 = client()
+n11.post("/signup", data={"csrf": csrf(n11), "email": "nudge@example.com", "password": "longpassword"})
+with db.connect() as conn:
+    _nws = conn.execute("SELECT w.* FROM workspaces w JOIN users u ON u.workspace_id=w.id WHERE u.email='nudge@example.com'").fetchone()
+    _old = (_dtm.now(_tzu.utc) - _tdl(days=3)).replace(microsecond=0).isoformat()
+    check(_asst.nudge(conn, _nws, {"product": False}) is None, "no nudge for a brand-new account")
+    conn.execute("UPDATE workspaces SET created_at=? WHERE id=?", (_old, _nws["id"]))
+    _nws = conn.execute("SELECT * FROM workspaces WHERE id=?", (_nws["id"],)).fetchone()
+    check((_asst.nudge(conn, _nws, {"product": True}) or {}).get("id") == "first_ad", "a product but no ad after a day: nudge to the first ad")
+    _uid = conn.execute("SELECT id FROM users WHERE workspace_id=?", (_nws["id"],)).fetchone()[0]
+    conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, status, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+                 (_nws["id"], _uid, "ad_image", "done", _old, _old))
+    _n = _asst.nudge(conn, _nws, {"product": True})
+    check(_n and _n["id"] == "captions" and "You made 1 ad 3 days ago" in _n["text"] and _n["target"] in _asst.LINKS,
+          "an ad made days ago with nothing after it: offer captions")
+    conn.execute("INSERT INTO copy_runs (workspace_id, kind, created_at) VALUES (?,?,?)", (_nws["id"], "captions", _old))
+    check((_asst.nudge(conn, _nws, {"product": True, "page": False}) or {}).get("id") == "page", "then a landing page")
+    check((_asst.nudge(conn, _nws, {"product": True, "page": True, "ad_accounts": True})) is None, "nothing once all are done")
+    _st = _asst.state(conn, _nws, {})
+    conn.commit()
+check("nudge" in _st, "get_setup_state carries the nudge for the guide")
+_pl = n11.get("/app/assistant").get_json()
+check(_pl.get("nudge", {}).get("id") == "page" and _pl["nudge"]["url"] == "/app/pages",
+      "the help drawer gets the nudge with a link (free, no AI)")
+check("one goal per session" in _asst.SYSTEM.lower() and "nudge" in _asst.SYSTEM, "the guide is told about activation and nudges")
+
 import subprocess as _sp, sys as _sys
 _out = _sp.run([_sys.executable, "-c", "import catalog; print(catalog.price_credits('photo_to_video', duration=5), "
                "catalog.price_credits('ugc_video', duration=10))"], capture_output=True, text=True,

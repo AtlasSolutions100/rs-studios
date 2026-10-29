@@ -13,6 +13,11 @@
       <label>What to write</label>
       <div class="choices">{% for k, v in COPY_KINDS.items() %}<label class="choice"><input type="radio" name="kind" value="{{ k }}" data-q3="{{ quotes[k][0] }}" data-q5="{{ quotes[k][1] }}" {{ 'checked' if k == kind }}>{{ v.name }}</label>{% endfor %}</div>
       <p class="small muted" id="kindblurb" style="margin:8px 0 0">{{ COPY_KINDS[kind].blurb }}</p>
+      <fieldset class="etypes" id="etypes" {{ 'hidden' if kind != 'email' }}>
+        <legend>Kind of email</legend>
+        <div class="choices">{% for k, t in email_types.items() %}<label class="choice"><input type="radio" name="email_type" value="{{ k }}" data-goal="{{ t.goal }}" data-tone="{{ t.tone }}" data-hint="{{ t.hint }}" data-words="{{ t.words[0] }}–{{ t.words[1] }}" {{ 'checked' if k == etype }}>{{ t.name }}</label>{% endfor %}</div>
+        <p class="small muted" id="etypehint" style="margin:8px 0 0">{{ email_types[etype].hint }} <span class="dim">About {{ email_types[etype].words[0] }}–{{ email_types[etype].words[1] }} words.</span></p>
+      </fieldset>
       <div class="two-col">
         <div><label for="platform">Platform</label>
           <select id="platform" name="platform">{% for k in PLATFORM_ORDER %}<option value="{{ k }}" {{ 'selected' if k == platform }}>{{ PLATFORMS[k].name }}</option>{% endfor %}</select></div>
@@ -52,6 +57,14 @@
     document.getElementById('kindblurb').textContent = blurbs[k.value].blurb;
     document.getElementById('quote').textContent = n == '5' ? k.dataset.q5 : k.dataset.q3; }
   document.querySelectorAll('input[name=kind],input[name=n]').forEach(function(r){ r.addEventListener('change', upd); });
+  var et = document.getElementById('etypes');
+  function kindUpd(){ var k = document.querySelector('input[name=kind]:checked'); et.hidden = !(k && k.value === 'email'); if(!et.hidden) typeUpd(); }
+  function typeUpd(){ var t = document.querySelector('input[name=email_type]:checked'); if(!t) return;
+    var h = document.getElementById('etypehint'); h.textContent = t.dataset.hint + ' '; var w = document.createElement('span'); w.className = 'dim'; w.textContent = 'About ' + t.dataset.words + ' words.'; h.appendChild(w);
+    document.getElementById('goal').value = t.dataset.goal; document.getElementById('tone').value = t.dataset.tone; }
+  document.querySelectorAll('input[name=kind]').forEach(function(r){ r.addEventListener('change', kindUpd); });
+  document.querySelectorAll('input[name=email_type]').forEach(function(r){ r.addEventListener('change', typeUpd); });
+  kindUpd();
 })();
 </script>
 {% endblock %}
