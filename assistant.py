@@ -52,7 +52,8 @@ Setup, in order (call get_setup_state first, and again after changes; skip anyth
 2. First product: ask for the product's page link and offer to import it (propose_import: reading the page with AI
    costs a couple of credits and the member confirms on a card), or ask for its name, a one-line description and price
    (create_product).
-3. Photos: ask for 1-3 clear photos of the real product (request_photo shows an upload card).
+3. Photos: call request_photo. Its card shows the photos found on their product page (they tick the ones to use)
+   and an upload box, right here in the chat. Don't send them to another screen to pick photos.
 4. Approved claims: claims are only what's printed on the label or what the seller is allowed to say. NEVER suggest,
    write, improve or guess claims. If the import found suggested claims, call review_suggested_claims so the seller
    approves the true ones. Otherwise ask them to type the claims exactly as on the label and save only what they
@@ -60,7 +61,10 @@ Setup, in order (call get_setup_state first, and again after changes; skip anyth
 5. Audience: ask who it's for and save it (update_product). You may tidy their wording, not invent a different audience.
 6. Goal and platforms: ask, then set_goal.
 7. First ad: propose_first_ad. An image ad is the cheapest start; a talking UGC video opens the Create flow. You never
-   start anything that costs credits yourself: the seller confirms every spend on a card.
+   start anything that costs credits yourself: the seller confirms every spend on a card (pressing its button, or
+   typing yes / make it while the card is open, which the app treats as pressing it).
+   NEVER say an ad is being made, started, queued, on its way or done unless an "(app)" note in this conversation
+   says it was started. Until then it has NOT started: point them to the Make it button on the card.
 8. Optional, after the first ad: ad-account setup and a landing page (show_link).
 
 How to talk: 1-3 short sentences per message, one question at a time, plain friendly words, no hype, no emojis.
@@ -278,6 +282,14 @@ def _card(name, inp, ctx):
     elif name == "offer_choices":
         card.update(choices=[str(c)[:60] for c in inp.get("choices") or [] if str(c).strip()][:4])
     ctx["new_cards"].append(card)
+    if name == "propose_first_ad" and card.get("ad") == "image":
+        return {"ok": True, "shown": True, "note": "Nothing is made yet. It starts only when the seller presses Make it "
+                "(or types yes / make it); an (app) note will tell you. Until then don't say it's being made."}
+    if name == "request_photo":
+        p = products.get_product(conn, ws["id"], ws["product_id"])
+        found = [u for u in products.import_info(p).get("images", []) if u not in products.import_info(p).get("taken", [])]
+        return {"ok": True, "shown": True, "photos_found_on_page": len(found),
+                "note": "The card shows those page photos to tick, plus an upload box. Wait for them."}
     if name in ("offer_choices", "show_link"):
         return {"ok": True, "shown": True}
     return {"ok": True, "shown": True, "note": "The seller sees a card. Wait for them; don't call this again now."}
@@ -296,11 +308,54 @@ def trim(messages):
     return messages[cut:]
 
 
-def run(conn, ws, thread: dict, screen: str, usage: llm.Usage) -> list[dict]:
+STARTED_RE = re.compile(
+    r"\b(being (made|built|created|generated|rendered)|on (its|it's|the) way|in the works|(is|are|it's|its) "
+    r"(generating|rendering|cooking|processing|queued|started|underway|running)|(i'?ve|i have|i) (started|kicked off|"
+    r"queued|submitted|launched)|(making|building|creating|generating|rendering) (it|your (first )?ad|the ad|that) now|"
+    r"(it'?s|it is|your ad is|the ad is) (done|ready|finished|live)|(check|see|find) (it )?(in )?(the|your) library)", re.I)
+NOT_STARTED = ("Nothing has started yet. Press **Make it** on the card above (or type \"make it\") and I'll start "
+               "it right away.")
+
+
+def awaiting_make(cards: dict) -> bool:
+    """True when an image first-ad card is open: the ad is offered, not made."""
+    return any(c.get("kind") == "propose_first_ad" and c.get("ad") == "image" and c.get("status") == "open"
+               for c in (cards or {}).values())
+
+
+def guard_started(thread: dict, start: int, shown: list[dict], job_started: bool) -> list[dict]:
+    """The guide may not tell the seller an ad is being made when the app
+    didn't start one. Rewrites such lines from this turn (in the stored
+    conversation too, so the model doesn't keep believing it)."""
+    if job_started or not awaiting_make(thread.get("cards")):
+        return shown
+    fixed = False
+    for m in thread["messages"][start:]:
+        if m["role"] != "assistant":
+            continue
+        for b in m["content"]:
+            if b.get("type") == "text" and STARTED_RE.search(b.get("text") or ""):
+                b["text"] = NOT_STARTED     # never empty: the API refuses empty text blocks
+                fixed = True
+    if not fixed:
+        return shown
+    out, said = [], False
+    for it in shown:
+        if it.get("role") == "assistant" and STARTED_RE.search(it.get("text") or ""):
+            if not said:
+                out.append({"role": "assistant", "text": NOT_STARTED})
+                said = True
+            continue
+        out.append(it)
+    return out
+
+
+def run(conn, ws, thread: dict, screen: str, usage: llm.Usage, job_started: bool = False) -> list[dict]:
     """Answer the latest member message: model calls and tool runs until the
     model stops. Mutates thread (messages, setup, cards). Returns new display
     items. Raises llm.LLMError."""
     msgs = thread["messages"]
+    start = len(msgs)
     setup = thread.setdefault("setup", {})
     cards = thread.setdefault("cards", {})
     shown = []
@@ -337,7 +392,29 @@ def run(conn, ws, thread: dict, screen: str, usage: llm.Usage) -> list[dict]:
             [{"type": "text", "text": "Done. What next?"}]
         msgs.append({"role": "assistant", "content": content})
         shown += [{"role": "assistant", "text": b["text"].strip()} for b in content if b.get("text", "").strip()]
-    return shown
+    return guard_started(thread, start, shown, job_started)
+
+
+CONFIRM_WORDS = {"yes", "yep", "yeah", "yup", "ya", "y", "ok", "okay", "k", "sure", "confirm", "confirmed", "go", "ahead",
+                 "do", "it", "make", "lets", "let", "s", "please", "pls", "sounds", "good", "great", "proceed", "start",
+                 "run", "that", "one", "now", "perfect", "yes,", "send"}
+CONFIRM_STRONG = {"yes", "yep", "yeah", "yup", "ya", "y", "ok", "okay", "sure", "confirm", "confirmed", "go", "make",
+                  "proceed", "start", "run", "do", "send"}
+
+
+def is_confirm(text: str) -> bool:
+    """A short typed yes ('confirmed', 'yes make it', 'go ahead')."""
+    words = re.findall(r"[a-z]+", (text or "").lower())
+    return 0 < len(words) <= 6 and set(words) <= CONFIRM_WORDS and bool(set(words) & CONFIRM_STRONG)
+
+
+def confirmable_card(thread: dict):
+    """The newest spend card, if it's still open: a typed yes answers it."""
+    last = None
+    for c in (thread.get("cards") or {}).values():
+        if c.get("kind") == "propose_import" or (c.get("kind") == "propose_first_ad" and c.get("ad") == "image"):
+            last = c
+    return last if last and last.get("status") == "open" else None
 
 
 def add_member(thread: dict, text: str):

@@ -724,6 +724,22 @@ asst_q[:] = [[tu2("save_claims", {"claims": ["It cures insomnia"]})], [txt("I ca
 say(z, "It cures insomnia")
 with db.connect() as conn:
     check("insomnia" not in products.get_product(conn, zws, zp["id"])["claims"], "typed claims still have to pass the rules")
+asst_q[:] = [[tu2("request_photo", {})], [txt("Tick the shots of your candle.")]]
+r = say(z, "What about photos?")
+pc = [i["card"] for i in r["items"] if i["role"] == "card"][0]
+res = json.loads([b for m in asst_bodies[-1]["messages"] if m["role"] == "user" and isinstance(m["content"], list)
+                  for b in m["content"] if b.get("type") == "tool_result"][-1]["content"])
+check(pc["kind"] == "request_photo" and "https://cdn.hearth.example/ember-1.jpg" in pc["found"] and pc["have"] == []
+      and res["photos_found_on_page"] == len(pc["found"]), "the photo card shows the page's photos right in the chat")
+fetched_bytes.clear()
+asst_q[:] = [[txt("Nice shot.")]]
+r = jpost(z, "/app/assistant/action", {"card": pc["id"], "choice": "confirm",
+                                        "picks": ["https://cdn.hearth.example/ember-1.jpg", "http://169.254.169.254/latest"]}).get_json()
+with db.connect() as conn:
+    nph = conn.execute("SELECT COUNT(*) FROM photos WHERE product_id=?", (zp["id"],)).fetchone()[0]
+check(nph == 1 and fetched_bytes == ["https://cdn.hearth.example/ember-1.jpg"] and r["card"]["status"] == "done"
+      and len(r["card"]["have"]) == 1 and "https://cdn.hearth.example/ember-1.jpg" not in r["card"]["found"],
+      "ticking photos in the chat adds them to the product (only ones the import found)")
 asst_q[:] = [[tu2("update_product", {"audience": "People who love cozy evenings at home"}), tu2("set_goal", {"goal": "sales", "platforms": ["meta", "tiktok", "nope"]})],
              [tu2("propose_first_ad", {"kind": "image", "template": "hero"})], [txt("Want me to make it?")]]
 r = say(z, "Cozy home people, sales on Meta and TikTok")
@@ -750,6 +766,39 @@ say(z, "Make me 50 videos now")
 with db.connect() as conn:
     check(conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (zws,)).fetchone()[0] == 1,
           "the guide has no way to spend credits on its own")
+check(all(assistant.is_confirm(x) for x in ["confirmed", "Yes, make it!", "go ahead", "ok do it", "yep"])
+      and not any(assistant.is_confirm(x) for x in ["what next", "yes but make it blue", "", "no", "make it a video instead"]),
+      "short typed yeses count as confirming; anything more is a normal message")
+asst_q[:] = [[tu2("propose_first_ad", {"kind": "image", "template": "hero"})], [txt("Here's another. Want it?")]]
+r = say(z, "Make me another image ad")
+fa2 = [i["card"] for i in r["items"] if i["role"] == "card"][0]
+asst_q[:] = [[txt("Great, your ad is being made now. Check your library in a minute!")]]
+r = say(z, "cool, what happens after")
+said = [i["text"] for i in r["items"] if i["role"] == "assistant"]
+stored = z.get("/app/assistant").get_json()["items"]
+with db.connect() as conn:
+    nj = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (zws,)).fetchone()[0]
+check(nj == 1 and said == [assistant.NOT_STARTED] and not any("being made now" in (i.get("text") or "") for i in stored),
+      "the guide can't say an ad is being made when nothing started (and the record is corrected)")
+with db.connect() as conn:
+    db.adjust_credits(conn, zws, 100, "test top-up")
+bal3 = db.balance(wsrow(zws))
+asst_q[:] = [[txt("It's being made: it'll be in your library in a minute or two.")]]
+r = say(z, "confirmed")
+with db.connect() as conn:
+    jobs = conn.execute("SELECT * FROM jobs WHERE workspace_id=? ORDER BY id", (zws,)).fetchall()
+upd = [i["card"] for i in r["items"] if i["role"] == "card" and i["card"]["id"] == fa2["id"]]
+check(len(jobs) == 2 and upd and upd[0]["status"] == "done" and upd[0]["job"] == jobs[-1]["id"]
+      and db.balance(wsrow(zws)) == bal3 - jobs[-1]["credits"] and any(i["role"] == "note" for i in r["items"])
+      and any("being made" in i.get("text", "") for i in r["items"] if i["role"] == "assistant"),
+      "typing 'confirmed' on an open ad card makes the ad, at the card's price")
+check(jpost(z, "/app/assistant/action", {"card": fa2["id"], "choice": "confirm"}).get_json()["error"].startswith("That card"),
+      "pressing Make it after typing yes doesn't make a second ad")
+asst_q[:] = [[txt("Sounds good.")]]
+say(z, "yes")
+with db.connect() as conn:
+    check(conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (zws,)).fetchone()[0] == 2,
+          "a yes with no open ad card is just a message")
 thread = z.get("/app/assistant").get_json()
 check([i["role"] for i in thread["items"]].count("card") >= 5 and thread["items"][0]["role"] == "assistant",
       "the conversation is kept and can be resumed")
