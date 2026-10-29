@@ -126,14 +126,7 @@
 </div>
 {% endif %}
 {% endblock %}
-<script>
-// Template and library thumbnails: play muted previews on hover.
-document.querySelectorAll('[data-hoverplay]').forEach(function(el){
-  var v = el.querySelector('video'); if(!v) return;
-  el.addEventListener('mouseenter', function(){ v.play().catch(function(){}); });
-  el.addEventListener('mouseleave', function(){ v.pause(); });
-});
-</script>
+<dialog class="jd" data-jd aria-label="Ad details"><button type="button" class="jd-x" data-jd-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button><div data-jd-body></div></dialog>
 <script>document.addEventListener('click',function(e){var b=e.target.closest('[data-theme-toggle]');if(!b)return;var r=document.documentElement,cur=r.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'),next=cur==='light'?'dark':'light';r.setAttribute('data-theme',next);try{localStorage.setItem('theme',next);}catch(err){}});</script>
 <script>
 (function(){

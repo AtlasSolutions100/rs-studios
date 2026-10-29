@@ -2,15 +2,15 @@
 <span class="status {{ j.status }}" title="{{ {'done':'Finished and saved to your library','pending':'Waiting for its turn in the queue','running':'Being made now','failed':(j.error or 'It failed. Credits refunded.')}[j.status] }}"><span class="dot"></span>{{ {'done':'Ready','pending':'Queued','running':'Rendering','failed':'Failed'}[j.status] }}</span>
 {%- endmacro %}
 
-{% macro job_thumb(j, outs, templates, tools, tall=True) -%}
+{% macro job_thumb(j, outs, templates, tools, tall=True, eta={}) -%}
 {% set o = (outs.get(j.id) or [None])[0] %}
 {% set pv = templates[j.template_id].preview if j.template_id in templates else tools[j.tool].preview %}
 <div class="thumb {{ 'tall' if tall }}" data-hoverplay>
   {% if o and o.kind == 'video' %}<video src="{{ url_for('media', oid=o.id) }}" poster="{{ url_for('media', oid=o.id, poster=1) }}" muted loop playsinline preload="none"></video><span class="play"><svg viewBox="0 0 10 10"><path d="M2 1l7 4-7 4z"/></svg></span>
   {% elif o %}<img src="{{ url_for('media', oid=o.id) }}" alt="Generated ad">
   {% else %}<img src="{{ url_for('static', filename='previews/' ~ pv ~ '.jpg') }}" alt="" style="opacity:.25;filter:blur(2px)">
-    {% if j.status in ('pending','running') %}<div class="wait"><div><div class="spinner"></div>Making it…<br><span class="dim">1–3 minutes</span></div></div>
-    {% else %}<div class="wait"><div>{% if j.error and j.error[:4] in ('401:', '402:', '403:') %}Generation is paused on our side right now. Your credits were refunded; please try again shortly.{% else %}{{ j.error or 'No result' }}{% endif %}</div></div>{% endif %}
+    {% if j.status in ('pending','running') %}<div class="wait"><div><div class="spinner"></div>{{ 'Making it…' if j.status == 'running' else 'In the queue…' }}<br><span class="dim">{% if eta and eta.get(j.tool) %}usually about {{ eta[j.tool] }} min{% elif tools[j.tool].kind == 'image' %}1–3 minutes{% else %}a few minutes{% endif %}</span></div></div>
+    {% else %}<div class="wait"><div>{% if j.error and j.error[:4] in ('401:', '402:', '403:') %}Generation is paused on our side right now. Your credits were refunded; please try again shortly.{% else %}{{ (j.error or 'No result')|failure_text }}{% endif %}</div></div>{% endif %}
   {% endif %}
 </div>
 {%- endmacro %}
@@ -24,4 +24,57 @@
 </select>
 </div>
 {% endif %}
+{%- endmacro %}
+
+
+{# One ad in the batch page or the library: preview, status, and what you can do with it. #}
+{% macro card(j, outs, templates, tools, ctx='library', verdict=None, price=0, names={}, eta={}, hl=False) -%}
+{% set pr = j.params_json|fromjson %}
+{% set label = pr.label or (templates[j.template_id].name if j.template_id in templates else tools[j.tool].name) %}
+{% set back = url_for('create.batch', bid=j.batch_id) if ctx == 'batch' and j.batch_id else url_for('library') %}
+{% set os_ = outs.get(j.id) or [] %}
+<article class="litem {{ 'hl' if hl }}{{ ' v-' ~ verdict if verdict }}" data-job="{{ j.id }}" data-status="{{ j.status }}" tabindex="0" aria-label="{{ label }}, {{ {'done':'ready','pending':'queued','running':'rendering','failed':'failed'}[j.status] }}{{ ', ' ~ verdict if verdict }}">
+  {{ job_thumb(j, outs, templates, tools, eta=eta) }}
+  <div class="meta"><b>{{ label }}</b>{{ status(j) }}</div>
+  {% if verdict in ('approved', 'rejected', 'mixed') %}<span class="vtag {{ verdict }}">{{ {'approved': 'Approved', 'rejected': 'Rejected', 'mixed': 'Mixed reviews'}[verdict] }}</span>{% endif %}
+  {% if pr.hook %}<p class="brief">“{{ pr.hook[:120] }}”</p>{% else %}<p class="brief">{{ (j.brief or '')[:110] }}{{ '…' if (j.brief or '')|length > 110 }}</p>{% endif %}
+  {% if ctx == 'library' and j.product_id in names %}<p class="small dim" style="margin:4px 0 0">{{ names[j.product_id] }}</p>{% endif %}
+  {% if j.status == 'failed' %}
+    {% if not pr.preview %}
+    <div class="row cardacts">
+      <form method="post" action="{{ url_for('jobs.retry', jid=j.id) }}" data-confirm="Try again for {{ '{:,}'.format(price) }} credits ({{ credits_usd(price) }})?" data-confirm-ok="Try again"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="total" value="{{ price }}"><input type="hidden" name="back" value="{{ back }}"><button class="btn sm">Try again · {{ '{:,}'.format(price) }}</button></form>
+      {% if j.batch_id %}<a class="btn dark sm" href="{{ url_for('create.index', retry=j.id) }}">Edit &amp; retry</a>{% endif %}
+    </div>
+    {% else %}<p class="small" style="margin:8px 0 0"><a href="{{ url_for('studio', preview=1) }}">Try the free preview again</a></p>{% endif %}
+  {% elif os_ %}
+    <div class="row cardacts">
+      <a class="btn dark sm" href="{{ url_for('media', oid=os_[0].id, download=1) }}" data-share="{{ url_for('media', oid=os_[0].id) }}" data-share-name="campaignify-{{ j.id }}">Save</a>
+      <form method="post" action="{{ url_for('jobs.review', jid=j.id) }}" data-review><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ back }}"><input type="hidden" name="verdict" value="{{ '' if verdict == 'approved' else 'approved' }}"><button class="btn sm {{ 'on' if verdict == 'approved' else 'dark' }} vbtn" aria-pressed="{{ 'true' if verdict == 'approved' else 'false' }}" data-key="a" title="Approve (A)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg><span class="sr">Approve</span></button></form>
+      <form method="post" action="{{ url_for('jobs.review', jid=j.id) }}" data-review><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ back }}"><input type="hidden" name="verdict" value="{{ '' if verdict == 'rejected' else 'rejected' }}"><button class="btn sm {{ 'on bad' if verdict == 'rejected' else 'dark' }} vbtn" aria-pressed="{{ 'true' if verdict == 'rejected' else 'false' }}" data-key="r" title="Reject (R)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg><span class="sr">Reject</span></button></form>
+      <button type="button" class="btn dark sm" data-detail-open>Details</button>
+    </div>
+  {% else %}
+    <div class="row cardacts"><button type="button" class="btn dark sm" data-detail-open>Details</button></div>
+  {% endif %}
+  <template data-detail>
+    <h2 class="jd-t">{{ label }}</h2>
+    <dl class="jd-dl">
+      <dt>Made</dt><dd>{{ j.created_at|localtime }}</dd>
+      <dt>Status</dt><dd>{{ status(j) }}{% if j.error %} <span class="small muted">{{ j.error }}</span>{% endif %}</dd>
+      <dt>Credits</dt><dd>{{ '{:,}'.format(j.credits) }}{{ ' (free preview)' if pr.preview }}{% if j.credits %} · {{ credits_usd(j.credits) }}{% endif %}</dd>
+      {% if j.product_id in names %}<dt>Product</dt><dd>{{ names[j.product_id] }}</dd>{% endif %}
+      {% if pr.presenter %}<dt>Presenter</dt><dd>{{ pr.presenter|first_upper }}</dd>{% endif %}
+      {% if pr.duration %}<dt>Length</dt><dd>{{ pr.duration }} s</dd>{% endif %}
+      {% if pr.aspect %}<dt>Shape</dt><dd>{{ pr.aspect }}</dd>{% endif %}
+      {% if pr.resolution or tools[j.tool].kind == 'video' %}<dt>Quality</dt><dd>{{ pr.resolution or '720p' }}{{ ', watermarked' if pr.preview }}</dd>{% endif %}
+    </dl>
+    <p class="jd-brief">{{ j.brief }}</p>
+    <div class="row">
+      {% for o in os_ %}<a class="btn sm" href="{{ url_for('media', oid=o.id, download=1) }}">Download{{ ' ' ~ loop.index if os_|length > 1 }}</a>{% endfor %}
+      {% if os_ and has_feature('adhub') %}<a class="btn dark sm" href="{{ url_for('adhub.export_page', oid=os_[0].id) }}">Export for Meta / TikTok</a>{% endif %}
+      {% if j.batch_id %}<a class="btn dark sm" href="{{ url_for('create.batch', bid=j.batch_id) }}">Open its batch</a>{% endif %}
+    </div>
+    {% if j.status in ('done', 'failed') %}<form method="post" action="{{ url_for('jobs.delete', jid=j.id) }}" data-confirm="Delete this ad? Credits already spent stay in your history." class="jd-del"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ back }}"><button class="linkbtn">Delete this ad</button></form>{% endif %}
+  </template>
+</article>
 {%- endmacro %}
