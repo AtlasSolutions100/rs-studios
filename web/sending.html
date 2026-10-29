@@ -13,9 +13,9 @@
     <form method="post" class="panel">
       <input type="hidden" name="csrf" value="{{ csrf_token() }}">
       <h2 style="margin-top:0">Who it's from</h2>
-      <label for="sn">Sender name</label><input id="sn" name="sender_name" maxlength="60" value="{{ ws.sender_name or '' }}" placeholder="Your brand">
+      <label for="sn">Sender name</label><input id="sn" type="text" name="sender_name" maxlength="60" value="{{ ws.sender_name or '' }}" placeholder="Your brand">
       <p class="small muted" style="margin:6px 0 0">Emails show as <b>“{{ ws.sender_name or 'Your brand' }} via Campaignify”</b> &lt;ws-{{ ws.id }}@{{ mail_domain }}&gt;{% if domains and domains[0].status == 'verified' %}, or from your own domain (below){% endif %}.</p>
-      <label for="rt">Replies go to</label><input id="rt" name="reply_to" maxlength="200" inputmode="email" value="{{ ws.reply_to or '' }}" placeholder="{{ g.user.email }}">
+      <label for="rt">Replies go to</label><input id="rt" type="email" name="reply_to" maxlength="200" inputmode="email" value="{{ ws.reply_to or '' }}" placeholder="{{ g.user.email }}">
       <label for="pa">Postal address <span class="dim">(required: it's in every email's footer)</span></label><textarea id="pa" name="postal_address" maxlength="300" style="min-height:70px" placeholder="Street, city, state, ZIP">{{ ws.postal_address or '' }}</textarea>
       <label class="choice" style="display:flex;gap:10px;margin-top:14px;border-radius:12px;align-items:flex-start;padding:10px 12px"><input type="checkbox" name="consent_manual" value="1" {{ 'checked' if ws.consent_manual }} style="position:static;opacity:1;width:auto;height:auto;margin-top:3px"><span>I have permission to email the contacts I add by hand <span class="dim">(recorded as “manual” consent)</span></span></label>
       <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
