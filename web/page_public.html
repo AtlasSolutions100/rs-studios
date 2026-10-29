@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en" class="pp {{ 'pp-dark' if p.theme == 'dark' else 'pp-light' }}">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ p.title }}</title>
+{% if p.description %}<meta name="description" content="{{ p.description }}"><meta property="og:description" content="{{ p.description }}">{% endif %}
+<meta property="og:title" content="{{ p.title }}"><meta property="og:type" content="website">
+{% if not preview %}<link rel="canonical" href="{{ request.base_url }}">{% else %}<meta name="robots" content="noindex">{% endif %}
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='page.css') }}">
+<style>:root{--pp-accent:{{ p.accent }}}</style>
+</head>
+<body>
+{% if preview %}<div class="pp-preview">Preview{% if p.status != 'published' %} · this page is a draft and isn't public yet{% endif %}</div>{% endif %}
+<main>
+{% macro media(oid, cls='') %}{% if oid and oid in kinds %}<div class="pp-media {{ cls }}">{% if kinds[oid] == 'video' %}<video src="{{ media_url(oid) }}" controls playsinline preload="metadata"></video>{% else %}<img src="{{ media_url(oid) }}" alt="">{% endif %}</div>{% endif %}{% endmacro %}
+{% for b in blocks %}
+  {% if b.type == 'hero' %}
+  <section class="pp-hero {{ 'has-media' if b.media in kinds }}"><div class="pp-wrap pp-hero-in">
+    <div><h1>{{ b.headline }}</h1>{% if b.subhead %}<p class="pp-lede">{{ b.subhead }}</p>{% endif %}
+      {% if b.button_text and b.button_url %}<a class="pp-btn" href="{{ b.button_url }}" rel="noopener nofollow">{{ b.button_text }}</a>{% endif %}</div>
+    {{ media(b.media, 'tall') }}
+  </div></section>
+  {% elif b.type == 'media' %}
+  <section class="pp-sec"><div class="pp-wrap pp-center">{{ media(b.media) }}{% if b.caption %}<p class="pp-cap">{{ b.caption }}</p>{% endif %}</div></section>
+  {% elif b.type == 'text' %}
+  <section class="pp-sec"><div class="pp-wrap pp-narrow">{% if b.heading %}<h2>{{ b.heading }}</h2>{% endif %}{% for para in (b.body or '').split('\n\n') if para.strip() %}<p>{{ para }}</p>{% endfor %}</div></section>
+  {% elif b.type == 'benefits' %}
+  <section class="pp-sec"><div class="pp-wrap">{% if b.heading %}<h2>{{ b.heading }}</h2>{% endif %}<ul class="pp-benefits">{% for it in lines(b['items']) %}<li>{{ it }}</li>{% endfor %}</ul></div></section>
+  {% elif b.type == 'faq' %}
+  <section class="pp-sec"><div class="pp-wrap pp-narrow">{% if b.heading %}<h2>{{ b.heading }}</h2>{% endif %}{% for q, a in faq_items(b['items']) %}<details class="pp-faq"><summary>{{ q }}</summary>{% if a %}<p>{{ a }}</p>{% endif %}</details>{% endfor %}</div></section>
+  {% elif b.type == 'cta' %}
+  <section class="pp-sec pp-cta"><div class="pp-wrap pp-center">{% if b.headline %}<h2>{{ b.headline }}</h2>{% endif %}{% if b.body %}<p>{{ b.body }}</p>{% endif %}{% if b.button_text and b.button_url %}<a class="pp-btn" href="{{ b.button_url }}" rel="noopener nofollow">{{ b.button_text }}</a>{% endif %}</div></section>
+  {% elif b.type == 'embed' and b.src %}
+  <section class="pp-sec"><div class="pp-wrap pp-center"><div class="pp-embed {{ 'tall' if 'calendly' in b.src }}"><iframe src="{{ b.src }}" title="{{ b.caption or 'Embedded content' }}" loading="lazy" allow="encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-presentation"></iframe></div>{% if b.caption %}<p class="pp-cap">{{ b.caption }}</p>{% endif %}</div></section>
+  {% elif b.type == 'form' %}
+  {% include "_page_form.html" ignore missing %}
+  {% endif %}
+{% endfor %}
+</main>
+<footer class="pp-foot"><div class="pp-wrap">Made with <a href="https://campaignify.ai/" rel="noopener">Campaignify</a></div></footer>
+</body>
+</html>

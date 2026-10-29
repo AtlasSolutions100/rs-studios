@@ -1,0 +1,5 @@
+<nav class="tabs" aria-label="Pages and links">
+  <a class="{{ 'on' if request.endpoint.startswith('pages.') and 'link' not in request.endpoint }}" href="{{ url_for('pages.index') }}">Pages</a>
+  <a class="{{ 'on' if 'link' in request.endpoint }}" href="{{ url_for('pages.links') }}">Smart links</a>
+  {% if has_endpoint('forms.index') %}<a class="{{ 'on' if request.endpoint.startswith('forms.') }}" href="{{ url_for('forms.index') }}">Forms{% if not has_feature('forms') %} <em class="lock">{{ plans.required('forms').name }}</em>{% endif %}</a>{% endif %}
+</nav>

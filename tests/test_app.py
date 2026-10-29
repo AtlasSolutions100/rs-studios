@@ -705,6 +705,7 @@ check(b"AI writing (planner, copy, SEO): <b>on" in a.get("/admin").data, "admin 
 
 print("== campaign planner")
 import planner  # noqa: E402
+import pages_routes  # noqa: E402
 check(client().get("/app/campaigns").status_code == 302, "planner needs a login")
 fz = client()
 fz.post("/signup", data={"csrf": csrf(fz), "email": "free2@example.com", "password": "longpassword"})
@@ -996,12 +997,133 @@ if _sh.which("ffmpeg"):
                            "-of", "csv=p=0", out], capture_output=True, text=True).stdout.strip()
     check(r.status_code == 200 and dims == "1920,1080", "video export re-frames 9:16 to 1920 x 1080")
 
+print("== landing pages")
+import pages as pagesmod  # noqa: E402
+check(fz.get("/app/pages").status_code == 402, "free account: pages show the upgrade page")
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "starter"})
+r = x.post("/app/pages", data={"csrf": csrf(x), "title": "Glow Launch"})
+with db.connect() as conn:
+    pg1 = conn.execute("SELECT * FROM pages WHERE workspace_id=? ORDER BY id DESC", (xws["id"],)).fetchone()
+check(r.status_code == 302 and pg1["slug"] == "glow-launch" and pg1["status"] == "draft"
+      and len(json.loads(pg1["blocks_json"])) == 4, "new page: slug from the title, starter layout, draft")
+check(client().get("/p/glow-launch").status_code == 404, "drafts aren't public")
+check(x.get(f"/app/pages/{pg1['id']}").status_code == 200, "editor renders")
+with db.connect() as conn:
+    other_out = conn.execute("SELECT o.id FROM outputs o JOIN jobs j ON j.id=o.job_id WHERE j.workspace_id!=? LIMIT 1",
+                             (xws["id"],)).fetchone()["id"]
+form = {"csrf": csrf(x), "title": "Glow Launch", "slug": "glow-launch", "description": "Morning serum", "theme": "dark",
+        "accent": "#FF0000", "action": "save",
+        "b0_type": "hero", "b0_headline": "<script>alert(1)</script>Glow", "b0_subhead": "One drop",
+        "b0_button_text": "Buy", "b0_button_url": "javascript:alert(1)", "b0_media": str(eo),
+        "b1_type": "media", "b1_media": str(other_out), "b1_caption": "x",
+        "b2_type": "embed", "b2_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "b2_caption": "Watch",
+        "b3_type": "embed", "b3_url": "https://evil.example/iframe", "b3_caption": "",
+        "b4_type": "cta", "b4_headline": "Ready?", "b4_body": "", "b4_button_text": "Shop", "b4_button_url": "glow.example/shop",
+        "b5_type": "faq", "b5_heading": "Questions", "b5_items": "How?\nOne drop.\n\nWhen?\nMornings.",
+        "b6_type": "nope"}
+x.post(f"/app/pages/{pg1['id']}", data=form)
+with db.connect() as conn:
+    pg1 = conn.execute("SELECT * FROM pages WHERE id=?", (pg1["id"],)).fetchone()
+bl = json.loads(pg1["blocks_json"])
+check(len(bl) == 6 and pg1["theme"] == "dark" and pg1["accent"] == "#FF0000", "blocks saved (unknown block types dropped)")
+check(bl[0]["button_url"] == "" and bl[4]["button_url"] == "https://glow.example/shop", "javascript: links dropped; bare domains get https")
+check(bl[0]["media"] == eo and bl[1]["media"] is None, "only your own library media can be used")
+check(bl[2]["src"] == "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ" and bl[3]["src"] is None,
+      "embeds are rebuilt for allowed providers only")
+x.post(f"/app/pages/{pg1['id']}", data=dict(form, action="up:1"))
+with db.connect() as conn:
+    bl2 = json.loads(conn.execute("SELECT blocks_json FROM pages WHERE id=?", (pg1["id"],)).fetchone()[0])
+check(bl2[0]["type"] == "media" and bl2[1]["type"] == "hero", "blocks move up")
+x.post(f"/app/pages/{pg1['id']}", data=dict(form, action="add:benefits"))
+with db.connect() as conn:
+    bl3 = json.loads(conn.execute("SELECT blocks_json FROM pages WHERE id=?", (pg1["id"],)).fetchone()[0])
+check(len(bl3) == 7 and bl3[-1]["type"] == "benefits", "blocks can be added")
+x.post(f"/app/pages/{pg1['id']}", data=dict(form, action="publish", b5_items="Make $500 a week\nJoin my team"))
+with db.connect() as conn:
+    check(conn.execute("SELECT status FROM pages WHERE id=?", (pg1["id"],)).fetchone()[0] == "draft",
+          "pages with income or recruiting claims can't be published")
+x.post(f"/app/pages/{pg1['id']}", data=dict(form, action="publish"))
+pub = client()
+r = pub.get("/p/glow-launch")
+html = r.get_data(as_text=True)
+check(r.status_code == 200 and "Glow" in html and "One drop" in html, "published page is public")
+check("<script>alert(1)</script>" not in html and "&lt;script&gt;" in html and "<script" not in html.lower(),
+      "member text is escaped; no scripts on public pages")
+csp = r.headers.get("Content-Security-Policy", "")
+check("default-src 'none'" in csp and "script-src" not in csp and "frame-ancestors 'none'" in csp, "strict CSP on public pages")
+check('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"' in html and "evil.example" not in html, "public page embeds only allowed providers")
+check(f'/p/glow-launch/m/{eo}' in html and pub.get(f"/p/glow-launch/m/{eo}").status_code == 200, "page media served publicly")
+check(pub.get(f"/p/glow-launch/m/{other_out}").status_code == 404, "media not on the page isn't served")
+pub.get("/p/glow-launch")
+with db.connect() as conn:
+    check(conn.execute("SELECT views FROM pages WHERE id=?", (pg1["id"],)).fetchone()[0] == 1, "views counted once per visitor")
+r = x.post("/app/pages", data={"csrf": csrf(x), "title": "Second page"})
+with db.connect() as conn:
+    pg2 = conn.execute("SELECT * FROM pages WHERE workspace_id=? ORDER BY id DESC", (xws["id"],)).fetchone()
+x.post(f"/app/pages/{pg2['id']}", data={"csrf": csrf(x), "title": "Second page", "slug": "glow-launch", "action": "publish",
+                                        "b0_type": "text", "b0_heading": "Hi", "b0_body": "Hello"})
+with db.connect() as conn:
+    pg2 = conn.execute("SELECT * FROM pages WHERE id=?", (pg2["id"],)).fetchone()
+check(pg2["slug"] == "second-page", "taken addresses are refused")
+check(pg2["status"] == "draft", "Starter: one published page; the second is refused")
+x.post(f"/app/pages/{pg2['id']}", data={"csrf": csrf(x), "title": "Second page", "slug": "admin", "action": "save",
+                                        "b0_type": "text", "b0_heading": "Hi", "b0_body": "Hello"})
+with db.connect() as conn:
+    check(conn.execute("SELECT slug FROM pages WHERE id=?", (pg2["id"],)).fetchone()[0] == "second-page", "reserved addresses refused")
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "growth"})
+x.post(f"/app/pages/{pg2['id']}", data={"csrf": csrf(x), "title": "Second page", "slug": "second-page", "action": "publish",
+                                        "b0_type": "text", "b0_heading": "Hi", "b0_body": "Hello"})
+with db.connect() as conn:
+    check(conn.execute("SELECT status FROM pages WHERE id=?", (pg2["id"],)).fetchone()[0] == "published", "Growth: unlimited published pages")
+check(n.get(f"/app/pages/{pg1['id']}").status_code == 404, "other workspaces can't edit your pages")
+check(x.get(f"/app/pages/{pg2['id']}/preview").status_code == 200, "owner preview works")
+check(pagesmod.safe_url("JaVaScRiPt:alert(1)") == "" and pagesmod.safe_url("data:text/html,x") == ""
+      and pagesmod.safe_url("mailto:hi@glow.example") == "mailto:hi@glow.example", "URL sanitizer")
+
+print("== smart links")
+check(fz.get("/app/links").status_code == 402, "free account: smart links show the upgrade page")
+x.post("/app/links", data={"csrf": csrf(x), "target_url": "javascript:alert(1)"})
+x.post("/app/links", data={"csrf": csrf(x), "target_url": "https://glow.example/shop?ref=1", "title": "Bio",
+                           "code": "glow-bio", "utm_source": "tiktok", "utm_medium": "social", "utm_campaign": "launch"})
+with db.connect() as conn:
+    lks = conn.execute("SELECT * FROM links WHERE workspace_id=?", (xws["id"],)).fetchall()
+check(len(lks) == 1 and lks[0]["code"] == "glow-bio", "link created with a custom code; javascript: target refused")
+check(x.post("/app/links", data={"csrf": csrf(x), "target_url": "https://glow.example", "code": "glow-bio"}).status_code == 302
+      and len(lks) == 1, "taken codes refused")
+v = client()
+r = v.get("/l/glow-bio?utm_source=ig&fbclid=abc&evil=1", headers={"User-Agent": "Mozilla/5.0 (iPhone) Mobile", "Referer": "https://www.instagram.com/x"})
+loc = r.headers["Location"]
+check(r.status_code == 302 and loc.startswith("https://glow.example/shop?") and "ref=1" in loc and "utm_source=ig" in loc
+      and "utm_medium=social" in loc and "fbclid=abc" in loc and "evil" not in loc,
+      "redirect keeps the target's query, adds UTMs, passes through incoming UTMs and click ids only")
+v.get("/l/glow-bio", headers={"User-Agent": "facebookexternalhit/1.1"})
+with db.connect() as conn:
+    ck = conn.execute("SELECT * FROM link_clicks").fetchall()
+check(len(ck) == 1 and ck[0]["referrer"] == "www.instagram.com" and ck[0]["device"] == "mobile" and ck[0]["utm_source"] == "ig",
+      "clicks recorded with referrer host, device and UTMs; link-preview bots not counted")
+with db.connect() as conn:
+    cols = [c[1] for c in conn.execute("PRAGMA table_info(link_clicks)")]
+check(not any("ip" == c for c in cols), "click rows hold no IP address")
+check(client().get("/l/nope-nope").status_code == 404, "unknown link 404s")
+html = x.get(f"/app/links/{lks[0]['id']}").get_data(as_text=True)
+check("Referrers" in html and "www.instagram.com" in html and "Clicks, last 30 days" in html, "Growth: full link analytics")
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "starter"})
+html = x.get(f"/app/links/{lks[0]['id']}").get_data(as_text=True)
+check("Referrers" not in html and "Last 7 days" in html and "Full analytics on Growth" in html, "Starter: click counts only")
+check(n.get(f"/app/links/{lks[0]['id']}").status_code in (402, 404), "other workspaces can't see your link stats")
+rl = client(ip="10.77.0.1")
+codes = [rl.get("/l/glow-bio").status_code for _ in range(pages_routes.CLICKS_PER_MIN_PER_IP + 1)]
+check(codes[-1] == 429 and codes[0] == 302, "smart links are rate-limited per IP")
+x.post(f"/app/links/{lks[0]['id']}/archive", data={"csrf": csrf(x)})
+check(client().get("/l/glow-bio").status_code == 404, "archived links stop redirecting")
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "growth"})
+
 print("== pages")
 a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": ws1["id"], "plan": "scale"})
 for path in ("/app", "/app/library", "/app/brand", "/admin", "/app/new?tool=motion_copy", "/app/new?template=cost",
              "/app/start", "/app/billing", "/app/new?template=hero", "/app/team", "/app/copy", "/app/optimize",
              "/app/copy?kind=landing&platform=landing", "/app/campaigns", "/app/seo", "/app/ad-accounts",
-             "/app/ad-accounts/youtube"):
+             "/app/ad-accounts/youtube", "/app/pages", "/app/links"):
     check(a.get(path).status_code == 200, f"{path} renders")
 check(a.get("/health").get_json()["generation_configured"], "health reports configured")
 for path in ("/app", "/app/start", "/app/billing", "/", "/features"):

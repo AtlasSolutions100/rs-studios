@@ -152,6 +152,42 @@ CREATE TABLE IF NOT EXISTS adhub_progress (
     done_by INTEGER,
     done_at TEXT NOT NULL,
     PRIMARY KEY (workspace_id, platform, step));
+CREATE TABLE IF NOT EXISTS pages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    slug TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'draft',     -- draft | published
+    theme TEXT NOT NULL DEFAULT 'light',
+    accent TEXT NOT NULL DEFAULT '#BDFA25',
+    blocks_json TEXT NOT NULL DEFAULT '[]',
+    views INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    published_at TEXT);
+CREATE INDEX IF NOT EXISTS idx_pages_ws ON pages(workspace_id, id);
+CREATE TABLE IF NOT EXISTS links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    code TEXT NOT NULL UNIQUE,
+    title TEXT,
+    target_url TEXT NOT NULL,
+    utm_source TEXT, utm_medium TEXT, utm_campaign TEXT,
+    passthrough INTEGER NOT NULL DEFAULT 1,
+    clicks INTEGER NOT NULL DEFAULT 0,
+    archived INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_links_ws ON links(workspace_id, id);
+CREATE TABLE IF NOT EXISTS link_clicks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    link_id INTEGER NOT NULL,
+    at TEXT NOT NULL,
+    referrer TEXT,
+    country TEXT,
+    device TEXT,
+    utm_source TEXT, utm_medium TEXT, utm_campaign TEXT);
+CREATE INDEX IF NOT EXISTS idx_clicks_link ON link_clicks(link_id, at);
 """
 
 # Columns added after the first release: (table, column, definition).

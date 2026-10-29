@@ -1,0 +1,31 @@
+{% extends "base.html" %}{% block title %}{{ lk.title or lk.code }} · Smart links · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <p style="margin:0 0 14px"><a href="{{ url_for('pages.links') }}">← Smart links</a></p>
+  <p class="eyebrow">Smart link</p>
+  <h1 class="break">{{ lk.title or lk.code }}</h1>
+  <p><code>{{ base }}l/{{ lk.code }}</code> <button type="button" class="copybtn" data-copy="lnk">Copy</button><span id="lnk" hidden>{{ base }}l/{{ lk.code }}</span></p>
+  <p class="small muted" style="overflow-wrap:anywhere">Sends people to {{ dest }}{% if lk.passthrough %} (plus any UTM tags and click ids on the incoming link){% endif %}</p>
+  <div class="scores" style="grid-template-columns:repeat(2,minmax(0,220px))">
+    <div class="score"><span class="small muted">All time</span><b>{{ lk.clicks }}</b></div>
+    <div class="score"><span class="small muted">Last 7 days</span><b>{{ stats.week }}</b></div>
+  </div>
+  {% if full %}
+  <div class="panel"><h3>Clicks, last 30 days</h3>
+    {% set mx = (stats.days|map(attribute=1)|max) or 1 %}
+    <div class="spark" role="img" aria-label="Daily clicks for the last 30 days">{% for d, n in stats.days %}<i style="--h:{{ (100 * n / mx)|round|int }}%" title="{{ d }}: {{ n }}"></i>{% endfor %}</div>
+    <div class="row small muted" style="justify-content:space-between"><span>{{ stats.days[0][0] }}</span><span>{{ stats.days[-1][0] }}</span></div>
+  </div>
+  <div class="audit3" style="margin-top:18px">
+    {% for col, label in [('referrer','Referrers'),('country','Countries'),('device','Devices'),('utm_source','UTM source'),('utm_medium','UTM medium'),('utm_campaign','UTM campaign')] %}
+    <div class="panel"><h3>{{ label }}</h3>{% if stats[col] %}<table>{% for r in stats[col] %}<tr><td>{{ r.k }}</td><td style="text-align:right">{{ r.n }}</td></tr>{% endfor %}</table>{% else %}<p class="small muted">No clicks yet.</p>{% endif %}</div>
+    {% endfor %}
+  </div>
+  <p class="small dim">Countries appear when the server is told the visitor's country by the network edge; otherwise they show as (none). Bots and link previews aren't counted.</p>
+  {% else %}
+  <div class="panel upgrade"><h3>Full analytics on {{ plans.required('link_analytics').name }}</h3><p class="muted">Clicks over time, referrers, countries, devices and UTM breakdowns.</p><a class="btn sm" href="{{ url_for('billing_page') }}">See plans</a></div>
+  {% endif %}
+  <form method="post" action="{{ url_for('pages.link_archive', lid=lk.id) }}" onsubmit="return confirm('Archive this link? It stops redirecting.')" style="margin-top:18px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn copybtn" style="color:var(--dim)">Archive link</button></form>
+</div>
+{% include "_copyjs.html" %}
+{% endblock %}
