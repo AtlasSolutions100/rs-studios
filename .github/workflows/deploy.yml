@@ -19,6 +19,14 @@ name: Deploy Campaignify (campaignify.ai)
 #   STRIPE_PORTAL_CONFIG   optional repo variable: Customer Portal configuration id
 #   RS_MARKUP              optional repo variable, default 2.0
 #   RS_STARTER_CREDITS     optional repo variable; default = 2 image ads (44 credits)
+#   RESEND_API_KEY         email sending for flows (Resend, full access: sending + domains)
+#   RESEND_WEBHOOK_SECRET  svix signing secret of https://campaignify.ai/webhooks/resend
+#                          (events: email.sent, delivered, bounced, complained, opened, clicked)
+#   RS_MAIL_DOMAIN         repo variable: the shared sending subdomain, e.g. mail.campaignify.ai
+#   RS_POSTAL_ADDRESS      optional repo variable: Campaignify's own postal address (its notices)
+#   RS_HD_MARKUP           optional repo variable: 1080p markup, default 1.4
+#   RS_VIDEO_UPSCALE_MODEL / RS_VIDEO_UPSCALE_USD_PER_SECOND  optional variables: switch on upscaling
+#   RS_FREE_PREVIEW / RS_FREE_PREVIEWS_PER_DAY               optional variables: the free 480p preview
 # A secret or variable that isn't set is simply not sent, so the server keeps
 # whatever it already has.
 on:
@@ -68,13 +76,25 @@ jobs:
           STRIPE_PORTAL_CONFIG: ${{ vars.STRIPE_PORTAL_CONFIG }}
           RS_MARKUP: ${{ vars.RS_MARKUP }}
           RS_STARTER_CREDITS: ${{ vars.RS_STARTER_CREDITS }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_WEBHOOK_SECRET: ${{ secrets.RESEND_WEBHOOK_SECRET }}
+          RS_MAIL_DOMAIN: ${{ vars.RS_MAIL_DOMAIN }}
+          RS_POSTAL_ADDRESS: ${{ vars.RS_POSTAL_ADDRESS }}
+          RS_HD_MARKUP: ${{ vars.RS_HD_MARKUP }}
+          RS_VIDEO_UPSCALE_MODEL: ${{ vars.RS_VIDEO_UPSCALE_MODEL }}
+          RS_VIDEO_UPSCALE_USD_PER_SECOND: ${{ vars.RS_VIDEO_UPSCALE_USD_PER_SECOND }}
+          RS_FREE_PREVIEW: ${{ vars.RS_FREE_PREVIEW }}
+          RS_FREE_PREVIEWS_PER_DAY: ${{ vars.RS_FREE_PREVIEWS_PER_DAY }}
         run: |
           git archive --format=tar.gz -o /tmp/app.tgz HEAD
           python3 - <<'PY'
           import base64, json, os
           settings = {k: os.environ[k] for k in ("HF_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET",
                                              "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "GROQ_API_KEY", "GROQ_MODEL",
-                                             "STRIPE_PORTAL_CONFIG", "RS_MARKUP", "RS_STARTER_CREDITS")
+                                             "STRIPE_PORTAL_CONFIG", "RS_MARKUP", "RS_STARTER_CREDITS",
+                                             "RESEND_API_KEY", "RESEND_WEBHOOK_SECRET", "RS_MAIL_DOMAIN", "RS_POSTAL_ADDRESS",
+                                             "RS_HD_MARKUP", "RS_VIDEO_UPSCALE_MODEL", "RS_VIDEO_UPSCALE_USD_PER_SECOND",
+                                             "RS_FREE_PREVIEW", "RS_FREE_PREVIEWS_PER_DAY")
                       if os.environ.get(k)}
           print("settings sent:", ", ".join(settings) or "none")
           body = {"commit": os.environ["GITHUB_SHA"], "settings": settings,

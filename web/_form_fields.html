@@ -19,6 +19,10 @@
     {% endif %}
   </div>
   {% endfor %}
+  {% if fm.consent_email or fm.consent_sms %}{% set ct = consent_texts(fm) %}
+  {% if fm.consent_email %}<div class="fld fld-consent"><label class="pp-check"><input type="checkbox" name="_consent_email" value="yes" {{ 'checked' if values.get('_consent_email') == 'yes' }}><span>{{ ct.email }}</span></label></div>{% endif %}
+  {% if fm.consent_sms %}<div class="fld fld-consent"><label class="pp-check"><input type="checkbox" name="_consent_sms" value="yes" {{ 'checked' if values.get('_consent_sms') == 'yes' }}><span>{{ ct.sms }}</span></label></div>{% endif %}
+  {% endif %}
   <button class="pp-btn">{{ fm.button_text or 'Send' }}</button>
-  <p class="pp-note">We only use your details to reply to you.</p>
+  {% if not (fm.consent_email or fm.consent_sms) %}<p class="pp-note">We only use your details to reply to you.</p>{% endif %}
 </form>

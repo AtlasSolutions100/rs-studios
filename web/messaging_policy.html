@@ -1,0 +1,48 @@
+{% extends "public_base.html" %}
+{% block title %}Messaging Policy · Campaignify{% endblock %}
+{% block main %}
+<article class="lp-wrap lp-doc">
+  <h1>Messaging Policy</h1>
+  <p class="muted">Version {{ version }} · applies to every email and text sent through Campaignify flows</p>
+
+  <h2>The short version</h2>
+  <p>You may only message people who asked to hear from you, you must make it easy for them to stop, and the content rules that apply to your ads apply to your messages too. We send on your behalf; you are the sender and you're responsible for following the law where your contacts live.</p>
+
+  <h2>Consent</h2>
+  <ul>
+    <li><b>Email:</b> send only to people who gave you their address and agreed to hear from you (for example by ticking the consent box on your Campaignify form), or who you have another lawful basis to email. Don't upload bought, rented or scraped lists. When you import contacts, mark consent only when you have it, and keep your own record of where it came from.</li>
+    <li><b>Texts:</b> marketing texts need the person's express written consent, collected with the disclosure next to the phone field (recurring automated texts, consent not a condition of purchase, frequency, message and data rates, HELP and STOP). Campaignify won't send a text to anyone without a recorded text consent.</li>
+    <li>We store when and how consent was given (form, time, the wording shown, a hash of the IP address). Keep consent records of your own for anything you import.</li>
+  </ul>
+
+  <h2>Stopping messages</h2>
+  <ul>
+    <li>Every email carries your sender name, your postal address and a one-click unsubscribe link, and supports one-click unsubscribe in mail apps. You can't remove them.</li>
+    <li>Replies of STOP, END, CANCEL, UNSUBSCRIBE, QUIT, STOPALL or OPTOUT to a text stop all texts from your account to that number, with one confirmation. HELP or INFO gets an automatic reply with your name and how to reach you.</li>
+    <li>Unsubscribes, bounces and spam complaints are honoured across all your flows, right away. Don't re-add people who opted out.</li>
+  </ul>
+
+  <h2>When and how often</h2>
+  <ul>
+    <li>Texts go out only between 9:00 and 20:00 in the contact's time zone (or yours when we don't know theirs).</li>
+    <li>Daily limits apply per account and per person, and new senders start with a lower limit while they build a sending reputation.</li>
+    <li>We pause a flow automatically when its emails draw spam complaints above 0.3% or bounce above 5%, and when an account runs out of credits.</li>
+  </ul>
+
+  <h2>Content</h2>
+  <ul>
+    <li>The same rules as your ads: no income, earnings or recruiting claims, no health, disease or weight-loss claims beyond the label, no fake reviews, nothing misleading. Our checks run when you save a flow and again when each message is sent.</li>
+    <li>No deceptive subject lines (including fake “Re:” or “Fwd:”), and no content about cannabis, firearms, gambling, adult content, or other material carriers don't allow in texts.</li>
+    <li>Texts must match the use case and sample messages you registered for your number.</li>
+  </ul>
+
+  <h2>Sending domains</h2>
+  <p>On the shared domain, your emails go out as “Your brand via Campaignify”, with replies going to your reply-to address. On Growth and Scale you can send from your own verified domain instead.</p>
+
+  <h2>Enforcement</h2>
+  <p>We may pause flows, hold messages or close accounts that break this policy or put the shared sending reputation at risk. Message credits used for messages that were sent aren't refunded.</p>
+
+  <h2>Who we are</h2>
+  <p>Campaignify is run by Rector &amp; Stull LLC, 30 N Gould St Ste R, Sheridan, WY 82801 · <a href="mailto:hello@campaignify.ai">hello@campaignify.ai</a>. See also the <a href="{{ url_for('terms') }}">Terms</a> and <a href="{{ url_for('privacy') }}">Privacy</a>.</p>
+</article>
+{% endblock %}

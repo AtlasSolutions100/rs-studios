@@ -39,11 +39,20 @@
     {% endfor %}
     <div class="panel addblock"><span class="small muted">Add a field:</span>{% for k, v in TYPES.items() %}<button class="btn dark sm" name="action" value="add:{{ k }}">{{ v }}</button>{% endfor %}</div>
     <div class="panel">
+      <h3>Consent to messages</h3>
+      <p class="small muted">Flows only email people who agreed on a form like this (or who you imported with consent), and only text people who ticked the text box. Each agreement is stored with the time and the wording shown.</p>
+      <label class="choice" style="display:inline-flex;gap:8px"><input type="checkbox" name="consent_email" value="1" {{ 'checked' if fm.consent_email }}>Ask to send emails</label>
+      <label for="cte" class="sr">Email consent wording</label><textarea id="cte" name="consent_text" maxlength="400" style="min-height:60px;margin-top:8px">{{ fm.consent_text or default_email_consent }}</textarea>
+      <label class="choice" style="display:inline-flex;gap:8px;margin-top:12px"><input type="checkbox" name="consent_sms" value="1" {{ 'checked' if fm.consent_sms }} {{ 'disabled' if not has_phone }}>Ask to send texts{% if not has_phone %} <span class="dim">(add a Phone field first)</span>{% endif %}</label>
+      <label for="cts" class="sr">Text consent wording</label><textarea id="cts" name="consent_sms_text" maxlength="600" style="min-height:90px;margin-top:8px">{{ fm.consent_sms_text or default_sms_consent }}</textarea>
+      <p class="small dim">{brand} becomes your brand name. Keep the text-message wording's parts: recurring automated texts, consent isn't a condition of purchase, frequency, rates, HELP and STOP.</p>
+    </div>
+    <div class="panel">
       <h3>Webhook</h3>
       <p class="small muted">Each submission is POSTed as JSON to this https address, signed with HMAC-SHA256 in the <code>X-Campaignify-Signature</code> header (<code>sha256=</code> + hex of the body). Use it to send answers to your CRM, a spreadsheet or a chat channel.</p>
       <label for="wh">Webhook URL</label><input id="wh" type="text" name="webhook_url" maxlength="500" value="{{ fm.webhook_url or '' }}" placeholder="https://hooks.example.com/…">
       <p class="small muted">Signing secret: <code>{{ fm.webhook_secret }}</code> <button class="linkbtn copybtn" name="action" value="rotate">Make a new one</button>{% if fm.webhook_url %} · <button class="linkbtn copybtn" name="action" value="test">Send a test</button>{% endif %}</p>
-      <p class="small dim">Email notifications aren't available yet; use the webhook to get notified.</p>
+      <p class="small dim">To follow up automatically, start a <a href="{{ url_for('flows.index') }}">flow</a> when this form is submitted.</p>
     </div>
     <div class="go savebar"><span class="small muted">Share: <a href="{{ url_for('forms.public', code=fm.code) }}" target="_blank" rel="noopener">{{ base }}f/{{ fm.code }}</a> · or add a Form block to a page</span><button class="btn" name="action" value="save">Save form</button></div>
   </form>

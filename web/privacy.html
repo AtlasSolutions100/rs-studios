@@ -24,11 +24,14 @@
     <li><b>Smart links</b> record the time, the website you came from, the kind of device and any UTM tags on the link. We don't store your IP address with the click.</li>
     <li><b>Pages</b> count visits. Your IP address is kept for at most a day to avoid counting you twice.</li>
     <li><b>Forms</b> store what you type in and send it to the member who owns the form (and to their own tools, if they connected a webhook). That member decides how it's used; ask them, or us, to delete it.</li>
+    <li><b>Messages from members.</b> If you agree on a member's form to get their emails or texts, we record that you agreed (when, which form, the wording shown, and a one-way hash of your IP address) and send their messages on their behalf. We record whether each email was delivered, opened (approximately) or clicked, so the member's follow-ups can respond. Every email has a one-click unsubscribe link; reply STOP to any text to stop texts. Opting out is honoured across all of that member's messages.</li>
   </ul>
 
   <h2>Third parties</h2>
   <ul>
     <li><b>AI generation.</b> To make an ad, your brief and the product photos you pick are sent to the AI generation provider we use. The provider processes them to produce your ad and, under its own terms, may use content to improve its models.</li>
+    <li><b>Resend</b> delivers emails that members send from their flows, and tells us when they're delivered, bounce or are marked as spam.</li>
+    <li><b>Twilio</b> delivers text messages that members send from their flows (once a member connects texting), and passes on replies such as STOP and HELP.</li>
     <li><b>Stripe</b> processes payments when you buy credits or a plan, and hosts the page where you manage or cancel a plan.</li>
     <li><b>Google Fonts.</b> Fonts load from Google's servers, so Google receives your IP address as part of that request.</li>
   </ul>

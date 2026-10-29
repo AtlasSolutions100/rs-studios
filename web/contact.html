@@ -16,6 +16,18 @@
       <ol class="steplist">{% for e in events %}<li class="{{ 'done' if e.kind == 'form' else 'note' }}"><b>{{ {'form': 'Filled in', 'page': 'On page', 'link': 'Came through smart link', 'msg_click': 'Clicked a link in', 'msg_open': 'Opened', 'sms_reply': 'Replied by text:'}.get(e.kind, e.kind) }} {{ e.detail }}</b><span class="small muted">{{ e.at|localtime }}</span></li>{% else %}<li class="note"><b>Nothing yet</b></li>{% endfor %}</ol>
     </div>
   </div>
+  <div class="section-h"><h2>Consent</h2><span class="muted small">What they agreed to, and when</span></div>
+  <div class="grid2">
+    {% for ch, label in (('email', 'Email'), ('sms', 'Texts')) %}{% set val = c[ch ~ '_consent'] or 'none' %}{% set stopped = c.unsubscribed_at if ch == 'email' else c.sms_stopped_at %}
+    <div class="panel">
+      <h3 style="margin-top:0">{{ label }}</h3>
+      <p style="margin:0 0 8px">{% if stopped %}<span class="tag bad">{{ 'Unsubscribed' if ch == 'email' else 'Replied STOP' }}</span> {{ stopped|localtime }}{% elif val == 'none' %}<span class="tag">No consent</span>{% else %}<span class="tag ok">Agreed</span> {{ {'form': 'on a form', 'import': 'in an import', 'manual': 'set by hand'}.get(val, val) }} · {{ c[ch ~ '_consent_at']|localtime if c[ch ~ '_consent_at'] }}{% endif %}</p>
+      {% if ch == 'sms' %}<p class="small muted" style="margin:0 0 8px">Number: {{ c.phone_e164 or c.phone or 'none' }}</p>{% endif %}
+      {% if is_owner %}<form method="post" action="{{ url_for('messaging.set_consent', cid=c.id) }}" class="row" style="gap:6px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="channel" value="{{ ch }}">
+        <input type="hidden" name="value" value="{{ 'no' if val != 'none' else 'yes' }}"><input type="text" name="why" maxlength="200" placeholder="Why (kept with the change)" style="flex:1;min-width:140px" {{ 'required' if val == 'none' }}>
+        <button class="btn dark sm" {{ 'disabled' if stopped and val == 'none' }}>{{ 'Remove consent' if val != 'none' else 'Record consent' }}</button></form>{% endif %}
+    </div>{% endfor %}
+  </div>
   {% if runs %}<div class="section-h"><h2>Flows</h2>{% if c.stage %}<span class="muted small">Stage: {{ c.stage }}</span>{% endif %}</div>
   <div class="panel scrollx"><table>{% for r in runs %}<tr><td><a href="{{ url_for('flows.edit', fid=r.flow_id) }}">{{ r.fname }}</a></td>
     <td><span class="fl-pill {{ 'on' if r.status == 'waiting' else '' }}">{{ {'waiting': 'In it', 'done': 'Finished', 'exited': 'Exited', 'failed': 'Failed'}[r.status] }}</span></td>

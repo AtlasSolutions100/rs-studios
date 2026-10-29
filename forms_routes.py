@@ -14,6 +14,7 @@ import db
 import flows
 import flows_engine
 import forms
+import messaging
 import pages
 from core import feature_required
 
@@ -75,8 +76,11 @@ def _fields_from_form(f):
 def edit(fid):
     fm = _form(fid)
     if request.method == "GET":
-        return render_template("form_edit.html", fm=fm, fields=json.loads(fm["fields_json"] or "[]"),
-                               TYPES=forms.FIELD_TYPES, base=request.host_url)
+        fl = json.loads(fm["fields_json"] or "[]")
+        return render_template("form_edit.html", fm=fm, fields=fl, TYPES=forms.FIELD_TYPES, base=request.host_url,
+                               has_phone=any(x["type"] == "phone" for x in fl),
+                               default_email_consent=messaging.DEFAULT_EMAIL_CONSENT,
+                               default_sms_consent=messaging.DEFAULT_SMS_CONSENT)
     f = request.form
     action = f.get("action") or "save"
     raw = _fields_from_form(f)
@@ -102,7 +106,11 @@ def edit(fid):
             flash(f"Webhook not saved: {why}")
             webhook = fm["webhook_url"] or ""
     redirect_url = pages.safe_url((f.get("redirect_url") or "").strip()[:500])
-    chk = compliance.check(f.get("name") or "", f.get("success_message") or "", " ".join(x["label"] for x in fields))
+    consent_text = " ".join((f.get("consent_text") or "").split())[:400]
+    consent_sms_text = " ".join((f.get("consent_sms_text") or "").split())[:600]
+    has_phone = any(x["type"] == "phone" for x in fields)
+    chk = compliance.check(f.get("name") or "", f.get("success_message") or "", " ".join(x["label"] for x in fields),
+                           consent_text, consent_sms_text)
     if not chk["ok"]:
         for m in chk["blocks"]:
             flash("Not saved: " + m)
@@ -113,10 +121,14 @@ def edit(fid):
         flash("New signing secret made. Update it wherever you check signatures.")
     with db.connect() as conn:
         conn.execute("UPDATE forms SET name=?, fields_json=?, button_text=?, success_message=?, redirect_url=?, webhook_url=?, "
-                     "webhook_secret=?, tags=?, updated_at=? WHERE id=?",
+                     "webhook_secret=?, tags=?, updated_at=?, consent_email=?, consent_sms=?, consent_text=?, consent_sms_text=? "
+                     "WHERE id=?",
                      ((f.get("name") or fm["name"]).strip()[:80], json.dumps(fields), (f.get("button_text") or "Send").strip()[:40],
                       (f.get("success_message") or "").strip()[:300], redirect_url or None, webhook or None, secret,
-                      ",".join(_clean_tags(f.get("tags"))), db.now(), fid))
+                      ",".join(_clean_tags(f.get("tags"))), db.now(), 1 if f.get("consent_email") else 0,
+                      1 if f.get("consent_sms") and has_phone else 0,
+                      None if consent_text == messaging.DEFAULT_EMAIL_CONSENT else consent_text or None,
+                      None if consent_sms_text == messaging.DEFAULT_SMS_CONSENT else consent_sms_text or None, fid))
         conn.commit()
     if action == "test" and webhook:
         st = forms.post_webhook(webhook, secret, {"event": "form.test", "form": {"id": fid, "name": fm["name"]},
@@ -268,6 +280,7 @@ def submit(fm):
                             utm["utm_campaign"] or None, now)).lastrowid
         conn.execute("UPDATE forms SET submissions=submissions+1 WHERE id=?", (fm["id"],))
         if contact_id:
+            _record_consent(conn, fm, contact_id, f, phone, ip)
             flows_engine.enrol(conn, fm["workspace_id"], "form_submitted", contact_id, {"form_id": fm["id"]})
             flows_engine.enrol_tags(conn, fm["workspace_id"], contact_id, before, set(tags))
         conn.commit()
@@ -287,6 +300,36 @@ def submit(fm):
     if page:
         return redirect(url_for("pages.public", slug=page["slug"], sent=fm["code"]) + f"#form-{fm['code']}", code=303)
     return redirect(url_for("forms.public", code=fm["code"], sent=1), code=303)
+
+
+def consent_texts(fm) -> dict:
+    with db.connect() as conn:
+        b = conn.execute("SELECT b.brand_name FROM workspaces w LEFT JOIN brands b ON b.id=w.brand_id WHERE w.id=?",
+                         (fm["workspace_id"],)).fetchone()
+    name = (b["brand_name"] if b else "") or "us"
+    return {"email": (fm["consent_text"] or messaging.DEFAULT_EMAIL_CONSENT).replace("{brand}", name),
+            "sms": (fm["consent_sms_text"] or messaging.DEFAULT_SMS_CONSENT).replace("{brand}", name)}
+
+
+def _record_consent(conn, fm, contact_id, f, phone, ip):
+    """A ticked consent box: email and/or texts, with when, which form, the wording and a hash of the IP."""
+    texts = consent_texts(fm)
+    now = db.now()
+    ua = request.headers.get("User-Agent", "")
+    if fm["consent_email"] and f.get("_consent_email") == "yes":
+        conn.execute("UPDATE contacts SET email_consent='form', email_consent_at=?, email_consent_detail=?, unsubscribed_at=NULL "
+                     "WHERE id=?", (now, messaging.consent_detail(fm["id"], texts["email"], ip, ua), contact_id))
+        c = conn.execute("SELECT email FROM contacts WHERE id=?", (contact_id,)).fetchone()
+        conn.execute("DELETE FROM suppressions WHERE workspace_id=? AND channel='email' AND address=? AND reason='unsubscribe'",
+                     (fm["workspace_id"], c["email"]))
+    if fm["consent_sms"] and f.get("_consent_sms") == "yes" and phone:
+        e164 = messaging.e164(phone)
+        if e164:
+            conn.execute("UPDATE contacts SET sms_consent='form', sms_consent_at=?, sms_consent_detail=?, phone_e164=?, "
+                         "sms_stopped_at=NULL WHERE id=?", (now, messaging.consent_detail(fm["id"], texts["sms"], ip, ua), e164,
+                                                            contact_id))
+            conn.execute("DELETE FROM suppressions WHERE workspace_id=? AND channel='sms' AND address=?",
+                         (fm["workspace_id"], e164))
 
 
 def render_errors_page(errors):
@@ -383,4 +426,6 @@ def contact(cid):
             v = conn.execute("SELECT graph_json FROM flow_versions WHERE id=?", (r["version_id"],)).fetchone()
             nodes = flows.unpack(v["graph_json"] if v else "{}").get("nodes") or {}
             steps[r["id"]] = flows.describe(nodes[r["node_id"]]) if r["node_id"] in nodes else ""
-    return render_template("contact.html", c=c, events=events, subs=subs, loads=json.loads, runs=runs, steps=steps)
+    from core import is_owner
+    return render_template("contact.html", c=c, events=events, subs=subs, loads=json.loads, runs=runs, steps=steps,
+                           is_owner=is_owner())

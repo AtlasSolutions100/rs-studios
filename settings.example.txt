@@ -10,3 +10,26 @@ RS_STARTER_CREDITS=44
 # signing secret of the https://campaignify.ai/webhooks/stripe endpoint.
 STRIPE_SECRET_KEY=rk_live_xxx
 STRIPE_WEBHOOK_SECRET=whsec_xxx
+
+# ---- Flows: email sending (Resend). Leave unset and email steps become tasks for the owner.
+# Full-access API key (sending + domains), the webhook signing secret (svix, "whsec_...") of
+# https://campaignify.ai/webhooks/resend, and the shared sending subdomain verified in Resend.
+RESEND_API_KEY=re_xxx
+RESEND_WEBHOOK_SECRET=whsec_xxx
+RS_MAIL_DOMAIN=mail.campaignify.ai
+# Campaignify's own postal address (its own notices). Each workspace adds its own for its emails.
+RS_POSTAL_ADDRESS=30 N Gould St Ste R, Sheridan, WY 82801
+# Credits per email (default 1) and daily caps by plan (defaults 300 Growth / 2000 Scale; 50/day the first week).
+# RS_EMAIL_CREDITS=1
+# RS_EMAIL_CAP_GROWTH=300
+# RS_EMAIL_CAP_SCALE=2000
+# ---- Video quality
+# RS_HD_MARKUP=1.4                       1080p markup (720p uses RS_MARKUP)
+# RS_VIDEO_USD_PER_SECOND_1080P=1.1372   vendor 1080p rate
+# RS_VIDEO_UPSCALE_MODEL=                 set with RS_VIDEO_UPSCALE_USD_PER_SECOND to offer "Upscale to 1080p"
+# ---- Free 480p talking preview for new free accounts
+# RS_FREE_PREVIEW=1
+# RS_FREE_PREVIEWS_PER_DAY=150
+# RS_PREVIEW_USD_PER_SECOND=0.2056
+# ---- Presenter sample stills (admin, one time)
+# RS_PRESENTER_STILLS_CAP_USD=3

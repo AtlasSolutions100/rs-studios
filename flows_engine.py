@@ -28,8 +28,10 @@ STEPS_PER_RUN = 60
 LEASE_MINUTES = 2
 FAIL_PAUSE = 20
 PUBLIC_URL = os.environ.get("RS_PUBLIC_URL", "https://campaignify.ai").rstrip("/")
-# channel -> fn(conn, run, node, contact, ws) -> str | None (event detail). F1 adds "email", F3 adds "sms".
+# channel -> fn(conn, run, node, contact, now) -> (event kind, detail), or None when this workspace can't
+# send on that channel yet (the step becomes a task). F1 adds "email", F3 adds "sms".
 SENDERS = {}
+AFTER_TICK = []   # fn(now): e.g. send what the steps queued
 
 
 def utcnow() -> datetime:
@@ -211,6 +213,11 @@ def tick(now=None, limit=RUN_BATCH) -> int:
                 _fail(conn, run, str(e), now)
             conn.commit()
             moved += 1
+    for fn in AFTER_TICK:
+        try:
+            fn(now)
+        except Exception:  # noqa: BLE001
+            log.exception("after-tick step failed")
     return moved
 
 
@@ -367,10 +374,9 @@ def _message(conn, run, node, c, now):
     ws_id, fid, nid = run["workspace_id"], run["flow_id"], node["id"]
     channel = node["type"]
     sender = SENDERS.get(channel)
-    if sender:
-        detail = sender(conn, run, node, c, now)
-        _event(conn, fid, ws_id, run["id"], c["id"], nid, "sent" if detail is None else "skipped",
-               detail or flows.describe(node), now)
+    res = sender(conn, run, node, c, now) if sender else None
+    if res:
+        _event(conn, fid, ws_id, run["id"], c["id"], nid, res[0], res[1], now)
         return
     brand = _brand(conn, ws_id)
     links = _links(conn, ws_id)

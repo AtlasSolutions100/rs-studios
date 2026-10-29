@@ -53,8 +53,9 @@
     <div class="two-col" style="align-items:start">
       <div class="panel scrollx">
         <h3 style="margin-top:0">Per step</h3>
-        <table><tr><th>Step</th><th>Now here</th><th>Done</th><th>Branch yes / no</th></tr>
-        {% for nid, label in names.items() %}{% set b = by_node.get(nid) or {} %}<tr><td>{{ label }}</td><td>{{ at_node.get(nid, 0) }}</td><td>{{ (b.sent or 0) + (b.tasks or 0) }}</td><td>{% if b.yes or b.no %}{{ b.yes or 0 }} / {{ b.no or 0 }}{% endif %}{% if b.errors %} <span class="bad">{{ b.errors }} errors</span>{% endif %}</td></tr>{% endfor %}</table>
+        <table><tr><th>Step</th><th>Now here</th><th>Done</th><th>Emails: delivered · opened* · clicked</th><th>Branch yes / no</th></tr>
+        {% for nid, label in names.items() %}{% set b = by_node.get(nid) or {} %}{% set m = msgs.get(nid) or {} %}<tr><td>{{ label }}</td><td>{{ at_node.get(nid, 0) }}</td><td>{{ (m.sent or 0) + (b.tasks or 0) }}</td><td class="small">{% if m.sent %}{{ m.delivered or 0 }} · {{ m.opened or 0 }} · {{ m.clicked or 0 }}{% if m.bounced %} · <span class="bad">{{ m.bounced }} bounced</span>{% endif %}{% endif %}{% if m.skipped %} <span class="muted">({{ m.skipped }} not sent)</span>{% endif %}</td><td>{% if b.yes or b.no %}{{ b.yes or 0 }} / {{ b.no or 0 }}{% endif %}{% if b.errors %} <span class="bad">{{ b.errors }} errors</span>{% endif %}</td></tr>{% endfor %}</table>
+        <p class="small dim">* Opens are approximate: some mail apps load images for everyone.</p>
       </div>
       <div class="panel scrollx">
         <h3 style="margin-top:0">Who is in it now</h3>

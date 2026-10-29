@@ -371,6 +371,20 @@ CREATE INDEX IF NOT EXISTS idx_tasks_ws ON tasks(workspace_id, done_at);
 CREATE TABLE IF NOT EXISTS suppressions (
     workspace_id INTEGER NOT NULL, channel TEXT NOT NULL, address TEXT NOT NULL, reason TEXT NOT NULL,
     detail TEXT, at TEXT NOT NULL, PRIMARY KEY (workspace_id, channel, address));
+CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, contact_id INTEGER, run_id INTEGER, flow_id INTEGER,
+    node_id TEXT, channel TEXT NOT NULL, to_addr TEXT, from_addr TEXT, reply_to TEXT, subject TEXT, body_text TEXT,
+    body_html TEXT, status TEXT NOT NULL DEFAULT 'queued', provider_id TEXT, token TEXT UNIQUE, segments INTEGER,
+    credits INTEGER NOT NULL DEFAULT 0, error TEXT, created_at TEXT NOT NULL, sent_at TEXT, delivered_at TEXT,
+    opened_at TEXT, clicked_at TEXT, UNIQUE(run_id, node_id));
+CREATE INDEX IF NOT EXISTS idx_msg_status ON messages(status, id);
+CREATE INDEX IF NOT EXISTS idx_msg_ws ON messages(workspace_id, sent_at);
+CREATE INDEX IF NOT EXISTS idx_msg_provider ON messages(provider_id);
+CREATE TABLE IF NOT EXISTS message_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, message_id INTEGER NOT NULL, token TEXT NOT NULL UNIQUE, url TEXT NOT NULL,
+    clicks INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS webhook_events (
+    provider TEXT NOT NULL, event_id TEXT NOT NULL, kind TEXT, at TEXT NOT NULL, PRIMARY KEY (provider, event_id));
 CREATE TABLE IF NOT EXISTS job_reviews (
     job_id INTEGER NOT NULL, user_id INTEGER NOT NULL, workspace_id INTEGER NOT NULL, verdict TEXT NOT NULL,
     note TEXT, at TEXT NOT NULL, PRIMARY KEY (job_id, user_id));
@@ -437,6 +451,14 @@ COLUMNS = [
     ("workspaces", "reply_to", "TEXT"),
     ("workspaces", "postal_address", "TEXT"),
     ("workspaces", "flows_json", "TEXT"),
+    # email sending (phase 7)
+    ("workspaces", "messaging_accepted_at", "TEXT"),
+    ("workspaces", "messaging_accepted_by", "INTEGER"),
+    ("workspaces", "consent_manual", "INTEGER NOT NULL DEFAULT 0"),
+    ("forms", "consent_email", "INTEGER NOT NULL DEFAULT 0"),
+    ("forms", "consent_sms", "INTEGER NOT NULL DEFAULT 0"),
+    ("forms", "consent_text", "TEXT"),
+    ("forms", "consent_sms_text", "TEXT"),
 ]
 
 

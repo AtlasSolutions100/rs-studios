@@ -114,6 +114,7 @@ NAV_GROUPS = [
     ("Settings", [
         ("team", "Team", "team", None, ("team",)),
         ("billing_page", "Billing", "billing", None, ("billing_page",)),
+        ("messaging.sending", "Sending", "send", "flows", ("messaging.sending",)),
     ]),
 ]
 NAV = [item for _, items in NAV_GROUPS for item in items]
@@ -161,6 +162,14 @@ def _hd_offer(job):
 app.jinja_env.globals["hd_offer"] = _hd_offer
 
 
+def _consent_texts(fm):
+    import forms_routes as _fr
+    return _fr.consent_texts(fm)
+
+
+app.jinja_env.globals["consent_texts"] = _consent_texts
+
+
 # platform -> setup guide link (the planner's launch checklist links to these).
 ADHUB_LINKS = {}
 
@@ -186,7 +195,7 @@ def _nav():
     return out
 
 
-CSRF_EXEMPT = {"static", "stripe_webhook", "forms.public"}  # public forms carry their own signed token
+CSRF_EXEMPT = {"static", "stripe_webhook", "forms.public", "messaging.resend_webhook", "messaging.unsubscribe"}  # public forms carry their own signed token
 
 
 @app.before_request
@@ -395,13 +404,13 @@ def features():
     return render_template("features.html", feature_details=FEATURE_DETAILS, journey=JOURNEY)
 
 
-PUBLIC_PAGES = ["index", "features", "privacy", "terms"]
+PUBLIC_PAGES = ["index", "features", "privacy", "terms", "messaging.policy"]
 
 
 @app.route("/robots.txt")
 def robots_txt():
     body = ("User-agent: *\nDisallow: /app\nDisallow: /admin\nDisallow: /api\nDisallow: /media\nDisallow: /photo\n"
-            "Disallow: /ref\nDisallow: /webhooks\nAllow: /\n\n"
+            "Disallow: /ref\nDisallow: /webhooks\nDisallow: /t/\nDisallow: /u/\nAllow: /\n\n"
             f"Sitemap: {request.host_url}sitemap.xml\n")
     return app.response_class(body, mimetype="text/plain")
 
@@ -1648,6 +1657,8 @@ import product_routes  # noqa: E402
 import create_routes  # noqa: E402
 import jobs_routes  # noqa: E402
 import flows_routes  # noqa: E402
+import messaging  # noqa: E402
+import messaging_routes  # noqa: E402
 import assistant_routes  # noqa: E402
 import campaign_routes  # noqa: E402
 import copy_routes  # noqa: E402  (blueprints import core, never app)
@@ -1661,6 +1672,8 @@ app.register_blueprint(product_routes.bp)
 app.register_blueprint(create_routes.bp)
 app.register_blueprint(jobs_routes.bp)
 app.register_blueprint(flows_routes.bp)
+app.register_blueprint(messaging_routes.bp)
+messaging.register()
 app.register_blueprint(assistant_routes.bp)
 app.register_blueprint(copy_routes.bp)
 app.register_blueprint(campaign_routes.bp)
