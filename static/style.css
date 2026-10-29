@@ -1123,3 +1123,8 @@ dialog.jd::backdrop{background:rgba(0,0,0,.55)}
 @media (max-width:760px){.fl-branches{grid-template-columns:1fr}.fl-branches::before{display:none}.flowrow{grid-template-columns:1fr;gap:6px}.fl-name{font-size:21px}.fl-card{width:100%}}
 @media print{.side,.mtop,.fl-tabs,.fl-head .fl-acts,[data-panel=steps],[data-panel=activity],.fl-page>p:first-child{display:none!important}[data-panel=timeline]{display:block!important}}
 input[type=datetime-local],input[type=time],input[type=tel],input[type=url],input[type=search]:not(.field input){width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;font:inherit;background:var(--field);color:var(--ink)}
+.smsform{display:grid;gap:16px}
+.smsroutes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.smsroutes .fa-kind>span{display:flex;flex-direction:column;gap:4px}
+.smsstatus{margin-bottom:16px}
+@media (max-width:760px){.smsroutes{grid-template-columns:1fr}}

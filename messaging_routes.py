@@ -130,7 +130,19 @@ def sending():
     return render_template("sending.html", ws=ws, ready=messaging.email_ready(ws), connected=mailer.configured(),
                            mail_domain=mailer.domain() or "mail.campaignify.ai", stats=stats, n_sup=n_sup, cap=cap,
                            credits=messaging.EMAIL_CREDITS, accepted_by=accepted_by["email"] if accepted_by else None,
-                           has_email=plans.has(ws, "flows_email"), domains=domains, extra=_extra())
+                           has_email=plans.has(ws, "flows_email"), domains=domains, extra=_extra(), **_sms_info(ws))
+
+
+def _sms_info(ws):
+    import sms
+    with db.connect() as conn:
+        p = sms.profile(conn, ws["id"])
+    st = p["status"] if p else None
+    line = {"active": f"On: {p['phone_number'] if p else ''}. Text steps in your flows send.",
+            "rejected": "The registration was rejected. Open it to fix and resubmit."}.get(
+        st, "Being reviewed by the carriers; text steps are tasks meanwhile." if st in ("submitted", "brand_pending", "campaign_pending")
+        else f"Register a number to send texts ({plans.required('flows_sms')['name']}). Toll-free is quickest under about 1,000 texts a month.")
+    return {"sms_status": st, "sms_line": line, "sms_seg": sms.credits_per_segment()}
 
 
 def _upgrade(feature):

@@ -387,6 +387,11 @@ CREATE TABLE IF NOT EXISTS sender_domains (
     id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, domain TEXT NOT NULL, local_part TEXT NOT NULL DEFAULT 'hello',
     resend_domain_id TEXT, status TEXT NOT NULL DEFAULT 'pending', dns_json TEXT, created_at TEXT NOT NULL, verified_at TEXT,
     checked_at TEXT);
+CREATE TABLE IF NOT EXISTS sms_profiles (
+    workspace_id INTEGER PRIMARY KEY, path TEXT NOT NULL DEFAULT 'tollfree', status TEXT NOT NULL DEFAULT 'none',
+    fields_json TEXT, customer_profile_sid TEXT, brand_sid TEXT, brand_type TEXT, campaign_sid TEXT,
+    messaging_service_sid TEXT, phone_sid TEXT, phone_number TEXT, verification_sid TEXT, notes TEXT, fees_json TEXT,
+    number_fee_month TEXT, checked_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS webhook_events (
     provider TEXT NOT NULL, event_id TEXT NOT NULL, kind TEXT, at TEXT NOT NULL, PRIMARY KEY (provider, event_id));
 CREATE TABLE IF NOT EXISTS job_reviews (
@@ -463,6 +468,8 @@ COLUMNS = [
     ("forms", "consent_sms", "INTEGER NOT NULL DEFAULT 0"),
     ("forms", "consent_text", "TEXT"),
     ("forms", "consent_sms_text", "TEXT"),
+    # texts (phase 9)
+    ("messages", "scheduled_at", "TEXT"),
 ]
 
 

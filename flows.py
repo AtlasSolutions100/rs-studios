@@ -52,6 +52,7 @@ TESTS = {
     "opened": "Opened an email",
     "has_phone": "Has a phone number",
     "has_consent": "Agreed to messages",
+    "replied": "Replied to a text",
 }
 STAGES = ["lead", "engaged", "customer", "repeat", "cold"]
 FIELDS = ("name", "email", "phone", "stage", "source")
@@ -358,6 +359,8 @@ def describe_test(te: dict, forms_by_id=None, steps_by_id=None) -> str:
         return "they gave a phone number"
     if k == "has_consent":
         return f"they agreed to {'texts' if te.get('channel') == 'sms' else 'emails'}"
+    if k == "replied":
+        return "they replied to a text"
     return k or ""
 
 

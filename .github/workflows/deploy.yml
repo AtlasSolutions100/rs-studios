@@ -24,6 +24,10 @@ name: Deploy Campaignify (campaignify.ai)
 #                          (events: email.sent, delivered, bounced, complained, opened, clicked)
 #   RS_MAIL_DOMAIN         repo variable: the shared sending subdomain, e.g. mail.campaignify.ai
 #   RS_POSTAL_ADDRESS      optional repo variable: Campaignify's own postal address (its notices)
+#   TWILIO_ACCOUNT_SID     texting (Scale): the Twilio account (ISV) SID
+#   TWILIO_AUTH_TOKEN      its auth token (also validates inbound webhooks)
+#   TWILIO_PRIMARY_PROFILE_SID  repo variable: Campaignify's approved primary customer profile (BU…)
+#   TWILIO_NOTIFY_EMAIL    optional repo variable: where Twilio sends registration notices
 #   RS_HD_MARKUP           optional repo variable: 1080p markup, default 1.4
 #   RS_VIDEO_UPSCALE_MODEL / RS_VIDEO_UPSCALE_USD_PER_SECOND  optional variables: switch on upscaling
 #   RS_FREE_PREVIEW / RS_FREE_PREVIEWS_PER_DAY               optional variables: the free 480p preview
@@ -80,6 +84,10 @@ jobs:
           RESEND_WEBHOOK_SECRET: ${{ secrets.RESEND_WEBHOOK_SECRET }}
           RS_MAIL_DOMAIN: ${{ vars.RS_MAIL_DOMAIN }}
           RS_POSTAL_ADDRESS: ${{ vars.RS_POSTAL_ADDRESS }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_PRIMARY_PROFILE_SID: ${{ vars.TWILIO_PRIMARY_PROFILE_SID }}
+          TWILIO_NOTIFY_EMAIL: ${{ vars.TWILIO_NOTIFY_EMAIL }}
           RS_HD_MARKUP: ${{ vars.RS_HD_MARKUP }}
           RS_VIDEO_UPSCALE_MODEL: ${{ vars.RS_VIDEO_UPSCALE_MODEL }}
           RS_VIDEO_UPSCALE_USD_PER_SECOND: ${{ vars.RS_VIDEO_UPSCALE_USD_PER_SECOND }}
@@ -94,7 +102,8 @@ jobs:
                                              "STRIPE_PORTAL_CONFIG", "RS_MARKUP", "RS_STARTER_CREDITS",
                                              "RESEND_API_KEY", "RESEND_WEBHOOK_SECRET", "RS_MAIL_DOMAIN", "RS_POSTAL_ADDRESS",
                                              "RS_HD_MARKUP", "RS_VIDEO_UPSCALE_MODEL", "RS_VIDEO_UPSCALE_USD_PER_SECOND",
-                                             "RS_FREE_PREVIEW", "RS_FREE_PREVIEWS_PER_DAY")
+                                             "RS_FREE_PREVIEW", "RS_FREE_PREVIEWS_PER_DAY", "TWILIO_ACCOUNT_SID",
+                                             "TWILIO_AUTH_TOKEN", "TWILIO_PRIMARY_PROFILE_SID", "TWILIO_NOTIFY_EMAIL")
                       if os.environ.get(k)}
           print("settings sent:", ", ".join(settings) or "none")
           body = {"commit": os.environ["GITHUB_SHA"], "settings": settings,

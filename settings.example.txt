@@ -33,3 +33,11 @@ RS_POSTAL_ADDRESS=30 N Gould St Ste R, Sheridan, WY 82801
 # RS_PREVIEW_USD_PER_SECOND=0.2056
 # ---- Presenter sample stills (admin, one time)
 # RS_PRESENTER_STILLS_CAP_USD=3
+# ---- Flows: texts (Twilio, Scale). Campaignify is the ISV; each workspace registers under its primary profile.
+TWILIO_ACCOUNT_SID=ACxxx
+TWILIO_AUTH_TOKEN=xxx
+TWILIO_PRIMARY_PROFILE_SID=BUxxx
+# TWILIO_NOTIFY_EMAIL=compliance@campaignify.ai
+# Prices: Twilio per segment (x RS_MARKUP), carrier per segment and registration fees at cost, numbers x RS_MARKUP.
+# RS_SMS_USD_PER_SEGMENT=0.0083  RS_SMS_CARRIER_USD=0.0030  RS_SMS_LOCAL_NUMBER_USD=1.15  RS_SMS_TOLLFREE_NUMBER_USD=2.15
+# RS_10DLC_BRAND_LOW_USD=4  RS_10DLC_BRAND_STD_USD=44  RS_10DLC_VETTING_USD=15  RS_10DLC_CAMPAIGN_MONTHLY_USD=10

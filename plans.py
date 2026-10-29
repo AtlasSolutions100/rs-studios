@@ -70,7 +70,7 @@ FEATURES = {
               "blurb": "Build the follow-up after the ad: emails, texts, tags, waits and branches, drafted by AI from a sentence."},
     "flows_email": {"plan": "growth", "name": "Email sending in flows", "shipped": True,
                     "blurb": "Flows send their emails, with open and click tracking and your own sending domain."},
-    "flows_sms": {"plan": "scale", "name": "Text messages in flows", "shipped": False,
+    "flows_sms": {"plan": "scale", "name": "Text messages in flows", "shipped": True,
                   "blurb": "Flows send texts to people who agreed to them, with carrier registration handled for you."},
     "seo": {"plan": "growth", "name": "SEO, AEO & GEO optimizer", "shipped": True,
             "blurb": "Audit a page for search, answer engines and AI assistants; get fixes and schema."},
