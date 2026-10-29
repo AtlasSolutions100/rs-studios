@@ -10,7 +10,7 @@
     <label>Or a video or image from your library</label>
     <div class="medpick"><label class="medopt none"><input type="radio" name="media_id" value="" {{ 'checked' if not ls.media_id }}><span>None</span></label>
       {% for o in lib %}<label class="medopt"><input type="radio" name="media_id" value="{{ o.id }}" {{ 'checked' if ls.media_id == o.id }}>{% if o.kind == 'video' %}<img src="{{ url_for('media', oid=o.id, poster=1) }}" alt="Video {{ o.id }}" loading="lazy"><em>Video</em>{% else %}<img src="{{ url_for('media', oid=o.id) }}" alt="Image {{ o.id }}" loading="lazy">{% endif %}</label>{% endfor %}</div>
-    <div class="go"><button class="btn dark sm" name="action" value="delete" onclick="return confirm('Delete this lesson?')">Delete lesson</button><button class="btn" name="action" value="save">Save lesson</button></div>
+    <div class="go"><button class="btn dark sm" name="action" value="delete" data-confirm="Delete this lesson?">Delete lesson</button><button class="btn" name="action" value="save">Save lesson</button></div>
   </form>
 </div>
 {% endblock %}

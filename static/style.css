@@ -2,7 +2,7 @@
   /* Campaignify: black/white wordmark with a lime spark. Dark is the default theme. */
   --accent:#BDFA25; --accent-rgb:189,250,37; --on-accent:#0B0C0E;
   --bg:#0B0C0E; --bg2:#101114; --panel:#141519; --card:#1A1C21; --line:rgba(255,255,255,.09);
-  --ink:#F5F6F2; --muted:#A0A3A9; --dim:#6F737A;
+  --ink:#F5F6F2; --muted:#A0A3A9; --dim:#8B8F96;
   --gold:var(--accent); --gold2:#D7FF7A; --link:#C9FF52; --blue:#7FD6FF; --blue-rgb:127,214,255; --blue2:#1795C9;
   --ok:#3DD68C; --bad:#FF6B6B; --amber:#F8C13E;
   --hover:rgba(255,255,255,.05); --field:rgba(255,255,255,.035); --chipbg:rgba(255,255,255,.03);
@@ -16,7 +16,7 @@
 }
 :root[data-theme=light]{
   --bg:#F6F7F4; --bg2:#FFFFFF; --panel:#FFFFFF; --card:#FFFFFF; --line:rgba(11,12,14,.10);
-  --ink:#0B0C0E; --muted:#585C63; --dim:#80848B;
+  --ink:#0B0C0E; --muted:#585C63; --dim:#676B72;
   --gold2:#3F6B00; --link:#3F6B00; --blue:#0F7FB0; --blue-rgb:15,127,176;
   --hover:rgba(11,12,14,.05); --field:#FFFFFF; --chipbg:#FFFFFF;
   --side-bg:#FFFFFF;
@@ -29,7 +29,7 @@
 @media (prefers-color-scheme: light){
   :root:not([data-theme=dark]){
     --bg:#F6F7F4; --bg2:#FFFFFF; --panel:#FFFFFF; --card:#FFFFFF; --line:rgba(11,12,14,.10);
-    --ink:#0B0C0E; --muted:#585C63; --dim:#80848B;
+    --ink:#0B0C0E; --muted:#585C63; --dim:#676B72;
     --gold2:#3F6B00; --link:#3F6B00; --blue:#0F7FB0; --blue-rgb:15,127,176;
     --hover:rgba(11,12,14,.05); --field:#FFFFFF; --chipbg:#FFFFFF;
     --side-bg:#FFFFFF; --panel-bg:#FFFFFF;
@@ -135,7 +135,9 @@ input[type=file]{color:var(--muted)}
 .choices{display:flex;gap:8px;flex-wrap:wrap}
 .choice{border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer;background:var(--chipbg);font:600 13px var(--body);color:var(--muted);margin:0}
 .choice:has(input:checked){border-color:var(--accent);color:var(--on-accent);background:var(--accent)}
-.choice input{display:none}
+.choice{position:relative}
+.choice input{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
+.choice:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
 .price{font:700 40px var(--display);color:var(--gold2);line-height:1}
 .rules{padding-left:18px;margin:8px 0 0;color:var(--muted);font-size:13px}
 .rules li{margin:4px 0}
@@ -475,7 +477,7 @@ code{font-size:12px;color:var(--gold2);word-break:break-all}
 
 /* ---------------------------------------------------------------- campaign planner */
 .choice.chk:has(input:checked){border-color:var(--accent);color:var(--on-accent);background:var(--accent)}
-.choice.chk input{display:none}
+.choice.chk input{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
 .planning{margin:14px 0}.planning .row{gap:14px}
 .steps{margin:18px 0}.steps summary{cursor:pointer;display:flex;gap:10px;align-items:baseline}
 .steplist{list-style:none;margin:14px 0 0;padding:0 0 0 18px;border-left:2px solid var(--line);display:grid;gap:12px}
@@ -808,7 +810,8 @@ kbd{font:600 10.5px var(--body);color:var(--dim);border:1px solid var(--line);bo
 .cf-angles{display:grid;gap:10px;margin-top:14px}
 .cf-angle{display:block;padding:12px 14px}
 .cf-angle>span{display:flex;flex-direction:column;gap:3px}
-.cf-angle .lock{margin-left:6px;vertical-align:2px}
+.cf-angle .lock{margin-left:6px;vertical-align:2px;align-self:flex-start}
+.cf-angle>span>b{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .cf-hook{font-size:15px}
 .cf-own{margin-top:14px}
 .cf-own summary{cursor:pointer;color:var(--link);font-weight:600}
@@ -826,7 +829,7 @@ kbd{font:600 10.5px var(--body);color:var(--dim);border:1px solid var(--line);bo
 .cf-pres>span:last-child{display:flex;flex-direction:column;gap:2px;min-width:0}
 .cf-ava{display:grid;place-items:center;width:44px;height:44px;flex:none;border-radius:50%;font:700 18px var(--display);color:#fff;background:radial-gradient(circle at 30% 30%,hsl(var(--h) 70% 62%),hsl(calc(var(--h) + 40) 55% 32%))}
 .cf-refs{display:flex;flex-wrap:wrap;gap:8px}
-.cf-refs .choice input{display:none}
+.cf-refs .choice input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
 .cf-refs .choice:has(input:checked){border-color:var(--accent);color:var(--on-accent);background:var(--accent)}
 .cf-matrix{font-size:16px;margin:0 0 10px}
 .cf-lines{list-style:none;padding:0;margin:0 0 14px;display:grid;gap:6px;max-height:300px;overflow:auto}
@@ -912,3 +915,20 @@ kbd{font:600 10.5px var(--body);color:var(--dim);border:1px solid var(--line);bo
 @media (max-width:760px){.asst.drawer{width:100vw}.asst-msg{max-width:94%}}
 @media (max-width:760px){.mtop .sw-btn{max-width:44%}.mtop-help{color:var(--gold2)}}
 @media (max-width:760px){.cf-side{display:none}}
+
+/* ---------------------------------------------------------------- shell helpers (app.js) */
+@media (max-width:760px){.section-h{flex-wrap:wrap;gap:4px 12px}.section-h>span,.section-h>.small{flex-basis:100%}}
+.flash-top{display:flex;align-items:flex-start;gap:10px;transition:opacity .4s}
+.flash-top>span{flex:1;min-width:0}
+.flash-top.fade{opacity:0}
+.flash-x{flex:none;display:grid;place-items:center;width:26px;height:26px;margin:-3px -6px -3px 0;border:0;border-radius:8px;background:none;color:inherit;cursor:pointer;opacity:.75}
+.flash-x:hover,.flash-x:focus-visible{opacity:1;background:var(--hover)}
+.flash-x svg{width:14px;height:14px}
+dialog.cdlg{border:1px solid var(--line);border-radius:18px;background:var(--panel);color:var(--ink);padding:22px;max-width:min(440px,calc(100vw - 32px));box-shadow:var(--shadow)}
+dialog.cdlg::backdrop{background:rgba(0,0,0,.55)}
+.cdlg form{margin:0}
+.cdlg-t{font:600 16px var(--body);margin:0 0 6px}
+.cdlg-d{margin:0 0 4px}
+.cdlg-go{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;flex-wrap:wrap}
+.btn.danger{background:var(--bad);color:#fff;box-shadow:none}
+time[data-local]{white-space:nowrap}

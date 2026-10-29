@@ -9,12 +9,12 @@
       <label class="choice" style="display:inline-flex;gap:8px;margin-top:14px"><input type="checkbox" name="published" value="1" {{ 'checked' if co.published }}>Published (members can see it)</label></div>
     {% for m in mods %}
     <div class="panel block"><div class="block-h"><input type="text" name="mod_{{ m.id }}" value="{{ m.title }}" maxlength="120" aria-label="Module title" style="font-weight:700;max-width:420px">
-      <button class="btn dark sm" name="action" value="del_module:{{ m.id }}" onclick="return confirm('Delete this module and its lessons?')">Delete module</button></div>
+      <button class="btn dark sm" name="action" value="del_module:{{ m.id }}" data-confirm="Delete this module and its lessons?">Delete module</button></div>
       <ol class="lessonlist">{% for ls in lessons.get(m.id, []) %}<li><a href="{{ url_for('community.lesson_edit', lid=ls.id) }}">{{ ls.title }}</a>{% if ls.media_id or ls.embed_url %} <span class="tag ok">video</span>{% endif %}</li>{% else %}<li class="muted">No lessons yet.</li>{% endfor %}</ol>
       <button class="btn dark sm" name="action" value="add_lesson:{{ m.id }}">Add lesson</button></div>
     {% endfor %}
     <div class="go"><button class="btn dark" name="action" value="add_module">Add module</button><div class="row">{% if c %}<a class="btn dark" href="{{ url_for('community.course', slug=c.slug, cid=co.id) }}" target="_blank" rel="noopener">View as member ↗</a>{% endif %}<button class="btn" name="action" value="save">Save course</button></div></div>
   </form>
-  <form method="post" action="{{ url_for('community.admin_item', what='courses', oid=co.id, action='delete') }}" onsubmit="return confirm('Delete this course?')" style="margin-top:12px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn copybtn" style="color:var(--dim)">Delete course</button></form>
+  <form method="post" action="{{ url_for('community.admin_item', what='courses', oid=co.id, action='delete') }}" data-confirm="Delete this course?" style="margin-top:12px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn copybtn" style="color:var(--dim)">Delete course</button></form>
 </div>
 {% endblock %}

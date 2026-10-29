@@ -37,7 +37,7 @@
       </div>
       <div class="row">
         {% if not row.locked %}<a class="btn dark sm" href="{{ url_for('products.brand_edit', bid=b.id) }}">Edit brand</a>{% endif %}
-        {% if tree|length > 1 and owner %}<form method="post" action="{{ url_for('delete_brand', bid=b.id) }}" onsubmit="return confirm('Remove {{ (b.brand_name or 'this brand')|e }}? Its ads stay in your library.')"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm" aria-label="Remove brand">Remove</button></form>{% endif %}
+        {% if tree|length > 1 and owner %}<form method="post" action="{{ url_for('delete_brand', bid=b.id) }}" data-confirm="Remove {{ (b.brand_name or 'this brand')|e }}? Its ads stay in your library."><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm" aria-label="Remove brand">Remove</button></form>{% endif %}
       </div>
     </header>
     {% if row.locked %}<p class="small muted">Your plan includes {{ plans.limit(g.ws, 'brands') }} brand{{ 's' if plans.limit(g.ws, 'brands') != 1 }}. <a href="{{ url_for('billing_page') }}">Upgrade</a> to work on this one again; nothing in it was deleted.</p>{% endif %}

@@ -50,7 +50,7 @@
         <div class="cf-b">
           <p class="small muted" style="margin-top:0">The reason someone stops scrolling. Get ideas from the product's details, reuse a saved one, or write your own.</p>
           <div class="row"><button type="button" class="btn dark" data-ideas {{ 'disabled' if not boot.ai }}><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.6L19.5 9l-5.7 1.6L12 16l-1.8-5.4L4.5 9l5.7-1.4z"/></svg>Get angle ideas</button><span class="small muted">{{ 'about ' ~ boot.quote_angles ~ ' credits' if boot.ai else 'AI ideas are off; write your own below' }}</span></div>
-          <div class="cf-angles" data-angles></div>
+          <div class="cf-angles" data-angles role="radiogroup" aria-label="Angles"></div>
           <details class="cf-own" data-own><summary>Write my own angle</summary>
             <div class="two-col"><div><label for="an-t">Angle</label><input id="an-t" type="text" maxlength="80" placeholder="e.g. The 2 PM slump" data-own-title></div>
               <div><label for="an-h">Hook <span class="dim">(first line)</span></label><input id="an-h" type="text" maxlength="200" placeholder="e.g. My afternoon coffee takes 30 seconds now." data-own-hook></div></div>
@@ -108,7 +108,7 @@
           <label>Where it runs <span class="dim">(sets the shape)</span></label><div class="choices" data-platforms></div>
           <div data-aspects-wrap><label>Shapes <span class="dim">(each shape is its own version)</span></label><div class="choices" data-aspects></div></div>
           <div data-vdur-wrap><label>Length</label><div class="choices" data-vdurs></div>
-            <label class="choice" style="display:inline-flex;gap:8px;margin-top:10px"><input type="checkbox" data-audio style="display:inline">Generate sound</label></div>
+            <label class="choice" style="display:inline-flex;gap:8px;margin-top:10px"><input type="checkbox" data-audio>Generate sound</label></div>
           <div data-versions-wrap><label>Versions of each headline</label><div class="choices" data-versions></div></div>
           <div data-ref-wrap><label>Reference clip <span class="dim">(the moves to copy)</span></label><div class="cf-refs" data-refs></div></div>
           <label>Product photos used <span class="dim" data-photo-max></span></label><div class="photos" data-photos></div>
@@ -123,9 +123,9 @@
         <div class="cf-b">
           <div class="cf-matrix" data-matrix></div>
           <ul class="cf-lines" data-lines></ul>
-          <div class="flash bad" data-err hidden></div>
+          <div class="flash bad" data-err role="alert" hidden></div>
           <div class="cf-go">
-            <div><span class="muted small">Total</span><div class="price"><span data-total>–</span></div><span class="muted small">credits · you have <b data-bal>{{ '{:,}'.format(boot.balance) }}</b></span></div>
+            <div><span class="muted small">Total</span><div class="price" aria-live="polite"><span data-total>–</span></div><span class="muted small">credits · you have <b data-bal>{{ '{:,}'.format(boot.balance) }}</b></span></div>
             <button type="button" class="btn lg" data-generate disabled>Generate</button>
           </div>
           <p class="dim small" style="margin:12px 0 0">Nothing runs until you press Generate. Failed videos are refunded automatically. Scripts and the angle are saved to the product.</p>
@@ -139,8 +139,8 @@
         <dl class="cf-dl" data-side></dl>
         <hr class="line">
         <span class="muted small">Estimated</span>
-        <div class="price"><span data-side-total>–</span></div>
-        <span class="muted small" data-side-count>Pick the steps to see a price</span>
+        <div class="price" aria-live="polite"><span data-side-total>–</span></div>
+        <span class="muted small" data-side-count aria-live="polite">Pick the steps to see a price</span>
       </div>
       <div class="panel cf-rules"><h3>Before you post</h3><ul class="rules"><li>Only approved claims: <span data-side-claims class="gold"></span></li><li>Presenters never speak as customers or promise results</li><li>Label it as an ad and AI-generated where the platform asks</li></ul></div>
     </aside>
@@ -194,6 +194,7 @@
       var t = sec.querySelector('.cf-toast'); if(t && k !== S.step) t.remove();
     });
     $('[data-pname]').textContent = S.product ? S.product.name : 'your product';
+    var pn = $('#s-product [data-next]'); if(pn) pn.hidden = !S.product;
     summaries(); renderAngles(); renderScript(); renderCast(); renderFormat(); side(); if(S.step === 'review') quote(true); else liveQuote();
   }
   function summaries(){
@@ -211,7 +212,10 @@
 
   function renderAngles(){
     var box = $('[data-angles]'), list = [];
-    S.ideas.forEach(function(a, i){ list.push({a: a, key: 'i' + i, tag: 'Idea'}); });
+    var seen = {};
+    function same(a){ return (a.title || '').trim().toLowerCase(); }
+    (S.product ? S.product.angles : []).forEach(function(a){ seen[same(a)] = 1; });
+    S.ideas.forEach(function(a, i){ if(seen[same(a)]) return; seen[same(a)] = 1; list.push({a: a, key: 'i' + i, tag: 'Idea'}); });
     (S.product ? S.product.angles : []).forEach(function(a){ list.push({a: a, key: 's' + a.id, tag: 'Saved'}); });
     if(S.angle && !list.some(function(x){ return x.a.title === S.angle.title && (x.a.hook||'') === (S.angle.hook||''); })) list.unshift({a: S.angle, key: 'cur', tag: 'Yours'});
     box.innerHTML = list.map(function(x){ var on = S.angle && S.angle.title === x.a.title && (S.angle.hook||'') === (x.a.hook||'');
@@ -376,7 +380,6 @@
   function refreshProduct(){ if(!S.product) return; fetch(B.urls.state + '?id=' + S.product.id).then(function(r){ return r.json(); }).then(function(st){ var keep = S.photos; S.product = st; S.photos = keep; renderAngles(); renderScript(); }); }
   function generate(btn){
     if(!lastQuote || !lastQuote.count) return;
-    if(!confirm('Generate ' + lastQuote.count + ' ad' + (lastQuote.count > 1 ? 's' : '') + ' for ' + lastQuote.total.toLocaleString() + ' credits?')) return;
     busy(btn, true, 'Starting…');
     post(B.urls.generate, Object.assign(config(), {total: lastQuote.total})).then(function(r){
       if(r.ok){ location.href = r.url; return; }

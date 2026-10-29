@@ -3,7 +3,7 @@
 {% set rep = out.report %}{% set s = out.suggest %}
 <div class="page full">
   <p style="margin:0 0 14px"><a href="{{ url_for('seo.index') }}">← Audit another</a></p>
-  <p class="eyebrow">Audit · {{ r.created_at[:10] }}</p>
+  <p class="eyebrow">Audit · {{ r.created_at|localtime('date') }}</p>
   <h1 class="break">{{ inp.url or 'Pasted draft' }}</h1>
   <div class="scorebig"><b>{{ rep.score }}</b><span class="muted">/ 100</span>
     <span class="small muted">{{ out.page.words }} words · {{ out.page.internal_links }} internal links{% if out.page.jsonld_types %} · structured data: {{ out.page.jsonld_types|join(', ') }}{% endif %}</span></div>

@@ -69,7 +69,7 @@
         <div>
           <b>{{ templates_by_id[j.template_id].name if j.template_id in templates_by_id else tools[j.tool].name }}</b>
           {{ status(j) }}
-          <p class="dim small" style="margin:8px 0">{{ j.created_at[:16].replace('T', ' ') }} UTC</p>
+          <p class="dim small" style="margin:8px 0">{{ j.created_at|localtime }}</p>
           {% if outs.get(j.id) %}<a class="btn dark sm" href="{{ url_for('media', oid=outs[j.id][0].id, download=1) }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/></svg>Download</a>{% endif %}
         </div>
       </div>

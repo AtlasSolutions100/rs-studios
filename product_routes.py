@@ -103,7 +103,7 @@ def edit(pid):
                 if _locked(conn, b["id"]):
                     raise products.ProductError("That brand is locked on your plan.")
                 products.update_product(conn, g.ws["id"], pid, request.form)
-                flash("Saved.")
+                flash("Saved.", "ok")
             except products.ProductError as e:
                 flash(str(e))
             return redirect(url_for("products.edit", pid=pid))

@@ -89,9 +89,23 @@ def _refund(conn, job, reason):
     db.refund_job(conn, job, f"refund: {reason}")
 
 
+REFUNDED = "Credits refunded."
+
+
+def failure_text(msg: str) -> str:
+    """Every failure the member sees ends with the same plain promise."""
+    msg = " ".join(str(msg or "").split()).rstrip()
+    for old in ("Your credits were refunded.", "Your credits were refunded", "Credits refunded."):
+        if msg.endswith(old):
+            msg = msg[: -len(old)].rstrip()
+    if msg and msg[-1] not in ".!?":
+        msg += "."
+    return (msg + " " + REFUNDED).strip()
+
+
 def _fail(conn, job, msg):
     _refund(conn, job, msg[:60])
-    _set(conn, job["id"], status="failed", error=msg[:500])
+    _set(conn, job["id"], status="failed", error=failure_text(msg)[:500])
 
 
 def _save_outputs(conn, job, result):
@@ -144,15 +158,14 @@ def tick() -> int:
                     if vendor is not None and vendor > (job["cost_usd"] or 0) * PRICE_TOLERANCE:
                         log.warning("job %s: vendor estimate $%.3f over our price $%.3f; refused", job["id"], vendor,
                                     job["cost_usd"])
-                        raise hf.GenError("This format's price changed and it couldn't start. Your credits were "
-                                          "refunded; we've been told.")
+                        raise hf.GenError("This format's price changed and it couldn't start. We've been told.")
                 rid = hf.submit(model, inputs)
                 _set(conn, job["id"], status="running", request_id=rid, attempts=job["attempts"] + 1)
             except hf.GenError as e:
                 _fail(conn, job, str(e))
             except Exception as e:  # noqa: BLE001
                 if job["attempts"] + 1 >= MAX_ATTEMPTS:
-                    _fail(conn, job, f"could not start: {e}")
+                    _fail(conn, job, f"Couldn't start: {e}")
                 else:
                     _set(conn, job["id"], attempts=job["attempts"] + 1, error=str(e)[:300])
             changed += 1
@@ -167,16 +180,16 @@ def tick() -> int:
                     _save_outputs(conn, job, res)
                     _set(conn, job["id"], status="done", error=None)
                 except Exception as e:  # noqa: BLE001
-                    _fail(conn, job, f"result unreadable: {e}")
+                    _fail(conn, job, f"The result couldn't be read: {e}")
                 changed += 1
             elif st == "nsfw":
                 _fail(conn, job, "Blocked by the content filter. Try a different brief or photo.")
                 changed += 1
             elif st in hf.FINAL:
-                _fail(conn, job, "The generation failed. Your credits were refunded.")
+                _fail(conn, job, "The generation failed.")
                 changed += 1
             elif job["updated_at"] < _minutes_ago(STUCK_MINUTES * 4):
-                _fail(conn, job, "Timed out. Your credits were refunded.")
+                _fail(conn, job, "Timed out.")
                 changed += 1
     return changed
 

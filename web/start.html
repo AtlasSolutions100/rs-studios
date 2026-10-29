@@ -80,7 +80,9 @@
   function fill(){
     if(edited) return;
     var t=document.querySelector('input[name=template]:checked'); if(!t) return;
-    brief.value = t.dataset.brief.split('{product}').join(pn.value.trim() || 'the product').split('{brand}').join(bn.value.trim());
+    var name = pn.value.trim();
+    brief.value = t.dataset.brief.replace(/\b([Tt]he|[Yy]our) \{product\}/g, function(m, w){ return w + ' ' + (name || 'product'); })
+      .split('{product}').join(name || 'your product').split('{brand}').join(bn.value.trim());
   }
   document.querySelectorAll('input[name=template]').forEach(function(r){ r.addEventListener('change', function(){ edited=false; fill(); }); });
   pn.addEventListener('input', fill); bn.addEventListener('input', fill); fill();

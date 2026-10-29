@@ -23,7 +23,7 @@
     <div class="panel">
       <h2>Recent</h2>
       {% for r in runs %}{% set i = r.input_json|fromjson %}{% set o = r.output_json|fromjson %}
-      <a class="runrow" href="{{ url_for('copy.optimized', rid=r.id) }}"><b>{{ PLATFORMS[r.platform].short }} · {{ o.quick.overall }}/10</b><span class="small muted">{{ (i.text or '')[:70] }}</span><span class="small dim">{{ r.created_at[:16].replace('T',' ') }}</span></a>
+      <a class="runrow" href="{{ url_for('copy.optimized', rid=r.id) }}"><b>{{ PLATFORMS[r.platform].short }} · {{ o.quick.overall }}/10</b><span class="small muted">{{ (i.text or '')[:70] }}</span><span class="small dim">{{ r.created_at|localtime }}</span></a>
       {% else %}<div class="empty">Nothing yet.</div>{% endfor %}
     </div>
   </aside>

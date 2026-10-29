@@ -267,6 +267,8 @@ with db.connect() as conn:
     j2 = conn.execute("SELECT * FROM jobs ORDER BY id DESC").fetchone()
     bal = conn.execute("SELECT credits FROM workspaces WHERE id=?", (ws1["id"],)).fetchone()[0]
 check(j2["status"] == "failed" and "filter" in j2["error"], "filtered result marked failed")
+check(j2["error"].endswith("Credits refunded.") and j2["error"].count("refunded") == 1,
+      "a content-filter failure says the credits were refunded")
 check(bal == 794, "credits refunded on failure")
 
 print("== invites + isolation")
@@ -1411,6 +1413,55 @@ check(a.get("/health").get_json()["generation_configured"], "health reports conf
 for path in ("/app", "/app/start", "/app/billing", "/", "/features"):
     html = (a if path != "/" else client()).get(path).get_data(as_text=True)
     check(not re.search(r"higgsfield", html, re.I), f"vendor never named in the UI ({path})")
+
+print("== phase 0: accessibility, copy, shell helpers")
+for t in catalog.TEMPLATES:
+    for name in ("", "Sunrise Blend"):
+        filled = catalog.fill(t["brief"], {"product": name, "name": ""})
+        check("{product}" not in filled and not re.search(r"\bthe the\b", filled, re.I), f"fill() reads cleanly: {t['id']} / {name or 'no name'}")
+check("the Sunrise Blend" in catalog.fill(catalog.TEMPLATE_BY_ID["hero"]["brief"], {"product": "Sunrise Blend"}),
+      "fill() puts the product name in")
+for raw, want in (("Blocked by the content filter. Try a different brief or photo.", "Blocked by the content filter. Try a different brief or photo. Credits refunded."),
+                  ("The generation failed. Your credits were refunded.", "The generation failed. Credits refunded."),
+                  ("Couldn't start: boom", "Couldn't start: boom. Credits refunded.")):
+    check(worker.failure_text(raw) == want, f"failure copy: {want!r}")
+with appmod.app.test_request_context():
+    check(appmod.credits_usd(925) == "$9.25" and appmod.credits_usd(11100) == "$111" and appmod.credits_usd(0) == "$0",
+          "credits_usd shows dollars")
+    check(appmod.first_upper("AI angle ideas") == "AI angle ideas" and appmod.first_upper("generation") == "Generation",
+          "first_upper keeps acronyms")
+    lt = str(appmod.localtime("2026-10-29T05:03:00+00:00"))
+    check('<time datetime="2026-10-29T05:03:00+00:00" data-local="datetime">2026-10-29 05:03 UTC</time>' == lt,
+          "localtime renders a <time> with a UTC fallback")
+css = open(os.path.join(os.path.dirname(HERE), "static", "style.css")).read()
+check(not re.search(r"\.choice(\.chk)? input\{display:none\}|\.cf-refs \.choice input\{display:none\}", css),
+      "chip radios and checkboxes stay in the tab order (no display:none)")
+check(".choice:has(input:focus-visible)" in css, "chips show a keyboard focus ring")
+
+
+def _lum(h):
+    c = [int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+    c = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+
+
+def _ratio(a, b):
+    la, lb = _lum(a), _lum(b)
+    return (max(la, lb) + .05) / (min(la, lb) + .05)
+
+
+dims = re.findall(r"--dim:(#[0-9A-Fa-f]{6})", css)
+check(len(dims) >= 3 and _ratio(dims[0], "#1A1C21") >= 4.5 and all(_ratio(d, "#FFFFFF") >= 4.5 and _ratio(d, "#F6F7F4") >= 4.5
+                                                                for d in dims[1:]), f"--dim text meets 4.5:1 ({dims})")
+for name in os.listdir(os.path.join(os.path.dirname(HERE), "web")):
+    if name.endswith(".html") and not name.startswith("c_"):
+        src = open(os.path.join(os.path.dirname(HERE), "web", name)).read()
+        check("confirm(" not in src, f"{name}: no native confirm()")
+html = a.get("/app/billing").get_data(as_text=True)
+check("app.js" in html and "<time datetime=" in html and "|capitalize" not in html, "app shell loads app.js; dates are <time>")
+r = a.post("/app/brand", data={"csrf": csrf(a), "brand_name": "Aurora", "product_name": "Glow", "claims": "", "audience": ""},
+           follow_redirects=True)
+check('data-cat="ok"' in r.get_data(as_text=True), "success flashes are marked so they can fade")
 
 import subprocess as _sp, sys as _sys
 _out = _sp.run([_sys.executable, "-c", "import catalog; print(catalog.price_credits('photo_to_video', duration=5), "

@@ -154,7 +154,7 @@ def admin():
                 conn.execute("INSERT INTO c_spaces (workspace_id, name, about, created_at) VALUES (?,?,?,?)",
                              (g.ws["id"], "General", "Say hello and ask anything.", db.now()))
             conn.commit()
-        flash("Saved.")
+        flash("Saved.", "ok")
         return redirect(url_for("community.admin"))
     if not c:
         return render_template("community_setup.html")
@@ -293,7 +293,7 @@ def course_edit(cid):
                     if m and v.strip():
                         conn.execute("UPDATE c_modules SET title=? WHERE id=? AND course_id=? AND workspace_id=?",
                                      (_clip(v, 120), int(m.group(1)), cid, ws))
-                flash("Saved.")
+                flash("Saved.", "ok")
             elif action == "add_module":
                 n = conn.execute("SELECT COUNT(*) FROM c_modules WHERE course_id=?", (cid,)).fetchone()[0]
                 conn.execute("INSERT INTO c_modules (workspace_id, course_id, title, position) VALUES (?,?,?,?)",

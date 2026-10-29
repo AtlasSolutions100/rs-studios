@@ -1,5 +1,5 @@
 {% macro status(j) -%}
-<span class="status {{ j.status }}"><span class="dot"></span>{{ {'done':'Ready','pending':'Queued','running':'Rendering','failed':'Failed'}[j.status] }}</span>
+<span class="status {{ j.status }}" title="{{ {'done':'Finished and saved to your library','pending':'Waiting for its turn in the queue','running':'Being made now','failed':(j.error or 'It failed. Credits refunded.')}[j.status] }}"><span class="dot"></span>{{ {'done':'Ready','pending':'Queued','running':'Rendering','failed':'Failed'}[j.status] }}</span>
 {%- endmacro %}
 
 {% macro job_thumb(j, outs, templates, tools, tall=True) -%}

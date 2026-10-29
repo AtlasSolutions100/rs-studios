@@ -7,7 +7,7 @@
     <div>
       <p class="eyebrow">{{ at.name or 'Batch' }}{% if p %} · {{ p.name }}{% endif %}</p>
       <h1>{{ b.title or 'Your ads' }}</h1>
-      <p class="muted">{{ jobs|length }} ad{{ 's' if jobs|length != 1 }} · {{ '{:,}'.format(b.credits) }} credits · {{ b.created_at[:16].replace('T', ' ') }} UTC</p>
+      <p class="muted">{{ jobs|length }} ad{{ 's' if jobs|length != 1 }} · {{ '{:,}'.format(b.credits) }} credits · {{ b.created_at|localtime }}</p>
     </div>
     <div class="phead-actions">
       <a class="btn dark" href="{{ url_for('create.index', batch=b.id) }}">Make more like this</a>
