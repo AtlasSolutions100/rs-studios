@@ -616,9 +616,97 @@ for k, f in plans.FEATURES.items():
     if not f["shipped"]:
         check(f["name"].encode() not in fh.data, f"features page doesn't list unshipped {f['name']!r}")
 
+print("== copy studio + optimizer")
+import copywriter  # noqa: E402
+import llm  # noqa: E402
+os.environ.pop("ANTHROPIC_API_KEY", None)
+os.environ.pop("GROQ_API_KEY", None)
+check(x.get("/app/copy").status_code == 402 and b"Included in Starter" in x.get("/app/copy").data,
+      "free account: copy studio shows the upgrade page")
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "starter"})
+r = x.get("/app/copy")
+check(r.status_code == 200 and b"AI writing isn't switched on" in r.data, "no AI key: the studio says so")
+bal0 = db.balance(wsrow(xws["id"]))
+r = x.post("/app/copy", data={"csrf": csrf(x), "kind": "ad", "platform": "meta", "offer": "Glow serum", "n": "3"})
+check(r.status_code == 302 and db.balance(wsrow(xws["id"])) == bal0, "no AI key: nothing runs, nothing charged")
+os.environ["ANTHROPIC_API_KEY"] = "sk-ant-test"
+llm_calls = []
+
+
+def fake_anthropic(body):
+    llm_calls.append(body)
+    tool = (body.get("tool_choice") or {}).get("name")
+    if tool == "submit_copy":
+        out = {"variants": [
+            {"angle": "Morning moment", "fields": [{"name": "Primary text", "text": "Your 7am skin, sorted. One drop of Glow serum and you're out the door."},
+                                                   {"name": "Headline", "text": "Glow serum, 30 ml"}, {"name": "Description", "text": "Shop now"}]},
+            {"angle": "Too long", "fields": [{"name": "Primary text", "text": "x" * 140}, {"name": "Headline", "text": "y" * 45},
+                                             {"name": "Description", "text": "Shop now"}]},
+            {"angle": "Bad", "fields": [{"name": "Primary text", "text": "Make $500 a week from home with this serum"},
+                                        {"name": "Headline", "text": "Be your own boss"}, {"name": "Description", "text": "Join"}]}]}
+    elif tool == "submit_review":
+        out = {"scores": {"hook": 6, "clarity": 7, "cta": 4, "fit": 8}, "summary": "Clear, but no next step.",
+               "issues": ["No call to action"], "rewrites": [{"angle": "Direct", "text": "Glow serum: one drop, done. Shop now."}]}
+    else:
+        out = {}
+    return {"model": body["model"], "stop_reason": "tool_use", "usage": {"input_tokens": 2000, "output_tokens": 800},
+            "content": [{"type": "tool_use", "id": "tu_1", "name": tool, "input": out}]}
+
+
+llm._anthropic = fake_anthropic
+check(llm.credits_for(llm.cost_usd("claude-sonnet-4-6", 2000, 800)) == 4, "AI pricing: 2,000 in + 800 out on Sonnet = $0.018 x2 = 4 credits")
+check(llm.credits_for(0.0001) == 1, "AI calls cost at least 1 credit")
+r = x.post("/app/copy", data={"csrf": csrf(x), "kind": "ad", "platform": "meta", "offer": "Glow serum", "goal": "sales",
+                              "tone": "Friendly", "audience": "Women 30-50", "n": "3"})
+check(r.status_code == 302 and "/app/copy/" in r.headers["Location"], "copy run saved, opens the result")
+body = llm_calls[-1]
+check(body["tool_choice"]["name"] == "submit_copy" and "Primary text" in body["messages"][0]["content"]
+      and "No income" in body["system"], "prompt asks for the platform's fields and carries the compliance rules")
+check(db.balance(wsrow(xws["id"])) == bal0 - 4, "charged what the call actually cost (4 credits)")
+html = x.get(r.headers["Location"]).get_data(as_text=True)
+check("Morning moment" in html and "Checks passed" in html and "Blocked: No income or earnings claims." in html,
+      "result page shows variants; the income-claim variant is flagged")
+check("140/" in html or ">140" in html or "140 · aim 125" in html, "result page shows character counts against the platform")
+with db.connect() as conn:
+    run_row = conn.execute("SELECT * FROM copy_runs WHERE workspace_id=? ORDER BY id DESC", (xws["id"],)).fetchone()
+check(run_row["credits"] == 4 and run_row["kind"] == "ad", "the run records its credits")
+check(n.get(f"/app/copy/{run_row['id']}").status_code == 404, "other workspaces can't open your copy")
+r = x.post("/app/copy", data={"csrf": csrf(x), "kind": "ad", "platform": "meta", "offer": "Join my team today", "n": "3"})
+check(db.balance(wsrow(xws["id"])) == bal0 - 4 and len([c for c in llm_calls if c["tool_choice"]["name"] == "submit_copy"]) == 1,
+      "recruiting in the brief is blocked before any AI call")
+check(x.get("/app/optimize").status_code == 402, "optimizer is Growth+: Starter sees the upgrade page")
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "growth"})
+bal1 = db.balance(wsrow(xws["id"]))
+r = x.post("/app/optimize", data={"csrf": csrf(x), "text": "MAKE $500 A WEEK WITH THIS SERUM #a #b #c #d #e #f #g",
+                                  "platform": "meta", "goal": "sales"})
+html = x.get(r.headers["Location"]).get_data(as_text=True)
+check(db.balance(wsrow(xws["id"])) == bal1 and "No income or earnings claims." in html and "Quick checks" in html,
+      "quick checks are free and catch compliance problems")
+r = x.post("/app/optimize", data={"csrf": csrf(x), "text": "Glow serum is a nice serum for your skin and it is here.",
+                                  "platform": "meta", "goal": "sales", "ai": "1"})
+html = x.get(r.headers["Location"]).get_data(as_text=True)
+check(db.balance(wsrow(xws["id"])) == bal1 - 4 and "Clear, but no next step." in html and "one drop, done" in html,
+      "AI review: scores, fixes and rewrites, charged at cost")
+q = copywriter.quick_checks("Why does your 2pm coffee taste like regret? Try GlowJava. Shop now.", "meta")
+check(q["scores"]["hook"] >= 8 and q["scores"]["cta"] >= 8 and q["compliance"]["ok"], "quick checks reward a hook and a CTA")
+
+
+def broken(body):
+    raise llm.LLMError("503: overloaded")
+
+
+llm._anthropic = broken
+bal2 = db.balance(wsrow(xws["id"]))
+r = x.post("/app/copy", data={"csrf": csrf(x), "kind": "hooks", "platform": "tiktok", "offer": "Glow serum", "n": "3"})
+check(r.status_code == 302 and db.balance(wsrow(xws["id"])) == bal2, "writer error: no charge, friendly message")
+llm._anthropic = fake_anthropic
+check(b"AI writing (planner, copy, SEO): <b>on" in a.get("/admin").data, "admin shows the AI writing status")
+
 print("== pages")
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": ws1["id"], "plan": "scale"})
 for path in ("/app", "/app/library", "/app/brand", "/admin", "/app/new?tool=motion_copy", "/app/new?template=cost",
-             "/app/start", "/app/billing", "/app/new?template=hero", "/app/team"):
+             "/app/start", "/app/billing", "/app/new?template=hero", "/app/team", "/app/copy", "/app/optimize",
+             "/app/copy?kind=landing&platform=landing"):
     check(a.get(path).status_code == 200, f"{path} renders")
 check(a.get("/health").get_json()["generation_configured"], "health reports configured")
 for path in ("/app", "/app/start", "/app/billing", "/", "/features"):

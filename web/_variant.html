@@ -1,0 +1,13 @@
+<article class="variant {{ '' if v.ok else 'flagged' }}">
+  <header><b>{{ v.angle or ('Variant ' ~ loop.index) }}</b>
+    {% if not v.compliance.ok %}<span class="tag bad">Blocked: {{ v.compliance.blocks|join(' ') }}</span>
+    {% elif v.compliance.warnings %}<span class="tag warn">{{ v.compliance.warnings|join(' ') }}</span>
+    {% else %}<span class="tag ok">Checks passed</span>{% endif %}</header>
+  {% for f in v.fields %}
+  <div class="vfield">
+    <div class="vfield-h"><span class="small muted">{{ f.name }}</span><span class="small {{ 'bad' if f.state == 'over' else 'warnc' if f.state == 'long' else 'dim' }}">{{ f.chars }}{% if f.limit %}/{{ f.limit }}{% elif f.rec %} · aim {{ f.rec }}{% endif %}</span></div>
+    <p class="vtext" id="v{{ loop.index }}-{{ vid }}">{{ f.text }}</p>
+    <button type="button" class="linkbtn copybtn" data-copy="v{{ loop.index }}-{{ vid }}">Copy</button>
+  </div>
+  {% endfor %}
+</article>

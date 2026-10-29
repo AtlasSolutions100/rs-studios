@@ -1,0 +1,40 @@
+{% extends "base.html" %}{% block title %}Copy review · Campaignify{% endblock %}
+{% block body %}
+{% set q = res.quick %}{% set ai = res.ai %}
+{% set sc = ai.scores if ai else q.scores %}
+<div class="page full">
+  <p style="margin:0 0 14px"><a href="{{ url_for('copy.optimize') }}">← Optimize another</a></p>
+  <p class="eyebrow">Review · {{ PLATFORMS[r.platform].name }}</p>
+  <h1>{{ ((sc.hook + sc.clarity + sc.cta + sc.fit) / 4)|round(1) }}<span class="muted" style="font-size:24px"> / 10</span></h1>
+  {% if not q.compliance.ok %}<div class="flash bad">Compliance: {{ q.compliance.blocks|join(' ') }} Fix this before posting.</div>{% endif %}
+  <div class="scores">
+    {% for k, label in [('hook','Hook'),('clarity','Clarity'),('cta','Call to action'),('fit','Platform fit')] %}
+    <div class="score"><span class="small muted">{{ label }}</span><b>{{ sc[k] }}</b><i style="--v:{{ sc[k] * 10 }}%"></i></div>
+    {% endfor %}
+  </div>
+  <div class="grid2">
+    <div class="panel">
+      <h2>Your copy</h2>
+      <p class="vtext">{{ inp.text }}</p>
+      <p class="small muted">{{ q.stats.chars }} characters · {{ q.stats.words }} words · reading ease {{ q.stats.reading_ease }} · {{ q.stats.hashtags }} hashtags · first line {{ q.stats.first_line_words }} words</p>
+    </div>
+    <div class="panel">
+      <h2>{{ 'What to fix' if ai else 'Quick checks' }}</h2>
+      {% if ai %}<p>{{ ai.summary }}</p><ul class="rules">{% for i in ai.issues %}<li>{{ i }}</li>{% endfor %}</ul><hr class="line">{% endif %}
+      <ul class="checks">{% for lvl, msg in q['items'] %}<li class="{{ lvl }}">{{ msg }}</li>{% else %}<li class="ok">No problems found by the quick checks.</li>{% endfor %}</ul>
+    </div>
+  </div>
+  {% if ai and ai.rewrites %}
+  <div class="section-h"><h2>Rewrites</h2><span class="muted small">{{ r.credits }} credits</span></div>
+  <div class="variants">
+    {% for rw in ai.rewrites %}
+    <article class="variant {{ '' if rw.compliance.ok else 'flagged' }}">
+      <header><b>{{ rw.angle or 'Rewrite ' ~ loop.index }}</b>{% if not rw.compliance.ok %}<span class="tag bad">Blocked: {{ rw.compliance.blocks|join(' ') }}</span>{% else %}<span class="tag ok">Checks passed</span>{% endif %}</header>
+      <div class="vfield"><div class="vfield-h"><span class="small muted">Text</span><span class="small dim">{{ rw.chars }}</span></div><p class="vtext" id="rw{{ loop.index }}">{{ rw.text }}</p><button type="button" class="linkbtn copybtn" data-copy="rw{{ loop.index }}">Copy</button></div>
+    </article>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% include "_copyjs.html" %}
+{% endblock %}
