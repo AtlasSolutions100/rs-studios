@@ -21,6 +21,7 @@ from flask import (Blueprint, Response, abort, flash, g, make_response, redirect
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import db
+import flows_engine
 import pages
 import plans
 from core import feature_required, is_owner
@@ -448,6 +449,11 @@ def join(slug, code):
                     mid = conn.execute("INSERT INTO c_members (workspace_id, email, name, pw_hash, role, status, created_at) "
                                        "VALUES (?,?,?,?,?,?,?)", (c["workspace_id"], email, name, generate_password_hash(pw),
                                                                   "member", "active", db.now())).lastrowid
+            ct = conn.execute("SELECT id FROM contacts WHERE workspace_id=? AND email=?", (c["workspace_id"], email)).fetchone()
+            cid = ct["id"] if ct else conn.execute(
+                "INSERT INTO contacts (workspace_id, email, name, tags, source, first_seen, last_seen) VALUES (?,?,?,?,?,?,?)",
+                (c["workspace_id"], email, name or None, "", "community", db.now(), db.now())).lastrowid
+            flows_engine.enrol(conn, c["workspace_id"], "community_joined", cid)
             conn.commit()
         cm = dict(session.get("cm") or {})
         cm[str(c["workspace_id"])] = mid

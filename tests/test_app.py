@@ -1678,6 +1678,250 @@ html = a.get("/app/create?type=ugc").get_data(as_text=True)
 check('/presenter/maya.jpg' in html and "Presenter samples" in a.get("/admin").get_data(as_text=True),
       "presenter cards carry the stills; the admin page shows the tool")
 
+print("== flows F0: builder, AI draft, timeline, engine, tasks (phase 6)")
+import flows  # noqa: E402
+import flows_engine  # noqa: E402
+from datetime import datetime as _dtm, timedelta as _tdl, timezone as _tzu  # noqa: E402
+try:
+    flows.clean_tree({"steps": [{"type": "launch_rocket"}]})
+    check(False, "unknown step types are refused")
+except flows.FlowError:
+    check(True, "unknown step types are refused")
+check(flows.check_graph({"start": "a", "nodes": {"a": {"type": "wait", "next": "b"}, "b": {"type": "wait", "next": "a"}}})
+      and flows.check_graph({"start": "a", "nodes": {"a": {"type": "wait", "next": None}, "z": {"type": "wait", "next": None}}}),
+      "stored graphs are checked for cycles and orphans")
+for t in flows.TEMPLATES:
+    tr = flows.from_template(t["id"])
+    msgs = [x for x, _ in flows.walk(tr["steps"]) if x["type"] in ("email", "sms")]
+    check(msgs and all(compliance.check(m.get("subject") or "", m["body"])["ok"] for m in msgs)
+          and not flows.check_graph(flows.compile_tree(tr)) and set(flows.problems(tr, [{"id": 1}])) <= {"trigger"},
+          f"template {t['id']}: {len(msgs)} messages pass the rules; the graph is sound")
+check(x.get("/app/flows").status_code == 200 and n.get("/app/flows").status_code in (200, 402), "Flows opens on a paid plan")
+fc = client()
+fc.post("/signup", data={"csrf": csrf(fc), "email": "flowfree@example.com", "password": "longpassword"})
+check(fc.get("/app/flows").status_code == 402, "Flows is a Starter feature")
+# AI draft: "ad -> page -> form -> welcome email -> wait 1 day -> if clicked tag hot, else text reminder -> day 3 offer"
+draft_out = {"name": "Waitlist follow-up", "trigger": {"kind": "form_submitted"}, "steps": [
+    {"type": "email", "subject": "Welcome to the waitlist", "body": "Hi {{first_name}},\n\nThanks for joining. Here's what happens next: {{link:glow-launch}}\n\n{{brand}}", "hint": "Day 0: confirm and set expectations."},
+    {"type": "wait", "days": 1, "hint": "Give them a day."},
+    {"type": "condition", "test_kind": "clicked", "yes": [{"type": "tag", "op": "add", "tag": "hot"}],
+     "no": [{"type": "sms", "body": "{{brand}}: a quick reminder, your spot is saved: {{link:glow-launch}}"}]},
+    {"type": "wait", "days": 2},
+    {"type": "email", "subject": "It's ready", "body": "Hi {{first_name}},\n\nGlow is ready. Get yours here: {{link:glow-launch}}\n\n{{brand}}"},
+    {"type": "email", "subject": "Lose 10 pounds", "body": "Burn fat fast"}]}
+
+
+def fake_flow_llm(body):
+    return {"model": body["model"], "usage": {"input_tokens": 2000, "output_tokens": 1500},
+            "content": [{"type": "tool_use", "id": "tf", "name": "submit_flow", "input": draft_out}]}
+
+
+_llm_prev, llm._anthropic = llm._anthropic, fake_flow_llm
+os.environ["ANTHROPIC_API_KEY"] = "sk-ant-test"
+bal = db.balance(wsrow(xws["id"]))
+r = x.post("/app/flows/draft", data={"csrf": csrf(x), "text": "When someone joins the waitlist form, send a welcome email. Wait a "
+                                     "day. If they clicked, tag them hot; if not, send a text reminder. Day 3: the offer."})
+os.environ.pop("ANTHROPIC_API_KEY")
+llm._anthropic = _llm_prev
+check(r.status_code == 302 and "/app/flows/" in r.headers["Location"], "describing a flow drafts it and opens the editor")
+fid = int(r.headers["Location"].rstrip("/").split("/")[-1].split("?")[0])
+with db.connect() as conn:
+    fl = conn.execute("SELECT * FROM flows WHERE id=?", (fid,)).fetchone()
+tree = flows.unpack(fl["graph_json"])["tree"]
+steps = [st for st, _ in flows.walk(tree["steps"])]
+cond = next(st for st in steps if st["type"] == "condition")
+check(fl["status"] == "draft" and len(steps) == 7 and [st["type"] for st in steps][:3] == ["email", "wait", "condition"]
+      and cond["test"]["node"] == steps[0]["id"] and not any("pounds" in (st.get("subject") or "") for st in steps)
+      and tree["trigger"]["form_id"] == fm["id"] and db.balance(wsrow(xws["id"])) < bal,
+      "the draft is an editable 7-step flow, off, charged at cost; the rule-breaking email is dropped")
+tl = flows.timeline(tree)
+check([r_["day"] for r_ in tl] == [0, 1, 1, 3] and tl[1]["branch"].startswith("if they clicked") and tl[0]["hint"],
+      "Timeline: Day 0 welcome, Day 1 tag or text (by branch), Day 3 offer")
+html = x.get(f"/app/flows/{fid}").get_data(as_text=True)
+check('id="fl-boot"' in html and "Turn on" in html and "Day by day" in html and "Recent activity" in html,
+      "the editor has Steps, Timeline and Activity")
+# saving: the server cleans and checks again
+bad = json.loads(json.dumps(tree))
+bad["steps"][0]["subject"] = "Re: your results"
+bad["steps"][0]["body"] = "You will lose weight"
+r = x.post(f"/app/flows/{fid}/save", data=json.dumps({"name": "Waitlist", "tree": bad}), content_type="application/json",
+           headers={"X-CSRF": csrf(x)})
+pr = r.get_json()["problems"]
+check(any("Re:" in m for m in pr[bad["steps"][0]["id"]]) and any("weight" in m.lower() for m in pr[bad["steps"][0]["id"]]),
+      "saving flags fake Re: subjects and rule-breaking copy on the step")
+r = x.post(f"/app/flows/{fid}/state", data={"csrf": csrf(x), "action": "on"})
+with db.connect() as conn:
+    check(conn.execute("SELECT status FROM flows WHERE id=?", (fid,)).fetchone()[0] == "draft", "a flow with problems can't be turned on")
+r = x.post(f"/app/flows/{fid}/save", data=json.dumps({"name": "Waitlist", "tree": tree}), content_type="application/json",
+           headers={"X-CSRF": csrf(x)})
+check(r.get_json()["problems"] == {} and [i["ok"] for i in r.get_json()["readiness"]][:2] == [True, True]
+      and any("task" in i["detail"] for i in r.get_json()["readiness"] if i["label"] == "Email sending"),
+      "fixed: ready to turn on; email steps will be tasks until sending is connected")
+x.post(f"/app/flows/{fid}/state", data={"csrf": csrf(x), "action": "on"})
+with db.connect() as conn:
+    fl = conn.execute("SELECT * FROM flows WHERE id=?", (fid,)).fetchone()
+check(fl["status"] == "on" and fl["version"] == 1 and fl["version_id"], "turned on: version 1 is snapshotted")
+# a form submission enrols the contact; the engine walks it with a frozen clock
+formsmod.post_webhook = lambda url, secret, payload: hooks.append((url, secret, payload)) or "200"
+r = pubc.post(f"/f/{fm['code']}", data=dict(good, f_email="jo@flow.example", f_name="Jo Park"))
+with db.connect() as conn:
+    jo = conn.execute("SELECT * FROM contacts WHERE email='jo@flow.example'").fetchone()
+    run = conn.execute("SELECT * FROM flow_runs WHERE flow_id=? AND contact_id=?", (fid, jo["id"])).fetchone()
+check(run and run["status"] == "waiting" and run["node_id"] == steps[0]["id"], "a form submission starts the flow")
+pubc.post(f"/f/{fm['code']}", data=dict(good, f_email="jo@flow.example", f_name="Jo Park"))
+with db.connect() as conn:
+    check(conn.execute("SELECT COUNT(*) FROM flow_runs WHERE flow_id=? AND contact_id=?", (fid, jo["id"])).fetchone()[0] == 1,
+          "each person goes through a flow once")
+t0 = flows_engine.parse(run["wake_at"])
+flows_engine.tick(now=t0)
+with db.connect() as conn:
+    run = conn.execute("SELECT * FROM flow_runs WHERE id=?", (run["id"],)).fetchone()
+    tk = conn.execute("SELECT * FROM tasks WHERE run_id=? ORDER BY id", (run["id"],)).fetchall()
+check(len(tk) == 1 and tk[0]["kind"] == "email" and "Welcome to the waitlist" in tk[0]["title"] and "Hi Jo," in tk[0]["body"]
+      and "/p/glow-launch" in tk[0]["body"] and run["node_id"] == steps[1]["id"]
+      and flows_engine.parse(run["wake_at"]) == t0 + _tdl(days=1), "no provider: the email becomes a task with the copy; the wait wakes exactly a day later")
+flows_engine.tick(now=t0 + _tdl(hours=23, minutes=59))
+with db.connect() as conn:
+    check(conn.execute("SELECT COUNT(*) FROM tasks WHERE run_id=?", (run["id"],)).fetchone()[0] == 1, "nothing happens before the wait ends")
+    conn.execute("UPDATE flow_runs SET lease_until=? WHERE id=?", (flows_engine.iso(t0 + _tdl(days=1, minutes=1)), run["id"]))
+    conn.commit()
+flows_engine.tick(now=t0 + _tdl(days=1))
+with db.connect() as conn:
+    check(conn.execute("SELECT COUNT(*) FROM tasks WHERE run_id=?", (run["id"],)).fetchone()[0] == 1, "a leased run isn't touched by another pass")
+    conn.execute("UPDATE flow_runs SET lease_until=NULL WHERE id=?", (run["id"],))
+    conn.commit()
+flows_engine.tick(now=t0 + _tdl(days=1, seconds=1))
+with db.connect() as conn:
+    tk = conn.execute("SELECT * FROM tasks WHERE run_id=? ORDER BY id", (run["id"],)).fetchall()
+    ev = [e["kind"] for e in conn.execute("SELECT kind FROM flow_events WHERE run_id=? ORDER BY id", (run["id"],))]
+check(len(tk) == 2 and tk[1]["kind"] == "sms" and "branch" in ev, "not clicked (no tracking yet): the No branch's text becomes a task")
+flows_engine.tick(now=t0 + _tdl(days=3, seconds=2))
+with db.connect() as conn:
+    run = conn.execute("SELECT * FROM flow_runs WHERE id=?", (run["id"],)).fetchone()
+    tk = conn.execute("SELECT * FROM tasks WHERE run_id=? ORDER BY id", (run["id"],)).fetchall()
+check(len(tk) == 3 and "It's ready" in tk[2]["title"] and run["status"] == "done", "day 3: the offer, then the flow ends")
+# tags start other flows; exit_if, stage, notify, webhook, task handlers
+t2 = {"trigger": {"kind": "tag_added", "tag": "hot"}, "steps": [
+    {"type": "exit_if", "test": {"kind": "has_tag", "tag": "customer"}}, {"type": "stage", "stage": "engaged"},
+    {"type": "notify", "message": "{{name}} is hot"}, {"type": "webhook", "url": "https://hooks.glow.example/flow"},
+    {"type": "task", "title": "Call {{first_name}}", "body": "Ask about sizes", "due_days": 2},
+    {"type": "tag", "op": "remove", "tag": "hot"}]}
+with appmod.app.test_request_context():
+    with db.connect() as conn:
+        t0b = flows_engine.utcnow()
+        fid2 = conn.execute("INSERT INTO flows (workspace_id, name, status, graph_json, settings_json, created_at, updated_at) "
+                            "VALUES (?,?,?,?,?,?,?)", (xws["id"], "Hot leads", "on", flows.pack(flows.clean_tree(t2)),
+                                                       json.dumps({"webhook_secret": "s3"}), db.now(), db.now())).lastrowid
+        flows_engine.publish(conn, conn.execute("SELECT * FROM flows WHERE id=?", (fid2,)).fetchone())
+        conn.commit()
+x.post(f"/app/contacts/{jo['id']}", data={"csrf": csrf(x), "name": "Jo Park", "tags": "waitlist,hot", "action": "save"})
+flows_engine.tick(now=flows_engine.utcnow() + _tdl(seconds=5))
+with db.connect() as conn:
+    jo = conn.execute("SELECT * FROM contacts WHERE id=?", (jo["id"],)).fetchone()
+    r2 = conn.execute("SELECT * FROM flow_runs WHERE flow_id=? AND contact_id=?", (fid2, jo["id"])).fetchone()
+    t2k = conn.execute("SELECT * FROM tasks WHERE run_id=? ORDER BY id", (r2["id"],)).fetchall()
+check(r2["status"] == "done" and jo["stage"] == "engaged" and "hot" not in jo["tags"].split(",")
+      and [t_["kind"] for t_ in t2k] == ["notify", "task"] and t2k[0]["title"] == "Jo Park is hot" and t2k[1]["title"] == "Call Jo"
+      and flows_engine.parse(t2k[1]["due_at"]) > flows_engine.parse(t2k[1]["created_at"]) + _tdl(days=1, hours=23)
+      and hooks[-1][0] == "https://hooks.glow.example/flow" and hooks[-1][1] == "s3" and hooks[-1][2]["contact"]["email"] == "jo@flow.example",
+      "adding a tag starts the tag's flow: stage, note, signed webhook, task (due in 2 days), tag removed")
+formsmod.post_webhook = real_post
+with db.connect() as conn:
+    conn.execute("DELETE FROM flow_runs WHERE flow_id=?", (fid2,))
+    conn.execute("UPDATE contacts SET tags='hot,customer' WHERE id=?", (jo["id"],))
+    flows_engine.enrol(conn, xws["id"], "tag_added", jo["id"], {"tags": ["hot"]})
+    conn.commit()
+flows_engine.tick(now=flows_engine.utcnow() + _tdl(seconds=5))
+with db.connect() as conn:
+    r2 = conn.execute("SELECT * FROM flow_runs WHERE flow_id=? AND contact_id=?", (fid2, jo["id"])).fetchone()
+check(r2["status"] == "exited" and r2["exit_reason"] == "goal reached", "exit when the goal is met")
+# SMS-first flows need consent before anyone enters
+with appmod.app.test_request_context():
+    with db.connect() as conn:
+        fid3 = conn.execute("INSERT INTO flows (workspace_id, name, status, graph_json, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+                            (xws["id"], "Texts", "on", flows.pack(flows.from_template("sms_welcome")), db.now(), db.now())).lastrowid
+        flows_engine.publish(conn, conn.execute("SELECT * FROM flows WHERE id=?", (fid3,)).fetchone())
+        got = flows_engine.enrol(conn, xws["id"], "form_submitted", jo["id"], {"form_id": fm["id"]})
+        skipped = conn.execute("SELECT * FROM flow_events WHERE flow_id=? AND kind='skipped'", (fid3,)).fetchone()
+        conn.execute("UPDATE contacts SET sms_consent='form', sms_consent_at=? WHERE id=?", (db.now(), jo["id"]))
+        got2 = flows_engine.enrol(conn, xws["id"], "form_submitted", jo["id"], {"form_id": fm["id"]})
+        conn.execute("UPDATE flows SET status='paused' WHERE id=?", (fid3,))
+        conn.commit()
+check(not got and skipped and "agreed to texts" in skipped["detail"] and got2, "a text-first flow only starts for people who agreed to texts")
+# versions: editing a live flow doesn't change runs already in it
+with db.connect() as conn:
+    jo_run = conn.execute("SELECT * FROM flow_runs WHERE flow_id=? AND contact_id=?", (fid, jo["id"])).fetchone()
+tree2 = json.loads(json.dumps(tree))
+tree2["steps"].append({"type": "notify", "message": "Done"})
+x.post(f"/app/flows/{fid}/save", data=json.dumps({"tree": tree2}), content_type="application/json", headers={"X-CSRF": csrf(x)})
+with db.connect() as conn:
+    fl = conn.execute("SELECT * FROM flows WHERE id=?", (fid,)).fetchone()
+check(fl["dirty"] == 1 and fl["version"] == 1, "editing a live flow edits a draft copy")
+x.post(f"/app/flows/{fid}/state", data={"csrf": csrf(x), "action": "publish"})
+with db.connect() as conn:
+    fl = conn.execute("SELECT * FROM flows WHERE id=?", (fid,)).fetchone()
+    old_run = conn.execute("SELECT * FROM flow_runs WHERE id=?", (jo_run["id"],)).fetchone()
+check(fl["version"] == 2 and not fl["dirty"] and old_run["version_id"] != fl["version_id"], "publish makes version 2; earlier runs keep theirs")
+# date triggers, time-of-day waits
+with appmod.app.test_request_context():
+    with db.connect() as conn:
+        conn.execute("UPDATE workspaces SET timezone='America/Chicago' WHERE id=?", (xws["id"],))
+        dt_tree = {"trigger": {"kind": "date", "tag": "event", "at": "2026-11-05T09:00"},
+                   "steps": [{"type": "wait", "days": 1, "at": "09:00"}, {"type": "notify", "message": "Event follow-up"}]}
+        fid4 = conn.execute("INSERT INTO flows (workspace_id, name, status, graph_json, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+                            (xws["id"], "Event", "on", flows.pack(flows.clean_tree(dt_tree)), db.now(), db.now())).lastrowid
+        flows_engine.publish(conn, conn.execute("SELECT * FROM flows WHERE id=?", (fid4,)).fetchone())
+        conn.execute("UPDATE contacts SET tags='event' WHERE id=?", (jo["id"],))
+        conn.commit()
+flows_engine.tick(now=_dtm(2026, 11, 5, 14, 59, tzinfo=_tzu.utc))
+with db.connect() as conn:
+    check(not conn.execute("SELECT 1 FROM flow_runs WHERE flow_id=?", (fid4,)).fetchone(), "a date trigger waits for its time (9:00 Chicago = 15:00 UTC)")
+flows_engine.tick(now=_dtm(2026, 11, 5, 15, 0, 30, tzinfo=_tzu.utc))
+with db.connect() as conn:
+    r4 = conn.execute("SELECT * FROM flow_runs WHERE flow_id=?", (fid4,)).fetchone()
+check(r4 and r4["wake_at"] == "2026-11-06T15:00:00+00:00", "then enrols everyone tagged; '1 day, then until 09:00' wakes at 9:00 local the next day")
+# failures pause the flow and tell the owner
+with db.connect() as conn:
+    vbad = conn.execute("INSERT INTO flow_versions (flow_id, version, graph_json, created_at) VALUES (?,?,?,?)",
+                        (fid4, 9, json.dumps({"tree": dt_tree, "start": "ghost", "nodes": {}}), db.now())).lastrowid
+    cids = []
+    for i in range(flows_engine.FAIL_PAUSE):
+        cids.append(conn.execute("INSERT INTO contacts (workspace_id, email, tags, first_seen, last_seen) VALUES (?,?,?,?,?)",
+                                 (xws["id"], f"f{i}@fail.example", "", db.now(), db.now())).lastrowid)
+        conn.execute("INSERT INTO flow_runs (flow_id, version_id, workspace_id, contact_id, status, node_id, wake_at, started_at) "
+                     "VALUES (?,?,?,?,?,?,?,?)", (fid4, vbad, xws["id"], cids[-1], "waiting", "ghost", "2026-01-01T00:00:00+00:00", db.now()))
+    conn.commit()
+flows_engine.tick(now=_dtm(2026, 11, 5, 16, 0, tzinfo=_tzu.utc))
+with db.connect() as conn:
+    f4 = conn.execute("SELECT * FROM flows WHERE id=?", (fid4,)).fetchone()
+    note = conn.execute("SELECT * FROM tasks WHERE flow_id=? AND kind='notify' AND title LIKE '%paused%'", (fid4,)).fetchone()
+check(f4["status"] == "paused" and note, f"{flows_engine.FAIL_PAUSE} failures in a row pause the flow and leave the owner a note")
+# tasks inbox and the contact page
+html = x.get("/app/tasks").get_data(as_text=True)
+check("Welcome to the waitlist" in html and "Copy text" in html and "Call Jo" in html, "the tasks inbox lists what flows left")
+with db.connect() as conn:
+    tid = conn.execute("SELECT id FROM tasks WHERE workspace_id=? AND done_at IS NULL ORDER BY id LIMIT 1", (xws["id"],)).fetchone()[0]
+x.post(f"/app/tasks/{tid}/done", data={"csrf": csrf(x)})
+with db.connect() as conn:
+    check(conn.execute("SELECT done_at FROM tasks WHERE id=?", (tid,)).fetchone()[0], "tasks can be marked done")
+check(n.post(f"/app/tasks/{tid}/done", data={"csrf": csrf(n), "undo": "1"}).status_code in (302, 200), "")
+with db.connect() as conn:
+    check(conn.execute("SELECT done_at FROM tasks WHERE id=?", (tid,)).fetchone()[0], "another workspace can't touch your tasks")
+html = x.get(f"/app/contacts/{jo['id']}").get_data(as_text=True)
+check("Waitlist" in html and "Flows" in html, "the contact page shows their flows")
+with db.connect() as conn:
+    r4 = conn.execute("SELECT * FROM flow_runs WHERE flow_id=? AND contact_id=?", (fid4, jo["id"])).fetchone()
+x.post(f"/app/flows/runs/{r4['id']}/exit", data={"csrf": csrf(x)})
+with db.connect() as conn:
+    check(conn.execute("SELECT status FROM flow_runs WHERE id=?", (r4["id"],)).fetchone()[0] == "exited", "take someone out of a flow")
+check(n.get(f"/app/flows/{fid}").status_code in (402, 404), "other workspaces can't open the flow")
+lst = x.get("/app/flows").get_data(as_text=True)
+check("Waitlist" in lst and "Lead magnet" in lst and "Describe it" in lst, "the flows list: yours, templates and Describe it")
+r = x.post("/app/flows/new", data={"csrf": csrf(x), "kind": "template", "template": "welcome"})
+check(r.status_code == 302 and x.get(r.headers["Location"]).status_code == 200, "start from a template")
+nav = x.get("/app").get_data(as_text=True)
+check('href="/app/flows"' in nav, "Flows is in the nav (Grow)")
+
 print("== phase 0: accessibility, copy, shell helpers")
 for t in catalog.TEMPLATES:
     for name in ("", "Sunrise Blend"):

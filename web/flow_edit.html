@@ -1,0 +1,74 @@
+{% extends "base.html" %}{% block title %}{{ f.name }} · Flows · Campaignify{% endblock %}
+{% block body %}
+<div class="page full fl-page">
+  <p style="margin:0 0 12px"><a href="{{ url_for('flows.index') }}">← Flows</a></p>
+  <div class="fl-head">
+    <div class="fl-title">
+      <label class="sr" for="fl-name">Flow name</label>
+      <input id="fl-name" class="fl-name" type="text" maxlength="80" value="{{ f.name }}" data-name>
+      <span class="fl-pill {{ f.status }}" data-status>{{ {'draft': 'Draft', 'on': 'On', 'paused': 'Paused'}[f.status] }}</span>
+      {% if f.version %}<span class="small muted">version {{ f.version }}</span>{% endif %}
+    </div>
+    <div class="row fl-acts">
+      <span class="small muted" data-saved aria-live="polite">All changes saved</span>
+      <button type="button" class="btn dark" data-save>Save</button>
+    </div>
+  </div>
+  <div class="fl-tabs" role="tablist">
+    {% for k, label in (('steps', 'Steps'), ('timeline', 'Timeline'), ('activity', 'Activity')) %}<a role="tab" href="?tab={{ k }}" class="{{ 'on' if tab == k }}" aria-selected="{{ 'true' if tab == k else 'false' }}" data-tab="{{ k }}">{{ label }}{% if k == 'activity' and stats.active %} <span class="countpill">{{ stats.active }}</span>{% endif %}</a>{% endfor %}
+  </div>
+
+  <div class="fl" data-panel="steps" {{ 'hidden' if tab != 'steps' }}>
+    <div class="fl-canvas"><div data-stack></div></div>
+    <aside class="fl-side">
+      <div class="panel fl-insp" data-insp aria-live="polite"></div>
+      <div class="panel fl-on">
+        <h3>{{ {'draft': 'Turn it on', 'on': 'It’s on', 'paused': 'Paused'}[f.status] }}</h3>
+        <ul class="fl-ready" data-ready></ul>
+        <form method="post" action="{{ boot.urls.state }}" class="fl-onbtns">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          {% if f.status != 'on' %}<button class="btn" name="action" value="on" data-turnon>Turn on</button>{% endif %}
+          {% if f.status == 'on' %}<button class="btn" name="action" value="publish" data-publish {{ 'hidden' if not f.dirty }}>Publish changes</button><button class="btn dark" name="action" value="pause" data-confirm="Pause this flow? Nobody new enters, and people in it wait where they are.">Pause</button>{% endif %}
+          <button class="btn dark" name="action" value="duplicate">Duplicate</button>
+        </form>
+        <p class="small muted" style="margin:10px 0 0" data-unsaved-note hidden>Save your changes first.</p>
+        <form method="post" action="{{ boot.urls.state }}" data-confirm="Delete this flow? People in it are taken out; their history stays." style="margin-top:12px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn" name="action" value="archive" style="color:var(--bad)">Delete flow</button></form>
+      </div>
+    </aside>
+  </div>
+
+  <div data-panel="timeline" {{ 'hidden' if tab != 'timeline' }}>
+    <div class="panel">
+      <div class="row" style="justify-content:space-between"><h2 style="margin:0">Day by day</h2><span class="row"><button type="button" class="btn dark sm" data-print>Print</button><button type="button" class="btn dark sm" data-csv>Export checklist (CSV)</button></span></div>
+      <p class="small muted">From the first step, for one person. Branches show both paths; “about” means the day depends on the path or a time of day.</p>
+      <table class="fl-tl"><thead><tr><th>When</th><th>What</th><th>Path</th></tr></thead><tbody data-timeline></tbody></table>
+    </div>
+  </div>
+
+  <div data-panel="activity" {{ 'hidden' if tab != 'activity' }}>
+    <div class="fl-stats">
+      {% for k, label in (('active', 'In the flow'), ('done', 'Finished'), ('exited', 'Exited'), ('failed', 'Failed'), ('tasks', 'Open tasks')) %}<div class="panel"><span class="muted small">{{ label }}</span><b>{{ stats[k] }}</b></div>{% endfor %}
+    </div>
+    {% if day30 %}<div class="panel"><h3 style="margin-top:0">People who started, last 30 days</h3>{% set mx = day30|map(attribute='n')|max %}<div class="fl-bars">{% for d in day30 %}<span title="{{ d.d }}: {{ d.n }}" style="height:{{ (d.n / mx * 100)|round(0) }}%"></span>{% endfor %}</div></div>{% endif %}
+    <div class="two-col" style="align-items:start">
+      <div class="panel scrollx">
+        <h3 style="margin-top:0">Per step</h3>
+        <table><tr><th>Step</th><th>Now here</th><th>Done</th><th>Branch yes / no</th></tr>
+        {% for nid, label in names.items() %}{% set b = by_node.get(nid) or {} %}<tr><td>{{ label }}</td><td>{{ at_node.get(nid, 0) }}</td><td>{{ (b.sent or 0) + (b.tasks or 0) }}</td><td>{% if b.yes or b.no %}{{ b.yes or 0 }} / {{ b.no or 0 }}{% endif %}{% if b.errors %} <span class="bad">{{ b.errors }} errors</span>{% endif %}</td></tr>{% endfor %}</table>
+      </div>
+      <div class="panel scrollx">
+        <h3 style="margin-top:0">Who is in it now</h3>
+        {% if runs %}<table>{% for r in runs %}<tr><td><a href="{{ url_for('forms.contact', cid=r.contact_id) }}">{{ r.cname or r.email }}</a></td><td class="small muted">{{ names.get(r.node_id, 'Next step') }}</td><td class="small muted">{{ r.wake_at|localtime }}</td><td><form method="post" action="{{ url_for('flows.exit_run', rid=r.id) }}" data-confirm="Take {{ r.cname or r.email }} out of this flow?"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ request.full_path }}"><button class="linkbtn">Take out</button></form></td></tr>{% endfor %}</table>
+        {% else %}<div class="empty">Nobody yet.</div>{% endif %}
+      </div>
+    </div>
+    <div class="panel scrollx">
+      <h3 style="margin-top:0">Recent activity</h3>
+      {% if events %}<table>{% for e in events %}<tr><td class="small muted">{{ e.at|localtime }}</td><td>{{ e.cname or e.email or '' }}</td><td><span class="tag {{ 'bad' if e.kind == 'error' else '' }}">{{ e.kind }}</span></td><td class="small">{{ names.get(e.node_id, '') }}{% if e.detail %} <span class="muted">· {{ e.detail }}</span>{% endif %}</td></tr>{% endfor %}</table>
+      {% else %}<div class="empty">Nothing has happened yet. Once it's on, each step shows up here.</div>{% endif %}
+    </div>
+  </div>
+</div>
+<script id="fl-boot" type="application/json">{{ boot|tojson }}</script>
+<script src="{{ url_for('static', filename='flows.js') }}" defer></script>
+{% endblock %}

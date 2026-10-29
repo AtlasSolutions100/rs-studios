@@ -286,6 +286,11 @@ def start():
                 tick()
             except Exception:  # noqa: BLE001
                 traceback.print_exc()
+            try:
+                import flows_engine
+                flows_engine.tick()
+            except Exception:  # noqa: BLE001
+                traceback.print_exc()
             time.sleep(POLL_SECONDS)
 
     _thread = threading.Thread(target=loop, name="rs-worker", daemon=True)

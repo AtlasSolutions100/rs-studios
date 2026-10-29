@@ -1,0 +1,33 @@
+{% extends "base.html" %}{% block title %}Tasks · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <p style="margin:0 0 12px"><a href="{{ url_for('flows.index') }}">← Flows</a></p>
+  <p class="eyebrow">Tasks</p>
+  <h1>Things your flows <span class="gold">left for you</span></h1>
+  <p class="muted">Messages to send by hand until sending is connected, follow-ups to do, and notes from your flows.</p>
+  <nav class="fchips" aria-label="Show"><div class="fchip-row"><a class="fchip {{ 'on' if show == 'open' }}" href="{{ url_for('flows.tasks') }}">To do ({{ n_open }})</a><a class="fchip {{ 'on' if show == 'done' }}" href="{{ url_for('flows.tasks', show='done') }}">Done</a></div></nav>
+  {% if rows %}
+  <ul class="tasklist">
+    {% for t in rows %}
+    <li class="task k-{{ t.kind }} {{ 'late' if not t.done_at and t.due_at and t.due_at < now }}" data-task="{{ t.id }}">
+      <div class="task-h">
+        <span class="tag">{{ {'email': 'Email', 'sms': 'Text', 'task': 'Task', 'notify': 'Note', 'community': 'Invite'}.get(t.kind, t.kind) }}</span>
+        <b>{{ t.title }}</b>
+        <span class="small muted">{% if t.fname %}{{ t.fname }} · {% endif %}{% if t.done_at %}done {{ t.done_at|localtime }}{% else %}due {{ t.due_at|localtime }}{% endif %}</span>
+      </div>
+      {% if t.body %}<pre class="task-body" id="tb{{ t.id }}">{{ t.body }}</pre>{% endif %}
+      <div class="row">
+        {% if t.body %}<button type="button" class="btn dark sm" data-copy="tb{{ t.id }}">Copy text</button>{% endif %}
+        {% if t.contact_id %}<a class="btn dark sm" href="{{ url_for('forms.contact', cid=t.contact_id) }}">{{ t.cname or t.email }}</a>{% endif %}
+        <form method="post" action="{{ url_for('flows.task_done', tid=t.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="show" value="{{ show }}">{% if t.done_at %}<input type="hidden" name="undo" value="1"><button class="btn dark sm">Not done</button>{% else %}<button class="btn sm">Mark done</button>{% endif %}</form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<div class="empty" style="margin-top:18px">{{ 'Nothing to do. When a flow reaches a message or a task step, it shows up here.' if show == 'open' else 'Nothing done yet.' }}</div>{% endif %}
+</div>
+<script>
+document.addEventListener('click', function(e){ var b = e.target.closest('[data-copy]'); if(!b) return; var t = document.getElementById(b.dataset.copy).textContent;
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ b.textContent = 'Copied'; setTimeout(function(){ b.textContent = 'Copy text'; }, 1500); }).catch(function(){}); });
+</script>
+{% endblock %}
