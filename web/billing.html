@@ -1,42 +1,83 @@
 {% extends "base.html" %}{% block title %}Billing · Campaignify{% endblock %}
 {% block body %}
 {% set r = rates() %}
+{% set cur = plans.plan_code(g.ws) %}
 <div class="page full">
   <p class="eyebrow">Billing</p>
-  <h1>Credits for <span class="gold">your ads</span></h1>
-  <p class="muted">1 credit = $0.01. Image ad {{ r.image }} · 5-second video {{ r.video5 }} · 10-second video {{ r.video10 }} credits. Failed generations are refunded automatically. No subscription.</p>
+  <h1>Your plan and <span class="gold">credits</span></h1>
+  <p class="muted">1 credit = $0.01. Image ad {{ r.image }} · 5-second video {{ r.video5 }} · 10-second video {{ r.video10 }} credits. Failed generations are refunded automatically.</p>
 
   <div class="bill-top">
     <div class="panel bal">
       <span class="muted small">Balance</span>
-      <div class="price">{{ '{:,}'.format(g.ws.credits) }}</div>
-      <span class="muted small">{% set n = g.ws.credits // r.image %}credits · about {{ '{:,}'.format(n) }} image ad{{ '' if n == 1 else 's' }}</span>
+      <div class="price">{{ '{:,}'.format(balance()) }}</div>
+      {% set n = balance() // r.image %}
+      <span class="muted small">credits · about {{ '{:,}'.format(n) }} image ad{{ '' if n == 1 else 's' }}</span>
+      {% if g.ws.plan_credits %}<p class="small muted" style="margin:12px 0 0">{{ '{:,}'.format(g.ws.plan_credits) }} plan credits{% if g.ws.plan_period_end %} (renew {{ g.ws.plan_period_end[:10] }}){% endif %} · {{ '{:,}'.format(g.ws.credits) }} pack credits</p>{% endif %}
     </div>
-    <div class="bill-packs">
-      {% for p in packs %}
-      <div class="panel pack {{ 'hot' if p.code == 'pro' }}">
-        {% if p.code == 'pro' %}<span class="lp-badge">Most popular</span>{% endif %}
-        <h3>{{ p.name }} pack</h3>
-        <div class="lp-amt">${{ p.usd }}</div>
-        <p class="lp-cr">{{ '{:,}'.format(p.credits) }} credits{% if p.bonus %} <span class="gold">· {{ '{:,}'.format(p.bonus) }} bonus</span>{% endif %}</p>
-        <p class="muted small">About {{ '{:,}'.format(p.credits // r.image) }} image ads or {{ p.credits // r.video5 }} five-second videos.</p>
-        {% if billing_configured() %}
-        <form method="post" action="{{ url_for('checkout') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="pack" value="{{ p.code }}"><button class="btn {{ '' if p.code == 'pro' else 'dark' }}" style="width:100%">Buy for ${{ p.usd }}</button></form>
-        {% else %}
-        <span class="btn dark disabled" aria-disabled="true" style="width:100%">Checkout coming soon</span>
-        {% endif %}
-      </div>
-      {% endfor %}
+    <div class="panel planbox">
+      <span class="muted small">Plan</span>
+      <h2 style="margin:4px 0 2px">{{ current.name }}</h2>
+      {% if current.code != 'free' %}
+        <p class="muted small" style="margin:0">{{ '{:,}'.format(current.credits) }} credits a month{% if g.ws.plan_override and not subscribed %} · complimentary{% endif %}{% if g.ws.plan_status == 'past_due' %} · <span class="bad">payment past due</span>{% endif %}{% if g.ws.plan_cancel_at_period_end %} · cancels {{ (g.ws.plan_period_end or '')[:10] }}{% elif g.ws.plan_period_end and subscribed %} · renews {{ g.ws.plan_period_end[:10] }}{% endif %}</p>
+      {% else %}
+        <p class="muted small" style="margin:0">Starter credits and credit packs. Pick a plan for monthly credits, more brands and seats.</p>
+      {% endif %}
+      {% if g.ws.stripe_customer_id and owner %}
+      <form method="post" action="{{ url_for('billing_portal') }}" style="margin-top:14px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Manage or cancel plan</button></form>
+      {% endif %}
     </div>
+  </div>
+
+  <div class="section-h" id="plans"><h2>Plans</h2><span class="muted small">Monthly. Cancel anytime from Manage plan.</span></div>
+  <div class="plan-grid">
+    {% for p in plans.PAID %}
+    <div class="panel plan {{ 'hot' if p.code == 'growth' }} {{ 'mine' if p.code == cur }}">
+      {% if p.code == cur %}<span class="lp-badge">Your plan</span>{% elif p.code == 'growth' %}<span class="lp-badge">Most popular</span>{% endif %}
+      <h3>{{ p.name }}</h3>
+      <div class="lp-amt">${{ p.usd }}<span class="per">/mo</span></div>
+      <p class="lp-cr">{{ '{:,}'.format(p.credits) }} credits every month</p>
+      <p class="muted small">{{ p.line }}</p>
+      {% include "_plan_features.html" %}
+      {% if not owner %}
+        <span class="btn dark disabled" aria-disabled="true">Owner manages billing</span>
+      {% elif not billing_configured() %}
+        <span class="btn dark disabled" aria-disabled="true">Plans open soon</span>
+      {% elif p.code == cur and subscribed %}
+        <span class="btn dark disabled" aria-disabled="true">Current plan</span>
+      {% else %}
+        <form method="post" action="{{ url_for('subscribe') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="plan" value="{{ p.code }}"><button class="btn {{ '' if p.code == 'growth' else 'dark' }}" style="width:100%">{% if subscribed %}{{ 'Upgrade' if plans.rank(p.code) > plans.rank(cur) else 'Switch' }} to {{ p.name }}{% else %}Get {{ p.name }} · ${{ p.usd }}/mo{% endif %}</button></form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <p class="small dim">Plan credits arrive with each monthly payment and expire at the next renewal; they're spent before pack credits. Pack and starter credits never expire. Upgrades apply right away (you pay the difference and get the extra credits now); downgrades and cancellations take effect at the end of the month you've paid for.</p>
+
+  <div class="section-h"><h2>Credit packs</h2><span class="muted small">One-time top-ups, on any plan. They never expire.</span></div>
+  <div class="bill-packs">
+    {% for p in packs %}
+    <div class="panel pack">
+      <h3>{{ p.name }} pack</h3>
+      <div class="lp-amt">${{ p.usd }}</div>
+      <p class="lp-cr">{{ '{:,}'.format(p.credits) }} credits{% if p.bonus %} <span class="gold">· {{ '{:,}'.format(p.bonus) }} bonus</span>{% endif %}</p>
+      <p class="muted small">About {{ '{:,}'.format(p.credits // r.image) }} image ads or {{ p.credits // r.video5 }} five-second videos.</p>
+      {% if billing_configured() %}
+      <form method="post" action="{{ url_for('checkout') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="pack" value="{{ p.code }}"><button class="btn dark" style="width:100%">Buy for ${{ p.usd }}</button></form>
+      {% else %}
+      <span class="btn dark disabled" aria-disabled="true" style="width:100%">Checkout coming soon</span>
+      {% endif %}
+    </div>
+    {% endfor %}
   </div>
   <p class="small dim">Payments are processed securely by Stripe. We never see your card details.</p>
 
   <div class="grid2">
     <div class="panel">
-      <h2>Purchases</h2>
-      {% if purchases %}
-      <table><tr><th>Date</th><th>Pack</th><th>Credits</th><th>Paid</th><th>Status</th></tr>
-      {% for p in purchases %}<tr><td>{{ (p.paid_at or p.created_at)[:10] }}</td><td>{{ packs_by[p.pack].name if p.pack in packs_by else p.pack }}</td><td>{{ '{:,}'.format(p.credits) }}</td><td>${{ '%.2f'|format(p.amount_cents / 100) }}</td><td>{{ 'Paid' if p.status == 'paid' else 'Not completed' }}</td></tr>{% endfor %}
+      <h2>Payments</h2>
+      {% if purchases or invoices %}
+      <table><tr><th>Date</th><th>What</th><th>Credits</th><th>Paid</th><th>Status</th></tr>
+      {% for i in invoices %}<tr><td>{{ i.created_at[:10] }}</td><td>{{ plans.PLANS[i.plan].name if i.plan in plans.PLANS else i.plan }} plan</td><td>{{ '{:,}'.format(i.credits) }}</td><td>${{ '%.2f'|format(i.amount_cents / 100) }}</td><td>Paid</td></tr>{% endfor %}
+      {% for p in purchases %}<tr><td>{{ (p.paid_at or p.created_at)[:10] }}</td><td>{{ packs_by[p.pack].name if p.pack in packs_by else p.pack }} pack</td><td>{{ '{:,}'.format(p.credits) }}</td><td>${{ '%.2f'|format(p.amount_cents / 100) }}</td><td>{{ 'Paid' if p.status == 'paid' else 'Not completed' }}</td></tr>{% endfor %}
       </table>
       {% else %}<div class="empty">No purchases yet.</div>{% endif %}
     </div>

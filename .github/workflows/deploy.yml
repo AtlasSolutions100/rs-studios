@@ -12,6 +12,11 @@ name: Deploy Campaignify (campaignify.ai)
 #                          (a restricted key with Checkout Sessions: write is enough)
 #   STRIPE_WEBHOOK_SECRET  signing secret of the https://campaignify.ai/webhooks/stripe
 #                          endpoint (Stripe dashboard > Developers > Webhooks)
+#   ANTHROPIC_API_KEY      the AI writing key (campaign planner, copy studio, SEO
+#                          optimizer); without it those tools show "not set up yet"
+#   ANTHROPIC_MODEL        optional repo variable (default claude-sonnet-4-6)
+#   GROQ_API_KEY           optional fallback writing key; GROQ_MODEL optional variable
+#   STRIPE_PORTAL_CONFIG   optional repo variable: Customer Portal configuration id
 #   RS_MARKUP              optional repo variable, default 2.0
 #   RS_STARTER_CREDITS     optional repo variable; default = 2 image ads (44 credits)
 # A secret or variable that isn't set is simply not sent, so the server keeps
@@ -56,6 +61,11 @@ jobs:
           HF_KEY: ${{ secrets.HIGGSFIELD_API_KEY }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL }}
+          STRIPE_PORTAL_CONFIG: ${{ vars.STRIPE_PORTAL_CONFIG }}
           RS_MARKUP: ${{ vars.RS_MARKUP }}
           RS_STARTER_CREDITS: ${{ vars.RS_STARTER_CREDITS }}
         run: |
@@ -63,7 +73,9 @@ jobs:
           python3 - <<'PY'
           import base64, json, os
           settings = {k: os.environ[k] for k in ("HF_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET",
-                                             "RS_MARKUP", "RS_STARTER_CREDITS") if os.environ.get(k)}
+                                             "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "GROQ_API_KEY", "GROQ_MODEL",
+                                             "STRIPE_PORTAL_CONFIG", "RS_MARKUP", "RS_STARTER_CREDITS")
+                      if os.environ.get(k)}
           print("settings sent:", ", ".join(settings) or "none")
           body = {"commit": os.environ["GITHUB_SHA"], "settings": settings,
                   "archive": base64.b64encode(open("/tmp/app.tgz", "rb").read()).decode()}

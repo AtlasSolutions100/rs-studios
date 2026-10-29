@@ -54,7 +54,7 @@
   <aside class="panel" style="position:sticky;top:24px">
     <span class="muted small">This costs</span>
     <div class="price"><span id="price">–</span></div>
-    <span class="muted small">credits · you have {{ '{:,}'.format(g.ws.credits) }}</span>
+    <span class="muted small">credits · you have {{ '{:,}'.format(balance()) }}</span>
     <p style="margin:18px 0 6px"><button class="btn" style="width:100%">Generate</button></p>
     <p class="dim small" style="margin:0">Failed generations are refunded automatically.</p>
     <hr class="line">

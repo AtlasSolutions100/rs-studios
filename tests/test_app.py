@@ -395,12 +395,233 @@ with db.connect() as conn:
 check(r.status_code == 302 and st == "failed", "Stripe error: no crash, purchase marked failed")
 check(billing.verify_event(b'{"a":1}', billing.sign(b'{"a":1}', "s"), secret="s") == {"a": 1}, "signature helper round-trips")
 
+print("== plans + subscriptions")
+import plans  # noqa: E402
+check([p["credits"] for p in plans.PAID] == [2000, 6000, 18000] and [p["usd"] for p in plans.PAID] == [39, 99, 249],
+      "three plans: $39/2,000, $99/6,000, $249/18,000 credits")
+check(all(p["price_id"].startswith("price_") for p in plans.PAID), "plans carry Stripe price ids")
+check(plans.plan_code(nws) == "free" and plans.has(nws, "studio") and not plans.has(nws, "copy"), "new accounts are free: studio only")
+check(n.get("/app/team").status_code == 200, "team page renders on free")
+subs = []
+
+
+def fake_sub_session(**kw):
+    subs.append(kw)
+    return {"id": f"cs_sub_{len(subs)}", "url": f"https://checkout.stripe.test/sub/{len(subs)}"}
+
+
+billing.create_subscription_session = fake_sub_session
+portal_calls = []
+billing.create_portal_session = lambda **kw: portal_calls.append(kw) or "https://billing.stripe.test/portal"
+html = n.get("/app/billing").get_data(as_text=True)
+check("Get Growth" in html and "$99" in html and "Credit packs" in html, "billing page offers the plans and the packs")
+check(n.post("/app/billing/subscribe", data={"csrf": csrf(n), "plan": "gold"}).status_code == 400, "unknown plan refused")
+r = n.post("/app/billing/subscribe", data={"csrf": csrf(n), "plan": "growth"})
+kw = subs[-1]
+check(r.status_code == 303 and r.headers["Location"].startswith("https://checkout.stripe.test/sub/"), "plan checkout redirects to Stripe")
+check(kw["price_id"] == plans.PLANS["growth"]["price_id"] and kw["metadata"]["app"] == "campaignify"
+      and kw["metadata"]["kind"] == "plan" and kw["metadata"]["workspace_id"] == nws["id"]
+      and "account_id" not in kw["metadata"] and kw["customer"] is None and kw["email"] == "rep@example.com",
+      "subscription session: our plan price, our metadata, the member's email")
+
+
+def plan_invoice(inv_id, ws_id, plan_code, reason="subscription_create", sub="sub_1", new_shape=False, meta=None,
+                 amount=None, lines=None):
+    p = plans.PLANS[plan_code]
+    meta = meta if meta is not None else {"app": "campaignify", "kind": "plan", "workspace_id": str(ws_id), "plan": plan_code}
+    lines = lines or [(p["price_id"], p["usd"] * 100)]
+    if new_shape:
+        data = [{"amount": a, "pricing": {"price_details": {"price": pr}}, "period": {"end": 1893456000}} for pr, a in lines]
+        inv = {"parent": {"subscription_details": {"subscription": sub, "metadata": meta}}}
+    else:
+        data = [{"amount": a, "price": {"id": pr}, "period": {"end": 1893456000}} for pr, a in lines]
+        inv = {"subscription": sub, "subscription_details": {"metadata": meta}}
+    inv.update({"id": inv_id, "object": "invoice", "status": "paid", "currency": "usd", "customer": "cus_1",
+                "billing_reason": reason, "amount_paid": amount if amount is not None else p["usd"] * 100,
+                "lines": {"data": data}})
+    return {"id": "evt_" + inv_id, "type": "invoice.paid", "data": {"object": inv}}
+
+
+def wsrow(ws_id):
+    with db.connect() as conn:
+        return conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+
+
+before = wsrow(nws["id"])
+r = deliver({"id": "evt_cs", "type": "checkout.session.completed", "data": {"object": {
+    "id": "cs_sub_1", "object": "checkout.session", "mode": "subscription", "customer": "cus_1", "subscription": "sub_1",
+    "metadata": {"app": "campaignify", "kind": "plan", "workspace_id": str(nws["id"]), "plan": "growth"}}}})
+w = wsrow(nws["id"])
+check(r.status_code == 200 and w["stripe_customer_id"] == "cus_1" and w["stripe_subscription_id"] == "sub_1",
+      "plan checkout links the Stripe customer and subscription")
+check(w["plan_credits"] == 0 and w["credits"] == before["credits"], "no credits until the invoice is paid")
+r = deliver(plan_invoice("in_1", nws["id"], "growth"))
+w = wsrow(nws["id"])
+check(r.status_code == 200 and r.get_json()["credited"] == 6000 and w["plan_credits"] == 6000
+      and w["credits"] == before["credits"], "first invoice grants 6,000 plan credits; pack credits untouched")
+check(plans.plan_code(w) == "growth" and plans.has(w, "copy") and plans.has(w, "seo") and not plans.has(w, "community"),
+      "Growth unlocks Starter + Growth features, not Scale")
+r = deliver(plan_invoice("in_1", nws["id"], "growth"))
+check(r.get_json().get("duplicate") and wsrow(nws["id"])["plan_credits"] == 6000, "invoice.paid is idempotent by invoice id")
+check(deliver(plan_invoice("in_x", nws["id"], "growth", meta={"account_id": "7"}, sub="sub_other")).get_json().get("ignored"),
+      "other apps' subscription invoices on the shared account are ignored")
+check(deliver(plan_invoice("in_y", nws["id"], "growth", lines=[("price_someone_else", 2900)])).get_json().get("ignored"),
+      "invoices for prices that aren't ours are ignored")
+with db.connect() as conn:
+    check(conn.execute("SELECT COUNT(*) FROM plan_invoices WHERE invoice_id IN ('in_x','in_y')").fetchone()[0] == 0,
+          "ignored invoices leave no trace")
+# spending: plan credits first
+n.post("/app/generate", data={"csrf": csrf(n), "tool": "ad_image", "brief": "Serum on a vanity", "batch": "1"})
+w = wsrow(nws["id"])
+check(w["plan_credits"] == 6000 - 22 and w["credits"] == before["credits"], "spending takes plan credits first")
+with db.connect() as conn:
+    pj = conn.execute("SELECT * FROM jobs WHERE workspace_id=? ORDER BY id DESC", (nws["id"],)).fetchone()
+check(pj["priority"] == 0, "Growth jobs get no priority boost")
+worker.tick()
+results[pj["request_id"] if pj["request_id"] else f"req{len(calls['submit'])}"] = {"status": "failed"}
+worker.tick()
+w = wsrow(nws["id"])
+check(w["plan_credits"] == 6000 and w["credits"] == before["credits"], "refund goes back to the plan bucket")
+# a balance spread over both buckets
+with db.connect() as conn:
+    conn.execute("UPDATE workspaces SET plan_credits=10 WHERE id=?", (nws["id"],))
+    conn.commit()
+    ok = db.adjust_credits(conn, nws["id"], -30, "test spend")
+    conn.commit()
+w = wsrow(nws["id"])
+check(ok and w["plan_credits"] == 0 and w["credits"] == before["credits"] - 20, "spend drains plan credits, then pack credits")
+with db.connect() as conn:
+    conn.execute("UPDATE workspaces SET plan_credits=6000 WHERE id=?", (nws["id"],))
+    conn.execute("UPDATE workspaces SET credits=? WHERE id=?", (before["credits"], nws["id"]))
+    conn.commit()
+# renewal: unused plan credits expire, the new month lands
+with db.connect() as conn:
+    db.adjust_credits(conn, nws["id"], -1000, "test spend")
+    conn.commit()
+r = deliver(plan_invoice("in_2", nws["id"], "growth", reason="subscription_cycle", new_shape=True))
+w = wsrow(nws["id"])
+with db.connect() as conn:
+    exp = conn.execute("SELECT * FROM ledger WHERE workspace_id=? AND reason='unused plan credits expired' ORDER BY id DESC",
+                       (nws["id"],)).fetchone()
+check(r.status_code == 200 and w["plan_credits"] == 6000 and exp and exp["delta"] == -5000,
+      "renewal: 5,000 unused plan credits expire, a fresh 6,000 lands (newer invoice shape read too)")
+check(w["credits"] == before["credits"], "pack credits never expire")
+# upgrade mid-month: the difference now
+deliver({"id": "evt_up", "type": "customer.subscription.updated", "data": {"object": {
+    "id": "sub_1", "object": "subscription", "status": "active", "customer": "cus_1", "cancel_at_period_end": False,
+    "metadata": {"app": "campaignify", "workspace_id": str(nws["id"]), "plan": "growth"},
+    "items": {"data": [{"price": {"id": plans.PLANS["scale"]["price_id"]}, "current_period_end": 1893456000}]}}}})
+r = deliver(plan_invoice("in_3", nws["id"], "scale", reason="subscription_update", amount=15000,
+                         lines=[(plans.PLANS["growth"]["price_id"], -9900), (plans.PLANS["scale"]["price_id"], 24900)]))
+w = wsrow(nws["id"])
+check(r.get_json()["credited"] == 12000 and w["plan_credits"] == 18000 and plans.plan_code(w) == "scale",
+      "upgrade to Scale tops plan credits up by the difference (12,000)")
+check(plans.has(w, "community") and plans.priority(w) == 1 and w["plan_period_end"].startswith("2030"),
+      "Scale unlocks everything, priority queue, period end stored")
+r = n.post("/app/billing/subscribe", data={"csrf": csrf(n), "plan": "starter"})
+check(r.status_code == 303 and r.headers["Location"] == "https://billing.stripe.test/portal" and len(subs) == 1,
+      "already subscribed: plan changes go to the portal, never a second subscription")
+r = n.post("/app/billing/portal", data={"csrf": csrf(n)})
+check(r.status_code == 303 and portal_calls[-1]["customer"] == "cus_1" and portal_calls[-1]["return_url"].endswith("/app/billing"),
+      "Manage plan opens the Stripe customer portal for our customer")
+check(b"Manage or cancel plan" in n.get("/app/billing").data, "billing page shows Manage plan when subscribed")
+# cancel at period end, then the end
+deliver({"id": "evt_c", "type": "customer.subscription.updated", "data": {"object": {
+    "id": "sub_1", "object": "subscription", "status": "active", "customer": "cus_1", "cancel_at_period_end": True,
+    "metadata": {"app": "campaignify", "workspace_id": str(nws["id"])},
+    "items": {"data": [{"price": {"id": plans.PLANS["scale"]["price_id"]}, "current_period_end": 1893456000}]}}}})
+w = wsrow(nws["id"])
+check(w["plan_cancel_at_period_end"] == 1 and plans.plan_code(w) == "scale", "scheduled cancel keeps the plan until period end")
+check(b"cancels 2030" in n.get("/app/billing").data, "billing page shows when the plan ends")
+check(deliver({"id": "evt_o", "type": "customer.subscription.deleted", "data": {"object": {
+    "id": "sub_crowdcut", "object": "subscription", "status": "canceled", "metadata": {"account_id": "3"}}}}).get_json().get("ignored"),
+    "other apps' cancellations are ignored")
+r = deliver({"id": "evt_d", "type": "customer.subscription.deleted", "data": {"object": {
+    "id": "sub_1", "object": "subscription", "status": "canceled", "customer": "cus_1",
+    "metadata": {"app": "campaignify", "workspace_id": str(nws["id"])}}}})
+w = wsrow(nws["id"])
+check(r.status_code == 200 and plans.plan_code(w) == "free" and w["plan_credits"] == 0 and w["credits"] == before["credits"],
+      "subscription ended: back to free, plan credits gone, pack credits kept")
+check(n.get("/app/billing").status_code == 200 and b"Get Growth" in n.get("/app/billing").data,
+      "after cancel the plans can be bought again")
+
+print("== brands + seats")
+r = n.post("/app/brands", data={"csrf": csrf(n), "brand_name": "Second Co"})
+with db.connect() as conn:
+    nb = conn.execute("SELECT COUNT(*) FROM brands WHERE workspace_id=?", (nws["id"],)).fetchone()[0]
+check(nb == 1, "free plan: one brand, a second is refused server-side")
+deliver(plan_invoice("in_g", nws["id"], "growth", sub="sub_2"))
+check(plans.plan_code(wsrow(nws["id"])) == "growth", "resubscribed to Growth")
+for name in ("Second Co", "Third Co", "Fourth Co"):
+    n.post("/app/brands", data={"csrf": csrf(n), "brand_name": name})
+with db.connect() as conn:
+    bs = conn.execute("SELECT * FROM brands WHERE workspace_id=? ORDER BY id", (nws["id"],)).fetchall()
+w = wsrow(nws["id"])
+check(len(bs) == 3 and w["brand_id"] == bs[-1]["id"] and w["brand_name"] == "Third Co", "Growth: three brands, the new one is active")
+n.post("/app/brand", data={"csrf": csrf(n), "brand_name": "Third Co", "product_name": "ThirdThing", "claims": "", "audience": ""})
+n.post(f"/app/brands/{bs[0]['id']}/use", data={"csrf": csrf(n)})
+w = wsrow(nws["id"])
+check(w["product_name"] == "GlowSerum" and w["brand_id"] == bs[0]["id"], "switching brands swaps the brand kit")
+with db.connect() as conn:
+    check(conn.execute("SELECT product_name FROM brands WHERE id=?", (bs[2]["id"],)).fetchone()[0] == "ThirdThing",
+          "each brand keeps its own kit")
+check(n.post(f"/app/brands/{bs[0]['id']}/use", data={"csrf": csrf(a)}).status_code == 400, "brand switch needs CSRF")
+check(a.post(f"/app/brands/{bs[1]['id']}/use", data={"csrf": csrf(a)}).status_code == 404, "can't switch to another workspace's brand")
+codes = []
+for i in range(3):
+    r = n.post("/app/team/invite", data={"csrf": csrf(n), "note": f"t{i}"})
+with db.connect() as conn:
+    tinv = conn.execute("SELECT * FROM invites WHERE workspace_id=? AND created_by IS NOT NULL", (nws["id"],)).fetchall()
+check(len(tinv) == 2, "Growth: 3 seats = owner + 2 invites; the third invite is refused")
+m1 = client()
+r = m1.post("/signup", data={"csrf": csrf(m1), "email": "mate1@example.com", "password": "longpassword", "invite": tinv[0]["code"]})
+with db.connect() as conn:
+    mu = conn.execute("SELECT * FROM users WHERE email='mate1@example.com'").fetchone()
+check(r.status_code == 302 and mu["workspace_id"] == nws["id"] and mu["role"] == "member", "teammate joins as a member")
+check(m1.post("/app/team/invite", data={"csrf": csrf(m1)}).status_code == 403, "members can't create invites")
+check(m1.post("/app/billing/subscribe", data={"csrf": csrf(m1), "plan": "scale"}).status_code == 403, "members can't change the plan")
+with db.connect() as conn:
+    conn.execute("UPDATE workspaces SET plan_override=NULL, plan='starter' WHERE id=?", (nws["id"],))
+    conn.commit()
+m2 = client()
+r = m2.post("/signup", data={"csrf": csrf(m2), "email": "mate2@example.com", "password": "longpassword", "invite": tinv[1]["code"]})
+check("team is full" in r.get_data(as_text=True), "join refused when the plan's seats are full (downgraded to Starter)")
+r = n.post(f"/app/team/{mu['id']}/remove", data={"csrf": csrf(n)})
+with db.connect() as conn:
+    mu = conn.execute("SELECT * FROM users WHERE email='mate1@example.com'").fetchone()
+check(mu["workspace_id"] != nws["id"] and mu["role"] == "owner", "owner removes a member; they keep an empty workspace of their own")
+with db.connect() as conn:
+    conn.execute("UPDATE workspaces SET plan='growth' WHERE id=?", (nws["id"],))
+    conn.commit()
+
+print("== gating + comp plans")
+x = client()
+x.post("/signup", data={"csrf": csrf(x), "email": "freebie@example.com", "password": "longpassword"})
+with db.connect() as conn:
+    xws = conn.execute("SELECT w.* FROM workspaces w JOIN users u ON u.workspace_id=w.id WHERE u.email='freebie@example.com'").fetchone()
+check(xws["plan"] == "free" and not plans.has(xws, "planner"), "free account can't use plan features")
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "scale"})
+check(plans.plan_code(wsrow(xws["id"])) == "scale", "admin can comp a workspace onto a plan")
+check(b.post("/admin/plan", data={"csrf": csrf(b), "workspace_id": xws["id"], "plan": "scale"}).status_code == 403,
+      "only admins comp plans")
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": ""})
+check(plans.plan_code(wsrow(xws["id"])) == "free", "comp cleared")
+html = client().get("/").get_data(as_text=True)
+for bit in ("$39", "$99", "$249", "2,000 credits every month", "6,000 credits every month", "18,000 credits every month",
+            "Credit packs", "expire at each renewal"):
+    check(bit in html, f"landing pricing shows {bit!r}")
+fh = client().get("/features")
+check(fh.status_code == 200 and b"UGC ad studio" in fh.data and b"Compliance checks" in fh.data, "features page renders")
+for k, f in plans.FEATURES.items():
+    if not f["shipped"]:
+        check(f["name"].encode() not in fh.data, f"features page doesn't list unshipped {f['name']!r}")
+
 print("== pages")
 for path in ("/app", "/app/library", "/app/brand", "/admin", "/app/new?tool=motion_copy", "/app/new?template=cost",
-             "/app/start", "/app/billing", "/app/new?template=hero"):
+             "/app/start", "/app/billing", "/app/new?template=hero", "/app/team"):
     check(a.get(path).status_code == 200, f"{path} renders")
 check(a.get("/health").get_json()["generation_configured"], "health reports configured")
-for path in ("/app", "/app/start", "/app/billing", "/"):
+for path in ("/app", "/app/start", "/app/billing", "/", "/features"):
     html = (a if path != "/" else client()).get(path).get_data(as_text=True)
     check(not re.search(r"higgsfield", html, re.I), f"vendor never named in the UI ({path})")
 

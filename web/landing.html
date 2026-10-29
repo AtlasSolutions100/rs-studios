@@ -87,30 +87,9 @@
 <section class="lp-sec" id="pricing">
   <div class="lp-wrap">
     <p class="eyebrow">Pricing</p>
-    <h2 class="lp-h2">Pay for what you make. No subscription.</h2>
-    <p class="lp-sub muted">1 credit = $0.01. An image ad is {{ r.image }} credits, a 5-second video {{ r.video5 }}, a 10-second video {{ r.video10 }}. Failed generations are refunded automatically.</p>
-    <div class="lp-prices">
-      <div class="lp-price free">
-        <h3>Free start</h3>
-        <div class="lp-amt">$0</div>
-        <p class="muted">{{ '{:,}'.format(sc) }} credits when you sign up: {{ sc // r.image }} image ads to try it on your own product.</p>
-        <a class="btn dark" href="{{ url_for('signup') }}">Start free</a>
-      </div>
-      {% for p in packs %}
-      <div class="lp-price {{ 'hot' if p.code == 'pro' }}">
-        {% if p.code == 'pro' %}<span class="lp-badge">Most popular</span>{% endif %}
-        <h3>{{ p.name }} pack</h3>
-        <div class="lp-amt">${{ p.usd }}</div>
-        <p class="lp-cr">{{ '{:,}'.format(p.credits) }} credits{% if p.bonus %} <span class="gold">· {{ '{:,}'.format(p.bonus) }} bonus</span>{% endif %}</p>
-        <p class="muted small">About {{ '{:,}'.format(p.credits // r.image) }} image ads or {{ p.credits // r.video5 }} five-second videos.</p>
-        {% if billing_configured() %}
-        <a class="btn {{ '' if p.code == 'pro' else 'dark' }}" href="{{ url_for('signup') }}">Get started</a>
-        {% else %}
-        <span class="btn dark disabled" aria-disabled="true">Checkout coming soon</span>
-        {% endif %}
-      </div>
-      {% endfor %}
-    </div>
+    <h2 class="lp-h2">Start free. Add a plan when you're ready.</h2>
+    <p class="lp-sub muted">Plans come with credits every month, more brands and seats, and the plan features below. Credit packs top you up on any plan, or without one. 1 credit = $0.01: an image ad is {{ r.image }} credits, a 5-second video {{ r.video5 }}, a 10-second video {{ r.video10 }}.</p>
+    {% include "_pricing.html" %}
   </div>
 </section>
 
@@ -121,7 +100,8 @@
       <h2 class="lp-h2">Questions.</h2>
     </div>
     <div>
-      <details><summary>Do I need a subscription?</summary><p>No. Start with your free credits, then buy a credit pack when you need more. Credits are only used when you generate something.</p></details>
+      <details><summary>Do I need a subscription?</summary><p>No. Start with your free credits and buy credit packs when you need more. Plans add monthly credits and the campaign tools; you can cancel a plan anytime and it stays on until the end of the month you've paid for.</p></details>
+      <details><summary>Do unused credits roll over?</summary><p>Plan credits arrive with each monthly payment and expire at your next renewal, and they're used before any other credits. Credits from packs and your free starter credits never expire.</p></details>
       <details><summary>What does a credit buy?</summary><p>1 credit is $0.01. An image ad is {{ r.image }} credits, a 5-second video {{ r.video5 }}, a 10-second video {{ r.video10 }}, and copying a reference video's motion is {{ r.motion_per_s }} credits per second of the reference (up to {{ r.motion_max }}). You always see the price before you generate.</p></details>
       <details><summary>What if a generation fails?</summary><p>Your credits come back automatically. You only pay for ads that finish.</p></details>
       <details><summary>Is it only for coffee?</summary><p>No. Some templates were built around a coffee product, but Product hero, Daily routine and your own brief work for anything you can photograph.</p></details>

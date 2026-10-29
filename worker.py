@@ -68,8 +68,7 @@ def build_inputs(conn, job) -> dict:
 
 
 def _refund(conn, job, reason):
-    if job["credits"]:
-        db.adjust_credits(conn, job["workspace_id"], job["credits"], f"refund: {reason}", job["id"])
+    db.refund_job(conn, job, f"refund: {reason}")
 
 
 def _fail(conn, job, msg):
@@ -118,7 +117,7 @@ def tick() -> int:
     """One pass over pending and running jobs. Returns how many changed."""
     changed = 0
     with db.connect() as conn:
-        for job in conn.execute("SELECT * FROM jobs WHERE status='pending' ORDER BY id LIMIT 5").fetchall():
+        for job in conn.execute("SELECT * FROM jobs WHERE status='pending' ORDER BY priority DESC, id LIMIT 5").fetchall():
             try:
                 inputs = build_inputs(conn, job)
                 rid = hf.submit(catalog.TOOLS[job["tool"]]["model"], inputs)

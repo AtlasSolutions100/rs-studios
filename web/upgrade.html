@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block title %}{{ feature.name }} · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <div class="panel upgrade">
+    <p class="eyebrow">Included in {{ need.name }}</p>
+    <h1>{{ feature.name }}</h1>
+    <p class="muted lede">{{ feature.blurb }}</p>
+    <p>You're on the <b>{{ plans.plan(g.ws).name }}</b> plan. {{ need.name }} is ${{ need.usd }} a month with {{ '{:,}'.format(need.credits) }} credits every month, and includes everything below it.</p>
+    <div class="row" style="margin-top:20px">
+      <a class="btn" href="{{ url_for('billing_page') }}#plans">See plans</a>
+      <a class="btn dark" href="{{ url_for('studio') }}">Back to the studio</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
