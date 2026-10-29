@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% block title %}Smart links · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <p class="eyebrow">Smart links</p>
+  <h1>Short links that <span class="gold">count</span></h1>
+  <p class="muted">campaignify.ai/l/… links that send people where you want, add your UTM tags, pass through the ones already on the click, and count every visit (without storing anyone's IP address).</p>
+  {% include "_pages_tabs.html" %}
+  <form method="post" class="panel copyform">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <div class="two-col">
+      <div><label for="tu">Where it goes</label><input id="tu" type="text" name="target_url" maxlength="1000" required placeholder="https://yourstore.com/product" value="{{ prefill }}" list="mypages">
+        <datalist id="mypages">{% for pg in pgs %}<option value="{{ base }}p/{{ pg.slug }}">{{ pg.title }}</option>{% endfor %}</datalist></div>
+      <div><label for="lt">Name <span class="dim">(only you see it)</span></label><input id="lt" type="text" name="title" maxlength="120" placeholder="TikTok bio link"></div>
+    </div>
+    <details class="small" style="margin-top:12px"><summary>Custom code and UTM tags</summary>
+      <div class="two-col">
+        <div><label for="cd">Custom code <span class="dim">(optional)</span></label><div class="slugrow"><span class="dim small">{{ base }}l/</span><input id="cd" type="text" name="code" maxlength="40" placeholder="glow-launch"></div></div>
+        <div><label for="us">utm_source</label><input id="us" type="text" name="utm_source" maxlength="80" placeholder="tiktok"></div>
+        <div><label for="um">utm_medium</label><input id="um" type="text" name="utm_medium" maxlength="80" placeholder="paid_social"></div>
+        <div><label for="uc">utm_campaign</label><input id="uc" type="text" name="utm_campaign" maxlength="80" placeholder="glow_launch"></div>
+      </div>
+      <label class="choice" style="display:inline-flex;gap:8px;margin-top:12px"><input type="checkbox" name="passthrough" value="0">Don't pass through UTM tags and click ids from the incoming link</label>
+    </details>
+    <div class="go"><span class="small muted">Links to your own Campaignify pages work too.</span><button class="btn">Create link</button></div>
+  </form>
+  <div class="panel scrollx" style="margin-top:22px">
+    <table><tr><th>Link</th><th>Goes to</th><th style="text-align:right">7 days</th><th style="text-align:right">All time</th><th></th></tr>
+    {% for l in rows %}<tr><td><a href="{{ url_for('pages.link_detail', lid=l.id) }}"><b>{{ l.title or l.code }}</b></a><br><code>{{ base }}l/{{ l.code }}</code></td><td class="small muted break-cell">{{ l.target_url[:70] }}</td><td style="text-align:right">{{ l.week }}</td><td style="text-align:right">{{ l.clicks }}</td><td><a class="btn dark sm" href="{{ url_for('pages.link_detail', lid=l.id) }}">Stats</a></td></tr>
+    {% else %}<tr><td colspan="5" class="muted">No links yet.</td></tr>{% endfor %}</table>
+  </div>
+</div>
+{% endblock %}

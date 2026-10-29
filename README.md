@@ -93,6 +93,19 @@ https on an allow-listed first-party host). Step ticks are stored per workspace 
 center-crops and scales a finished ad to a platform size (Pillow for images, ffmpeg for video), cached next to the
 original; Library shows "Export sizes". The planner's launch checklist links each platform to its guide.
 
+## Landing pages and smart links (Starter+; analytics Growth+)
+
+`pages.py` + `pages_routes.py`. Pages are lists of blocks (hero, image/video from the workspace's library, text,
+benefits, FAQ, call to action, embed) edited in a plain form; members never write HTML. Text is escaped by the template,
+links must be http(s)/mailto/tel (`pages.safe_url`), embeds are rebuilt from YouTube/Vimeo/Loom/Calendly/Spotify URLs,
+media must belong to the workspace and is served publicly only while it's on a published page
+(`/p/<slug>/m/<id>`). Public pages (`/p/<slug>`) send a strict CSP with no scripts. Publishing re-runs the compliance
+checks; Starter can publish 1 page, Growth/Scale unlimited (`plans.limit(ws, "pages")`). Views are counted once per
+visitor IP per 30 minutes (the IP lives only in the 24-hour throttle table). Smart links (`/l/<code>`) redirect
+with the link's UTM tags plus incoming UTM tags and click ids (gclid, fbclid, ttclid…), record referrer host, device,
+UTMs and a country when the edge sends `CF-IPCountry`/`X-Country` (no IP stored), skip bots, and are rate-limited per
+IP. Starter sees click counts; Growth+ gets 30-day charts and breakdowns.
+
 ## Tests
 
     python tests/test_app.py        # generation API and Stripe faked; 122 checks

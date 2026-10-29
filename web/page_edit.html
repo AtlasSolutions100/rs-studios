@@ -1,0 +1,77 @@
+{% extends "base.html" %}{% block title %}{{ p.title }} · Pages · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <p style="margin:0 0 14px"><a href="{{ url_for('pages.index') }}">← Pages</a></p>
+  <div class="row" style="justify-content:space-between">
+    <div><p class="eyebrow">{{ 'Live page' if p.status == 'published' else 'Draft' }}</p><h1 style="margin:0">{{ p.title }}</h1></div>
+    <div class="row">
+      <a class="btn dark sm" href="{{ url_for('pages.preview', pid=p.id) }}" target="_blank" rel="noopener">Preview</a>
+      {% if p.status == 'published' %}<a class="btn dark sm" href="{{ url_for('pages.public', slug=p.slug) }}" target="_blank" rel="noopener">View live ↗</a>
+      <a class="btn dark sm" href="{{ url_for('pages.links', target=base ~ 'p/' ~ p.slug) }}">Make a smart link</a>{% endif %}
+    </div>
+  </div>
+  <form method="post" class="editor" id="ed">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <div class="panel">
+      <div class="two-col">
+        <div><label for="t">Page title</label><input id="t" type="text" name="title" maxlength="120" value="{{ p.title }}"></div>
+        <div><label for="s">Address</label><div class="slugrow"><span class="dim small">{{ base }}p/</span><input id="s" type="text" name="slug" maxlength="60" value="{{ p.slug }}"></div></div>
+      </div>
+      <label for="d">Description <span class="dim">(for search results and link previews)</span></label><input id="d" type="text" name="description" maxlength="300" value="{{ p.description or '' }}">
+      <div class="two-col">
+        <div><label>Theme</label><div class="choices"><label class="choice"><input type="radio" name="theme" value="light" {{ 'checked' if p.theme != 'dark' }}>Light</label><label class="choice"><input type="radio" name="theme" value="dark" {{ 'checked' if p.theme == 'dark' }}>Dark</label></div></div>
+        <div><label for="ac">Button color</label><input id="ac" type="color" name="accent" value="{{ p.accent }}" class="color"></div>
+      </div>
+    </div>
+
+    {% for b in blocks %}{% set i = loop.index0 %}
+    <div class="panel block" id="b{{ i }}">
+      <input type="hidden" name="b{{ i }}_type" value="{{ b.type }}">
+      <div class="block-h"><b>{{ BLOCKS[b.type].name }}</b>
+        <div class="row"><button class="btn dark sm" name="action" value="up:{{ i }}" {{ 'disabled' if loop.first }} aria-label="Move up">↑</button><button class="btn dark sm" name="action" value="down:{{ i }}" {{ 'disabled' if loop.last }} aria-label="Move down">↓</button><button class="btn dark sm" name="action" value="del:{{ i }}" aria-label="Remove block" onclick="return confirm('Remove this block?')">×</button></div></div>
+      {% for key, label, limit in BLOCKS[b.type].fields %}
+        {% if key == 'media' %}
+        <label>{{ label }}</label>
+        <div class="medpick">
+          <label class="medopt none"><input type="radio" name="b{{ i }}_media" value="" {{ 'checked' if not b.media }}><span>None</span></label>
+          {% for o in lib %}<label class="medopt"><input type="radio" name="b{{ i }}_media" value="{{ o.id }}" {{ 'checked' if b.media == o.id }}>{% if o.kind == 'video' %}<img src="{{ url_for('media', oid=o.id, poster=1) }}" alt="Video {{ o.id }}" loading="lazy"><em>Video</em>{% else %}<img src="{{ url_for('media', oid=o.id) }}" alt="Image {{ o.id }}" loading="lazy">{% endif %}</label>{% endfor %}
+        </div>
+        {% if not lib %}<p class="small muted">Your finished ads show up here. <a href="{{ url_for('studio') }}">Make one</a>.</p>{% endif %}
+        {% elif limit > 400 and not key.endswith('url') %}
+        <label for="b{{ i }}_{{ key }}">{{ label }}</label><textarea id="b{{ i }}_{{ key }}" name="b{{ i }}_{{ key }}" maxlength="{{ limit }}">{{ b[key] or '' }}</textarea>
+        {% else %}
+        <label for="b{{ i }}_{{ key }}">{{ label }}</label><input id="b{{ i }}_{{ key }}" type="text" name="b{{ i }}_{{ key }}" maxlength="{{ limit }}" value="{{ b[key] or '' }}">
+        {% endif %}
+      {% endfor %}
+      {% if b.type == 'embed' and b.url and not b.src %}<p class="small bad">That link isn't one we can embed. Use a YouTube, Vimeo, Loom, Calendly or Spotify link.</p>{% endif %}
+    </div>
+    {% endfor %}
+
+    <div class="panel addblock">
+      <span class="small muted">Add a block:</span>
+      {% for k, v in BLOCKS.items() %}<button class="btn dark sm" name="action" value="add:{{ k }}">{{ v.name }}</button>{% endfor %}
+    </div>
+
+    <div class="go savebar">
+      <span class="small muted">{% if p.status == 'published' %}Live at <a href="{{ url_for('pages.public', slug=p.slug) }}" target="_blank" rel="noopener">{{ base }}p/{{ p.slug }}</a> · {{ p.views }} views{% elif not can_publish %}Your plan's published page is in use.{% if next_plan %} <a href="{{ url_for('billing_page') }}">{{ next_plan.name }}</a> includes unlimited pages.{% endif %}{% else %}Draft · only you can see it{% endif %}</span>
+      <div class="row">
+        <button class="btn dark" name="action" value="save">Save</button>
+        {% if p.status == 'published' %}<button class="btn dark" name="action" value="unpublish">Unpublish</button><button class="btn" name="action" value="save">Update live page</button>
+        {% else %}<button class="btn" name="action" value="publish" {{ 'disabled' if not can_publish }}>Publish</button>{% endif %}
+      </div>
+    </div>
+  </form>
+
+  {% if has_feature('copy') %}
+  <form method="post" action="{{ url_for('pages.ai_draft', pid=p.id) }}" class="panel copyform" style="margin-top:20px">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <h3>Draft the copy with AI</h3>
+    <p class="small muted">Writes the hero, benefits, FAQ and button text from your brand kit. Save your edits first; this replaces those blocks' text. Up to {{ ai_quote }} credits.</p>
+    <div class="two-col"><div><label for="ao">What's the page selling?</label><input id="ao" type="text" name="offer" maxlength="300" value="{{ p.title }}"></div>
+      <div><label for="an">Notes <span class="dim">(optional)</span></label><input id="an" type="text" name="notes" maxlength="500"></div></div>
+    <div class="row" style="margin-top:14px"><button class="btn dark" {{ 'disabled' if not ai_on }}>Draft copy</button>{% if not ai_on %}<span class="small muted">AI writing isn't switched on yet.</span>{% endif %}</div>
+  </form>
+  {% endif %}
+  <form method="post" action="{{ url_for('pages.delete', pid=p.id) }}" onsubmit="return confirm('Delete this page? Its address stops working.')" style="margin-top:14px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn copybtn" style="color:var(--dim)">Delete page</button></form>
+</div>
+{% endblock %}

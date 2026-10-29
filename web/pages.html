@@ -1,0 +1,29 @@
+{% extends "base.html" %}{% block title %}Pages · Campaignify{% endblock %}
+{% block body %}
+<div class="page">
+  <section>
+    <p class="eyebrow">Landing pages</p>
+    <h1>A page for <span class="gold">every campaign</span></h1>
+    <p class="muted">Build a sales page from blocks (hero, your ads, benefits, FAQ, call to action, embeds) and publish it at campaignify.ai/p/your-page. No code, no hosting.</p>
+    {% include "_pages_tabs.html" %}
+    <form method="post" class="panel row" style="margin-bottom:22px">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <input type="text" name="title" maxlength="120" placeholder="Page name, e.g. GlowSerum launch" style="flex:1;min-width:200px">
+      <button class="btn">New page</button>
+    </form>
+    <p class="small muted">Published: <b>{{ published }}</b> of {{ cap if cap is not none else 'unlimited' }} on your plan.{% if cap is not none and published >= cap and next_plan %} {{ next_plan.name }} includes unlimited pages. <a href="{{ url_for('billing_page') }}">See plans</a>{% endif %}</p>
+    <div class="adlist">
+      {% for p in rows %}
+      <a class="panel pagerow" href="{{ url_for('pages.edit', pid=p.id) }}">
+        <div><b>{{ p.title }}</b><span class="small muted">/p/{{ p.slug }}</span></div>
+        <span class="status {{ 'done' if p.status == 'published' else 'pending' }}"><span class="dot"></span>{{ 'Live' if p.status == 'published' else 'Draft' }}</span>
+        <span class="small muted">{{ p.views }} views</span>
+      </a>
+      {% else %}<div class="empty">No pages yet. Name one above to start from a ready-made layout.</div>{% endfor %}
+    </div>
+  </section>
+  <aside class="rail"><div class="panel"><h2>Tips</h2><ul class="rules">
+    <li>One page, one offer, one button.</li><li>Put your best ad in the hero; people recognise it from the feed.</li>
+    <li>Answer the top objections in the FAQ.</li><li>Share it with a smart link to see where clicks come from.</li></ul></div></aside>
+</div>
+{% endblock %}
