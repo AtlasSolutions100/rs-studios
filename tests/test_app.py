@@ -1105,7 +1105,7 @@ with db.connect() as conn:
                       "VALUES (?,?,?,?,?,?,?,?)", (xws["id"], 1, "ad_image", "x", "done", 0, db.now(), db.now())).lastrowid
     eo = conn.execute("INSERT INTO outputs (job_id, kind, url, path) VALUES (?,?,?,?)", (ej, "image", "https://x/y.png", img_path)).lastrowid
     conn.commit()
-check(x.get(f"/app/export/{eo}").status_code == 200 and b"Export sizes" in x.get("/app/library").data, "export page and library button")
+check(x.get(f"/app/export/{eo}").status_code == 200 and b"Export for Meta / TikTok" in x.get("/app/library").data, "export page and library button")
 r = x.get(f"/app/export/{eo}/meta/feed")
 check(r.status_code == 200 and "attachment" in r.headers["Content-Disposition"] and "1080x1350" in r.headers["Content-Disposition"],
       "export downloads with the size in the name")
@@ -1510,6 +1510,83 @@ check(a.get("/health").get_json()["generation_configured"], "health reports conf
 for path in ("/app", "/app?preview=1", "/app/billing", "/", "/features"):
     html = (a if path != "/" else client()).get(path).get_data(as_text=True)
     check(not re.search(r"higgsfield", html, re.I), f"vendor never named in the UI ({path})")
+
+print("== results loop: retry, review, delete, filters (phase 3)")
+import jobs_routes  # noqa: E402
+with db.connect() as conn:
+    w1 = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws1["id"],)).fetchone()
+    t0 = db.now()
+    fj = conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, brief, params_json, status, error, credits, cost_usd, "
+                      "created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                      (ws1["id"], 1, "ad_image", "Mug on a desk", json.dumps({"batch": 2, "aspect": "4:5"}), "failed",
+                       worker.failure_text("Blocked by the content filter."), 43, 0.21, t0, t0)).lastrowid
+    dj = conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, brief, params_json, status, credits, cost_usd, created_at, "
+                      "updated_at, finished_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                      (ws1["id"], 1, "photo_to_video", "Steam rising", "{}", "done", 463, 2.3, t0, t0, t0)).lastrowid
+    rj = conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, brief, params_json, status, credits, cost_usd, created_at, "
+                      "updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                      (ws1["id"], 1, "ugc_video", "Talking", "{}", "running", 925, 4.6, t0, t0)).lastrowid
+    conn.execute("INSERT INTO outputs (job_id, kind, url, path) VALUES (?,?,?,?)", (dj, "video", "https://x/v.mp4", None))
+    db.adjust_credits(conn, ws1["id"], 5000, "test top-up")
+    conn.commit()
+retry_price = catalog.price_credits("ad_image", batch=2)
+html = a.get("/app/library?status=failed").get_data(as_text=True)
+check("Credits refunded." in html and f"Try again · {retry_price}" in html and "Steam rising" not in html,
+      "a failed card says credits were refunded and offers Try again at today's price; filtered to failed")
+check("Edit &amp; retry" not in html.split(f'data-job="{fj}"')[1].split("</article>")[0], "edit & retry only for ads made in a batch")
+with db.connect() as conn:
+    bal = db.balance(conn.execute("SELECT * FROM workspaces WHERE id=?", (ws1["id"],)).fetchone())
+r = a.post(f"/app/jobs/{fj}/retry", data={"csrf": csrf(a), "total": str(retry_price - 1)}, headers={"Accept": "application/json"})
+check(r.status_code == 409 and r.get_json()["total"] == retry_price, "retry refuses a price that changed")
+oc = client()
+oc.post("/signup", data={"csrf": csrf(oc), "email": "outsider3@example.com", "password": "longpassword"})
+check(oc.post(f"/app/jobs/{fj}/retry", data={"csrf": csrf(oc), "total": str(retry_price)}).status_code == 404
+      and oc.post(f"/app/jobs/{dj}/review", data={"csrf": csrf(oc), "verdict": "approved"}).status_code == 404
+      and oc.post(f"/app/jobs/{dj}/delete", data={"csrf": csrf(oc)}).status_code == 404, "another workspace can't touch these ads")
+r = a.post(f"/app/jobs/{fj}/retry", data={"csrf": csrf(a), "total": str(retry_price)}, headers={"Accept": "application/json"})
+with db.connect() as conn:
+    nj = conn.execute("SELECT * FROM jobs WHERE id=?", (r.get_json()["job"],)).fetchone()
+    old = conn.execute("SELECT * FROM jobs WHERE id=?", (fj,)).fetchone()
+    nbal = db.balance(conn.execute("SELECT * FROM workspaces WHERE id=?", (ws1["id"],)).fetchone())
+check(nj["status"] == "pending" and nj["parent_job_id"] == fj and nj["brief"] == "Mug on a desk" and nj["credits"] == retry_price
+      and json.loads(nj["params_json"])["batch"] == 2 and old["deleted_at"] and nbal == bal - retry_price,
+      "Try again makes a new linked job with the same settings and charges today's price")
+check(a.post(f"/app/jobs/{dj}/retry", data={"csrf": csrf(a), "total": "463"}).status_code == 400, "only failed ads are retried")
+r = a.post(f"/app/jobs/{dj}/review", data={"csrf": csrf(a), "verdict": "approved"}, headers={"Accept": "application/json"})
+check(r.get_json()["verdict"] == "approved", "approve an ad")
+lib = a.get("/app/library?review=approved").get_data(as_text=True)
+check(f'data-job="{dj}"' in lib and f'data-job="{rj}"' not in lib and "Approved" in lib, "filter: approved")
+check(f'data-job="{dj}"' not in a.get("/app/library?review=rejected").get_data(as_text=True), "filter: rejected")
+a.post(f"/app/jobs/{dj}/review", data={"csrf": csrf(a), "verdict": ""})
+check(f'data-job="{dj}"' in a.get("/app/library?review=unreviewed").get_data(as_text=True), "un-reviewing puts it back to not reviewed")
+lib = a.get("/app/library?type=video&status=done").get_data(as_text=True)
+check(f'data-job="{dj}"' in lib and f'data-job="{rj}"' not in lib and 'type=video' in lib and "status=done" in lib,
+      "type and status filters combine and stay in the chip links")
+check(a.post(f"/app/jobs/{rj}/delete", data={"csrf": csrf(a)}, headers={"Accept": "application/json"}).status_code == 400,
+      "an ad still being made can't be deleted")
+a.post(f"/app/jobs/{dj}/delete", data={"csrf": csrf(a)})
+with db.connect() as conn:
+    check(conn.execute("SELECT deleted_at FROM jobs WHERE id=?", (dj,)).fetchone()[0]
+          and f'data-job="{dj}"' not in a.get("/app/library").get_data(as_text=True)
+          and conn.execute("SELECT COUNT(*) FROM ledger WHERE workspace_id=?", (ws1["id"],)).fetchone()[0] > 0,
+          "delete hides the ad (soft) and keeps the credit history")
+d = a.get(f"/app/jobs/cards?ctx=library&ids={rj},{nj['id']}").get_json()["cards"]
+check(d[str(rj)]["status"] == "running" and f'data-job="{rj}"' in d[str(rj)]["html"] and str(nj["id"]) in d,
+      "cards endpoint returns fresh card HTML to patch in place")
+check("finished_at" in a.get(f"/api/jobs?ids={rj}").get_json()["jobs"][0], "the jobs API reports when each finished")
+with db.connect() as conn:
+    from datetime import datetime as _dt, timedelta as _td
+    base_t = _dt(2026, 10, 1, 12, 0, 0)
+    for mins in (2, 4, 9):
+        conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, status, credits, created_at, updated_at, finished_at) "
+                     "VALUES (?,?,?,?,?,?,?,?)", (ws1["id"], 1, "motion_copy", "done", 0, base_t.isoformat(), base_t.isoformat(),
+                                                  (base_t + _td(minutes=mins)).isoformat()))
+    conn.commit()
+    with appmod.app.test_request_context():
+        check(jobs_routes.eta_minutes(conn).get("motion_copy") == 4, "time to finish comes from the median of recent jobs")
+css = open(os.path.join(os.path.dirname(HERE), "static", "app.js")).read()
+check("data-live-cards" in css and "navigator.share" in css and "ArrowRight" in css and "location.reload" not in
+      a.get("/app/library").get_data(as_text=True), "live cards, share sheet and keyboard review; no page reloads")
 
 print("== phase 0: accessibility, copy, shell helpers")
 for t in catalog.TEMPLATES:

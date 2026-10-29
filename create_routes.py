@@ -108,6 +108,9 @@ def index():
                     # "Make the rest": the same config, at review, with the lines already made unticked.
                     prefill.update(step="review", skip=prefill["made"], rest_of=b["id"])
                 prefill.pop("made", None)
+        if request.args.get("retry", type=int):
+            prefill = _from_job(conn, request.args.get("retry", type=int)) or prefill
+            pid = prefill.get("product") or pid
         if request.args.get("type") in catalog.AD_TYPE_BY_ID:
             prefill.setdefault("type", request.args["type"])
         if request.args.get("angle", type=int):
@@ -141,6 +144,31 @@ def index():
                      "state": url_for("create.product_state"), "new_product": url_for("products.new"),
                      "edit_product": url_for("products.edit", pid=0)}}
     return render_template("create.html", boot=boot, tree=tree)
+
+
+def _from_job(conn, jid):
+    """Edit & retry: the batch's settings narrowed to this one ad (its hook,
+    presenter or voice, and shape), opened at the script step."""
+    j = conn.execute("SELECT * FROM jobs WHERE id=? AND workspace_id=?", (jid, g.ws["id"])).fetchone()
+    if not j or not j["batch_id"]:
+        return {}
+    b = conn.execute("SELECT * FROM batches WHERE id=? AND workspace_id=?", (j["batch_id"], g.ws["id"])).fetchone()
+    if not b:
+        return {}
+    cfg = json.loads(b["config_json"] or "{}")
+    cfg.pop("made", None)
+    cfg.pop("every", None)
+    p = json.loads(j["params_json"] or "{}")
+    if p.get("hook") and cfg.get("items"):
+        cfg["items"] = [p["hook"]]
+    if p.get("presenter"):
+        cfg["presenters"] = [p["presenter"]]
+    elif p.get("voice") and cfg.get("type") == "voiceover":
+        cfg["voices"] = [p["voice"]]
+    if p.get("aspect"):
+        cfg["aspects"] = [p["aspect"]]
+    cfg.update(step="script", product=b["product_id"], retry_of=j["id"])
+    return cfg
 
 
 def _from_planner(conn, aid):
@@ -535,7 +563,8 @@ def batch(bid):
         b = conn.execute("SELECT * FROM batches WHERE id=? AND workspace_id=?", (bid, g.ws["id"])).fetchone()
         if not b:
             abort(404)
-        jobs = conn.execute("SELECT * FROM jobs WHERE batch_id=? AND workspace_id=? ORDER BY id", (bid, g.ws["id"])).fetchall()
+        jobs = conn.execute("SELECT * FROM jobs WHERE batch_id=? AND workspace_id=? AND deleted_at IS NULL ORDER BY id",
+                            (bid, g.ws["id"])).fetchall()
         outs = {}
         if jobs:
             ids = [j["id"] for j in jobs]
@@ -544,9 +573,16 @@ def batch(bid):
         p = products.get_product(conn, g.ws["id"], b["product_id"]) if b["product_id"] else None
         first = conn.execute("SELECT COUNT(*) FROM batches WHERE workspace_id=? AND id<?", (g.ws["id"], bid)).fetchone()[0] == 0
         nphotos = conn.execute("SELECT COUNT(*) FROM photos WHERE product_id=?", (b["product_id"] or 0,)).fetchone()[0]
+        import jobs_routes
+        verdicts = jobs_routes.verdicts(conn, [j["id"] for j in jobs])
+        prices = {j["id"]: jobs_routes.price_now(conn, j)[0] for j in jobs if j["status"] == "failed"}
+        eta = jobs_routes.eta_minutes(conn)
+        names = {r["id"]: r["name"] for r in conn.execute("SELECT id, name FROM products WHERE workspace_id=?",
+                                                           (g.ws["id"],))}
     previews = [j for j in jobs if json.loads(j["params_json"] or "{}").get("preview")]
     full_price = catalog.price_credits("ugc_video", duration=json.loads(previews[0]["params_json"]).get("duration") or 8) \
         if previews else 0
     return render_template("batch.html", b=b, jobs=jobs, outs=outs, p=p, cfg=json.loads(b["config_json"] or "{}"),
                            at=catalog.AD_TYPE_BY_ID.get(b["ad_type"]) or {}, templates=catalog.TEMPLATE_BY_ID,
-                           first_batch=first, nphotos=nphotos, is_preview=bool(previews), full_price=full_price)
+                           first_batch=first, nphotos=nphotos, is_preview=bool(previews), full_price=full_price,
+                           verdicts=verdicts, prices=prices, eta=eta, names=names)

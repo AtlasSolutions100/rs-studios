@@ -340,6 +340,9 @@ CREATE TABLE IF NOT EXISTS c_lessons (
     title TEXT NOT NULL, body TEXT, media_id INTEGER, embed_url TEXT, position INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS c_progress (
     member_id INTEGER NOT NULL, lesson_id INTEGER NOT NULL, done_at TEXT NOT NULL, PRIMARY KEY (member_id, lesson_id));
+CREATE TABLE IF NOT EXISTS job_reviews (
+    job_id INTEGER NOT NULL, user_id INTEGER NOT NULL, workspace_id INTEGER NOT NULL, verdict TEXT NOT NULL,
+    note TEXT, at TEXT NOT NULL, PRIMARY KEY (job_id, user_id));
 CREATE TABLE IF NOT EXISTS free_previews (
     id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL UNIQUE, email_norm TEXT NOT NULL UNIQUE,
     ip_hash TEXT, job_id INTEGER, tries INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
@@ -380,6 +383,10 @@ COLUMNS = [
     # setup assistant
     ("workspaces", "assistant_free_used", "INTEGER NOT NULL DEFAULT 0"),
     ("workspaces", "setup_json", "TEXT"),
+    # results loop (phase 3)
+    ("jobs", "finished_at", "TEXT"),
+    ("jobs", "parent_job_id", "INTEGER"),
+    ("jobs", "deleted_at", "TEXT"),
 ]
 
 

@@ -109,7 +109,7 @@ def _fail(conn, job, msg):
     if _is_preview(job):
         import preview
         preview.release(conn, job["id"])
-    _set(conn, job["id"], status="failed", error=failure_text(msg)[:500])
+    _set(conn, job["id"], status="failed", error=failure_text(msg)[:500], finished_at=db.now())
 
 
 def _is_preview(job) -> bool:
@@ -243,7 +243,7 @@ def tick() -> int:
             if st == "completed":
                 try:
                     _save_outputs(conn, job, res)
-                    _set(conn, job["id"], status="done", error=None)
+                    _set(conn, job["id"], status="done", error=None, finished_at=db.now())
                 except hf.GenError as e:
                     _fail(conn, job, str(e))
                 except Exception as e:  # noqa: BLE001

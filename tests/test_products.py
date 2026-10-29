@@ -413,7 +413,7 @@ with db.connect() as conn:
                                                                 gp["brand_id"]))
     conn.commit()
 html = u.get(f"/app/library?product={gp['id']}").get_data(as_text=True)
-check(html.count(f"brief for {gp['id']}") == 2 and f"brief for {nc['id']}" not in html, "library filters by product")
+check(html.count(f'<p class="brief">brief for {gp["id"]}') == 2 and f"brief for {nc['id']}" not in html, "library filters by product")
 html = u.get(f"/app/library?brand={gp['brand_id']}").get_data(as_text=True)
 check(f"brief for {nc['id']}" in html and f"brief for {gp['id']}" in html, "and by brand")
 
@@ -519,6 +519,10 @@ check(all(j["tool"] == "ugc_video" and j["product_id"] == gp["id"] and j["brand_
       "each job is tagged with the product; presenters get a fitting voice")
 check(len(sa) == 1 and sa[0]["title"] == "The 2 PM slump" and len(ss) == 1 and json.loads(ss[0]["on_screen"])["items"] == sc["items"],
       "the angle and script are saved to the product for reuse")
+r = u.get(f"/app/create?retry={bjobs[3]['id']}")
+pfr = json.loads(re.search(r'<script id="cf-boot" type="application/json">(.*?)</script>', r.get_data(as_text=True), re.S).group(1))["prefill"]
+check(pfr["items"] == [sc["items"][1]] and pfr["presenters"] == ["marcus"] and pfr["aspects"] == ["9:16"] and pfr["step"] == "script"
+      and "made" not in pfr, "Edit & retry opens Create with just that ad's hook, presenter and shape")
 estimates = []
 hf.estimate = lambda model, inputs: (estimates.append((model, inputs)) or 2.06)
 worker.requests.get = lambda url, timeout=0: type("R", (), {"content": b"x", "raise_for_status": lambda self: None})()

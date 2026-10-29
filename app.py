@@ -143,7 +143,8 @@ def localtime(iso, mode="datetime"):
     return Markup(f'<time datetime="{escape(iso)}" data-local="{escape(mode)}">{escape(fallback)}</time>')
 
 
-app.jinja_env.filters.update(first_upper=first_upper, localtime=localtime, usd=credits_usd)
+app.jinja_env.filters.update(first_upper=first_upper, localtime=localtime, usd=credits_usd,
+                              failure_text=worker.failure_text)
 app.jinja_env.globals.update(credits_usd=credits_usd)
 
 
@@ -794,27 +795,72 @@ def start():
     return redirect(url_for("create.batch", bid=bid, first=1))
 
 
+LIB_TYPES = {"image": ("ad_image",), "video": ("photo_to_video", "motion_copy"), "talking": ("ugc_video",)}
+LIB_STATUS = {"done": ("done",), "making": ("pending", "running"), "failed": ("failed",)}
+
+
 @app.route("/app/library")
 @login_required
 def library():
-    """Everything made, newest first; filter by brand or product."""
+    """Everything made, newest first. Filters are plain GET params, so a
+    filtered view can be bookmarked: product or brand, type, status, review,
+    batch."""
+    import jobs_routes
     pid = request.args.get("product", type=int)
     bid = request.args.get("brand", type=int)
-    where, args = ["workspace_id=?"], [g.ws["id"]]
+    batch_id = request.args.get("batch", type=int)
+    filters = {k: request.args.get(k, "") for k in ("type", "status", "review")}
+    where, args = ["j.workspace_id=?", "j.deleted_at IS NULL"], [g.ws["id"]]
     if pid:
-        where.append("product_id=?")
+        where.append("j.product_id=?")
         args.append(pid)
     elif bid:
-        where.append("brand_id=?")
+        where.append("j.brand_id=?")
         args.append(bid)
+    if batch_id:
+        where.append("j.batch_id=?")
+        args.append(batch_id)
+    if filters["type"] in LIB_TYPES:
+        tools_ = LIB_TYPES[filters["type"]]
+        where.append(f"j.tool IN ({','.join('?' * len(tools_))})")
+        args.extend(tools_)
+    if filters["status"] in LIB_STATUS:
+        st = LIB_STATUS[filters["status"]]
+        where.append(f"j.status IN ({','.join('?' * len(st))})")
+        args.extend(st)
+    if filters["review"] in ("approved", "rejected"):
+        where.append("EXISTS (SELECT 1 FROM job_reviews r WHERE r.job_id=j.id AND r.verdict=?)")
+        args.append(filters["review"])
+    elif filters["review"] == "unreviewed":
+        where.append("j.status='done' AND NOT EXISTS (SELECT 1 FROM job_reviews r WHERE r.job_id=j.id)")
     with db.connect() as conn:
-        jobs = conn.execute(f"SELECT * FROM jobs WHERE {' AND '.join(where)} ORDER BY id DESC LIMIT 200", args).fetchall()
+        jobs = conn.execute(f"SELECT j.* FROM jobs j WHERE {' AND '.join(where)} ORDER BY j.id DESC LIMIT 200",
+                            args).fetchall()
         outs = _outputs(conn, [j["id"] for j in jobs])
         names = {p["id"]: p["name"] for p in products.products(conn, g.ws["id"])}
         tree = products.tree(conn, g.ws)
+        verdicts = jobs_routes.verdicts(conn, [j["id"] for j in jobs])
+        prices = {j["id"]: jobs_routes.price_now(conn, j)[0] for j in jobs if j["status"] == "failed"}
+        eta = jobs_routes.eta_minutes(conn)
+
+    def filter_url(key, val):
+        q = {k: v for k, v in request.args.items() if k not in ("highlight", "pick")}
+        if val:
+            q[key] = val
+        else:
+            q.pop(key, None)
+        return url_for("library", **q)
+
+    chips = [("type", {"label": "Type", "items": [("", "All"), ("talking", "Talking videos"), ("video", "Product videos"),
+                                                  ("image", "Image ads")]}),
+             ("status", {"label": "Status", "items": [("", "Any"), ("done", "Ready"), ("making", "Making"),
+                                                      ("failed", "Failed")]}),
+             ("review", {"label": "Review", "items": [("", "Any"), ("approved", "Approved"), ("rejected", "Rejected"),
+                                                      ("unreviewed", "Not reviewed")]})]
     return render_template("library.html", jobs=jobs, outs=outs, templates=catalog.TEMPLATE_BY_ID,
                            highlight=request.args.get("highlight", type=int), tree=tree, names=names,
-                           f_product=pid, f_brand=bid if not pid else None)
+                           f_product=pid, f_brand=bid if not pid else None, f_batch=batch_id, filters=filters,
+                           chips=chips, filter_url=filter_url, verdicts=verdicts, prices=prices, eta=eta)
 
 
 @app.route("/api/jobs")
@@ -824,7 +870,7 @@ def api_jobs():
     if not ids:
         return jsonify({"jobs": []})
     with db.connect() as conn:
-        rows = conn.execute(f"SELECT id, status, error FROM jobs WHERE workspace_id=? AND id IN ({','.join('?' * len(ids))})",
+        rows = conn.execute(f"SELECT id, status, error, finished_at FROM jobs WHERE workspace_id=? AND id IN ({','.join('?' * len(ids))})",
                             (g.ws["id"], *ids)).fetchall()
     return jsonify({"jobs": [dict(r) for r in rows]})
 
@@ -1556,6 +1602,7 @@ def ref_video(rid):
 
 import product_routes  # noqa: E402
 import create_routes  # noqa: E402
+import jobs_routes  # noqa: E402
 import assistant_routes  # noqa: E402
 import campaign_routes  # noqa: E402
 import copy_routes  # noqa: E402  (blueprints import core, never app)
@@ -1567,6 +1614,7 @@ import community_routes  # noqa: E402
 
 app.register_blueprint(product_routes.bp)
 app.register_blueprint(create_routes.bp)
+app.register_blueprint(jobs_routes.bp)
 app.register_blueprint(assistant_routes.bp)
 app.register_blueprint(copy_routes.bp)
 app.register_blueprint(campaign_routes.bp)
