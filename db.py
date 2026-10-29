@@ -340,6 +340,9 @@ CREATE TABLE IF NOT EXISTS c_lessons (
     title TEXT NOT NULL, body TEXT, media_id INTEGER, embed_url TEXT, position INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS c_progress (
     member_id INTEGER NOT NULL, lesson_id INTEGER NOT NULL, done_at TEXT NOT NULL, PRIMARY KEY (member_id, lesson_id));
+CREATE TABLE IF NOT EXISTS free_previews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL UNIQUE, email_norm TEXT NOT NULL UNIQUE,
+    ip_hash TEXT, job_id INTEGER, tries INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS c_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, title TEXT NOT NULL, starts_at TEXT NOT NULL,
     tz TEXT, duration_min INTEGER NOT NULL DEFAULT 60, link TEXT, about TEXT, created_at TEXT NOT NULL);
@@ -395,6 +398,7 @@ def connect():
 
 def init():
     with connect() as conn:
+        _backup_before_schema_change(conn)
         conn.executescript(SCHEMA)
         for table, col, ddl in COLUMNS:
             have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
@@ -424,6 +428,21 @@ def init():
                 conn.rollback()
                 import logging
                 logging.getLogger("campaignify").exception("products migration failed; rolled back")
+
+
+def _backup_before_schema_change(conn):
+    """New tables and columns are additive, but copy the database first anyway
+    (once per change) so a bad release can always be rolled back."""
+    import re as _re
+    have = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if "workspaces" not in have:
+        return
+    missing = [t for t in _re.findall(r"CREATE TABLE IF NOT EXISTS (\w+)", SCHEMA) if t not in have]
+    for table, col, _ in COLUMNS:
+        if table in have and col not in {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}:
+            missing.append(f"{table}.{col}")
+    if missing:
+        _backup(conn, "pre-schema")
 
 
 def _backup(conn, tag: str):

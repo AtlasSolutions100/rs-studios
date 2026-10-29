@@ -542,5 +542,11 @@ def batch(bid):
             for o in conn.execute(f"SELECT * FROM outputs WHERE job_id IN ({','.join('?' * len(ids))}) ORDER BY id", ids):
                 outs.setdefault(o["job_id"], []).append(o)
         p = products.get_product(conn, g.ws["id"], b["product_id"]) if b["product_id"] else None
+        first = conn.execute("SELECT COUNT(*) FROM batches WHERE workspace_id=? AND id<?", (g.ws["id"], bid)).fetchone()[0] == 0
+        nphotos = conn.execute("SELECT COUNT(*) FROM photos WHERE product_id=?", (b["product_id"] or 0,)).fetchone()[0]
+    previews = [j for j in jobs if json.loads(j["params_json"] or "{}").get("preview")]
+    full_price = catalog.price_credits("ugc_video", duration=json.loads(previews[0]["params_json"]).get("duration") or 8) \
+        if previews else 0
     return render_template("batch.html", b=b, jobs=jobs, outs=outs, p=p, cfg=json.loads(b["config_json"] or "{}"),
-                           at=catalog.AD_TYPE_BY_ID.get(b["ad_type"]) or {}, templates=catalog.TEMPLATE_BY_ID)
+                           at=catalog.AD_TYPE_BY_ID.get(b["ad_type"]) or {}, templates=catalog.TEMPLATE_BY_ID,
+                           first_batch=first, nphotos=nphotos, is_preview=bool(previews), full_price=full_price)

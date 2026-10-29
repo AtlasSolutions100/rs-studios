@@ -1,0 +1,107 @@
+{# The first-ad form: the only thing on Home until a workspace has made something. #}
+{% set F = first.form %}
+<form method="post" action="{{ url_for('start') }}" enctype="multipart/form-data" class="fa panel" id="fa" data-kind="{{ first.kind }}">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <p class="eyebrow" style="margin:0 0 6px">Your first ad</p>
+  <h2 class="fa-title">See your product in an ad in a few minutes</h2>
+  <p class="muted" style="margin:0 0 18px">Add its name and one clear photo. Your product is saved under Products as you go.</p>
+
+  <div class="fa-grid">
+    <div>
+      <label for="pn">Product name</label>
+      <input id="pn" type="text" name="product_name" required maxlength="80" value="{{ F.get('product_name') or brand.product }}" placeholder="e.g. Sunrise Blend">
+      <label for="bn">Brand <span class="dim">(optional, shown in your ads' copy)</span></label>
+      <input id="bn" type="text" name="brand_name" maxlength="80" value="{{ F.get('brand_name') or g.ws.brand_name or '' }}" placeholder="e.g. Sunrise Coffee Co.">
+    </div>
+    <div>
+      <label for="photo">Product photo</label>
+      <label class="drop fa-drop" for="photo" id="drop">
+        <img id="dropimg" alt="" hidden>
+        <span id="droptxt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg><b>Upload a photo</b><span class="small dim">The real product, label unedited. JPG, PNG or WebP.</span></span>
+      </label>
+      <input id="photo" class="sr" type="file" name="photo" accept="image/jpeg,image/png,image/webp">
+      {% if first.photos %}<p class="small muted" style="margin:10px 0 6px">Or use one you've added:</p>
+      <div class="photos">{% for p in first.photos %}<label class="photo"><input type="radio" name="photo_id" value="{{ p.id }}" {{ 'checked' if loop.first }}><img src="{{ url_for('photo', pid=p.id) }}" alt="{{ p.filename }}"></label>{% endfor %}</div>{% endif %}
+    </div>
+  </div>
+
+  <fieldset class="fa-kinds">
+    <legend>What to make</legend>
+    {% if first.preview.ok %}
+    <label class="fa-kind"><input type="radio" name="kind" value="preview" {{ 'checked' if first.kind == 'preview' }}>
+      <span class="thumb"><img src="{{ url_for('static', filename='site/ugc-coffee.jpg') }}" alt="" loading="lazy"><span class="chip motion">Speaks</span></span>
+      <span><b>Talking video preview <em class="tag ok">Free, once</em></b><span class="small muted">A presenter holds your product and says one line. {{ first.seconds }} seconds, 480p, with a PREVIEW watermark, so you can see it before you pay.</span></span></label>
+    {% endif %}
+    <label class="fa-kind"><input type="radio" name="kind" value="image" {{ 'checked' if first.kind == 'image' or not first.preview.ok }}>
+      <span class="thumb"><img src="{{ url_for('static', filename='previews/ad_image.jpg') }}" alt="" loading="lazy"></span>
+      <span><b>Image ad <em class="tag">{{ first.price }} credits</em></b><span class="small muted">A finished ad image with a headline, from a template. You have {{ '{:,}'.format(balance()) }} credits.</span></span></label>
+  </fieldset>
+
+  {% if first.preview.ok %}
+  <div class="fa-opt" data-for="preview">
+    <label for="line">What they say <span class="dim">(about {{ first.max_words - 4 }} words; checked against the rules)</span></label>
+    <input id="line" type="text" name="line" maxlength="200" value="{{ first.line }}" data-default="{{ first.default_line }}" placeholder="{{ first.default_line|replace('{product}', 'your product') }}">
+    <p class="small muted" data-words style="margin:6px 0 0"></p>
+    <label style="margin-top:14px">Presenter <span class="dim">(AI, never a real person)</span></label>
+    <div class="fa-pres" role="radiogroup" aria-label="Presenter">
+      {% for p in first.presenters %}<label class="choice"><input type="radio" name="presenter" value="{{ p.id }}" {{ 'checked' if (F.get('presenter') or first.presenters[0].id) == p.id }}>{{ p.name }} <span class="cf-chipp">{{ p.vibe }}</span></label>{% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  <div class="fa-opt" data-for="image">
+    <label>Template</label>
+    <div class="fr-tpls">
+      {% for t in first.tpls %}
+      <label class="fr-tpl">
+        <input type="radio" name="template" value="{{ t.id }}" {{ 'checked' if t.id == first.pick }} data-brief="{{ t.brief }}">
+        <div class="thumb"><img src="{{ url_for('static', filename='previews/' ~ t.preview ~ '.jpg') }}" alt="" loading="lazy"></div>
+        <div class="t">{{ t.name }}</div><div class="s">{{ t.line }}</div>
+      </label>
+      {% endfor %}
+    </div>
+    <details class="fa-more"><summary>Edit the brief</summary>
+      <label for="brief" class="sr">Brief</label><textarea id="brief" name="brief">{{ F.get('brief') or '' }}</textarea>
+      <label for="aud">Who it's for <span class="dim">(optional)</span></label>
+      <input id="aud" type="text" name="audience" maxlength="200" value="{{ F.get('audience') or brand.audience }}" placeholder="e.g. Busy parents who love their morning coffee">
+    </details>
+  </div>
+
+  <div class="fa-go">
+    <button class="btn lg" data-go>{{ 'Make my free preview' if first.kind == 'preview' and first.preview.ok else 'Make my first ad · ' ~ first.price ~ ' credits' }}</button>
+    <span class="small muted" data-go-note>{{ 'Free. Nothing is charged.' if first.kind == 'preview' and first.preview.ok else 'Failed generations are refunded automatically.' }}</span>
+  </div>
+  <p class="small muted" style="margin:16px 0 0">No income, health or results claims; AI presenters never speak as customers.{% if assistant_on() %} Prefer a guided chat? <a href="{{ url_for('assistant.page') }}">Open the setup guide</a>.{% endif %}</p>
+</form>
+<script>
+(function(){
+  var form = document.getElementById('fa'); if(!form) return;
+  var brief = document.getElementById('brief'), pn = document.getElementById('pn'), bn = document.getElementById('bn'), line = document.getElementById('line');
+  var price = {{ first.price|tojson }}, max = {{ first.max_words|tojson }};
+  var edited = brief.value.trim() !== '';
+  brief.addEventListener('input', function(){ edited = true; });
+  function name(){ return pn.value.trim(); }
+  function fill(){
+    if(!edited){ var t = form.querySelector('input[name=template]:checked');
+      if(t) brief.value = t.dataset.brief.replace(/\b([Tt]he|[Yy]our) \{product\}/g, function(m, w){ return w + ' ' + (name() || 'product'); }).split('{product}').join(name() || 'your product').split('{brand}').join(bn.value.trim()); }
+    if(line){ var said = line.value.trim() || line.dataset.default.split('{product}').join(name() || 'your product');
+      line.placeholder = line.dataset.default.split('{product}').join(name() || 'your product');
+      var n = said.split(/\s+/).filter(Boolean).length, w = form.querySelector('[data-words]');
+      w.textContent = (line.value.trim() ? '' : 'Leave it empty to use the line above. ') + n + ' words' + (n > max ? ': too long for ' + {{ first.seconds|tojson }} + ' seconds.' : '.');
+      w.classList.toggle('warnc', n > max); }
+  }
+  function kind(){
+    var k = (form.querySelector('input[name=kind]:checked') || {}).value || 'image';
+    form.dataset.kind = k;
+    form.querySelectorAll('.fa-opt').forEach(function(o){ o.hidden = o.dataset.for !== k; });
+    form.querySelector('[data-go]').textContent = k === 'preview' ? 'Make my free preview' : 'Make my first ad · ' + price + ' credits';
+    form.querySelector('[data-go-note]').textContent = k === 'preview' ? 'Free. Nothing is charged.' : 'Failed generations are refunded automatically.';
+  }
+  form.addEventListener('change', function(e){ if(e.target.name === 'kind') kind(); if(e.target.name === 'template'){ edited = false; fill(); } });
+  pn.addEventListener('input', fill); bn.addEventListener('input', fill); if(line) line.addEventListener('input', fill);
+  var f = document.getElementById('photo'), img = document.getElementById('dropimg'), txt = document.getElementById('droptxt');
+  f.addEventListener('change', function(){ if(!f.files[0]) return; img.src = URL.createObjectURL(f.files[0]); img.hidden = false; txt.hidden = true;
+    form.querySelectorAll('input[name=photo_id]').forEach(function(r){ r.checked = false; }); });
+  form.addEventListener('submit', function(){ var b = form.querySelector('[data-go]'); setTimeout(function(){ b.disabled = true; b.textContent = 'Starting…'; }, 0); });
+  kind(); fill();
+})();
+</script>

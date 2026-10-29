@@ -162,7 +162,7 @@ with db.connect() as conn:
     check(r.status_code == 400 and not conn.execute("SELECT 1 FROM users WHERE email='bot@example.com'").fetchone(),
           "honeypot stops bots")
 r = x.post("/signup", data={"csrf": csrf(x), "email": "stranger@example.com", "password": "longpassword", "name": "Sam"})
-check(r.status_code == 302 and r.headers["Location"].endswith("/app/start"), "anyone can sign up; lands on the first-ad flow")
+check(r.status_code == 302 and r.headers["Location"].endswith("/app"), "anyone can sign up; lands on Home (the first-ad form)")
 with db.connect() as conn:
     su = conn.execute("SELECT * FROM users WHERE email='stranger@example.com'").fetchone()
     sws = conn.execute("SELECT * FROM workspaces WHERE id=?", (su["workspace_id"],)).fetchone()
@@ -172,7 +172,9 @@ check(sws["credits"] == STARTER and len(sled) == 1 and sled[0]["reason"] == "sta
       "new workspace gets the starter credits")
 r = x.get("/")
 check(r.status_code == 302 and r.headers["Location"].endswith("/app"), "logged in: / goes to the studio")
-check(x.get("/app").status_code == 200 and b"Make your first ad" in x.get("/app").data, "studio points new accounts at the first ad")
+check(x.get("/app").status_code == 200 and b"See your product in an ad" in x.get("/app").data
+      and b"Start a new ad" not in x.get("/app").data and b'name="name"' not in x.get("/signup").data,
+      "Home is just the first-ad form for a new account; signup has no name field")
 r = x.post("/signup", data={"csrf": csrf(x), "email": "stranger@example.com", "password": "longpassword"})
 check(r.status_code == 302, "signup while logged in just goes to the studio")
 rl = client(ip="10.9.9.9")
@@ -305,7 +307,9 @@ print("== guided first ad")
 n = client()
 n.post("/signup", data={"csrf": csrf(n), "email": "rep@example.com", "password": "longpassword", "name": "Riley"})
 r = n.get("/app/start")
-check(r.status_code == 200 and b"Product hero" in r.data and b"Make my first ad" in r.data, "first-ad flow renders")
+check(r.status_code == 302 and r.headers["Location"].endswith("/app"), "the old first-ad URL opens Home")
+r = n.get("/app")
+check(r.status_code == 200 and b"Product hero" in r.data and b"Make my first ad" in r.data, "first-ad form renders on Home")
 r = n.post("/app/start", data={"csrf": csrf(n), "product_name": "GlowSerum", "template": "hero",
                                "brief": "Make $500 a week with GlowSerum", "photo": (png(), "serum.png")},
            content_type="multipart/form-data")
@@ -317,7 +321,10 @@ check(r.status_code == 400 and "income" in r.get_data(as_text=True) and njobs ==
 r = n.post("/app/start", data={"csrf": csrf(n), "product_name": "GlowSerum", "brand_name": "Glow Co", "template": "hero",
                                "brief": "", "audience": "Women 30-50", "photo": (png(), "serum.png")},
            content_type="multipart/form-data")
-check(r.status_code == 302 and "/app/library" in r.headers["Location"], "first ad queued from one form")
+check(r.status_code == 302 and "/app/create/batch/" in r.headers["Location"], "first ad queued from one form; opens its batch")
+html = n.get(r.headers["Location"]).get_data(as_text=True)
+check("While it renders" in html and "Write the caption" in html and "landing page" in html,
+      "the first batch shows what to do while it renders")
 with db.connect() as conn:
     nws = conn.execute("SELECT * FROM workspaces WHERE id=?", (nws["id"],)).fetchone()
     nj = conn.execute("SELECT * FROM jobs WHERE workspace_id=?", (nws["id"],)).fetchone()
@@ -331,7 +338,97 @@ worker.tick()
 model, inputs = calls["submit"][-1]
 check(model == "higgsfield/ads-studio/v1.0" and "GlowSerum" in inputs["prompt"] and inputs["aspect_ratio"] == "4:5",
       "first ad submitted with the template's shape")
-check(b"Make your first ad" not in n.get("/app").data, "first-ad prompt goes away after the first ad")
+check(b"See your product in an ad" not in n.get("/app").data, "first-ad form goes away after the first ad")
+
+print("== free talking-video preview (phase 2, D2)")
+import shutil as _sh  # noqa: E402
+import subprocess  # noqa: E402
+import preview  # noqa: E402
+pv = client()
+pv.post("/signup", data={"csrf": csrf(pv), "email": "Pat.Preview+ads@gmail.com", "password": "longpassword"})
+home = pv.get("/app").get_data(as_text=True)
+check('value="preview"' in home and "Free, once" in home and "More on paid plans" in home and "Needs" not in home,
+      "a new free account is offered the free preview; locked nav items fold into one row")
+r = pv.post("/app/start", data={"csrf": csrf(pv), "kind": "preview", "product_name": "Glow Drops", "line": "I lost 10 pounds with this",
+                                "presenter": "jordan", "photo": (png(), "drops.png")}, content_type="multipart/form-data")
+check(r.status_code == 400 and "weight" in r.get_data(as_text=True).lower(), "the preview line is checked against the rules")
+r = pv.post("/app/start", data={"csrf": csrf(pv), "kind": "preview", "product_name": "Glow Drops",
+                                "line": " ".join(["word"] * 30), "photo": (png(), "drops.png")}, content_type="multipart/form-data")
+check(r.status_code == 400 and "8-second" in r.get_data(as_text=True), "a line too long for 8 seconds is refused")
+r = pv.post("/app/start", data={"csrf": csrf(pv), "kind": "preview", "product_name": "Glow Drops", "brand_name": "Glow Co",
+                                "line": "", "presenter": "jordan", "photo": (png(), "drops.png")}, content_type="multipart/form-data")
+check(r.status_code == 302 and "/app/create/batch/" in r.headers["Location"], "the preview starts and opens its batch page")
+with db.connect() as conn:
+    pws = conn.execute("SELECT w.* FROM workspaces w JOIN users u ON u.workspace_id=w.id WHERE u.email='pat.preview+ads@gmail.com'").fetchone()
+    pj = conn.execute("SELECT * FROM jobs WHERE workspace_id=?", (pws["id"],)).fetchone()
+    fp = conn.execute("SELECT * FROM free_previews WHERE workspace_id=?", (pws["id"],)).fetchone()
+    pled = conn.execute("SELECT * FROM ledger WHERE job_id=?", (pj["id"],)).fetchall()
+pparams = json.loads(pj["params_json"])
+check(pj["tool"] == "ugc_video" and pj["credits"] == 0 and abs(pj["cost_usd"] - 8 * 0.2056) < 0.001
+      and pparams["resolution"] == "480p" and pparams["preview"] and pparams["duration"] == 8 and pparams["presenter"] == "jordan"
+      and pj["brief"].startswith("Meet Glow Drops.") and pws["credits"] == STARTER,
+      "free preview: 8 s talking video at 480p, the default line, nothing charged (starter credits kept)")
+check(fp and fp["email_norm"] == "patpreview@gmail.com" and fp["job_id"] == pj["id"] and len(pled) == 1 and pled[0]["delta"] == 0
+      and "preview" in pled[0]["reason"], "the preview is recorded against the workspace and the normalised email")
+html = pv.get(r.headers["Location"]).get_data(as_text=True)
+check("This is your free preview" in html and "Make it for real" in html and "While it renders" in html,
+      "the batch page explains the preview and offers the real thing")
+r = pv.post("/app/start", data={"csrf": csrf(pv), "kind": "preview", "product_name": "Glow Drops", "photo": (png(), "d.png")},
+            content_type="multipart/form-data")
+with db.connect() as conn:
+    nprev = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (pws["id"],)).fetchone()[0]
+check(r.status_code == 400 and nprev == 1, "one preview per workspace")
+pv2 = client()
+pv2.post("/signup", data={"csrf": csrf(pv2), "email": "patpreview@googlemail.com", "password": "longpassword"})
+check('value="preview"' not in pv2.get("/app").get_data(as_text=True), "and one per email: a dotted/aliased Gmail doesn't get another")
+# the worker renders it at 480p and only keeps a watermarked copy
+_est, hf.estimate = hf.estimate, (lambda m, i: 1.6448)
+worker.tick()
+model, inputs = calls["submit"][-1]
+check(model == "bytedance/seedance-2.5/reference-to-video" and inputs["resolution"] == "480p" and inputs["duration"] == 8,
+      "the preview is sent at 480p")
+if _sh.which("ffmpeg"):
+    vid = os.path.join(TMP, "pv.mp4")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=480x854:rate=24:duration=1",
+                    "-pix_fmt", "yuv420p", vid], check=True)
+    _get = worker.requests.get
+
+    class VidResp(FakeResp):
+        content = open(vid, "rb").read()
+    worker.requests.get = lambda url, timeout=0: VidResp()
+    results[f"req{len(calls['submit'])}"] = {"status": "completed", "video": {"url": "https://cdn.example/raw.mp4"}}
+    worker.tick()
+    worker.requests.get = _get
+    with db.connect() as conn:
+        pj = conn.execute("SELECT * FROM jobs WHERE id=?", (pj["id"],)).fetchone()
+        po = conn.execute("SELECT * FROM outputs WHERE job_id=?", (pj["id"],)).fetchone()
+    check(pj["status"] == "done" and po["url"] == "" and os.path.exists(po["path"]) and os.path.getsize(po["path"]) != len(VidResp.content),
+          "the finished preview is stored watermarked and the vendor's copy is never linked")
+    check(pv.get(f"/media/{po['id']}").status_code == 200, "the watermarked preview plays")
+hf.estimate = _est
+# a failure on our side lets them try again
+with db.connect() as conn:
+    conn.execute("UPDATE free_previews SET job_id=NULL, tries=1 WHERE workspace_id=?", (pws["id"],))
+    conn.execute("UPDATE jobs SET workspace_id=-1 WHERE workspace_id=?", (pws["id"],))
+    conn.commit()
+    fake_job = {"id": 999999, "credits": 0, "workspace_id": pws["id"], "params_json": json.dumps({"preview": True})}
+    check(preview.status(conn, pws, "pat.preview+ads@gmail.com")["ok"], "after a failure the preview can be tried again")
+    conn.execute("UPDATE free_previews SET tries=3 WHERE workspace_id=?", (pws["id"],))
+    conn.commit()
+    check(not preview.status(conn, pws, "pat.preview+ads@gmail.com")["ok"], "but not forever (3 tries)")
+    os.environ["RS_FREE_PREVIEWS_PER_DAY"] = "0"
+    conn.execute("UPDATE free_previews SET tries=0 WHERE workspace_id=?", (pws["id"],))
+    check(preview.status(conn, pws, "x@example.com")["why"] == "busy", "a daily cap across all accounts")
+    os.environ.pop("RS_FREE_PREVIEWS_PER_DAY")
+    paid = dict(conn.execute("SELECT * FROM workspaces WHERE id=?", (ws1["id"],)).fetchone(), plan_override="scale")
+    check(preview.status(conn, paid, "nobody@example.com")["why"] == "paid", "paid plans don't get the free preview")
+    conn.execute("UPDATE jobs SET workspace_id=? WHERE workspace_id=-1", (pws["id"],))
+    conn.commit()
+check(preview.norm_email("A.B+x@GoogleMail.com") == "ab@gmail.com" and preview.norm_email("a.b+x@work.io") == "a.b@work.io",
+      "email normalisation (Gmail dots, +tags)")
+html = pv.get("/app").get_data(as_text=True)
+check("More on paid plans" not in html and "Needs" in html, "after the first ad the nav expands; unaffordable types say what they need")
+
 r = n.post("/app/brand", data={"csrf": csrf(n), "brand_name": "Glow Co", "product_name": "GlowSerum",
                                "claims": "Be your own boss with GlowSerum", "audience": ""})
 with db.connect() as conn:
@@ -1405,12 +1502,12 @@ STRIPE_GET.clear()
 print("== pages")
 a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": ws1["id"], "plan": "scale"})
 for path in ("/app", "/app/library", "/app/brand", "/admin", "/app/new?tool=motion_copy", "/app/new?template=cost",
-             "/app/start", "/app/billing", "/app/new?template=hero", "/app/team", "/app/copy", "/app/optimize",
+             "/app/billing", "/app/new?template=hero", "/app/team", "/app/copy", "/app/optimize",
              "/app/copy?kind=landing&platform=landing", "/app/campaigns", "/app/seo", "/app/ad-accounts",
              "/app/ad-accounts/youtube", "/app/pages", "/app/links", "/app/forms", "/app/contacts", "/app/community"):
     check(a.get(path).status_code == 200, f"{path} renders")
 check(a.get("/health").get_json()["generation_configured"], "health reports configured")
-for path in ("/app", "/app/start", "/app/billing", "/", "/features"):
+for path in ("/app", "/app?preview=1", "/app/billing", "/", "/features"):
     html = (a if path != "/" else client()).get(path).get_data(as_text=True)
     check(not re.search(r"higgsfield", html, re.I), f"vendor never named in the UI ({path})")
 

@@ -63,14 +63,23 @@
     </button>
     {% endif %}
     <nav class="navs" aria-label="Main">
-    {% for title, items in GROUPS %}
-      {% set ns = namespace(on=false) %}{% for it in items %}{% if request.endpoint in it[4] %}{% set ns.on = true %}{% endif %}{% endfor %}
-      {% if title %}<details class="navgrp" data-navgrp="{{ title }}" {{ 'open' if ns.on or title == 'Grow' }}><summary>{{ title }}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>{% endif %}
-      {% for ep, label, icon, feat, eps in items %}{% if has_endpoint is not defined or has_endpoint(ep) %}
+    {% set fold = nav_collapse_locked is defined and nav_collapse_locked %}
+    {% set locked = namespace(items=[]) %}
+    {% macro navlink(ep, label, icon, feat, eps) -%}
       <a class="nav {{ 'on' if request.endpoint in eps }}" href="{{ url_for(ep) }}" {{ 'aria-current=page' if request.endpoint in eps }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ICONS[icon]|safe }}</svg><span>{{ label }}</span>{% if feat and not has_feature(feat) %}<em class="lock" title="Included in {{ plans.required(feat).name }}">{{ plans.required(feat).name }}</em>{% endif %}</a>
-      {% endif %}{% endfor %}
+    {%- endmacro %}
+    {% for title, items in GROUPS %}
+      {% set shown = [] %}{% for it in items %}{% if (has_endpoint is not defined or has_endpoint(it[0])) %}{% if fold and it[3] and not has_feature(it[3]) and request.endpoint not in it[4] %}{% set _ = locked.items.append(it) %}{% else %}{% set _ = shown.append(it) %}{% endif %}{% endif %}{% endfor %}
+      {% if shown %}
+      {% set ns = namespace(on=false) %}{% for it in shown %}{% if request.endpoint in it[4] %}{% set ns.on = true %}{% endif %}{% endfor %}
+      {% if title %}<details class="navgrp" data-navgrp="{{ title }}" {{ 'open' if ns.on or title in ('Grow', 'Settings') }}><summary>{{ title }}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>{% endif %}
+      {% for ep, label, icon, feat, eps in shown %}{{ navlink(ep, label, icon, feat, eps) }}{% endfor %}
       {% if title %}</details>{% endif %}
+      {% endif %}
     {% endfor %}
+    {% if locked.items %}<details class="navgrp navmore" data-navgrp="more"><summary>More on paid plans<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+      {% for ep, label, icon, feat, eps in locked.items %}{{ navlink(ep, label, icon, feat, eps) }}{% endfor %}
+    </details>{% endif %}
     {% if g.user.is_admin %}<a class="nav {{ 'on' if request.endpoint=='admin' }}" href="{{ url_for('admin') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">{{ ICONS['admin']|safe }}</svg><span>Admin</span></a>{% endif %}
     </nav>
     <div class="grow"></div>
