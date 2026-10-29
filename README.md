@@ -188,6 +188,10 @@ Crowdcut's Caddy serves campaignify.ai (studio.rectorandstull.com redirects ther
 - `worker.py` submits, polls, saves results, refunds failures
 - `hf.py` the generation API client (the only file that knows the vendor)
 
+Some prompts and templates (email and landing-page guidance, the planner's offer and lead-magnet checks, starter
+flows, the setup guide's activation steps) are condensed from MIT-licensed marketing playbooks; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 ## Brand
 
 Name Campaignify, tagline "Create your own creatives". Logo: the lowercase wordmark with a lime spark over the i and a play cut into the g, traced to SVG (`web/_wordmark.svg` inherits the text colour; `static/img/campaignify-wordmark-light.svg` is white for dark backgrounds, `-dark.svg` is black for light ones). App icon and favicon: the lime spark on a black tile (`static/img/campaignify-mark.svg`, `campaignify-icon-*.png`). Accent lime #BDFA25 (#3F6B00 for green text on light backgrounds). Dark theme by default, light theme from the system setting or the Theme button (remembered per browser). All colours are `:root` variables in `static/style.css`. Env vars, the repo, the container and `/opt/rs-studios` keep their old names on purpose: renaming them would break the running deploy.

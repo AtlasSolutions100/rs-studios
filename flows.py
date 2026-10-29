@@ -556,6 +556,55 @@ TEMPLATES = [
 TEMPLATE_BY_ID = {t["id"]: t for t in TEMPLATES}
 
 
+# ---------------------------------------------------------------- Campaignify's own onboarding (draft)
+# The emails Campaignify itself sends new accounts, as a flow for the same engine. It stays a draft until sending is
+# connected (RESEND_API_KEY + RS_MAIL_DOMAIN) and the owner turns it on; the app sets the tags it tests
+# ("made-first-ad", "made-talking-video", "paid") when those things happen. One job per email, one link each.
+
+INTERNAL = {
+    "onboarding": {
+        "name": "Campaignify onboarding", "status": "draft", "from": "hello@campaignify.ai",
+        "from_name": "Campaignify", "reply_to": "hello@campaignify.ai",
+        "line": "Welcome and one first step, help on day 1 if there's no ad yet, the talking video on day 3, a check-in "
+                "on day 7 and the plans on day 14.",
+        "tree": {"trigger": {"kind": "tag_added", "tag": "signed-up"}, "steps": [
+            _e("Your first ad is one photo away", "Hi {{first_name}},\n\nThanks for trying Campaignify. The quickest "
+               "start: add one clear photo of your product and make an image ad. It takes about a minute and uses a "
+               "few of your starter credits.\n\nMake your first ad: {{link:create}}\n\nAny question, just reply."
+               "\n\nThe Campaignify team",
+               "Day 0: welcome and the single first step."),
+            _w(1),
+            {"type": "condition", "test": {"kind": "has_tag", "tag": "made-first-ad"},
+             "yes": [],
+             "no": [_e("Stuck on the first ad?", "Hi {{first_name}},\n\nYou haven't made an ad yet, so here's the "
+                       "short version. Paste your product page link and we pull in the name, photos and details. Then "
+                       "pick a template and press Make it.\n\nStart here: {{link:create}}\n\nIf something got in "
+                       "the way, reply and tell us what it was.\n\nThe Campaignify team",
+                       "Day 1: help only for people who haven't made an ad.")]},
+            _w(2),
+            {"type": "exit_if", "test": {"kind": "has_tag", "tag": "made-talking-video"}},
+            _e("Let a presenter talk about your product", "Hi {{first_name}},\n\nImage ads are a good start. The "
+               "format people stop scrolling for is a short talking video: an AI presenter holds your product and "
+               "says your script in about ten seconds.\n\nYour account includes one free preview so you can see "
+               "it with your own product first: {{link:create}}\n\nThe Campaignify team",
+               "Day 3: the feature most worth seeing (the free talking-video preview)."),
+            _w(4),
+            _e("How is it going?", "Hi {{first_name}},\n\nYou've had Campaignify for a week. What's the one thing "
+               "you wish it did better? Reply with a sentence.\n\nIf "
+               "you'd like ideas for what to make next, the campaign planner turns one product into a set of angles, "
+               "scripts and copy: {{link:plan}}\n\nThe Campaignify team", "Day 7: check in and ask for feedback."),
+            _w(7),
+            {"type": "exit_if", "test": {"kind": "has_tag", "tag": "paid"}},
+            _e("When the starter credits run out", "Hi {{first_name}},\n\nA quick note on what happens next. "
+               "Starter credits cover a few ads. Plans add monthly credits plus the tools for running campaigns: "
+               "landing pages, forms, follow-up flows and more brands.\n\nSee the plans and what each one makes "
+               "in a month: {{link:pricing}}\n\nNo pressure; the free account stays free.\n\nThe Campaignify team",
+               "Day 14: the plans, once, with no deadline."),
+        ]},
+    },
+}
+
+
 def from_template(tid: str) -> dict:
     """A fresh copy of a template's tree with new ids, "clicked" tests pointing at the email just before them."""
     t = TEMPLATE_BY_ID[tid]

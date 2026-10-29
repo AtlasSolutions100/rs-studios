@@ -57,6 +57,29 @@ KINDS = {
     "landing": {"name": "Landing page copy", "blurb": "Headline, subheadline, benefits, FAQ and call to action."},
 }
 
+# The Copy studio's sub-choice for emails. `words` is the body length the writer aims for; `goal` and `tone` are the
+# form's defaults when the type is picked (the member can change them).
+EMAIL_TYPES = {
+    "welcome": {"name": "Welcome", "words": (80, 150), "goal": "engagement", "tone": "Friendly",
+                "hint": "Sent right after someone signs up or buys. Thank them, say what happens next and give one "
+                        "small first step they can take today."},
+    "nurture": {"name": "Nurture", "words": (150, 300), "goal": "sales", "tone": "Expert",
+                "hint": "Part of a series for people who aren't ready to buy. One useful idea per email (a tip, a "
+                        "common mistake, how the product fits into a normal day); the product comes in as the "
+                        "natural next step, not a hard sell."},
+    "launch": {"name": "Launch or news", "words": (100, 200), "goal": "sales", "tone": "Bold",
+               "hint": "Something new: a product, a restock, a new flavour or an event. Say what it is, who it's "
+                       "for and when, then one link."},
+    "reengage": {"name": "Re-engagement", "words": (60, 120), "goal": "engagement", "tone": "Straight-talking",
+                 "hint": "For people who have gone quiet. An honest check-in, one reason to take another look, and "
+                         "an easy way to either stay or stop hearing from you."},
+    "transactional": {"name": "Order update", "words": (50, 125), "goal": "engagement", "tone": "Calm and premium",
+                      "hint": "Order confirmations, shipping notes and receipts. The facts come first and are easy to "
+                              "scan; at most one light line about anything else."},
+}
+EMAIL_TYPE_DEFAULT = "nurture"
+KINDS["email"]["types"] = EMAIL_TYPES
+
 
 def fields_for(kind: str, platform: str) -> list[tuple]:
     """[(field name, recommended chars or None, hard limit or None)] for one variant."""

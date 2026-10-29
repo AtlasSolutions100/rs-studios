@@ -25,6 +25,7 @@
   <section class="camp-sec">
     <h2>The plan</h2>
     <p class="lede">{{ final.summary }}</p>
+    {% if final.offer %}<div class="panel offerbox"><h3>The offer</h3><p>{{ final.offer }}</p></div>{% endif %}
     <div class="grid2">
       {% if final.budget_split %}<div class="panel"><h3>Budget split for the first test</h3>
         {% for b in final.budget_split %}<div class="bar"><div class="bar-h"><span>{{ PLATFORMS[b.platform].name if b.platform in PLATFORMS else b.platform }}</span><b>{{ b.share_percent }}%</b></div><i style="--v:{{ b.share_percent }}%"></i>{% if b.note %}<p class="small muted">{{ b.note }}</p>{% endif %}</div>{% endfor %}

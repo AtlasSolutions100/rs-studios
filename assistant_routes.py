@@ -68,6 +68,8 @@ def _payload(conn, data, extra=None):
     out = {"progress": [{"step": s, "done": st["done"][s]} for s in assistant.STEPS + assistant.OPTIONAL],
            "next": st["next"], "free_left": _free_left(conn), "per_reply": assistant.estimate(),
            "paid_ok": bool(data.get("paid_ok")), "balance": db.balance(ws), "ai_on": llm.anthropic_ready()}
+    if st.get("nudge"):
+        out["nudge"] = dict(st["nudge"], url=url_for(assistant.LINKS[st["nudge"]["target"]]))
     out.update(extra or {})
     return out
 

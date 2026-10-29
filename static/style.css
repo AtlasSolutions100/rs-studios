@@ -1139,3 +1139,7 @@ input[type=datetime-local],input[type=time],input[type=tel],input[type=url],inpu
 .fl-fun .bar i{display:block;height:100%;background:var(--accent)}
 .fl-ab{display:flex;flex-direction:column;gap:4px;padding:12px;border:1px solid var(--line);border-radius:12px}
 @media (max-width:760px){.fl-fun{grid-template-columns:1fr 60px 40px}.fl-fun .bar{grid-column:1/-1;order:3}}
+.etypes{border:0;padding:0;margin:14px 0 0}
+.etypes legend{font-weight:600;margin:0 0 8px;padding:0;font-size:14px}
+.offerbox{margin:0 0 16px}.offerbox h3{margin:0 0 6px}.offerbox p{margin:0}
+.acard.bare.asst-nudge{display:flex;flex-direction:column;gap:8px;align-items:flex-start;border-left:3px solid var(--accent);padding-left:10px}
