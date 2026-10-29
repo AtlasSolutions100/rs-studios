@@ -14,48 +14,101 @@
 </head>
 <body>
 {% block shell %}
-<div class="shell">
-  <aside class="side">
-    <a class="logo" href="{{ url_for('studio') }}" aria-label="Campaignify home">{% include "_wordmark.svg" %}<span>Create your own creatives</span></a>
-    {% set ICONS = {
-      'create': '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/>',
-      'library': '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M10 9l5 3-5 3z" fill="currentColor"/>',
-      'brand': '<path d="M12 3a9 9 0 100 18c1 0 1.5-.8 1.5-1.6 0-1-.8-1.4-.8-2.4 0-1 .8-1.6 1.8-1.6H17a4 4 0 004-4c0-4.4-4-8.4-9-8.4z"/><circle cx="7.5" cy="11" r="1.2" fill="currentColor"/><circle cx="10.5" cy="7" r="1.2" fill="currentColor"/><circle cx="15" cy="7.5" r="1.2" fill="currentColor"/>',
-      'team': '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 010 6.8M18.5 14.8c1.7.8 2.7 2.5 3 5.2"/>',
-      'billing': '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18M7 15h4"/>',
-      'admin': '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
-      'planner': '<path d="M4 19V5M4 19h16"/><path d="M8 15l3-4 3 2 5-6"/><circle cx="19" cy="7" r="1.2" fill="currentColor"/>',
-      'copy': '<path d="M5 5h14M5 10h14M5 15h9M5 20h6"/>',
-      'seo': '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8M8 10.5h5M10.5 8v5"/>',
-      'adhub': '<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 14v7M14 17.5h7"/>',
-      'pages': '<rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 8h8M8 12h8M8 16h5"/>',
-      'links': '<path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/>',
-      'contacts': '<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 17c.5-2 1.8-3 3.5-3s3 1 3.5 3M15 9h3M15 13h3"/>',
-      'community': '<path d="M4 5h16v10H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
-    } %}
-    {% set NAV = nav_items if nav_items is defined else [
-      ('studio', 'Create', 'create', None, ('studio','new','start')),
-      ('library', 'Library', 'library', None, ('library',)),
-      ('brand_kit', 'Brand kit', 'brand', None, ('brand_kit',)),
-      ('team', 'Team', 'team', None, ('team',)),
-      ('billing_page', 'Billing', 'billing', None, ('billing_page',)),
-    ] %}
-    {% for ep, label, icon, feat, eps in NAV %}
-    <a class="nav {{ 'on' if request.endpoint in eps }}" href="{{ url_for(ep) }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ICONS[icon]|safe }}</svg><span>{{ label }}</span>{% if feat and not has_feature(feat) %}<em class="lock" title="Included in {{ plans.required(feat).name }}">{{ plans.required(feat).name }}</em>{% endif %}</a>
+{% set ICONS = {
+  'create': '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/>',
+  'library': '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M10 9l5 3-5 3z" fill="currentColor"/>',
+  'brand': '<path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.4" fill="currentColor"/>',
+  'team': '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 010 6.8M18.5 14.8c1.7.8 2.7 2.5 3 5.2"/>',
+  'billing': '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18M7 15h4"/>',
+  'admin': '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+  'planner': '<path d="M4 19V5M4 19h16"/><path d="M8 15l3-4 3 2 5-6"/><circle cx="19" cy="7" r="1.2" fill="currentColor"/>',
+  'copy': '<path d="M5 5h14M5 10h14M5 15h9M5 20h6"/>',
+  'seo': '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.8-4.8M8 10.5h5M10.5 8v5"/>',
+  'adhub': '<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><path d="M17.5 14v7M14 17.5h7"/>',
+  'pages': '<rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+  'links': '<path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/>',
+  'forms': '<rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 8h3M8 13h3M14 8h2M14 13h2M8 17h8"/>',
+  'contacts': '<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 17c.5-2 1.8-3 3.5-3s3 1 3.5 3M15 9h3M15 13h3"/>',
+  'community': '<path d="M4 5h16v10H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
+} %}
+{% set GROUPS = nav_groups if nav_groups is defined else [(None, [
+  ('studio', 'Create', 'create', None, ('studio','new','start')),
+  ('library', 'Library', 'library', None, ('library',)),
+  ('brand_kit', 'Products', 'brand', None, ('brand_kit',)),
+  ('team', 'Team', 'team', None, ('team',)),
+  ('billing_page', 'Billing', 'billing', None, ('billing_page',)),
+])] %}
+{% set ap = active_product if active_product is defined else None %}
+{% set ab = active_brand if active_brand is defined else None %}
+{% macro thumb(p, cls='sw-thumb') -%}
+{% if p and p.primary_photo_id %}<img class="{{ cls }}" src="{{ url_for('photo', pid=p.primary_photo_id) }}" alt="">{% else %}<span class="{{ cls }} sw-initial" aria-hidden="true">{{ ((p.name if p else '') or '+')[:1]|upper }}</span>{% endif %}
+{%- endmacro %}
+<div class="shell" id="shell">
+  <header class="mtop">
+    <button type="button" class="mtop-btn" data-nav-open aria-label="Open menu" aria-controls="side" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <a class="mtop-logo" href="{{ url_for('studio') }}" aria-label="Campaignify home">{% include "_wordmark.svg" %}</a>
+    {% if switcher is defined %}<button type="button" class="sw-btn compact" data-sw-open aria-haspopup="dialog" aria-controls="sw-panel" aria-label="Switch product">{{ thumb(ap) }}<span class="sw-txt"><b>{{ ap.name if ap else 'Add a product' }}</b></span><svg class="sw-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M7 10l5 5 5-5"/></svg></button>{% endif %}
+  </header>
+  <aside class="side" id="side">
+    <div class="side-top">
+      <a class="logo" href="{{ url_for('studio') }}" aria-label="Campaignify home">{% include "_wordmark.svg" %}</a>
+      <button type="button" class="mtop-btn side-close" data-nav-close aria-label="Close menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    {% if switcher is defined %}
+    <button type="button" class="sw-btn" data-sw-open aria-haspopup="dialog" aria-controls="sw-panel" title="Switch brand or product (Ctrl K)">
+      {{ thumb(ap) }}<span class="sw-txt"><span class="sw-brand">{{ (ab.brand_name if ab else '') or 'Your brand' }}</span><b>{{ ap.name if ap else 'Add a product' }}</b></span>
+      <svg class="sw-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg>
+    </button>
+    {% endif %}
+    <nav class="navs" aria-label="Main">
+    {% for title, items in GROUPS %}
+      {% set ns = namespace(on=false) %}{% for it in items %}{% if request.endpoint in it[4] %}{% set ns.on = true %}{% endif %}{% endfor %}
+      {% if title %}<details class="navgrp" data-navgrp="{{ title }}" {{ 'open' if ns.on or title == 'Grow' }}><summary>{{ title }}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>{% endif %}
+      {% for ep, label, icon, feat, eps in items %}{% if has_endpoint is not defined or has_endpoint(ep) %}
+      <a class="nav {{ 'on' if request.endpoint in eps }}" href="{{ url_for(ep) }}" {{ 'aria-current=page' if request.endpoint in eps }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ICONS[icon]|safe }}</svg><span>{{ label }}</span>{% if feat and not has_feature(feat) %}<em class="lock" title="Included in {{ plans.required(feat).name }}">{{ plans.required(feat).name }}</em>{% endif %}</a>
+      {% endif %}{% endfor %}
+      {% if title %}</details>{% endif %}
     {% endfor %}
     {% if g.user.is_admin %}<a class="nav {{ 'on' if request.endpoint=='admin' }}" href="{{ url_for('admin') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">{{ ICONS['admin']|safe }}</svg><span>Admin</span></a>{% endif %}
+    </nav>
     <div class="grow"></div>
+    {% block side_help %}{% if has_endpoint is defined and has_endpoint('assistant.page') %}<button type="button" class="helpbtn" data-help-open><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.6 4.8L18.5 9l-4.9 1.4L12 15l-1.6-4.6L5.5 9l4.9-1.2z"/><path d="M18 15l.7 1.9 1.8.6-1.8.7L18 20l-.7-1.8-1.8-.7 1.8-.6z"/></svg>Help me<kbd>?</kbd></button>{% endif %}{% endblock %}
     <a class="pill" href="{{ url_for('billing_page') }}" title="Credits left: buy more"><i></i>{{ '{:,}'.format(balance()) }} credits</a>
     <a class="planchip" href="{{ url_for('billing_page') }}">{{ plans.plan(g.ws).name }} plan{% if plans.plan_code(g.ws) == 'free' %} · <b>Upgrade</b>{% endif %}</a>
-    <form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn">Log out</button></form>
-    <button type="button" class="theme" data-theme-toggle aria-label="Switch light or dark theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg><span>Theme</span></button>
-    <div class="tag">BETTER ADS.<br>FASTER.</div>
+    <div class="side-foot">
+      <button type="button" class="theme" data-theme-toggle aria-label="Switch light or dark theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg><span>Theme</span></button>
+      <form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn">Log out</button></form>
+    </div>
   </aside>
-  <div>
-    {% for m in get_flashed_messages() %}<div class="flash" style="margin:20px 32px 0">{{ m }}</div>{% endfor %}
+  <div class="scrim" data-nav-close hidden></div>
+  <main class="main" id="main">
+    {% for m in get_flashed_messages() %}<div class="flash flash-top" role="status">{{ m }}</div>{% endfor %}
     {% block body %}{% endblock %}
-  </div>
+  </main>
 </div>
+
+{% if switcher is defined %}
+<div class="sw-panel" id="sw-panel" role="dialog" aria-modal="false" aria-label="Switch brand or product" hidden>
+  <div class="sw-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" placeholder="Find a product or brand" aria-label="Find a product or brand" data-sw-q autocomplete="off"><kbd>Esc</kbd></div>
+  <div class="sw-list" data-sw-list>
+    {% for row in switcher %}{% set b = row.brand %}
+    <div class="sw-group" data-sw-group data-q="{{ (b.brand_name or '')|lower }}">
+      <div class="sw-gh"><span>{{ b.brand_name or 'Untitled brand' }}</span>{% if row.locked %}<em class="lock">Upgrade</em>{% else %}<a href="{{ url_for('products.new', brand=b.id) }}" class="sw-add" aria-label="Add a product to {{ b.brand_name or 'this brand' }}">+ Product</a>{% endif %}</div>
+      {% for p in row.products %}
+      <form method="post" action="{{ url_for('products.switch') }}" data-sw-item data-q="{{ ((b.brand_name or '') ~ ' ' ~ p.name ~ ' ' ~ (p.tags or ''))|lower }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="product" value="{{ p.id }}"><input type="hidden" name="back" value="{{ request.full_path if request.full_path.startswith('/app') else '' }}">
+        <button class="sw-item {{ 'on' if ap and ap.id == p.id }}" {{ 'disabled' if row.locked }}>{{ thumb(p) }}<span><b>{{ p.name }}</b>{% if p.price %}<span class="dim small"> · {{ p.price }}</span>{% endif %}</span>{% if ap and ap.id == p.id %}<svg class="sw-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>{% endif %}</button>
+      </form>
+      {% else %}
+      <a class="sw-empty" href="{{ url_for('products.new', brand=b.id) }}">No products yet. Add the first one →</a>
+      {% endfor %}
+    </div>
+    {% endfor %}
+    <p class="sw-none dim small" data-sw-none hidden>Nothing matches.</p>
+  </div>
+  <div class="sw-foot"><a href="{{ url_for('brand_kit') }}">Manage products</a><form method="post" action="{{ url_for('add_brand') }}" class="sw-newbrand" data-sw-newbrand hidden><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="text" name="brand_name" maxlength="80" placeholder="New brand name" required aria-label="New brand name"><button class="btn sm">Add</button></form><button type="button" class="linkbtn" data-sw-addbrand>+ Brand</button></div>
+</div>
+{% endif %}
 {% endblock %}
 <script>
 // Template and library thumbnails: play muted previews on hover.
@@ -66,5 +119,65 @@ document.querySelectorAll('[data-hoverplay]').forEach(function(el){
 });
 </script>
 <script>document.addEventListener('click',function(e){var b=e.target.closest('[data-theme-toggle]');if(!b)return;var r=document.documentElement,cur=r.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'),next=cur==='light'?'dark':'light';r.setAttribute('data-theme',next);try{localStorage.setItem('theme',next);}catch(err){}});</script>
+<script>
+(function(){
+  var shell=document.getElementById('shell'); if(!shell) return;
+  // Mobile menu
+  var scrim=document.querySelector('.scrim'), opener=document.querySelector('[data-nav-open]');
+  function nav(open){ shell.classList.toggle('nav-open', open); if(scrim) scrim.hidden=!open; if(opener) opener.setAttribute('aria-expanded', open?'true':'false');
+    if(open){ var f=document.querySelector('#side a.nav'); if(f) f.focus(); } }
+  document.addEventListener('click', function(e){
+    if(e.target.closest('[data-nav-open]')) nav(true);
+    else if(e.target.closest('[data-nav-close]')) nav(false);
+  });
+  // Remember which nav groups are folded
+  document.querySelectorAll('[data-navgrp]').forEach(function(d){
+    try{ var k='navgrp:'+d.dataset.navgrp, v=localStorage.getItem(k); if(v && !d.querySelector('.nav.on')) d.open = v==='1';
+      d.addEventListener('toggle', function(){ localStorage.setItem(k, d.open?'1':'0'); }); }catch(e){}
+  });
+  // Brand / product switcher
+  var panel=document.getElementById('sw-panel'); if(!panel) return;
+  var q=panel.querySelector('[data-sw-q]'), last=null;
+  function items(){ return [].slice.call(panel.querySelectorAll('[data-sw-item]:not([hidden]) button:not([disabled]), .sw-gh a, .sw-empty, .sw-foot a, .sw-foot button')); }
+  function place(btn){
+    if(window.innerWidth <= 760){ panel.style.left=''; panel.style.top=''; return; }
+    var r=btn.getBoundingClientRect(); panel.style.left=Math.max(12, r.left)+'px'; panel.style.top=(r.bottom+8)+'px';
+  }
+  function open(btn){ last=btn||document.querySelector('.side [data-sw-open]'); if(last && last.offsetParent===null) last=document.querySelector('.mtop [data-sw-open]'); place(last||document.body);
+    panel.hidden=false; document.querySelectorAll('[data-sw-open]').forEach(function(b){b.setAttribute('aria-expanded','true');});
+    q.value=''; filter(); setTimeout(function(){ q.focus(); }, 0); }
+  function close(){ if(panel.hidden) return; panel.hidden=true; document.querySelectorAll('[data-sw-open]').forEach(function(b){b.setAttribute('aria-expanded','false');}); if(last) last.focus(); }
+  function filter(){
+    var t=q.value.trim().toLowerCase(), any=false;
+    panel.querySelectorAll('[data-sw-group]').forEach(function(gp){
+      var gm=!t || gp.dataset.q.indexOf(t)>-1, n=0;
+      gp.querySelectorAll('[data-sw-item]').forEach(function(it){ var m=gm || it.dataset.q.indexOf(t)>-1; it.hidden=!m; if(m) n++; });
+      var show = gm || n>0; gp.hidden=!show; if(show) any=true;
+    });
+    panel.querySelector('[data-sw-none]').hidden=any;
+  }
+  q.addEventListener('input', filter);
+  document.addEventListener('click', function(e){
+    var b=e.target.closest('[data-sw-open]');
+    if(b){ e.preventDefault(); panel.hidden ? open(b) : close(); return; }
+    if(e.target.closest('[data-sw-addbrand]')){ var f=panel.querySelector('[data-sw-newbrand]'); f.hidden=false; e.target.closest('[data-sw-addbrand]').hidden=true; f.querySelector('input[name=brand_name]').focus(); return; }
+    if(!panel.hidden && !e.target.closest('#sw-panel')) close();
+  });
+  document.addEventListener('keydown', function(e){
+    var tag=(e.target.tagName||'').toLowerCase(), typing=/input|textarea|select/.test(tag) || e.target.isContentEditable;
+    if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); panel.hidden ? open() : close(); return; }
+    if(panel.hidden) { if(e.key==='Escape') nav(false); return; }
+    if(e.key==='Escape'){ e.preventDefault(); close(); return; }
+    if(e.key==='ArrowDown' || e.key==='ArrowUp'){
+      var list=items(), i=list.indexOf(document.activeElement);
+      e.preventDefault(); if(!list.length) return;
+      i = e.key==='ArrowDown' ? (i+1)%list.length : (i<=0 ? list.length-1 : i-1); list[i].focus();
+    }
+    if(e.key==='Enter' && document.activeElement===q){ var first=items()[0]; if(first){ e.preventDefault(); first.click(); } }
+  });
+  window.addEventListener('resize', function(){ if(!panel.hidden && last) place(last); });
+})();
+</script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

@@ -5,13 +5,23 @@
   <p class="eyebrow">Library</p>
   <h1>Everything you've <span class="gold">made</span></h1>
   <p class="muted">Full-quality downloads, yours to post. Hover to play.</p>
-  {% if not jobs %}<div class="empty" style="margin-top:20px">Nothing yet. <a href="{{ url_for('studio') }}">Make your first ad</a>.</div>{% endif %}
+  <form class="filters" method="get" data-autosubmit>
+    <label class="sr" for="lf">Show</label>
+    <select id="lf" name="pick" onchange="var v=this.value.split(':');var u=new URL(location.href);u.searchParams.delete('product');u.searchParams.delete('brand');u.searchParams.delete('highlight');if(v[0])u.searchParams.set(v[0],v[1]);location.href=u.pathname+u.search;">
+      <option value="">All brands and products</option>
+      {% for row in tree %}<optgroup label="{{ row.brand.brand_name or 'Untitled brand' }}"><option value="brand:{{ row.brand.id }}" {{ 'selected' if f_brand == row.brand.id }}>All of {{ row.brand.brand_name or 'this brand' }}</option>{% for p in row.products %}<option value="product:{{ p.id }}" {{ 'selected' if f_product == p.id }}>{{ p.name }}</option>{% endfor %}</optgroup>{% endfor %}
+    </select>
+    <noscript><button class="btn dark sm">Show</button></noscript>
+    <span class="small muted">{{ jobs|length }} item{{ 's' if jobs|length != 1 }}</span>
+  </form>
+  {% if not jobs %}<div class="empty" style="margin-top:20px">{% if f_product or f_brand %}Nothing made for this yet. <a href="{{ url_for('studio', product=f_product) if f_product else url_for('studio') }}">Make an ad for it</a>.{% else %}Nothing yet. <a href="{{ url_for('studio') }}">Make your first ad</a>.{% endif %}</div>{% endif %}
   <div class="lgrid" style="margin-top:24px">
     {% for j in jobs %}
     <div class="litem {{ 'hl' if highlight == j.id }}" data-job="{{ j.id }}" data-status="{{ j.status }}">
       {{ job_thumb(j, outs, templates, tools) }}
       <div class="meta"><b>{{ templates[j.template_id].name if j.template_id in templates else tools[j.tool].name }}</b>{{ status(j) }}</div>
       {% if outs.get(j.id) %}<div class="row" style="margin-top:8px">{% for o in outs[j.id] %}<a class="btn dark sm" href="{{ url_for('media', oid=o.id, download=1) }}">Download{{ ' ' ~ loop.index if outs[j.id]|length > 1 }}</a>{% endfor %}{% if has_feature('adhub') %}<a class="btn dark sm" href="{{ url_for('adhub.export_page', oid=outs[j.id][0].id) }}">Export sizes</a>{% endif %}</div>{% endif %}
+      {% if j.product_id in names %}<p class="small dim" style="margin:6px 0 0">{{ names[j.product_id] }}</p>{% endif %}
       <p class="brief">{{ (j.brief or '')[:110] }}</p>
     </div>
     {% endfor %}

@@ -1402,3 +1402,9 @@ for path in ("/app", "/app/start", "/app/billing", "/", "/features"):
     check(not re.search(r"higgsfield", html, re.I), f"vendor never named in the UI ({path})")
 
 print(f"\nall {passed} checks passed ({TMP})")
+
+if __name__ == "__main__":
+    # Brands & products, the creation flow and the setup assistant run in their
+    # own process (their own throwaway database).
+    import subprocess
+    subprocess.run([sys.executable, os.path.join(HERE, "test_products.py")], check=True)

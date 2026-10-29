@@ -103,6 +103,55 @@ CREATE TABLE IF NOT EXISTS brands (
     brand_name TEXT, product_name TEXT, claims TEXT, audience TEXT,
     created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_brands_ws ON brands(workspace_id, id);
+CREATE TABLE IF NOT EXISTS products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    brand_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT, price TEXT, offer TEXT,
+    claims TEXT,                     -- approved claims, one per line (the only ones AI may use)
+    claims_pending TEXT,             -- JSON list of suggested claims waiting for approval
+    audience TEXT, url TEXT, tags TEXT,
+    primary_photo_id INTEGER,
+    import_json TEXT,                -- last "import from URL": source and candidate images
+    archived INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_products_ws ON products(workspace_id, brand_id, id);
+CREATE TABLE IF NOT EXISTS angles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    hook TEXT, insight TEXT, audience TEXT,
+    source TEXT NOT NULL DEFAULT 'user',      -- user | ai | planner
+    created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_angles_p ON angles(product_id, id);
+CREATE TABLE IF NOT EXISTS scripts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    angle_id INTEGER,
+    ad_type TEXT,
+    title TEXT, hook TEXT, body TEXT NOT NULL, on_screen TEXT,
+    source TEXT NOT NULL DEFAULT 'user',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_scripts_p ON scripts(product_id, id);
+CREATE TABLE IF NOT EXISTS batches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    user_id INTEGER,
+    product_id INTEGER,
+    ad_type TEXT NOT NULL,
+    title TEXT,
+    config_json TEXT,
+    credits INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_batches_ws ON batches(workspace_id, id);
+CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value TEXT);
 CREATE TABLE IF NOT EXISTS copy_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workspace_id INTEGER NOT NULL,
@@ -301,6 +350,18 @@ COLUMNS = [
     ("invites", "created_by", "INTEGER"),
     ("jobs", "priority", "INTEGER NOT NULL DEFAULT 0"),
     ("ledger", "plan_delta", "INTEGER NOT NULL DEFAULT 0"),
+    # brands & products (products_v1)
+    ("workspaces", "product_id", "INTEGER"),
+    ("brands", "product_id", "INTEGER"),
+    ("brands", "about", "TEXT"),
+    ("brands", "website", "TEXT"),
+    ("brands", "tone", "TEXT"),
+    ("photos", "product_id", "INTEGER"),
+    ("jobs", "brand_id", "INTEGER"),
+    ("jobs", "product_id", "INTEGER"),
+    ("jobs", "batch_id", "INTEGER"),
+    ("copy_runs", "product_id", "INTEGER"),
+    ("campaigns", "product_id", "INTEGER"),
 ]
 
 
@@ -329,7 +390,56 @@ def init():
                     conn.execute("UPDATE users SET role='owner' WHERE id IN "
                                  "(SELECT MIN(id) FROM users GROUP BY workspace_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_ws_sub ON workspaces(stripe_subscription_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_p ON photos(product_id, id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_p ON jobs(workspace_id, product_id, id)")
         conn.commit()
+        if not conn.execute("SELECT 1 FROM meta WHERE key='products_v1'").fetchone():
+            migrate_products(conn)
+
+
+def migrate_products(conn):
+    """One-time move from one brand kit per brand (brands.product_name/claims/
+    audience, workspace-wide photos) to brands with products. Keeps every
+    existing value: each brand's kit becomes that brand's first product, the
+    workspace's photos go to its active brand's product, and work already made
+    is tagged with the brand and product when the workspace had only one brand.
+    The old columns stay and keep mirroring the active product (core.brand())."""
+    t = now()
+    for ws in conn.execute("SELECT * FROM workspaces").fetchall():
+        bid = ws["brand_id"]
+        if not bid or not conn.execute("SELECT 1 FROM brands WHERE id=? AND workspace_id=?", (bid, ws["id"])).fetchone():
+            bid = conn.execute("INSERT INTO brands (workspace_id, brand_name, product_name, claims, audience, created_at) "
+                               "VALUES (?,?,?,?,?,?)", (ws["id"], ws["brand_name"], ws["product_name"], ws["claims"],
+                                                         ws["audience"], t)).lastrowid
+            conn.execute("UPDATE workspaces SET brand_id=? WHERE id=?", (bid, ws["id"]))
+        brands = conn.execute("SELECT * FROM brands WHERE workspace_id=? ORDER BY id", (ws["id"],)).fetchall()
+        for b in brands:
+            if b["product_id"] or conn.execute("SELECT 1 FROM products WHERE brand_id=?", (b["id"],)).fetchone():
+                continue
+            name = (b["product_name"] or "").strip()
+            if not name:
+                continue
+            pid = conn.execute("INSERT INTO products (workspace_id, brand_id, name, claims, audience, created_at, updated_at) "
+                               "VALUES (?,?,?,?,?,?,?)", (ws["id"], b["id"], name[:80], b["claims"], b["audience"], t, t)
+                               ).lastrowid
+            conn.execute("UPDATE brands SET product_id=? WHERE id=?", (pid, b["id"]))
+        active = conn.execute("SELECT product_id FROM brands WHERE id=?", (bid,)).fetchone()["product_id"]
+        if active:
+            conn.execute("UPDATE workspaces SET product_id=? WHERE id=?", (active, ws["id"]))
+            conn.execute("UPDATE photos SET product_id=? WHERE workspace_id=? AND product_id IS NULL", (active, ws["id"]))
+            newest = conn.execute("SELECT MAX(id) FROM photos WHERE product_id=?", (active,)).fetchone()[0]
+            if newest:
+                conn.execute("UPDATE products SET primary_photo_id=? WHERE id=? AND primary_photo_id IS NULL", (newest, active))
+        for b in brands:
+            pid = conn.execute("SELECT product_id FROM brands WHERE id=?", (b["id"],)).fetchone()["product_id"]
+            if pid:
+                conn.execute("UPDATE copy_runs SET product_id=? WHERE brand_id=? AND product_id IS NULL", (pid, b["id"]))
+                conn.execute("UPDATE campaigns SET product_id=? WHERE brand_id=? AND product_id IS NULL", (pid, b["id"]))
+        if len(brands) == 1:
+            conn.execute("UPDATE jobs SET brand_id=?, product_id=? WHERE workspace_id=? AND brand_id IS NULL",
+                         (bid, active, ws["id"]))
+    conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('products_v1', ?)", (t,))
+    conn.commit()
 
 
 def adjust_credits(conn, workspace_id: int, delta: int, reason: str, job_id=None, bucket: str = "pack") -> bool:

@@ -1,0 +1,75 @@
+{% extends "base.html" %}{% block title %}Products · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <div class="phead">
+    <div>
+      <p class="eyebrow">Products</p>
+      <h1>Your brands and <span class="gold">products</span></h1>
+      <p class="muted">Every ad, script, page and piece of copy starts from a product: its photos, its price and the claims you're allowed to make. Pick one in the switcher and every flow uses it.</p>
+    </div>
+    <div class="phead-actions">
+      <a class="btn" href="{{ url_for('products.new') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add product</a>
+    </div>
+  </div>
+
+  <form method="post" action="{{ url_for('products.import_page') }}" class="panel importbar" data-busy>
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <div class="importbar-t"><b>Import from a link</b><span class="small muted">Paste a product page. We read its name, description, price, photos and the facts it states; you approve the claims.</span></div>
+    <div class="importbar-f">
+      <label class="sr" for="imp-url">Product page link</label>
+      <input id="imp-url" type="text" name="url" inputmode="url" placeholder="https://yourstore.com/products/…" required>
+      {% if tree|length > 1 %}<label class="sr" for="imp-brand">Brand</label><select id="imp-brand" name="brand">{% for row in tree if not row.locked %}<option value="{{ row.brand.id }}" {{ 'selected' if row.brand.id == g.ws.brand_id }}>{{ row.brand.brand_name or 'Untitled brand' }}</option>{% endfor %}</select>{% endif %}
+      <button class="btn dark">Import</button>
+    </div>
+  </form>
+
+  {% if loose and active_product %}
+  <div class="flash warn row" style="justify-content:space-between">{{ loose }} photo{{ 's' if loose != 1 }} from before products aren't attached to one yet.
+    <form method="post" action="{{ url_for('products.adopt', pid=active_product.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Add {{ 'them' if loose != 1 else 'it' }} to {{ active_product.name }}</button></form></div>
+  {% endif %}
+
+  {% for row in tree %}{% set b = row.brand %}
+  <section class="brandsec {{ 'on' if b.id == g.ws.brand_id }}" id="brand-{{ b.id }}">
+    <header class="brandsec-h">
+      <div>
+        <h2>{{ b.brand_name or 'Untitled brand' }}{% if b.id == g.ws.brand_id %} <span class="tag ok">Active</span>{% endif %}{% if row.locked %} <span class="tag warn">Locked on your plan</span>{% endif %}</h2>
+        <p class="small muted">{% if b.about %}{{ b.about[:160] }}{% else %}{{ row.products|length }} product{{ 's' if row.products|length != 1 }}{% endif %}{% if b.website %} · <a href="{{ b.website }}" rel="noopener" target="_blank">{{ b.website.replace('https://','').replace('http://','')[:40] }}</a>{% endif %}</p>
+      </div>
+      <div class="row">
+        {% if not row.locked %}<a class="btn dark sm" href="{{ url_for('products.brand_edit', bid=b.id) }}">Edit brand</a>{% endif %}
+        {% if tree|length > 1 and owner %}<form method="post" action="{{ url_for('delete_brand', bid=b.id) }}" onsubmit="return confirm('Remove {{ (b.brand_name or 'this brand')|e }}? Its ads stay in your library.')"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm" aria-label="Remove brand">Remove</button></form>{% endif %}
+      </div>
+    </header>
+    {% if row.locked %}<p class="small muted">Your plan includes {{ plans.limit(g.ws, 'brands') }} brand{{ 's' if plans.limit(g.ws, 'brands') != 1 }}. <a href="{{ url_for('billing_page') }}">Upgrade</a> to work on this one again; nothing in it was deleted.</p>{% endif %}
+    <div class="pgrid">
+      {% for p in row.products %}{% set c = counts.get(p.id, {}) %}{% set nclaims = (p.claims or '').strip().splitlines()|select|list|length %}{% set npend = (p.claims_pending|fromjson if p.claims_pending and p.claims_pending.startswith('[') else [])|length %}
+      <a class="pcard panel {{ 'on' if active_product and active_product.id == p.id }}" href="{{ url_for('products.edit', pid=p.id) }}">
+        <div class="pcard-img">{% if p.primary_photo_id %}<img src="{{ url_for('photo', pid=p.primary_photo_id) }}" alt="" loading="lazy">{% else %}<span class="pcard-noimg">No photo yet</span>{% endif %}
+          {% if active_product and active_product.id == p.id %}<span class="chip image">Active</span>{% endif %}</div>
+        <div class="pcard-b">
+          <b>{{ p.name }}</b>
+          <span class="small muted">{{ p.price or 'No price' }}{% if p.offer %} · {{ p.offer[:40] }}{% endif %}</span>
+          <span class="pcard-meta small"><span>{{ c.photos or 0 }} photo{{ 's' if (c.photos or 0) != 1 }}</span><span>{{ nclaims }} claim{{ 's' if nclaims != 1 }}</span><span>{{ c.ads or 0 }} ad{{ 's' if (c.ads or 0) != 1 }}</span>{% if npend %}<span class="warnc">{{ npend }} to review</span>{% endif %}</span>
+        </div>
+      </a>
+      {% endfor %}
+      {% if not row.locked %}
+      <a class="pcard pcard-add" href="{{ url_for('products.new', brand=b.id) }}">
+        <span class="pcard-plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+        <b>{{ 'Add the first product' if not row.products else 'Add a product' }}</b>
+        <span class="small muted">{{ 'Name, photos, price and approved claims. Or import it from a link.' if not row.products else 'Or import one from its page above.' }}</span>
+      </a>
+      {% endif %}
+    </div>
+  </section>
+  {% endfor %}
+
+  <div class="panel addbrand">
+    <div><h3>Another brand?</h3><p class="small muted" style="margin:0">{{ tree|length }} of {{ plans.limit(g.ws, 'brands') if plans.limit(g.ws, 'brands') is not none else 'unlimited' }} brands on your plan. Products per brand are unlimited.</p></div>
+    {% if can_add %}
+    <form method="post" action="{{ url_for('add_brand') }}" class="row"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><label class="sr" for="nb">New brand name</label><input id="nb" type="text" name="brand_name" placeholder="New brand name" maxlength="80" required><button class="btn sm">Add brand</button></form>
+    {% elif next_plan %}<p class="small muted" style="margin:0">{{ next_plan.name }} includes {{ 'unlimited brands' if next_plan.brands is none else next_plan.brands ~ ' brands' }}. <a href="{{ url_for('billing_page') }}">See plans</a></p>{% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script>document.querySelectorAll('form[data-busy]').forEach(function(f){f.addEventListener('submit',function(){var b=f.querySelector('button');if(b){b.disabled=true;b.textContent='Reading the page…';}});});</script>{% endblock %}

@@ -2,11 +2,37 @@
 charging credits for AI calls. Blueprints import from here (never from app.py)."""
 import functools
 import json
+import mimetypes
+import os
+import uuid
 
 from flask import abort, flash, g, redirect, render_template, request, url_for
 
 import db
 import plans
+import products
+
+
+UPLOADS = os.path.join(db.DATA, "uploads")
+PHOTO_TYPES = {"image/jpeg", "image/png", "image/webp"}
+VIDEO_TYPES = {"video/mp4", "video/quicktime", "video/webm"}
+MAX_PHOTO_MB = 25
+MAX_VIDEO_MB = 150
+
+
+def save_upload(fs, folder, allowed, max_mb):
+    ctype = fs.mimetype or mimetypes.guess_type(fs.filename or "")[0] or ""
+    if ctype not in allowed:
+        raise ValueError("That file type isn't supported.")
+    os.makedirs(folder, exist_ok=True)
+    ext = mimetypes.guess_extension(ctype) or os.path.splitext(fs.filename or "")[1] or ""
+    path = os.path.join(folder, f"{uuid.uuid4().hex}{ext}")
+    fs.save(path)
+    if os.path.getsize(path) > max_mb * 1024 * 1024:
+        os.remove(path)
+        raise ValueError(f"Files up to {max_mb} MB.")
+    return path, ctype
+
 
 
 def login_required(fn):
@@ -59,10 +85,25 @@ def owner_required(fn):
     return wrap
 
 
-def brand():
-    w = g.ws
-    return {"name": w["brand_name"] or w["name"], "product": w["product_name"] or "",
-            "claims": w["claims"] or "", "audience": w["audience"] or ""}
+def brand(product_id=None):
+    """The brief every flow starts from: the active brand and product, or the
+    given product of this workspace (a flow's product picker)."""
+    if product_id and str(product_id) != str(g.ws["product_id"] or ""):
+        with db.connect() as conn:
+            return products.brief_for(conn, g.ws, product_id)
+    return products.as_brief(g.get("brand_row"), g.get("product_row"), g.ws)
+
+
+def picked_product():
+    """The product id a form or query string picked, if it is this workspace's."""
+    raw = request.values.get("product") or request.values.get("product_id")
+    if not raw or not str(raw).isdigit():
+        return None
+    with db.connect() as conn:
+        p = products.get_product(conn, g.ws["id"], int(raw))
+        if p is None or p["brand_id"] not in products.unlocked_brand_ids(conn, g.ws):
+            return None
+    return p["id"]
 
 
 def charge_ai(conn, credits: int, reason: str) -> int:
@@ -84,14 +125,20 @@ def not_enough(credits: int):
     flash(f"That needs about {credits:,} credits and you have {db.balance(g.ws):,}. Top up on the Billing page.")
 
 
-def queue_job(conn, tool, tpl_id, brief, params, usd, credits, quiet=False):
+def queue_job(conn, tool, tpl_id, brief, params, usd, credits, quiet=False, product_id=None, batch_id=None):
     """Insert a pending job and take its credits in one transaction. None (and a
-    message) when the workspace can't afford it."""
+    message) when the workspace can't afford it. The job is tagged with its
+    product (default: the active one) and that product's brand."""
     now = db.now()
+    pid = product_id or g.ws["product_id"]
+    p = products.get_product(conn, g.ws["id"], pid) if pid else None
+    bid = p["brand_id"] if p is not None else g.ws["brand_id"]
     cur = conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, template_id, brief, params_json, "
-                       "status, credits, cost_usd, created_at, updated_at, priority) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                       "status, credits, cost_usd, created_at, updated_at, priority, brand_id, product_id, batch_id) "
+                       "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                        (g.ws["id"], g.user["id"], tool, tpl_id, brief, json.dumps(params), "pending",
-                        credits, round(usd, 4), now, now, plans.priority(g.ws)))
+                        credits, round(usd, 4), now, now, plans.priority(g.ws), bid, p["id"] if p is not None else None,
+                        batch_id))
     jid = cur.lastrowid
     if not db.adjust_credits(conn, g.ws["id"], -credits, "generation", jid):
         conn.rollback()
