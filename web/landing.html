@@ -1,8 +1,8 @@
 {% extends "public_base.html" %}
-{% block title %}Campaignify · Launch and run your whole campaign, A to Z{% endblock %}
+{% block title %}Campaignify · Launch your whole campaign in minutes{% endblock %}
 {% block head %}{{ super() }}
 <meta name="description" content="Plan the campaign, make the ads, write the copy, get found, set up your ad accounts, capture leads, grow an audience and see what's working. Campaignify puts every step in one place, with compliance checks on every brief.">
-<meta property="og:title" content="Campaignify · Your whole campaign, A to Z">
+<meta property="og:title" content="Campaignify · Your whole campaign, in minutes">
 <meta property="og:description" content="Plan it, make the ads, write the copy, get found, launch, capture leads, grow an audience and see what's working. One workspace for the whole campaign.">
 <meta property="og:image" content="{{ url_for('static', filename='site/phones.jpg', _external=True) }}">
 <link rel="preload" as="image" href="{{ url_for('static', filename=hero[1].poster) }}" fetchpriority="high">
@@ -17,7 +17,7 @@
   <div class="lp-wrap lp-hero-in">
     <div class="lp-hero-copy">
       <p class="eyebrow">The ad studio for people who sell</p>
-      <h1>Your whole campaign, <span class="gold">A to Z.</span></h1>
+      <h1>Your whole campaign, <span class="gold">in minutes.</span></h1>
       <p class="lp-lede">Plan it, make the ads, write the copy, get found, set up your ad accounts, capture leads, grow an audience and see what's working. One workspace for the whole campaign, with compliance checks on every brief.</p>
       <div class="lp-cta">
         <a class="btn lg" href="{{ url_for('signup') }}">Start free</a>
