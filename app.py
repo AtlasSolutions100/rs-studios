@@ -225,9 +225,9 @@ JOURNEY = [
              "and a launch checklist.",
      "features": ["planner"], "shot": "plan", "alt": "A campaign plan with a budget split, what to watch and three angles."},
     {"id": "make", "step": "Make the ads", "title": "Make the ads from one product photo",
-     "body": "Image ads in four shapes, 5 or 10 second videos, and motion copied from a reference clip, from "
-             "ready-made templates or your own brief. Your brand kit keeps every ad on-brand, and nothing is "
-             "generated until you've seen the price.",
+     "body": "Pick the product, choose an angle and let AI write the script. Then make UGC videos with AI "
+             "presenters, product videos, image ads in four shapes, or copy the motion of a reference clip, in "
+             "batches of variants. Nothing is generated until you've seen the price.",
      "features": ["studio", "brand_kit"], "video": "site/moodboard",
      "alt": "Hands placing printed product photos into a grid on a dark desk."},
     {"id": "copy", "step": "Write the copy", "title": "Write the copy for every platform",
