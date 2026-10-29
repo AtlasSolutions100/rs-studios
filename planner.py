@@ -276,7 +276,7 @@ def dispatch(name, inp, ctx):
     """Run one tool call. ctx: cid, ws_id, brand, brief, plan, steps, usage, photos, refs, counts."""
     plan, steps = ctx["plan"], ctx["steps"]
     if name == "get_brand_and_catalog":
-        _step(steps, "read", "Read your brand kit and the template catalog",
+        _step(steps, "read", "Read the product and the template catalog",
               f"{len(ctx['photos'])} product photo(s), {len(catalog.TEMPLATES)} templates")
         return catalog_view(ctx["brand"], ctx["photos"], ctx["refs"])
     if name == "save_angles":
