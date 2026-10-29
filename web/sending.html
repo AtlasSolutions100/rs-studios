@@ -38,6 +38,23 @@
         <h2 style="margin-top:0">Last 30 days</h2>
         <p class="muted" style="margin:0">{{ stats.n or 0 }} sent · {{ stats.ok or 0 }} delivered · {{ stats.b or 0 }} bounced · {{ stats.c or 0 }} marked as spam · {{ n_sup }} address{{ 'es' if n_sup != 1 }} won't be emailed again</p>
       </div>
+      <div class="panel" id="domain">
+        <h2 style="margin-top:0">Your own domain</h2>
+        {% if not has_email %}<p class="small muted" style="margin:0">Sending from your own domain comes with {{ plans.required('flows_email').name }}.</p>
+        {% elif domains %}{% set d = domains[0] %}
+          <p style="margin:0 0 10px"><b>{{ d.local_part }}@{{ d.domain }}</b> <span class="tag {{ 'ok' if d.status == 'verified' else ('bad' if d.status == 'failed' else '') }}">{{ {'verified': 'Verified', 'pending': 'Waiting for DNS', 'failed': "Records don't match"}[d.status] }}</span></p>
+          {% if d.status != 'verified' %}<p class="small muted">Add these records at your DNS provider. Until they check out, mail keeps going from the shared domain.</p>{% endif %}
+          <div class="scrollx"><table class="small"><tr><th>Type</th><th>Name</th><th>Value</th><th>Status</th></tr>
+            {% for r in d.records %}<tr><td>{{ r.type }}</td><td><code>{{ r.name }}</code></td><td><code>{{ r.value }}</code>{% if r.priority %} (priority {{ r.priority }}){% endif %}</td><td>{{ (r.status or '')|replace('_', ' ') }}</td></tr>{% endfor %}</table></div>
+          <form method="post" action="{{ url_for('messaging.domain') }}" class="row" style="gap:8px;margin-top:10px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn sm" name="action" value="check">Check</button><button class="btn dark sm" name="action" value="remove" data-confirm="Remove {{ d.domain }}? Mail goes from the shared domain again.">Remove</button></form>
+        {% else %}
+          <p class="small muted" style="margin:0 0 10px">Send as you@yourbrand.com instead of “via Campaignify”. You'll add a few DNS records; we check them for you.</p>
+          <form method="post" action="{{ url_for('messaging.domain') }}" class="row" style="gap:8px;align-items:end"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="add">
+            <div style="flex:0 0 110px"><label for="lp">Name</label><input id="lp" type="text" name="local_part" value="hello" maxlength="40"></div><span style="padding-bottom:12px">@</span>
+            <div style="flex:1;min-width:160px"><label for="dm">Domain</label><input id="dm" type="text" name="domain" maxlength="190" placeholder="yourbrand.com"></div>
+            <button class="btn sm" {{ 'disabled' if not connected }}>Add domain</button></form>
+        {% endif %}
+      </div>
       {% for tpl, ctx in extra %}{% include tpl %}{% endfor %}
     </div>
   </div>

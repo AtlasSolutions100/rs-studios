@@ -2091,6 +2091,63 @@ pol = client().get("/messaging-policy").get_data(as_text=True)
 check("STOP" in pol and "postal address" in pol and "Messaging Policy" in client().get("/terms").get_data(as_text=True)
       and "Resend" in client().get("/privacy").get_data(as_text=True) and "/messaging-policy" in client().get("/sitemap.xml").get_data(as_text=True),
       "Messaging Policy page; Terms and Privacy updated")
+print("== custom sending domains (phase 8)")
+domain_calls = []
+
+
+class _DomResp:
+    def __init__(self, data):
+        self.status_code, self._d, self.text = 200, data, "{}"
+
+    def json(self):
+        return self._d
+
+
+RECS = [{"record": "SPF", "type": "MX", "name": "send", "value": "feedback-smtp.us-east-1.amazonses.com", "priority": 10,
+         "status": "not_started"}, {"record": "DKIM", "type": "TXT", "name": "resend._domainkey", "value": "p=MIGf", "status": "not_started"}]
+dom_status = ["pending"]
+
+
+def fake_dom_post(url, json=None, headers=None, timeout=0):
+    domain_calls.append(("post", url, json))
+    if url.endswith("/domains"):
+        return _DomResp({"id": "dom_1", "name": json["name"], "status": "not_started", "records": RECS})
+    if url.endswith("/emails"):
+        return fake_resend(url, json=json, headers=headers, timeout=timeout)
+    return _DomResp({"object": "domain", "id": "dom_1"})
+
+
+mailer.requests.post = fake_dom_post
+mailer.requests.get = lambda url, headers=None, timeout=0: (domain_calls.append(("get", url, None)) or
+                                                            _DomResp({"id": "dom_1", "status": dom_status[0], "records": RECS}))
+r = x.post("/app/settings/sending/domain", data={"csrf": csrf(x), "action": "add", "domain": "evil.campaignify.ai"})
+check(not any(c[1].endswith("/domains") for c in domain_calls), "our own domain can't be claimed")
+x.post("/app/settings/sending/domain", data={"csrf": csrf(x), "action": "add", "domain": "glow.example", "local_part": "Hi"})
+html = x.get("/app/settings/sending").get_data(as_text=True)
+check("resend._domainkey" in html and "Waiting for DNS" in html and "hi@glow.example" in html, "adding a domain shows its DNS records")
+x.post("/app/settings/sending/domain", data={"csrf": csrf(x), "action": "check"})
+with db.connect() as conn:
+    d_ = conn.execute("SELECT * FROM sender_domains WHERE workspace_id=?", (xws["id"],)).fetchone()
+    w = conn.execute("SELECT * FROM workspaces WHERE id=?", (xws["id"],)).fetchone()
+    m_ = conn.execute("SELECT * FROM messages WHERE workspace_id=? AND token IS NOT NULL ORDER BY id DESC", (xws["id"],)).fetchone()
+    check(d_["status"] == "pending" and messaging.build(conn, w, m_)["from"].endswith("@mail.campaignify.ai>"),
+          "until it's verified, mail falls back to the shared domain")
+dom_status[0] = "verified"
+x.post("/app/settings/sending/domain", data={"csrf": csrf(x), "action": "check"})
+with db.connect() as conn:
+    d_ = conn.execute("SELECT * FROM sender_domains WHERE workspace_id=?", (xws["id"],)).fetchone()
+    check(d_["status"] == "verified" and d_["verified_at"] and messaging.build(conn, w, m_)["from"] == '"Glow Co" <hi@glow.example>',
+          "once verified, the next email uses the custom From")
+with db.connect() as conn:
+    keep = conn.execute("SELECT plan, plan_override FROM workspaces WHERE id=?", (xws["id"],)).fetchone()
+    conn.execute("UPDATE workspaces SET plan_override=NULL, plan='free' WHERE id=?", (xws["id"],))
+    w2 = conn.execute("SELECT * FROM workspaces WHERE id=?", (xws["id"],)).fetchone()
+    check(messaging.build(conn, w2, m_)["from"].endswith("@mail.campaignify.ai>"), "below Growth, the custom domain isn't used")
+    conn.execute("UPDATE workspaces SET plan=?, plan_override=? WHERE id=?", (keep["plan"], keep["plan_override"], xws["id"]))
+    conn.commit()
+x.post("/app/settings/sending/domain", data={"csrf": csrf(x), "action": "remove"})
+with db.connect() as conn:
+    check(not conn.execute("SELECT 1 FROM sender_domains WHERE workspace_id=?", (xws["id"],)).fetchone(), "remove the domain")
 for k in ("RESEND_API_KEY", "RS_MAIL_DOMAIN", "RESEND_WEBHOOK_SECRET"):
     os.environ.pop(k)
 dy = open(os.path.join(os.path.dirname(HERE), ".github", "workflows", "deploy.yml")).read()

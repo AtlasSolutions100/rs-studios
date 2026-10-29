@@ -125,12 +125,16 @@ def sending():
         n_sup = conn.execute("SELECT COUNT(*) FROM suppressions WHERE workspace_id=?", (g.ws["id"],)).fetchone()[0]
         cap = messaging.daily_cap(conn, ws, flows_engine.utcnow()) if plans.has(ws, "flows_email") else 0
         accepted_by = conn.execute("SELECT email FROM users WHERE id=?", (ws["messaging_accepted_by"] or 0,)).fetchone()
-        domains = conn.execute("SELECT * FROM sender_domains WHERE workspace_id=? ORDER BY id DESC", (g.ws["id"],)).fetchall() \
-            if _has_table(conn, "sender_domains") else []
+        domains = [dict(d, records=json.loads(d["dns_json"] or "[]")) for d in conn.execute(
+            "SELECT * FROM sender_domains WHERE workspace_id=? ORDER BY id DESC", (g.ws["id"],)).fetchall()]
     return render_template("sending.html", ws=ws, ready=messaging.email_ready(ws), connected=mailer.configured(),
                            mail_domain=mailer.domain() or "mail.campaignify.ai", stats=stats, n_sup=n_sup, cap=cap,
                            credits=messaging.EMAIL_CREDITS, accepted_by=accepted_by["email"] if accepted_by else None,
                            has_email=plans.has(ws, "flows_email"), domains=domains, extra=_extra())
+
+
+def _upgrade(feature):
+    return render_template("upgrade.html", feature=plans.FEATURES[feature], need=plans.required(feature)), 402
 
 
 def _has_table(conn, name):
@@ -144,13 +148,70 @@ def _extra():
     return [(tpl, fn()) for tpl, fn in _EXTRA]
 
 
+DOMAIN_RX = __import__("re").compile(r"^(?=.{4,190}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$")
+
+
+@bp.route("/app/settings/sending/domain", methods=["POST"])
+@owner_required
+def domain():
+    """Your own sending domain (Growth+, D6): add it at the email service, show the DNS records, check them.
+    Until it's verified, mail keeps going from the shared domain."""
+    if not plans.has(g.ws, "flows_email"):
+        return _upgrade("flows_email")
+    action = request.form.get("action")
+    with db.connect() as conn:
+        if action == "add":
+            name = (request.form.get("domain") or "").strip().lower().removeprefix("www.")
+            local = __import__("re").sub(r"[^a-z0-9._-]", "", (request.form.get("local_part") or "hello").lower())[:40] or "hello"
+            if not DOMAIN_RX.match(name) or name.endswith("campaignify.ai"):
+                flash("Use a domain you own, like yourbrand.com or mail.yourbrand.com.")
+                return redirect(url_for("messaging.sending") + "#domain")
+            if not mailer.configured():
+                flash("Email sending isn't connected yet, so domains can't be added.")
+                return redirect(url_for("messaging.sending") + "#domain")
+            try:
+                d = mailer.add_domain(name)
+            except mailer.MailError as e:
+                flash(f"The email service refused it: {e}")
+                return redirect(url_for("messaging.sending") + "#domain")
+            conn.execute("DELETE FROM sender_domains WHERE workspace_id=?", (g.ws["id"],))
+            conn.execute("INSERT INTO sender_domains (workspace_id, domain, local_part, resend_domain_id, status, dns_json, "
+                         "created_at) VALUES (?,?,?,?,?,?,?)", (g.ws["id"], name, local, d.get("id"), "pending",
+                                                                json.dumps(d.get("records") or []), db.now()))
+            flash("Added. Put these records in your domain's DNS, then press Check.", "ok")
+        else:
+            d = conn.execute("SELECT * FROM sender_domains WHERE workspace_id=? ORDER BY id DESC LIMIT 1", (g.ws["id"],)).fetchone()
+            if not d:
+                abort(404)
+            if action == "remove":
+                conn.execute("DELETE FROM sender_domains WHERE id=?", (d["id"],))
+                flash("Removed. Mail goes from the shared domain again.", "ok")
+            elif action == "check":
+                try:
+                    info = mailer.verify_domain(d["resend_domain_id"])
+                except mailer.MailError as e:
+                    flash(f"Couldn't check: {e}")
+                    return redirect(url_for("messaging.sending") + "#domain")
+                st = "verified" if info.get("status") == "verified" else "failed" if info.get("status") == "failed" else "pending"
+                conn.execute("UPDATE sender_domains SET status=?, dns_json=?, checked_at=?, verified_at=CASE WHEN ?='verified' "
+                             "THEN COALESCE(verified_at, ?) ELSE NULL END WHERE id=?",
+                             (st, json.dumps(info.get("records") or json.loads(d["dns_json"] or "[]")), db.now(), st, db.now(),
+                              d["id"]))
+                flash({"verified": f"Verified. Mail now goes from {d['local_part']}@{d['domain']}.",
+                       "failed": "The records don't match yet. Check each one below; DNS can take up to a day.",
+                       "pending": "Not verified yet. DNS changes can take a while; check again later."}[st],
+                      "ok" if st == "verified" else "")
+        conn.commit()
+    return redirect(url_for("messaging.sending") + "#domain")
+
+
 @bp.route("/app/contacts/import", methods=["POST"])
 @login_required
 def import_contacts():
     """CSV with columns email, name, phone, tags, email_consent (yes/no). Consent is only recorded when the
     member says it was given, with where it came from."""
     if not plans.has(g.ws, "forms"):
-        abort(402)
+        return _upgrade("forms")
     fs = request.files.get("file")
     if not fs:
         flash("Pick a CSV file.")
