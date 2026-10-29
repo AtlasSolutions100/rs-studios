@@ -785,6 +785,7 @@ check(len(cplan["copy"]) == 1 and cplan["copy"][0]["platform"] == "meta" and cpl
 first = plan_bodies[0]
 check(first["system"][0]["cache_control"]["type"] == "ephemeral" and first["tools"][0]["name"] == "get_brand_and_catalog"
       and "Glow serum" in first["messages"][0]["content"][0]["text"], "agent gets the brief, the tools and a cached system prompt")
+check(any(t["name"] == "audit_page" for t in first["tools"]), "Growth workspaces' planner can audit the landing page")
 res_msgs = [m for m in plan_bodies[2]["messages"] if m["role"] == "user" and isinstance(m["content"], list)
             and m["content"] and m["content"][0].get("type") == "tool_result"]
 check(any(b.get("is_error") and "income" in b["content"] for m in res_msgs for b in m["content"]),
@@ -845,11 +846,106 @@ check(cf["status"] == "failed" and db.balance(wsrow(xws["id"])) == bal5, "AI dow
 check(b"couldn't make this plan" in x.get(f"/app/campaigns/{cf['id']}").data, "failed plan explains itself")
 llm._anthropic = fake_anthropic
 
+print("== SEO / AEO / GEO")
+import fetcher  # noqa: E402
+import seo  # noqa: E402
+for bad in ("http://127.0.0.1/", "http://169.254.169.254/latest/meta-data", "http://[::1]/", "https://10.1.2.3/",
+            "http://localhost:8080/", "ftp://example.com/", "https://u:p@example.com/", "http://0.0.0.0/",
+            "http://100.64.0.1/", "http://[::ffff:127.0.0.1]/", "https://example.com:8443/", "http://192.168.1.1/",
+            "http://printer.local/", "http://metadata.internal/"):
+    try:
+        fetcher.fetch(bad)
+        check(False, f"SSRF guard blocks {bad}")
+    except fetcher.FetchError:
+        check(True, f"SSRF guard blocks {bad}")
+real_getaddrinfo = fetcher.socket.getaddrinfo
+fetcher.socket.getaddrinfo = lambda host, port, **kw: [(2, 1, 6, "", ("10.0.0.5", port))]
+try:
+    fetcher.fetch("https://rebind.example/")
+    check(False, "a public name that resolves to a private IP is blocked")
+except fetcher.FetchError:
+    check(True, "a public name that resolves to a private IP is blocked")
+fetcher.socket.getaddrinfo = real_getaddrinfo
+PAGE = """<!doctype html><html lang="en"><head><title>GlowSerum vitamin C serum, 30 ml | Glow Co</title>
+<meta name="description" content="short"><meta name="viewport" content="width=device-width">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"GlowSerum"}</script>
+</head><body><h1>GlowSerum</h1><h1>Second</h1><p>A vitamin C serum for mornings. 30 ml lasts about 60 days.</p>
+<h2>How do I use it?</h2><p>One drop after cleansing.</p><img src="a.jpg"><a href="/shop">Shop</a></body></html>"""
+pg = seo.parse(PAGE, "https://glow.example/serum")
+check(pg["title"].startswith("GlowSerum") and len([h for t, h in pg["headings"] if t == "h1"]) == 2
+      and pg["jsonld_types"] == ["Product"] and pg["images_no_alt"] == 1, "parser reads title, headings, JSON-LD, images")
+rep = seo.audit(pg, "User-agent: GPTBot\nDisallow: /\n\nUser-agent: *\nAllow: /\n", None)
+flat = {t: lvl for grp in ("seo", "aeo", "geo") for lvl, t, _ in rep[grp]}
+check(flat.get("2 H1 headings") == "warn" and flat.get("No canonical link") == "warn"
+      and any("Meta description is" in t for t in flat) and flat.get("1 question-style heading") == "pass",
+      "audit flags two H1s, missing canonical, short description; credits question headings")
+check(flat.get("robots.txt blocks 1 AI crawler") == "warn" and 0 < rep["score"] < 100, "audit reads AI crawler rules from robots.txt")
+ld = json.loads(seo.jsonld(pg, {"faq": [{"q": "How long does it last?", "a": "About 60 days."}],
+                                "entity": {"name": "Glow Co", "same_as": ["https://instagram.com/glow", "javascript:x"]}},
+                           {"name": "Glow Co", "product": "GlowSerum"}))
+types = [n["@type"] for n in ld["@graph"]]
+check(types == ["Organization", "Product", "FAQPage"] and ld["@graph"][0]["sameAs"] == ["https://instagram.com/glow"],
+      "JSON-LD is valid JSON with Organization, the page type and FAQPage (unsafe links dropped)")
+check(seo.llms_txt(pg, None, {"name": "Glow Co"}).startswith("# Glow Co"), "llms.txt draft")
+check(x.get("/app/seo").status_code == 200, "SEO optimizer open on Growth")
+fetched = []
+
+
+def fake_fetch(url, accept=None):
+    fetched.append(url)
+    if url.endswith("/robots.txt"):
+        return {"url": url, "status": 200, "content_type": "text/plain", "text": "User-agent: *\nAllow: /\n"}
+    if url.endswith("/llms.txt"):
+        return {"url": url, "status": 404, "content_type": "text/html", "text": "<html>nope</html>"}
+    return {"url": url, "status": 200, "content_type": "text/html; charset=utf-8", "text": PAGE}
+
+
+real_fetch = fetcher.fetch
+fetcher.fetch = fake_fetch
+
+
+def fake_seo(body):
+    if (body.get("tool_choice") or {}).get("name") != "submit_seo":
+        return fake_anthropic(body)
+    return {"model": body["model"], "usage": {"input_tokens": 2000, "output_tokens": 800}, "content": [{"type": "tool_use", "id": "t", "name": "submit_seo", "input": {
+        "title": "GlowSerum Vitamin C Serum for Mornings, 30 ml | Glow Co", "description": "d" * 150, "h1": "GlowSerum",
+        "summary": "GlowSerum is a 30 ml vitamin C serum.", "faq": [{"q": "How do I use it?", "a": "One drop after cleansing."}],
+        "keywords": [{"phrase": "vitamin c serum for mornings", "intent": "commercial"}], "topics": ["Morning routine guide"],
+        "entity": {"name": "Glow Co", "kind": "Organization"}, "page_type": "Product", "fixes": ["Use one H1"]}}]}
+
+
+llm._anthropic = fake_seo
+bal6 = db.balance(wsrow(xws["id"]))
+r = x.post("/app/seo", data={"csrf": csrf(x), "mode": "url", "url": "https://glow.example/serum", "goal": "", "ai": "1"})
+check(r.status_code == 302 and "/app/seo/" in r.headers["Location"], "URL audit runs")
+check(fetched[:3] == ["https://glow.example/serum", "https://glow.example/robots.txt", "https://glow.example/llms.txt"],
+      "fetches the page, robots.txt and llms.txt")
+html = x.get(r.headers["Location"]).get_data(as_text=True)
+for bit in ("2 H1 headings", "Fixes, in order", "Use one H1", "vitamin c serum for mornings", "FAQPage", "llms.txt draft",
+            "AI crawlers are allowed"):
+    check(bit in html, f"audit page shows {bit!r}")
+check(db.balance(wsrow(xws["id"])) == bal6 - 4, "AI suggestions charged at cost; the audit itself is free")
+r = x.post("/app/seo", data={"csrf": csrf(x), "mode": "text", "text": "# Morning serum guide\nHow do I use vitamin C?\n" + "Words here. " * 40})
+check(r.status_code == 302 and db.balance(wsrow(xws["id"])) == bal6 - 4, "pasted draft audit without AI is free")
+fetcher.fetch = real_fetch
+r = x.post("/app/seo", data={"csrf": csrf(x), "mode": "url", "url": "http://169.254.169.254/"})
+check(r.status_code == 302 and r.headers["Location"].endswith("/app/seo"), "internal URLs are refused in the app too")
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "starter"})
+check(x.get("/app/seo").status_code == 402, "SEO optimizer is Growth+")
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "growth"})
+llm._anthropic = fake_anthropic
+pub = client()
+rt = pub.get("/robots.txt").get_data(as_text=True)
+check("Disallow: /app" in rt and "Sitemap:" in rt, "our own robots.txt keeps the app out and lists the sitemap")
+check(pub.get("/llms.txt").status_code == 200 and b"# Campaignify" in pub.get("/llms.txt").data, "our own llms.txt")
+own = seo.parse(pub.get("/").get_data(as_text=True), "https://campaignify.ai/")
+check("Organization" in own["jsonld_types"] and own["canonical"] and not own["jsonld_invalid"], "our landing page has canonical and valid JSON-LD")
+
 print("== pages")
 a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": ws1["id"], "plan": "scale"})
 for path in ("/app", "/app/library", "/app/brand", "/admin", "/app/new?tool=motion_copy", "/app/new?template=cost",
              "/app/start", "/app/billing", "/app/new?template=hero", "/app/team", "/app/copy", "/app/optimize",
-             "/app/copy?kind=landing&platform=landing", "/app/campaigns"):
+             "/app/copy?kind=landing&platform=landing", "/app/campaigns", "/app/seo"):
     check(a.get(path).status_code == 200, f"{path} renders")
 check(a.get("/health").get_json()["generation_configured"], "health reports configured")
 for path in ("/app", "/app/start", "/app/billing", "/", "/features"):

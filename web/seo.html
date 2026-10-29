@@ -1,0 +1,33 @@
+{% extends "base.html" %}{% block title %}SEO, AEO & GEO · Campaignify{% endblock %}
+{% block body %}
+<div class="page">
+  <section>
+    <p class="eyebrow">SEO · AEO · GEO</p>
+    <h1>Get found, get <span class="gold">quoted</span></h1>
+    <p class="muted">Audit a page for search engines (SEO), answer engines that pull direct answers (AEO), and AI assistants that summarize and cite sites (GEO). The audit is free; AI suggestions write the fixes, an FAQ, keyword ideas and the structured data.</p>
+    <form method="post" class="panel copyform" id="seoform">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <div class="choices" role="radiogroup" aria-label="What to check"><label class="choice"><input type="radio" name="mode" value="url" checked>A live page</label><label class="choice"><input type="radio" name="mode" value="text">A draft I paste</label></div>
+      <div id="m-url"><label for="url">Page URL</label><input id="url" type="text" name="url" maxlength="500" placeholder="https://yourstore.com/product"></div>
+      <div id="m-text" hidden><label for="text">Draft text <span class="dim">(Markdown headings are fine)</span></label><textarea id="text" name="text" maxlength="30000" style="min-height:200px"></textarea></div>
+      <label for="goal">What should this page win? <span class="dim">(optional)</span></label><input id="goal" type="text" name="goal" maxlength="200" placeholder="e.g. people searching for a vitamin C serum for mornings">
+      <label class="choice" style="display:inline-flex;gap:8px;margin-top:16px"><input type="checkbox" name="ai" value="1" {{ 'checked' if ai_on else 'disabled' }}>AI suggestions (up to {{ quote }} credits)</label>
+      {% if not ai_on %}<p class="small muted">AI suggestions aren't switched on yet; the audit, the JSON-LD skeleton and the llms.txt draft still work.</p>{% endif %}
+      <div class="go"><span class="muted small">The audit is free · we only read public pages · you have {{ '{:,}'.format(balance()) }} credits</span><button class="btn">Audit</button></div>
+    </form>
+  </section>
+  <aside class="rail">
+    <div class="panel">
+      <h2>Recent audits</h2>
+      {% for r in runs %}{% set i = r.input_json|fromjson %}{% set o = r.output_json|fromjson %}
+      <a class="runrow" href="{{ url_for('seo.result', rid=r.id) }}"><b>{{ o.report.score }}/100 · {{ (i.url or 'Pasted draft')[:48] }}</b><span class="small dim">{{ r.created_at[:16].replace('T',' ') }}{% if r.credits %} · {{ r.credits }} credits{% endif %}</span></a>
+      {% else %}<div class="empty">No audits yet.</div>{% endfor %}
+    </div>
+  </aside>
+</div>
+<script>
+document.querySelectorAll('input[name=mode]').forEach(function(r){ r.addEventListener('change', function(){
+  var t = document.querySelector('input[name=mode]:checked').value === 'text';
+  document.getElementById('m-url').hidden = t; document.getElementById('m-text').hidden = !t; }); });
+</script>
+{% endblock %}

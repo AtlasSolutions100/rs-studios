@@ -87,6 +87,7 @@ NAV = [
     ("studio", "Create", "create", None, ("studio", "new", "start")),
     ("campaigns.index", "Campaigns", "planner", "planner", ("campaigns.index", "campaigns.show")),
     ("copy.studio", "Copy", "copy", "copy", ("copy.studio", "copy.run", "copy.optimize", "copy.optimized")),
+    ("seo.index", "SEO & AEO", "seo", "seo", ("seo.index", "seo.result")),
     ("library", "Library", "library", None, ("library",)),
     ("brand_kit", "Brand kit", "brand", None, ("brand_kit",)),
     ("team", "Team", "team", None, ("team",)),
@@ -209,7 +210,17 @@ def index():
     """Logged in: the studio. Logged out: the public landing page."""
     if g.user:
         return redirect(url_for("studio"))
-    return render_template("landing.html", gallery=GALLERY, hero=[GALLERY[0], GALLERY[2], GALLERY[5]])
+    root = request.host_url
+    site = {"@context": "https://schema.org", "@graph": [
+        {"@type": "Organization", "@id": root + "#org", "name": "Campaignify", "url": root, "email": "hello@campaignify.ai",
+         "logo": url_for("static", filename="img/campaignify-icon-512.png", _external=True)},
+        {"@type": "WebSite", "name": "Campaignify", "url": root, "publisher": {"@id": root + "#org"}},
+        {"@type": "SoftwareApplication", "name": "Campaignify", "applicationCategory": "BusinessApplication",
+         "operatingSystem": "Web", "url": root,
+         "offers": [{"@type": "Offer", "name": f"{p['name']} plan", "price": p["usd"], "priceCurrency": "USD"}
+                    for p in plans.PAID]}]}
+    return render_template("landing.html", gallery=GALLERY, hero=[GALLERY[0], GALLERY[2], GALLERY[5]],
+                           site_jsonld=json.dumps(site).replace("</", "<\\/"))
 
 
 # Extra lines for the public features page, by feature key (only shipped ones show).
@@ -233,6 +244,11 @@ FEATURE_DETAILS = {
              "Hooks with on-screen text, captions with hashtags, headlines, emails and landing-page copy",
              "Facebook & Instagram, TikTok, YouTube, Google Search, X, LinkedIn, Pinterest, Snapchat and Reddit",
              "Every variant run through the compliance checks; you pay the AI's actual cost in credits"],
+    "seo": ["Audit a live page or a pasted draft: title, description, headings, canonical, mobile, images, links",
+            "Answer-engine checks: answer-first summary, question headings, FAQ and content-type structured data",
+            "AI-assistant checks: who is behind the page, sources, specific facts, AI crawlers in robots.txt, llms.txt",
+            "AI suggestions: better title and description, an FAQ block, keyword and topic ideas",
+            "Ready-to-paste schema.org JSON-LD and an llms.txt draft"],
     "optimizer": ["Free quick checks: hook, clarity, call to action, platform fit, hashtags and compliance",
                   "An AI review that explains the biggest fix and writes three rewrites"],
 }
@@ -241,6 +257,30 @@ FEATURE_DETAILS = {
 @app.route("/features")
 def features():
     return render_template("features.html", feature_details=FEATURE_DETAILS)
+
+
+PUBLIC_PAGES = ["index", "features", "privacy", "terms"]
+
+
+@app.route("/robots.txt")
+def robots_txt():
+    body = ("User-agent: *\nDisallow: /app\nDisallow: /admin\nDisallow: /api\nDisallow: /media\nDisallow: /photo\n"
+            "Disallow: /ref\nDisallow: /webhooks\nAllow: /\n\n"
+            f"Sitemap: {request.host_url}sitemap.xml\n")
+    return app.response_class(body, mimetype="text/plain")
+
+
+@app.route("/sitemap.xml")
+def sitemap_xml():
+    urls = "".join(f"<url><loc>{request.host_url.rstrip('/')}{url_for(p)}</loc></url>" for p in PUBLIC_PAGES)
+    return app.response_class('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/'
+                              f'sitemap/0.9">{urls}</urlset>', mimetype="application/xml")
+
+
+@app.route("/llms.txt")
+def llms_txt():
+    return app.response_class(render_template("llms.txt", feature_details=FEATURE_DETAILS),
+                              mimetype="text/plain")
 
 
 @app.route("/privacy")
@@ -1187,9 +1227,11 @@ def ref_video(rid):
 
 import campaign_routes  # noqa: E402
 import copy_routes  # noqa: E402  (blueprints import core, never app)
+import seo_routes  # noqa: E402
 
 app.register_blueprint(copy_routes.bp)
 app.register_blueprint(campaign_routes.bp)
+app.register_blueprint(seo_routes.bp)
 
 
 @app.errorhandler(400)

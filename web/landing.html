@@ -1,10 +1,11 @@
 {% extends "public_base.html" %}
 {% block title %}Campaignify · The ad studio for people who sell{% endblock %}
-{% block head %}
+{% block head %}{{ super() }}
 <meta name="description" content="Campaignify turns a product photo into finished image and video ads, and plans the campaign around them: angles, hooks, copy for each platform and a launch checklist. Compliance checks built in.">
 <meta property="og:title" content="Campaignify · The ad studio for people who sell">
 <meta property="og:description" content="Add a product photo, pick a template that already works, get a finished ad. Built for independent reps and direct sellers.">
 <meta property="og:image" content="{{ url_for('static', filename='img/campaignify-icon-512.png', _external=True) }}">
+<script type="application/ld+json">{{ site_jsonld|safe }}</script>
 {% endblock %}
 {% block main %}
 {% set r = rates() %}

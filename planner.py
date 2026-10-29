@@ -26,6 +26,8 @@ import copywriter
 import db
 import llm
 import platforms
+import plans
+import seo
 
 MAX_TURNS = 14
 TURN_TOKENS = 3000
@@ -123,6 +125,13 @@ TOOLS = [
              "required": ["title"]}}},
          "required": ["summary", "checklist"]}},
 ]
+
+
+# Added for workspaces whose plan includes the SEO optimizer.
+SEO_TOOL = {"name": "audit_page",
+            "description": "Audit the campaign's landing page for search, answer engines and AI assistants (free). "
+                           "Use it once when the brief has a link, and turn the top issues into checklist items.",
+            "input_schema": {"type": "object", "properties": {"url": {"type": "string"}}, "required": ["url"]}}
 
 
 class Plan:
@@ -289,6 +298,14 @@ def dispatch(name, inp, ctx):
               f"{len(variants)} variant(s)" + (f" for “{angle}”" if angle != "all" else ""))
         return {"ok": True, "variants": [{"angle": v["angle"], "first_field": (v["fields"][0]["text"] if v["fields"] else "")[:140],
                                           "passes_checks": v["ok"]} for v in variants]}
+    if name == "audit_page" and ctx.get("seo"):
+        try:
+            page, report, _ = seo.run_audit(str(inp.get("url") or "")[:500], None)
+        except seo.fetcher.FetchError as e:
+            return {"error": f"couldn't read the page: {e}"}
+        top = [f"{lvl}: {t}" for grp in ("seo", "aeo", "geo") for lvl, t, _ in report[grp] if lvl in ("fail", "warn")]
+        _step(steps, "seo", f"Audited the landing page: {report['score']}/100", "; ".join(top[:3]))
+        return {"score": report["score"], "title": page["title"], "issues": top[:10]}
     if name == "check_compliance":
         return compliance.check(str(inp.get("text") or ""))
     if name == "finish":
@@ -347,8 +364,11 @@ def run(cid: int, notes: str | None = None):
     if notes:
         _step(steps, "revise", "Revising the plan with your notes", notes[:300])
     usage = llm.Usage()
+    has_seo = plans.has(ws, "seo")
     ctx = {"cid": cid, "ws_id": c["workspace_id"], "brand": brand, "brief": brief, "plan": plan, "steps": steps,
-           "usage": usage, "photos": _photos(c["workspace_id"]), "refs": _refs(), "counts": {"ads": 0, "copy": 0}}
+           "usage": usage, "photos": _photos(c["workspace_id"]), "refs": _refs(), "counts": {"ads": 0, "copy": 0},
+           "seo": has_seo}
+    tools = TOOLS[:-1] + [SEO_TOOL, TOOLS[-1]] if has_seo else TOOLS
     prompt = brief_prompt(c, brand, brief, notes)
     if previous and previous.final:
         prompt += "\n\nThe previous plan's summary: " + previous.final.get("summary", "")
@@ -361,7 +381,7 @@ def run(cid: int, notes: str | None = None):
             if usage.credits >= cap:
                 _step(steps, "note", "Stopped at the planning budget", f"{cap} credits")
                 break
-            resp = llm.chat(system=system, messages=_with_cache(messages), tools=TOOLS, max_tokens=TURN_TOKENS,
+            resp = llm.chat(system=system, messages=_with_cache(messages), tools=tools, max_tokens=TURN_TOKENS,
                             usage=usage, temperature=0.6)
             content = resp.get("content") or []
             messages.append({"role": "assistant", "content": content})

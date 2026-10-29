@@ -1,0 +1,58 @@
+{% extends "base.html" %}{% block title %}Audit · Campaignify{% endblock %}
+{% block body %}
+{% set rep = out.report %}{% set s = out.suggest %}
+<div class="page full">
+  <p style="margin:0 0 14px"><a href="{{ url_for('seo.index') }}">← Audit another</a></p>
+  <p class="eyebrow">Audit · {{ r.created_at[:10] }}</p>
+  <h1 class="break">{{ inp.url or 'Pasted draft' }}</h1>
+  <div class="scorebig"><b>{{ rep.score }}</b><span class="muted">/ 100</span>
+    <span class="small muted">{{ out.page.words }} words · {{ out.page.internal_links }} internal links{% if out.page.jsonld_types %} · structured data: {{ out.page.jsonld_types|join(', ') }}{% endif %}</span></div>
+  <div class="audit3">
+    {% for key, label, blurb in [('seo','SEO','Search engines'),('aeo','AEO','Answer engines'),('geo','GEO','AI assistants')] %}
+    <div class="panel"><h2>{{ label }} <span class="muted small">{{ blurb }}</span></h2>
+      <ul class="checks">{% for lvl, title, detail in rep[key] %}<li class="{{ 'block' if lvl == 'fail' else lvl }}"><b>{{ title }}</b>{% if detail %}<span class="small muted d">{{ detail }}</span>{% endif %}</li>{% endfor %}</ul>
+    </div>
+    {% endfor %}
+  </div>
+  {% if out.extras.ai_crawlers %}
+  <details class="panel" style="margin-top:18px"><summary><b>AI crawlers in robots.txt</b></summary>
+    <div class="crawlers">{% for bot, st in out.extras.ai_crawlers.items() %}<span class="tag {{ 'ok' if st == 'allowed' else 'warn' }}">{{ bot }}: {{ st }}</span>{% endfor %}</div></details>
+  {% endif %}
+
+  {% if s %}
+  <div class="section-h"><h2>Fixes, in order</h2><span class="muted small">{{ r.credits }} credits</span></div>
+  <ol class="fixes">{% for f in s.fixes %}<li>{{ f }}</li>{% endfor %}</ol>
+  <div class="grid2">
+    <div class="panel">
+      <h3>Title and description</h3>
+      <div class="vfield"><div class="vfield-h"><span class="small muted">Title</span><span class="small dim">{{ s.title|length }}/60</span></div><p class="vtext" id="st">{{ s.title }}</p><button type="button" class="copybtn" data-copy="st">Copy</button></div>
+      <div class="vfield"><div class="vfield-h"><span class="small muted">Meta description</span><span class="small dim">{{ s.description|length }}/160</span></div><p class="vtext" id="sd">{{ s.description }}</p><button type="button" class="copybtn" data-copy="sd">Copy</button></div>
+      {% if s.h1 %}<div class="vfield"><div class="vfield-h"><span class="small muted">H1</span></div><p class="vtext" id="sh">{{ s.h1 }}</p><button type="button" class="copybtn" data-copy="sh">Copy</button></div>{% endif %}
+      <div class="vfield"><div class="vfield-h"><span class="small muted">Answer-first summary (put it at the top)</span></div><p class="vtext" id="ss">{{ s.summary }}</p><button type="button" class="copybtn" data-copy="ss">Copy</button></div>
+    </div>
+    <div class="panel">
+      <h3>FAQ block</h3>
+      <div id="faq">{% for f in s.faq %}<p><b>{{ f.q }}</b><br>{{ f.a }}</p>{% endfor %}</div>
+      <button type="button" class="copybtn" data-copy="faq">Copy FAQ</button>
+    </div>
+  </div>
+  {% if s.keywords %}
+  <div class="panel scrollx" style="margin-top:20px"><h3>Keyword ideas</h3>
+    <table><tr><th>Phrase</th><th>Intent</th><th>Note</th></tr>{% for k in s.keywords %}<tr><td>{{ k.phrase }}</td><td><span class="tag ok">{{ k.intent }}</span></td><td class="small muted">{{ k.note or '' }}</td></tr>{% endfor %}</table>
+    <p class="small dim">Ideas from the page and your goal, not search-volume data. Check volumes in a keyword tool before you commit.</p>
+  </div>{% endif %}
+  {% if s.topics %}<div class="panel" style="margin-top:20px"><h3>Content that earns links and citations</h3><ul class="rules">{% for t in s.topics %}<li>{{ t }}</li>{% endfor %}</ul></div>{% endif %}
+  {% endif %}
+
+  <div class="grid2">
+    <div class="panel"><div class="row" style="justify-content:space-between"><h3 style="margin:0">schema.org JSON-LD</h3><button type="button" class="copybtn" data-copy="ld">Copy</button></div>
+      <p class="small muted">Paste inside <code>&lt;script type="application/ld+json"&gt;</code> in the page's head. Check every value is true before publishing.</p>
+      <pre class="code" id="ld">{{ out.jsonld }}</pre></div>
+    <div class="panel"><div class="row" style="justify-content:space-between"><h3 style="margin:0">llms.txt draft</h3><button type="button" class="copybtn" data-copy="lt">Copy</button></div>
+      <p class="small muted">Optional. Save as <code>/llms.txt</code> at your site's root: a short Markdown map of your site for AI tools. Add your other key pages.</p>
+      <pre class="code" id="lt">{{ out.llms_txt }}</pre></div>
+  </div>
+  {% if not s %}<p class="small muted">Turn on AI suggestions for rewritten titles, an FAQ, keyword ideas and a fuller JSON-LD.</p>{% endif %}
+</div>
+{% include "_copyjs.html" %}
+{% endblock %}
