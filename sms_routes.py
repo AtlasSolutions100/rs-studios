@@ -69,7 +69,7 @@ def wizard():
         form = conn.execute("SELECT * FROM forms WHERE workspace_id=? AND consent_sms=1 ORDER BY id DESC LIMIT 1", (ws["id"],)).fetchone()
         samples = sms.sample_messages(conn, ws)
     path = (p["path"] if p else "") or ("10dlc" if int(fields.get("volume") or 0) >= sms.LOW_VOLUME else "tollfree")
-    defaults = {"use_case": f"Marketing texts to people who opted in on {brand['name'] or 'our'} web form: launch news, "
+    defaults = {"use_case": f"Marketing texts to people who opted in on {(brand['name'] + "'s") if brand['name'] else 'our'} web form: launch news, "
                             "reminders and offers they asked for.",
                 "message_flow": ("People opt in by ticking an unchecked box on our web form" +
                                  (f" at {flows_engine.PUBLIC_URL}/f/{form['code']}" if form else "") +
