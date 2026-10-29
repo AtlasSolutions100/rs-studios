@@ -315,7 +315,7 @@
     function short(x){ var w = x.split(/\s+/); return w.length > 4 ? w.slice(0, 4).join(' ') + '…' : x; }
     $('[data-sum=script]').textContent = items.length ? plural(items.length, noun()) + ': ' + items.slice(0, 2).map(function(x){ return '“' + short(x) + '”'; }).join(', ') + (items.length > 2 ? ', +' + (items.length - 2) : '') + (kind() === 'spoken' ? ' · ' + S.duration + ' s' : '') : '';
     $('[data-sum=cast]').textContent = S.type === 'ugc' ? S.presenters.map(function(id){ return pres(id).name; }).join(', ') : S.voices.map(function(id){ return voice(id).name; }).join(', ');
-    $('[data-sum=format]').textContent = [S.aspects.join(', '), kind() !== 'spoken' && S.type === 'product_video' ? S.duration + ' s' : '', S.type === 'image' ? plural(+S.versions, 'version') + ' each' : '', plural(S.photos.length, 'photo')].filter(Boolean).join(' · ');
+    $('[data-sum=format]').textContent = [S.aspects.join(', '), kind() !== 'spoken' && S.type === 'product_video' ? S.duration + ' s' : '', S.type === 'image' ? plural(+S.versions, 'version') + ' each' : '', S.photos.length ? plural(S.photos.length, 'photo') : ''].filter(Boolean).join(' · ');
   }
   function pres(id){ return B.presenters.filter(function(p){ return p.id === id; })[0] || {name: id}; }
   function voice(id){ return B.voices.filter(function(v){ return v.id === id; })[0] || {name: id}; }
