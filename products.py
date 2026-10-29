@@ -21,7 +21,47 @@ import plans
 
 # (field, max length) a product form may set.
 FIELDS = (("name", 80), ("description", 600), ("price", 60), ("offer", 200), ("claims", 2000),
-          ("audience", 300), ("url", 500), ("tags", 200))
+          ("audience", 300), ("url", 500), ("tags", 200), ("category", 20))
+# What kind of product it is: picks which templates fit (coffee templates only for food & drink).
+CATEGORIES = [("food_drink", "Food & drink"), ("beauty", "Beauty & skincare"), ("apparel", "Apparel & accessories"),
+              ("supplement", "Supplements & wellness"), ("home", "Home & living"), ("app_service", "App or service"),
+              ("other", "Something else")]
+CATEGORY_NAMES = dict(CATEGORIES)
+_CATEGORY_WORDS = {
+    "food_drink": ("coffee", "tea", "espresso", "matcha", "snack", "chocolate", "drink", "beverage", "sauce", "food",
+                   "candy", "wine", "beer", "juice", "bakery", "cookie", "granola"),
+    "beauty": ("serum", "skincare", "skin", "cream", "lotion", "makeup", "cosmetic", "lipstick", "hair", "shampoo",
+               "fragrance", "perfume", "nail", "beauty", "spf", "sunscreen"),
+    "apparel": ("shirt", "hoodie", "dress", "sneaker", "shoe", "jeans", "apparel", "clothing", "jacket", "hat", "bag",
+                "jewelry", "watch", "socks", "fashion"),
+    "supplement": ("supplement", "vitamin", "protein", "collagen", "gummies", "capsule", "electrolyte", "creatine",
+                   "probiotic", "wellness"),
+    "home": ("candle", "mug", "pillow", "blanket", "kitchen", "decor", "home", "towel", "plant", "lamp"),
+    "app_service": ("app", "software", "course", "service", "subscription", "coaching", "saas", "membership"),
+}
+
+
+def category_of(p) -> str:
+    """The product's category: the one picked, else a guess from its tags and name ('' if unsure)."""
+    if not p:
+        return ""
+    keys = p.keys() if hasattr(p, "keys") else []
+    picked = p["category"] if "category" in keys else ""
+    if picked in CATEGORY_NAMES:
+        return picked
+    return guess_category(" ".join(str(p[k] or "") for k in ("tags", "name", "description") if k in keys))
+
+
+def guess_category(text: str) -> str:
+    import re as _re
+    words = set(_re.findall(r"[a-z]+", (text or "").lower()))
+    words |= {w[:-1] for w in words if w.endswith("s")}
+    best, hits = "", 0
+    for cat, vocab in _CATEGORY_WORDS.items():
+        n = sum(1 for v in vocab if v in words)
+        if n > hits:
+            best, hits = cat, n
+    return best
 BRAND_FIELDS = (("brand_name", 80), ("about", 600), ("website", 300), ("tone", 80), ("audience", 300))
 MAX_PENDING = 20
 
@@ -228,6 +268,8 @@ def clean(form, fields=FIELDS) -> dict:
             out[k] = (v if isinstance(v, str) else "" if v is None else str(v)).strip()[:lim]
     if "tags" in out:
         out["tags"] = ", ".join(dict.fromkeys(t.strip().lower() for t in out["tags"].split(",") if t.strip()))[:200]
+    if "category" in out and out["category"] not in CATEGORY_NAMES:
+        out["category"] = ""
     return out
 
 

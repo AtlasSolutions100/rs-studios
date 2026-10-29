@@ -16,6 +16,7 @@
 <body>
 {% block shell %}
 {% set ICONS = {
+  'home': '<path d="M4 11l8-7 8 7v8.5a1.5 1.5 0 01-1.5 1.5H15v-6H9v6H5.5A1.5 1.5 0 014 19.5z"/>',
   'create': '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/>',
   'library': '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M10 9l5 3-5 3z" fill="currentColor"/>',
   'brand': '<path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.4" fill="currentColor"/>',
@@ -72,7 +73,7 @@
       {% set shown = [] %}{% for it in items %}{% if (has_endpoint is not defined or has_endpoint(it[0])) %}{% if fold and it[3] and not has_feature(it[3]) and request.endpoint not in it[4] %}{% set _ = locked.items.append(it) %}{% else %}{% set _ = shown.append(it) %}{% endif %}{% endif %}{% endfor %}
       {% if shown %}
       {% set ns = namespace(on=false) %}{% for it in shown %}{% if request.endpoint in it[4] %}{% set ns.on = true %}{% endif %}{% endfor %}
-      {% if title %}<details class="navgrp" data-navgrp="{{ title }}" {{ 'open' if ns.on or title in ('Grow', 'Settings') }}><summary>{{ title }}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>{% endif %}
+      {% if title %}<details class="navgrp" data-navgrp="{{ title }}" {{ 'open' if ns.on or title in ('Plan', 'Grow', 'Launch', 'Settings') }}><summary>{{ title }}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>{% endif %}
       {% for ep, label, icon, feat, eps in shown %}{{ navlink(ep, label, icon, feat, eps) }}{% endfor %}
       {% if title %}</details>{% endif %}
       {% endif %}

@@ -1023,3 +1023,11 @@ dialog.jd::backdrop{background:rgba(0,0,0,.55)}
 .jd-brief{white-space:pre-wrap;font-size:13.5px;color:var(--muted);border-left:2px solid var(--line);padding-left:12px;margin:0 0 16px}
 .jd-del{margin:16px 0 0}.jd-del .linkbtn{color:var(--bad)}
 @media (max-width:760px){.fchip-row>span{min-width:100%}}
+
+/* ---------------------------------------------------------------- Create: template presets */
+.cf-presetrow{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.cf-preset{flex:none;display:flex;gap:10px;align-items:center;width:230px;padding:8px;border:1px solid var(--line);border-radius:12px;background:var(--chipbg);text-decoration:none;color:var(--ink)}
+.cf-preset:hover{border-color:rgba(var(--accent-rgb),.6)}
+.cf-preset img{width:44px;height:56px;object-fit:cover;border-radius:8px;flex:none}
+.cf-preset>span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.cf-preset b{font-size:13.5px}.cf-preset .small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

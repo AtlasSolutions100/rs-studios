@@ -42,6 +42,8 @@
           <div><label for="pu">Landing or store link</label><input id="pu" type="text" name="url" maxlength="500" inputmode="url" value="{{ f.url or '' }}" placeholder="https://"></div>
           <div><label for="pt">Tags <span class="dim">(comma separated)</span></label><input id="pt" type="text" name="tags" maxlength="200" value="{{ f.tags or '' }}" placeholder="coffee, morning, gift"></div>
         </div>
+        <label for="pcat">What kind of product <span class="dim">(picks the templates that fit)</span></label>
+        <select id="pcat" name="category"><option value="">Not sure</option>{% set guessed = category_of(f) if f else '' %}{% for k, label in categories %}<option value="{{ k }}" {{ 'selected' if guessed == k }}>{{ label }}</option>{% endfor %}</select>
         <label for="pc" id="claims">Approved claims <span class="dim">(one per line, copied from the label: the only claims AI may use)</span></label>
         <textarea id="pc" name="claims" maxlength="2000" placeholder="Natural caffeine&#10;30 servings&#10;Hot water and 30 seconds">{{ f.claims or '' }}</textarea>
         {% if not p %}
