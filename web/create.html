@@ -333,7 +333,7 @@
   document.addEventListener('change', function(e){
     var t = e.target;
     if(t.name === 'cf-product'){ fetch(B.urls.state + '?id=' + t.value).then(function(r){ return r.json(); }).then(function(st){ S.product = st; S.photos = []; S.ideas = []; render(); }); }
-    if(t.name === 'cf-type'){ S.type = t.value; S.aspects = []; if(S.type === 'ugc' && !S.presenters.length) S.presenters = ['maya']; if(kind() !== 'spoken' && S.duration > 10) S.duration = 10; if(kind() === 'spoken' && B.durations.ugc_video.indexOf(+S.duration) < 0) S.duration = 10; render(); }
+    if(t.name === 'cf-type'){ S.type = t.value; S.aspects = []; if(S.type === 'ugc' && !S.presenters.length) S.presenters = ['maya']; if(S.type === 'product_video') S.duration = 5; else if(kind() === 'spoken' && B.durations.ugc_video.indexOf(+S.duration) < 0) S.duration = 10; render(); }
     if(t.name === 'cf-angle'){ var x = ($('[data-angles]')._list || []).filter(function(y){ return y.key === t.value; })[0]; if(x){ S.angle = x.a; if(x.tag === 'Idea') S.angle.ai = true; render(); } }
     if(t.name === 'cf-dur'){ S.duration = +t.value; count(); summaries(); liveQuote(); }
     if(t.name === 'cf-vdur'){ S.duration = +t.value; liveQuote(); }
@@ -387,6 +387,7 @@
   // ---- start where the prefill says
   if(S.type){ var r = document.querySelector('input[name=cf-type][value="' + S.type + '"]'); if(r) r.checked = true; }
   if(S.type === 'ugc' && !S.presenters.length) S.presenters = ['maya'];
+  if(S.type === 'product_video' && !P.duration) S.duration = 5;
   S.step = P.step && S.product && S.type ? P.step : (!S.product ? 'product' : (P.type ? (S.angle ? 'script' : 'angle') : (B.product ? 'type' : 'product')));
   render();
 })();
