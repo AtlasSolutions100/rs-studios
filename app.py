@@ -27,9 +27,11 @@ import billing
 import catalog
 import owners
 import compliance
+import creator
 import db
 import hf
 import plans
+import preview
 import products
 import worker
 from core import admin_required, brand, feature_required, is_owner, login_required, owner_required, picked_product  # noqa: F401
@@ -163,6 +165,9 @@ def _nav():
     if g.get("ws") and request.endpoint and request.endpoint != "static":
         with db.connect() as conn:
             out["switcher"] = products.tree(conn, g.ws)
+            # Until the first ad, locked (paid-plan) items fold into one "More on paid plans" row.
+            out["nav_collapse_locked"] = not conn.execute("SELECT 1 FROM jobs WHERE workspace_id=? LIMIT 1",
+                                                          (g.ws["id"],)).fetchone()
         out["active_brand"], out["active_product"] = g.get("brand_row"), g.get("product_row")
     return out
 
@@ -453,15 +458,14 @@ def signup():
 
     def again(msg, status=200):
         flash(msg)
-        return render_template("signup.html", invite=code, owner=owner,
-                               email=request.form.get("email", ""), name=request.form.get("name", "")), status
+        return render_template("signup.html", invite=code, owner=owner, email=request.form.get("email", "")), status
 
     if g.user:
         return redirect(url_for("studio"))
     if request.method == "POST":
         email = (request.form.get("email") or "").strip().lower()
         pw = request.form.get("password") or ""
-        name = (request.form.get("name") or "").strip()[:80]
+        name = (request.form.get("name") or "").strip()[:80]   # no longer asked; kept if an old form sends it
         ip = client_ip()
         if request.form.get("website"):            # honeypot: people never see this field
             return again("Something went wrong. Please try again.", 400)
@@ -470,7 +474,7 @@ def signup():
         if not owner and (db.throttled(f"signup:{ip}", SIGNUPS_PER_HOUR, 3600) or
                           db.throttled(f"signup:{ip}", SIGNUPS_PER_DAY, 86400)):
             return again("Too many new accounts from your network. Try again later.", 429)
-        dest = "start"
+        dest = "studio"
         with db.connect() as conn:
             if conn.execute("SELECT 1 FROM users WHERE email=?", (email,)).fetchone():
                 return again("That email already has an account. Log in instead.")
@@ -520,10 +524,10 @@ def signup():
             csrf_token()
         if not owner:
             db.hit(f"signup:{ip}")
-        if dest == "start" and llm.anthropic_ready():
-            dest = "assistant.page"   # the setup guide; /app/start stays as the quick form
+        # New accounts land on Home, which is the first-ad form until they've made one
+        # (the setup guide is a link from there, not a detour).
         return redirect(url_for(dest))
-    return render_template("signup.html", invite=code, owner=owner, email="", name="")
+    return render_template("signup.html", invite=code, owner=owner, email="")
 
 
 @app.route("/logout", methods=["POST"])
@@ -537,8 +541,13 @@ def logout():
 @app.route("/app")
 @login_required
 def studio():
-    """Create home: ad types for the active product, its saved angles, recent
-    batches, and the template library."""
+    return _studio_page()
+
+
+def _studio_page(form=None, status=200):
+    """Home: for a new account, the first-ad form and nothing else; afterwards,
+    ad types for the active product, its saved angles, recent batches and the
+    template library."""
     pid = g.ws["product_id"]
     with db.connect() as conn:
         recent = conn.execute("SELECT * FROM jobs WHERE workspace_id=? ORDER BY id DESC LIMIT 6",
@@ -557,10 +566,34 @@ def studio():
                   "ad_image": catalog.price_credits("ad_image", batch=1),
                   "photo_to_video": catalog.price_credits("photo_to_video", duration=5),
                   "motion_copy": catalog.price_credits("motion_copy", ref_seconds=5)}
+    bal = db.balance(g.ws)
+    types = sorted(catalog.ad_types(), key=lambda t: from_price[t["tool"]] > bal)  # what they can afford first
+    first, pv_ok = None, False
+    with db.connect() as conn:
+        if not recent or request.args.get("preview") or form:
+            first = _first_ad_context(conn, form or ({"kind": "preview"} if request.args.get("preview") else {}))
+            pv_ok = first["preview"]["ok"]
+        else:
+            pv_ok = preview.status(conn, g.ws, g.user["email"])["ok"]
     return render_template("studio.html", templates=catalog.TEMPLATES, templates_by_id=catalog.TEMPLATE_BY_ID,
                            recent=recent, outs=outs, photos=photos, brand=brand(), configured=hf.configured(),
-                           first_run=not recent, ad_types=catalog.ad_types(), angles=angles, batches=batches,
-                           nprod=nprod, pphotos=pphotos, from_price=from_price, ad_type_names=catalog.AD_TYPE_BY_ID)
+                           first_run=not recent or bool(first), ad_types=types, preview_ok=pv_ok, angles=angles, batches=batches,
+                           nprod=nprod, pphotos=pphotos, from_price=from_price, ad_type_names=catalog.AD_TYPE_BY_ID,
+                           bal=bal, first=first, preview_seconds=preview.SECONDS), status
+
+
+def _first_ad_context(conn, form):
+    """What the first-ad form needs: templates, the free preview's status, photos already added."""
+    pv = preview.status(conn, g.ws, g.user["email"])
+    photos = conn.execute("SELECT * FROM photos WHERE workspace_id=? ORDER BY id DESC LIMIT 12",
+                          (g.ws["id"],)).fetchall()
+    kind = form.get("kind") or ("preview" if pv["ok"] else "image")
+    return {"tpls": catalog.first_run_templates(), "photos": photos, "form": form, "preview": pv, "kind": kind,
+            "price": catalog.price_credits("ad_image", batch=1), "presenters": [catalog.PRESENTER_BY_ID[x] for x in
+                                                                               preview.PRESENTERS],
+            "line": form.get("line") or "", "default_line": preview.DEFAULT_LINE, "pick": form.get("template") or
+            catalog.first_run_templates()[0]["id"], "seconds": preview.SECONDS,
+            "max_words": int(catalog.max_words(preview.SECONDS) * 1.2)}
 
 
 def _outputs(conn, job_ids):
@@ -649,82 +682,116 @@ def generate():
 @app.route("/app/start", methods=["GET", "POST"])
 @login_required
 def start():
-    """One flow for a new account: product name + one photo, pick a template,
-    first ad. Fills the brand kit as a side effect."""
-    tpls = catalog.first_run_templates()
-    by_id = {t["id"]: t for t in tpls}
-    with db.connect() as conn:
-        photos = conn.execute("SELECT * FROM photos WHERE workspace_id=? ORDER BY id DESC LIMIT 12",
-                              (g.ws["id"],)).fetchall()
-    form = request.form if request.method == "POST" else {}
-    price = catalog.price_credits("ad_image", batch=1)
-
-    def page(status=200):
-        return render_template("start.html", tpls=tpls, photos=photos, form=form, price=price,
-                               brand=brand(), pick=form.get("template") or tpls[0]["id"]), status
-
+    """The first-ad form lives on Home now; this takes its POST. Product name,
+    brand (optional) and one photo, then either the free talking-video preview
+    or an image ad from a template. Fills the product as a side effect and
+    opens the batch page, which shows what to do while it renders."""
     if request.method == "GET":
-        return page()
+        return redirect(url_for("studio"))
     f = request.form
+    kind = "preview" if f.get("kind") == "preview" else "image"
     product = (f.get("product_name") or "").strip()[:80]
     brand_name = (f.get("brand_name") or "").strip()[:80]
     audience = (f.get("audience") or "").strip()[:200]
-    tpl = by_id.get(f.get("template") or "")
+    tpls = {t["id"]: t for t in catalog.first_run_templates()}
+    tpl = tpls.get(f.get("template") or "")
+
+    def again(msg):
+        flash(msg)
+        return _studio_page(f, 400)
+
     if not product:
-        flash("Add your product's name.")
-        return page(400)
-    if not tpl:
-        flash("Pick a template.")
-        return page(400)
+        return again("Add your product's name.")
     b = {"name": brand_name or g.ws["brand_name"] or "", "product": product}
-    brief = (f.get("brief") or "").strip()[:2000] or catalog.fill(tpl["brief"], b)
-    if "{product}" in brief or "{brand}" in brief:
-        brief = catalog.fill(brief, b)
-    check = compliance.check(brief, audience, product, brand_name)
-    if not check["ok"]:
-        for m in check["blocks"]:
-            flash(m)
-        return page(400)
+    if kind == "preview":
+        presenter = f.get("presenter") if f.get("presenter") in preview.PRESENTERS else preview.PRESENTERS[0]
+        line = " ".join((f.get("line") or "").split())[:300] or preview.line_for(product)
+        line = catalog.fill(line, b)
+        if len(line.split()) > int(catalog.max_words(preview.SECONDS) * 1.2):
+            return again(f"Keep the line to about {catalog.max_words(preview.SECONDS)} words: it's an "
+                         f"{preview.SECONDS}-second video.")
+        check = compliance.check(line, product, brand_name, audience)
+        if not check["ok"] or creator.CUSTOMER_VOICE in check["warnings"]:
+            return again(" ".join(check["blocks"] or [creator.CUSTOMER_VOICE]))
+    else:
+        if not tpl:
+            return again("Pick a template.")
+        brief = (f.get("brief") or "").strip()[:2000] or catalog.fill(tpl["brief"], b)
+        if "{product}" in brief or "{brand}" in brief:
+            brief = catalog.fill(brief, b)
+        check = compliance.check(brief, audience, product, brand_name)
+        if not check["ok"]:
+            return again(" ".join(check["blocks"]))
     fs = request.files.get("photo")
-    photo_id = None
+    photo_id, path = None, None
+    with db.connect() as conn:
+        mine = {r["id"] for r in conn.execute("SELECT id FROM photos WHERE workspace_id=?", (g.ws["id"],))}
+        if kind == "preview" and not preview.status(conn, g.ws, g.user["email"])["ok"]:
+            return again("The free preview isn't available on this account. Make an image ad instead, or see "
+                         "plans on Billing.")
     if fs and fs.filename:
         try:
             path, ctype = _save_upload(fs, os.path.join(UPLOADS, str(g.ws["id"])), PHOTO_TYPES, MAX_PHOTO_MB)
         except ValueError as e:
-            flash(f"{fs.filename}: {e}")
-            return page(400)
+            return again(f"{fs.filename}: {e}")
     else:
-        path = None
         chosen = f.get("photo_id", type=int)
-        if chosen and any(p["id"] == chosen for p in photos):
+        if chosen and chosen in mine:
             photo_id = chosen
         else:
-            flash("Add one photo of your product.")
-            return page(400)
+            return again("Add one photo of your product.")
     with db.connect() as conn:
         try:
             pid = products.save_kit(conn, g.ws, brand_name=brand_name, product_name=product, audience=audience,
                                     first_ad=True)
         except products.ProductError as e:
-            flash(str(e))
-            return page(400)
+            return again(str(e))
         if path:
             photo_id = products.add_photo(conn, g.ws["id"], pid, path, fs.filename, ctype)
         elif pid:
             conn.execute("UPDATE photos SET product_id=COALESCE(product_id, ?) WHERE id=?", (pid, photo_id))
             conn.execute("UPDATE products SET primary_photo_id=COALESCE(primary_photo_id, ?) WHERE id=?", (photo_id, pid))
             conn.commit()
-        params = {"photo_ids": [photo_id], "batch": 1, "aspect": tpl.get("aspect") or "9:16",
-                  "audience": audience or tpl.get("audience") or "", "niche": ""}
-        jid = _queue_job(conn, "ad_image", tpl["id"], brief, params, catalog.cost_usd("ad_image", batch=1), price,
-                         product_id=pid)
-    if not jid:
-        return redirect(url_for("billing_page"))
+        if kind == "preview":
+            cfg = {"type": "ugc", "product": pid, "angle": {"title": "First look"}, "items": [line], "body": "",
+                   "presenters": [presenter], "duration": preview.SECONDS, "aspects": ["9:16"], "photos": [photo_id]}
+            title = "Your free preview"
+        else:
+            cfg = {"type": "image", "product": pid, "angle": {"title": tpl["name"]}, "items": [], "body": brief,
+                   "aspects": [tpl.get("aspect") or "9:16"], "versions": 1, "photos": [photo_id]}
+            title = "Your first ad"
+        bid = conn.execute("INSERT INTO batches (workspace_id, user_id, product_id, ad_type, title, config_json, credits, "
+                           "created_at) VALUES (?,?,?,?,?,?,?,?)",
+                           (g.ws["id"], g.user["id"], pid, cfg["type"], title, json.dumps(cfg), 0, db.now())).lastrowid
+        if kind == "preview":
+            params = {"photo_ids": [photo_id], "ad_type": "ugc", "product": product, "duration": preview.SECONDS,
+                      "aspect": "9:16", "presenter": presenter, "voice": create_routes._default_voice(presenter),
+                      "resolution": preview.RESOLUTION, "preview": True, "label": "Free preview · 480p",
+                      "hook": line[:200]}
+            jid = _queue_job(conn, "ugc_video", None, line, params, preview.cost_usd(), 0, product_id=pid,
+                             batch_id=bid)
+            if jid and not preview.claim(conn, g.ws["id"], g.user["email"], client_ip(), jid, db.now()):
+                conn.execute("DELETE FROM jobs WHERE id=?", (jid,))
+                conn.execute("DELETE FROM ledger WHERE job_id=?", (jid,))
+                jid = None
+            if jid:
+                conn.execute("UPDATE ledger SET reason='free talking-video preview' WHERE job_id=?", (jid,))
+            conn.commit()
+        else:
+            params = {"photo_ids": [photo_id], "batch": 1, "aspect": tpl.get("aspect") or "9:16",
+                      "audience": audience or tpl.get("audience") or "", "niche": "", "label": tpl["name"]}
+            jid = _queue_job(conn, "ad_image", tpl["id"], brief, params, catalog.cost_usd("ad_image", batch=1),
+                             catalog.price_credits("ad_image", batch=1), product_id=pid, batch_id=bid)
+            if jid:
+                conn.execute("UPDATE batches SET credits=? WHERE id=?", (catalog.price_credits("ad_image", batch=1), bid))
+                conn.commit()
+        if not jid:
+            conn.execute("DELETE FROM batches WHERE id=?", (bid,))
+            conn.commit()
+            return redirect(url_for("billing_page"))
     for w in check["warnings"]:
         flash("Heads up: " + w)
-    flash("Your first ad is on its way. It shows up here in a minute or two, and your product is saved under "
-          "Products for next time.")
-    return redirect(url_for("library", highlight=jid))
+    return redirect(url_for("create.batch", bid=bid, first=1))
 
 
 @app.route("/app/library")
@@ -778,6 +845,8 @@ def media(oid):
     if o["path"] and os.path.exists(o["path"]):
         return send_file(o["path"], as_attachment=request.args.get("download") == "1",
                          download_name=os.path.basename(o["path"]), conditional=True)
+    if not o["url"]:
+        abort(404)   # free previews are only ever served watermarked, from disk
     return redirect(o["url"])
 
 

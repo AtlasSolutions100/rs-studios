@@ -29,6 +29,19 @@
     </article>
     {% endfor %}
   </div>
+  {% if is_preview %}<div class="panel fa-upsell"><div><b>This is your free preview</b><span class="small muted">480p with a PREVIEW watermark. The real thing is 720p, no watermark, and you can pick the presenter, length and shapes.</span></div><a class="btn" href="{{ url_for('create.index', batch=b.id) }}">Make it for real · {{ '{:,}'.format(full_price) }} credits ({{ credits_usd(full_price) }})</a></div>{% endif %}
+  {% if first_batch %}
+  <div class="panel whilecard">
+    <h2>{{ 'While it renders' if running else 'Next steps' }}</h2>
+    <p class="small muted" style="margin:0 0 12px">A few minutes of setup now makes every next ad better.</p>
+    <ul class="nextlist">
+      {% if p %}<li class="{{ 'done' if nphotos >= 2 }}"><a href="{{ url_for('products.edit', pid=p.id) }}#photos"><b>Add {{ 'another photo' if nphotos == 1 else 'more photos' }}</b><span class="small muted">Two or three angles of the real product: videos look more like it.</span></a></li>
+      <li class="{{ 'done' if p.claims }}"><a href="{{ url_for('products.edit', pid=p.id) }}#claims"><b>Approve what's on the label</b><span class="small muted">Scripts only use claims you've approved.</span></a></li>{% endif %}
+      <li><a href="{{ url_for('copy.studio') }}"><b>Write the caption</b><span class="small muted">Platform-ready ad copy for this ad.</span></a>{% if not has_feature('copy') %}<em class="lock">{{ plans.required('copy').name }}</em>{% endif %}</li>
+      <li><a href="{{ url_for('pages.index') }}"><b>Set up a landing page</b><span class="small muted">Somewhere for the ad to send people.</span></a>{% if not has_feature('pages') %}<em class="lock">{{ plans.required('pages').name }}</em>{% endif %}</li>
+    </ul>
+  </div>
+  {% endif %}
   {% if not jobs %}<div class="empty">Nothing in this batch started. Check your credits and try again.</div>{% endif %}
 </div>
 {% endblock %}

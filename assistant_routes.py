@@ -112,7 +112,7 @@ def _items(items):
 def page():
     if not llm.anthropic_ready():
         flash("The setup guide isn't switched on yet. Here's the quick way to your first ad.")
-        return redirect(url_for("start"))
+        return redirect(url_for("studio"))
     return render_template("setup.html")
 
 

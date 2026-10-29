@@ -1,14 +1,20 @@
 {% extends "base.html" %}{% from "_macros.html" import status, job_thumb %}
 {% block title %}Create · Campaignify{% endblock %}
 {% block body %}
+{% if first_run and first %}
+<div class="page full">
+  <section class="fa-wrap">
+    {% if not configured %}<div class="flash">Generation isn't switched on yet. You can fill this in now; ads start once the service is connected.</div>{% endif %}
+    {% include "_first_ad.html" %}
+  </section>
+</div>
+{% else %}
 <div class="page">
   <section>
     <p class="eyebrow">Create · {{ brand.name or 'Your brand' }}</p>
     <h1>{% if brand.product %}Make ads for <span class="gold">{{ brand.product }}</span>{% else %}Make this <span class="gold">week's ads</span>{% endif %}</h1>
     <p class="muted">Pick a format, choose an angle, get the script written, and see the price before anything runs. Every line is checked against the rules and your approved claims.</p>
-    {% if first_run %}{% if assistant_on() %}<a class="firstrun" href="{{ url_for('assistant.page') }}"><span class="lp-num">1</span><div><b>Make your first ad with the setup guide</b><span class="muted small">It sets up your brand and product with you, then lines up a first ad. You have {{ '{:,}'.format(balance()) }} credits.</span></div><span class="btn sm">Start</span></a>
-    <p class="small muted" style="margin:-12px 0 18px">Prefer a form? <a href="{{ url_for('start') }}">Make a quick first ad</a>.</p>
-    {% else %}<a class="firstrun" href="{{ url_for('start') }}"><span class="lp-num">1</span><div><b>Make your first ad in three steps</b><span class="muted small">Add a product photo and its name, pick a template, done. You have {{ '{:,}'.format(balance()) }} credits.</span></div><span class="btn sm">Start</span></a>{% endif %}{% endif %}
+    {% if preview_ok %}<a class="firstrun" href="{{ url_for('studio', preview=1) }}"><span class="lp-num">✦</span><div><b>Your free talking-video preview is waiting</b><span class="muted small">A presenter says one line about your product: {{ preview_seconds }} seconds, watermarked, free once.</span></div><span class="btn sm">Make it</span></a>{% endif %}
     {% if not configured %}<div class="flash">Generation isn't switched on yet. Set up your products now; making ads starts once the admin connects the service.</div>{% endif %}
     {% if nprod == 0 %}
     <div class="panel empty-cta">
@@ -24,7 +30,7 @@
       {% for t in ad_types %}
       <a class="typecard" href="{{ url_for('create.index', type=t.id) }}" data-hoverplay>
         <div class="thumb"><video src="{{ url_for('static', filename=t.preview ~ '.mp4') }}" poster="{{ url_for('static', filename=t.preview ~ '.jpg') }}" muted loop playsinline preload="none"></video>{% if t.talking %}<span class="chip motion">Speaks</span>{% endif %}</div>
-        <div class="typecard-b"><b>{{ t.name }}</b><span class="small muted">{{ t.line }}</span><span class="small dim">from {{ '{:,}'.format(from_price[t.tool]) }} credits</span></div>
+        <div class="typecard-b"><b>{{ t.name }}</b><span class="small muted">{{ t.line }}</span><span class="small dim">from {{ '{:,}'.format(from_price[t.tool]) }} credits · {{ credits_usd(from_price[t.tool]) }}</span>{% if from_price[t.tool] > bal %}<span class="tag warn">Needs {{ '{:,}'.format(from_price[t.tool] - bal) }} more credits</span>{% endif %}</div>
       </a>
       {% endfor %}
     </div>
@@ -84,4 +90,5 @@ document.getElementById('q').addEventListener('input', function(e){
   document.querySelectorAll('#tgrid .tcard').forEach(function(c){ c.style.display = !q || c.dataset.search.indexOf(q) > -1 ? '' : 'none'; });
 });
 </script>
+{% endif %}
 {% endblock %}

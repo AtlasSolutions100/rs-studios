@@ -122,6 +122,10 @@ with db.connect() as conn:
 backups = [f for f in os.listdir(TMP) if f.startswith("rs.db.pre-products-")]
 check(len(backups) == 1 and sqlite3.connect(os.path.join(TMP, backups[0])).execute(
     "SELECT product_name FROM workspaces WHERE id=1").fetchone()[0] == "Sunrise Blend", "a copy of the database was kept before migrating")
+schema_bk = [f for f in os.listdir(TMP) if f.startswith("rs.db.pre-schema-")]
+check(len(schema_bk) == 1 and sqlite3.connect(os.path.join(TMP, schema_bk[0])).execute(
+    "SELECT name FROM sqlite_master WHERE name='free_previews'").fetchone() is None,
+      "new tables/columns are added only after a copy of the database (once)")
 
 # ---------------------------------------------------------------- the app
 import app as appmod  # noqa: E402
@@ -720,7 +724,7 @@ llm._anthropic = fake_asst
 os.environ["ANTHROPIC_API_KEY"] = "sk-ant-test"
 z = client()
 r = z.post("/signup", data={"csrf": csrf(z), "email": "newbie@example.com", "password": "longpassword"})
-check(r.status_code == 302 and r.headers["Location"].endswith("/app/setup"), "with AI on, a new account lands on the setup guide")
+check(r.status_code == 302 and r.headers["Location"].endswith("/app"), "with AI on, a new account still lands on Home (the guide is a link)")
 with db.connect() as conn:
     zws = conn.execute("SELECT workspace_id FROM users WHERE email='newbie@example.com'").fetchone()[0]
 html = z.get("/app/setup").get_data(as_text=True)

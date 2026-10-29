@@ -14,7 +14,6 @@
   <form method="post" action="{{ url_for('signup') }}">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
     <div class="hp" aria-hidden="true"><label for="website">Website</label><input id="website" type="text" name="website" tabindex="-1" autocomplete="off"></div>
-    <label for="name">Your name</label><input id="name" type="text" name="name" autocomplete="name" value="{{ name }}">
     <label for="email">Email</label><input id="email" type="email" name="email" required autocomplete="email" value="{{ owner or email }}">
     <label for="pw">Password (8+ characters)</label><input id="pw" type="password" name="password" required minlength="8" autocomplete="new-password">
     {% if owner %}<input type="hidden" name="invite" value="{{ invite }}">

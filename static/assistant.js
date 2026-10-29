@@ -18,7 +18,7 @@
         root.querySelector('[data-asst-prog]').innerHTML = d.progress.map(function(p){ return '<li class="' + (p.done ? 'done' : (p.step === d.next ? 'now' : '')) + '">' + (p.done ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12l5 5 9-10"/></svg>' : '') + esc(LABELS[p.step] || p.step) + '</li>'; }).join('');
         root.querySelector('[data-asst-step]').textContent = d.next ? 'Next: ' + (LABELS[d.next] || d.next).toLowerCase() + ' · ' + done + ' of ' + d.progress.length + ' done' : 'Set up. Ask me anything.';
       }
-      if(d.free_left != null) root.querySelector('[data-asst-foot]').textContent = d.free_left > 0 ? 'Setup help is free for the next ' + d.free_left + ' credits of AI use. Anything that costs credits asks first.' : 'Replies cost about ' + d.per_reply + ' credits each (what they use). Anything else asks first.';
+      if(d.free_left != null) root.querySelector('[data-asst-foot]').textContent = d.free_left > 0 ? 'Setup help is free. Anything that spends credits asks first.' : 'Replies cost about ' + d.per_reply + ' credits each (what they use). Anything else asks first.';
       var pay = root.querySelector('[data-asst-pay]'); pay.hidden = !d.need_ok; root.querySelector('[data-asst-per]').textContent = d.per_reply;
       form.hidden = !!d.need_ok;
       if(d.error) add({role:'note', text: d.error, err: true});

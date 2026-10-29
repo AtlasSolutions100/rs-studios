@@ -64,7 +64,7 @@ def build_inputs(conn, job) -> dict:
         if not urls:
             raise hf.GenError("Pick a product photo first.")
         return {"prompt": job["brief"], "image_url": urls[0], "duration": int(p.get("duration") or 5),
-                "resolution": "720p", "bitrate_mode": "high", "generate_audio": bool(p.get("audio"))}
+                "resolution": p.get("resolution") or "720p", "bitrate_mode": "high", "generate_audio": bool(p.get("audio"))}
     if tool == "ugc_video":
         if not urls:
             raise hf.GenError("Pick a product photo first.")
@@ -74,7 +74,8 @@ def build_inputs(conn, job) -> dict:
                                         job["brief"] or "", p.get("presenter") or "", p.get("voice") or "",
                                         p.get("setting") or "")
         return {"prompt": prompt, "image_urls": urls[:4], "duration": int(p.get("duration") or 10),
-                "aspect_ratio": p.get("aspect") or "9:16", "resolution": "720p", "bitrate_mode": "high",
+                "aspect_ratio": p.get("aspect") or "9:16", "resolution": p.get("resolution") or "720p",
+                "bitrate_mode": "high",
                 "generate_audio": True}
     if tool == "motion_copy":
         ref = conn.execute("SELECT * FROM refs WHERE id=?", (p.get("ref_id"),)).fetchone()
@@ -105,13 +106,52 @@ def failure_text(msg: str) -> str:
 
 def _fail(conn, job, msg):
     _refund(conn, job, msg[:60])
+    if _is_preview(job):
+        import preview
+        preview.release(conn, job["id"])
     _set(conn, job["id"], status="failed", error=failure_text(msg)[:500])
+
+
+def _is_preview(job) -> bool:
+    try:
+        return bool(json.loads(job["params_json"] or "{}").get("preview"))
+    except (ValueError, TypeError):
+        return False
+
+
+WATERMARK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "img", "preview-watermark.png")
+
+
+def watermark(path: str) -> bool:
+    """Burn the PREVIEW mark into a free preview video, in place. False if it couldn't."""
+    import shutil
+    import subprocess
+    if not shutil.which("ffmpeg") or not os.path.exists(WATERMARK):
+        return False
+    tmp = path + ".wm.mp4"
+    vf = ("[1:v][0:v]scale2ref=w=main_w*0.7:h=ow/mdar[wm][base];"
+          "[base][wm]overlay=x=(main_w-overlay_w)/2:y=main_h*0.66:format=auto,format=yuv420p[v]")
+    try:
+        r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", path, "-i", WATERMARK, "-filter_complex", vf,
+                            "-map", "[v]", "-map", "0:a?", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+                            "-c:a", "copy", "-movflags", "+faststart", tmp], capture_output=True, timeout=180)
+    except Exception:  # noqa: BLE001
+        r = None
+    if not r or r.returncode != 0 or not os.path.exists(tmp) or os.path.getsize(tmp) < 1000:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        log.warning("watermark failed for %s: %s", path, (r.stderr[-300:] if r else b"").decode(errors="ignore"))
+        return False
+    os.replace(tmp, path)
+    return True
 
 
 def _save_outputs(conn, job, result):
     outs = hf.outputs(result)
     if not outs:
         raise hf.GenError("finished with no files")
+    if _is_preview(job):
+        return _save_preview(conn, job, outs)
     folder = os.path.join(MEDIA, str(job["workspace_id"]), str(job["id"]))
     os.makedirs(folder, exist_ok=True)
     for i, o in enumerate(outs, start=1):
@@ -130,6 +170,31 @@ def _save_outputs(conn, job, result):
             make_poster(path)
         conn.execute("INSERT INTO outputs (job_id, kind, url, path) VALUES (?,?,?,?)",
                      (job["id"], o["kind"], o["url"], path))
+    conn.commit()
+
+
+def _save_preview(conn, job, outs):
+    """A free preview is only ever kept watermarked: the vendor's own copy is
+    never linked, and if the mark can't be added the preview fails (and can be
+    tried again)."""
+    o = next((x for x in outs if x["kind"] == "video"), None)
+    if not o:
+        raise hf.GenError("finished with no video")
+    folder = os.path.join(MEDIA, str(job["workspace_id"]), str(job["id"]))
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, f"campaignify-{job['id']}-preview.mp4")
+    try:
+        r = requests.get(o["url"], timeout=300)
+        r.raise_for_status()
+        with open(path, "wb") as f:
+            f.write(r.content)
+    except Exception as e:  # noqa: BLE001
+        raise hf.GenError("The preview couldn't be saved. Try again.") from e
+    if not watermark(path):
+        os.remove(path)
+        raise hf.GenError("The preview couldn't be finished. Try again.")
+    make_poster(path)
+    conn.execute("INSERT INTO outputs (job_id, kind, url, path) VALUES (?,?,?,?)", (job["id"], "video", "", path))
     conn.commit()
 
 
@@ -179,6 +244,8 @@ def tick() -> int:
                 try:
                     _save_outputs(conn, job, res)
                     _set(conn, job["id"], status="done", error=None)
+                except hf.GenError as e:
+                    _fail(conn, job, str(e))
                 except Exception as e:  # noqa: BLE001
                     _fail(conn, job, f"The result couldn't be read: {e}")
                 changed += 1
