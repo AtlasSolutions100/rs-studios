@@ -1,0 +1,38 @@
+{# Plans + packs, shared by the landing page and /features. Needs r = rates(), sc = starter_credits(). #}
+<div class="lp-prices plans">
+  <div class="lp-price free">
+    <h3>Free</h3>
+    <div class="lp-amt">$0</div>
+    <p class="lp-cr">{{ '{:,}'.format(sc) }} starter credits</p>
+    <p class="muted small">{{ sc // r.image }} image ads to try the studio on your own product. No card needed.</p>
+    <ul class="plan-feats">{% for k, f in plans.FEATURES.items() if f.plan == 'free' and f.shipped %}<li>{{ f.name }}</li>{% endfor %}<li>Credit packs whenever you need more</li></ul>
+    <a class="btn dark" href="{{ url_for('signup') }}">Start free</a>
+  </div>
+  {% for p in plans.PAID %}
+  <div class="lp-price {{ 'hot' if p.code == 'growth' }}">
+    {% if p.code == 'growth' %}<span class="lp-badge">Most popular</span>{% endif %}
+    <h3>{{ p.name }}</h3>
+    <div class="lp-amt">${{ p.usd }}<span class="per">/mo</span></div>
+    <p class="lp-cr">{{ '{:,}'.format(p.credits) }} credits every month</p>
+    <p class="muted small">{{ p.line }}</p>
+    {% include "_plan_features.html" %}
+    {% if billing_configured() %}
+    <a class="btn {{ '' if p.code == 'growth' else 'dark' }}" href="{{ url_for('signup') }}">Start with {{ p.name }}</a>
+    {% else %}
+    <span class="btn dark disabled" aria-disabled="true">Opens soon</span>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+<p class="small dim" style="margin:14px 0 30px">Monthly, cancel anytime. Plan credits expire at each renewal; pack and starter credits never expire. Failed generations are refunded automatically.</p>
+<h3 class="lp-h3">Credit packs <span class="muted small">one-time top-ups, on any plan or none</span></h3>
+<div class="lp-packs">
+  {% for p in packs %}
+  <div class="lp-pack">
+    <b>{{ p.name }} pack</b>
+    <span class="lp-pack-amt">${{ p.usd }}</span>
+    <span class="muted small">{{ '{:,}'.format(p.credits) }} credits{% if p.bonus %} · <span class="gold">{{ '{:,}'.format(p.bonus) }} bonus</span>{% endif %} · about {{ '{:,}'.format(p.credits // r.image) }} image ads</span>
+  </div>
+  {% endfor %}
+</div>
+{% if not billing_configured() %}<p class="small dim">Checkout coming soon.</p>{% endif %}

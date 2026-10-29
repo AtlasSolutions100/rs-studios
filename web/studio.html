@@ -10,7 +10,7 @@
       <label class="field" style="margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="q" type="search" placeholder="Search templates, styles, or ideas…" aria-label="Search templates"></label>
       <a class="btn" href="{{ url_for('new', tool='ad_image') }}"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.6L19.5 9l-5.7 1.6L12 16l-1.8-5.4L4.5 9l5.7-1.4z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>New ad</a>
     </div>
-    {% if first_run %}<a class="firstrun" href="{{ url_for('start') }}"><span class="lp-num">1</span><div><b>Make your first ad in three steps</b><span class="muted small">Add a product photo and its name, pick a template, done. You have {{ '{:,}'.format(g.ws.credits) }} credits.</span></div><span class="btn sm">Start</span></a>{% endif %}
+    {% if first_run %}<a class="firstrun" href="{{ url_for('start') }}"><span class="lp-num">1</span><div><b>Make your first ad in three steps</b><span class="muted small">Add a product photo and its name, pick a template, done. You have {{ '{:,}'.format(balance()) }} credits.</span></div><span class="btn sm">Start</span></a>{% endif %}
     {% if not configured %}<div class="flash">Generation isn't switched on yet. Set up your brand kit now; making ads starts once the admin connects the service.</div>{% endif %}
     {% if photos == 0 and not first_run %}<div class="flash">Add product photos in the <a href="{{ url_for('brand_kit') }}">brand kit</a> first. Every template starts from them.</div>{% endif %}
 

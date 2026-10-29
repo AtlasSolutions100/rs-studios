@@ -1,0 +1,55 @@
+{% extends "public_base.html" %}
+{% block title %}Features · Campaignify{% endblock %}
+{% block head %}
+<meta name="description" content="What Campaignify does today: an AI ad studio with compliance checks, brand kits, team seats and the campaign tools included in each plan.">
+{% endblock %}
+{% block main %}
+{% set r = rates() %}{% set sc = starter_credits() %}
+<section class="lp-hero lp-hero-sm">
+  <div class="lp-wrap">
+    <p class="eyebrow">Features</p>
+    <h1>Everything in <span class="gold">Campaignify.</span></h1>
+    <p class="lp-lede">The ad studio for people who sell, and the tools around it to plan, write and launch a campaign. This page lists what's live today, and which plan includes it.</p>
+  </div>
+</section>
+{% for code in plans.ORDER %}
+{% set feats = plans.plan_features(code) %}
+{% if feats %}
+<section class="lp-sec">
+  <div class="lp-wrap">
+    <p class="eyebrow">{{ 'Every account' if code == 'free' else plans.PLANS[code].name ~ ' plan and up' }}</p>
+    <h2 class="lp-h2">{{ {'free': 'The studio', 'starter': 'Campaign tools', 'growth': 'Grow and optimize', 'scale': 'Run a community'}[code] }}</h2>
+    <div class="feat-grid">
+      {% for f in feats %}
+      <article class="feat" id="{{ f.key }}">
+        <h3>{{ f.name }}</h3>
+        <p class="muted">{{ f.blurb }}</p>
+        {% if f.key in feature_details %}<ul>{% for d in feature_details[f.key] %}<li>{{ d }}</li>{% endfor %}</ul>{% endif %}
+      </article>
+      {% endfor %}
+      {% if code != 'free' %}
+      <article class="feat feat-limits">
+        <h3>Seats and brands</h3>
+        <p class="muted">{{ plans.PLANS[code].name }}: {{ plans.PLANS[code].seats }} seat{{ 's' if plans.PLANS[code].seats != 1 }}, {{ 'unlimited brands' if plans.PLANS[code].brands is none else plans.PLANS[code].brands ~ ' brand' ~ ('s' if plans.PLANS[code].brands != 1 else '') }}, {{ '{:,}'.format(plans.PLANS[code].credits) }} credits a month.</p>
+      </article>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endfor %}
+<section class="lp-sec" id="pricing">
+  <div class="lp-wrap">
+    <p class="eyebrow">Pricing</p>
+    <h2 class="lp-h2">Plans and packs.</h2>
+    {% include "_pricing.html" %}
+  </div>
+</section>
+<section class="lp-sec lp-final">
+  <div class="lp-wrap">
+    <h2 class="lp-h2">Make your first ad today.</h2>
+    <p class="muted">{{ '{:,}'.format(sc) }} free credits when you sign up. No card needed.</p>
+    <a class="btn lg" href="{{ url_for('signup') }}">Start free</a>
+  </div>
+</section>
+{% endblock %}

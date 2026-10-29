@@ -1,0 +1,35 @@
+{% extends "base.html" %}{% block title %}Team · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <p class="eyebrow">Team</p>
+  <h1>Who's in <span class="gold">{{ g.ws.name }}</span></h1>
+  <p class="muted">Everyone in a workspace shares its brands, library and credits. Seats used: <b>{{ used }}</b> of {{ seats if seats is not none else 'unlimited' }} (open invites count).</p>
+  <div class="grid2">
+    <div class="panel scrollx">
+      <h2>Members</h2>
+      <table><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr>
+      {% for m in members %}<tr><td>{{ m.name or '—' }}</td><td>{{ m.email }}</td><td>{{ 'Owner' if m.role == 'owner' else 'Member' }}</td>
+        <td>{% if owner and m.id != g.user.id and m.role != 'owner' and not m.is_admin %}<form method="post" action="{{ url_for('team_remove', uid=m.id) }}" onsubmit="return confirm('Remove {{ m.email }} from the team?')"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Remove</button></form>{% endif %}</td></tr>{% endfor %}
+      </table>
+    </div>
+    <div class="panel">
+      <h2>Invite someone</h2>
+      {% if not owner %}
+        <p class="muted">Only the workspace owner can invite people.</p>
+      {% elif can_invite %}
+        <p class="muted small">Make a one-time link and send it to them. They pick a password and join this workspace.</p>
+        <form method="post" action="{{ url_for('team_invite') }}" class="row"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <input type="text" name="note" placeholder="Who it's for (optional)" maxlength="120" style="flex:1;min-width:180px"><button class="btn sm">Create invite link</button></form>
+      {% else %}
+        <p class="muted">Every seat on the {{ plans.plan(g.ws).name }} plan is taken.{% if next_plan %} {{ next_plan.name }} includes up to {{ next_plan.seats }} seats.{% endif %}</p>
+        <a class="btn sm" href="{{ url_for('billing_page') }}">See plans</a>
+      {% endif %}
+      {% if invites %}
+      <h3 style="margin-top:22px">Open invites</h3>
+      <table>{% for i in invites %}<tr><td><code>{{ base }}signup?invite={{ i.code }}</code><br><span class="small muted">{{ i.note or '' }} · {{ i.created_at[:10] }}</span></td>
+        <td>{% if owner %}<form method="post" action="{{ url_for('team_invite_revoke', code=i.code) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Revoke</button></form>{% endif %}</td></tr>{% endfor %}</table>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

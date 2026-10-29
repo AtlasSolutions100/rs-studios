@@ -89,7 +89,40 @@ CREATE TABLE IF NOT EXISTS throttle (
     key TEXT NOT NULL,
     at REAL NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_throttle ON throttle(key, at);
+CREATE TABLE IF NOT EXISTS plan_invoices (
+    invoice_id TEXT PRIMARY KEY,
+    workspace_id INTEGER NOT NULL,
+    plan TEXT NOT NULL,
+    credits INTEGER NOT NULL DEFAULT 0,
+    amount_cents INTEGER NOT NULL DEFAULT 0,
+    billing_reason TEXT,
+    created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS brands (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    brand_name TEXT, product_name TEXT, claims TEXT, audience TEXT,
+    created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_brands_ws ON brands(workspace_id, id);
 """
+
+# Columns added after the first release: (table, column, definition).
+# init() adds any that are missing, so old databases upgrade in place.
+COLUMNS = [
+    ("workspaces", "plan", "TEXT NOT NULL DEFAULT 'free'"),
+    ("workspaces", "plan_status", "TEXT"),
+    ("workspaces", "plan_override", "TEXT"),
+    ("workspaces", "plan_credits", "INTEGER NOT NULL DEFAULT 0"),
+    ("workspaces", "plan_granted", "INTEGER NOT NULL DEFAULT 0"),
+    ("workspaces", "plan_period_end", "TEXT"),
+    ("workspaces", "plan_cancel_at_period_end", "INTEGER NOT NULL DEFAULT 0"),
+    ("workspaces", "stripe_customer_id", "TEXT"),
+    ("workspaces", "stripe_subscription_id", "TEXT"),
+    ("workspaces", "brand_id", "INTEGER"),
+    ("users", "role", "TEXT NOT NULL DEFAULT 'member'"),
+    ("invites", "created_by", "INTEGER"),
+    ("jobs", "priority", "INTEGER NOT NULL DEFAULT 0"),
+    ("ledger", "plan_delta", "INTEGER NOT NULL DEFAULT 0"),
+]
 
 
 def now() -> str:
@@ -108,20 +141,86 @@ def connect():
 def init():
     with connect() as conn:
         conn.executescript(SCHEMA)
+        for table, col, ddl in COLUMNS:
+            have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+            if col not in have:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}")
+                if (table, col) == ("users", "role"):
+                    # The first person in each existing workspace owns it.
+                    conn.execute("UPDATE users SET role='owner' WHERE id IN "
+                                 "(SELECT MIN(id) FROM users GROUP BY workspace_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_ws_sub ON workspaces(stripe_subscription_id)")
+        conn.commit()
 
 
-def adjust_credits(conn, workspace_id: int, delta: int, reason: str, job_id=None) -> bool:
-    """Atomically add (delta>0) or spend (delta<0) credits. False if it would go negative."""
+def adjust_credits(conn, workspace_id: int, delta: int, reason: str, job_id=None, bucket: str = "pack") -> bool:
+    """Atomically add (delta>0) or spend (delta<0) credits. False if it would go negative.
+
+    Spending takes plan credits first (they expire at renewal), then pack
+    credits. Adding goes to the pack bucket unless bucket="plan". The ledger's
+    plan_delta records the plan-bucket part of each row, so refunds go back
+    where they came from."""
     if delta < 0:
-        cur = conn.execute("UPDATE workspaces SET credits = credits + ? WHERE id=? AND credits + ? >= 0",
-                           (delta, workspace_id, delta))
+        row = conn.execute("SELECT credits, plan_credits FROM workspaces WHERE id=?", (workspace_id,)).fetchone()
+        if not row:
+            return False
+        need = -delta
+        from_plan = min(max(row["plan_credits"], 0), need)
+        from_pack = need - from_plan
+        cur = conn.execute("UPDATE workspaces SET plan_credits = plan_credits - ?, credits = credits - ? "
+                           "WHERE id=? AND plan_credits >= ? AND credits >= ?",
+                           (from_plan, from_pack, workspace_id, from_plan, from_pack))
+        plan_delta = -from_plan
+    elif bucket == "plan":
+        cur = conn.execute("UPDATE workspaces SET plan_credits = plan_credits + ? WHERE id=?", (delta, workspace_id))
+        plan_delta = delta
     else:
         cur = conn.execute("UPDATE workspaces SET credits = credits + ? WHERE id=?", (delta, workspace_id))
+        plan_delta = 0
     if cur.rowcount != 1:
         return False
-    conn.execute("INSERT INTO ledger (workspace_id, delta, reason, job_id, created_at) VALUES (?,?,?,?,?)",
-                 (workspace_id, delta, reason, job_id, now()))
+    conn.execute("INSERT INTO ledger (workspace_id, delta, reason, job_id, created_at, plan_delta) VALUES (?,?,?,?,?,?)",
+                 (workspace_id, delta, reason, job_id, now(), plan_delta))
     return True
+
+
+def balance(ws) -> int:
+    """Everything a workspace can spend right now (plan + pack credits)."""
+    keys = ws.keys()
+    return int(ws["credits"] or 0) + int((ws["plan_credits"] if "plan_credits" in keys else 0) or 0)
+
+
+def refund_job(conn, job, reason: str) -> int:
+    """Give a failed job's credits back to the buckets they came from. Plan
+    credits go back to the plan bucket only while a plan is still on;
+    otherwise everything returns as pack credits."""
+    if not job["credits"]:
+        return 0
+    spent_plan = -(conn.execute("SELECT COALESCE(SUM(plan_delta),0) FROM ledger WHERE job_id=? AND delta<0",
+                                (job["id"],)).fetchone()[0] or 0)
+    spent_plan = max(0, min(spent_plan, job["credits"]))
+    ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (job["workspace_id"],)).fetchone()
+    import plans  # local import: plans has no db dependency, this keeps db importable on its own
+    if spent_plan and plans.plan_code(ws) != "free":
+        adjust_credits(conn, job["workspace_id"], spent_plan, reason, job["id"], bucket="plan")
+        rest = job["credits"] - spent_plan
+    else:
+        rest = job["credits"]
+    if rest:
+        adjust_credits(conn, job["workspace_id"], rest, reason, job["id"])
+    return job["credits"]
+
+
+def set_plan_credits(conn, workspace_id: int, amount: int, reason: str):
+    """Replace the plan bucket (renewal): what's left expires, the new grant lands."""
+    ws = conn.execute("SELECT plan_credits FROM workspaces WHERE id=?", (workspace_id,)).fetchone()
+    left = int(ws["plan_credits"] or 0) if ws else 0
+    if left > 0:
+        conn.execute("UPDATE workspaces SET plan_credits = 0 WHERE id=?", (workspace_id,))
+        conn.execute("INSERT INTO ledger (workspace_id, delta, reason, created_at, plan_delta) VALUES (?,?,?,?,?)",
+                     (workspace_id, -left, "unused plan credits expired", now(), -left))
+    if amount > 0:
+        adjust_credits(conn, workspace_id, amount, reason, bucket="plan")
 
 
 def throttled(key: str, limit: int, window_s: float) -> bool:

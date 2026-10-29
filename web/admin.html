@@ -4,14 +4,15 @@
 <p class="eyebrow">Admin</p><h1>Run the <span class="gold">studio</span></h1>
 <p class="muted">Generation service: <b>{{ 'connected' if configured else 'not connected (set HF_KEY)' }}</b> · markup {{ markup }}× · 1 credit = $0.01</p>
 <div class="grid" style="gap:24px">
-<div class="panel">
+<div class="panel scrollx">
   <h2>Workspaces</h2>
-  <table><tr><th>Workspace</th><th>Members</th><th>Credits</th><th>Jobs</th><th>Our cost</th><th>Credits used</th><th>Top up</th></tr>
-  {% for w in wss %}<tr><td>#{{ w.id }} {{ w.name }}</td><td>{{ w.members }}</td><td>{{ w.credits }}</td><td>{{ w.jobs }}</td><td>${{ '%.2f'|format(w.cost) }}</td><td>{{ w.spent }}</td>
+  <div style="overflow-x:auto"><table><tr><th>Workspace</th><th>Plan</th><th>Members</th><th>Credits (plan + pack)</th><th>Jobs</th><th>Our cost</th><th>Credits used</th><th>Comp plan</th><th>Top up</th></tr>
+  {% for w in wss %}<tr><td>#{{ w.id }} {{ w.name }}</td><td>{{ plans.plan(w).name }}{% if w.plan_status and w.plan != 'free' %} <span class="small muted">({{ w.plan_status }})</span>{% endif %}</td><td>{{ w.members }}</td><td>{{ w.plan_credits }} + {{ w.credits }}</td><td>{{ w.jobs }}</td><td>${{ '%.2f'|format(w.cost) }}</td><td>{{ w.spent }}</td>
+  <td><form method="post" action="{{ url_for('admin_plan') }}" class="row"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="workspace_id" value="{{ w.id }}"><select name="plan" style="width:auto">{% for c in plans.ORDER %}<option value="{{ c }}" {{ 'selected' if (w.plan_override or 'free') == c }}>{{ 'No comp' if c == 'free' else plans.PLANS[c].name }}</option>{% endfor %}</select><button class="btn dark sm">Set</button></form></td>
   <td><form method="post" action="{{ url_for('admin_credits') }}" class="row"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="workspace_id" value="{{ w.id }}"><input type="number" name="amount" value="1000" style="width:100px"><input type="text" name="reason" placeholder="reason" style="width:140px"><button class="btn sm">Add</button></form></td></tr>{% endfor %}
-  </table>
+  </table></div>
 </div>
-<div class="panel">
+<div class="panel scrollx">
   <h2>Invites</h2>
   <form method="post" action="{{ url_for('admin_invite') }}" class="row">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
@@ -21,7 +22,7 @@
   <table style="margin-top:12px"><tr><th>Code</th><th>For</th><th>Used by</th><th>Created</th></tr>
   {% for i in invites %}<tr><td><code>{{ base }}signup?invite={{ i.code }}</code></td><td>{{ i.note or '' }}</td><td>{{ i.used_email or '—' }}</td><td class="muted">{{ i.created_at[:10] }}</td></tr>{% endfor %}</table>
 </div>
-<div class="panel">
+<div class="panel scrollx">
   <h2>Reference videos (Copy a video's motion)</h2>
   <form method="post" action="{{ url_for('admin_refs') }}" enctype="multipart/form-data" class="row">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
@@ -32,14 +33,14 @@
   {% for r in refs %}<tr><td><a href="{{ url_for('ref_video', rid=r.id) }}">{{ r.title }}</a></td><td>{{ r.seconds or '?' }}s</td><td>{{ 'live' if r.active else 'hidden' }}</td>
   <td><form method="post" action="{{ url_for('admin_ref_toggle', rid=r.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">{{ 'Hide' if r.active else 'Show' }}</button></form></td></tr>{% endfor %}</table>
 </div>
-<div class="panel">
+<div class="panel scrollx">
   <h2>Purchases</h2>
   <p class="small muted">Stripe checkout: <b>{{ 'on' if billing_on else 'off (set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET)' }}</b></p>
   <table><tr><th>Paid</th><th>Workspace</th><th>Pack</th><th>Credits</th><th>Amount</th><th>Stripe session</th></tr>
   {% for p in purchases %}<tr><td>{{ (p.paid_at or '')[:16].replace('T',' ') }}</td><td>{{ p.ws_name }}</td><td>{{ p.pack }}</td><td>{{ p.credits }}</td><td>${{ '%.2f'|format(p.amount_cents/100) }}</td><td><code>{{ p.stripe_session_id }}</code></td></tr>
   {% else %}<tr><td colspan="6" class="muted">No purchases yet.</td></tr>{% endfor %}</table>
 </div>
-<div class="panel">
+<div class="panel scrollx">
   <h2>Latest jobs</h2>
   <table><tr><th>#</th><th>Workspace</th><th>Tool</th><th>Status</th><th>Credits</th><th>Cost</th><th>Error</th></tr>
   {% for j in jobs %}<tr><td>{{ j.id }}</td><td>{{ j.ws_name }}</td><td>{{ tools[j.tool].name }}</td><td><span class="status {{ j.status }}">{{ j.status }}</span></td><td>{{ j.credits }}</td><td>${{ '%.3f'|format(j.cost_usd) }}</td><td class="small muted">{{ (j.error or '')[:80] }}</td></tr>{% endfor %}</table>

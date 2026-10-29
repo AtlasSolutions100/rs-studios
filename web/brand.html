@@ -4,7 +4,25 @@
   <p class="eyebrow">Brand kit</p>
   <h1>Start every ad <span class="gold">on-brand</span></h1>
   <p class="muted">Templates fill these in, so every brief starts with your product and only the claims you're allowed to make.</p>
-  <div class="create" style="grid-template-columns:1fr 1fr;margin-top:24px">
+  <div class="panel brands">
+    <div class="brands-h"><h2>Brands</h2><span class="muted small">{{ brands|length }} of {{ plans.limit(g.ws, 'brands') if plans.limit(g.ws, 'brands') is not none else 'unlimited' }} on your plan</span></div>
+    <div class="brand-list">
+      {% for b in brands %}
+      <div class="brand-chip {{ 'on' if b.id == ws.brand_id }}">
+        <span><b>{{ b.brand_name or b.product_name or 'Untitled brand' }}</b>{% if b.product_name and b.brand_name %}<span class="small muted"> · {{ b.product_name }}</span>{% endif %}</span>
+        {% if b.id == ws.brand_id %}<span class="small gold">Editing</span>{% else %}
+        <form method="post" action="{{ url_for('use_brand', bid=b.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Switch</button></form>{% endif %}
+        {% if brands|length > 1 %}<form method="post" action="{{ url_for('delete_brand', bid=b.id) }}" onsubmit="return confirm('Remove this brand?')"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm" title="Remove" aria-label="Remove brand">×</button></form>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% if can_add %}
+    <form method="post" action="{{ url_for('add_brand') }}" class="row" style="margin-top:14px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="text" name="brand_name" placeholder="New brand name" maxlength="80" style="flex:1;min-width:180px" required><button class="btn sm">Add brand</button></form>
+    {% elif next_plan %}
+    <p class="small muted" style="margin:14px 0 0">Need another brand? {{ next_plan.name }} includes {{ 'unlimited brands' if next_plan.brands is none else next_plan.brands ~ ' brands' }}. <a href="{{ url_for('billing_page') }}">See plans</a></p>
+    {% endif %}
+  </div>
+  <div class="create two" style="margin-top:24px">
     <form method="post" class="panel">
       <input type="hidden" name="csrf" value="{{ csrf_token() }}">
       <label for="bn">Brand name</label><input id="bn" type="text" name="brand_name" value="{{ ws.brand_name or '' }}" placeholder="Sunrise Coffee Co.">

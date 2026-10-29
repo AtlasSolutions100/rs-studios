@@ -1,0 +1,6 @@
+<ul class="plan-feats">
+  <li>{{ 'Up to ' ~ p.seats ~ ' seats' if p.seats and p.seats > 1 else '1 seat' }} · {{ 'Unlimited brands' if p.brands is none else (p.brands ~ ' brand' ~ ('s' if p.brands != 1 else '')) }}</li>
+  {% set prev = plans.ORDER[plans.ORDER.index(p.code) - 1] %}
+  <li>{{ 'Everything in the free studio' if prev == 'free' else 'Everything in ' ~ plans.PLANS[prev].name }}</li>
+  {% for f in plans.plan_features(p.code) %}<li><b>{{ f.name }}</b></li>{% endfor %}
+</ul>

@@ -32,6 +32,23 @@ create Stripe customers or set `metadata.account_id` (Crowdcut's key).
 Needs `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`; without them the prices
 show and the buy buttons say "Checkout coming soon".
 
+## Plans (Stripe subscriptions)
+
+`plans.py` is the one place that decides access: `plans.has(ws, feature)`, `plans.limit(ws, "brands"|"seats"|"pages")`.
+Starter $39 / Growth $99 / Scale $249 a month (recurring Prices on the shared Stripe account, ids in `plans.PLANS`)
+with 2,000 / 6,000 / 18,000 credits a month; every plan includes everything below it; free accounts keep the studio,
+starter credits and packs. `/app/billing/subscribe` starts a Checkout Session in subscription mode with metadata
+`app=campaignify, kind=plan, workspace_id, plan` on the session and the subscription. The webhook handles
+`checkout.session.completed` (links customer + subscription), `invoice.paid` (grants credits once per invoice id),
+`customer.subscription.updated` (plan, status, cancel-at-period-end) and `customer.subscription.deleted` (back to free).
+Credits live in two buckets: **plan credits** (each paid invoice replaces them, so unused plan credits expire at
+renewal; upgrades add the difference right away) and **pack credits** (starter, packs, admin top-ups; never expire).
+Spending takes plan credits first; refunds go back to the bucket they came from. "Manage or cancel plan" opens the
+Stripe Customer Portal with the Campaignify configuration (`billing.PORTAL_CONFIG`: our three plans, upgrades invoiced
+immediately, downgrades and cancellations at period end). Admins can comp a workspace onto a plan (`plan_override`).
+Brands (`brands` table; the workspace's brand columns mirror the active brand) and seats (Team page, owner-made invite
+links) are capped per plan server-side; Scale jobs get queue priority.
+
 ## Tests
 
     python tests/test_app.py        # generation API and Stripe faked; 122 checks

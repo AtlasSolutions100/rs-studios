@@ -27,6 +27,7 @@ import owners
 import compliance
 import db
 import hf
+import plans
 import worker
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -61,9 +62,33 @@ def csrf_token():
     return session["csrf"]
 
 
+def _has(feature):
+    return bool(g.get("ws")) and plans.has(g.ws, feature)
+
+
+def _balance():
+    return db.balance(g.ws) if g.get("ws") else 0
+
+
 app.jinja_env.globals.update(csrf_token=csrf_token, tools=catalog.TOOLS, packs=catalog.PACKS,
                              starter_credits=catalog.starter_credits, rates=catalog.rates,
-                             billing_configured=billing.configured, starter_image_ads=catalog.STARTER_IMAGE_ADS)
+                             billing_configured=billing.configured, starter_image_ads=catalog.STARTER_IMAGE_ADS,
+                             plans=plans, has_feature=_has, balance=_balance)
+
+# Sidebar: (endpoint, label, icon, feature or None, endpoints that light it up).
+NAV = [
+    ("studio", "Create", "create", None, ("studio", "new", "start")),
+    ("library", "Library", "library", None, ("library",)),
+    ("brand_kit", "Brand kit", "brand", None, ("brand_kit",)),
+    ("team", "Team", "team", None, ("team",)),
+    ("billing_page", "Billing", "billing", None, ("billing_page",)),
+]
+
+
+@app.context_processor
+def _nav():
+    return {"nav_items": NAV}
+
 
 CSRF_EXEMPT = {"static", "stripe_webhook"}
 
@@ -78,6 +103,9 @@ def load_user():
             if u:
                 g.user = u
                 g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (u["workspace_id"],)).fetchone()
+                if g.ws and not g.ws["brand_id"]:
+                    _ensure_brand(conn, g.ws["id"])
+                    g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (u["workspace_id"],)).fetchone()
     if request.method == "POST" and request.endpoint not in CSRF_EXEMPT:
         sent = request.form.get("csrf") or request.headers.get("X-CSRF")
         if not sent or not secrets.compare_digest(sent, session.get("csrf", "")):
@@ -102,6 +130,62 @@ def admin_required(fn):
             abort(403)
         return fn(*a, **kw)
     return wrap
+
+
+def feature_required(feature):
+    """Logged in and on a plan that includes `feature`; otherwise an upgrade page."""
+    def deco(fn):
+        @functools.wraps(fn)
+        def wrap(*a, **kw):
+            if not g.user:
+                return redirect(url_for("login", next=request.path))
+            if not plans.has(g.ws, feature):
+                return render_template("upgrade.html", feature=plans.FEATURES[feature],
+                                       need=plans.required(feature)), 402
+            return fn(*a, **kw)
+        return wrap
+    return deco
+
+
+def is_owner() -> bool:
+    return bool(g.user) and (g.user["role"] == "owner" or bool(g.user["is_admin"]))
+
+
+def owner_required(fn):
+    @functools.wraps(fn)
+    def wrap(*a, **kw):
+        if not g.user:
+            return redirect(url_for("login", next=request.path))
+        if not is_owner():
+            abort(403, "Only the workspace owner can do that.")
+        return fn(*a, **kw)
+    return wrap
+
+
+BRAND_COLS = ("brand_name", "product_name", "claims", "audience")
+
+
+def _ensure_brand(conn, ws_id):
+    """Every workspace has at least one brand row. The workspace's own brand
+    columns always mirror the active brand, so the studio reads them as before."""
+    ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+    if ws["brand_id"] and conn.execute("SELECT 1 FROM brands WHERE id=? AND workspace_id=?",
+                                       (ws["brand_id"], ws_id)).fetchone():
+        return ws["brand_id"]
+    bid = conn.execute("INSERT INTO brands (workspace_id, brand_name, product_name, claims, audience, created_at) "
+                       "VALUES (?,?,?,?,?,?)", (ws_id, *[ws[c] for c in BRAND_COLS], db.now())).lastrowid
+    conn.execute("UPDATE workspaces SET brand_id=? WHERE id=?", (bid, ws_id))
+    conn.commit()
+    return bid
+
+
+def _sync_brand_row(conn, ws_id):
+    """Copy the workspace's (active) brand columns into its brand row."""
+    bid = _ensure_brand(conn, ws_id)
+    ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+    conn.execute("UPDATE brands SET brand_name=?, product_name=?, claims=?, audience=? WHERE id=?",
+                 (*[ws[c] for c in BRAND_COLS], bid))
+    conn.commit()
 
 
 def brand():
@@ -166,6 +250,26 @@ def index():
     if g.user:
         return redirect(url_for("studio"))
     return render_template("landing.html", gallery=GALLERY, hero=[GALLERY[0], GALLERY[2], GALLERY[5]])
+
+
+# Extra lines for the public features page, by feature key (only shipped ones show).
+FEATURE_DETAILS = {
+    "studio": ["Templates for proven angles: product hero, daily routine, label read and more",
+               "Image ads in four shapes, 5 or 10 second clips, motion copied from a reference video",
+               "A library of everything you've made, with full-quality downloads",
+               "The price in credits shown before anything runs; failures refunded automatically"],
+    "compliance": ["Income, earnings and recruiting claims blocked on every account",
+                   "Weight-loss, disease and before-and-after language blocked",
+                   "Discount and free-shipping promises blocked; promise words flagged"],
+    "brand_kit": ["Approved claims copied from your label", "Product photos reused across every ad",
+                  "More than one brand on Growth and Scale"],
+    "priority": ["Scale workspaces' generations start before the rest of the queue"],
+}
+
+
+@app.route("/features")
+def features():
+    return render_template("features.html", feature_details=FEATURE_DETAILS)
 
 
 @app.route("/privacy")
@@ -261,13 +365,25 @@ def signup():
                                      "to create your own free account instead.")
                 if inv and inv["workspace_id"]:
                     ws_id, dest = inv["workspace_id"], "studio"
+                    target = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+                    maker = conn.execute("SELECT is_admin FROM users WHERE id=?", (inv["created_by"],)).fetchone() \
+                        if inv["created_by"] else None
+                    members = conn.execute("SELECT COUNT(*) FROM users WHERE workspace_id=?", (ws_id,)).fetchone()[0]
+                    # Team invites count against the plan's seats; operator (site admin) invites don't.
+                    if inv["created_by"] and not (maker and maker["is_admin"]) and \
+                            not plans.within(target, "seats", members):
+                        return again("That team is full on its current plan. Ask the owner to upgrade "
+                                     "or free a seat.")
                 else:
                     ws_id = conn.execute("INSERT INTO workspaces (name, credits, created_at) VALUES (?,?,?)",
                                          ((name or email.split("@")[0]) + "'s studio", 0, db.now())).lastrowid
                     if catalog.starter_credits():
                         db.adjust_credits(conn, ws_id, catalog.starter_credits(), "starter credits")
-            cur = conn.execute("INSERT INTO users (email, name, pw_hash, is_admin, workspace_id, created_at) "
-                               "VALUES (?,?,?,?,?,?)", (email, name, generate_password_hash(pw), is_admin, ws_id, db.now()))
+            joins = bool(inv and inv["workspace_id"]) or (owner and conn.execute(
+                "SELECT 1 FROM users WHERE workspace_id=?", (ws_id,)).fetchone() is not None)
+            cur = conn.execute("INSERT INTO users (email, name, pw_hash, is_admin, workspace_id, created_at, role) "
+                               "VALUES (?,?,?,?,?,?,?)", (email, name, generate_password_hash(pw), is_admin, ws_id,
+                                                          db.now(), "member" if joins else "owner"))
             if inv:
                 conn.execute("UPDATE invites SET used_by=? WHERE code=?", (cur.lastrowid, code))
             conn.commit()
@@ -384,13 +500,14 @@ def _queue_job(conn, tool, tpl_id, brief, params, usd, credits):
     message) when the workspace can't afford it."""
     now = db.now()
     cur = conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, template_id, brief, params_json, "
-                       "status, credits, cost_usd, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                       "status, credits, cost_usd, created_at, updated_at, priority) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                        (g.ws["id"], g.user["id"], tool, tpl_id, brief, json.dumps(params), "pending",
-                        credits, round(usd, 4), now, now))
+                        credits, round(usd, 4), now, now, plans.priority(g.ws)))
     jid = cur.lastrowid
     if not db.adjust_credits(conn, g.ws["id"], -credits, "generation", jid):
         conn.rollback()
-        flash(f"That needs {credits:,} credits and you have {g.ws['credits']:,}. Buy a credit pack on the Billing page.")
+        flash(f"That needs {credits:,} credits and you have {db.balance(g.ws):,}. Buy a credit pack or pick a plan "
+              "on the Billing page.")
         return None
     conn.commit()
     return jid
@@ -462,6 +579,7 @@ def start():
                      "audience=COALESCE(NULLIF(audience, ''), NULLIF(?, '')) WHERE id=?",
                      (product, brand_name, audience, g.ws["id"]))
         conn.commit()
+        _sync_brand_row(conn, g.ws["id"])
         params = {"photo_ids": [photo_id], "batch": 1, "aspect": tpl.get("aspect") or "9:16",
                   "audience": audience or tpl.get("audience") or "", "niche": ""}
         jid = _queue_job(conn, "ad_image", tpl["id"], brief, params, catalog.cost_usd("ad_image", batch=1), price)
@@ -544,11 +662,142 @@ def brand_kit():
                          ((f.get("brand_name") or "")[:80], (f.get("product_name") or "")[:80],
                           (f.get("claims") or "")[:2000], (f.get("audience") or "")[:300], g.ws["id"]))
             conn.commit()
+            _sync_brand_row(conn, g.ws["id"])
         flash("Brand kit saved.")
         return redirect(url_for("brand_kit"))
     with db.connect() as conn:
         photos = conn.execute("SELECT * FROM photos WHERE workspace_id=? ORDER BY id DESC", (g.ws["id"],)).fetchall()
-    return render_template("brand.html", ws=g.ws, photos=photos)
+        brands = conn.execute("SELECT * FROM brands WHERE workspace_id=? ORDER BY id", (g.ws["id"],)).fetchall()
+    nxt = plans.next_plan_for("brands", len(brands))
+    return render_template("brand.html", ws=g.ws, photos=photos, brands=brands,
+                           can_add=plans.within(g.ws, "brands", len(brands)), next_plan=nxt)
+
+
+@app.route("/app/brands", methods=["POST"])
+@login_required
+def add_brand():
+    """A new, empty brand that becomes the active one (plan limit enforced here)."""
+    name = (request.form.get("brand_name") or "").strip()[:80]
+    if not name:
+        flash("Give the new brand a name.")
+        return redirect(url_for("brand_kit"))
+    check = compliance.check(name)
+    if not check["ok"]:
+        flash("Not saved: " + check["blocks"][0])
+        return redirect(url_for("brand_kit"))
+    with db.connect() as conn:
+        n = conn.execute("SELECT COUNT(*) FROM brands WHERE workspace_id=?", (g.ws["id"],)).fetchone()[0]
+        if not plans.within(g.ws, "brands", n):
+            nxt = plans.next_plan_for("brands", n)
+            flash(f"Your plan includes {plans.limit(g.ws, 'brands')} brand{'s' if plans.limit(g.ws, 'brands') != 1 else ''}."
+                  + (f" {nxt['name']} includes more." if nxt else ""))
+            return redirect(url_for("brand_kit"))
+        bid = conn.execute("INSERT INTO brands (workspace_id, brand_name, created_at) VALUES (?,?,?)",
+                           (g.ws["id"], name, db.now())).lastrowid
+        _activate_brand(conn, bid)
+    flash(f"Added {name}. It's your active brand now.")
+    return redirect(url_for("brand_kit"))
+
+
+def _activate_brand(conn, bid):
+    b = conn.execute("SELECT * FROM brands WHERE id=? AND workspace_id=?", (bid, g.ws["id"])).fetchone()
+    if not b:
+        abort(404)
+    conn.execute("UPDATE workspaces SET brand_id=?, brand_name=?, product_name=?, claims=?, audience=? WHERE id=?",
+                 (b["id"], *[b[c] for c in BRAND_COLS], g.ws["id"]))
+    conn.commit()
+
+
+@app.route("/app/brands/<int:bid>/use", methods=["POST"])
+@login_required
+def use_brand(bid):
+    with db.connect() as conn:
+        _activate_brand(conn, bid)
+    return redirect(request.form.get("back") if (request.form.get("back") or "").startswith("/app")
+                    else url_for("brand_kit"))
+
+
+@app.route("/app/brands/<int:bid>/delete", methods=["POST"])
+@owner_required
+def delete_brand(bid):
+    with db.connect() as conn:
+        rows = conn.execute("SELECT id FROM brands WHERE workspace_id=? ORDER BY id", (g.ws["id"],)).fetchall()
+        ids = [r["id"] for r in rows]
+        if bid not in ids:
+            abort(404)
+        if len(ids) == 1:
+            flash("That's your only brand. Edit it instead.")
+            return redirect(url_for("brand_kit"))
+        conn.execute("DELETE FROM brands WHERE id=?", (bid,))
+        conn.commit()
+        if g.ws["brand_id"] == bid:
+            _activate_brand(conn, next(i for i in ids if i != bid))
+    flash("Brand removed.")
+    return redirect(url_for("brand_kit"))
+
+
+# ---------------------------------------------------------------- team (seats)
+
+@app.route("/app/team")
+@login_required
+def team():
+    with db.connect() as conn:
+        members = conn.execute("SELECT * FROM users WHERE workspace_id=? ORDER BY id", (g.ws["id"],)).fetchall()
+        invites = conn.execute("SELECT * FROM invites WHERE workspace_id=? AND used_by IS NULL AND created_by IS NOT NULL "
+                               "ORDER BY created_at DESC", (g.ws["id"],)).fetchall()
+    seats = plans.limit(g.ws, "seats")
+    used = len(members) + len(invites)
+    return render_template("team.html", members=members, invites=invites, seats=seats, used=used,
+                           can_invite=is_owner() and plans.within(g.ws, "seats", used),
+                           next_plan=plans.next_plan_for("seats", used), owner=is_owner(), base=request.host_url)
+
+
+@app.route("/app/team/invite", methods=["POST"])
+@owner_required
+def team_invite():
+    with db.connect() as conn:
+        members = conn.execute("SELECT COUNT(*) FROM users WHERE workspace_id=?", (g.ws["id"],)).fetchone()[0]
+        open_inv = conn.execute("SELECT COUNT(*) FROM invites WHERE workspace_id=? AND used_by IS NULL "
+                                "AND created_by IS NOT NULL", (g.ws["id"],)).fetchone()[0]
+        if not plans.within(g.ws, "seats", members + open_inv):
+            flash("Every seat on your plan is taken. Upgrade for more seats, or revoke an open invite.")
+            return redirect(url_for("team"))
+        code = secrets.token_urlsafe(12)
+        conn.execute("INSERT INTO invites (code, workspace_id, note, created_by, created_at) VALUES (?,?,?,?,?)",
+                     (code, g.ws["id"], (request.form.get("note") or "")[:120], g.user["id"], db.now()))
+        conn.commit()
+    flash(f"Invite link (works once): {request.host_url}signup?invite={code}")
+    return redirect(url_for("team"))
+
+
+@app.route("/app/team/invites/<code>/revoke", methods=["POST"])
+@owner_required
+def team_invite_revoke(code):
+    with db.connect() as conn:
+        conn.execute("DELETE FROM invites WHERE code=? AND workspace_id=? AND used_by IS NULL", (code, g.ws["id"]))
+        conn.commit()
+    return redirect(url_for("team"))
+
+
+@app.route("/app/team/<int:uid>/remove", methods=["POST"])
+@owner_required
+def team_remove(uid):
+    if uid == g.user["id"]:
+        flash("You can't remove yourself.")
+        return redirect(url_for("team"))
+    with db.connect() as conn:
+        u = conn.execute("SELECT * FROM users WHERE id=? AND workspace_id=?", (uid, g.ws["id"])).fetchone()
+        if not u:
+            abort(404)
+        if u["role"] == "owner" or u["is_admin"]:
+            abort(403, "Owners can't be removed here.")
+        # Their account moves to a fresh, empty workspace of their own.
+        ws_id = conn.execute("INSERT INTO workspaces (name, credits, created_at) VALUES (?,?,?)",
+                             ((u["name"] or u["email"].split("@")[0]) + "'s studio", 0, db.now())).lastrowid
+        conn.execute("UPDATE users SET workspace_id=?, role='owner' WHERE id=?", (ws_id, uid))
+        conn.commit()
+    flash(f"Removed {u['email']} from the team.")
+    return redirect(url_for("team"))
 
 
 @app.route("/app/photos", methods=["POST"])
@@ -597,12 +846,79 @@ def billing_page():
         flash("Payment received, thank you. Your credits land in a few seconds; refresh if the balance hasn't moved.")
     elif request.args.get("checkout") == "cancel":
         flash("Checkout canceled. Nothing was charged.")
+    elif request.args.get("plan") == "success":
+        flash("You're subscribed, thank you. Your plan and its monthly credits switch on in a few seconds; "
+              "refresh if they haven't yet.")
     with db.connect() as conn:
         purchases = conn.execute("SELECT * FROM purchases WHERE workspace_id=? AND status IN ('paid','open') "
                                  "ORDER BY id DESC LIMIT 50", (g.ws["id"],)).fetchall()
         ledger = conn.execute("SELECT * FROM ledger WHERE workspace_id=? ORDER BY id DESC LIMIT 30",
                               (g.ws["id"],)).fetchall()
-    return render_template("billing.html", purchases=purchases, ledger=ledger, packs_by=catalog.PACK_BY_CODE)
+        invoices = conn.execute("SELECT * FROM plan_invoices WHERE workspace_id=? ORDER BY created_at DESC LIMIT 24",
+                                (g.ws["id"],)).fetchall()
+    return render_template("billing.html", purchases=purchases, ledger=ledger, packs_by=catalog.PACK_BY_CODE,
+                           invoices=invoices, current=plans.plan(g.ws), subscribed=_subscribed(g.ws),
+                           owner=is_owner())
+
+
+def _subscribed(ws) -> bool:
+    """A live Stripe subscription (not just a comp plan)."""
+    return bool(ws["stripe_subscription_id"]) and ws["plan_status"] in plans.LIVE_STATUSES
+
+
+@app.route("/app/billing/subscribe", methods=["POST"])
+@owner_required
+def subscribe():
+    """Start a plan checkout (mode=subscription). Already subscribed: changing
+    plan happens in the Stripe portal, so we send you there instead of opening
+    a second subscription."""
+    p = plans.PLANS.get(request.form.get("plan") or "")
+    if not p or not p["price_id"]:
+        abort(400)
+    if not billing.configured():
+        flash("Plans open soon. Your credits and credit packs work in the meantime.")
+        return redirect(url_for("billing_page"))
+    if _subscribed(g.ws):
+        return _portal_redirect("Change your plan here. Upgrades apply right away; downgrades at your next renewal.")
+    base = request.host_url.rstrip("/")
+    try:
+        sess = billing.create_subscription_session(
+            price_id=p["price_id"],
+            success_url=f"{base}{url_for('billing_page')}?plan=success",
+            cancel_url=f"{base}{url_for('billing_page')}?checkout=cancel",
+            email=g.user["email"], customer=g.ws["stripe_customer_id"],
+            client_reference_id=f"cfy-ws-{g.ws['id']}",
+            metadata={"app": billing.APP_TAG, "kind": "plan", "workspace_id": g.ws["id"], "plan": p["code"],
+                      "user_id": g.user["id"]},
+            idempotency_key=f"campaignify-plan-{g.ws['id']}-{p['code']}-{uuid.uuid4().hex[:12]}")
+    except billing.BillingError as e:
+        log.warning("plan checkout failed for workspace %s: %s", g.ws["id"], e)
+        flash("Checkout couldn't start. Try again in a minute.")
+        return redirect(url_for("billing_page"))
+    return redirect(sess["url"], code=303)
+
+
+@app.route("/app/billing/portal", methods=["POST"])
+@owner_required
+def billing_portal():
+    return _portal_redirect()
+
+
+def _portal_redirect(note=None):
+    if not g.ws["stripe_customer_id"]:
+        flash("There's no subscription to manage yet. Pick a plan below.")
+        return redirect(url_for("billing_page"))
+    try:
+        url = billing.create_portal_session(customer=g.ws["stripe_customer_id"],
+                                            return_url=request.host_url.rstrip("/") + url_for("billing_page"))
+    except billing.BillingError as e:
+        log.warning("portal session failed for workspace %s: %s", g.ws["id"], e)
+        flash("Plan management isn't available right now. Email hello@campaignify.ai and we'll change or cancel "
+              "your plan for you.")
+        return redirect(url_for("billing_page"))
+    if note:
+        flash(note)
+    return redirect(url, code=303)
 
 
 @app.route("/app/billing/checkout", methods=["POST"])
@@ -647,17 +963,30 @@ def checkout():
 
 @app.route("/webhooks/stripe", methods=["POST"])
 def stripe_webhook():
-    """checkout.session.completed -> add the pack's credits, once. The Stripe
-    account is shared, so anything that isn't one of our purchases is ignored."""
+    """Credit packs (checkout.session.completed, mode=payment) and plans
+    (checkout.session.completed mode=subscription, invoice.paid,
+    customer.subscription.updated/deleted). The Stripe account is shared, so
+    anything that isn't ours is ignored."""
     payload = request.get_data()
     try:
         event = billing.verify_event(payload, request.headers.get("Stripe-Signature", ""))
     except billing.SignatureError as e:
         log.warning("stripe webhook rejected: %s", e)
         return jsonify({"error": "bad signature"}), 400
-    if event.get("type") not in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
-        return jsonify({"ignored": event.get("type")})
-    sess = (event.get("data") or {}).get("object") or {}
+    typ = event.get("type")
+    obj = (event.get("data") or {}).get("object") or {}
+    if typ in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
+        if obj.get("mode") == "subscription":
+            return _plan_checkout_completed(obj)
+        return _pack_paid(obj)
+    if typ == "invoice.paid":
+        return _plan_invoice_paid(obj)
+    if typ in ("customer.subscription.updated", "customer.subscription.deleted", "customer.subscription.created"):
+        return _plan_subscription_changed(obj, deleted=typ == "customer.subscription.deleted")
+    return jsonify({"ignored": typ})
+
+
+def _pack_paid(sess):
     meta = sess.get("metadata") or {}
     if meta.get("app") != billing.APP_TAG or not str(meta.get("purchase_id", "")).isdigit():
         return jsonify({"ignored": "not a campaignify purchase"})
@@ -684,6 +1013,114 @@ def stripe_webhook():
                           f"{catalog.PACK_BY_CODE.get(p['pack'], {}).get('name', p['pack'])} pack")
         conn.commit()
     return jsonify({"ok": True, "credited": p["credits"]})
+
+
+def _our_workspace(conn, meta: dict, sub_id: str | None):
+    """The workspace a plan event belongs to, or None when it isn't ours."""
+    if meta.get("app") == billing.APP_TAG and str(meta.get("workspace_id", "")).isdigit():
+        return conn.execute("SELECT * FROM workspaces WHERE id=?", (int(meta["workspace_id"]),)).fetchone()
+    if sub_id:
+        return conn.execute("SELECT * FROM workspaces WHERE stripe_subscription_id=?", (sub_id,)).fetchone()
+    return None
+
+
+def _iso(ts):
+    from datetime import datetime, timezone
+    try:
+        return datetime.fromtimestamp(int(ts), timezone.utc).replace(microsecond=0).isoformat()
+    except (TypeError, ValueError):
+        return None
+
+
+def _plan_checkout_completed(sess):
+    meta = sess.get("metadata") or {}
+    sub_id = sess.get("subscription") if isinstance(sess.get("subscription"), str) else \
+        (sess.get("subscription") or {}).get("id")
+    with db.connect() as conn:
+        ws = _our_workspace(conn, meta, sub_id)
+        if not ws or meta.get("app") != billing.APP_TAG:
+            return jsonify({"ignored": "not a campaignify plan"})
+        code = meta.get("plan") if meta.get("plan") in plans.PLANS else ws["plan"]
+        customer = sess.get("customer") if isinstance(sess.get("customer"), str) else (sess.get("customer") or {}).get("id")
+        conn.execute("UPDATE workspaces SET stripe_customer_id=COALESCE(?, stripe_customer_id), "
+                     "stripe_subscription_id=COALESCE(?, stripe_subscription_id), plan=?, "
+                     "plan_status=COALESCE(plan_status, 'active') WHERE id=?",
+                     (customer, sub_id, code, ws["id"]))
+        conn.commit()
+    return jsonify({"ok": True, "workspace": ws["id"]})
+
+
+def _plan_invoice_paid(inv):
+    """Grant the plan's monthly credits: on the first invoice and each renewal
+    the plan bucket is replaced (unused plan credits expire); an upgrade
+    invoice tops it up by the difference. Once per invoice id."""
+    sub_id, meta = billing.invoice_subscription(inv)
+    lines = billing.invoice_lines(inv)
+    ours = [plans.BY_PRICE[ln["price"]] for ln in lines if ln["price"] in plans.BY_PRICE]
+    with db.connect() as conn:
+        ws = _our_workspace(conn, meta, sub_id)
+        if not ws or not ours:
+            return jsonify({"ignored": "not a campaignify plan invoice"})
+        if (inv.get("currency") or "usd").lower() != "usd" or inv.get("status") not in (None, "paid"):
+            return jsonify({"ignored": "invoice not paid in usd"})
+        priced = [plans.BY_PRICE[ln["price"]] for ln in lines if ln["price"] in plans.BY_PRICE and ln["amount"] > 0]
+        p = max(priced or ours, key=lambda x: plans.rank(x["code"]))
+        reason = inv.get("billing_reason") or "subscription_cycle"
+        if conn.execute("SELECT 1 FROM plan_invoices WHERE invoice_id=?", (inv.get("id"),)).fetchone():
+            return jsonify({"ok": True, "duplicate": True})
+        if reason == "subscription_update":
+            grant = max(0, p["credits"] - int(ws["plan_granted"] or 0))
+            if grant:
+                db.adjust_credits(conn, ws["id"], grant, f"{p['name']} plan: upgrade credits", bucket="plan")
+            granted = max(int(ws["plan_granted"] or 0), p["credits"])
+        else:
+            grant = p["credits"]
+            db.set_plan_credits(conn, ws["id"], grant, f"{p['name']} plan: monthly credits")
+            granted = grant
+        period_end = max([ln["period_end"] or 0 for ln in lines] or [0]) or None
+        customer = inv.get("customer") if isinstance(inv.get("customer"), str) else (inv.get("customer") or {}).get("id")
+        conn.execute("INSERT INTO plan_invoices (invoice_id, workspace_id, plan, credits, amount_cents, billing_reason, "
+                     "created_at) VALUES (?,?,?,?,?,?,?)",
+                     (inv.get("id"), ws["id"], p["code"], grant, int(inv.get("amount_paid") or 0), reason, db.now()))
+        conn.execute("UPDATE workspaces SET plan=?, plan_status='active', plan_granted=?, "
+                     "plan_period_end=COALESCE(?, plan_period_end), stripe_subscription_id=COALESCE(?, stripe_subscription_id), "
+                     "stripe_customer_id=COALESCE(?, stripe_customer_id) WHERE id=?",
+                     (p["code"], granted, _iso(period_end), sub_id, customer, ws["id"]))
+        conn.commit()
+    return jsonify({"ok": True, "credited": grant, "plan": p["code"]})
+
+
+def _plan_subscription_changed(sub, deleted=False):
+    meta = sub.get("metadata") or {}
+    sub_id = sub.get("id")
+    with db.connect() as conn:
+        ws = _our_workspace(conn, meta, sub_id)
+        if not ws:
+            return jsonify({"ignored": "not a campaignify subscription"})
+        if ws["stripe_subscription_id"] and sub_id and ws["stripe_subscription_id"] != sub_id \
+                and ws["plan_status"] in plans.LIVE_STATUSES:
+            # An older subscription of this workspace ending must not cancel the current one.
+            return jsonify({"ignored": "not the workspace's current subscription"})
+        status = "canceled" if deleted else (sub.get("status") or "active")
+        if status == "incomplete":
+            # First payment still in progress; invoice.paid switches the plan on.
+            return jsonify({"ignored": "subscription incomplete"})
+        if status not in plans.LIVE_STATUSES:
+            db.set_plan_credits(conn, ws["id"], 0, "plan ended")
+            conn.execute("UPDATE workspaces SET plan='free', plan_status=?, plan_granted=0, plan_cancel_at_period_end=0, "
+                         "plan_period_end=NULL WHERE id=?", (status, ws["id"]))
+            conn.commit()
+            return jsonify({"ok": True, "plan": "free"})
+        ours = [plans.BY_PRICE[pid] for pid in billing.subscription_prices(sub) if pid in plans.BY_PRICE]
+        code = ours[0]["code"] if ours else ws["plan"]
+        customer = sub.get("customer") if isinstance(sub.get("customer"), str) else (sub.get("customer") or {}).get("id")
+        conn.execute("UPDATE workspaces SET plan=?, plan_status=?, plan_cancel_at_period_end=?, "
+                     "plan_period_end=COALESCE(?, plan_period_end), stripe_subscription_id=?, "
+                     "stripe_customer_id=COALESCE(?, stripe_customer_id) WHERE id=?",
+                     (code, status, 1 if (sub.get("cancel_at_period_end") or sub.get("cancel_at")) else 0,
+                      _iso(billing.subscription_period_end(sub)), sub_id, customer, ws["id"]))
+        conn.commit()
+    return jsonify({"ok": True, "plan": code, "status": status})
 
 
 # ---------------------------------------------------------------- admin
@@ -719,6 +1156,24 @@ def admin_invite():
                      (code, int(ws) if ws and ws.isdigit() else None, (request.form.get("note") or "")[:120], db.now()))
         conn.commit()
     flash(f"Invite link: {request.host_url}signup?invite={code}")
+    return redirect(url_for("admin"))
+
+
+@app.route("/admin/plan", methods=["POST"])
+@admin_required
+def admin_plan():
+    """Comp a workspace onto a plan (no Stripe involved), or clear the comp."""
+    code = request.form.get("plan") or ""
+    try:
+        ws_id = int(request.form["workspace_id"])
+    except (KeyError, ValueError):
+        abort(400)
+    if code and code not in plans.PLANS:
+        abort(400)
+    with db.connect() as conn:
+        conn.execute("UPDATE workspaces SET plan_override=? WHERE id=?", (code if code and code != "free" else None, ws_id))
+        conn.commit()
+    flash("Plan updated.")
     return redirect(url_for("admin"))
 
 
