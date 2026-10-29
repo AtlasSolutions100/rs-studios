@@ -62,7 +62,7 @@
     <hr class="line">
     <h3>Before you post</h3>
     <ul class="rules">
-      <li>Claims only from the label{% if brand.claims %}: <span class="gold">{{ brand.claims[:140] }}</span>{% endif %}</li>
+      <li>Claims only from the label{% if brand.claims %}: <span class="gold">{{ brand.claims.replace('\n', ' · ')[:160] }}</span>{% endif %}</li>
       <li>No weight-loss, health or result claims</li>
       <li>No discounts or free shipping</li>
       <li>#ad first in the caption, AI label on</li>

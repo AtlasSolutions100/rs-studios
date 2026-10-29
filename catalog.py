@@ -90,15 +90,15 @@ def capabilities() -> dict:
 # script step writes: spoken lines, an image headline + concept, or scenes.
 AD_TYPES = [
     {"id": "ugc", "name": "UGC presenter", "tool": "ugc_video", "script": "spoken", "presenter": True, "talking": True,
-     "line": "A presenter holds your product and says your script to camera, selfie-style.", "preview": "how"},
+     "line": "A presenter holds your product and says your script to camera, selfie-style.", "preview": "site/ugc-coffee"},
     {"id": "voiceover", "name": "Product video + voiceover", "tool": "ugc_video", "script": "spoken", "presenter": False,
-     "talking": True, "line": "Your product on screen while a narrator reads the script.", "preview": "photo_to_video"},
+     "talking": True, "line": "Your product on screen while a narrator reads the script.", "preview": "site/show-amber"},
     {"id": "image", "name": "Image ad", "tool": "ad_image", "script": "image",
-     "line": "Finished ad images with a headline, in up to three shapes.", "preview": "ad_image"},
+     "line": "Finished ad images with a headline, in up to three shapes.", "preview": "previews/ad_image"},
     {"id": "product_video", "name": "Product video", "tool": "photo_to_video", "script": "scene",
-     "line": "A 5 or 10 second clip that brings one product photo to life.", "preview": "photo_to_video"},
+     "line": "A 5 or 10 second clip that brings one product photo to life.", "preview": "previews/photo_to_video"},
     {"id": "motion", "name": "Copy a video's motion", "tool": "motion_copy", "script": "scene",
-     "line": "Your product in the moves and timing of a reference clip.", "preview": "motion_copy"},
+     "line": "Your product in the moves and timing of a reference clip.", "preview": "previews/motion_copy"},
 ]
 AD_TYPE_BY_ID = {a["id"]: a for a in AD_TYPES}
 TOOL_AD_TYPE = {"ad_image": "image", "photo_to_video": "product_video", "motion_copy": "motion", "ugc_video": "ugc"}

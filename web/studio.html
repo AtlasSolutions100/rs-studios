@@ -21,7 +21,7 @@
     <div class="typegrid">
       {% for t in ad_types %}
       <a class="typecard" href="{{ url_for('create.index', type=t.id) }}" data-hoverplay>
-        <div class="thumb"><video src="{{ url_for('static', filename='previews/' ~ t.preview ~ '.mp4') }}" poster="{{ url_for('static', filename='previews/' ~ t.preview ~ '.jpg') }}" muted loop playsinline preload="none"></video>{% if t.talking %}<span class="chip motion">Speaks</span>{% endif %}</div>
+        <div class="thumb"><video src="{{ url_for('static', filename=t.preview ~ '.mp4') }}" poster="{{ url_for('static', filename=t.preview ~ '.jpg') }}" muted loop playsinline preload="none"></video>{% if t.talking %}<span class="chip motion">Speaks</span>{% endif %}</div>
         <div class="typecard-b"><b>{{ t.name }}</b><span class="small muted">{{ t.line }}</span><span class="small dim">from {{ '{:,}'.format(from_price[t.tool]) }} credits</span></div>
       </a>
       {% endfor %}

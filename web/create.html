@@ -35,7 +35,7 @@
           <div class="cf-types" role="radiogroup" aria-label="Ad type">
             {% for t in boot.types %}
             <label class="cf-type"><input type="radio" name="cf-type" value="{{ t.id }}">
-              <span class="thumb"><img src="{{ url_for('static', filename='previews/' ~ t.preview ~ '.jpg') }}" alt="" loading="lazy">{% if t.talking %}<span class="chip motion">Speaks</span>{% endif %}</span>
+              <span class="thumb"><img src="{{ url_for('static', filename=t.preview ~ '.jpg') }}" alt="" loading="lazy">{% if t.talking %}<span class="chip motion">Speaks</span>{% endif %}</span>
               <b>{{ t.name }}</b><span class="small muted">{{ t.line }}</span></label>
             {% endfor %}
           </div>
