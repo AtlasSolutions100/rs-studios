@@ -17,6 +17,18 @@
     </div>
   </div>
   {% set running = jobs|selectattr('status', 'in', ['pending', 'running'])|list %}
+  {% if running %}<div class="flash" role="status"><span class="spinner sm"></span> Making {{ running|length }} of {{ jobs|length }}. Talking videos take a few minutes; this page updates by itself, and you can leave it.</div>{% endif %}
+  <div class="lgrid bgrid" style="margin-top:20px">
+    {% for j in jobs %}{% set pr = j.params_json|fromjson %}
+    <article class="litem" data-job="{{ j.id }}" data-status="{{ j.status }}">
+      {{ job_thumb(j, outs, templates, tools) }}
+      <div class="meta"><b>{{ pr.label or tools[j.tool].name }}</b>{{ status(j) }}</div>
+      {% if pr.hook %}<p class="brief">“{{ pr.hook[:120] }}”</p>{% endif %}
+      {% if outs.get(j.id) %}<div class="row" style="margin-top:8px">{% for o in outs[j.id] %}<a class="btn dark sm" href="{{ url_for('media', oid=o.id, download=1) }}">Download{{ ' ' ~ loop.index if outs[j.id]|length > 1 }}</a>{% endfor %}{% if has_feature('adhub') %}<a class="btn dark sm" href="{{ url_for('adhub.export_page', oid=outs[j.id][0].id) }}">Export sizes</a>{% endif %}</div>{% endif %}
+      <details class="small"><summary class="muted">What it says</summary><p class="vtext small">{{ j.brief }}</p></details>
+    </article>
+    {% endfor %}
+  </div>
   {% if is_preview %}<div class="panel fa-upsell"><div><b>This is your free preview</b><span class="small muted">480p with a PREVIEW watermark. The real thing is 720p, no watermark, and you can pick the presenter, length and shapes.</span></div><a class="btn" href="{{ url_for('create.index', batch=b.id) }}">Make it for real · {{ '{:,}'.format(full_price) }} credits ({{ credits_usd(full_price) }})</a></div>{% endif %}
   {% if first_batch %}
   <div class="panel whilecard">
@@ -30,18 +42,6 @@
     </ul>
   </div>
   {% endif %}
-  {% if running %}<div class="flash" role="status"><span class="spinner sm"></span> Making {{ running|length }} of {{ jobs|length }}. Talking videos take a few minutes; this page updates by itself, and you can leave it.</div>{% endif %}
-  <div class="lgrid bgrid" style="margin-top:20px">
-    {% for j in jobs %}{% set pr = j.params_json|fromjson %}
-    <article class="litem" data-job="{{ j.id }}" data-status="{{ j.status }}">
-      {{ job_thumb(j, outs, templates, tools) }}
-      <div class="meta"><b>{{ pr.label or tools[j.tool].name }}</b>{{ status(j) }}</div>
-      {% if pr.hook %}<p class="brief">“{{ pr.hook[:120] }}”</p>{% endif %}
-      {% if outs.get(j.id) %}<div class="row" style="margin-top:8px">{% for o in outs[j.id] %}<a class="btn dark sm" href="{{ url_for('media', oid=o.id, download=1) }}">Download{{ ' ' ~ loop.index if outs[j.id]|length > 1 }}</a>{% endfor %}{% if has_feature('adhub') %}<a class="btn dark sm" href="{{ url_for('adhub.export_page', oid=outs[j.id][0].id) }}">Export sizes</a>{% endif %}</div>{% endif %}
-      <details class="small"><summary class="muted">What it says</summary><p class="vtext small">{{ j.brief }}</p></details>
-    </article>
-    {% endfor %}
-  </div>
   {% if not jobs %}<div class="empty">Nothing in this batch started. Check your credits and try again.</div>{% endif %}
 </div>
 {% endblock %}
