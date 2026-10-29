@@ -36,6 +36,7 @@ STEP_TYPES = {
     "sms": {"name": "Send text", "group": "Message"},
     "wait": {"name": "Wait", "group": "Timing"},
     "condition": {"name": "If / else", "group": "Logic"},
+    "split": {"name": "A/B split", "group": "Logic"},
     "exit_if": {"name": "Exit when", "group": "Logic"},
     "tag": {"name": "Add or remove a tag", "group": "Action"},
     "stage": {"name": "Move to a stage", "group": "Action"},
@@ -59,6 +60,9 @@ FIELDS = ("name", "email", "phone", "stage", "source")
 MERGE_TAGS = ("first_name", "name", "product", "brand")
 
 
+BRANCH = ("condition", "split")   # steps with two lists (yes/no, or A/B) that rejoin
+
+
 class FlowError(ValueError):
     pass
 
@@ -70,7 +74,7 @@ def new_id() -> str:
 def _ids(steps):
     for s in steps:
         yield s.get("id")
-        if s.get("type") == "condition":
+        if s.get("type") in BRANCH:
             yield from _ids(s.get("yes") or [])
             yield from _ids(s.get("no") or [])
 
@@ -79,7 +83,7 @@ def walk(steps, depth=0):
     """Every step in a step list, depth-first, with its depth."""
     for s in steps:
         yield s, depth
-        if s.get("type") == "condition":
+        if s.get("type") in BRANCH:
             yield from walk(s.get("yes") or [], depth + 1)
             yield from walk(s.get("no") or [], depth + 1)
 
@@ -123,6 +127,12 @@ def clean_step(s: dict, depth=0) -> dict:
         out["hours"] = max(0, min(23, int(s.get("hours") or 0)))
         at = str(s.get("at") or "")
         out["at"] = at if re.match(r"^([01]\d|2[0-3]):[0-5]\d$", at) else ""
+    elif typ == "split":
+        if depth >= MAX_DEPTH:
+            raise FlowError("Splits can only go three deep.")
+        out["pct"] = max(1, min(99, int(s.get("pct") or 50)))
+        out["yes"] = [clean_step(x, depth + 1) for x in (s.get("yes") or [])]
+        out["no"] = [clean_step(x, depth + 1) for x in (s.get("no") or [])]
     elif typ in ("condition", "exit_if"):
         out["test"] = clean_test(s.get("test") or {})
         if typ == "condition":
@@ -252,7 +262,7 @@ def compile_tree(tree: dict) -> dict:
         nxt = after
         for s in reversed(steps):
             node = {k: v for k, v in s.items() if k not in ("yes", "no")}
-            if s["type"] == "condition":
+            if s["type"] in BRANCH:
                 node["yes"] = seq(s.get("yes") or [], nxt)
                 node["no"] = seq(s.get("no") or [], nxt)
             else:
@@ -325,6 +335,8 @@ def describe(s: dict, forms_by_id=None, steps_by_id=None) -> str:
         if s.get("hours"):
             bits.append(f"{s['hours']} hour{'s' if s['hours'] != 1 else ''}")
         return "Wait " + (" ".join(bits) or "") + (f", then until {s['at']}" if s.get("at") else "")
+    if t == "split":
+        return f"A/B split: {s.get('pct', 50)}% / {100 - int(s.get('pct', 50))}%"
     if t in ("condition", "exit_if"):
         return ("If " if t == "condition" else "Exit when ") + describe_test(s["test"], forms_by_id, steps_by_id)
     if t == "tag":
@@ -376,10 +388,14 @@ def timeline(tree: dict, forms_by_id=None) -> list[dict]:
                 if s.get("at"):
                     approx = True
                 continue
-            if s["type"] == "condition":
-                label = describe_test(s["test"], forms_by_id, steps_by_id)
-                ty = run(s.get("yes") or [], t, branch + [f"if {label}"], approx)
-                tn = run(s.get("no") or [], t, branch + [f"if not: {label}"], approx)
+            if s["type"] in BRANCH:
+                if s["type"] == "split":
+                    la, lb = f"A ({s['pct']}%)", f"B ({100 - s['pct']}%)"
+                else:
+                    label = describe_test(s["test"], forms_by_id, steps_by_id)
+                    la, lb = f"if {label}", f"if not: {label}"
+                ty = run(s.get("yes") or [], t, branch + [la], approx)
+                tn = run(s.get("no") or [], t, branch + [lb], approx)
                 approx = approx or ty != tn
                 t = max(ty, tn)
                 continue
@@ -551,7 +567,7 @@ def from_template(tid: str) -> dict:
                 last_email = s["id"]
             if s["type"] in ("condition", "exit_if") and s["test"]["kind"] in ("clicked", "opened") and not s["test"].get("node"):
                 s["test"]["node"] = last_email or ""
-            if s["type"] == "condition":
+            if s["type"] in BRANCH:
                 fix(s["yes"], last_email)
                 fix(s["no"], last_email)
         return last_email
@@ -616,7 +632,7 @@ def without(tree: dict, typ: str) -> dict:
         for s in steps:
             if s["type"] == typ:
                 continue
-            if s["type"] == "condition":
+            if s["type"] in BRANCH:
                 s["yes"], s["no"] = keep(s["yes"]), keep(s["no"])
             out.append(s)
         return out
@@ -631,7 +647,7 @@ def from_draft(d: dict) -> dict:
         if s.get("type") in ("condition", "exit_if"):
             s["test"] = {"kind": s.get("test_kind") or "has_tag", "tag": s.get("test_tag") or s.get("tag") or "",
                          "channel": "sms" if s.get("test_kind") == "has_consent" else "email"}
-        if s.get("type") == "condition":
+        if s.get("type") in BRANCH:
             s["yes"] = [conv(x) for x in s.get("yes") or [] if isinstance(x, dict)]
             s["no"] = [conv(x) for x in s.get("no") or [] if isinstance(x, dict)]
         return s
@@ -651,7 +667,7 @@ def from_draft(d: dict) -> dict:
                 last_email = s["id"]
             if s["type"] in ("condition", "exit_if") and s["test"]["kind"] in ("clicked", "opened"):
                 s["test"]["node"] = last_email or ""
-            if s["type"] == "condition":
+            if s["type"] in BRANCH:
                 fix(s["yes"], last_email)
                 fix(s["no"], last_email)
         return last_email
@@ -662,7 +678,7 @@ def from_draft(d: dict) -> dict:
         for s in steps:
             if s["type"] in ("email", "sms") and not compliance.check(s.get("subject") or "", s.get("body") or "")["ok"]:
                 continue
-            if s["type"] == "condition":
+            if s["type"] in BRANCH:
                 s["yes"], s["no"] = keep(s["yes"]), keep(s["no"])
             out.append(s)
         return out
@@ -678,7 +694,7 @@ def from_draft(d: dict) -> dict:
                 n += 1
                 if n > MAX_SENDS:
                     continue
-            if s["type"] == "condition":
+            if s["type"] in BRANCH:
                 s["yes"], s["no"] = cap(s["yes"]), cap(s["no"])
             out.append(s)
         return out

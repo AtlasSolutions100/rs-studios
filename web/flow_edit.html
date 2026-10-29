@@ -32,6 +32,13 @@
           <button class="btn dark" name="action" value="duplicate">Duplicate</button>
         </form>
         <p class="small muted" style="margin:10px 0 0" data-unsaved-note hidden>Save your changes first.</p>
+        {% if f.status == 'on' and f.dirty %}<form method="post" action="{{ boot.urls.state }}" style="margin-top:8px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="move" value="1"><button class="linkbtn" name="action" value="publish">Publish and move everyone in it to the new version</button></form>{% endif %}
+        <form method="post" action="{{ url_for('flows.flow_settings', fid=f.id) }}" class="fl-reenter">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <label for="fl-re">Can someone go through it again?</label>
+          <select id="fl-re" name="reenter"><option value="once" {{ 'selected' if reentry.mode == 'once' }}>No, once per person</option><option value="after_finish" {{ 'selected' if reentry.mode == 'after_finish' }}>Yes, after they finish</option></select>
+          <div class="row" style="gap:8px;margin-top:8px"><label for="fl-cd" style="margin:0" class="small muted">and at least</label><input id="fl-cd" type="number" name="cooldown_days" min="0" max="365" value="{{ reentry.cooldown_days }}" style="width:80px"><span class="small muted">days later</span><button class="btn dark sm">Save</button></div>
+        </form>
         <form method="post" action="{{ boot.urls.state }}" data-confirm="Delete this flow? People in it are taken out; their history stays." style="margin-top:12px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn" name="action" value="archive" style="color:var(--bad)">Delete flow</button></form>
       </div>
     </aside>
@@ -49,6 +56,14 @@
     <div class="fl-stats">
       {% for k, label in (('active', 'In the flow'), ('done', 'Finished'), ('exited', 'Exited'), ('failed', 'Failed'), ('tasks', 'Open tasks')) %}<div class="panel"><span class="muted small">{{ label }}</span><b>{{ stats[k] }}</b></div>{% endfor %}
     </div>
+    <div class="panel">
+      <div class="row" style="justify-content:space-between"><h3 style="margin:0">Funnel</h3><a class="btn dark sm" href="{{ url_for('flows.events_csv', fid=f.id) }}">Export events (CSV)</a></div>
+      <div class="fl-funnel">{% for s in an.funnel %}{% set pct = (100 * s.n / an.entered)|round(0)|int if an.entered else 0 %}<div class="fl-fun"><span class="small">{{ s.label }}</span><div class="bar"><i style="width:{{ pct }}%"></i></div><b>{{ s.n }}</b><span class="small muted">{{ pct }}%</span></div>{% endfor %}</div>
+    </div>
+    {% for sp in an.splits %}<div class="panel"><h3 style="margin-top:0">{{ sp.label }}</h3>
+      <div class="two-col">{% for p in sp.paths %}<div class="fl-ab"><b>Path {{ p.side }}</b><span>{{ p.people }} people · {{ p.finished }} finished</span><span>{{ p.sent }} emails · {{ p.clicked }} clicked{% if p.rate is not none %} · <b class="gold">{{ p.rate }}%</b> click rate{% endif %}</span></div>{% endfor %}</div>
+      {% set a_, b_ = sp.paths[0], sp.paths[1] %}{% if a_.rate is not none and b_.rate is not none and (a_.sent + b_.sent) >= 100 %}<p class="small muted" style="margin:10px 0 0">{{ 'A' if a_.rate > b_.rate else 'B' }} is ahead so far.</p>{% else %}<p class="small muted" style="margin:10px 0 0">Give it about 100 emails before calling a winner.</p>{% endif %}
+    </div>{% endfor %}
     {% if day30 %}<div class="panel"><h3 style="margin-top:0">People who started, last 30 days</h3>{% set mx = day30|map(attribute='n')|max %}<div class="fl-bars">{% for d in day30 %}<span title="{{ d.d }}: {{ d.n }}" style="height:{{ (d.n / mx * 100)|round(0) }}%"></span>{% endfor %}</div></div>{% endif %}
     <div class="two-col" style="align-items:start">
       <div class="panel scrollx">

@@ -1,3 +1,4 @@
+[hidden]{display:none!important}
 :root{
   /* Campaignify: black/white wordmark with a lime spark. Dark is the default theme. */
   --accent:#BDFA25; --accent-rgb:189,250,37; --on-accent:#0B0C0E;
@@ -1128,3 +1129,13 @@ input[type=datetime-local],input[type=time],input[type=tel],input[type=url],inpu
 .smsroutes .fa-kind>span{display:flex;flex-direction:column;gap:4px}
 .smsstatus{margin-bottom:16px}
 @media (max-width:760px){.smsroutes{grid-template-columns:1fr}}
+.fl-brl.ab{background:rgba(var(--blue-rgb),.14);color:var(--blue)}
+.t-split .fl-ico{background:rgba(var(--blue-rgb),.14);color:var(--blue)}
+.fl-reenter{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.fl-funnel{display:grid;gap:8px;margin-top:12px}
+.fl-fun{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,2fr) 48px 40px;gap:10px;align-items:center}
+.fl-fun>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fl-fun .bar{height:10px;border-radius:6px;background:var(--chipbg);border:1px solid var(--line);overflow:hidden}
+.fl-fun .bar i{display:block;height:100%;background:var(--accent)}
+.fl-ab{display:flex;flex-direction:column;gap:4px;padding:12px;border:1px solid var(--line);border-radius:12px}
+@media (max-width:760px){.fl-fun{grid-template-columns:1fr 60px 40px}.fl-fun .bar{grid-column:1/-1;order:3}}

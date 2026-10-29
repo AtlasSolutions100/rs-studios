@@ -14,6 +14,7 @@
   var ICON = {
     trigger: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>', email: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M4 7l8 6 8-6"/>',
     sms: '<path d="M4 5h16v11H9l-5 4z"/>', wait: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+    split: '<path d="M12 4v5M12 9L6 15v5M12 9l6 6v5"/>',
     condition: '<path d="M6 4v6a4 4 0 004 4h8M14 10l4 4-4 4"/><circle cx="6" cy="4" r="1.5"/>', exit_if: '<path d="M14 5h5v14h-5M10 8l-4 4 4 4M6 12h10"/>',
     tag: '<path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="7.5" cy="7.5" r="1.4"/>',
     stage: '<path d="M4 18h4v-4h4v-4h4V6h4"/>', task: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12l3 3 5-6"/>',
@@ -22,7 +23,8 @@
   function icon(t){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (ICON[t] || '') + '</svg>'; }
 
   // ---- tree helpers
-  function walk(list, fn){ list.forEach(function(s, i){ fn(s, list, i); if(s.type === 'condition'){ walk(s.yes, fn); walk(s.no, fn); } }); }
+  function BR(s){ return s.type === 'condition' || s.type === 'split'; }
+  function walk(list, fn){ list.forEach(function(s, i){ fn(s, list, i); if(BR(s)){ walk(s.yes, fn); walk(s.no, fn); } }); }
   function find(id){ var hit = null; walk(T.steps, function(s, list, i){ if(s.id === id) hit = {step: s, list: list, i: i}; }); return hit; }
   function emails(){ var out = []; walk(T.steps, function(s){ if(s.type === 'email') out.push(s); }); return out; }
   function defaults(type){
@@ -31,6 +33,7 @@
     if(type === 'sms') s.body = '{{brand}}: ';
     if(type === 'wait'){ s.days = 1; s.hours = 0; s.at = ''; }
     if(type === 'condition'){ s.test = {kind: 'has_tag', tag: ''}; s.yes = []; s.no = []; }
+    if(type === 'split'){ s.pct = 50; s.yes = []; s.no = []; }
     if(type === 'exit_if') s.test = {kind: 'has_tag', tag: ''};
     if(type === 'tag'){ s.op = 'add'; s.tag = ''; }
     if(type === 'stage') s.stage = B.stages[0];
@@ -56,6 +59,7 @@
       case 'sms': return (s.body || '').slice(0, 70) || 'No text yet';
       case 'wait': var b = []; if(+s.days) b.push(plural(+s.days, 'day')); if(+s.hours) b.push(plural(+s.hours, 'hour')); return (b.join(' ') || '') + (s.at ? (b.length ? ', then ' : '') + 'until ' + s.at : '') || 'Set a time';
       case 'condition': return 'If ' + testText(s.test);
+      case 'split': return 'A: ' + s.pct + '% · B: ' + (100 - s.pct) + '% of people';
       case 'exit_if': return 'Leave the flow when ' + testText(s.test);
       case 'tag': return (s.op === 'remove' ? 'Remove ' : 'Add ') + '“' + (s.tag || '…') + '”';
       case 'stage': return 'Stage: ' + s.stage;
@@ -89,8 +93,9 @@
     var h = ins(list, 0);
     list.forEach(function(s, i){
       h += card(s);
-      if(s.type === 'condition'){
-        h += '<div class="fl-branches"><div class="fl-br"><span class="fl-brl yes">Yes</span>' + seq(s.yes) + '</div><div class="fl-br"><span class="fl-brl no">No</span>' + seq(s.no) + '</div></div><div class="fl-join" aria-hidden="true"></div>';
+      if(BR(s)){
+        var sp = s.type === 'split', la = sp ? 'A · ' + s.pct + '%' : 'Yes', lb = sp ? 'B · ' + (100 - s.pct) + '%' : 'No';
+        h += '<div class="fl-branches"><div class="fl-br"><span class="fl-brl ' + (sp ? 'ab' : 'yes') + '">' + la + '</span>' + seq(s.yes) + '</div><div class="fl-br"><span class="fl-brl ' + (sp ? 'ab' : 'no') + '">' + lb + '</span>' + seq(s.no) + '</div></div><div class="fl-join" aria-hidden="true"></div>';
       }
       h += ins(list, i + 1);
     });
@@ -164,6 +169,9 @@
       } else if(s.type === 'condition' || s.type === 'exit_if'){
         h += testFields(s.test);
         if(s.type === 'condition') h += '<p class="small muted">Yes and No each get their own steps; both carry on with whatever comes after.</p>';
+      } else if(s.type === 'split'){
+        h += field('Share of people on path A', '<input type="number" min="1" max="99" data-f="pct" value="' + (+s.pct || 50) + '">', '(%; the rest take B)');
+        h += '<p class="small muted">Each person is assigned once, at random. Compare the two paths in Activity.</p>';
       } else if(s.type === 'tag'){
         h += field('Do', '<select data-f="op">' + opt('add', 'Add the tag', s.op) + opt('remove', 'Remove the tag', s.op) + '</select>') + field('Tag', input('tag', s.tag, 'list="fl-tags" maxlength="30"'));
         h += '<p class="small muted">Adding a tag can start other flows that begin with it.</p>';
@@ -217,10 +225,10 @@
     if(t.closest('[data-merge]')){ insertAtBody(t.closest('[data-merge]').dataset.merge); return; }
     var hit = sel !== 'trigger' && find(sel); if(!hit) return;
     if(t.closest('[data-mv]')){ var d = +t.closest('[data-mv]').dataset.mv, j = hit.i + d; if(j < 0 || j >= hit.list.length) return; hit.list.splice(hit.i, 1); hit.list.splice(j, 0, hit.step); setDirty(true); render(); return; }
-    if(t.closest('[data-dup]')){ var copy = JSON.parse(JSON.stringify(hit.step)); (function re(s){ s.id = uid(); if(s.type === 'condition'){ s.yes.forEach(re); s.no.forEach(re); } })(copy); hit.list.splice(hit.i + 1, 0, copy); sel = copy.id; setDirty(true); render(); return; }
+    if(t.closest('[data-dup]')){ var copy = JSON.parse(JSON.stringify(hit.step)); (function re(s){ s.id = uid(); if(BR(s)){ s.yes.forEach(re); s.no.forEach(re); } })(copy); hit.list.splice(hit.i + 1, 0, copy); sel = copy.id; setDirty(true); render(); return; }
     if(t.closest('[data-del]')){ var s = hit.step, label = (B.types[s.type] || {}).name;
       var go = function(){ hit.list.splice(hit.i, 1); sel = 'trigger'; setDirty(true); render(); };
-      if(s.type === 'condition' && (s.yes.length || s.no.length) && window.cfyConfirm) window.cfyConfirm('Delete this ' + label + ' and the steps in both branches?', 'Delete').then(function(ok){ if(ok) go(); }); else go(); }
+      if(BR(s) && (s.yes.length || s.no.length) && window.cfyConfirm) window.cfyConfirm('Delete this ' + label + ' and the steps in both branches?', 'Delete').then(function(ok){ if(ok) go(); }); else go(); }
   });
 
   // ---- selecting and adding
