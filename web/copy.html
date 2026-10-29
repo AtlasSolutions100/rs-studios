@@ -1,0 +1,56 @@
+{% extends "base.html" %}{% block title %}Copy studio · Campaignify{% endblock %}
+{% block body %}
+<div class="page">
+  <section>
+    <p class="eyebrow">Copy studio · {{ b.name or 'Your brand' }}</p>
+    <h1>Words that <span class="gold">sell it</span></h1>
+    <p class="muted">Ad copy, hooks, captions, headlines, emails and landing copy, sized for each platform and checked against the same rules as your ads.</p>
+    {% include "_copy_tabs.html" %}
+    {% include "_ai_off.html" %}
+    <form method="post" class="panel copyform" id="copyform">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <label>What to write</label>
+      <div class="choices">{% for k, v in COPY_KINDS.items() %}<label class="choice"><input type="radio" name="kind" value="{{ k }}" data-q3="{{ quotes[k][0] }}" data-q5="{{ quotes[k][1] }}" {{ 'checked' if k == kind }}>{{ v.name }}</label>{% endfor %}</div>
+      <p class="small muted" id="kindblurb" style="margin:8px 0 0">{{ COPY_KINDS[kind].blurb }}</p>
+      <div class="two-col">
+        <div><label for="platform">Platform</label>
+          <select id="platform" name="platform">{% for k in PLATFORM_ORDER %}<option value="{{ k }}" {{ 'selected' if k == platform }}>{{ PLATFORMS[k].name }}</option>{% endfor %}</select></div>
+        <div><label for="goal">Goal</label>
+          <select id="goal" name="goal"><option value="sales">Sales</option><option value="traffic">Traffic to a page</option><option value="leads">Leads / sign-ups</option><option value="awareness">Awareness</option><option value="engagement">Engagement</option><option value="installs">App installs</option></select></div>
+      </div>
+      <label for="offer">Product or offer</label>
+      <input id="offer" type="text" name="offer" maxlength="300" value="{{ b.product }}" placeholder="What are you promoting?">
+      <div class="two-col">
+        <div><label for="audience">Audience</label><input id="audience" type="text" name="audience" maxlength="200" value="{{ b.audience }}" placeholder="Who is it for?"></div>
+        <div><label for="tone">Tone</label><select id="tone" name="tone">{% for t in ['Friendly', 'Bold', 'Calm and premium', 'Playful', 'Straight-talking', 'Expert'] %}<option>{{ t }}</option>{% endfor %}</select></div>
+      </div>
+      <label for="link">Link <span class="dim">(optional)</span></label><input id="link" type="text" name="link" maxlength="300" placeholder="https://">
+      <label for="notes">Anything else <span class="dim">(optional)</span></label><textarea id="notes" name="notes" maxlength="1000" style="min-height:90px" placeholder="Season, launch date, what makes it different…"></textarea>
+      <label>Variants</label>
+      <div class="choices"><label class="choice"><input type="radio" name="n" value="3" checked>3</label><label class="choice"><input type="radio" name="n" value="5">5</label></div>
+      {% if b.claims %}<p class="small muted" style="margin-top:16px">Claims it may use (from your brand kit): <span class="gold">{{ b.claims[:200] }}</span></p>{% else %}<p class="small muted" style="margin-top:16px">No approved claims in your <a href="{{ url_for('brand_kit') }}">brand kit</a>, so the copy won't make product claims.</p>{% endif %}
+      <div class="go">
+        <span class="muted small">Up to <b id="quote">{{ quotes[kind][0] }}</b> credits · you pay what it actually uses · you have {{ '{:,}'.format(balance()) }}</span>
+        <button class="btn" {{ 'disabled' if not llm_on() }}>Write it</button>
+      </div>
+    </form>
+  </section>
+  <aside class="rail">
+    <div class="panel">
+      <h2>Recent</h2>
+      {% for r in runs %}{% set i = r.input_json|fromjson %}
+      <a class="runrow" href="{{ url_for('copy.run', rid=r.id) }}"><b>{{ COPY_KINDS[r.kind].name if r.kind in COPY_KINDS else r.kind }} · {{ PLATFORMS[r.platform].short if r.platform in PLATFORMS else '' }}</b><span class="small muted">{{ (i.offer or '')[:60] }}</span><span class="small dim">{{ r.created_at[:16].replace('T',' ') }} · {{ r.credits }} credits</span></a>
+      {% else %}<div class="empty">Nothing yet. Your copy shows up here.</div>{% endfor %}
+    </div>
+  </aside>
+</div>
+<script>
+(function(){
+  var blurbs = {{ COPY_KINDS|tojson }};
+  function upd(){ var k = document.querySelector('input[name=kind]:checked'), n = document.querySelector('input[name=n]:checked').value;
+    document.getElementById('kindblurb').textContent = blurbs[k.value].blurb;
+    document.getElementById('quote').textContent = n == '5' ? k.dataset.q5 : k.dataset.q3; }
+  document.querySelectorAll('input[name=kind],input[name=n]').forEach(function(r){ r.addEventListener('change', upd); });
+})();
+</script>
+{% endblock %}

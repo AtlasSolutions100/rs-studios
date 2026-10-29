@@ -49,6 +49,18 @@ immediately, downgrades and cancellations at period end). Admins can comp a work
 Brands (`brands` table; the workspace's brand columns mirror the active brand) and seats (Team page, owner-made invite
 links) are capped per plan server-side; Scale jobs get queue priority.
 
+## AI writing (copy studio, optimizer, later the planner and SEO)
+
+`llm.py` talks to Anthropic's Messages API (`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, default `claude-sonnet-4-6`) with an
+optional Groq fallback (`GROQ_API_KEY`) for single structured calls. Structured output uses a forced tool call. Members
+pay what each call actually cost: tokens x list price (`llm.PRICES`, or `LLM_USD_IN_PER_MTOK`/`LLM_USD_OUT_PER_MTOK`)
+x `RS_MARKUP`, rounded up, at least 1 credit; the quote shown before running is the worst case at the token budget.
+Without a key the tools say "not switched on" and nothing is charged. `copywriter.py` holds the prompts (with the
+compliance rules), `platforms.py` the per-platform fields and lengths. Copy studio (`/app/copy`, Starter+) and content
+optimizer (`/app/optimize`, Growth+; its quick checks are free and need no key) live in `copy_routes.py`.
+Shared guards (`login_required`, `feature_required`, `owner_required`, `brand`, `charge_ai`) live in `core.py` so
+blueprints never import `app.py`.
+
 ## Tests
 
     python tests/test_app.py        # generation API and Stripe faked; 122 checks

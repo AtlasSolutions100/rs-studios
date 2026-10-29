@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% block title %}Copy · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <p style="margin:0 0 14px"><a href="{{ url_for('copy.studio', kind=r.kind, platform=r.platform) }}">← Copy studio</a></p>
+  <p class="eyebrow">{{ COPY_KINDS[r.kind].name }} · {{ PLATFORMS[r.platform].name }}</p>
+  <h1>{{ (inp.offer or 'Your copy')[:80] }}</h1>
+  <p class="muted">{{ r.created_at[:16].replace('T',' ') }} UTC · {{ r.credits }} credits · {{ inp.goal|capitalize }}{% if inp.audience %} · {{ inp.audience }}{% endif %}</p>
+  <div class="variants">
+    {% for v in out.variants %}{% set vid = loop.index %}{% include "_variant.html" %}{% else %}<div class="empty">No variants came back.</div>{% endfor %}
+  </div>
+  <p class="small dim">Lengths are checked against {{ PLATFORMS[r.platform].name }}'s display lengths. Anything flagged was caught by the compliance checks; don't post it as is. Put #ad first in captions for paid partnerships, and turn on the platform's AI label for AI-made media.</p>
+  <div class="row">
+    <form method="post" action="{{ url_for('copy.studio') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      {% for k in ('offer','audience','goal','tone','link','notes') %}<input type="hidden" name="{{ k }}" value="{{ inp[k] or '' }}">{% endfor %}
+      <input type="hidden" name="kind" value="{{ r.kind }}"><input type="hidden" name="platform" value="{{ r.platform }}"><input type="hidden" name="n" value="{{ inp.n or 3 }}">
+      <button class="btn dark" {{ 'disabled' if not llm_on() }}>Write new variants</button></form>
+    {% if has_feature('optimizer') and out.variants %}<a class="btn dark" href="{{ url_for('copy.optimize', platform=r.platform, text=out.variants[0].fields|map(attribute='text')|join('\n')) }}">Optimize the first one</a>{% endif %}
+  </div>
+</div>
+{% include "_copyjs.html" %}
+{% endblock %}

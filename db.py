@@ -103,6 +103,19 @@ CREATE TABLE IF NOT EXISTS brands (
     brand_name TEXT, product_name TEXT, claims TEXT, audience TEXT,
     created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_brands_ws ON brands(workspace_id, id);
+CREATE TABLE IF NOT EXISTS copy_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    user_id INTEGER,
+    brand_id INTEGER,
+    kind TEXT NOT NULL,              -- ad | hooks | captions | headlines | email | landing | optimize
+    platform TEXT,
+    input_json TEXT,
+    output_json TEXT,
+    credits INTEGER NOT NULL DEFAULT 0,
+    cost_usd REAL NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_copy_ws ON copy_runs(workspace_id, id);
 """
 
 # Columns added after the first release: (table, column, definition).

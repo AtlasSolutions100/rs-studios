@@ -1,0 +1,31 @@
+{% extends "base.html" %}{% block title %}Optimize copy · Campaignify{% endblock %}
+{% block body %}
+<div class="page">
+  <section>
+    <p class="eyebrow">Content optimizer</p>
+    <h1>Make it <span class="gold">land</span></h1>
+    <p class="muted">Paste an ad, caption or post. Quick checks score the hook, clarity, call to action, platform fit and compliance for free; the AI review explains what to fix and writes three better versions.</p>
+    {% include "_copy_tabs.html" %}
+    <form method="post" class="panel copyform">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <label for="text">Your copy</label>
+      <textarea id="text" name="text" maxlength="8000" required style="min-height:200px" placeholder="Paste the text exactly as it would be posted">{{ text }}</textarea>
+      <div class="two-col">
+        <div><label for="platform">Platform</label><select id="platform" name="platform">{% for k in PLATFORM_ORDER %}<option value="{{ k }}" {{ 'selected' if k == platform }}>{{ PLATFORMS[k].name }}</option>{% endfor %}</select></div>
+        <div><label for="goal">Goal</label><select id="goal" name="goal"><option value="sales">Sales</option><option value="traffic">Traffic to a page</option><option value="leads">Leads / sign-ups</option><option value="awareness">Awareness</option><option value="engagement">Engagement</option></select></div>
+      </div>
+      <label class="choice" style="display:inline-flex;gap:8px;margin-top:16px"><input type="checkbox" name="ai" value="1" {{ 'checked' if ai_on else 'disabled' }}>AI review and three rewrites (up to {{ quote }} credits)</label>
+      {% if not ai_on %}<p class="small muted">AI review isn't switched on yet; the quick checks are free and still run.</p>{% endif %}
+      <div class="go"><span class="muted small">Quick checks are free · you have {{ '{:,}'.format(balance()) }} credits</span><button class="btn">Check it</button></div>
+    </form>
+  </section>
+  <aside class="rail">
+    <div class="panel">
+      <h2>Recent</h2>
+      {% for r in runs %}{% set i = r.input_json|fromjson %}{% set o = r.output_json|fromjson %}
+      <a class="runrow" href="{{ url_for('copy.optimized', rid=r.id) }}"><b>{{ PLATFORMS[r.platform].short }} · {{ o.quick.overall }}/10</b><span class="small muted">{{ (i.text or '')[:70] }}</span><span class="small dim">{{ r.created_at[:16].replace('T',' ') }}</span></a>
+      {% else %}<div class="empty">Nothing yet.</div>{% endfor %}
+    </div>
+  </aside>
+</div>
+{% endblock %}

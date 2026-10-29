@@ -29,6 +29,7 @@ import db
 import hf
 import plans
 import worker
+from core import admin_required, brand, feature_required, is_owner, login_required, owner_required  # noqa: F401
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 UPLOADS = os.path.join(db.DATA, "uploads")
@@ -70,7 +71,12 @@ def _balance():
     return db.balance(g.ws) if g.get("ws") else 0
 
 
-app.jinja_env.globals.update(csrf_token=csrf_token, tools=catalog.TOOLS, packs=catalog.PACKS,
+import llm  # noqa: E402
+import platforms as platforms_mod  # noqa: E402
+
+app.jinja_env.globals.update(csrf_token=csrf_token, tools=catalog.TOOLS, packs=catalog.PACKS, llm_on=llm.configured,
+                             PLATFORMS=platforms_mod.PLATFORMS, PLATFORM_ORDER=platforms_mod.ORDER,
+                             COPY_KINDS=platforms_mod.KINDS,
                              starter_credits=catalog.starter_credits, rates=catalog.rates,
                              billing_configured=billing.configured, starter_image_ads=catalog.STARTER_IMAGE_ADS,
                              plans=plans, has_feature=_has, balance=_balance)
@@ -78,11 +84,15 @@ app.jinja_env.globals.update(csrf_token=csrf_token, tools=catalog.TOOLS, packs=c
 # Sidebar: (endpoint, label, icon, feature or None, endpoints that light it up).
 NAV = [
     ("studio", "Create", "create", None, ("studio", "new", "start")),
+    ("copy.studio", "Copy", "copy", "copy", ("copy.studio", "copy.run", "copy.optimize", "copy.optimized")),
     ("library", "Library", "library", None, ("library",)),
     ("brand_kit", "Brand kit", "brand", None, ("brand_kit",)),
     ("team", "Team", "team", None, ("team",)),
     ("billing_page", "Billing", "billing", None, ("billing_page",)),
 ]
+
+
+app.jinja_env.filters["fromjson"] = lambda s: json.loads(s or "{}")
 
 
 @app.context_processor
@@ -112,56 +122,6 @@ def load_user():
             abort(400, "This form expired. Go back, refresh and try again.")
 
 
-def login_required(fn):
-    @functools.wraps(fn)
-    def wrap(*a, **kw):
-        if not g.user:
-            return redirect(url_for("login", next=request.path))
-        return fn(*a, **kw)
-    return wrap
-
-
-def admin_required(fn):
-    @functools.wraps(fn)
-    def wrap(*a, **kw):
-        if not g.user:
-            return redirect(url_for("login", next=request.path))
-        if not g.user["is_admin"]:
-            abort(403)
-        return fn(*a, **kw)
-    return wrap
-
-
-def feature_required(feature):
-    """Logged in and on a plan that includes `feature`; otherwise an upgrade page."""
-    def deco(fn):
-        @functools.wraps(fn)
-        def wrap(*a, **kw):
-            if not g.user:
-                return redirect(url_for("login", next=request.path))
-            if not plans.has(g.ws, feature):
-                return render_template("upgrade.html", feature=plans.FEATURES[feature],
-                                       need=plans.required(feature)), 402
-            return fn(*a, **kw)
-        return wrap
-    return deco
-
-
-def is_owner() -> bool:
-    return bool(g.user) and (g.user["role"] == "owner" or bool(g.user["is_admin"]))
-
-
-def owner_required(fn):
-    @functools.wraps(fn)
-    def wrap(*a, **kw):
-        if not g.user:
-            return redirect(url_for("login", next=request.path))
-        if not is_owner():
-            abort(403, "Only the workspace owner can do that.")
-        return fn(*a, **kw)
-    return wrap
-
-
 BRAND_COLS = ("brand_name", "product_name", "claims", "audience")
 
 
@@ -186,12 +146,6 @@ def _sync_brand_row(conn, ws_id):
     conn.execute("UPDATE brands SET brand_name=?, product_name=?, claims=?, audience=? WHERE id=?",
                  (*[ws[c] for c in BRAND_COLS], bid))
     conn.commit()
-
-
-def brand():
-    w = g.ws
-    return {"name": w["brand_name"] or w["name"], "product": w["product_name"] or "",
-            "claims": w["claims"] or "", "audience": w["audience"] or ""}
 
 
 def _save_upload(fs, folder, allowed, max_mb):
@@ -264,6 +218,12 @@ FEATURE_DETAILS = {
     "brand_kit": ["Approved claims copied from your label", "Product photos reused across every ad",
                   "More than one brand on Growth and Scale"],
     "priority": ["Scale workspaces' generations start before the rest of the queue"],
+    "copy": ["Ad copy with every text field each platform takes, sized to its display lengths",
+             "Hooks with on-screen text, captions with hashtags, headlines, emails and landing-page copy",
+             "Facebook & Instagram, TikTok, YouTube, Google Search, X, LinkedIn, Pinterest, Snapchat and Reddit",
+             "Every variant run through the compliance checks; you pay the AI's actual cost in credits"],
+    "optimizer": ["Free quick checks: hook, clarity, call to action, platform fit, hashtags and compliance",
+                  "An AI review that explains the biggest fix and writes three rewrites"],
 }
 
 
@@ -1143,7 +1103,8 @@ def admin():
                                  "WHERE p.status='paid' ORDER BY p.id DESC LIMIT 30").fetchall()
     return render_template("admin.html", wss=wss, invites=invites, refs=refs, jobs=jobs, purchases=purchases,
                            billing_on=billing.configured(),
-                           markup=catalog.MARKUP, configured=hf.configured(), base=request.host_url)
+                           markup=catalog.MARKUP, configured=hf.configured(), base=request.host_url,
+                           ai_status=llm.status())
 
 
 @app.route("/admin/invites", methods=["POST"])
@@ -1229,6 +1190,11 @@ def ref_video(rid):
     if not r or not os.path.exists(r["path"]):
         abort(404)
     return send_file(r["path"], conditional=True)
+
+
+import copy_routes  # noqa: E402  (blueprints import core, never app)
+
+app.register_blueprint(copy_routes.bp)
 
 
 @app.errorhandler(400)

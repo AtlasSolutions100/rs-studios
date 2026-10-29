@@ -1,0 +1,4 @@
+<nav class="tabs" aria-label="Copy tools">
+  <a class="{{ 'on' if request.endpoint in ('copy.studio','copy.run') }}" href="{{ url_for('copy.studio') }}">Write copy</a>
+  <a class="{{ 'on' if request.endpoint in ('copy.optimize','copy.optimized') }}" href="{{ url_for('copy.optimize') }}">Optimize copy{% if not has_feature('optimizer') %} <em class="lock">{{ plans.required('optimizer').name }}</em>{% endif %}</a>
+</nav>
