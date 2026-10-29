@@ -10,7 +10,7 @@
   {% elif o %}<img src="{{ url_for('media', oid=o.id) }}" alt="Generated ad">
   {% else %}<img src="{{ url_for('static', filename='previews/' ~ pv ~ '.jpg') }}" alt="" style="opacity:.25;filter:blur(2px)">
     {% if j.status in ('pending','running') %}<div class="wait"><div><div class="spinner"></div>Making it…<br><span class="dim">1–3 minutes</span></div></div>
-    {% else %}<div class="wait"><div>{{ j.error or 'No result' }}</div></div>{% endif %}
+    {% else %}<div class="wait"><div>{% if j.error and j.error[:4] in ('401:', '402:', '403:') %}Generation is paused on our side right now. Your credits were refunded; please try again shortly.{% else %}{{ j.error or 'No result' }}{% endif %}</div></div>{% endif %}
   {% endif %}
 </div>
 {%- endmacro %}
