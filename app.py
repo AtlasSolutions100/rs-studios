@@ -88,7 +88,7 @@ NAV = [
     ("campaigns.index", "Campaigns", "planner", "planner", ("campaigns.index", "campaigns.show")),
     ("copy.studio", "Copy", "copy", "copy", ("copy.studio", "copy.run", "copy.optimize", "copy.optimized")),
     ("seo.index", "SEO & AEO", "seo", "seo", ("seo.index", "seo.result")),
-    ("pages.index", "Pages & links", "pages", "pages", ("pages.index", "pages.edit", "pages.links", "pages.link_detail",
+    ("pages.index", "Pages", "pages", "pages", ("pages.index", "pages.edit", "pages.links", "pages.link_detail",
                                                           "forms.index", "forms.edit", "forms.submissions")),
     ("forms.contacts", "Contacts", "contacts", "forms", ("forms.contacts", "forms.contact")),
     ("community.admin", "Community", "community", "community", ("community.admin", "community.course_edit",

@@ -63,7 +63,7 @@ def price_credits(tool: str, **kw) -> int:
 # Templates: the angles from the playbook. {product} and {brand} are filled from
 # the workspace's brand kit; members can edit the brief before generating.
 # "fits": "any" works for any product you can photograph; "coffee" templates
-# come from The Morning Upgrade and assume a coffee product.
+# were written for a coffee product and assume one.
 TEMPLATES = [
     {"id": "hero", "preview": "ad_image", "line": "Clean studio shot, headline on top", "name": "Product hero", "tool": "ad_image",
      "aspect": "4:5", "fits": "any",
@@ -140,7 +140,7 @@ def starter_credits() -> int:
 
 STARTER_IMAGE_ADS = int(os.environ.get("RS_STARTER_IMAGE_ADS", "2"))
 
-# Credit packs: one-time Prices on the Rector & Stull Stripe account (product
+# Credit packs: one-time Prices on the shared Stripe account (product
 # metadata brand=Campaignify, pack=<code>). Face value is 100 credits per dollar;
 # the bigger packs add bonus credits, paid for out of the markup (at 2x the
 # Studio pack still sells credits at ~1.73x our cost, before Stripe's fee).

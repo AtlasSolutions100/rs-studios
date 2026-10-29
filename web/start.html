@@ -13,7 +13,7 @@
       <div class="fr-two">
         <div>
           <label for="pn">Product name</label>
-          <input id="pn" type="text" name="product_name" required maxlength="80" value="{{ form.get('product_name') or brand.product }}" placeholder="e.g. CoreJava">
+          <input id="pn" type="text" name="product_name" required maxlength="80" value="{{ form.get('product_name') or brand.product }}" placeholder="e.g. Sunrise Blend">
           <label for="bn">Brand name <span class="dim">(optional)</span></label>
           <input id="bn" type="text" name="brand_name" maxlength="80" value="{{ form.get('brand_name') or g.ws.brand_name or '' }}" placeholder="e.g. Sunrise Coffee Co.">
         </div>
