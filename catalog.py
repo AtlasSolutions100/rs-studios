@@ -27,7 +27,9 @@ TOOLS = {
         "blurb": "Bring one product photo to life: a 5 or 10 second clip.",
         "model": "bytedance/seedance-2.5/image-to-video",
         "kind": "video",
-        "usd_per_second": 0.206,     # 720p list price
+        # Vendor's own estimate (Oct 29): $0.2056/s at 480p, $0.4622/s at 720p,
+        # $1.1372/s at 1080p. We render 720p.
+        "usd_per_second": float(os.environ.get("RS_VIDEO_USD_PER_SECOND", "0.4622")),
         "durations": [5, 10],
         "max_photos": 1,
     },
@@ -36,12 +38,11 @@ TOOLS = {
         "name": "Talking video",
         "blurb": "A presenter or narrator says your script, with your product on screen. Speech is generated with the video.",
         # Reference-to-video with native audio: product photos as references, the
-        # presenter, voice and spoken lines in the prompt. Price assumed equal to
-        # image-to-video until the vendor's estimate says otherwise; the worker
-        # checks the vendor's free estimate before submitting (see worker.py).
+        # presenter, voice and spoken lines in the prompt. Same Seedance 2.5 price
+        # table as image-to-video (vendor estimate, Oct 29: $0.4622/s at 720p).
         "model": "bytedance/seedance-2.5/reference-to-video",
         "kind": "video",
-        "usd_per_second": float(os.environ.get("RS_TALKING_USD_PER_SECOND", "0.206")),
+        "usd_per_second": float(os.environ.get("RS_TALKING_USD_PER_SECOND", "0.4622")),
         "durations": [8, 10, 15],
         "max_photos": 4,
         "aspects": ["9:16", "1:1", "16:9"],

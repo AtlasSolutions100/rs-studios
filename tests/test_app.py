@@ -14,6 +14,7 @@ TMP = tempfile.mkdtemp(prefix="rs_test_")
 import hashlib  # noqa: E402
 import json  # noqa: E402
 OWNER_CODE, OWNER2_CODE = "owner-code-koby", "owner-code-travis"
+os.environ.update(RS_VIDEO_USD_PER_SECOND="0.206", RS_TALKING_USD_PER_SECOND="0.206")  # fixtures use the old round numbers
 os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret", RS_MARKUP="2.0",
                   RS_OWNER_INVITES=f"koby@example.com:{hashlib.sha256(OWNER_CODE.encode()).hexdigest()},"
                                    f"travis@example.com:{hashlib.sha256(OWNER2_CODE.encode()).hexdigest()}")
@@ -1411,6 +1412,12 @@ for path in ("/app", "/app/start", "/app/billing", "/", "/features"):
     html = (a if path != "/" else client()).get(path).get_data(as_text=True)
     check(not re.search(r"higgsfield", html, re.I), f"vendor never named in the UI ({path})")
 
+import subprocess as _sp, sys as _sys
+_out = _sp.run([_sys.executable, "-c", "import catalog; print(catalog.price_credits('photo_to_video', duration=5), "
+               "catalog.price_credits('ugc_video', duration=10))"], capture_output=True, text=True,
+               env={k: v for k, v in os.environ.items() if k not in ("RS_VIDEO_USD_PER_SECOND", "RS_TALKING_USD_PER_SECOND")},
+               cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+check(_out.stdout.split() == ["463", "925"], "default video prices follow the vendor's 720p rate (2x margin)")
 print(f"\nall {passed} checks passed ({TMP})")
 
 if __name__ == "__main__":
