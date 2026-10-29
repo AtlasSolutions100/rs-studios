@@ -13,9 +13,14 @@
       <div class="row" style="margin-top:14px;justify-content:space-between"><button class="btn" name="action" value="save">Save</button><button class="btn dark sm" name="action" value="delete" data-confirm="Delete this contact and their form answers?">Delete contact</button></div>
     </form>
     <div class="panel"><h3>Engagement</h3>
-      <ol class="steplist">{% for e in events %}<li class="{{ 'done' if e.kind == 'form' else 'note' }}"><b>{{ {'form': 'Filled in', 'page': 'On page', 'link': 'Came through smart link'}[e.kind] }} {{ e.detail }}</b><span class="small muted">{{ e.at|localtime }}</span></li>{% else %}<li class="note"><b>Nothing yet</b></li>{% endfor %}</ol>
+      <ol class="steplist">{% for e in events %}<li class="{{ 'done' if e.kind == 'form' else 'note' }}"><b>{{ {'form': 'Filled in', 'page': 'On page', 'link': 'Came through smart link', 'msg_click': 'Clicked a link in', 'msg_open': 'Opened', 'sms_reply': 'Replied by text:'}.get(e.kind, e.kind) }} {{ e.detail }}</b><span class="small muted">{{ e.at|localtime }}</span></li>{% else %}<li class="note"><b>Nothing yet</b></li>{% endfor %}</ol>
     </div>
   </div>
+  {% if runs %}<div class="section-h"><h2>Flows</h2>{% if c.stage %}<span class="muted small">Stage: {{ c.stage }}</span>{% endif %}</div>
+  <div class="panel scrollx"><table>{% for r in runs %}<tr><td><a href="{{ url_for('flows.edit', fid=r.flow_id) }}">{{ r.fname }}</a></td>
+    <td><span class="fl-pill {{ 'on' if r.status == 'waiting' else '' }}">{{ {'waiting': 'In it', 'done': 'Finished', 'exited': 'Exited', 'failed': 'Failed'}[r.status] }}</span></td>
+    <td class="small muted">{% if r.status == 'waiting' %}Next: {{ steps.get(r.id) or 'the next step' }}, {{ r.wake_at|localtime }}{% else %}{{ r.exit_reason or '' }} {{ r.ended_at|localtime if r.ended_at }}{% endif %}</td>
+    <td>{% if r.status == 'waiting' %}<form method="post" action="{{ url_for('flows.exit_run', rid=r.id) }}" data-confirm="Take {{ c.name or c.email }} out of {{ r.fname }}?"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ request.path }}"><button class="linkbtn">Take out</button></form>{% endif %}</td></tr>{% endfor %}</table></div>{% endif %}
   {% if subs %}<div class="section-h"><h2>Form answers</h2></div>
   <div class="variants">{% for s in subs %}{% set d = loads(s.data_json) %}{% set fl = loads(s.fields_json) %}<article class="variant"><header><b>{{ s.form_name }}</b><span class="small muted">{{ s.created_at|localtime }}</span></header>
     {% for f in fl if d.get(f.key) %}<div class="vfield"><span class="small muted">{{ f.label }}</span><p class="vtext">{{ d[f.key] }}</p></div>{% endfor %}</article>{% endfor %}</div>{% endif %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}{% block title %}Flows · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <div class="phead">
+    <div>
+      <p class="eyebrow">Flows</p>
+      <h1>What happens <span class="gold">after the ad</span></h1>
+      <p class="muted">Follow up with everyone who fills in a form, becomes a customer or joins your community: emails, texts, tags and reminders for you, on a schedule you set.</p>
+    </div>
+    <div class="phead-actions"><a class="btn dark" href="{{ url_for('flows.tasks') }}">Tasks{% if open_tasks %} <span class="countpill">{{ open_tasks }}</span>{% endif %}</a></div>
+  </div>
+  {% if not channels.email %}<div class="flash">Email and text sending aren't connected yet. You can build and turn on flows now: each message becomes a task for you, with the copy ready to send.</div>{% endif %}
+
+  {% if items %}
+  <div class="section-h"><h2>Your flows</h2><span class="muted small">{{ items|length }}</span></div>
+  <div class="flowlist">
+    {% for it in items %}{% set f = it.f %}
+    <a class="flowrow" href="{{ url_for('flows.edit', fid=f.id) }}">
+      <div><b>{{ f.name }}</b><span class="small muted">{{ it.trigger }} · {{ it.steps }} step{{ 's' if it.steps != 1 }}</span></div>
+      <span class="fl-pill {{ f.status }}">{{ {'draft': 'Draft', 'on': 'On', 'paused': 'Paused'}[f.status] }}</span>
+      <span class="small muted flowstats"><b>{{ it.stats.active }}</b> in it · <b>{{ it.stats.done }}</b> finished{% if it.stats.tasks %} · <b class="gold">{{ it.stats.tasks }}</b> task{{ 's' if it.stats.tasks != 1 }}{% endif %}{% if it.stats.failed %} · <span class="bad">{{ it.stats.failed }} failed</span>{% endif %}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="section-h" id="new"><h2>New flow</h2><span class="muted small">Everything starts off. Nothing runs until you turn it on.</span></div>
+  <div class="newflow">
+    <form method="post" action="{{ url_for('flows.draft') }}" class="panel nf-ai">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <h3>Describe it</h3>
+      <p class="small muted">In plain words, from the ad to the last message. The AI drafts every step and email; you check them before anything runs.</p>
+      <label class="sr" for="nf-text">Describe the flow</label>
+      <textarea id="nf-text" name="text" maxlength="1500" placeholder="e.g. When someone joins the waitlist form, send a welcome email. Wait a day. If they clicked, tag them hot; if not, send a reminder. On day 3 send the launch offer." {{ 'disabled' if not ai }}></textarea>
+      <div class="row" style="margin-top:10px"><button class="btn" {{ 'disabled' if not ai }}>Draft it</button><span class="small muted">{{ 'about ' ~ quote ~ ' credits' if ai else 'AI drafting is off; start from a template' }}</span></div>
+    </form>
+    <div class="panel nf-tpls">
+      <h3>Start from a template</h3>
+      <div class="nf-grid">
+        {% for t in templates %}
+        <form method="post" action="{{ url_for('flows.new') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="kind" value="template"><input type="hidden" name="template" value="{{ t.id }}">
+          <button class="nf-tpl"><b>{{ t.name }}</b><span class="small muted">{{ t.line }}</span><span class="small dim">{{ t.channels|map('replace', 'sms', 'texts')|map('replace', 'email', 'email')|join(' + ') }}</span></button></form>
+        {% endfor %}
+      </div>
+      <form method="post" action="{{ url_for('flows.new') }}" class="row" style="margin-top:12px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="kind" value="blank"><button class="linkbtn">Or start blank →</button></form>
+    </div>
+  </div>
+
+  <form method="post" action="{{ url_for('flows.settings') }}" class="row small muted" style="margin-top:22px;gap:8px">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <label for="fl-tz" style="margin:0">Your time zone (for “wait until 9:00”)</label>
+    <select id="fl-tz" name="timezone" style="width:auto">{% for z in timezones %}<option {{ 'selected' if z == tz }}>{{ z }}</option>{% endfor %}</select>
+    <button class="btn dark sm">Save</button>
+  </form>
+</div>
+{% endblock %}

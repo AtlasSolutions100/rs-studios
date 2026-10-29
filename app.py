@@ -100,6 +100,7 @@ NAV_GROUPS = [
         ("seo.index", "SEO & AEO", "seo", "seo", ("seo.index", "seo.result")),
     ]),
     ("Grow", [
+        ("flows.index", "Flows", "flows", "flows", ("flows.index", "flows.edit", "flows.tasks")),
         ("pages.index", "Pages", "pages", "pages", ("pages.index", "pages.edit")),
         ("pages.links", "Links", "links", "links", ("pages.links", "pages.link_detail")),
         ("forms.index", "Forms", "forms", "forms", ("forms.index", "forms.edit", "forms.submissions")),
@@ -1646,6 +1647,7 @@ def ref_video(rid):
 import product_routes  # noqa: E402
 import create_routes  # noqa: E402
 import jobs_routes  # noqa: E402
+import flows_routes  # noqa: E402
 import assistant_routes  # noqa: E402
 import campaign_routes  # noqa: E402
 import copy_routes  # noqa: E402  (blueprints import core, never app)
@@ -1658,6 +1660,7 @@ import community_routes  # noqa: E402
 app.register_blueprint(product_routes.bp)
 app.register_blueprint(create_routes.bp)
 app.register_blueprint(jobs_routes.bp)
+app.register_blueprint(flows_routes.bp)
 app.register_blueprint(assistant_routes.bp)
 app.register_blueprint(copy_routes.bp)
 app.register_blueprint(campaign_routes.bp)

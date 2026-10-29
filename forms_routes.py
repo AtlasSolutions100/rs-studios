@@ -11,6 +11,8 @@ from flask import (Blueprint, Response, abort, current_app, flash, g, make_respo
 
 import compliance
 import db
+import flows
+import flows_engine
 import forms
 import pages
 from core import feature_required
@@ -240,6 +242,7 @@ def submit(fm):
         if email:
             c = conn.execute("SELECT * FROM contacts WHERE workspace_id=? AND email=?", (fm["workspace_id"], email)).fetchone()
             tags = _clean_tags(",".join(filter(None, [c["tags"] if c else "", fm["tags"] or ""])))
+            before = set(filter(None, (c["tags"] or "").split(","))) if c else set()
             if c:
                 contact_id = c["id"]
                 conn.execute("UPDATE contacts SET name=COALESCE(NULLIF(?, ''), name), phone=COALESCE(NULLIF(?, ''), phone), "
@@ -264,6 +267,9 @@ def submit(fm):
                             link["code"] if link else None, referrer, utm["utm_source"] or None, utm["utm_medium"] or None,
                             utm["utm_campaign"] or None, now)).lastrowid
         conn.execute("UPDATE forms SET submissions=submissions+1 WHERE id=?", (fm["id"],))
+        if contact_id:
+            flows_engine.enrol(conn, fm["workspace_id"], "form_submitted", contact_id, {"form_id": fm["id"]})
+            flows_engine.enrol_tags(conn, fm["workspace_id"], contact_id, before, set(tags))
         conn.commit()
     if fm["webhook_url"]:
         payload = {"event": "form.submitted", "form": {"id": fm["id"], "name": fm["name"]}, "submission_id": sid,
@@ -303,10 +309,12 @@ def contacts():
             if conn.execute("SELECT 1 FROM contacts WHERE workspace_id=? AND email=?", (g.ws["id"], email)).fetchone():
                 flash("That contact is already on your list.")
             else:
-                conn.execute("INSERT INTO contacts (workspace_id, email, name, tags, source, first_seen, last_seen) "
-                             "VALUES (?,?,?,?,?,?,?)", (g.ws["id"], email, (request.form.get("name") or "").strip()[:120] or None,
-                                                        ",".join(_clean_tags(request.form.get("tags"))), "added by hand",
-                                                        db.now(), db.now()))
+                tags = _clean_tags(request.form.get("tags"))
+                cid = conn.execute("INSERT INTO contacts (workspace_id, email, name, tags, source, first_seen, last_seen) "
+                                   "VALUES (?,?,?,?,?,?,?)", (g.ws["id"], email, (request.form.get("name") or "").strip()[:120]
+                                                              or None, ",".join(tags), "added by hand", db.now(), db.now())).lastrowid
+                flows_engine.enrol(conn, g.ws["id"], "contact_added", cid)
+                flows_engine.enrol_tags(conn, g.ws["id"], cid, set(), set(tags))
                 conn.commit()
                 flash("Contact added.")
         return redirect(url_for("forms.contacts"))
@@ -355,10 +363,12 @@ def contact(cid):
                 conn.commit()
                 flash("Contact and their form answers deleted.")
                 return redirect(url_for("forms.contacts"))
+            new_tags = _clean_tags(request.form.get("tags"))
             conn.execute("UPDATE contacts SET name=?, phone=?, tags=?, notes=? WHERE id=?",
                          ((request.form.get("name") or "").strip()[:120] or None,
                           (request.form.get("phone") or "").strip()[:30] or None,
-                          ",".join(_clean_tags(request.form.get("tags"))), (request.form.get("notes") or "")[:4000], cid))
+                          ",".join(new_tags), (request.form.get("notes") or "")[:4000], cid))
+            flows_engine.enrol_tags(conn, g.ws["id"], cid, set(filter(None, (c["tags"] or "").split(","))), set(new_tags))
             conn.commit()
             flash("Saved.", "ok")
             return redirect(url_for("forms.contact", cid=cid))
@@ -366,4 +376,11 @@ def contact(cid):
                               (cid, g.ws["id"])).fetchall()
         subs = conn.execute("SELECT s.*, f.name form_name, f.fields_json FROM form_submissions s JOIN forms f ON f.id=s.form_id "
                             "WHERE s.contact_id=? AND s.workspace_id=? ORDER BY s.id DESC LIMIT 50", (cid, g.ws["id"])).fetchall()
-    return render_template("contact.html", c=c, events=events, subs=subs, loads=json.loads)
+        runs = conn.execute("SELECT r.*, f.name fname FROM flow_runs r JOIN flows f ON f.id=r.flow_id WHERE r.contact_id=? "
+                            "AND r.workspace_id=? ORDER BY r.id DESC LIMIT 20", (cid, g.ws["id"])).fetchall()
+        steps = {}
+        for r in runs:
+            v = conn.execute("SELECT graph_json FROM flow_versions WHERE id=?", (r["version_id"],)).fetchone()
+            nodes = flows.unpack(v["graph_json"] if v else "{}").get("nodes") or {}
+            steps[r["id"]] = flows.describe(nodes[r["node_id"]]) if r["node_id"] in nodes else ""
+    return render_template("contact.html", c=c, events=events, subs=subs, loads=json.loads, runs=runs, steps=steps)

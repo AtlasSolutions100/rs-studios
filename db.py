@@ -340,6 +340,37 @@ CREATE TABLE IF NOT EXISTS c_lessons (
     title TEXT NOT NULL, body TEXT, media_id INTEGER, embed_url TEXT, position INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS c_progress (
     member_id INTEGER NOT NULL, lesson_id INTEGER NOT NULL, done_at TEXT NOT NULL, PRIMARY KEY (member_id, lesson_id));
+CREATE TABLE IF NOT EXISTS flows (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',          -- draft | on | paused | archived
+    graph_json TEXT NOT NULL DEFAULT '{}',          -- the editing copy (tree + compiled nodes)
+    settings_json TEXT NOT NULL DEFAULT '{}',
+    version INTEGER NOT NULL DEFAULT 0, version_id INTEGER, dirty INTEGER NOT NULL DEFAULT 0,
+    errors INTEGER NOT NULL DEFAULT 0, fired_at TEXT, created_by INTEGER,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, turned_on_at TEXT);
+CREATE INDEX IF NOT EXISTS idx_flows_ws ON flows(workspace_id, status);
+CREATE TABLE IF NOT EXISTS flow_versions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, flow_id INTEGER NOT NULL, version INTEGER NOT NULL,
+    graph_json TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS flow_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, flow_id INTEGER NOT NULL, version_id INTEGER NOT NULL,
+    workspace_id INTEGER NOT NULL, contact_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'waiting',         -- waiting | done | exited | failed
+    node_id TEXT, wake_at TEXT, lease_until TEXT, started_at TEXT NOT NULL, ended_at TEXT, exit_reason TEXT,
+    context_json TEXT NOT NULL DEFAULT '{}', UNIQUE(flow_id, contact_id));
+CREATE INDEX IF NOT EXISTS idx_runs_wake ON flow_runs(status, wake_at);
+CREATE TABLE IF NOT EXISTS flow_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, run_id INTEGER, flow_id INTEGER NOT NULL, workspace_id INTEGER NOT NULL,
+    contact_id INTEGER, node_id TEXT, kind TEXT NOT NULL, detail TEXT, at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_fev_flow ON flow_events(flow_id, id);
+CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, contact_id INTEGER, run_id INTEGER,
+    flow_id INTEGER, node_id TEXT, kind TEXT NOT NULL DEFAULT 'task',   -- task | notify | email | sms | community
+    title TEXT NOT NULL, body TEXT, due_at TEXT, done_at TEXT, done_by INTEGER, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_tasks_ws ON tasks(workspace_id, done_at);
+CREATE TABLE IF NOT EXISTS suppressions (
+    workspace_id INTEGER NOT NULL, channel TEXT NOT NULL, address TEXT NOT NULL, reason TEXT NOT NULL,
+    detail TEXT, at TEXT NOT NULL, PRIMARY KEY (workspace_id, channel, address));
 CREATE TABLE IF NOT EXISTS job_reviews (
     job_id INTEGER NOT NULL, user_id INTEGER NOT NULL, workspace_id INTEGER NOT NULL, verdict TEXT NOT NULL,
     note TEXT, at TEXT NOT NULL, PRIMARY KEY (job_id, user_id));
@@ -389,6 +420,23 @@ COLUMNS = [
     ("jobs", "deleted_at", "TEXT"),
     # IA cleanup (phase 4): what kind of product, so templates fit
     ("products", "category", "TEXT"),
+    # flows (phase 6): contact stage and consent, workspace sending details
+    ("contacts", "stage", "TEXT"),
+    ("contacts", "phone_e164", "TEXT"),
+    ("contacts", "timezone", "TEXT"),
+    ("contacts", "email_consent", "TEXT NOT NULL DEFAULT 'none'"),
+    ("contacts", "email_consent_at", "TEXT"),
+    ("contacts", "email_consent_detail", "TEXT"),
+    ("contacts", "sms_consent", "TEXT NOT NULL DEFAULT 'none'"),
+    ("contacts", "sms_consent_at", "TEXT"),
+    ("contacts", "sms_consent_detail", "TEXT"),
+    ("contacts", "unsubscribed_at", "TEXT"),
+    ("contacts", "sms_stopped_at", "TEXT"),
+    ("workspaces", "timezone", "TEXT"),
+    ("workspaces", "sender_name", "TEXT"),
+    ("workspaces", "reply_to", "TEXT"),
+    ("workspaces", "postal_address", "TEXT"),
+    ("workspaces", "flows_json", "TEXT"),
 ]
 
 
