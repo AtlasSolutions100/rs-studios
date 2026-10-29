@@ -26,7 +26,7 @@
     <form method="post" class="panel">
       <input type="hidden" name="csrf" value="{{ csrf_token() }}">
       <label for="bn">Brand name</label><input id="bn" type="text" name="brand_name" value="{{ ws.brand_name or '' }}" placeholder="Sunrise Coffee Co.">
-      <label for="pn">Product name <span class="dim">(templates say "the ___ bag", so just the name)</span></label><input id="pn" type="text" name="product_name" value="{{ ws.product_name or '' }}" placeholder="CoreJava">
+      <label for="pn">Product name <span class="dim">(templates say "the ___ bag", so just the name)</span></label><input id="pn" type="text" name="product_name" value="{{ ws.product_name or '' }}" placeholder="Sunrise Blend">
       <label for="cl">Approved claims <span class="dim">(copy them from the label)</span></label><textarea id="cl" name="claims" placeholder="Natural caffeine, L-theanine, MCT powder from coconut, 30 servings, hot water and 30 seconds">{{ ws.claims or '' }}</textarea>
       <label for="au">Main audience</label><input id="au" type="text" name="audience" value="{{ ws.audience or '' }}" placeholder="Women 25-44 who love their morning coffee">
       <p style="margin-top:20px"><button class="btn">Save brand kit</button></p>
