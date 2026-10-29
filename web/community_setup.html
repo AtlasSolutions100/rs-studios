@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% block title %}Community · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <p class="eyebrow">Community &amp; courses</p>
+  <h1>A home for your <span class="gold">customers</span></h1>
+  <p class="muted">Spaces for posts and comments, courses with lessons, members and events, at campaignify.ai/c/your-community. Members get their own logins; they don't use your team's seats.</p>
+  <form method="post" class="panel copyform" style="max-width:720px">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <label for="n">Community name</label><input id="n" type="text" name="name" maxlength="80" required placeholder="Glow Club">
+    <label for="s">Address</label><div class="slugrow"><span class="dim small">{{ request.host_url }}c/</span><input id="s" type="text" name="slug" maxlength="60" placeholder="glow-club"></div>
+    <label for="a">What it's for</label><textarea id="a" name="about" maxlength="1000" style="min-height:90px"></textarea>
+    <div class="go"><span class="small muted">It starts with a General space. Add more, plus courses and events, next.</span><button class="btn">Create community</button></div>
+  </form>
+</div>
+{% endblock %}

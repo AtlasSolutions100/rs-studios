@@ -1,0 +1,12 @@
+{% extends "c_base.html" %}{% block title %}Join · {{ c.name }}{% endblock %}{% block main %}
+{% if bad %}<div class="panel cm-narrow"><h2>That link doesn't work</h2><p class="muted">It may have been used already or switched off. Ask whoever sent it for a new one.</p></div>
+{% else %}
+<form method="post" class="panel copyform cm-narrow"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><h2>Join {{ c.name }}</h2>
+  {% if error %}<div class="flash bad">{{ error }}</div>{% endif %}
+  <div class="hp" aria-hidden="true"><label for="w">Website</label><input id="w" type="text" name="website" tabindex="-1" autocomplete="off"></div>
+  <label for="n">Your name</label><input id="n" type="text" name="name" maxlength="80" required autocomplete="name">
+  <label for="e">Email</label><input id="e" type="email" name="email" {{ 'readonly' if invite }} value="{{ invite.email if invite else '' }}" required autocomplete="email">
+  <label for="p">Password (8+ characters)</label><input id="p" type="password" name="password" minlength="8" required autocomplete="new-password">
+  <p style="margin-top:20px"><button class="btn" style="width:100%">Join</button></p>
+  <p class="small dim">Your account is for this community only. The community's owner can see your name and email.</p></form>
+{% endif %}{% endblock %}

@@ -1,0 +1,8 @@
+{% extends "c_base.html" %}{% block title %}{{ co.title }} · {{ c.name }}{% endblock %}{% block main %}
+<p><a href="{{ url_for('community.home', slug=c.slug) }}">← {{ c.name }}</a></p>
+<h1>{{ co.title }}</h1>{% if co.about %}<p class="muted">{{ co.about }}</p>{% endif %}
+{% if not co.published %}<div class="flash warn">Draft: only admins can see this course.</div>{% endif %}
+<div class="bar" style="max-width:420px"><div class="bar-h"><span class="small muted">Progress</span><b class="small">{{ finished }} of {{ total }}</b></div><i style="--v:{{ (100 * finished / (total or 1))|round|int }}%"></i></div>
+{% for m in mods %}<section class="panel" style="margin-top:16px"><h2 style="font-size:19px">{{ m.title }}</h2>
+  <ol class="lessonlist">{% for ls in lessons.get(m.id, []) %}<li class="{{ 'done' if ls.id in done }}"><a href="{{ url_for('community.lesson', slug=c.slug, lid=ls.id) }}">{{ ls.title }}</a>{% if ls.id in done %} <span class="tag ok">Done</span>{% endif %}</li>{% else %}<li class="muted">Coming soon.</li>{% endfor %}</ol></section>{% endfor %}
+{% endblock %}

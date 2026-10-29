@@ -1,0 +1,12 @@
+{% extends "c_base.html" %}{% block title %}{{ p.title }} · {{ c.name }}{% endblock %}{% block main %}
+<p><a href="{{ url_for('community.space', slug=c.slug, sid=s.id) }}">← {{ s.name }}</a></p>
+<article class="panel"><h1 style="font-size:30px">{{ p.title }}</h1><p class="small muted">{{ p.author }} · {{ p.created_at[:16].replace('T', ' ') }}</p>
+  {% for para in (p.body or '').split('\n\n') if para.strip() %}<p class="vtext">{{ para }}</p>{% endfor %}
+  {% if is_admin or p.member_id == me.id %}<form method="post" class="row"><input type="hidden" name="csrf" value="{{ csrf_token() }}">{% if is_admin %}<button class="btn dark sm" name="action" value="pin">{{ 'Unpin' if p.pinned else 'Pin' }}</button>{% endif %}<button class="btn dark sm" name="action" value="delete" onclick="return confirm('Delete this post?')">Delete</button></form>{% endif %}
+</article>
+<h2 id="comments" style="margin-top:24px">{{ comments|length }} comment{{ '' if comments|length == 1 else 's' }}</h2>
+<div class="adlist">{% for x in comments %}<div class="panel" style="padding:14px 18px"><p class="small muted" style="margin:0 0 4px"><b>{{ x.author }}</b> · {{ x.created_at[:16].replace('T', ' ') }}</p><p class="vtext" style="margin:0">{{ x.body }}</p>
+  {% if is_admin or x.member_id == me.id %}<form method="post"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn copybtn" name="action" value="delc:{{ x.id }}">Delete</button></form>{% endif %}</div>{% endfor %}</div>
+<form method="post" class="panel copyform" style="margin-top:14px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="comment">
+  <textarea name="body" maxlength="4000" required placeholder="Add a comment" style="min-height:80px" aria-label="Comment"></textarea><div class="row" style="margin-top:10px;justify-content:flex-end"><button class="btn sm">Comment</button></div></form>
+{% endblock %}

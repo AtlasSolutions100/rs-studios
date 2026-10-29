@@ -1242,12 +1242,113 @@ a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": 
 check(client().get(f"/f/{fm['code']}").status_code == 404, "forms go offline when the plan no longer includes them")
 a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "growth"})
 
+print("== community + courses")
+check(x.get("/app/community").status_code == 402, "community is Scale-only (Growth sees the upgrade page)")
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "scale"})
+check(b"Create community" in x.get("/app/community").data, "setup form")
+x.post("/app/community", data={"csrf": csrf(x), "name": "Glow Club", "slug": "glow-club", "about": "For Glow customers"})
+with db.connect() as conn:
+    cm = conn.execute("SELECT * FROM communities WHERE workspace_id=?", (xws["id"],)).fetchone()
+    sp = conn.execute("SELECT * FROM c_spaces WHERE workspace_id=?", (xws["id"],)).fetchone()
+check(cm and cm["slug"] == "glow-club" and sp["name"] == "General", "community created with a General space")
+x.post("/app/community/spaces", data={"csrf": csrf(x), "name": "Wins", "about": "Share your routine"})
+r = x.post("/app/community/courses", data={"csrf": csrf(x), "title": "Morning routine 101"})
+with db.connect() as conn:
+    co = conn.execute("SELECT * FROM c_courses WHERE workspace_id=?", (xws["id"],)).fetchone()
+    mod = conn.execute("SELECT * FROM c_modules WHERE course_id=?", (co["id"],)).fetchone()
+check(r.headers["Location"].endswith(f"/app/community/courses/{co['id']}") and mod, "new course opens its editor with a first module")
+r = x.post(f"/app/community/courses/{co['id']}", data={"csrf": csrf(x), "action": f"add_lesson:{mod['id']}"})
+with db.connect() as conn:
+    ls = conn.execute("SELECT * FROM c_lessons WHERE module_id=?", (mod["id"],)).fetchone()
+x.post(f"/app/community/lessons/{ls['id']}", data={"csrf": csrf(x), "action": "save", "title": "Step one", "body": "Cleanse.\n\nThen one drop.",
+                                                   "embed_url": "https://youtu.be/dQw4w9WgXcQ", "media_id": str(other_out)})
+with db.connect() as conn:
+    ls = conn.execute("SELECT * FROM c_lessons WHERE id=?", (ls["id"],)).fetchone()
+check(ls["title"] == "Step one" and ls["embed_url"] and ls["media_id"] is None, "lesson saved; another workspace's media refused")
+x.post("/app/community/events", data={"csrf": csrf(x), "title": "Live Q&A", "starts_at": "2030-01-15T18:00", "tz": "America/Chicago",
+                                      "duration": "45", "link": "https://meet.example.com/abc", "about": "Ask anything"})
+x.post("/app/community/members", data={"csrf": csrf(x), "email": "mia@glow.example", "name": "Mia", "role": "member"})
+with db.connect() as conn:
+    inv = conn.execute("SELECT * FROM c_members WHERE workspace_id=? AND email='mia@glow.example'", (xws["id"],)).fetchone()
+check(inv["status"] == "invited" and inv["invite_code"], "member invited with a one-time link")
+anon = client()
+check(anon.get("/c/glow-club").status_code == 200 and b"Log in" in anon.get("/c/glow-club").data, "logged-out visitors see the welcome page")
+check(anon.get(f"/c/glow-club/s/{sp['id']}").status_code == 302, "spaces need a member login")
+check(anon.get("/c/glow-club/join/badcode").status_code == 404, "bad invite codes refused")
+mia = client()
+code0 = inv["invite_code"]
+mia.get(f"/c/glow-club/join/{inv['invite_code']}")
+r = mia.post(f"/c/glow-club/join/{inv['invite_code']}", data={"csrf": csrf(mia), "name": "Mia", "email": "other@x.com", "password": "longpassword"})
+with db.connect() as conn:
+    inv = conn.execute("SELECT * FROM c_members WHERE id=?", (inv["id"],)).fetchone()
+check(r.status_code == 302 and inv["status"] == "active" and inv["email"] == "mia@glow.example" and not inv["invite_code"],
+      "invite accepted (email fixed to the invite; link used up)")
+check(client().get(f"/c/glow-club/join/{code0}").status_code == 404, "used invite link no longer works")
+html = mia.get("/c/glow-club").get_data(as_text=True)
+check("General" in html and "Wins" in html and "Live Q&amp;A" in html and "Morning routine 101" not in html,
+      "member home: spaces and events; draft courses hidden")
+r = mia.post(f"/c/glow-club/s/{sp['id']}", data={"csrf": csrf(mia), "title": "<script>x</script>Hello", "body": "First post"})
+pid = int(r.headers["Location"].rsplit("/", 1)[1])
+html = mia.get(f"/c/glow-club/posts/{pid}").get_data(as_text=True)
+check("&lt;script&gt;" in html and "<script>x" not in html, "posts are escaped")
+check("default-src 'none'" in mia.get(f"/c/glow-club/posts/{pid}").headers["Content-Security-Policy"], "member pages send the strict CSP")
+mia.post(f"/c/glow-club/posts/{pid}", data={"csrf": csrf(mia), "action": "comment", "body": "Me too"})
+x.get("/c/glow-club")
+x.post(f"/c/glow-club/posts/{pid}", data={"csrf": csrf(x), "action": "comment", "body": "Welcome!"})
+with db.connect() as conn:
+    coms = conn.execute("SELECT * FROM c_comments WHERE post_id=? ORDER BY id", (pid,)).fetchall()
+    owner_m = conn.execute("SELECT * FROM c_members WHERE workspace_id=? AND user_id IS NOT NULL", (xws["id"],)).fetchone()
+check(len(coms) == 2 and owner_m["role"] == "owner", "members comment; the workspace owner joins the conversation as owner")
+check(mia.post(f"/c/glow-club/posts/{pid}", data={"csrf": csrf(mia), "action": "pin"}).status_code == 403, "members can't pin")
+mia.post(f"/c/glow-club/posts/{pid}", data={"csrf": csrf(mia), "action": f"delc:{coms[1]['id']}"})
+with db.connect() as conn:
+    check(conn.execute("SELECT COUNT(*) FROM c_comments WHERE post_id=?", (pid,)).fetchone()[0] == 2, "members can't delete others' comments")
+x.post(f"/c/glow-club/posts/{pid}", data={"csrf": csrf(x), "action": "pin"})
+with db.connect() as conn:
+    check(conn.execute("SELECT pinned FROM c_posts WHERE id=?", (pid,)).fetchone()[0] == 1, "owner pins posts")
+check(mia.get(f"/c/glow-club/courses/{co['id']}").status_code == 404, "unpublished course hidden from members")
+x.post(f"/app/community/courses/{co['id']}", data={"csrf": csrf(x), "action": "save", "title": "Morning routine 101", "about": "", "published": "1"})
+html = mia.get(f"/c/glow-club/courses/{co['id']}").get_data(as_text=True)
+check("Step one" in html and "0 of 1" in html, "published course with progress")
+mia.post(f"/c/glow-club/lessons/{ls['id']}", data={"csrf": csrf(mia)})
+check("1 of 1" in mia.get(f"/c/glow-club/courses/{co['id']}").get_data(as_text=True), "lesson marked done")
+lh = mia.get(f"/c/glow-club/lessons/{ls['id']}").get_data(as_text=True)
+check("youtube-nocookie.com/embed/dQw4w9WgXcQ" in lh and "Then one drop." in lh, "lesson shows video embed and text")
+with db.connect() as conn:
+    ev = conn.execute("SELECT * FROM c_events WHERE workspace_id=?", (xws["id"],)).fetchone()
+ics = mia.get(f"/c/glow-club/events/{ev['id']}.ics").get_data(as_text=True)
+check("DTSTART:20300116T000000Z" in ics and "SUMMARY:Live Q&A" in ics, "event .ics converts the time zone to UTC")
+check(mia.get(f"/c/glow-club/m/{eo}").status_code == 404, "library media not used in a lesson isn't served")
+check(client().get(f"/c/glow-club/join/{cm['join_code']}").status_code == 404, "join link is off by default")
+x.post("/app/community", data={"csrf": csrf(x), "name": "Glow Club", "slug": "glow-club", "about": "x", "open_join": "1"})
+j = client()
+j.get(f"/c/glow-club/join/{cm['join_code']}")
+r = j.post(f"/c/glow-club/join/{cm['join_code']}", data={"csrf": csrf(j), "name": "Jo", "email": "jo@glow.example", "password": "longpassword"})
+check(r.status_code == 302 and j.get(f"/c/glow-club/s/{sp['id']}").status_code == 200, "open join link lets people join")
+with db.connect() as conn:
+    jo = conn.execute("SELECT * FROM c_members WHERE email='jo@glow.example'").fetchone()
+x.post(f"/app/community/members/{jo['id']}/remove", data={"csrf": csrf(x)})
+check(j.get(f"/c/glow-club/s/{sp['id']}").status_code == 302, "removed members lose access right away")
+lc = client(ip="10.66.0.1")
+for _ in range(10):
+    lc.post("/c/glow-club/login", data={"csrf": csrf(lc), "email": "mia@glow.example", "password": "wrong"})
+check(lc.post("/c/glow-club/login", data={"csrf": csrf(lc), "email": "mia@glow.example", "password": "longpassword"}).status_code == 429,
+      "member logins are throttled")
+ml = client(ip="10.66.0.2")
+r = ml.post("/c/glow-club/login", data={"csrf": csrf(ml), "email": "mia@glow.example", "password": "longpassword"})
+check(r.status_code == 302 and ml.get(f"/c/glow-club/s/{sp['id']}").status_code == 200, "members log in with their own password")
+check(n.get("/app/community").status_code in (402, 200) and b"Glow Club" not in n.get("/app/community").data,
+      "other workspaces don't see this community's admin")
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "growth"})
+check(mia.get("/c/glow-club").status_code == 404, "community goes offline when the plan no longer includes it")
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "scale"})
+
 print("== pages")
 a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": ws1["id"], "plan": "scale"})
 for path in ("/app", "/app/library", "/app/brand", "/admin", "/app/new?tool=motion_copy", "/app/new?template=cost",
              "/app/start", "/app/billing", "/app/new?template=hero", "/app/team", "/app/copy", "/app/optimize",
              "/app/copy?kind=landing&platform=landing", "/app/campaigns", "/app/seo", "/app/ad-accounts",
-             "/app/ad-accounts/youtube", "/app/pages", "/app/links", "/app/forms", "/app/contacts"):
+             "/app/ad-accounts/youtube", "/app/pages", "/app/links", "/app/forms", "/app/contacts", "/app/community"):
     check(a.get(path).status_code == 200, f"{path} renders")
 check(a.get("/health").get_json()["generation_configured"], "health reports configured")
 for path in ("/app", "/app/start", "/app/billing", "/", "/features"):

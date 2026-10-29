@@ -119,6 +119,16 @@ IP, no redirects), signed `X-Campaignify-Signature: sha256=<hmac of body>`; the 
 There is no mailer in the app, so email notifications are not sent (the form editor says so). Contacts: search, tag
 filter, notes, CSV export (formula-safe), delete (also wipes their answers).
 
+## Community and courses (Scale)
+
+`community_routes.py`. Workspace side `/app/community`: settings (name, address, optional open join link), spaces,
+courses (modules -> lessons with text plus a library video/image or a YouTube/Vimeo/Loom embed, draft/published),
+members (one-time invite links, admin/member roles, remove) and events (time zone, length, link). Member side
+`/c/<slug>`: members have their own logins (`c_members`, not workspace seats; session key `cm`), post and comment in
+spaces (rate-limited; authors and admins delete, admins pin), take courses with saved progress, and download events
+as .ics. Workspace users of the owning workspace are members automatically (owner/admin). Member pages are escaped,
+run no scripts and send the strict CSP; everything goes offline if the plan drops below Scale.
+
 ## Tests
 
     python tests/test_app.py        # generation API and Stripe faked; 122 checks

@@ -236,6 +236,52 @@ CREATE TABLE IF NOT EXISTS contact_events (
     ref TEXT, detail TEXT,
     at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_cev_c ON contact_events(contact_id, id);
+CREATE TABLE IF NOT EXISTS communities (
+    workspace_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    slug TEXT NOT NULL UNIQUE,
+    about TEXT,
+    join_code TEXT NOT NULL,
+    open_join INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS c_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    email TEXT NOT NULL,
+    name TEXT,
+    pw_hash TEXT,
+    role TEXT NOT NULL DEFAULT 'member',      -- owner | admin | member
+    status TEXT NOT NULL DEFAULT 'invited',   -- invited | active | removed
+    invite_code TEXT UNIQUE,
+    user_id INTEGER,
+    created_at TEXT NOT NULL,
+    last_seen TEXT,
+    UNIQUE (workspace_id, email));
+CREATE TABLE IF NOT EXISTS c_spaces (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL,
+    name TEXT NOT NULL, about TEXT, position INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS c_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, space_id INTEGER NOT NULL,
+    member_id INTEGER NOT NULL, title TEXT NOT NULL, body TEXT, pinned INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_cposts ON c_posts(space_id, id);
+CREATE TABLE IF NOT EXISTS c_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, post_id INTEGER NOT NULL,
+    member_id INTEGER NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_ccomments ON c_comments(post_id, id);
+CREATE TABLE IF NOT EXISTS c_courses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, title TEXT NOT NULL, about TEXT,
+    published INTEGER NOT NULL DEFAULT 0, position INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS c_modules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, course_id INTEGER NOT NULL,
+    title TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS c_lessons (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, module_id INTEGER NOT NULL,
+    title TEXT NOT NULL, body TEXT, media_id INTEGER, embed_url TEXT, position INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS c_progress (
+    member_id INTEGER NOT NULL, lesson_id INTEGER NOT NULL, done_at TEXT NOT NULL, PRIMARY KEY (member_id, lesson_id));
+CREATE TABLE IF NOT EXISTS c_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, title TEXT NOT NULL, starts_at TEXT NOT NULL,
+    tz TEXT, duration_min INTEGER NOT NULL DEFAULT 60, link TEXT, about TEXT, created_at TEXT NOT NULL);
 """
 
 # Columns added after the first release: (table, column, definition).
