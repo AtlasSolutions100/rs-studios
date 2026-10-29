@@ -1,0 +1,125 @@
+{% extends "base.html" %}{% block title %}{{ p.name if p else 'New product' }} · Campaignify{% endblock %}
+{% block body %}
+{% set f = form or {} %}
+<div class="page full">
+  <p style="margin:0 0 14px"><a href="{{ url_for('brand_kit') }}">← Products</a></p>
+  <div class="phead">
+    <div>
+      <p class="eyebrow">{{ b.brand_name or 'Your brand' }} · {{ 'Product' if p else 'New product' }}</p>
+      <h1>{% if p %}{{ p.name }}{% else %}Add a <span class="gold">product</span>{% endif %}</h1>
+      {% if not p %}<p class="muted">The name, a few clear photos and the claims printed on the label are enough. Everything else makes the AI's ideas sharper.</p>{% endif %}
+    </div>
+    {% if p %}<div class="phead-actions">
+      {% if not active_product or active_product.id != p.id %}<form method="post" action="{{ url_for('products.switch') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="product" value="{{ p.id }}"><input type="hidden" name="back" value="{{ request.path }}"><button class="btn dark">Make active</button></form>{% else %}<span class="tag ok">Active product</span>{% endif %}
+      <a class="btn" href="{{ url_for('studio', product=p.id) }}"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.6L19.5 9l-5.7 1.6L12 16l-1.8-5.4L4.5 9l5.7-1.4z"/></svg>Make an ad</a>
+    </div>{% endif %}
+  </div>
+
+  {% if not p %}
+  <form method="post" action="{{ url_for('products.import_page') }}" class="panel importbar" data-busy>
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="brand" value="{{ b.id }}">
+    <div class="importbar-t"><b>Fastest: import it from its page</b><span class="small muted">We read the page and fill this in{% if ai_on %} (up to {{ import_quote }} credits for the AI read){% endif %}. Suggested claims wait for your approval.</span></div>
+    <div class="importbar-f"><label class="sr" for="imp-url">Product page link</label><input id="imp-url" type="text" name="url" inputmode="url" placeholder="https://yourstore.com/products/…" required><button class="btn dark">Import</button></div>
+  </form>
+  <p class="or"><span>or fill it in</span></p>
+  {% endif %}
+
+  <div class="pedit">
+    <div class="pedit-main">
+      <form method="post" action="{{ url_for('products.edit', pid=p.id) if p else url_for('products.new') }}" class="panel" enctype="multipart/form-data" id="details">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">{% if not p %}<input type="hidden" name="brand" value="{{ b.id }}">{% endif %}
+        <h2>Details</h2>
+        <div class="two-col">
+          <div><label for="pn">Product name</label><input id="pn" type="text" name="name" maxlength="80" required value="{{ f.name or '' }}" placeholder="e.g. Sunrise Blend"></div>
+          <div><label for="pp">Price <span class="dim">(as you sell it)</span></label><input id="pp" type="text" name="price" maxlength="60" value="{{ f.price or '' }}" placeholder="e.g. $34 or $29 / month"></div>
+        </div>
+        <label for="pd">Short description</label><textarea id="pd" name="description" maxlength="600" style="min-height:84px" placeholder="What it is and who it's for, in a sentence or two.">{{ f.description or '' }}</textarea>
+        <div class="two-col">
+          <div><label for="po">Offer <span class="dim">(optional: a bundle or free extra)</span></label><input id="po" type="text" name="offer" maxlength="200" value="{{ f.offer or '' }}" placeholder="e.g. Free frother with the starter kit"></div>
+          <div><label for="pa">Audience</label><input id="pa" type="text" name="audience" maxlength="300" value="{{ f.audience or '' }}" placeholder="e.g. Women 25-44 who love their morning coffee"></div>
+        </div>
+        <div class="two-col">
+          <div><label for="pu">Landing or store link</label><input id="pu" type="text" name="url" maxlength="500" inputmode="url" value="{{ f.url or '' }}" placeholder="https://"></div>
+          <div><label for="pt">Tags <span class="dim">(comma separated)</span></label><input id="pt" type="text" name="tags" maxlength="200" value="{{ f.tags or '' }}" placeholder="coffee, morning, gift"></div>
+        </div>
+        <label for="pc" id="claims">Approved claims <span class="dim">(one per line, copied from the label: the only claims AI may use)</span></label>
+        <textarea id="pc" name="claims" maxlength="2000" placeholder="Natural caffeine&#10;30 servings&#10;Hot water and 30 seconds">{{ f.claims or '' }}</textarea>
+        {% if not p %}
+        <label for="pph">Photos <span class="dim">(clear shots of the real product; you can add more later)</span></label>
+        <input id="pph" type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple>
+        {% endif %}
+        <div class="go"><span class="small muted">Checked against the same rules as your ads before it's saved.</span><button class="btn">{{ 'Save product' if p else 'Add product' }}</button></div>
+      </form>
+
+      {% if p %}
+      {% if pend %}
+      <section class="panel pend" id="pending">
+        <h2>Suggested claims <span class="tag warn">{{ pend|length }} to review</span></h2>
+        <p class="small muted">Found on {{ imp.url or 'the product page' }}. None of these is used until you approve it. Approve only what the label or your compliance team allows.</p>
+        <form method="post" action="{{ url_for('products.claims', pid=p.id) }}">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <ul class="claimlist">{% for c in pend %}<li><label><input type="checkbox" name="i" value="{{ loop.index0 }}"><span>{{ c }}</span></label></li>{% endfor %}</ul>
+          <div class="row"><button class="btn sm" name="action" value="approve">Approve selected</button><button class="btn dark sm" name="action" value="dismiss">Dismiss selected</button><button class="btn dark sm" name="action" value="approve_all" onclick="return confirm('Approve all {{ pend|length }}? Only do this if every one is printed on the label.')">Approve all</button></div>
+        </form>
+      </section>
+      {% endif %}
+
+      <section class="panel" id="photos">
+        <div class="block-h"><h2>Photos</h2><span class="small muted">{{ photos|length }} · the starred one is used first</span></div>
+        <form method="post" action="{{ url_for('upload_photos') }}" enctype="multipart/form-data" class="row" style="margin:6px 0 14px">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="product" value="{{ p.id }}"><input type="hidden" name="back" value="{{ request.path }}#photos">
+          <label class="sr" for="up">Add photos</label><input id="up" type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple required>
+          <button class="btn sm">Upload</button>
+        </form>
+        <div class="photos big">
+          {% for ph in photos %}
+          <div class="photo {{ 'prim' if ph.id == p.primary_photo_id }}"><img src="{{ url_for('photo', pid=ph.id) }}" alt="{{ ph.filename }}" loading="lazy">
+            <div class="photo-acts">
+              {% if ph.id != p.primary_photo_id %}<form method="post" action="{{ url_for('products.primary', pid=p.id, phid=ph.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm" title="Use this one first" aria-label="Make primary">☆</button></form>{% else %}<span class="btn sm" title="Primary photo" aria-label="Primary photo">★</span>{% endif %}
+              <form method="post" action="{{ url_for('delete_photo', pid=ph.id) }}" onsubmit="return confirm('Remove this photo?')"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ request.path }}#photos"><button class="btn dark sm" title="Remove" aria-label="Remove photo">×</button></form>
+            </div>
+          </div>
+          {% else %}<div class="empty" style="grid-column:1/-1">No photos yet. Every image and video starts from one, so add a clear shot of the real product.</div>{% endfor %}
+        </div>
+        {% if candidates %}
+        <form method="post" action="{{ url_for('products.import_photos', pid=p.id) }}" class="cands" data-busy>
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <h3>From the product page</h3><p class="small muted" style="margin-top:0">Pick the ones that show the real product. We download them into your photos.</p>
+          <div class="photos big">{% for u in candidates %}<label class="photo"><input type="checkbox" name="img" value="{{ u }}"><img src="{{ u }}" alt="" loading="lazy" referrerpolicy="no-referrer"></label>{% endfor %}</div>
+          <p style="margin:12px 0 0"><button class="btn sm">Add selected photos</button></p>
+        </form>
+        {% endif %}
+      </section>
+
+      <section class="panel" id="saved">
+        <div class="block-h"><h2>Saved angles and scripts</h2><span class="small muted">Reused by the creation flow</span></div>
+        {% if not angles and not scripts %}<div class="empty">Nothing saved yet. Angles and scripts you write in Create are kept here for next time.</div>{% endif %}
+        {% if angles %}<h3>Angles</h3><ul class="savedlist">{% for a in angles %}<li><div><b>{{ a.title }}</b>{% if a.hook %}<span class="small muted">“{{ a.hook }}”</span>{% endif %}</div><form method="post" action="{{ url_for('products.delete_angle', pid=p.id, aid=a.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm" aria-label="Delete angle">×</button></form></li>{% endfor %}</ul>{% endif %}
+        {% if scripts %}<h3>Scripts</h3><ul class="savedlist">{% for s in scripts %}<li><div><b>{{ s.title or s.hook or 'Script' }}</b><span class="small muted">{{ (s.body or '')[:140] }}</span></div><form method="post" action="{{ url_for('products.delete_script', pid=p.id, sid=s.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm" aria-label="Delete script">×</button></form></li>{% endfor %}</ul>{% endif %}
+      </section>
+
+      <form method="post" action="{{ url_for('products.archive', pid=p.id) }}" onsubmit="return confirm('Remove {{ p.name|e }}? Ads made for it stay in your library.')" style="margin-top:6px">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn bad">Remove this product</button>
+      </form>
+      {% endif %}
+    </div>
+
+    <aside class="pedit-side">
+      {% if p %}
+      <div class="panel">
+        <div class="pside-img">{% if p.primary_photo_id %}<img src="{{ url_for('photo', pid=p.primary_photo_id) }}" alt="">{% else %}<span class="pcard-noimg">No photo yet</span>{% endif %}</div>
+        <ul class="checks" style="margin-top:14px">
+          <li class="{{ 'pass' if photos else 'warn' }}"><b>{{ 'Photos added' if photos else 'Add a photo' }}</b><span class="d small muted">{{ photos|length }} photo{{ 's' if photos|length != 1 }}</span></li>
+          <li class="{{ 'pass' if p.claims else 'warn' }}"><b>{{ 'Claims approved' if p.claims else 'No approved claims yet' }}</b><span class="d small muted">{{ 'AI only uses these' if p.claims else 'Copy and scripts will describe the product without claims' }}</span></li>
+          <li class="{{ 'pass' if p.audience else 'warn' }}"><b>{{ 'Audience set' if p.audience else 'Add an audience' }}</b><span class="d small muted">{{ p.audience[:60] if p.audience else 'Sharper hooks and angles' }}</span></li>
+        </ul>
+        <p class="small muted" style="margin:14px 0 0">{{ ads or 0 }} ad{{ 's' if (ads or 0) != 1 }} made for it · <a href="{{ url_for('library', product=p.id) }}">See them</a></p>
+      </div>
+      {% else %}
+      <div class="panel"><h3>What good looks like</h3><ul class="rules"><li>Two to five photos: front, label, in use</li><li>Claims copied exactly from the label</li><li>A specific audience, not "everyone"</li></ul></div>
+      {% endif %}
+    </aside>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script>document.querySelectorAll('form[data-busy]').forEach(function(f){f.addEventListener('submit',function(){var b=f.querySelector('button');if(b){b.disabled=true;b.textContent='Working…';}});});</script>{% endblock %}

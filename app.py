@@ -30,16 +30,13 @@ import compliance
 import db
 import hf
 import plans
+import products
 import worker
 from core import admin_required, brand, feature_required, is_owner, login_required, owner_required  # noqa: F401
 from core import queue_job as _queue_job  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-UPLOADS = os.path.join(db.DATA, "uploads")
-PHOTO_TYPES = {"image/jpeg", "image/png", "image/webp"}
-VIDEO_TYPES = {"video/mp4", "video/quicktime", "video/webm"}
-MAX_PHOTO_MB = 25
-MAX_VIDEO_MB = 150
+from core import MAX_PHOTO_MB, MAX_VIDEO_MB, PHOTO_TYPES, UPLOADS, VIDEO_TYPES, save_upload as _save_upload  # noqa: E402
 # Signup abuse limits (per client IP): new accounts per hour and per day.
 SIGNUPS_PER_HOUR, SIGNUPS_PER_DAY = 5, 10
 # Failed logins allowed per IP+email and per IP in 15 minutes.
@@ -84,23 +81,34 @@ app.jinja_env.globals.update(csrf_token=csrf_token, tools=catalog.TOOLS, packs=c
                              billing_configured=billing.configured, starter_image_ads=catalog.STARTER_IMAGE_ADS,
                              plans=plans, has_feature=_has, balance=_balance)
 
-# Sidebar: (endpoint, label, icon, feature or None, endpoints that light it up).
-NAV = [
-    ("studio", "Create", "create", None, ("studio", "new", "start")),
-    ("campaigns.index", "Campaigns", "planner", "planner", ("campaigns.index", "campaigns.show")),
-    ("copy.studio", "Copy", "copy", "copy", ("copy.studio", "copy.run", "copy.optimize", "copy.optimized")),
-    ("seo.index", "SEO & AEO", "seo", "seo", ("seo.index", "seo.result")),
-    ("pages.index", "Pages", "pages", "pages", ("pages.index", "pages.edit", "pages.links", "pages.link_detail",
-                                                          "forms.index", "forms.edit", "forms.submissions")),
-    ("forms.contacts", "Contacts", "contacts", "forms", ("forms.contacts", "forms.contact")),
-    ("community.admin", "Community", "community", "community", ("community.admin", "community.course_edit",
-                                                                 "community.lesson_edit")),
-    ("library", "Library", "library", None, ("library",)),
-    ("adhub.index", "Ad accounts", "adhub", "adhub", ("adhub.index", "adhub.platform", "adhub.export_page")),
-    ("brand_kit", "Brand kit", "brand", None, ("brand_kit",)),
-    ("team", "Team", "team", None, ("team",)),
-    ("billing_page", "Billing", "billing", None, ("billing_page",)),
+# Sidebar: (endpoint, label, icon, feature or None, endpoints that light it up),
+# in groups (title or None, items). NAV is the flat list.
+NAV_GROUPS = [
+    (None, [
+        ("studio", "Create", "create", None, ("studio", "new", "start", "create.index", "create.batch")),
+        ("campaigns.index", "Campaigns", "planner", "planner", ("campaigns.index", "campaigns.show")),
+        ("brand_kit", "Products", "brand", None, ("brand_kit", "products.new", "products.edit", "products.brand_edit")),
+        ("library", "Library", "library", None, ("library",)),
+        ("copy.studio", "Copy", "copy", "copy", ("copy.studio", "copy.run", "copy.optimize", "copy.optimized")),
+    ]),
+    ("Grow", [
+        ("seo.index", "SEO & AEO", "seo", "seo", ("seo.index", "seo.result")),
+        ("pages.index", "Pages", "pages", "pages", ("pages.index", "pages.edit")),
+        ("pages.links", "Links", "links", "links", ("pages.links", "pages.link_detail")),
+        ("forms.index", "Forms", "forms", "forms", ("forms.index", "forms.edit", "forms.submissions")),
+        ("forms.contacts", "Contacts", "contacts", "forms", ("forms.contacts", "forms.contact")),
+        ("community.admin", "Community", "community", "community", ("community.admin", "community.course_edit",
+                                                                     "community.lesson_edit")),
+    ]),
+    (None, [
+        ("adhub.index", "Ad accounts", "adhub", "adhub", ("adhub.index", "adhub.platform", "adhub.export_page")),
+    ]),
+    ("Settings", [
+        ("team", "Team", "team", None, ("team",)),
+        ("billing_page", "Billing", "billing", None, ("billing_page",)),
+    ]),
 ]
+NAV = [item for _, items in NAV_GROUPS for item in items]
 
 
 app.jinja_env.filters["fromjson"] = lambda s: json.loads(s or "{}")
@@ -120,7 +128,12 @@ def _adhub_links():
 
 @app.context_processor
 def _nav():
-    return {"nav_items": NAV, "adhub_links": ADHUB_LINKS}
+    out = {"nav_items": NAV, "adhub_links": ADHUB_LINKS, "nav_groups": NAV_GROUPS}
+    if g.get("ws") and request.endpoint and request.endpoint != "static":
+        with db.connect() as conn:
+            out["switcher"] = products.tree(conn, g.ws)
+        out["active_brand"], out["active_product"] = g.get("brand_row"), g.get("product_row")
+    return out
 
 
 CSRF_EXEMPT = {"static", "stripe_webhook", "forms.public"}  # public forms carry their own signed token
@@ -136,53 +149,13 @@ def load_user():
             if u:
                 g.user = u
                 g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (u["workspace_id"],)).fetchone()
-                if g.ws and not g.ws["brand_id"]:
-                    _ensure_brand(conn, g.ws["id"])
+                if g.ws:
+                    g.brand_row, g.product_row = products.load_active(conn, g.ws)
                     g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (u["workspace_id"],)).fetchone()
     if request.method == "POST" and request.endpoint not in CSRF_EXEMPT:
         sent = request.form.get("csrf") or request.headers.get("X-CSRF")
         if not sent or not secrets.compare_digest(sent, session.get("csrf", "")):
             abort(400, "This form expired. Go back, refresh and try again.")
-
-
-BRAND_COLS = ("brand_name", "product_name", "claims", "audience")
-
-
-def _ensure_brand(conn, ws_id):
-    """Every workspace has at least one brand row. The workspace's own brand
-    columns always mirror the active brand, so the studio reads them as before."""
-    ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
-    if ws["brand_id"] and conn.execute("SELECT 1 FROM brands WHERE id=? AND workspace_id=?",
-                                       (ws["brand_id"], ws_id)).fetchone():
-        return ws["brand_id"]
-    bid = conn.execute("INSERT INTO brands (workspace_id, brand_name, product_name, claims, audience, created_at) "
-                       "VALUES (?,?,?,?,?,?)", (ws_id, *[ws[c] for c in BRAND_COLS], db.now())).lastrowid
-    conn.execute("UPDATE workspaces SET brand_id=? WHERE id=?", (bid, ws_id))
-    conn.commit()
-    return bid
-
-
-def _sync_brand_row(conn, ws_id):
-    """Copy the workspace's (active) brand columns into its brand row."""
-    bid = _ensure_brand(conn, ws_id)
-    ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
-    conn.execute("UPDATE brands SET brand_name=?, product_name=?, claims=?, audience=? WHERE id=?",
-                 (*[ws[c] for c in BRAND_COLS], bid))
-    conn.commit()
-
-
-def _save_upload(fs, folder, allowed, max_mb):
-    ctype = fs.mimetype or mimetypes.guess_type(fs.filename or "")[0] or ""
-    if ctype not in allowed:
-        raise ValueError("That file type isn't supported.")
-    os.makedirs(folder, exist_ok=True)
-    ext = mimetypes.guess_extension(ctype) or os.path.splitext(fs.filename or "")[1] or ""
-    path = os.path.join(folder, f"{uuid.uuid4().hex}{ext}")
-    fs.save(path)
-    if os.path.getsize(path) > max_mb * 1024 * 1024:
-        os.remove(path)
-        raise ValueError(f"Files up to {max_mb} MB.")
-    return path, ctype
 
 
 def _video_seconds(path):
@@ -548,7 +521,7 @@ def new():
         abort(404)
     b = brand()
     with db.connect() as conn:
-        photos = conn.execute("SELECT * FROM photos WHERE workspace_id=? ORDER BY id DESC", (g.ws["id"],)).fetchall()
+        photos = products.photos_for(conn, g.ws["id"], g.ws["product_id"], everything=True)
         refs = conn.execute("SELECT * FROM refs WHERE active=1 ORDER BY id DESC").fetchall()
     prices = {
         "ad_image": {n: catalog.price_credits("ad_image", batch=n) for n in (1, 2, 4)},
@@ -665,36 +638,52 @@ def start():
             flash("Add one photo of your product.")
             return page(400)
     with db.connect() as conn:
+        try:
+            pid = products.save_kit(conn, g.ws, brand_name=brand_name, product_name=product, audience=audience,
+                                    first_ad=True)
+        except products.ProductError as e:
+            flash(str(e))
+            return page(400)
         if path:
-            photo_id = conn.execute("INSERT INTO photos (workspace_id, path, filename, content_type, created_at) "
-                                    "VALUES (?,?,?,?,?)", (g.ws["id"], path, (fs.filename or "")[:120], ctype,
-                                                           db.now())).lastrowid
-        conn.execute("UPDATE workspaces SET product_name=?, brand_name=COALESCE(NULLIF(?, ''), brand_name), "
-                     "audience=COALESCE(NULLIF(audience, ''), NULLIF(?, '')) WHERE id=?",
-                     (product, brand_name, audience, g.ws["id"]))
-        conn.commit()
-        _sync_brand_row(conn, g.ws["id"])
+            photo_id = products.add_photo(conn, g.ws["id"], pid, path, fs.filename, ctype)
+        elif pid:
+            conn.execute("UPDATE photos SET product_id=COALESCE(product_id, ?) WHERE id=?", (pid, photo_id))
+            conn.execute("UPDATE products SET primary_photo_id=COALESCE(primary_photo_id, ?) WHERE id=?", (photo_id, pid))
+            conn.commit()
         params = {"photo_ids": [photo_id], "batch": 1, "aspect": tpl.get("aspect") or "9:16",
                   "audience": audience or tpl.get("audience") or "", "niche": ""}
-        jid = _queue_job(conn, "ad_image", tpl["id"], brief, params, catalog.cost_usd("ad_image", batch=1), price)
+        jid = _queue_job(conn, "ad_image", tpl["id"], brief, params, catalog.cost_usd("ad_image", batch=1), price,
+                         product_id=pid)
     if not jid:
         return redirect(url_for("billing_page"))
     for w in check["warnings"]:
         flash("Heads up: " + w)
-    flash("Your first ad is on its way. It shows up here in a minute or two, and your product is saved in the "
-          "brand kit for next time.")
+    flash("Your first ad is on its way. It shows up here in a minute or two, and your product is saved under "
+          "Products for next time.")
     return redirect(url_for("library", highlight=jid))
 
 
 @app.route("/app/library")
 @login_required
 def library():
+    """Everything made, newest first; filter by brand or product."""
+    pid = request.args.get("product", type=int)
+    bid = request.args.get("brand", type=int)
+    where, args = ["workspace_id=?"], [g.ws["id"]]
+    if pid:
+        where.append("product_id=?")
+        args.append(pid)
+    elif bid:
+        where.append("brand_id=?")
+        args.append(bid)
     with db.connect() as conn:
-        jobs = conn.execute("SELECT * FROM jobs WHERE workspace_id=? ORDER BY id DESC LIMIT 200",
-                            (g.ws["id"],)).fetchall()
+        jobs = conn.execute(f"SELECT * FROM jobs WHERE {' AND '.join(where)} ORDER BY id DESC LIMIT 200", args).fetchall()
         outs = _outputs(conn, [j["id"] for j in jobs])
+        names = {p["id"]: p["name"] for p in products.products(conn, g.ws["id"])}
+        tree = products.tree(conn, g.ws)
     return render_template("library.html", jobs=jobs, outs=outs, templates=catalog.TEMPLATE_BY_ID,
-                           highlight=request.args.get("highlight", type=int))
+                           highlight=request.args.get("highlight", type=int), tree=tree, names=names,
+                           f_product=pid, f_brand=bid if not pid else None)
 
 
 @app.route("/api/jobs")
@@ -738,95 +727,86 @@ def photo(pid):
     return send_file(p["path"], conditional=True)
 
 
-# ---------------------------------------------------------------- brand kit
+# ---------------------------------------------------------------- brands + products hub
 
 @app.route("/app/brand", methods=["GET", "POST"])
+@app.route("/app/products", methods=["GET"])
 @login_required
 def brand_kit():
+    """The products hub: brands, their products, and the active one. POST is the
+    original one-form brand kit (brand name, product, claims, audience), which
+    writes the active brand and product."""
     if request.method == "POST":
         f = request.form
-        check = compliance.check(f.get("brand_name") or "", f.get("product_name") or "", f.get("claims") or "",
-                                 f.get("audience") or "")
-        if not check["ok"]:
-            for m in check["blocks"]:
-                flash("Not saved: " + m)
-            return redirect(url_for("brand_kit"))
         with db.connect() as conn:
-            conn.execute("UPDATE workspaces SET brand_name=?, product_name=?, claims=?, audience=? WHERE id=?",
-                         ((f.get("brand_name") or "")[:80], (f.get("product_name") or "")[:80],
-                          (f.get("claims") or "")[:2000], (f.get("audience") or "")[:300], g.ws["id"]))
-            conn.commit()
-            _sync_brand_row(conn, g.ws["id"])
-        flash("Brand kit saved.")
+            try:
+                products.save_kit(conn, g.ws, brand_name=f.get("brand_name") or "", product_name=f.get("product_name") or "",
+                                  claims=f.get("claims") or "", audience=f.get("audience") or "")
+            except products.ProductError as e:
+                flash(str(e))
+                return redirect(url_for("brand_kit"))
+        flash("Saved.")
         return redirect(url_for("brand_kit"))
     with db.connect() as conn:
-        photos = conn.execute("SELECT * FROM photos WHERE workspace_id=? ORDER BY id DESC", (g.ws["id"],)).fetchall()
-        brands = conn.execute("SELECT * FROM brands WHERE workspace_id=? ORDER BY id", (g.ws["id"],)).fetchall()
-    nxt = plans.next_plan_for("brands", len(brands))
-    return render_template("brand.html", ws=g.ws, photos=photos, brands=brands,
-                           can_add=plans.within(g.ws, "brands", len(brands)), next_plan=nxt)
+        tree = products.tree(conn, g.ws)
+        counts = products.counts(conn, g.ws["id"])
+        loose = conn.execute("SELECT COUNT(*) FROM photos WHERE workspace_id=? AND product_id IS NULL",
+                             (g.ws["id"],)).fetchone()[0]
+    n = len(tree)
+    return render_template("products.html", tree=tree, counts=counts, loose=loose, owner=is_owner(),
+                           can_add=plans.within(g.ws, "brands", n), next_plan=plans.next_plan_for("brands", n))
 
 
 @app.route("/app/brands", methods=["POST"])
 @login_required
 def add_brand():
     """A new, empty brand that becomes the active one (plan limit enforced here)."""
-    name = (request.form.get("brand_name") or "").strip()[:80]
-    if not name:
-        flash("Give the new brand a name.")
-        return redirect(url_for("brand_kit"))
-    check = compliance.check(name)
-    if not check["ok"]:
-        flash("Not saved: " + check["blocks"][0])
-        return redirect(url_for("brand_kit"))
     with db.connect() as conn:
-        n = conn.execute("SELECT COUNT(*) FROM brands WHERE workspace_id=?", (g.ws["id"],)).fetchone()[0]
-        if not plans.within(g.ws, "brands", n):
-            nxt = plans.next_plan_for("brands", n)
-            flash(f"Your plan includes {plans.limit(g.ws, 'brands')} brand{'s' if plans.limit(g.ws, 'brands') != 1 else ''}."
-                  + (f" {nxt['name']} includes more." if nxt else ""))
+        try:
+            bid = products.create_brand(conn, g.ws, request.form.get("brand_name") or "")
+            products.activate(conn, g.ws, brand_id=bid)
+        except products.ProductError as e:
+            flash(str(e))
             return redirect(url_for("brand_kit"))
-        bid = conn.execute("INSERT INTO brands (workspace_id, brand_name, created_at) VALUES (?,?,?)",
-                           (g.ws["id"], name, db.now())).lastrowid
-        _activate_brand(conn, bid)
-    flash(f"Added {name}. It's your active brand now.")
-    return redirect(url_for("brand_kit"))
-
-
-def _activate_brand(conn, bid):
-    b = conn.execute("SELECT * FROM brands WHERE id=? AND workspace_id=?", (bid, g.ws["id"])).fetchone()
-    if not b:
-        abort(404)
-    conn.execute("UPDATE workspaces SET brand_id=?, brand_name=?, product_name=?, claims=?, audience=? WHERE id=?",
-                 (b["id"], *[b[c] for c in BRAND_COLS], g.ws["id"]))
-    conn.commit()
+        name = products.get_brand(conn, g.ws["id"], bid)["brand_name"]
+    flash(f"Added {name}. It's your active brand now. Add its first product next.")
+    return redirect(url_for("products.new", brand=bid))
 
 
 @app.route("/app/brands/<int:bid>/use", methods=["POST"])
 @login_required
 def use_brand(bid):
     with db.connect() as conn:
-        _activate_brand(conn, bid)
-    return redirect(request.form.get("back") if (request.form.get("back") or "").startswith("/app")
-                    else url_for("brand_kit"))
+        try:
+            products.activate(conn, g.ws, brand_id=bid)
+        except products.ProductError as e:
+            if str(e) == "not found":
+                abort(404)
+            flash(str(e))
+    return redirect(_back(url_for("brand_kit")))
+
+
+def _back(default):
+    nxt = request.form.get("back") or request.args.get("back") or ""
+    return nxt if nxt.startswith("/app") and not nxt.startswith("//") else default
 
 
 @app.route("/app/brands/<int:bid>/delete", methods=["POST"])
 @owner_required
 def delete_brand(bid):
     with db.connect() as conn:
-        rows = conn.execute("SELECT id FROM brands WHERE workspace_id=? ORDER BY id", (g.ws["id"],)).fetchall()
-        ids = [r["id"] for r in rows]
+        ids = [r["id"] for r in products.brands(conn, g.ws["id"])]
         if bid not in ids:
             abort(404)
         if len(ids) == 1:
             flash("That's your only brand. Edit it instead.")
             return redirect(url_for("brand_kit"))
+        conn.execute("UPDATE products SET archived=1 WHERE brand_id=? AND workspace_id=?", (bid, g.ws["id"]))
         conn.execute("DELETE FROM brands WHERE id=?", (bid,))
         conn.commit()
         if g.ws["brand_id"] == bid:
-            _activate_brand(conn, next(i for i in ids if i != bid))
-    flash("Brand removed.")
+            products.activate(conn, g.ws, brand_id=next(i for i in ids if i != bid))
+    flash("Brand removed. Ads made for it stay in your library.")
     return redirect(url_for("brand_kit"))
 
 
@@ -897,38 +877,38 @@ def team_remove(uid):
 @app.route("/app/photos", methods=["POST"])
 @login_required
 def upload_photos():
+    """Add photos to a product (the form's `product`, else the active one)."""
+    pid = request.form.get("product", type=int) or g.ws["product_id"]
     n = 0
-    for fs in request.files.getlist("photos")[:20]:
-        if not fs or not fs.filename:
-            continue
-        try:
-            path, ctype = _save_upload(fs, os.path.join(UPLOADS, str(g.ws["id"])), PHOTO_TYPES, MAX_PHOTO_MB)
-        except ValueError as e:
-            flash(f"{fs.filename}: {e}")
-            continue
-        with db.connect() as conn:
-            conn.execute("INSERT INTO photos (workspace_id, path, filename, content_type, created_at) VALUES (?,?,?,?,?)",
-                         (g.ws["id"], path, (fs.filename or "")[:120], ctype, db.now()))
-            conn.commit()
-        n += 1
+    with db.connect() as conn:
+        if pid and not products.get_product(conn, g.ws["id"], pid):
+            abort(404)
+        for fs in request.files.getlist("photos")[:20]:
+            if not fs or not fs.filename:
+                continue
+            try:
+                path, ctype = _save_upload(fs, os.path.join(UPLOADS, str(g.ws["id"])), PHOTO_TYPES, MAX_PHOTO_MB)
+            except ValueError as e:
+                flash(f"{fs.filename}: {e}")
+                continue
+            products.add_photo(conn, g.ws["id"], pid, path, fs.filename, ctype)
+            n += 1
     if n:
         flash(f"Added {n} photo{'s' if n != 1 else ''}.")
-    return redirect(request.form.get("back") or url_for("brand_kit"))
+    return redirect(_back(url_for("products.edit", pid=pid) if pid else url_for("brand_kit")))
 
 
 @app.route("/app/photos/<int:pid>/delete", methods=["POST"])
 @login_required
 def delete_photo(pid):
     with db.connect() as conn:
-        p = conn.execute("SELECT * FROM photos WHERE id=? AND workspace_id=?", (pid, g.ws["id"])).fetchone()
-        if p:
-            conn.execute("DELETE FROM photos WHERE id=?", (pid,))
-            conn.commit()
-            try:
-                os.remove(p["path"])
-            except OSError:
-                pass
-    return redirect(url_for("brand_kit"))
+        p = products.remove_photo(conn, g.ws["id"], pid)
+    if p:
+        try:
+            os.remove(p["path"])
+        except OSError:
+            pass
+    return redirect(_back(url_for("brand_kit")))
 
 
 # ---------------------------------------------------------------- billing
@@ -1411,6 +1391,7 @@ def ref_video(rid):
     return send_file(r["path"], conditional=True)
 
 
+import product_routes  # noqa: E402
 import campaign_routes  # noqa: E402
 import copy_routes  # noqa: E402  (blueprints import core, never app)
 import seo_routes  # noqa: E402
@@ -1419,6 +1400,7 @@ import pages_routes  # noqa: E402
 import forms_routes  # noqa: E402
 import community_routes  # noqa: E402
 
+app.register_blueprint(product_routes.bp)
 app.register_blueprint(copy_routes.bp)
 app.register_blueprint(campaign_routes.bp)
 app.register_blueprint(seo_routes.bp)

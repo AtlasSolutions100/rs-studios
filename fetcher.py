@@ -91,6 +91,28 @@ def _open(scheme, host, port, ip):
 
 def fetch(url: str, accept: str = "text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.5") -> dict:
     """{url, status, content_type, text} for a public page. Raises FetchError."""
+    r = _get(url, accept, MAX_BYTES)
+    ctype = r["content_type"]
+    charset = "utf-8"
+    if "charset=" in ctype:
+        charset = ctype.split("charset=")[-1].split(";")[0].strip() or "utf-8"
+    try:
+        text = r["data"].decode(charset, errors="replace")
+    except LookupError:
+        text = r["data"].decode("utf-8", errors="replace")
+    return {"url": r["url"], "status": r["status"], "content_type": ctype, "text": text}
+
+
+def fetch_bytes(url: str, max_bytes: int = 15 * 1024 * 1024, accept: str = "image/*") -> dict:
+    """{url, status, content_type, data} with the same guards as fetch(); a
+    body over max_bytes raises FetchError instead of being cut."""
+    r = _get(url, accept, max_bytes + 1)
+    if len(r["data"]) > max_bytes:
+        raise FetchError("That file is too big.")
+    return r
+
+
+def _get(url: str, accept: str, max_bytes: int) -> dict:
     seen = 0
     while True:
         scheme, host, port, path, full = check_url(url)
@@ -115,17 +137,10 @@ def fetch(url: str, accept: str = "text/html,application/xhtml+xml,text/plain;q=
             data = b""
             for chunk in r.stream(65536, decode_content=True):
                 data += chunk
-                if len(data) > MAX_BYTES:
+                if len(data) > max_bytes:
                     break
-            ctype = r.headers.get("Content-Type", "")
-            charset = "utf-8"
-            if "charset=" in ctype:
-                charset = ctype.split("charset=")[-1].split(";")[0].strip() or "utf-8"
-            try:
-                text = data[:MAX_BYTES].decode(charset, errors="replace")
-            except LookupError:
-                text = data[:MAX_BYTES].decode("utf-8", errors="replace")
-            return {"url": full, "status": r.status, "content_type": ctype, "text": text}
+            return {"url": full, "status": r.status, "content_type": r.headers.get("Content-Type", ""),
+                    "data": data[:max_bytes]}
         finally:
             r.release_conn()
             pool.close()

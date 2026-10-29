@@ -26,6 +26,10 @@ import catalog
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-6"
+# Cheaper model for small, structured jobs (URL import, angle ideas, the setup
+# assistant). ANTHROPIC_FAST_MODEL overrides; a model the API doesn't know
+# falls back to the main model once.
+DEFAULT_FAST_MODEL = "claude-haiku-4-5"
 DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 TIMEOUT = 120
 
@@ -64,6 +68,10 @@ def model(provider: str = "anthropic") -> str:
     return _key("ANTHROPIC_MODEL") or DEFAULT_ANTHROPIC_MODEL
 
 
+def fast_model() -> str:
+    return _key("ANTHROPIC_FAST_MODEL") or DEFAULT_FAST_MODEL
+
+
 def status() -> str:
     """For the admin page: which provider is on, never the key."""
     if anthropic_ready():
@@ -97,9 +105,9 @@ def credits_for(usd: float) -> int:
     return max(1, int(math.ceil(usd * catalog.MARKUP * 100 - 1e-9)))
 
 
-def estimate_credits(tokens_in: int, tokens_out: int, provider: str = "anthropic") -> int:
+def estimate_credits(tokens_in: int, tokens_out: int, provider: str = "anthropic", model_id: str | None = None) -> int:
     """A quote before running: worst case for the given token budget."""
-    return credits_for(cost_usd(model(provider), tokens_in, tokens_out))
+    return credits_for(cost_usd(model_id or model(provider), tokens_in, tokens_out))
 
 
 class Usage:
@@ -165,16 +173,24 @@ def _groq(body: dict) -> dict:
 
 
 def chat(*, system, messages: list, tools: list | None = None, tool_choice: dict | None = None,
-         max_tokens: int = 2000, usage: Usage | None = None, temperature: float = 0.7) -> dict:
+         max_tokens: int = 2000, usage: Usage | None = None, temperature: float = 0.7, model_id: str | None = None) -> dict:
     """One Anthropic Messages call. Returns the raw response (content blocks,
-    stop_reason); adds its tokens to `usage`."""
-    body = {"model": model("anthropic"), "max_tokens": max_tokens, "system": system, "messages": messages,
+    stop_reason); adds its tokens to `usage`. `model_id` picks another model
+    (e.g. fast_model()); if the API rejects it, the main model is used."""
+    body = {"model": model_id or model("anthropic"), "max_tokens": max_tokens, "system": system, "messages": messages,
             "temperature": temperature}
     if tools:
         body["tools"] = tools
     if tool_choice:
         body["tool_choice"] = tool_choice
-    resp = _anthropic(body)
+    try:
+        resp = _anthropic(body)
+    except LLMError as e:
+        if not model_id or model_id == model("anthropic") or not str(e).startswith(("404", "400")) \
+                or "model" not in str(e).lower():
+            raise
+        body["model"] = model("anthropic")
+        resp = _anthropic(body)
     u = resp.get("usage") or {}
     if usage is not None:
         usage.add(resp.get("model") or body["model"], int(u.get("input_tokens") or 0), int(u.get("output_tokens") or 0),
@@ -183,13 +199,14 @@ def chat(*, system, messages: list, tools: list | None = None, tool_choice: dict
 
 
 def structured(*, system: str, prompt: str, schema: dict, name: str = "submit", max_tokens: int = 3000,
-               usage: Usage | None = None, temperature: float = 0.7) -> dict:
+               usage: Usage | None = None, temperature: float = 0.7, model_id: str | None = None) -> dict:
     """Ask for one JSON object matching `schema`. Anthropic: a forced tool call
     (reliable JSON). Groq fallback: JSON mode with the schema in the prompt."""
     if anthropic_ready():
         resp = chat(system=system, messages=[{"role": "user", "content": prompt}], max_tokens=max_tokens,
                     tools=[{"name": name, "description": "Return the result.", "input_schema": schema}],
-                    tool_choice={"type": "tool", "name": name}, usage=usage, temperature=temperature)
+                    tool_choice={"type": "tool", "name": name}, usage=usage, temperature=temperature,
+                    model_id=model_id)
         for block in resp.get("content") or []:
             if block.get("type") == "tool_use":
                 return block.get("input") or {}
