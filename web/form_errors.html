@@ -1,0 +1,5 @@
+<!doctype html>
+<html lang="en" class="pp pp-light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Check the form</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='page.css') }}"><style>:root{--pp-accent:#BDFA25}</style></head>
+<body><main class="pp-sec" style="border:0"><div class="pp-wrap pp-narrow"><h1 style="font-size:32px">Almost there</h1>
+{% for e in errors %}<p>{{ e }}</p>{% endfor %}<p class="pp-note">Go back, fix this and send it again.</p></div></main></body></html>

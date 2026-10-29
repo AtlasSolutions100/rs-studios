@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% block title %}Forms · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <p class="eyebrow">Forms</p>
+  <h1>Turn visitors into <span class="gold">contacts</span></h1>
+  <p class="muted">Forms with show-if logic that you drop onto your pages or share as a link. Every answer lands in Contacts, and can go to your own tools by webhook.</p>
+  {% include "_pages_tabs.html" %}
+  <form method="post" class="panel row" style="margin-bottom:22px"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <input type="text" name="name" maxlength="80" placeholder="Form name, e.g. Waitlist" style="flex:1;min-width:200px"><button class="btn">New form</button></form>
+  <div class="adlist">
+    {% for f in rows %}
+    <div class="panel pagerow"><div><a href="{{ url_for('forms.edit', fid=f.id) }}"><b>{{ f.name }}</b></a><span class="small muted">{{ base }}f/{{ f.code }}</span></div>
+      <a class="small" href="{{ url_for('forms.submissions', fid=f.id) }}">{{ f.submissions }} submission{{ '' if f.submissions == 1 else 's' }}</a>
+      <a class="btn dark sm" href="{{ url_for('forms.edit', fid=f.id) }}">Edit</a></div>
+    {% else %}<div class="empty">No forms yet. Name one above; it starts with name and email.</div>{% endfor %}
+  </div>
+</div>
+{% endblock %}

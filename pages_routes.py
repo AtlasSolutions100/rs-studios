@@ -95,13 +95,23 @@ def index():
                            next_plan=plans.next_plan_for("pages", published))
 
 
+def _form_ok_for(ws_id):
+    def ok(fid):
+        if not plans.has(g.ws, "forms"):
+            return False
+        with db.connect() as conn:
+            return bool(conn.execute("SELECT 1 FROM forms WHERE id=? AND workspace_id=? AND archived=0", (fid, ws_id)).fetchone())
+    return ok
+
+
 def _blocks_from_form(f, media_ok):
     blocks = []
     i = 0
+    form_ok = _form_ok_for(g.ws["id"])
     while f.get(f"b{i}_type") is not None and i < pages.MAX_BLOCKS:
         kind = f.get(f"b{i}_type")
         data = {k[len(f"b{i}_"):]: v for k, v in f.items() if k.startswith(f"b{i}_")}
-        b = pages.clean_block(kind, data, media_ok)
+        b = pages.clean_block(kind, data, media_ok, form_ok)
         if b:
             blocks.append(b)
         i += 1
@@ -116,14 +126,17 @@ def edit(pid):
         with db.connect() as conn:
             lib = _library(conn)
             published = _published_count(conn, exclude=pid)
-        return render_template("page_edit.html", p=p, blocks=json.loads(p["blocks_json"] or "[]"), lib=lib,
+            myforms = conn.execute("SELECT id, name FROM forms WHERE workspace_id=? AND archived=0 ORDER BY id DESC",
+                                   (g.ws["id"],)).fetchall()
+        return render_template("page_edit.html", p=p, blocks=json.loads(p["blocks_json"] or "[]"), lib=lib, myforms=myforms,
                                BLOCKS=pages.BLOCKS, can_publish=plans.within(g.ws, "pages", published),
                                next_plan=plans.next_plan_for("pages", published), ai_on=llm.configured(),
                                ai_quote=copywriter.estimate(1, "landing"), base=request.host_url)
     f = request.form
     action = f.get("action") or "save"
     blocks = _blocks_from_form(f, _media_ok_for(g.ws["id"]))
-    if action.startswith("add:") and action[4:] in pages.BLOCKS and len(blocks) < pages.MAX_BLOCKS:
+    if action.startswith("add:") and action[4:] in pages.BLOCKS and len(blocks) < pages.MAX_BLOCKS and \
+            plans.has(g.ws, pages.BLOCKS[action[4:]].get("feature") or "pages"):
         blocks.append(pages.clean_block(action[4:], {}, lambda _: False))
     elif action.startswith(("up:", "down:", "del:")):
         try:
@@ -285,8 +298,10 @@ def _render_public(p, preview=False):
                                   f"AND o.id IN ({','.join('?' * len(ids))})", (p["workspace_id"], *ids)):
                 kinds[r["id"]] = r["kind"]
         forms = _page_forms(conn, p, blocks)
+    import forms as formsmod
     resp = make_response(render_template("page_public.html", p=p, blocks=blocks, media_url=media_url, kinds=kinds,
-                                         faq_items=pages.faq_items, lines=pages.lines, preview=preview, forms=forms))
+                                         faq_items=pages.faq_items, lines=pages.lines, preview=preview, forms=forms,
+                                         form_css=formsmod.logic_css))
     resp.headers["Content-Security-Policy"] = pages.CSP
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -296,8 +311,20 @@ def _render_public(p, preview=False):
 
 
 def _page_forms(conn, p, blocks):
-    """Forms used by form blocks on this page (filled in when forms ship)."""
-    return {}
+    """Forms used by form blocks on this page: {id: (row, fields, stamp)}."""
+    import forms as formsmod
+    ids = list(pages.form_ids(blocks))
+    if not ids:
+        return {}
+    ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (p["workspace_id"],)).fetchone()
+    if not plans.has(ws, "forms"):
+        return {}
+    out = {}
+    from flask import current_app
+    for f in conn.execute(f"SELECT * FROM forms WHERE workspace_id=? AND archived=0 AND id IN ({','.join('?' * len(ids))})",
+                          (p["workspace_id"], *ids)):
+        out[f["id"]] = (f, json.loads(f["fields_json"] or "[]"), formsmod.stamp(current_app.secret_key, f["code"]))
+    return out
 
 
 @bp.route("/p/<slug>")
@@ -424,6 +451,8 @@ def link_archive(lid):
 def _destination(lk, incoming: dict) -> str:
     parts = urlsplit(lk["target_url"])
     q = dict(parse_qsl(parts.query, keep_blank_values=True))
+    if parts.path.startswith("/p/") and request and parts.hostname == request.host.split(":")[0]:
+        q["cfy_l"] = lk["code"]   # our own page: its forms can credit this link
     for k in ("utm_source", "utm_medium", "utm_campaign"):
         if lk[k] and k not in q:
             q[k] = lk[k]

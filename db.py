@@ -188,6 +188,54 @@ CREATE TABLE IF NOT EXISTS link_clicks (
     device TEXT,
     utm_source TEXT, utm_medium TEXT, utm_campaign TEXT);
 CREATE INDEX IF NOT EXISTS idx_clicks_link ON link_clicks(link_id, at);
+CREATE TABLE IF NOT EXISTS forms (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    code TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    fields_json TEXT NOT NULL DEFAULT '[]',
+    button_text TEXT,
+    success_message TEXT,
+    redirect_url TEXT,
+    webhook_url TEXT,
+    webhook_secret TEXT,
+    tags TEXT,
+    submissions INTEGER NOT NULL DEFAULT 0,
+    archived INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_forms_ws ON forms(workspace_id, id);
+CREATE TABLE IF NOT EXISTS contacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    email TEXT NOT NULL,
+    name TEXT, phone TEXT,
+    tags TEXT NOT NULL DEFAULT '',
+    notes TEXT,
+    source TEXT,
+    submissions INTEGER NOT NULL DEFAULT 0,
+    first_seen TEXT NOT NULL,
+    last_seen TEXT NOT NULL,
+    UNIQUE (workspace_id, email));
+CREATE TABLE IF NOT EXISTS form_submissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    form_id INTEGER NOT NULL,
+    workspace_id INTEGER NOT NULL,
+    contact_id INTEGER,
+    data_json TEXT NOT NULL,
+    page_slug TEXT, link_code TEXT, referrer TEXT,
+    utm_source TEXT, utm_medium TEXT, utm_campaign TEXT,
+    webhook_status TEXT,
+    created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_subs_form ON form_submissions(form_id, id);
+CREATE TABLE IF NOT EXISTS contact_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    contact_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,          -- form | page | link
+    ref TEXT, detail TEXT,
+    at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_cev_c ON contact_events(contact_id, id);
 """
 
 # Columns added after the first release: (table, column, definition).

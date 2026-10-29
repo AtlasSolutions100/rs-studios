@@ -72,7 +72,7 @@ FEATURES = {
                   "blurb": "Score and rewrite copy for a platform: hook, clarity, CTA and compliance."},
     "link_analytics": {"plan": "growth", "name": "Smart-link analytics", "shipped": True,
                        "blurb": "Clicks over time, referrers, countries and UTM sources."},
-    "forms": {"plan": "growth", "name": "Forms & contacts", "shipped": False,
+    "forms": {"plan": "growth", "name": "Forms & contacts", "shipped": True,
               "blurb": "Forms on your pages, a contacts list with tags, and webhooks out."},
     "community": {"plan": "scale", "name": "Community & courses", "shipped": False,
                   "blurb": "Spaces, posts, courses with lessons, members and events."},

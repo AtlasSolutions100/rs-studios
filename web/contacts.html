@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block title %}Contacts · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <p class="eyebrow">Contacts</p>
+  <h1>Everyone who <span class="gold">raised a hand</span></h1>
+  <p class="muted">People who filled in your forms, with the pages, smart links and forms they came through. {{ total }} contact{{ '' if total == 1 else 's' }}.</p>
+  <div class="row" style="margin:18px 0">
+    <form method="get" class="row" style="flex:1"><input type="text" name="q" value="{{ q }}" placeholder="Search name or email" style="flex:1;min-width:180px">{% if tag %}<input type="hidden" name="tag" value="{{ tag }}">{% endif %}<button class="btn dark sm">Search</button></form>
+    <a class="btn dark sm" href="{{ url_for('forms.contacts', q=q, tag=tag, format='csv') }}">Download CSV</a>
+  </div>
+  {% if tags %}<div class="choices" style="margin-bottom:16px">{% for t, n in tags %}<a class="choice {{ 'on' if t == tag }}" href="{{ url_for('forms.contacts', tag='' if t == tag else t, q=q) }}">{{ t }} · {{ n }}</a>{% endfor %}</div>{% endif %}
+  <div class="panel scrollx">
+    <table><tr><th>Contact</th><th>Tags</th><th>Source</th><th style="text-align:right">Forms</th><th>Last seen</th></tr>
+    {% for c in rows %}<tr><td><a href="{{ url_for('forms.contact', cid=c.id) }}"><b>{{ c.name or c.email }}</b></a>{% if c.name %}<br><span class="small muted">{{ c.email }}</span>{% endif %}</td>
+      <td>{% for t in (c.tags or '').split(',') if t %}<span class="tag ok">{{ t }}</span> {% endfor %}</td><td class="small muted">{{ c.source or '' }}</td><td style="text-align:right">{{ c.submissions }}</td><td class="small">{{ c.last_seen[:10] }}</td></tr>
+    {% else %}<tr><td colspan="5" class="muted">No contacts yet. Add a form to a page, or share a form link.</td></tr>{% endfor %}</table>
+  </div>
+  <form method="post" class="panel row" style="margin-top:18px"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <input type="email" name="email" placeholder="email@example.com" required style="flex:1;min-width:180px"><input type="text" name="name" placeholder="Name" style="width:180px"><input type="text" name="tags" placeholder="tags" style="width:160px"><button class="btn sm">Add contact</button></form>
+  <p class="small dim">Only add people who agreed to hear from you. Delete a contact when they ask; their form answers go with them.</p>
+</div>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}{% block title %}{{ fm.name }} · Forms · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <p style="margin:0 0 14px"><a href="{{ url_for('forms.index') }}">← Forms</a></p>
+  <div class="row" style="justify-content:space-between"><div><p class="eyebrow">Form</p><h1 style="margin:0">{{ fm.name }}</h1></div>
+    <div class="row"><a class="btn dark sm" href="{{ url_for('forms.public', code=fm.code) }}" target="_blank" rel="noopener">Open hosted form ↗</a><a class="btn dark sm" href="{{ url_for('forms.submissions', fid=fm.id) }}">Submissions ({{ fm.submissions }})</a></div></div>
+  <form method="post" class="editor">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <div class="panel">
+      <div class="two-col">
+        <div><label for="n">Form name</label><input id="n" type="text" name="name" maxlength="80" value="{{ fm.name }}"></div>
+        <div><label for="bt">Button text</label><input id="bt" type="text" name="button_text" maxlength="40" value="{{ fm.button_text or 'Send' }}"></div>
+      </div>
+      <label for="sm">After sending, show</label><input id="sm" type="text" name="success_message" maxlength="300" value="{{ fm.success_message or '' }}">
+      <div class="two-col">
+        <div><label for="ru">…or send people to <span class="dim">(optional link)</span></label><input id="ru" type="text" name="redirect_url" maxlength="500" value="{{ fm.redirect_url or '' }}" placeholder="https://"></div>
+        <div><label for="tg">Tag new contacts <span class="dim">(comma-separated)</span></label><input id="tg" type="text" name="tags" maxlength="300" value="{{ fm.tags or '' }}" placeholder="waitlist, glow"></div>
+      </div>
+    </div>
+    {% for f in fields %}{% set i = loop.index0 %}
+    <div class="panel block">
+      <input type="hidden" name="f{{ i }}_key" value="{{ f.key }}">
+      <div class="block-h"><b>{{ TYPES[f.type] }}</b><div class="row"><button class="btn dark sm" name="action" value="up:{{ i }}" {{ 'disabled' if loop.first }} aria-label="Move up">↑</button><button class="btn dark sm" name="action" value="down:{{ i }}" {{ 'disabled' if loop.last }} aria-label="Move down">↓</button><button class="btn dark sm" name="action" value="del:{{ i }}" aria-label="Remove field">×</button></div></div>
+      <div class="two-col">
+        <div><label for="f{{ i }}l">Label</label><input id="f{{ i }}l" type="text" name="f{{ i }}_label" maxlength="120" value="{{ f.label }}"></div>
+        <div><label for="f{{ i }}t">Type</label><select id="f{{ i }}t" name="f{{ i }}_type">{% for k, v in TYPES.items() %}<option value="{{ k }}" {{ 'selected' if k == f.type }}>{{ v }}</option>{% endfor %}</select></div>
+      </div>
+      {% if f.type == 'select' %}<label for="f{{ i }}o">Options <span class="dim">(one per line)</span></label><textarea id="f{{ i }}o" name="f{{ i }}_options" style="min-height:80px">{{ f.options|join('\n') }}</textarea>{% endif %}
+      <div class="row" style="margin-top:12px">
+        <label class="choice" style="display:inline-flex;gap:8px"><input type="checkbox" name="f{{ i }}_required" value="1" {{ 'checked' if f.required }}>Required</label>
+        {% set ctrls = fields[:i]|selectattr('type', 'in', ['select', 'checkbox'])|list %}
+        {% if ctrls %}
+        <span class="small muted">Show only if</span>
+        <select name="f{{ i }}_show_if_field" style="width:auto"><option value="">(always show)</option>{% for c in ctrls %}<option value="{{ c.key }}" {{ 'selected' if f.show_if and f.show_if.field == c.key }}>{{ c.label }}</option>{% endfor %}</select>
+        <span class="small muted">is</span><input type="text" name="f{{ i }}_show_if_value" maxlength="80" value="{{ f.show_if.equals if f.show_if else '' }}" placeholder="option (or ticked)" style="width:160px">
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    <div class="panel addblock"><span class="small muted">Add a field:</span>{% for k, v in TYPES.items() %}<button class="btn dark sm" name="action" value="add:{{ k }}">{{ v }}</button>{% endfor %}</div>
+    <div class="panel">
+      <h3>Webhook</h3>
+      <p class="small muted">Each submission is POSTed as JSON to this https address, signed with HMAC-SHA256 in the <code>X-Campaignify-Signature</code> header (<code>sha256=</code> + hex of the body). Use it to send answers to your CRM, a spreadsheet or a chat channel.</p>
+      <label for="wh">Webhook URL</label><input id="wh" type="text" name="webhook_url" maxlength="500" value="{{ fm.webhook_url or '' }}" placeholder="https://hooks.example.com/…">
+      <p class="small muted">Signing secret: <code>{{ fm.webhook_secret }}</code> <button class="linkbtn copybtn" name="action" value="rotate">Make a new one</button>{% if fm.webhook_url %} · <button class="linkbtn copybtn" name="action" value="test">Send a test</button>{% endif %}</p>
+      <p class="small dim">Email notifications aren't available yet; use the webhook to get notified.</p>
+    </div>
+    <div class="go savebar"><span class="small muted">Share: <a href="{{ url_for('forms.public', code=fm.code) }}" target="_blank" rel="noopener">{{ base }}f/{{ fm.code }}</a> · or add a Form block to a page</span><button class="btn" name="action" value="save">Save form</button></div>
+  </form>
+  <form method="post" action="{{ url_for('forms.delete', fid=fm.id) }}" onsubmit="return confirm('Delete this form? Submissions and contacts are kept.')" style="margin-top:14px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn copybtn" style="color:var(--dim)">Delete form</button></form>
+</div>
+{% endblock %}
