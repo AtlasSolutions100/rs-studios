@@ -13,9 +13,16 @@ import traceback
 
 import requests
 
+import logging
+
 import catalog
 import db
 import hf
+
+log = logging.getLogger("campaignify")
+# A talking video is refused (and refunded) if the vendor now charges more than
+# this times what we priced it at; the admin page shows the live estimates.
+PRICE_TOLERANCE = 1.25
 
 MEDIA = os.path.join(db.DATA, "media")
 POLL_SECONDS = float(os.environ.get("RS_POLL_SECONDS", "5"))
@@ -58,6 +65,17 @@ def build_inputs(conn, job) -> dict:
             raise hf.GenError("Pick a product photo first.")
         return {"prompt": job["brief"], "image_url": urls[0], "duration": int(p.get("duration") or 5),
                 "resolution": "720p", "bitrate_mode": "high", "generate_audio": bool(p.get("audio"))}
+    if tool == "ugc_video":
+        if not urls:
+            raise hf.GenError("Pick a product photo first.")
+        prod = conn.execute("SELECT name FROM products WHERE id=?", (job["product_id"],)).fetchone() \
+            if "product_id" in job.keys() and job["product_id"] else None
+        prompt = catalog.talking_prompt(p.get("ad_type") or "ugc", p.get("product") or (prod["name"] if prod else ""),
+                                        job["brief"] or "", p.get("presenter") or "", p.get("voice") or "",
+                                        p.get("setting") or "")
+        return {"prompt": prompt, "image_urls": urls[:4], "duration": int(p.get("duration") or 10),
+                "aspect_ratio": p.get("aspect") or "9:16", "resolution": "720p", "bitrate_mode": "high",
+                "generate_audio": True}
     if tool == "motion_copy":
         ref = conn.execute("SELECT * FROM refs WHERE id=?", (p.get("ref_id"),)).fetchone()
         if not ref:
@@ -120,7 +138,15 @@ def tick() -> int:
         for job in conn.execute("SELECT * FROM jobs WHERE status='pending' ORDER BY priority DESC, id LIMIT 5").fetchall():
             try:
                 inputs = build_inputs(conn, job)
-                rid = hf.submit(catalog.TOOLS[job["tool"]]["model"], inputs)
+                model = catalog.TOOLS[job["tool"]]["model"]
+                if job["tool"] == "ugc_video":
+                    vendor = hf.estimate(model, inputs)
+                    if vendor is not None and vendor > (job["cost_usd"] or 0) * PRICE_TOLERANCE:
+                        log.warning("job %s: vendor estimate $%.3f over our price $%.3f; refused", job["id"], vendor,
+                                    job["cost_usd"])
+                        raise hf.GenError("This format's price changed and it couldn't start. Your credits were "
+                                          "refunded; we've been told.")
+                rid = hf.submit(model, inputs)
                 _set(conn, job["id"], status="running", request_id=rid, attempts=job["attempts"] + 1)
             except hf.GenError as e:
                 _fail(conn, job, str(e))

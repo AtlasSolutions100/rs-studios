@@ -32,7 +32,7 @@ import hf
 import plans
 import products
 import worker
-from core import admin_required, brand, feature_required, is_owner, login_required, owner_required  # noqa: F401
+from core import admin_required, brand, feature_required, is_owner, login_required, owner_required, picked_product  # noqa: F401
 from core import queue_job as _queue_job  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -504,14 +504,30 @@ def logout():
 @app.route("/app")
 @login_required
 def studio():
+    """Create home: ad types for the active product, its saved angles, recent
+    batches, and the template library."""
+    pid = g.ws["product_id"]
     with db.connect() as conn:
         recent = conn.execute("SELECT * FROM jobs WHERE workspace_id=? ORDER BY id DESC LIMIT 6",
                               (g.ws["id"],)).fetchall()
         photos = conn.execute("SELECT COUNT(*) c FROM photos WHERE workspace_id=?", (g.ws["id"],)).fetchone()["c"]
         outs = _outputs(conn, [j["id"] for j in recent])
+        angles = conn.execute("SELECT * FROM angles WHERE product_id=? AND workspace_id=? ORDER BY id DESC LIMIT 8",
+                              (pid or 0, g.ws["id"])).fetchall()
+        batches = conn.execute("SELECT b.*, (SELECT COUNT(*) FROM jobs j WHERE j.batch_id=b.id) n, "
+                               "(SELECT COUNT(*) FROM jobs j WHERE j.batch_id=b.id AND j.status IN ('pending','running')) busy, "
+                               "p.name pname FROM batches b LEFT JOIN products p ON p.id=b.product_id "
+                               "WHERE b.workspace_id=? ORDER BY b.id DESC LIMIT 5", (g.ws["id"],)).fetchall()
+        nprod = conn.execute("SELECT COUNT(*) FROM products WHERE workspace_id=? AND archived=0", (g.ws["id"],)).fetchone()[0]
+        pphotos = conn.execute("SELECT COUNT(*) FROM photos WHERE product_id=?", (pid or 0,)).fetchone()[0]
+    from_price = {"ugc_video": catalog.price_credits("ugc_video", duration=catalog.TOOLS["ugc_video"]["durations"][0]),
+                  "ad_image": catalog.price_credits("ad_image", batch=1),
+                  "photo_to_video": catalog.price_credits("photo_to_video", duration=5),
+                  "motion_copy": catalog.price_credits("motion_copy", ref_seconds=5)}
     return render_template("studio.html", templates=catalog.TEMPLATES, templates_by_id=catalog.TEMPLATE_BY_ID,
                            recent=recent, outs=outs, photos=photos, brand=brand(), configured=hf.configured(),
-                           first_run=not recent)
+                           first_run=not recent, ad_types=catalog.ad_types(), angles=angles, batches=batches,
+                           nprod=nprod, pphotos=pphotos, from_price=from_price, ad_type_names=catalog.AD_TYPE_BY_ID)
 
 
 def _outputs(conn, job_ids):
@@ -529,11 +545,12 @@ def _outputs(conn, job_ids):
 def new():
     tpl = catalog.TEMPLATE_BY_ID.get(request.args.get("template", ""))
     tool = tpl["tool"] if tpl else request.args.get("tool", "ad_image")
-    if tool not in catalog.TOOLS:
+    if tool not in catalog.TOOLS or tool == "ugc_video":
         abort(404)
-    b = brand()
+    pid = picked_product() or g.ws["product_id"]
+    b = brand(pid)
     with db.connect() as conn:
-        photos = products.photos_for(conn, g.ws["id"], g.ws["product_id"], everything=True)
+        photos = products.photos_for(conn, g.ws["id"], pid, everything=True)
         refs = conn.execute("SELECT * FROM refs WHERE active=1 ORDER BY id DESC").fetchall()
     prices = {
         "ad_image": {n: catalog.price_credits("ad_image", batch=n) for n in (1, 2, 4)},
@@ -541,7 +558,8 @@ def new():
         "motion_copy": {r["id"]: catalog.price_credits("motion_copy", ref_seconds=r["seconds"] or 15) for r in refs},
     }
     return render_template("new.html", tpl=tpl, tool=tool, t=catalog.TOOLS[tool], photos=photos, refs=refs,
-                           brief=catalog.fill(tpl["brief"], b) if tpl else "", brand=b, prices=prices)
+                           brief=catalog.fill(tpl["brief"], b) if tpl else "", brand=b, prices=prices, pid=pid,
+                           pphotos={p["id"] for p in photos if p["product_id"] == pid})
 
 
 @app.route("/app/generate", methods=["POST"])
@@ -549,8 +567,9 @@ def new():
 def generate():
     f = request.form
     tool = f.get("tool")
-    if tool not in catalog.TOOLS:
+    if tool not in catalog.TOOLS or tool == "ugc_video":
         abort(400)
+    pid = picked_product() or g.ws["product_id"]
     tpl_id = f.get("template") or None
     brief = (f.get("brief") or "").strip()[:2000]
     photo_ids = [int(x) for x in f.getlist("photo") if x.isdigit()][: catalog.TOOLS[tool]["max_photos"]]
@@ -583,7 +602,7 @@ def generate():
             params.update(ref_id=ref["id"])
             secs = ref["seconds"] or 15
             usd, credits = catalog.cost_usd(tool, ref_seconds=secs), catalog.price_credits(tool, ref_seconds=secs)
-        jid = _queue_job(conn, tool, tpl_id, brief, params, usd, credits)
+        jid = _queue_job(conn, tool, tpl_id, brief, params, usd, credits, product_id=pid)
         if not jid:
             return redirect(url_for("new", template=tpl_id) if tpl_id else url_for("new", tool=tool))
     for w in check["warnings"]:
@@ -1312,10 +1331,39 @@ def admin():
                             "ORDER BY j.id DESC LIMIT 30").fetchall()
         purchases = conn.execute("SELECT p.*, w.name ws_name FROM purchases p JOIN workspaces w ON w.id=p.workspace_id "
                                  "WHERE p.status='paid' ORDER BY p.id DESC LIMIT 30").fetchall()
+        row = conn.execute("SELECT value FROM meta WHERE key='vendor_prices'").fetchone()
+    vendor = json.loads(row["value"]) if row else None
     return render_template("admin.html", wss=wss, invites=invites, refs=refs, jobs=jobs, purchases=purchases,
-                           billing_on=billing.configured(),
+                           billing_on=billing.configured(), vendor=vendor,
                            markup=catalog.MARKUP, configured=hf.configured(), base=request.host_url,
                            ai_status=llm.status())
+
+
+@app.route("/admin/prices", methods=["POST"])
+@admin_required
+def admin_prices():
+    """Ask the generation vendor what each format costs right now (free
+    estimates) and compare with what Campaignify charges."""
+    img = url_for("static", filename="previews/ad_image.jpg", _external=True)
+    samples = [("ad_image", {"batch": 1}, {"prompt": "A product on a table", "image_urls": [img], "batch_size": 1,
+                                           "aspect_ratio": "9:16", "language": "English", "niche": "", "target_audience": ""}),
+               ("photo_to_video", {"duration": 5}, {"prompt": "Slow pan", "image_url": img, "duration": 5,
+                                                    "resolution": "720p", "bitrate_mode": "high", "generate_audio": False}),
+               ("ugc_video", {"duration": 10}, {"prompt": "A presenter holds the product and says hello.",
+                                                "image_urls": [img], "duration": 10, "aspect_ratio": "9:16",
+                                                "resolution": "720p", "bitrate_mode": "high", "generate_audio": True})]
+    rows = []
+    for tool, kw, inputs in samples:
+        ours = catalog.cost_usd(tool, **kw)
+        rows.append({"tool": tool, "name": catalog.TOOLS[tool]["name"], "setting": ", ".join(f"{k} {v}" for k, v in kw.items()),
+                     "ours": round(ours, 4), "vendor": hf.estimate(catalog.TOOLS[tool]["model"], inputs),
+                     "credits": catalog.price_credits(tool, **kw)})
+    with db.connect() as conn:
+        conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('vendor_prices', ?)",
+                     (json.dumps({"at": db.now(), "rows": rows}),))
+        conn.commit()
+    flash("Vendor prices checked.")
+    return redirect(url_for("admin") + "#prices")
 
 
 @app.route("/admin/invites", methods=["POST"])
@@ -1404,6 +1452,7 @@ def ref_video(rid):
 
 
 import product_routes  # noqa: E402
+import create_routes  # noqa: E402
 import campaign_routes  # noqa: E402
 import copy_routes  # noqa: E402  (blueprints import core, never app)
 import seo_routes  # noqa: E402
@@ -1413,6 +1462,7 @@ import forms_routes  # noqa: E402
 import community_routes  # noqa: E402
 
 app.register_blueprint(product_routes.bp)
+app.register_blueprint(create_routes.bp)
 app.register_blueprint(copy_routes.bp)
 app.register_blueprint(campaign_routes.bp)
 app.register_blueprint(seo_routes.bp)

@@ -6,7 +6,7 @@ import db
 import fetcher
 import llm
 import seo
-from core import brand, can_afford, charge_ai, feature_required, not_enough
+from core import brand, can_afford, charge_ai, feature_required, not_enough, picked_product
 
 bp = Blueprint("seo", __name__)
 FETCHES_PER_HOUR = 30
@@ -39,7 +39,7 @@ def index():
         except fetcher.FetchError as e:
             flash(f"Couldn't read that page: {e}")
             return redirect(url_for("seo.index"))
-        b = brand()
+        b = brand(picked_product())
         usage = llm.Usage()
         sug = None
         if use_ai:

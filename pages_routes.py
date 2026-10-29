@@ -16,7 +16,7 @@ import db
 import llm
 import pages
 import plans
-from core import brand, can_afford, charge_ai, feature_required, not_enough
+from core import brand, can_afford, charge_ai, feature_required, not_enough, picked_product
 
 bp = Blueprint("pages", __name__)
 MAX_DRAFTS = 50
@@ -76,22 +76,23 @@ def _unique_slug(conn, base):
 @bp.route("/app/pages", methods=["GET", "POST"])
 @feature_required("pages")
 def index():
+    pid = picked_product() or g.ws["product_id"]
     if request.method == "POST":
-        title = (request.form.get("title") or "").strip()[:120] or (brand().get("product") or "My page")
+        title = (request.form.get("title") or "").strip()[:120] or (brand(pid).get("product") or "My page")
         with db.connect() as conn:
             if conn.execute("SELECT COUNT(*) FROM pages WHERE workspace_id=?", (g.ws["id"],)).fetchone()[0] >= MAX_DRAFTS:
                 flash(f"You have {MAX_DRAFTS} pages. Delete one to make another.")
                 return redirect(url_for("pages.index"))
             slug = _unique_slug(conn, title)
             pid = conn.execute("INSERT INTO pages (workspace_id, slug, title, description, blocks_json, created_at, updated_at) "
-                               "VALUES (?,?,?,?,?,?,?)", (g.ws["id"], slug, title, "", json.dumps(pages.starter_blocks(brand())),
+                               "VALUES (?,?,?,?,?,?,?)", (g.ws["id"], slug, title, "", json.dumps(pages.starter_blocks(brand(pid))),
                                                           db.now(), db.now())).lastrowid
             conn.commit()
         return redirect(url_for("pages.edit", pid=pid))
     with db.connect() as conn:
         rows = conn.execute("SELECT * FROM pages WHERE workspace_id=? ORDER BY id DESC", (g.ws["id"],)).fetchall()
         published = _published_count(conn)
-    return render_template("pages.html", rows=rows, published=published, cap=plans.limit(g.ws, "pages"),
+    return render_template("pages.html", rows=rows, published=published, cap=plans.limit(g.ws, "pages"), pid=pid,
                            next_plan=plans.next_plan_for("pages", published))
 
 
@@ -216,7 +217,7 @@ def ai_draft(pid):
         return redirect(url_for("pages.edit", pid=pid))
     usage = llm.Usage()
     try:
-        v = copywriter.write(brand(), "landing", "landing", brief, 1, usage)
+        v = copywriter.write(brand(picked_product()), "landing", "landing", brief, 1, usage)
     except llm.LLMError as e:
         flash(f"The writer didn't finish ({e}).")
         v = []

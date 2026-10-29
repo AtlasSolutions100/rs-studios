@@ -62,7 +62,7 @@
   {% if ads %}
   <section class="camp-sec" id="ads">
     <div class="section-h" style="margin-top:0"><h2>Ads to make</h2><span class="muted small">Pick the ones you want. Nothing is generated until you confirm.</span></div>
-    {% if photos == 0 %}<div class="flash">Videos need a product photo. <a href="{{ url_for('brand_kit') }}">Add one in the brand kit</a>; image ads work without one but look better with it.</div>{% endif %}
+    {% if photos == 0 %}<div class="flash">Videos need a product photo. <a href="{{ url_for('products.edit', pid=c.product_id) if c.product_id else url_for('brand_kit') }}#photos">Add one to the product</a>; image ads work without one but look better with it.</div>{% endif %}
     <form method="post" action="{{ url_for('campaigns.generate', cid=c.id) }}" id="adform">
       <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="total" id="total" value="0">
       <div class="adlist">
@@ -73,7 +73,7 @@
           <div class="adbody">
             <div class="row"><span class="chip-inline {{ 'motion' if a.tool == 'motion_copy' else tools[a.tool].kind }}">{{ tools[a.tool].name }}</span>{% if a.template_id in templates %}<span class="small muted">{{ templates[a.template_id].name }}</span>{% endif %}<span class="small muted">{{ PLATFORMS[a.platform].short if a.platform in PLATFORMS else '' }} · {{ a.angle }}</span>{% if a.status == 'queued' and jobs.get(a.job_id) %}{{ job_status(jobs[a.job_id]) }}{% endif %}</div>
             <p class="vtext small">{{ a.brief }}</p>
-            {% if a.status == 'proposed' %}<details class="small"><summary>Edit brief</summary><textarea name="brief" form="edit{{ a.id }}" maxlength="2000" aria-label="Brief">{{ a.brief }}</textarea><button class="btn dark sm" form="edit{{ a.id }}" style="margin-top:8px">Save brief</button></details>{% endif %}
+            {% if a.status == 'proposed' %}<p class="small" style="margin:6px 0 0"><a href="{{ url_for('create.index', from_ad=a.id) }}">Open in Create →</a> <span class="dim">pick the presenter, hooks and shapes there</span></p><details class="small"><summary>Edit brief</summary><textarea name="brief" form="edit{{ a.id }}" maxlength="2000" aria-label="Brief">{{ a.brief }}</textarea><button class="btn dark sm" form="edit{{ a.id }}" style="margin-top:8px">Save brief</button></details>{% endif %}
           </div>
           <div class="adcost"><b>{{ a.credits }}</b><span class="small muted">credits</span></div>
         </div>
@@ -88,10 +88,10 @@
   </section>
   {% endif %}
 
-  {% if plan['copy'] %}
+  {% if plan.get('copy') %}
   <section class="camp-sec">
     <h2>Copy for each platform</h2>
-    {% for cp in plan['copy'] %}
+    {% for cp in plan.get('copy') or [] %}
     <h3 class="subh">{{ PLATFORMS[cp.platform].name }} · {{ COPY_KINDS[cp.kind].name }}{% if cp.angle and cp.angle != 'all' %} · <span class="muted">{{ cp.angle }}</span>{% endif %}</h3>
     <div class="variants" style="margin-top:10px">{% set outer = loop.index %}{% for v in cp.variants %}{% set vid = outer ~ '-' ~ loop.index %}{% include "_variant.html" %}{% endfor %}</div>
     {% endfor %}

@@ -14,3 +14,14 @@
   {% endif %}
 </div>
 {%- endmacro %}
+
+{% macro product_picker(selected, label='Product', name='product', reload=True, compact=False) -%}
+{% if switcher is defined and switcher %}
+<div class="ppick {{ 'compact' if compact }}">
+<label for="pp-{{ name }}">{{ label }} <span class="dim">(defaults to your active product)</span></label>
+<select id="pp-{{ name }}" name="{{ name }}" data-ppick {% if reload %}onchange="var u=new URL(location.href);u.searchParams.set('product',this.value);location.href=u.pathname+u.search"{% endif %}>
+  {% for row in switcher if not row.locked %}<optgroup label="{{ row.brand.brand_name or 'Untitled brand' }}">{% for p in row.products %}<option value="{{ p.id }}" {{ 'selected' if p.id == selected }}>{{ p.name }}{{ ' · ' ~ p.price if p.price }}</option>{% endfor %}</optgroup>{% endfor %}
+</select>
+</div>
+{% endif %}
+{%- endmacro %}

@@ -10,7 +10,7 @@ import db
 import llm
 import planner
 import platforms
-from core import brand, can_afford, feature_required, queue_job
+from core import brand, can_afford, feature_required, picked_product, queue_job
 
 bp = Blueprint("campaigns", __name__)
 MAX_RUNNING = 2   # planning runs at once per workspace
@@ -60,6 +60,7 @@ def _ready_to_plan():
 @bp.route("/app/campaigns", methods=["GET", "POST"])
 @feature_required("planner")
 def index():
+    pid = picked_product() or g.ws["product_id"]
     if request.method == "POST":
         f = request.form
         brief = {k: (f.get(k) or "").strip()[:lim] for k, lim in
@@ -77,16 +78,18 @@ def index():
         if not _ready_to_plan():
             return redirect(url_for("campaigns.index"))
         with db.connect() as conn:
+            prow = conn.execute("SELECT * FROM products WHERE id=? AND workspace_id=?", (pid or 0, g.ws["id"])).fetchone()
             cid = conn.execute("INSERT INTO campaigns (workspace_id, user_id, brand_id, name, brief_json, status, plan_json, "
-                               "steps_json, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                               (g.ws["id"], g.user["id"], g.ws["brand_id"], brief["offer"][:80], json.dumps(brief),
-                                "planning", "{}", "[]", db.now(), db.now())).lastrowid
+                               "steps_json, created_at, updated_at, product_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                               (g.ws["id"], g.user["id"], prow["brand_id"] if prow else g.ws["brand_id"],
+                                brief["offer"][:80], json.dumps(brief), "planning", "{}", "[]", db.now(), db.now(),
+                                prow["id"] if prow else None)).lastrowid
             conn.commit()
         planner.start(cid)
         return redirect(url_for("campaigns.show", cid=cid))
     with db.connect() as conn:
         rows = conn.execute("SELECT * FROM campaigns WHERE workspace_id=? ORDER BY id DESC LIMIT 50", (g.ws["id"],)).fetchall()
-    return render_template("campaigns.html", campaigns=[_unstale(c) for c in rows], b=brand(),
+    return render_template("campaigns.html", campaigns=[_unstale(c) for c in rows], b=brand(pid), pid=pid,
                            cap=planner.cap_credits(), ai_on=llm.anthropic_ready())
 
 
@@ -171,16 +174,17 @@ def edit_ad(cid, aid):
 def generate(cid):
     """Queue the ads the member picked. The page showed the total; we recompute
     it and refuse if it changed, so nobody is charged more than they saw."""
-    _get(cid)
+    c = _get(cid)
     ids = [int(x) for x in request.form.getlist("ad") if x.isdigit()]
     with db.connect() as conn:
         ads = [a for a in conn.execute("SELECT * FROM campaign_ads WHERE campaign_id=? AND workspace_id=? AND status='proposed'",
                                        (cid, g.ws["id"])).fetchall() if a["id"] in ids]
         photos = {r["id"] for r in conn.execute("SELECT id FROM photos WHERE workspace_id=?", (g.ws["id"],))}
+        own = [r["id"] for r in conn.execute("SELECT id FROM photos WHERE product_id=? ORDER BY id DESC", (c["product_id"] or 0,))]
         if not ads:
             flash("Pick at least one ad.")
             return redirect(url_for("campaigns.show", cid=cid) + "#ads")
-        first_photo = max(photos) if photos else None
+        first_photo = own[0] if own else (max(photos) if photos else None)
         total = sum(a["credits"] for a in ads)
         if str(total) != (request.form.get("total") or ""):
             flash(f"The total changed to {total:,} credits. Check it and confirm again.")
@@ -199,7 +203,8 @@ def generate(cid):
             chk = compliance.check(a["brief"] or "")
             if not chk["ok"]:
                 continue
-            jid = queue_job(conn, a["tool"], a["template_id"], a["brief"], params, a["cost_usd"], a["credits"], quiet=True)
+            jid = queue_job(conn, a["tool"], a["template_id"], a["brief"], params, a["cost_usd"], a["credits"], quiet=True,
+                            product_id=c["product_id"])
             if not jid:
                 break
             conn.execute("UPDATE campaign_ads SET status='queued', job_id=? WHERE id=?", (jid, a["id"]))

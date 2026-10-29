@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% block title %}{{ tpl.name if tpl else t.name }} · Campaignify{% endblock %}
+{% extends "base.html" %}{% from "_macros.html" import product_picker with context %}{% block title %}{{ tpl.name if tpl else t.name }} · Campaignify{% endblock %}
 {% block body %}
 <div class="page full">
 <p style="margin:0 0 14px"><a href="{{ url_for('studio') }}">← All templates</a></p>
@@ -17,13 +17,15 @@
     <p class="eyebrow">{{ t.name }}</p>
     <h1 style="font-size:34px">{{ tpl.name if tpl else t.name }}</h1>
     <p class="muted" style="margin-top:0">{{ tpl.line if tpl else t.blurb }}</p>
+    {{ product_picker(pid) }}
 
     <label>Product photo{{ 's' if t.max_photos > 1 }} <span class="dim">({{ 'pick one' if t.max_photos == 1 else 'up to ' ~ t.max_photos }})</span></label>
     {% if photos %}
     <div class="photos">
-      {% for p in photos %}<label class="photo"><input type="{{ 'radio' if t.max_photos == 1 else 'checkbox' }}" name="photo" value="{{ p.id }}" {{ 'checked' if loop.first }}><img src="{{ url_for('photo', pid=p.id) }}" alt="{{ p.filename }}"></label>{% endfor %}
+      {% for p in photos %}<label class="photo {{ 'other' if p.id not in pphotos }}" {% if p.id not in pphotos %}title="Another product's photo"{% endif %}><input type="{{ 'radio' if t.max_photos == 1 else 'checkbox' }}" name="photo" value="{{ p.id }}" {{ 'checked' if loop.first }}><img src="{{ url_for('photo', pid=p.id) }}" alt="{{ p.filename }}"></label>{% endfor %}
     </div>
-    {% else %}<div class="empty">No photos yet. <a href="{{ url_for('brand_kit') }}">Add product photos</a> in the brand kit.</div>{% endif %}
+    {% if not pphotos %}<p class="small muted">{{ brand.product or 'This product' }} has no photos of its own yet; these are your other products'. <a href="{{ url_for('products.edit', pid=pid) if pid else url_for('brand_kit') }}#photos">Add its photos</a>.</p>{% endif %}
+    {% else %}<div class="empty">No photos yet. <a href="{{ url_for('products.edit', pid=pid) if pid else url_for('brand_kit') }}#photos">Add product photos</a>.</div>{% endif %}
 
     {% if tool == 'motion_copy' %}
     <label>Reference video <span class="dim">(the moves to copy)</span></label>
@@ -60,7 +62,7 @@
     <hr class="line">
     <h3>Before you post</h3>
     <ul class="rules">
-      <li>Claims only from the label{% if brand.claims %}: <span class="gold">{{ brand.claims[:140] }}</span>{% endif %}</li>
+      <li>Claims only from the label{% if brand.claims %}: <span class="gold">{{ brand.claims.replace('\n', ' · ')[:160] }}</span>{% endif %}</li>
       <li>No weight-loss, health or result claims</li>
       <li>No discounts or free shipping</li>
       <li>#ad first in the caption, AI label on</li>

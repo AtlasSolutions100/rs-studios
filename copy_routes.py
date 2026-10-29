@@ -7,7 +7,7 @@ import copywriter
 import db
 import llm
 import platforms
-from core import brand, can_afford, charge_ai, feature_required, not_enough
+from core import brand, can_afford, charge_ai, feature_required, not_enough, picked_product
 
 bp = Blueprint("copy", __name__)
 
@@ -19,14 +19,17 @@ def _runs(kinds, limit=20):
                             (g.ws["id"], *kinds, limit)).fetchall()
 
 
-def save_run(conn, kind, platform, inp, out, usage):
+def save_run(conn, kind, platform, inp, out, usage, product_id=None):
     cost = usage.usd if usage else 0.0
     credits = charge_ai(conn, usage.credits, f"AI {platforms.KINDS.get(kind, {}).get('name', kind).lower()}") \
         if usage and usage.calls else 0
+    pid = product_id or g.ws["product_id"]
+    prow = conn.execute("SELECT brand_id FROM products WHERE id=? AND workspace_id=?", (pid or 0, g.ws["id"])).fetchone()
     rid = conn.execute("INSERT INTO copy_runs (workspace_id, user_id, brand_id, kind, platform, input_json, output_json, "
-                       "credits, cost_usd, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                       (g.ws["id"], g.user["id"], g.ws["brand_id"], kind, platform, json.dumps(inp), json.dumps(out),
-                        credits, round(cost, 5), db.now())).lastrowid
+                       "credits, cost_usd, created_at, product_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                       (g.ws["id"], g.user["id"], prow["brand_id"] if prow else g.ws["brand_id"], kind, platform,
+                        json.dumps(inp), json.dumps(out), credits, round(cost, 5), db.now(),
+                        pid if prow else None)).lastrowid
     conn.commit()
     return rid
 
@@ -34,7 +37,8 @@ def save_run(conn, kind, platform, inp, out, usage):
 @bp.route("/app/copy", methods=["GET", "POST"])
 @feature_required("copy")
 def studio():
-    b = brand()
+    pid = picked_product() or g.ws["product_id"]
+    b = brand(pid)
     form = request.form if request.method == "POST" else {}
     kind = form.get("kind") or request.args.get("kind") or "ad"
     platform = form.get("platform") or request.args.get("platform") or "meta"
@@ -66,9 +70,9 @@ def studio():
             flash(f"The writer didn't finish ({e}). Try again in a minute.")
             return redirect(url_for("copy.studio", kind=kind, platform=platform))
         with db.connect() as conn:
-            rid = save_run(conn, kind, platform, dict(brief, n=n), {"variants": variants}, usage)
+            rid = save_run(conn, kind, platform, dict(brief, n=n), {"variants": variants}, usage, product_id=pid)
         return redirect(url_for("copy.run", rid=rid))
-    return render_template("copy.html", b=b, kind=kind, platform=platform, runs=_runs(list(platforms.KINDS)),
+    return render_template("copy.html", b=b, pid=pid, kind=kind, platform=platform, runs=_runs(list(platforms.KINDS)),
                            ai_on=llm.configured(),
                            quotes={k: [copywriter.estimate(3, k), copywriter.estimate(5, k)] for k in platforms.KINDS})
 

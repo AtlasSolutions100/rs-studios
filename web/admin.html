@@ -6,6 +6,14 @@
 <p class="muted">Generation service: <b>{{ 'connected' if configured else 'not connected (set HF_KEY)' }}</b> · markup {{ markup }}× · 1 credit = $0.01</p>
 <div class="grid" style="gap:24px">
 <div class="panel scrollx">
+  <h2 id="prices">Vendor prices</h2>
+  <p class="small muted">What the generation vendor charges right now for one sample of each format (free estimates), next to what we assume. Talking videos are refused (and refunded) if the vendor's estimate is over 1.25× our price.</p>
+  <form method="post" action="{{ url_for('admin_prices') }}" style="margin:0 0 10px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Check vendor prices</button></form>
+  {% if vendor %}<div class="scrollx"><table><tr><th>Format</th><th>Sample</th><th>We assume</th><th>Vendor now</th><th>We charge</th></tr>
+  {% for r in vendor.rows %}<tr><td>{{ r.name }}</td><td class="small muted">{{ r.setting }}</td><td>${{ '%.3f'|format(r.ours) }}</td><td>{% if r.vendor is not none %}${{ '%.3f'|format(r.vendor) }}{% if r.vendor > r.ours * 1.05 %} <span class="tag bad">higher</span>{% endif %}{% else %}<span class="muted">no answer</span>{% endif %}</td><td>{{ r.credits }} credits</td></tr>{% endfor %}
+  </table></div><p class="small dim">Checked {{ vendor.at[:16].replace('T', ' ') }} UTC</p>{% endif %}
+</div>
+<div class="panel scrollx">
   <h2>Workspaces</h2>
   <div style="overflow-x:auto"><table><tr><th>Workspace</th><th>Plan</th><th>Members</th><th>Credits (plan + pack)</th><th>Jobs</th><th>Our cost</th><th>Credits used</th><th>Comp plan</th><th>Top up</th></tr>
   {% for w in wss %}<tr><td>#{{ w.id }} {{ w.name }}</td><td>{{ plans.plan(w).name }}{% if w.plan_status and w.plan != 'free' %} <span class="small muted">({{ w.plan_status }})</span>{% endif %}</td><td>{{ w.members }}</td><td>{{ w.plan_credits }} + {{ w.credits }}</td><td>{{ w.jobs }}</td><td>${{ '%.2f'|format(w.cost) }}</td><td>{{ w.spent }}</td>

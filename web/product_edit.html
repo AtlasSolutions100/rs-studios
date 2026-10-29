@@ -11,7 +11,7 @@
     </div>
     {% if p %}<div class="phead-actions">
       {% if not active_product or active_product.id != p.id %}<form method="post" action="{{ url_for('products.switch') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="product" value="{{ p.id }}"><input type="hidden" name="back" value="{{ request.path }}"><button class="btn dark">Make active</button></form>{% else %}<span class="tag ok">Active product</span>{% endif %}
-      <a class="btn" href="{{ url_for('studio', product=p.id) }}"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.6L19.5 9l-5.7 1.6L12 16l-1.8-5.4L4.5 9l5.7-1.4z"/></svg>Make an ad</a>
+      <a class="btn" href="{{ url_for('create.index', product=p.id) }}"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.6L19.5 9l-5.7 1.6L12 16l-1.8-5.4L4.5 9l5.7-1.4z"/></svg>Make an ad</a>
     </div>{% endif %}
   </div>
 

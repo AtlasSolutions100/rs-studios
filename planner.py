@@ -27,6 +27,7 @@ import db
 import llm
 import platforms
 import plans
+import products
 import seo
 
 MAX_TURNS = 14
@@ -52,7 +53,9 @@ How to work (be efficient: about 6-10 tool calls in total, several tools per tur
    on-screen text. Pick the format that fits the angle and the platform.
 4. propose_ad: 1-2 ads per angle (at most 9 in total) using Campaignify's tools and templates. Prefer image ads for
    testing many angles cheaply; use video where motion sells the product. Write each brief as a concrete scene that
-   keeps the product's label and colors exactly as in the photo.
+   keeps the product's label and colors exactly as in the photo. For a talking video (ugc_video), the brief is the
+   exact words the presenter says (hook first, then the body, then a call to action), short enough for its length;
+   the presenter is an AI and never speaks as a customer reporting results.
 5. write_copy for each selected platform (ad copy; add hooks or captions only when they add something).
 6. finish: a summary, how to split the budget across platforms and angles for a first test, the KPIs to watch, a
    simple test plan, and a launch checklist (account, pixel/conversion tracking, audiences, creatives, copy, budget,
@@ -96,7 +99,10 @@ TOOLS = [
          "template_id": {"type": "string", "description": "Optional template id from the catalog"},
          "brief": {"type": "string", "description": "What the ad shows, as a concrete scene"},
          "aspect": {"type": "string", "enum": catalog.TOOLS["ad_image"]["aspects"]},
-         "duration": {"type": "integer", "enum": catalog.TOOLS["photo_to_video"]["durations"]},
+         "duration": {"type": "integer", "enum": sorted(set(catalog.TOOLS["photo_to_video"]["durations"]
+                                                            + catalog.TOOLS["ugc_video"]["durations"]))},
+         "presenter": {"type": "string", "enum": [p["id"] for p in catalog.PRESENTERS],
+                       "description": "Talking videos only"},
          "versions": {"type": "integer", "description": "Image ads only: 1-4 versions"}},
          "required": ["angle", "platform", "tool", "brief"]}},
     {"name": "write_copy",
@@ -166,10 +172,14 @@ def brief_prompt(c, brand, brief, notes_from_before=None):
     return "\n".join(lines)
 
 
-def _photos(ws_id):
+def _photos(ws_id, product_id=None):
+    """The campaign product's photos (primary first), else the workspace's."""
     with db.connect() as conn:
-        return [dict(r) for r in conn.execute("SELECT id, filename FROM photos WHERE workspace_id=? ORDER BY id DESC LIMIT 12",
-                                              (ws_id,)).fetchall()]
+        rows = products.photos_for(conn, ws_id, product_id) if product_id else []
+        if not rows:
+            rows = conn.execute("SELECT id, filename FROM photos WHERE workspace_id=? ORDER BY id DESC LIMIT 12",
+                                (ws_id,)).fetchall()
+        return [{"id": r["id"], "filename": r["filename"]} for r in rows[:12]]
 
 
 def _refs():
@@ -183,6 +193,13 @@ def catalog_view(brand, photos, refs):
                                     for n in (1, 2, 4)}
     tools["ad_image"]["aspects"] = catalog.TOOLS["ad_image"]["aspects"]
     tools["photo_to_video"]["credits"] = {f"{d}s": catalog.price_credits("photo_to_video", duration=d) for d in (5, 10)}
+    if catalog.capabilities()["talking"]:
+        tools["ugc_video"]["credits"] = {f"{d}s": catalog.price_credits("ugc_video", duration=d)
+                                         for d in catalog.TOOLS["ugc_video"]["durations"]}
+        tools["ugc_video"]["max_spoken_words"] = {f"{d}s": catalog.max_words(d) for d in catalog.TOOLS["ugc_video"]["durations"]}
+        tools["ugc_video"]["presenters"] = [{"id": p["id"], "vibe": p["vibe"], "look": p["look"]} for p in catalog.PRESENTERS]
+    else:
+        tools.pop("ugc_video", None)
     tools["motion_copy"]["credits"] = {r["title"]: catalog.price_credits("motion_copy", ref_seconds=r["seconds"] or 15)
                                        for r in refs} or "no reference videos available; don't use this tool"
     tpls = [{"id": t["id"], "name": t["name"], "what": t["line"], "tool": t["tool"],
@@ -201,6 +218,8 @@ def propose(conn, cid, ws_id, inp, photos, refs):
         return {"error": "unknown tool"}
     if tool == "motion_copy" and not refs:
         return {"error": "no reference videos are available; use another tool"}
+    if tool == "ugc_video" and not catalog.capabilities()["talking"]:
+        return {"error": "talking videos aren't available; use another tool"}
     brief = str(inp.get("brief") or "").strip()[:2000]
     chk = compliance.check(brief)
     if not chk["ok"]:
@@ -215,6 +234,20 @@ def propose(conn, cid, ws_id, inp, photos, refs):
             (tpl or {}).get("aspect") or "9:16"
         params.update(batch=batch, aspect=aspect, audience="", niche="")
         credits, usd = catalog.price_credits(tool, batch=batch), catalog.cost_usd(tool, batch=batch)
+    elif tool == "ugc_video":
+        durs = catalog.TOOLS["ugc_video"]["durations"]
+        dur = int(inp.get("duration") or 10) if int(inp.get("duration") or 10) in durs else 10
+        if len(brief.split()) > catalog.max_words(dur) * 1.2:
+            return {"error": f"that script is {len(brief.split())} words; a {dur}s video fits about "
+                             f"{catalog.max_words(dur)}. Shorten it or use a longer duration."}
+        if "AI presenters can't speak as customers or claim results." in chk["warnings"]:
+            return {"error": "the presenter can't speak as a customer or claim results. Rewrite it."}
+        pr = inp.get("presenter") if inp.get("presenter") in catalog.PRESENTER_BY_ID else catalog.PRESENTERS[0]["id"]
+        aspect = inp.get("aspect") if inp.get("aspect") in catalog.TOOLS["ugc_video"]["aspects"] else "9:16"
+        params.update(duration=dur, aspect=aspect, ad_type="ugc", presenter=pr,
+                      voice={"maya": "warm_f", "priya": "warm_f", "elena": "warm_f", "sam": "upbeat_f",
+                             "lena": "upbeat_f", "marcus": "calm_m"}.get(pr, "chatty_m"))
+        credits, usd = catalog.price_credits(tool, duration=dur), catalog.cost_usd(tool, duration=dur)
     elif tool == "photo_to_video":
         dur = 10 if int(inp.get("duration") or 5) == 10 else 5
         params.update(duration=dur, audio=False)
@@ -355,9 +388,14 @@ def run(cid: int, notes: str | None = None):
         c = conn.execute("SELECT * FROM campaigns WHERE id=?", (cid,)).fetchone()
         b = conn.execute("SELECT * FROM brands WHERE id=?", (c["brand_id"],)).fetchone() if c["brand_id"] else None
         ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (c["workspace_id"],)).fetchone()
-    src = b or ws
-    brand = {"name": src["brand_name"] or "", "product": src["product_name"] or "", "claims": src["claims"] or "",
-             "audience": src["audience"] or ""}
+        p = products.get_product(conn, c["workspace_id"], c["product_id"]) if c["product_id"] else None
+    if p is not None:
+        brand = products.as_brief(b, p, ws)
+        brand["name"] = brand["name"] if b is not None else ""
+    else:
+        src = b or ws
+        brand = {"name": src["brand_name"] or "", "product": src["product_name"] or "", "claims": src["claims"] or "",
+                 "audience": src["audience"] or ""}
     brief = json.loads(c["brief_json"] or "{}")
     previous = Plan(json.loads(c["plan_json"] or "{}")) if notes else None
     plan, steps = Plan(), json.loads(c["steps_json"] or "[]") if notes else []
@@ -366,7 +404,7 @@ def run(cid: int, notes: str | None = None):
     usage = llm.Usage()
     has_seo = plans.has(ws, "seo")
     ctx = {"cid": cid, "ws_id": c["workspace_id"], "brand": brand, "brief": brief, "plan": plan, "steps": steps,
-           "usage": usage, "photos": _photos(c["workspace_id"]), "refs": _refs(), "counts": {"ads": 0, "copy": 0},
+           "usage": usage, "photos": _photos(c["workspace_id"], c["product_id"]), "refs": _refs(), "counts": {"ads": 0, "copy": 0},
            "seo": has_seo}
     tools = TOOLS[:-1] + [SEO_TOOL, TOOLS[-1]] if has_seo else TOOLS
     prompt = brief_prompt(c, brand, brief, notes)

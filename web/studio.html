@@ -3,17 +3,45 @@
 {% block body %}
 <div class="page">
   <section>
-    <p class="eyebrow">Templates that sell · {{ brand.name or 'Your brand' }}</p>
-    <h1>Make this <span class="gold">week's ads</span></h1>
-    <p class="muted">Pick a template that already works, add your product photos, and generate. Every brief is checked against the rules before it runs.</p>
+    <p class="eyebrow">Create · {{ brand.name or 'Your brand' }}</p>
+    <h1>{% if brand.product %}Make ads for <span class="gold">{{ brand.product }}</span>{% else %}Make this <span class="gold">week's ads</span>{% endif %}</h1>
+    <p class="muted">Pick a format, choose an angle, get the script written, and see the price before anything runs. Every line is checked against the rules and your approved claims.</p>
+    {% if first_run %}<a class="firstrun" href="{{ url_for('start') }}"><span class="lp-num">1</span><div><b>Make your first ad in three steps</b><span class="muted small">Add a product photo and its name, pick a template, done. You have {{ '{:,}'.format(balance()) }} credits.</span></div><span class="btn sm">Start</span></a>{% endif %}
+    {% if not configured %}<div class="flash">Generation isn't switched on yet. Set up your products now; making ads starts once the admin connects the service.</div>{% endif %}
+    {% if nprod == 0 %}
+    <div class="panel empty-cta">
+      <div><h2>Start with a product</h2><p class="muted" style="margin:0">Everything here starts from one: its name, a clear photo and the claims printed on the label. Paste its page and we fill it in.</p></div>
+      <div class="row"><a class="btn" href="{{ url_for('products.new') }}">Add a product</a></div>
+    </div>
+    {% elif pphotos == 0 %}
+    <div class="flash warn">{{ brand.product }} has no photos yet. Videos start from one: <a href="{{ url_for('products.edit', pid=g.ws.product_id) }}#photos">add a photo</a>.</div>
+    {% endif %}
+
+    <div class="section-h" style="margin-top:22px"><h2>Start a new ad</h2><span class="muted small">For {{ brand.product or 'your product' }} · <button type="button" class="linkbtn" data-sw-open>switch</button></span></div>
+    <div class="typegrid">
+      {% for t in ad_types %}
+      <a class="typecard" href="{{ url_for('create.index', type=t.id) }}" data-hoverplay>
+        <div class="thumb"><video src="{{ url_for('static', filename=t.preview ~ '.mp4') }}" poster="{{ url_for('static', filename=t.preview ~ '.jpg') }}" muted loop playsinline preload="none"></video>{% if t.talking %}<span class="chip motion">Speaks</span>{% endif %}</div>
+        <div class="typecard-b"><b>{{ t.name }}</b><span class="small muted">{{ t.line }}</span><span class="small dim">from {{ '{:,}'.format(from_price[t.tool]) }} credits</span></div>
+      </a>
+      {% endfor %}
+    </div>
+
+    {% if angles %}
+    <div class="section-h"><h2>Angles you saved</h2><a class="small" href="{{ url_for('create.index', type='ugc') }}">Get new ideas →</a></div>
+    <div class="anglechips">{% for a in angles %}<a class="anglechip" href="{{ url_for('create.index', angle=a.id) }}"><b>{{ a.title }}</b>{% if a.hook %}<span class="small muted">“{{ a.hook[:70] }}”</span>{% endif %}</a>{% endfor %}</div>
+    {% endif %}
+
+    {% if batches %}
+    <div class="section-h"><h2>Recent batches</h2><a class="small" href="{{ url_for('library') }}">Library →</a></div>
+    <div class="batchlist">{% for b in batches %}<a class="runrow" href="{{ url_for('create.batch', bid=b.id) }}"><b>{{ b.title or 'Batch' }}</b><span class="small muted">{{ ad_type_names[b.ad_type].name if b.ad_type in ad_type_names else b.ad_type }}{% if b.pname %} · {{ b.pname }}{% endif %} · {{ b.n }} ad{{ 's' if b.n != 1 }}{% if b.busy %} · <span class="gold">{{ b.busy }} rendering</span>{% endif %}</span></a>{% endfor %}</div>
+    {% endif %}
+
+    <div class="section-h"><h2>Templates</h2><span class="muted small">Angles that already work, one click to a brief</span></div>
     <div class="search">
       <label class="field" style="margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="q" type="search" placeholder="Search templates, styles, or ideas…" aria-label="Search templates"></label>
-      <a class="btn" href="{{ url_for('new', tool='ad_image') }}"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.6L19.5 9l-5.7 1.6L12 16l-1.8-5.4L4.5 9l5.7-1.4z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>New ad</a>
+      <a class="btn dark" href="{{ url_for('new', tool='ad_image') }}">Blank image ad</a>
     </div>
-    {% if first_run %}<a class="firstrun" href="{{ url_for('start') }}"><span class="lp-num">1</span><div><b>Make your first ad in three steps</b><span class="muted small">Add a product photo and its name, pick a template, done. You have {{ '{:,}'.format(balance()) }} credits.</span></div><span class="btn sm">Start</span></a>{% endif %}
-    {% if not configured %}<div class="flash">Generation isn't switched on yet. Set up your brand kit now; making ads starts once the admin connects the service.</div>{% endif %}
-    {% if photos == 0 and not first_run %}<div class="flash">Add product photos in the <a href="{{ url_for('brand_kit') }}">brand kit</a> first. Every template starts from them.</div>{% endif %}
-
     <div class="tgrid" id="tgrid">
       {% for t in templates %}
       {% set tool = tools[t.tool] %}
@@ -25,17 +53,6 @@
           <span class="chip {{ 'motion' if t.tool=='motion_copy' else tool.kind }}">{{ tool.name }}</span>
         </div>
         <div class="t">{{ t.name }}</div><div class="s">{{ t.line }}</div>
-      </a>
-      {% endfor %}
-    </div>
-
-    <div class="section-h"><h2>Start from scratch</h2><span class="muted small">Your own brief, any product photo</span></div>
-    <div class="tgrid">
-      {% for key, tl in tools.items() %}
-      <a class="tcard" href="{{ url_for('new', tool=key) }}" data-hoverplay>
-        <div class="thumb"><video src="{{ url_for('static', filename='previews/' ~ tl.preview ~ '.mp4') }}" poster="{{ url_for('static', filename='previews/' ~ tl.preview ~ '.jpg') }}" muted loop playsinline preload="none"></video>
-          <span class="chip {{ 'motion' if key=='motion_copy' else tl.kind }}">{{ tl.kind|capitalize }}</span></div>
-        <div class="t">{{ tl.name }}</div><div class="s">{{ tl.blurb }}</div>
       </a>
       {% endfor %}
     </div>

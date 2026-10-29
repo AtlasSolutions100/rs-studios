@@ -14,7 +14,7 @@
     <noscript><button class="btn dark sm">Show</button></noscript>
     <span class="small muted">{{ jobs|length }} item{{ 's' if jobs|length != 1 }}</span>
   </form>
-  {% if not jobs %}<div class="empty" style="margin-top:20px">{% if f_product or f_brand %}Nothing made for this yet. <a href="{{ url_for('studio', product=f_product) if f_product else url_for('studio') }}">Make an ad for it</a>.{% else %}Nothing yet. <a href="{{ url_for('studio') }}">Make your first ad</a>.{% endif %}</div>{% endif %}
+  {% if not jobs %}<div class="empty" style="margin-top:20px">{% if f_product or f_brand %}Nothing made for this yet. <a href="{{ url_for('create.index', product=f_product) if f_product else url_for('studio') }}">Make an ad for it</a>.{% else %}Nothing yet. <a href="{{ url_for('studio') }}">Make your first ad</a>.{% endif %}</div>{% endif %}
   <div class="lgrid" style="margin-top:24px">
     {% for j in jobs %}
     <div class="litem {{ 'hl' if highlight == j.id }}" data-job="{{ j.id }}" data-status="{{ j.status }}">

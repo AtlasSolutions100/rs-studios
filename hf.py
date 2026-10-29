@@ -136,6 +136,18 @@ def upload(data: bytes, content_type: str) -> str:
     return j["public_url"]
 
 
+def estimate(model_id: str, inputs: dict) -> float | None:
+    """The vendor's price in USD for these inputs (a free call), or None when
+    it can't be had. Never raises."""
+    try:
+        r = requests.post(f"{BASE}/estimate/{model_id.strip('/')}", json=inputs, headers=_headers(), timeout=15)
+        if r.status_code >= 400:
+            return None
+        return float((r.json() or {}).get("usd"))
+    except (requests.RequestException, GenError, ValueError, TypeError):
+        return None
+
+
 def cancel(request_id: str) -> bool:
     r = requests.post(f"{BASE}/requests/{request_id}/cancel", headers=_headers(), timeout=TIMEOUT)
     return r.status_code == 202
