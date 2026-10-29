@@ -51,9 +51,9 @@ LIVE_STATUSES = {"active", "trialing", "past_due"}
 # ones listed on pricing and features pages; flip it when a module lands.
 FEATURES = {
     "studio": {"plan": "free", "name": "UGC ad studio", "shipped": True,
-               "blurb": "Image ads, photo-to-video clips and motion copies from your product photos."},
-    "brand_kit": {"plan": "free", "name": "Brand kit", "shipped": True,
-                  "blurb": "Product name, approved claims and photos, so every brief starts on-brand."},
+               "blurb": "AI presenter (UGC) videos, product videos, image ads and motion copies from your product photos."},
+    "brand_kit": {"plan": "free", "name": "Brands & products", "shipped": True,
+                  "blurb": "Every brand and product with its photos, offer, approved claims and audience; switch in one click and every brief starts from it."},
     "compliance": {"plan": "free", "name": "Compliance checks", "shipped": True,
                    "blurb": "Every brief is checked for income, health, discount and recruiting claims."},
     "copy": {"plan": "starter", "name": "Copy studio", "shipped": True,
