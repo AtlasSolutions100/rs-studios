@@ -88,7 +88,9 @@ NAV = [
     ("campaigns.index", "Campaigns", "planner", "planner", ("campaigns.index", "campaigns.show")),
     ("copy.studio", "Copy", "copy", "copy", ("copy.studio", "copy.run", "copy.optimize", "copy.optimized")),
     ("seo.index", "SEO & AEO", "seo", "seo", ("seo.index", "seo.result")),
-    ("pages.index", "Pages & links", "pages", "pages", ("pages.index", "pages.edit", "pages.links", "pages.link_detail")),
+    ("pages.index", "Pages & links", "pages", "pages", ("pages.index", "pages.edit", "pages.links", "pages.link_detail",
+                                                          "forms.index", "forms.edit", "forms.submissions")),
+    ("forms.contacts", "Contacts", "contacts", "forms", ("forms.contacts", "forms.contact")),
     ("library", "Library", "library", None, ("library",)),
     ("adhub.index", "Ad accounts", "adhub", "adhub", ("adhub.index", "adhub.platform", "adhub.export_page")),
     ("brand_kit", "Brand kit", "brand", None, ("brand_kit",)),
@@ -117,7 +119,7 @@ def _nav():
     return {"nav_items": NAV, "adhub_links": ADHUB_LINKS}
 
 
-CSRF_EXEMPT = {"static", "stripe_webhook"}
+CSRF_EXEMPT = {"static", "stripe_webhook", "forms.public"}  # public forms carry their own signed token
 
 
 @app.before_request
@@ -262,6 +264,11 @@ FEATURE_DETAILS = {
               "Passes through the UTM tags and click ids already on the incoming link",
               "Click counts, without storing visitors' IP addresses"],
     "link_analytics": ["Clicks per day for 30 days", "Referrers, countries, devices and UTM breakdowns"],
+    "forms": ["Short text, email, phone, long text, dropdown and checkbox fields, with show-if logic",
+              "On your pages as a block, or shared as a hosted form link",
+              "A contacts list with tags, notes, search and CSV export",
+              "Engagement per contact: which page, smart link and form they came through",
+              "Signed webhooks to your own tools; spam guards built in"],
     "copy": ["Ad copy with every text field each platform takes, sized to its display lengths",
              "Hooks with on-screen text, captions with hashtags, headlines, emails and landing-page copy",
              "Facebook & Instagram, TikTok, YouTube, Google Search, X, LinkedIn, Pinterest, Snapchat and Reddit",
@@ -1252,12 +1259,14 @@ import copy_routes  # noqa: E402  (blueprints import core, never app)
 import seo_routes  # noqa: E402
 import adhub_routes  # noqa: E402
 import pages_routes  # noqa: E402
+import forms_routes  # noqa: E402
 
 app.register_blueprint(copy_routes.bp)
 app.register_blueprint(campaign_routes.bp)
 app.register_blueprint(seo_routes.bp)
 app.register_blueprint(adhub_routes.bp)
 app.register_blueprint(pages_routes.bp)
+app.register_blueprint(forms_routes.bp)
 app.jinja_env.globals["has_endpoint"] = lambda name: name in app.view_functions
 
 

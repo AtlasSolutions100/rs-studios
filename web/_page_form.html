@@ -1,0 +1,9 @@
+{% set entry = forms.get(b.form) %}
+{% if entry %}{% set fm, fields, stamp = entry %}
+<section class="pp-sec" id="form-{{ fm.code }}"><div class="pp-wrap pp-center">
+  {% if b.heading %}<h2>{{ b.heading }}</h2>{% endif %}
+  {% if request.args.get('sent') == fm.code %}<div class="pp-ok">{{ fm.success_message or 'Thanks! We got it.' }}</div>
+  {% else %}{% set values = {} %}{% set ctx = {'page': p.slug, 'link': request.args.get('cfy_l', '')[:40], 'utm_source': request.args.get('utm_source', '')[:80], 'utm_medium': request.args.get('utm_medium', '')[:80], 'utm_campaign': request.args.get('utm_campaign', '')[:80]} %}{% set css = form_css %}
+  {% include "_form_fields.html" %}{% endif %}
+</div></section>
+{% endif %}

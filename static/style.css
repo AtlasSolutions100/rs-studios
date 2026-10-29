@@ -522,3 +522,5 @@ input.color{width:64px;height:44px;padding:4px;border:1px solid var(--line);bord
 .spark{display:flex;align-items:flex-end;gap:3px;height:120px;margin:14px 0 6px}
 .spark i{flex:1;background:var(--accent);border-radius:3px 3px 0 0;height:max(2px,var(--h));opacity:.9}
 @media (max-width:760px){.pagerow{grid-template-columns:1fr}.savebar .row{width:100%}.savebar .btn{flex:1}}
+a.choice{text-decoration:none}
+a.choice.on{border-color:var(--accent);color:var(--on-accent);background:var(--accent)}

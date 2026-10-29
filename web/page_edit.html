@@ -37,6 +37,10 @@
           {% for o in lib %}<label class="medopt"><input type="radio" name="b{{ i }}_media" value="{{ o.id }}" {{ 'checked' if b.media == o.id }}>{% if o.kind == 'video' %}<img src="{{ url_for('media', oid=o.id, poster=1) }}" alt="Video {{ o.id }}" loading="lazy"><em>Video</em>{% else %}<img src="{{ url_for('media', oid=o.id) }}" alt="Image {{ o.id }}" loading="lazy">{% endif %}</label>{% endfor %}
         </div>
         {% if not lib %}<p class="small muted">Your finished ads show up here. <a href="{{ url_for('studio') }}">Make one</a>.</p>{% endif %}
+        {% elif key == 'form' %}
+        <label for="b{{ i }}_form">{{ label }}</label>
+        <select id="b{{ i }}_form" name="b{{ i }}_form"><option value="">Pick a form</option>{% for fm in myforms %}<option value="{{ fm.id }}" {{ 'selected' if b.form == fm.id }}>{{ fm.name }}</option>{% endfor %}</select>
+        {% if not myforms %}<p class="small muted">Make a form first in <a href="{{ url_for('forms.index') }}">Forms</a>.</p>{% endif %}
         {% elif limit > 400 and not key.endswith('url') %}
         <label for="b{{ i }}_{{ key }}">{{ label }}</label><textarea id="b{{ i }}_{{ key }}" name="b{{ i }}_{{ key }}" maxlength="{{ limit }}">{{ b[key] or '' }}</textarea>
         {% else %}
@@ -49,7 +53,7 @@
 
     <div class="panel addblock">
       <span class="small muted">Add a block:</span>
-      {% for k, v in BLOCKS.items() %}<button class="btn dark sm" name="action" value="add:{{ k }}">{{ v.name }}</button>{% endfor %}
+      {% for k, v in BLOCKS.items() if not v.feature or has_feature(v.feature) %}<button class="btn dark sm" name="action" value="add:{{ k }}">{{ v.name }}</button>{% endfor %}
     </div>
 
     <div class="go savebar">

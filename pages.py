@@ -22,6 +22,7 @@ BLOCKS = {
                                                   ("button_text", "Button text", 40), ("button_url", "Button link", 500)]},
     "embed": {"name": "Embed", "fields": [("url", "YouTube, Vimeo, Loom, Calendly or Spotify link", 500),
                                            ("caption", "Caption", 200)]},
+    "form": {"name": "Form", "fields": [("heading", "Heading", 120), ("form", "Which form", 0)], "feature": "forms"},
 }
 MAX_BLOCKS = 30
 SLUG_RX = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,58})[a-z0-9]$")
@@ -101,21 +102,22 @@ FRAME_SOURCES = "https://www.youtube-nocookie.com https://player.vimeo.com https
                 "https://open.spotify.com"
 
 
-def clean_block(kind: str, data: dict, media_ok) -> dict | None:
-    """Validate one block from form data. media_ok(output_id) says whether the
-    output belongs to this workspace."""
+def clean_block(kind: str, data: dict, media_ok, form_ok=None) -> dict | None:
+    """Validate one block from form data. media_ok(output_id) / form_ok(form_id)
+    say whether the output or form belongs to this workspace."""
     spec = BLOCKS.get(kind)
     if not spec:
         return None
     out = {"type": kind}
     for key, _label, limit in spec["fields"]:
         val = data.get(key)
-        if key == "media":
+        if key in ("media", "form"):
             try:
                 mid = int(val or 0)
             except (TypeError, ValueError):
                 mid = 0
-            out["media"] = mid if mid and media_ok(mid) else None
+            ok = media_ok if key == "media" else (form_ok or (lambda _: False))
+            out[key] = mid if mid and ok(mid) else None
         elif key.endswith("url"):
             out[key] = safe_url(str(val or "")[:limit])
         else:
@@ -146,6 +148,10 @@ def page_text(blocks: list[dict]) -> str:
             if isinstance(v, str) and k not in ("type", "src") and not k.endswith("url"):
                 parts.append(v)
     return "\n".join(parts)
+
+
+def form_ids(blocks: list[dict]) -> set[int]:
+    return {b["form"] for b in blocks if b.get("type") == "form" and b.get("form")}
 
 
 def media_ids(blocks: list[dict]) -> set[int]:

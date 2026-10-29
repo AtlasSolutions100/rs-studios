@@ -106,6 +106,19 @@ with the link's UTM tags plus incoming UTM tags and click ids (gclid, fbclid, tt
 UTMs and a country when the edge sends `CF-IPCountry`/`X-Country` (no IP stored), skip bots, and are rate-limited per
 IP. Starter sees click counts; Growth+ gets 30-day charts and breakdowns.
 
+## Forms and contacts (Growth+)
+
+`forms.py` + `forms_routes.py`. Fields: short text, email, phone, long text, dropdown, checkbox, each optionally
+"show only if" an earlier dropdown/checkbox has a value. Public pages run no scripts, so the logic is CSS (`:has()`)
+and re-enforced server-side (hidden fields aren't required and their values are dropped). Forms work as a page block
+or a hosted link (`/f/<code>`); submissions need a signed timestamp (not faster than 2 s, not older than a day), pass a
+honeypot and per-IP limits (6 per form per 10 minutes, 30 an hour). Each submission upserts a contact by email (tags
+from the form) and records engagement events: the form, the page, and the smart link when the visitor arrived through
+one (`/l/` links to our own pages append `cfy_l=<code>`). Webhooks go to public https URLs only (fetcher checks, pinned
+IP, no redirects), signed `X-Campaignify-Signature: sha256=<hmac of body>`; the result is stored on the submission.
+There is no mailer in the app, so email notifications are not sent (the form editor says so). Contacts: search, tag
+filter, notes, CSV export (formula-safe), delete (also wipes their answers).
+
 ## Tests
 
     python tests/test_app.py        # generation API and Stripe faked; 122 checks

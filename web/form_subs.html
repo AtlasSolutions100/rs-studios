@@ -1,0 +1,14 @@
+{% extends "base.html" %}{% block title %}Submissions · {{ fm.name }} · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <p style="margin:0 0 14px"><a href="{{ url_for('forms.edit', fid=fm.id) }}">← {{ fm.name }}</a></p>
+  <div class="row" style="justify-content:space-between"><div><p class="eyebrow">Submissions</p><h1 style="margin:0">{{ fm.name }}</h1></div>
+    <a class="btn dark sm" href="{{ url_for('forms.submissions', fid=fm.id, format='csv') }}">Download CSV</a></div>
+  <div class="panel scrollx" style="margin-top:20px">
+    <table><tr><th>When</th>{% for f in fields %}<th>{{ f.label }}</th>{% endfor %}<th>From</th>{% if fm.webhook_url %}<th>Webhook</th>{% endif %}</tr>
+    {% for r in rows %}{% set d = loads(r.data_json) %}<tr><td class="small">{{ r.created_at[:16].replace('T',' ') }}</td>{% for f in fields %}<td>{{ d.get(f.key, '') }}</td>{% endfor %}
+      <td class="small muted">{% if r.page_slug %}/p/{{ r.page_slug }}{% endif %}{% if r.link_code %} · link {{ r.link_code }}{% endif %}{% if r.utm_source %} · {{ r.utm_source }}{% endif %}</td>{% if fm.webhook_url %}<td class="small muted">{{ r.webhook_status or '…' }}</td>{% endif %}</tr>
+    {% else %}<tr><td colspan="{{ fields|length + 2 }}" class="muted">No submissions yet.</td></tr>{% endfor %}</table>
+  </div>
+</div>
+{% endblock %}

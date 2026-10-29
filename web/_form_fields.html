@@ -1,0 +1,24 @@
+{# Renders one public form. Needs: fm, fields, stamp, values, ctx (page, link, utm), css(form_id, fields) #}
+{% set fid = 'form-' ~ fm.code %}
+<style>{{ css(fid, fields) }}</style>
+<form class="pp-form" id="{{ fid }}" method="post" action="{{ url_for('forms.public', code=fm.code) }}">
+  <input type="hidden" name="_t" value="{{ stamp }}">
+  {% if ctx.page %}<input type="hidden" name="_page" value="{{ ctx.page }}">{% endif %}
+  {% if ctx.link %}<input type="hidden" name="_l" value="{{ ctx.link }}">{% endif %}
+  {% for k in ('utm_source', 'utm_medium', 'utm_campaign') %}{% if ctx[k] %}<input type="hidden" name="{{ k }}" value="{{ ctx[k] }}">{% endif %}{% endfor %}
+  <div class="pp-hp" aria-hidden="true"><label for="{{ fid }}-website">Website</label><input id="{{ fid }}-website" type="text" name="website" tabindex="-1" autocomplete="off"></div>
+  {% for f in fields %}{% set nm = 'f_' ~ f.key %}{% set iid = fid ~ '-' ~ f.key %}
+  <div class="fld fld-{{ f.key }}">
+    {% if f.type == 'checkbox' %}
+      <label class="pp-check"><input type="checkbox" name="{{ nm }}" value="yes" {{ 'checked' if values.get(f.key) == 'yes' }}><span>{{ f.label }}{% if f.required and not f.show_if %} *{% endif %}</span></label>
+    {% else %}
+      <label for="{{ iid }}">{{ f.label }}{% if f.required %} *{% endif %}</label>
+      {% if f.type == 'textarea' %}<textarea id="{{ iid }}" name="{{ nm }}" maxlength="4000" {{ 'required' if f.required and not f.show_if }}>{{ values.get(f.key, '') }}</textarea>
+      {% elif f.type == 'select' %}<select id="{{ iid }}" name="{{ nm }}" {{ 'required' if f.required and not f.show_if }}><option value="">Choose…</option>{% for o in f.options %}<option value="{{ o }}" {{ 'selected' if values.get(f.key) == o }}>{{ o }}</option>{% endfor %}</select>
+      {% else %}<input id="{{ iid }}" name="{{ nm }}" type="{{ {'email': 'email', 'phone': 'tel'}.get(f.type, 'text') }}" maxlength="300" value="{{ values.get(f.key, '') }}" {{ 'required' if f.required and not f.show_if }} autocomplete="{{ {'email': 'email', 'phone': 'tel'}.get(f.type, 'name' if 'name' in f.key else 'off') }}">{% endif %}
+    {% endif %}
+  </div>
+  {% endfor %}
+  <button class="pp-btn">{{ fm.button_text or 'Send' }}</button>
+  <p class="pp-note">We only use your details to reply to you.</p>
+</form>

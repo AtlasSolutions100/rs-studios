@@ -706,6 +706,7 @@ check(b"AI writing (planner, copy, SEO): <b>on" in a.get("/admin").data, "admin 
 print("== campaign planner")
 import planner  # noqa: E402
 import pages_routes  # noqa: E402
+import forms_routes  # noqa: E402
 check(client().get("/app/campaigns").status_code == 302, "planner needs a login")
 fz = client()
 fz.post("/signup", data={"csrf": csrf(fz), "email": "free2@example.com", "password": "longpassword"})
@@ -1118,12 +1119,135 @@ x.post(f"/app/links/{lks[0]['id']}/archive", data={"csrf": csrf(x)})
 check(client().get("/l/glow-bio").status_code == 404, "archived links stop redirecting")
 a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "growth"})
 
+print("== forms + contacts")
+import forms as formsmod  # noqa: E402
+import time as _time  # noqa: E402
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "starter"})
+check(x.get("/app/forms").status_code == 402 and x.get("/app/contacts").status_code == 402, "forms and contacts are Growth+")
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "growth"})
+x.post("/app/forms", data={"csrf": csrf(x), "name": "Waitlist"})
+with db.connect() as conn:
+    fm = conn.execute("SELECT * FROM forms WHERE workspace_id=? ORDER BY id DESC", (xws["id"],)).fetchone()
+check(fm and len(json.loads(fm["fields_json"])) == 2, "new form starts with name and email")
+real_resolve = fetcher.resolve
+fetcher.resolve = lambda host, port: "93.184.216.34" if host.endswith("glow.example") else real_resolve(host, port)
+base_fields = {"csrf": csrf(x), "name": "Waitlist", "button_text": "Join", "success_message": "You're on the list.",
+               "tags": "Waitlist, Glow", "redirect_url": "",
+               "f0_key": "name", "f0_label": "Name", "f0_type": "text",
+               "f1_key": "email", "f1_label": "Email", "f1_type": "email", "f1_required": "1",
+               "f2_label": "Interest", "f2_type": "select", "f2_options": "Skin\nHair", "f2_required": "1",
+               "f3_label": "Hair type", "f3_type": "text", "f3_required": "1", "f3_show_if_field": "interest", "f3_show_if_value": "Hair",
+               "f4_label": "Send me news", "f4_type": "checkbox"}
+x.post(f"/app/forms/{fm['id']}", data=dict(base_fields, webhook_url="http://127.0.0.1/hook", action="save"))
+with db.connect() as conn:
+    fm = conn.execute("SELECT * FROM forms WHERE id=?", (fm["id"],)).fetchone()
+ff = json.loads(fm["fields_json"])
+check([f["key"] for f in ff] == ["name", "email", "interest", "hair_type", "send_me_news"] and ff[2]["options"] == ["Skin", "Hair"]
+      and ff[3]["show_if"] == {"field": "interest", "equals": "Hair"}, "fields saved with keys, options and show-if logic")
+check(not fm["webhook_url"] and fm["tags"] == "waitlist,glow", "internal webhook URLs refused; tags normalized")
+x.post(f"/app/forms/{fm['id']}", data=dict(base_fields, webhook_url="https://hooks.glow.example/in", action="save"))
+with db.connect() as conn:
+    fm = conn.execute("SELECT * FROM forms WHERE id=?", (fm["id"],)).fetchone()
+check(fm["webhook_url"] == "https://hooks.glow.example/in" and fm["webhook_secret"], "public https webhook saved with a signing secret")
+hooks = []
+real_post = formsmod.post_webhook
+formsmod.post_webhook = lambda url, secret, payload: hooks.append((url, secret, payload)) or "200"
+pubc = client(ip="10.55.0.1")
+r = pubc.get(f"/f/{fm['code']}")
+html = r.get_data(as_text=True)
+check(r.status_code == 200 and "Hair type" in html and ":has(" in html and "default-src 'none'" in r.headers["Content-Security-Policy"],
+      "hosted form renders with CSS show-if logic and a strict CSP")
+old_stamp = formsmod.stamp(appmod.app.secret_key, fm["code"], _time.time() - 30)
+good = {"_t": old_stamp, "f_name": "Ana", "f_email": "Ana@Glow.example", "f_interest": "Skin", "f_send_me_news": "yes"}
+check(pubc.post(f"/f/{fm['code']}", data=dict(good, _t="")).status_code == 400, "missing form token refused")
+check(pubc.post(f"/f/{fm['code']}", data=dict(good, _t=formsmod.stamp(appmod.app.secret_key, fm["code"]))).status_code == 400,
+      "submissions faster than a person can type are refused")
+check(pubc.post(f"/f/{fm['code']}", data=dict(good, website="spam")).status_code == 400, "honeypot stops bots")
+r = pubc.post(f"/f/{fm['code']}", data=dict(good, f_interest="Hair"))
+check(r.status_code == 200 and "Hair type is required." in r.get_data(as_text=True), "show-if field is required once it's shown")
+r = pubc.post(f"/f/{fm['code']}", data=dict(good, f_hair_type="curly"))
+check(r.status_code == 303 and "sent=1" in r.headers["Location"], "valid submission accepted")
+with db.connect() as conn:
+    ct = conn.execute("SELECT * FROM contacts WHERE workspace_id=?", (xws["id"],)).fetchone()
+    sub = conn.execute("SELECT * FROM form_submissions WHERE form_id=? ORDER BY id DESC", (fm["id"],)).fetchone()
+check(ct and ct["email"] == "ana@glow.example" and ct["name"] == "Ana" and ct["tags"] == "waitlist,glow",
+      "contact created from the email field, with the form's tags")
+check("hair_type" not in json.loads(sub["data_json"]) and json.loads(sub["data_json"])["send_me_news"] == "yes",
+      "hidden fields' values are dropped")
+url, secret, payload = hooks[-1]
+check(url == fm["webhook_url"] and payload["event"] == "form.submitted" and payload["data"]["email"] == "ana@glow.example",
+      "webhook sent with the submission")
+body = json.dumps(payload, separators=(",", ":")).encode()
+check(formsmod.sign(secret, body).startswith("sha256=") and formsmod.sign(secret, body) != formsmod.sign("x", body), "webhook signature")
+with db.connect() as conn:
+    check(conn.execute("SELECT webhook_status FROM form_submissions WHERE id=?", (sub["id"],)).fetchone()[0] == "200",
+          "webhook result recorded on the submission")
+# on a page, credited to a smart link
+x.post("/app/links", data={"csrf": csrf(x), "target_url": "http://localhost/p/glow-launch", "code": "glow-ig"})
+r = client().get("/l/glow-ig")
+check("cfy_l=glow-ig" in r.headers["Location"], "smart links to our own pages carry the link code")
+with db.connect() as conn:
+    pgrow = conn.execute("SELECT * FROM pages WHERE slug='glow-launch'").fetchone()
+blocks = json.loads(pgrow["blocks_json"])
+pform = {"csrf": csrf(x), "title": pgrow["title"], "slug": "glow-launch", "theme": "light", "accent": "#BDFA25", "action": "save"}
+for i, b in enumerate(blocks):
+    pform[f"b{i}_type"] = b["type"]
+    for k, v in b.items():
+        if k not in ("type", "src") and v is not None:
+            pform[f"b{i}_{k}"] = str(v)
+n_b = len(blocks)
+pform[f"b{n_b}_type"] = "form"
+pform[f"b{n_b}_heading"] = "Join the waitlist"
+pform[f"b{n_b}_form"] = str(fm["id"])
+x.post(f"/app/pages/{pgrow['id']}", data=pform)
+html = client().get("/p/glow-launch?cfy_l=glow-ig&utm_source=ig").get_data(as_text=True)
+check("Join the waitlist" in html and f'action="/f/{fm["code"]}"' in html and 'name="_l" value="glow-ig"' in html
+      and 'name="utm_source" value="ig"' in html and 'name="_page" value="glow-launch"' in html,
+      "form block renders on the page with page, link and UTM context")
+pc2 = client(ip="10.55.0.2")
+r = pc2.post(f"/f/{fm['code']}", data={"_t": old_stamp, "_page": "glow-launch", "_l": "glow-ig", "utm_source": "ig",
+                                       "f_email": "ana@glow.example", "f_interest": "Skin"})
+check(r.status_code == 303 and "/p/glow-launch?sent=" in r.headers["Location"], "page submission returns to the page")
+check("You&#39;re on the list." in pc2.get(r.headers["Location"]).get_data(as_text=True), "page shows the success message")
+with db.connect() as conn:
+    ct = conn.execute("SELECT * FROM contacts WHERE id=?", (ct["id"],)).fetchone()
+    kinds = [e["kind"] for e in conn.execute("SELECT kind FROM contact_events WHERE contact_id=? ORDER BY id", (ct["id"],))]
+check(ct["submissions"] == 2 and kinds == ["form", "link", "page", "form"], "same email updates the contact; engagement records form, link and page")
+rl = client(ip="10.55.0.9")
+codes = [rl.post(f"/f/{fm['code']}", data=dict(good, f_email=f"r{i}@glow.example")).status_code for i in range(forms_routes.SUBMITS_PER_IP_FORM_10MIN + 1)]
+check(codes[-1] == 429 and codes[0] == 303, "public form submissions are rate-limited per IP")
+html = x.get("/app/contacts").get_data(as_text=True)
+check("ana@glow.example" in html and "waitlist" in html, "contacts list")
+check("ana@" in x.get("/app/contacts?q=ana").get_data(as_text=True) and "ana@" not in x.get("/app/contacts?tag=nope").get_data(as_text=True),
+      "search and tag filter")
+pc3 = client(ip="10.55.0.3")
+pc3.post(f"/f/{fm['code']}", data=dict(good, f_email="evil@glow.example", f_name="=HYPERLINK(1)"))
+csvtxt = x.get(f"/app/forms/{fm['id']}/submissions?format=csv").get_data(as_text=True)
+check("'=HYPERLINK(1)" in csvtxt and x.get("/app/contacts?format=csv").status_code == 200, "CSV exports neutralize formulas")
+check(x.get(f"/app/contacts/{ct['id']}").status_code == 200 and n.get(f"/app/contacts/{ct['id']}").status_code in (402, 404),
+      "contact page; other workspaces can't see it")
+x.post(f"/app/contacts/{ct['id']}", data={"csrf": csrf(x), "action": "save", "name": "Ana B", "tags": "vip, waitlist", "notes": "Called"})
+with db.connect() as conn:
+    check(conn.execute("SELECT tags FROM contacts WHERE id=?", (ct["id"],)).fetchone()[0] == "vip,waitlist", "contact tags edited")
+x.post(f"/app/contacts/{ct['id']}", data={"csrf": csrf(x), "action": "delete"})
+with db.connect() as conn:
+    gone = conn.execute("SELECT COUNT(*) FROM contacts WHERE id=?", (ct["id"],)).fetchone()[0] == 0
+    left = conn.execute("SELECT data_json FROM form_submissions WHERE contact_id IS NULL AND data_json LIKE '%ana@%'").fetchall()
+check(gone and not left, "deleting a contact deletes their form answers")
+formsmod.post_webhook = real_post
+fetcher.resolve = real_resolve
+check(x.get("/app/forms").status_code == 200 and x.get(f"/app/forms/{fm['id']}").status_code == 200
+      and x.get(f"/app/forms/{fm['id']}/submissions").status_code == 200, "forms pages render")
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "starter"})
+check(client().get(f"/f/{fm['code']}").status_code == 404, "forms go offline when the plan no longer includes them")
+a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": "growth"})
+
 print("== pages")
 a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": ws1["id"], "plan": "scale"})
 for path in ("/app", "/app/library", "/app/brand", "/admin", "/app/new?tool=motion_copy", "/app/new?template=cost",
              "/app/start", "/app/billing", "/app/new?template=hero", "/app/team", "/app/copy", "/app/optimize",
              "/app/copy?kind=landing&platform=landing", "/app/campaigns", "/app/seo", "/app/ad-accounts",
-             "/app/ad-accounts/youtube", "/app/pages", "/app/links"):
+             "/app/ad-accounts/youtube", "/app/pages", "/app/links", "/app/forms", "/app/contacts"):
     check(a.get(path).status_code == 200, f"{path} renders")
 check(a.get("/health").get_json()["generation_configured"], "health reports configured")
 for path in ("/app", "/app/start", "/app/billing", "/", "/features"):
