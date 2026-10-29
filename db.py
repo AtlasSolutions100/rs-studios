@@ -408,6 +408,14 @@ def init():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_p ON photos(product_id, id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_p ON jobs(workspace_id, product_id, id)")
         conn.commit()
+        if not conn.execute("SELECT 1 FROM meta WHERE key='owner_admin_v1'").fetchone():
+            # Koby signed up through the normal form (user 1, workspace 1, the Scale
+            # subscription's metadata) instead of his owner setup link, so his account
+            # never got the operator flag. One time, pinned to that exact row.
+            conn.execute("UPDATE users SET is_admin=1 WHERE id=1 AND workspace_id=1 "
+                         "AND lower(email)='koby@rectorandstull.com'")
+            conn.execute("INSERT OR IGNORE INTO meta (key, value) VALUES ('owner_admin_v1', ?)", (now(),))
+            conn.commit()
         if not conn.execute("SELECT 1 FROM meta WHERE key='products_v1'").fetchone():
             _backup(conn, "pre-products")
             try:
