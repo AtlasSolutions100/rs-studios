@@ -10,6 +10,8 @@
       <p class="muted">{{ jobs|length }} ad{{ 's' if jobs|length != 1 }} · {{ '{:,}'.format(b.credits) }} credits · {{ b.created_at|localtime }}</p>
     </div>
     <div class="phead-actions">
+      {% set rest = (cfg.every or 0) - (cfg.made or [])|length %}
+      {% if cfg.made and rest > 0 %}<a class="btn" href="{{ url_for('create.index', batch=b.id, rest=1) }}">Make the rest ({{ rest }} more)</a>{% endif %}
       <a class="btn dark" href="{{ url_for('create.index', batch=b.id) }}">Make more like this</a>
       <a class="btn dark" href="{{ url_for('library', product=b.product_id) if b.product_id else url_for('library') }}">Library</a>
     </div>

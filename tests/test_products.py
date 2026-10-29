@@ -423,6 +423,7 @@ for path in ("/app", "/app/products", "/app/brand", "/app/products/new", f"/app/
 
 print("== create flow")
 import planner  # noqa: E402
+import create_routes  # noqa: E402
 os.environ["ANTHROPIC_API_KEY"] = "sk-ant-test"
 plan_prompts = []
 
@@ -552,6 +553,70 @@ pv = {"product": gp["id"], "type": "product_video", "angle": {"title": "Shelf"},
       "duration": 10}
 q = jpost(u, "/app/create/quote", pv).get_json()
 check(q["count"] == 1 and q["total"] == catalog.price_credits("photo_to_video", duration=10), "product video: one scene, 10 seconds")
+print("== create: running total, line picks, make 1 first (phase 1)")
+credits(uws, 20000)
+big = dict(cfg, items=cfg["items"] + ["Thirty seconds, then back to work."], presenters=["maya", "marcus"],
+           aspects=["9:16", "1:1"])
+q = jpost(u, "/app/create/quote", big).get_json()
+keys = [l["key"] for l in q["lines"]]
+check(q["count"] == 12 and q["every"] == 12 and q["total"] == 12 * each and q["usd"] == create_routes.usd(12 * each)
+      and len(set(keys)) == 12 and all(l["on"] for l in q["lines"]) and q["warn"] and q["confirm"],
+      "3 hooks x 2 presenters x 2 shapes = 12 videos, each line keyed, with dollars and the big-batch flags")
+q10 = jpost(u, "/app/create/quote", dict(big, lines=keys[2:])).get_json()
+check(q10["count"] == 10 and q10["total"] == 10 * each and q10["every"] == 12
+      and [l["on"] for l in q10["lines"]][:3] == [False, False, True], "unticking two lines prices 10 videos")
+r = jpost(u, "/app/create/generate", dict(big, lines=keys[2:], total=q10["total"]))
+check(r.status_code == 400 and r.get_json().get("confirm"), "more than 8 videos needs the extra confirmation")
+r = jpost(u, "/app/create/generate", dict(big, lines=keys[2:], total=q10["total"] - each))
+check(r.status_code in (400, 409), "the server still refuses a total that doesn't match the ticked lines")
+bal = db.balance(wsrow(uws))
+r = jpost(u, "/app/create/generate", dict(big, lines=keys[2:], total=q10["total"], confirm_many=True))
+gb = r.get_json()
+with db.connect() as conn:
+    bj = conn.execute("SELECT * FROM jobs WHERE batch_id=? ORDER BY id", (gb["batch"],)).fetchall()
+check(gb["ok"] and len(bj) == 10 and db.balance(wsrow(uws)) == bal - 10 * each
+      and [json.loads(j["params_json"])["line"] for j in bj] == keys[2:], "only the ticked lines are made and charged")
+check(jpost(u, "/app/create/quote", dict(big, lines=[])).get_json()["error"].startswith("Tick at least one"),
+      "ticking nothing is refused")
+e = jpost(u, "/app/create/quote", dict(cfg, presenters=["maya", "marcus", "priya", "sam", "lena"])).get_json()
+check(e["count"] == 0 and "at most 4" in e["error"] and e["step"] == "cast", "a fifth presenter is refused, not silently dropped")
+e = jpost(u, "/app/create/quote", dict(cfg, items=["a b c"] * 6)).get_json()
+check(e["count"] == 0 and "at most 5" in e["error"] and e["step"] == "script", "a sixth hook is refused, not dropped")
+e = jpost(u, "/app/create/quote", dict(cfg, body=" ".join(["word"] * 60))).get_json()
+check(e["step"] == "script", "errors say which step fixes them")
+# make 1 first, then the rest
+q = jpost(u, "/app/create/quote", big).get_json()
+first = q["lines"][0]
+g1 = jpost(u, "/app/create/generate", dict(big, lines=[first["key"]], total=first["credits"])).get_json()
+html = u.get(g1["url"]).get_data(as_text=True)
+check(g1["ok"] and g1["queued"] == 1 and "Make the rest (11 more)" in html, "make 1 first queues one; the batch page offers the rest")
+r = u.get(f"/app/create?batch={g1['batch']}&rest=1")
+boot = json.loads(re.search(r'<script id="cf-boot" type="application/json">(.*?)</script>', r.get_data(as_text=True), re.S).group(1))
+check(boot["prefill"]["step"] == "review" and boot["prefill"]["skip"] == [first["key"]] and "made" not in boot["prefill"]
+      and boot["urls"]["check"] and boot["max_presenters"] == 4 and boot["confirm_videos"] == 8,
+      "make the rest opens review with the made line unticked")
+# short of credits: the right pack is suggested
+check(create_routes.suggest_pack(5000)["code"] == "pro" and create_routes.suggest_pack(100)["code"] == "starter"
+      and not create_routes.suggest_pack(0) and not create_routes.suggest_pack(99999)["covers"], "suggest_pack picks the cheapest pack that covers it")
+with db.connect() as conn:
+    conn.execute("UPDATE workspaces SET credits=100, plan_credits=0 WHERE id=?", (uws,))
+    conn.commit()
+q = jpost(u, "/app/create/quote", cfg).get_json()
+check(q["short"] == q["total"] - 100 and q["pack"]["code"] == "starter" and q["pack"]["covers"], "short of credits: the shortfall and a pack")
+credits(uws, 20000)
+# free step checks
+bal = db.balance(wsrow(uws))
+ck = jpost(u, "/app/create/check", {"type": "ugc", "duration": 8, "body": "", "items": [
+    "Fine hook here.", " ".join(["long"] * 30), "I lost 10 pounds drinking this"]}).get_json()
+check(not ck["ok"] and [x["over"] for x in ck["items"]] == [False, True, False] and ck["items"][2]["blocks"]
+      and not ck["items"][0]["blocks"] and ck["limit"] == catalog.max_words(8) and db.balance(wsrow(uws)) == bal,
+      "step checks flag a too-long hook and a rule break, for free")
+check(jpost(u, "/app/create/check", {"type": "image", "items": ["Glow in a minute"], "body": "Serum on a shelf."}).get_json()["ok"],
+      "a clean headline passes the step check")
+html = u.get("/app/create?type=ugc").get_data(as_text=True)
+check("data-formula" in html and "data-bar" in html and "data-one" in html and "data-many" in html and "confirm(" not in html,
+      "Create shows the running total, the phone bar, make 1 first and the big-batch tick")
+
 os.environ["RS_TALKING"] = "0"
 check("ugc" not in [t["id"] for t in catalog.ad_types()] and "pick an ad type" in
       jpost(u, "/app/create/quote", cfg).get_json()["error"].lower(), "with talking switched off, the format is hidden and refused")
