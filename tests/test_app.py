@@ -125,13 +125,26 @@ x = client()
 r = x.get("/")
 html = r.get_data(as_text=True)
 check(r.status_code == 200 and "The ad studio for" in html and "Start free" in html, "logged out: / is the landing page")
-for section in ('id="gallery"', 'id="how"', 'id="reps"', 'id="pricing"', 'id="faq"', "© 2026 Campaignify",
+for section in ('id="journey"', 'id="gallery"', 'id="reps"', 'id="pricing"', 'id="faq"', "© 2026 Campaignify",
                 "/privacy", "/terms", "$29", "$79", "$199", "Checkout coming soon"):
     check(section in html, f"landing has {section}")
 check(not re.search(r"higgsfield", html, re.I), "landing never names the vendor")
 check(not re.search(r"\$\s?\d[\d,]*\s*(a|per)\s*(week|month)|financial freedom|passive income|six figures", html, re.I),
       "landing makes no income or earnings claims")
-check(html.count("previews/") >= 8 and "gallery/tmu-" in html, "gallery shows our real ads")
+check(html.count("previews/") >= 8 and "site/phones.mp4" in html, "gallery shows the example ads")
+check(all(f'id="step-{s["id"]}"' in html for s in appmod.JOURNEY) and len(appmod.JOURNEY) == 8,
+      "landing walks through the eight campaign steps")
+check(not re.search(r"corejava|marketplace global|morning upgrade|tmu-|crowdcut", html, re.I),
+      "landing shows no real brand or product names")
+vids = re.findall(r"<video[^>]*>", html)
+check(vids and all("muted" in v and "playsinline" in v and "poster=" in v for v in vids),
+      "every landing video is muted, inline and has a poster")
+check(sum('preload="none"' in v and "data-poster=" in v for v in vids) >= len(vids) - 3,
+      "below-the-fold videos and their posters load lazily")
+check(html.count('rel="preload"') == 1, "only the hero poster is preloaded")
+check(not re.search(r"auto-?post|posts? your ads|publish(es)? your ads to", html, re.I), "landing never claims to post ads")
+for path in sorted(set(re.findall(r'/static/((?:site|previews)/[^"?]+)', html))):
+    check(os.path.exists(os.path.join(os.path.dirname(HERE), "static", path)), f"landing asset exists: {path}")
 check(x.get("/privacy").status_code == 200 and x.get("/terms").status_code == 200, "privacy and terms pages")
 r = x.post("/signup", data={"csrf": csrf(x), "email": "bot@example.com", "password": "longpassword", "website": "spam.example"})
 with db.connect() as conn:

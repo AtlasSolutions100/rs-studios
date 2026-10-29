@@ -1,11 +1,17 @@
 # Campaignify
 
-> Campaignify (campaignify.ai) is an AI ad and campaign studio for small brands and independent sellers. It turns a product photo into image and video ads from proven templates, checks every brief for income, health, discount and recruiting claims, and on paid plans it also plans and writes whole campaigns.
+> Campaignify (campaignify.ai) is one workspace for launching and running a marketing campaign from start to finish, built for small brands and independent sellers. An AI planner turns a brief into angles, hooks, scripts, ads and a launch checklist; the ad studio turns a product photo into image and video ads; and the rest of the campaign (copy, SEO and AI-answer audits, ad-account setup, landing pages, smart links, forms, contacts and a community) lives in the same place. Every brief, piece of copy and landing page is checked for income, health, discount and recruiting claims.
+
+## How a campaign runs in Campaignify
+{% for s in journey %}
+{{ loop.index }}. {{ s.step }}: {{ s.body }}{% endfor %}
+
+Campaignify doesn't post ads or read results from ad platforms. It guides ad-account setup and exports each ad at the platform's sizes; you launch the ads in each platform's ads manager. Its analytics cover the pages, smart links and forms you run on Campaignify.
 
 ## Pages
 
-- [Home]({{ request.host_url }}): what Campaignify does, example ads, pricing and FAQ.
-- [Features]({{ request.host_url }}features): every tool that's live today and which plan includes it.
+- [Home]({{ request.host_url }}): the campaign steps, example ads, compliance checks, pricing and FAQ.
+- [Features]({{ request.host_url }}features): every tool that's live today, by campaign step, and which plan includes it.
 - [Terms]({{ request.host_url }}terms): credits, plans, what you can't make.
 - [Privacy]({{ request.host_url }}privacy): what we collect and why.
 
