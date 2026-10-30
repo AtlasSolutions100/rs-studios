@@ -49,6 +49,34 @@ def _remote_url(conn, table: str, row) -> str:
     return url
 
 
+def image_prompt(conn, job, p: dict | None = None) -> str:
+    """The image model's prompt for an image ad job: the scene from the brief
+    plus a strict list of the only words allowed on the image (the member's
+    headline, optional subline and button, the brand name). The product's
+    claims, approved or only suggested, never go in unless the member typed
+    that text as the headline, subline or button."""
+    p = p if p is not None else json.loads(job["params_json"] or "{}")
+    parts = catalog.split_image_brief(job["brief"] or "")
+    keys = job.keys() if hasattr(job, "keys") else []
+    prod = conn.execute("SELECT * FROM products WHERE id=? AND workspace_id=?",
+                        (job["product_id"], job["workspace_id"])).fetchone() \
+        if "product_id" in keys and job["product_id"] else None
+    brand = conn.execute("SELECT brand_name FROM brands WHERE id=? AND workspace_id=?",
+                         (job["brand_id"], job["workspace_id"])).fetchone() \
+        if "brand_id" in keys and job["brand_id"] else None
+    forbid = []
+    if prod is not None:
+        forbid += [c for c in (prod["claims"] or "").splitlines() if c.strip()]
+        try:
+            forbid += [c for c in json.loads(prod["claims_pending"] or "[]") if isinstance(c, str)]
+        except (ValueError, TypeError):
+            pass
+    return catalog.image_ad_prompt(parts["scene"], p.get("headline") or parts["headline"],
+                                   p.get("subline") or parts["subline"], p.get("cta") or parts["cta"],
+                                   brand=(brand["brand_name"] if brand else "") or "",
+                                   product=p.get("product") or (prod["name"] if prod is not None else ""), forbid=forbid)
+
+
 def build_inputs(conn, job) -> dict:
     p = json.loads(job["params_json"] or "{}")
     tool = job["tool"]
@@ -57,7 +85,7 @@ def build_inputs(conn, job) -> dict:
     photos = [ph for ph in photos if ph]
     urls = [_remote_url(conn, "photos", ph) for ph in photos]
     if tool == "ad_image":
-        return {"prompt": job["brief"], "image_urls": urls[:10], "niche": p.get("niche") or "",
+        return {"prompt": image_prompt(conn, job, p), "image_urls": urls[:10], "niche": p.get("niche") or "",
                 "language": "English", "batch_size": int(p.get("batch") or 1),
                 "aspect_ratio": p.get("aspect") or "9:16", "target_audience": p.get("audience") or ""}
     if tool == "photo_to_video":

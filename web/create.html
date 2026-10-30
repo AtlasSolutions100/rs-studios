@@ -79,6 +79,12 @@
           <div data-body-wrap><label for="cf-body" data-body-label>Body <span class="dim">(said after the hook)</span></label>
             <textarea id="cf-body" data-body maxlength="2000"></textarea>
             <p class="small muted cf-count" data-count></p><p class="cf-ierr" data-body-err hidden></p></div>
+          <div class="two-col" data-imgtext-wrap hidden>
+            <div><label for="cf-sub">Subline <span class="dim">(optional, smaller text under the headline)</span></label><input id="cf-sub" type="text" maxlength="140" data-subline placeholder="Leave empty for headline only"></div>
+            <div><label for="cf-cta">Button text <span class="dim">(optional)</span></label><input id="cf-cta" type="text" maxlength="30" data-cta placeholder="No button"></div>
+          </div>
+          <p class="cf-ierr" data-text-err hidden></p>
+          <p class="small muted" data-imgtext-note hidden>The only words on the image: your headline, the subline and button if you add them, and the brand name. Nothing else is added.</p>
           <p class="small muted" data-claims-note></p>
           <p class="cf-formula" data-formula aria-live="polite"></p>
           <div class="cf-next"><button type="button" class="btn dark sm" data-save-script>Save to product</button><span class="grow"></span><button type="button" class="btn" data-next>Next</button></div>
@@ -169,7 +175,7 @@
            presenters: P.presenters || [], voices: P.voices || [], voice: P.voice || '', setting: P.setting || '',
            duration: P.duration || 10, aspects: P.aspects || [], platforms: P.platforms || [], versions: P.versions || 1,
            ref: P.ref || (B.refs[0] && B.refs[0].id) || null, photos: P.photos || [], audio: !!P.audio, ideas: [],
-           step: 'product', from_ad: P.from_ad || null, aiAngle: false,
+           step: 'product', from_ad: P.from_ad || null, aiAngle: false, subline: P.subline || '', cta: P.cta || '',
            lines: null, skip: P.skip || null, many: false, flags: null, resolution: P.resolution || '720p'};
   var $ = function(s, r){ return (r||document).querySelector(s); }, $$ = function(s, r){ return [].slice.call((r||document).querySelectorAll(s)); };
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -254,6 +260,8 @@
   }
   function toast(m){ var sec = document.getElementById('s-' + S.step); var t = sec.querySelector('.cf-toast');
     if(!t){ t = document.createElement('p'); t.className = 'flash warn cf-toast'; t.setAttribute('role','alert'); sec.querySelector('.cf-next').before(t); } t.textContent = m; }
+  function clearToast(){ var sec = document.getElementById('s-' + S.step), t = sec && sec.querySelector('.cf-toast'); if(t) t.remove();
+    var er = $('[data-err]'); if(er && S.step !== 'review'){ er.hidden = true; er.innerHTML = ''; } }
   function noun(){ return {spoken:'hook', image:'headline', scene:'scene'}[kind()]; }
   function dirty(){ S.lines = null; S.many = false; }
 
@@ -268,7 +276,7 @@
   function runCheck(){
     readItems(); var seq = ++checkSeq;
     if(!S.items.filter(Boolean).length) return Promise.resolve(null);
-    return post(B.urls.check, {type: S.type, items: S.items, body: S.body, duration: S.duration}).then(function(r){
+    return post(B.urls.check, {type: S.type, items: S.items, body: S.body, duration: S.duration, subline: S.subline, cta: S.cta}).then(function(r){
       if(seq !== checkSeq) return r; S.flags = r; markItems(); return r;
     }).catch(function(){ return null; });
   }
@@ -285,6 +293,8 @@
     });
     var bb = (f.body_blocks || []), be = $('[data-body-err]');
     if(be){ be.hidden = !bb.length; be.textContent = bb.join(' '); }
+    var tb = (f.text_blocks || []), te = $('[data-text-err]');
+    if(te){ te.hidden = !tb.length || kind() !== 'image'; te.textContent = tb.join(' '); }
   }
 
   // ---- render
@@ -341,11 +351,16 @@
     $('[data-script-title]').textContent = {spoken:'Script', image:'Headlines and image', scene:'Scenes'}[k];
     $('[data-items-label]').innerHTML = {spoken:'Hooks <span class="dim">(each one makes its own video)</span>', image:'Headlines <span class="dim">(each one makes its own ad)</span>', scene:'Scenes <span class="dim">(each one makes its own clip)</span>'}[k];
     $('[data-body-wrap]').hidden = k === 'scene';
-    $('[data-body-label]').innerHTML = k === 'spoken' ? 'Body <span class="dim">(said after the hook)</span>' : 'Image concept <span class="dim">(the scene behind the headline)</span>';
+    $('[data-body-label]').innerHTML = k === 'spoken' ? 'Body <span class="dim">(said after the hook)</span>' : 'Image concept <span class="dim">(the scene behind the headline; words here are never drawn on the image)</span>';
     $('[data-dur-wrap]').hidden = k !== 'spoken';
     $('[data-durs]').innerHTML = (B.durations.ugc_video || []).map(function(d){ return '<label class="choice"><input type="radio" name="cf-dur" value="' + d + '"' + (S.duration == d ? ' checked' : '') + '>' + d + ' s <span class="cf-chipp">' + n(B.prices.ugc_video[d]) + '</span></label>'; }).join('');
-    var ol = $('[data-items]');
-    if(document.activeElement && ol.contains(document.activeElement)) { count(); return; }
+    var img = k === 'image';
+    $('[data-imgtext-wrap]').hidden = !img; $('[data-imgtext-note]').hidden = !img;
+    if(document.activeElement !== $('[data-subline]')) $('[data-subline]').value = S.subline || '';
+    if(document.activeElement !== $('[data-cta]')) $('[data-cta]').value = S.cta || '';
+    var ol = $('[data-items]'), ae = document.activeElement;
+    // Don't rebuild the list under someone typing in it (a remove button having focus doesn't count).
+    if(ae && ae.matches && ae.matches('[data-item]') && ol.contains(ae)) { count(); return; }
     if(!S.items.length) S.items = [''];
     ol.innerHTML = S.items.map(function(it, i){ return '<li><label class="sr" for="cf-it' + i + '">' + noun() + ' ' + (i+1) + '</label>' +
       (k === 'scene' ? '<textarea id="cf-it' + i + '" data-item rows="3" maxlength="900">' + esc(it) + '</textarea>' : '<input id="cf-it' + i + '" type="text" data-item maxlength="200" value="' + esc(it) + '" placeholder="' + (k === 'spoken' ? 'e.g. I stopped paying $7 for my afternoon coffee.' : 'e.g. Your afternoon cup, in 30 seconds.') + '">') +
@@ -357,7 +372,8 @@
     $('[data-claims-note]').textContent = S.product && S.product.claims ? 'Approved claims it may use: ' + S.product.claims.split('\n').join(' · ') : 'No approved claims on this product, so scripts describe it without claims.';
     count(); markItems();
   }
-  function readItems(){ S.items = $$('[data-item]').map(function(e){ return e.value.trim(); }); S.body = $('[data-body]').value.trim(); }
+  function readItems(){ S.items = $$('[data-item]').map(function(e){ return e.value.trim(); }); S.body = $('[data-body]').value.trim();
+    S.subline = $('[data-subline]').value.trim(); S.cta = $('[data-cta]').value.trim(); }
   function count(){
     var el = $('[data-count]'); if(kind() !== 'spoken'){ el.textContent = ''; return; }
     var lim = Math.floor(S.duration * B.wps), body = words($('[data-body]').value);
@@ -422,6 +438,7 @@
     $('[data-side-claims]').textContent = S.product && S.product.claims ? S.product.claims.split('\n').slice(0, 3).join(' · ') : 'none yet';
   }
   function config(){ readItems(); var c = {product: S.product && S.product.id, type: S.type, angle: S.angle, items: S.items.filter(Boolean), body: S.body,
+      subline: kind() === 'image' ? S.subline : '', cta: kind() === 'image' ? S.cta : '',
       presenters: S.presenters, voices: S.voices, voice: S.voice, setting: S.setting, duration: S.duration, aspects: S.aspects,
       platforms: S.platforms, versions: S.versions, ref: S.ref, photos: S.photos, audio: S.audio, from_ad: S.from_ad,
       resolution: (T() && (T().tool === 'ugc_video' || T().tool === 'photo_to_video')) ? S.resolution : undefined};
@@ -471,8 +488,11 @@
     if(t.closest('[data-next]')){ e.preventDefault(); next(); return; }
     var gt = t.closest('[data-goto]'); if(gt){ go(gt.dataset.goto); return; }
     if(t.closest('[data-bar-go]')){ if(S.step === 'review'){ var gs = $('.cf-go'); gs.scrollIntoView({behavior: 'smooth', block: 'center'}); return; } var err = ''; var st = steps(); for(var i = st.indexOf(S.step); i < st.indexOf('review') && !err; i++){ err = check(st[i]); } if(err){ toast(err); return; } go('review'); return; }
-    if(t.closest('[data-add-item]')){ readItems(); if(S.items.length < B.max_items){ S.items.push(''); var a = document.activeElement; a && a.blur(); renderScript(); var l = $$('[data-item]'); l[l.length-1].focus(); } return; }
-    var d = t.closest('[data-del-item]'); if(d){ readItems(); S.items.splice(+d.dataset.delItem, 1); dirty(); renderScript(); liveQuote(); runCheck(); return; }
+    if(t.closest('[data-add-item]')){ readItems(); if(S.items.length < B.max_items){ S.items.push(''); var a = document.activeElement; a && a.blur(); renderScript(); var l = $$('[data-item]'); l[l.length-1].focus(); dirty(); summaries(); side(); liveQuote(); } return; }
+    var d = t.closest('[data-del-item]'); if(d){ e.preventDefault(); readItems(); var di = +d.dataset.delItem; S.items.splice(di, 1);
+      if(S.flags && S.flags.items){ S.flags.items.splice(di, 1); S.flags.items.forEach(function(x, j){ x.i = j; }); }
+      var da = document.activeElement; da && da.blur(); clearToast(); dirty(); renderScript(); summaries(); side(); liveQuote(); runCheck();
+      var rest = $$('[data-del-item]'); if(rest.length) rest[Math.min(di, rest.length - 1)].focus(); return; }
     if(t.closest('[data-ideas]')){ ideas(t.closest('[data-ideas]')); return; }
     if(t.closest('[data-write]')){ write(t.closest('[data-write]')); return; }
     if(t.closest('[data-own-use]')){ var ti = $('[data-own-title]').value.trim(), ho = $('[data-own-hook]').value.trim(); if(!ti && !ho) return; S.angle = {title: ti || ho.slice(0, 60), hook: ho, insight: '', audience: ''}; renderAngles(); next(); return; }
@@ -504,8 +524,16 @@
     if(t.matches('[data-many]')){ S.many = t.checked; quote(true); }
     if(t.matches('[data-saved]') && t.value){ var s = S.product.scripts.filter(function(x){ return String(x.id) === t.value; })[0]; if(s){ S.items = (s.items && s.items.length ? s.items : [s.hook]).slice(0, B.max_items); S.body = s.items && s.items.length && s.body !== s.items[0] ? s.body : ''; dirty(); renderScript(); liveQuote(); runCheck(); } }
   });
-  document.addEventListener('input', function(e){ if(e.target.matches('[data-item], [data-body]')){ count(); markItems(); showTotals(); } });
-  document.addEventListener('focusout', function(e){ if(e.target.matches('[data-item], [data-body]')){ readItems(); dirty(); summaries(); side(); liveQuote(); runCheck(); } });
+  // Editing a line clears its old error (and the step's banner) at once; the free check runs again after a pause.
+  var editT = null;
+  document.addEventListener('input', function(e){ if(e.target.matches('[data-item], [data-body], [data-subline], [data-cta]')){
+    var f = S.flags;
+    if(f){ if(e.target.matches('[data-item]')){ var ix = $$('[data-item]').indexOf(e.target); if(f.items && f.items[ix]) f.items[ix].blocks = []; }
+      else if(e.target.matches('[data-body]')){ f.body_blocks = []; if(kind() === 'spoken') (f.items || []).forEach(function(x){ x.blocks = []; }); }
+      else f.text_blocks = []; }
+    clearToast(); count(); markItems(); showTotals();
+    clearTimeout(editT); editT = setTimeout(function(){ runCheck(); }, 600); } });
+  document.addEventListener('focusout', function(e){ if(e.target.matches('[data-item], [data-body], [data-subline], [data-cta]')){ readItems(); dirty(); summaries(); side(); liveQuote(); runCheck(); } });
 
   function busy(btn, on, label){ btn.disabled = on; if(on){ btn.dataset.l = btn.innerHTML; btn.innerHTML = '<span class="spinner sm"></span>' + label; } else if(btn.dataset.l){ btn.innerHTML = btn.dataset.l; } }
   function ideas(btn){
@@ -520,10 +548,11 @@
   function write(btn){
     if(!S.angle){ toast('Pick an angle first.'); return; }
     busy(btn, true, 'Writing…');
-    post(B.urls.script, {product: S.product.id, type: S.type, angle: S.angle, duration: S.duration, n: 3}).then(function(r){
+    post(B.urls.script, {product: S.product.id, type: S.type, angle: S.angle, duration: S.duration, n: 3, photos: S.photos}).then(function(r){
       busy(btn, false); setBal(r.balance);
       if(r.error && !(r.items||[]).length){ toast(r.error); return; }
       S.items = r.items; S.body = r.body || ''; dirty(); var a = document.activeElement; a && a.blur(); renderScript(); summaries(); side(); liveQuote(); runCheck();
+      var e2 = est(); if(e2 && S.items.length > 1) toast('Wrote ' + S.items.length + ' ' + noun() + 's. Each one makes its own ' + (isVideo() ? 'video' : 'ad') + ': ' + formula(e2) + '. Remove the ones you don\'t want with ×.');
     }).catch(function(){ busy(btn, false); toast('Something went wrong. Try again.'); });
   }
   function refreshProduct(){ if(!S.product) return; fetch(B.urls.state + '?id=' + S.product.id).then(function(r){ return r.json(); }).then(function(st){ var keep = S.photos; S.product = st; S.photos = keep; renderAngles(); renderScript(); }); }

@@ -130,8 +130,8 @@ def _photo_choices(pid):
         if p is None:
             return {"have": [], "found": []}
         have = [url_for("photo", pid=r["id"]) for r in products.photos_for(conn, g.ws["id"], pid)][:8]
-    imp = products.import_info(p)
-    return {"have": have, "found": [u for u in imp.get("images", []) if u not in imp.get("taken", [])][:12]}
+    own, others = products.import_candidates(p)
+    return {"have": have, "found": (own or others)[:12]}
 
 
 def _items(items):

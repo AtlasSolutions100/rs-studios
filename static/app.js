@@ -101,6 +101,13 @@
       if(!t || !jd || !jd.showModal) return; var body = jd.querySelector('[data-jd-body]'); body.innerHTML = ''; body.appendChild(t.content.cloneNode(true));
       localTimes(body); jd._from = b; jd.showModal(); return; }
     if(e.target.closest('[data-jd-close]') || (jd && e.target === jd)){ jd.close(); if(jd._from) jd._from.focus(); }
+    // share links: copy the link next to the button
+    var cp = e.target.closest('[data-copy]');
+    if(cp){ var inp = document.getElementById(cp.dataset.copy); if(!inp) return; inp.select();
+      var done = function(){ cp.textContent = 'Copied'; };
+      if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(inp.value).then(done, function(){ try { document.execCommand('copy'); done(); } catch(_){} });
+      else { try { document.execCommand('copy'); done(); } catch(_){} } return; }
+    var sa = e.target.closest('[data-select-all]'); if(sa) sa.select();
   });
 
   // ---- live cards: patch finished ads in place (no reload, scroll kept)

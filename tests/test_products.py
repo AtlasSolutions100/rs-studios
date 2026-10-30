@@ -1067,4 +1067,226 @@ check(not any(i["role"] == "note" and "seller typed yes" in i.get("text", "") fo
       and "(app) The seller typed yes" not in json.dumps(asst_bodies[-1]["messages"]),
       "a member can't type an (app) note: it's shown and sent to the model as their own words")
 
+print("== sample-ad fixes: only approved text on image ads")
+import compliance  # noqa: E402
+import creator  # noqa: E402
+comp(uws, "growth")
+credits(uws, 5000)
+with db.connect() as conn:
+    conn.execute("UPDATE products SET claims=?, claims_pending=? WHERE id=?",
+                 ("30 ml\nVitamin C\nKeeps it fresh", json.dumps(["Reusable silicone", "No wrap. No waste."]), gp["id"]))
+    conn.commit()
+angle = {"title": "Morning glow", "hook": "", "insight": "", "audience": ""}
+concept = ('A serum on a sunny bathroom shelf, soft light. Callout: "Reusable silicone". A "SHOP NOW" button in the corner. '
+           'Keeps it fresh in every season. A badge that says 30 ml. Plenty of room for the headline.')
+img1 = {"product": gp["id"], "type": "image", "angle": angle, "items": ["Glow in a minute"], "body": concept,
+        "aspects": ["4:5"], "versions": 1}
+q = jpost(u, "/app/create/quote", img1).get_json()
+g1 = jpost(u, "/app/create/generate", dict(img1, total=q["total"])).get_json()
+img2 = dict(img1, items=["Your AM routine, brightened."], body="Bright bathroom counter at sunrise, no before/after imagery.",
+            subline="Vitamin C", cta="Get yours")
+q2 = jpost(u, "/app/create/quote", img2).get_json()
+g2 = jpost(u, "/app/create/generate", dict(img2, total=q2["total"])).get_json()
+check(g1.get("ok") and g2.get("ok") and q2["count"] == 1, "image ads with a headline (and one with a subline and button) are queued")
+with db.connect() as conn:
+    j1 = conn.execute("SELECT * FROM jobs WHERE batch_id=?", (g1["batch"],)).fetchone()
+    j2 = conn.execute("SELECT * FROM jobs WHERE batch_id=?", (g2["batch"],)).fetchone()
+    in1, in2 = worker.build_inputs(conn, j1), worker.build_inputs(conn, j2)
+    brand_name = products.get_brand(conn, uws, gp["brand_id"])["brand_name"] or ""
+p1, p2 = in1["prompt"], in2["prompt"]
+check('Headline (the main text, large and easy to read): "Glow in a minute"' in p1 and catalog.NO_EXTRA_TEXT in p1
+      and "No buttons and no call to action." in p1 and "Subline" not in p1,
+      "the image prompt lists the headline as the only text and forbids any other words, badges or buttons")
+for bad in ("Reusable silicone", "SHOP NOW", "Keeps it fresh", "30 ml", "Vitamin C", "No wrap", "badge that says"):
+    check(bad.lower() not in p1.lower(), f"text the member didn't put on the image never reaches the model: {bad!r}")
+check("sunny bathroom shelf" in p1 and "room for the headline" in p1, "the scene itself is kept")
+check(not brand_name or f'Brand name (optional, small): "{brand_name}"' in p1, "the brand name is the one other allowed word")
+check('"Your AM routine, brightened."' in p2 and '- Subline (smaller, under the headline): "Vitamin C"' in p2
+      and '- Button (one simple button): "Get yours"' in p2 and "Exactly one button, with the text above" in p2
+      and "30 ml" not in p2 and "Keeps it fresh" not in p2,
+      "a chosen subline (an approved claim) and the member's own button text are the only extras allowed")
+pj2 = json.loads(j2["params_json"])
+check(pj2["headline"] == "Your AM routine, brightened." and pj2["subline"] == "Vitamin C" and pj2["cta"] == "Get yours"
+      and 'Button: "Get yours"' in j2["brief"], "the job keeps the text the member chose")
+e = jpost(u, "/app/create/quote", dict(img1, cta="Make $500 a week")).get_json()
+check(e["count"] == 0 and "Button text" in e["error"] and e["step"] == "script", "button text is checked against the rules too")
+tp = catalog.image_ad_prompt(catalog.fill(catalog.TEMPLATE_BY_ID["hero"]["brief"], {"product": "Huggers"}), "", "", "",
+                             product="Huggers")
+check('Headline (the main text, large and easy to read): "Huggers"' not in tp and "No headline" in tp, "(no headline given: no words at all)")
+sp = catalog.split_image_brief(catalog.fill(catalog.TEMPLATE_BY_ID["hero"]["brief"], {"product": "Huggers"}))
+check(sp["headline"] == "Huggers" and "Headline" not in sp["scene"] and "modern type" not in sp["scene"],
+      "a template's Headline: \"...\" is read as the headline, not left in the scene")
+lib = u.get("/app/library").get_data(as_text=True)
+check("Glow in a minute" in lib, "(the library still shows the headline)")
+
+print("== sample-ad fixes: compliance is consistent")
+for ok_text in ("Your AM routine, brightened.", "Concept: no before/after imagery, just the bottle.",
+                "Without before-and-after shots.", "avoid any before & after framing"):
+    check(compliance.check(ok_text)["ok"], f"not before/after content: {ok_text!r}")
+for bad_text in ("Before and after: see the glow", "Our before/after photos", "before-and-after results",
+                 "No more before and after photos needed", "Show a before & after"):
+    check(not compliance.check(bad_text)["ok"], f"still blocked: {bad_text!r}")
+ck = jpost(u, "/app/create/check", {"type": "image", "items": ["Your AM routine, brightened."],
+                                    "body": "Clean counter, no before/after imagery."}).get_json()
+check(ck["ok"] and not ck["items"][0]["blocks"] and not ck["body_blocks"], "the step check passes the same wording")
+ck = jpost(u, "/app/create/check", {"type": "image", "items": ["Your AM routine, brightened."],
+                                    "body": "A before and after split of her face."}).get_json()
+check(not ck["ok"] and not ck["items"][0]["blocks"] and ck["body_blocks"],
+      "a concept that breaks a rule is flagged on the concept, not on the clean headline")
+e = jpost(u, "/app/create/quote", dict(img1, items=["Your AM routine, brightened."], body="A before and after split.")).get_json()
+check(e["count"] == 0 and e["error"].startswith("Image concept"), "generate says the same thing, about the concept")
+ck = jpost(u, "/app/create/check", {"type": "image", "items": ["Glow"], "body": "", "cta": "Join my team"}).get_json()
+check(not ck["ok"] and ck["text_blocks"], "the step check covers the subline and button text")
+html = u.get("/app/create?type=image").get_data(as_text=True)
+check("data-subline" in html and "data-cta" in html and "clearToast" in html and "data-del-item" in html,
+      "Create has the subline and button fields and clears errors as you edit")
+
+print("== sample-ad fixes: the writer looks at the photo, or doesn't guess")
+_saved_llm = llm._anthropic
+wbodies = []
+
+
+def fake_writer(body):
+    wbodies.append(body)
+    out = {"headlines": ["Glow in a minute", "Bright mornings", "Lose weight fast"],
+           "concept": 'The deep teal bottle sits on marble. Callout: "Clinically loved". A "Shop now" button glows. '
+                      'Soft morning light.'}
+    return {"model": body["model"], "usage": {"input_tokens": 2400, "output_tokens": 300},
+            "content": [{"type": "tool_use", "id": "w", "name": "submit_script", "input": out}]}
+
+
+llm._anthropic = fake_writer
+with db.connect() as conn:
+    gphotos = products.photos_for(conn, uws, gp["id"])
+r = jpost(u, "/app/create/script", {"product": gp["id"], "type": "image", "angle": angle, "n": 3,
+                                    "photos": [gphotos[-1]["id"]]}).get_json()
+content = wbodies[-1]["messages"][0]["content"]
+check(isinstance(content, list) and content[0]["type"] == "image" and content[0]["source"]["media_type"] == "image/jpeg"
+      and content[0]["source"]["data"] and creator.LOOKS_WITH_PHOTO in content[-1]["text"]
+      and creator.IMAGE_TEXT_RULE in content[-1]["text"], "with a product photo, the writer sees it (vision) and is told to ground the scene in it")
+check(r["items"] == ["Glow in a minute", "Bright mornings"] and "Clinically loved" not in r["body"]
+      and "Shop now" not in r["body"] and "Soft morning light" in r["body"],
+      "callouts and buttons in the written concept are taken out before the member sees it")
+r = jpost(u, "/app/create/script", {"product": nc["id"], "type": "image", "angle": angle, "n": 2}).get_json()
+content = wbodies[-1]["messages"][0]["content"]
+check(isinstance(content, str) and creator.LOOKS_NO_PHOTO in content,
+      "without a photo, the writer is told not to describe colours or packaging it can't see")
+r = jpost(u, "/app/create/script", {"product": gp["id"], "type": "image", "angle": angle, "n": 2,
+                                    "photos": [999999]}).get_json()
+check(isinstance(wbodies[-1]["messages"][0]["content"], list), "an unknown photo id falls back to the product's own photo")
+check(creator.estimate_script() > creator.estimate_script(False), "the quote covers the photo's tokens")
+llm._anthropic = _saved_llm
+
+print("== sample-ad fixes: import prefers the product's own photos")
+SKIN_PAGE = """<html><head><title>Glow Serum | Skin Co</title>
+<meta property="og:image" content="https://cdn.skin.example/glow-serum-front.jpg">
+<script type="application/ld+json">{"@type":"Product","name":"Glow Serum","image":["https://cdn.skin.example/glow-serum-front.jpg",
+"https://cdn.skin.example/glow-serum-side_600x.jpg"],"offers":{"price":"34","priceCurrency":"USD"}}</script>
+<script src="https://cdn.shopify.com/s/x.js"></script></head><body><h1>Glow Serum</h1>
+<img src="https://cdn.skin.example/glow-serum-side_200x.jpg">
+<img src="https://cdn.skin.example/gentle-cleanser.jpg" alt="Gentle Cleanser">
+<img src="https://cdn.skin.example/clay-mask.jpg" alt="Clay Mask">
+<img src="https://cdn.skin.example/allure-award-2024.png">
+<img src="https://cdn.skin.example/stats_92.png">
+<img src="https://cdn.skin.example/img_4411.jpg" alt="Before and after 4 weeks">
+<img src="https://cdn.skin.example/before-after-1.jpg"></body></html>"""
+pi = appmod.product_routes.product_import
+fx = pi.extract(SKIN_PAGE, "https://skin.example/products/glow-serum")
+check(fx["own"] == ["https://cdn.skin.example/glow-serum-front.jpg", "https://cdn.skin.example/glow-serum-side_600x.jpg"],
+      "the product's own photos come from its JSON-LD and og:image (a resized copy counts once)")
+check(fx["images"][:2] == fx["own"] and "https://cdn.skin.example/gentle-cleanser.jpg" in fx["images"]
+      and not any(x in " ".join(fx["images"]) for x in ("award", "stats_92", "img_4411", "before-after")),
+      "badges, stat graphics and before/after photos are dropped; other page images are kept apart")
+check(pi.shopify_json_url("https://skin.example/products/glow-serum", SKIN_PAGE) == "https://skin.example/products/glow-serum.json"
+      and pi.shopify_json_url("https://skin.example/products/glow-serum", "<html></html>") == ""
+      and pi.shopify_json_url("https://skin.example/pages/about", SKIN_PAGE) == "", "a Shopify product page is recognised")
+SHOP_JSON = json.dumps({"product": {"title": "Glow Serum", "images": [
+    {"src": "https://cdn.shopify.com/s/files/1/glow-serum-box.jpg"}, {"src": "https://cdn.skin.example/glow-serum-front.jpg"}]}})
+_ff = fetcher.fetch
+fetcher.fetch = lambda url, accept=None: ({"url": url, "status": 200, "content_type": "application/json", "text": SHOP_JSON}
+                                         if url.endswith(".json") else
+                                         {"url": url, "status": 200, "content_type": "text/html", "text": SKIN_PAGE})
+os.environ.pop("ANTHROPIC_API_KEY", None)
+r = u.post("/app/products/import", data={"csrf": csrf(u), "url": "https://skin.example/products/glow-serum",
+                                         "brand": str(gp["brand_id"])})
+os.environ["ANTHROPIC_API_KEY"] = "sk-ant-test"
+fetcher.fetch = _ff
+with db.connect() as conn:
+    sp_ = conn.execute("SELECT * FROM products WHERE workspace_id=? AND url=? ORDER BY id DESC",
+                       (uws, "https://skin.example/products/glow-serum")).fetchone()
+own, more = products.import_candidates(sp_)
+check(own == ["https://cdn.shopify.com/s/files/1/glow-serum-box.jpg", "https://cdn.skin.example/glow-serum-front.jpg",
+              "https://cdn.skin.example/glow-serum-side_600x.jpg"], "Shopify's product JSON images lead the product's own photos")
+check("https://cdn.skin.example/clay-mask.jpg" in more and not set(own) & set(more), "other page images are still offered, apart")
+html = u.get(f"/app/products/{sp_['id']}").get_data(as_text=True)
+check("Other images on the page (2)" in html and html.index("glow-serum-box.jpg") < html.index("Other images on the page")
+      < html.index("clay-mask.jpg"), "the product page shows its own photos first and the others folded away")
+legacy = {"import_json": json.dumps({"images": ["https://a.example/1.jpg", "https://a.example/2.jpg"], "taken": ["https://a.example/2.jpg"]})}
+check(products.import_candidates(legacy) == (["https://a.example/1.jpg"], []), "older imports count every image as the product's own")
+
+print("== sample-ad fixes: private share links")
+import shutil  # noqa: E402
+sfolder = os.path.join(worker.MEDIA, str(uws), "share")
+os.makedirs(sfolder, exist_ok=True)
+spath = os.path.join(sfolder, "ad.png")
+with open(spath, "wb") as f:
+    f.write(png(300).getvalue())
+with db.connect() as conn:
+    sj = conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, brief, params_json, status, credits, created_at, "
+                      "updated_at, product_id, brand_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                      (uws, 1, "ad_image", "Secret brief about our launch", json.dumps({"hook": "Glow in a minute"}), "done",
+                       22, T, T, gp["id"], gp["brand_id"])).lastrowid
+    so = conn.execute("INSERT INTO outputs (job_id, kind, url, path) VALUES (?,?,?,?)",
+                      (sj, "image", "https://files.example/vendor.png", spath)).lastrowid
+    conn.commit()
+anon = appmod.app.test_client()
+check(anon.get("/s/" + "x" * 32).status_code == 404 and anon.get("/s/short").status_code == 404, "an unknown token is a 404")
+check(other.post(f"/app/outputs/{so}/share", data={"csrf": csrf(other)}).status_code == 404,
+      "another workspace can't make a link for this ad")
+lib = u.get("/app/library").get_data(as_text=True)
+check(f"/app/outputs/{so}/share" in lib and "Create share link" in lib, "the ad's details offer a share link")
+r = u.post(f"/app/outputs/{so}/share", data={"csrf": csrf(u), "back": "/app/library"})
+with db.connect() as conn:
+    tok = conn.execute("SELECT share_token FROM outputs WHERE id=?", (so,)).fetchone()[0]
+check(r.status_code == 302 and tok and len(tok) >= 32, "the owner makes an unguessable link")
+r = u.post(f"/app/outputs/{so}/share", data={"csrf": csrf(u)}, headers={"Accept": "application/json"})
+check(r.get_json()["url"].endswith("/s/" + tok), "asking again gives the same link")
+r = anon.get("/s/" + tok)
+page = r.get_data(as_text=True)
+check(r.status_code == 200 and "Glow Serum" in page and "Made with Campaignify" in page and f"/s/{tok}/media" in page,
+      "logged out, the link shows the ad and the product's name")
+check("noindex" in r.headers.get("X-Robots-Tag", "") and '<meta name="robots" content="noindex' in page
+      and r.headers.get("Referrer-Policy") == "no-referrer" and "default-src 'none'" in r.headers.get("Content-Security-Policy", ""),
+      "the share page is noindex (header and meta), sends no referrer and runs no scripts")
+for leak in ("$34", "30 ml", "Vitamin C", "Secret brief", "maker@example.com", "files.example", "/app/", "Buy", "csrf",
+             "Glow in a minute", "22"):
+    check(leak not in page, f"the share page shows nothing else from the workspace: {leak!r}")
+r = anon.get(f"/s/{tok}/media")
+check(r.status_code == 200 and r.data == open(spath, "rb").read() and "noindex" in r.headers.get("X-Robots-Tag", ""),
+      "the file is served through the token, logged out")
+check(anon.get(f"/media/{so}").status_code in (302, 401, 403, 404) and anon.get(f"/media/{so}").status_code != 200,
+      "(the normal media URL still needs a login)")
+check(other.get("/app/library").get_data(as_text=True).count(tok) == 0, "no other workspace sees the link")
+check(other.post(f"/app/outputs/{so}/unshare", data={"csrf": csrf(other)}).status_code == 404
+      and anon.get("/s/" + tok).status_code == 200, "another workspace can't revoke it")
+lib = u.get("/app/library").get_data(as_text=True)
+check(f"/s/{tok}" in lib and "Stop sharing" in lib and "data-copy" in lib, "the owner sees the link with Copy and Stop sharing")
+u.post(f"/app/outputs/{so}/unshare", data={"csrf": csrf(u)})
+check(anon.get("/s/" + tok).status_code == 404 and anon.get(f"/s/{tok}/media").status_code == 404,
+      "a revoked link 404s, page and file")
+u.post(f"/app/outputs/{so}/share", data={"csrf": csrf(u)})
+with db.connect() as conn:
+    tok2 = conn.execute("SELECT share_token FROM outputs WHERE id=?", (so,)).fetchone()[0]
+check(tok2 and tok2 != tok and anon.get("/s/" + tok).status_code == 404 and anon.get("/s/" + tok2).status_code == 200,
+      "sharing again makes a new link; the old one stays dead")
+u.post(f"/app/jobs/{sj}/delete", data={"csrf": csrf(u)})
+check(anon.get("/s/" + tok2).status_code == 404, "deleting the ad kills its link")
+with db.connect() as conn:
+    oj = conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, brief, status, credits, created_at, updated_at) "
+                      "VALUES (?,?,?,?,?,?,?,?)", (ows, 1, "ad_image", "theirs", "done", 22, T, T)).lastrowid
+    oo = conn.execute("INSERT INTO outputs (job_id, kind, url, path) VALUES (?,?,?,?)", (oj, "image", "", spath)).lastrowid
+    conn.commit()
+check(u.post(f"/app/outputs/{oo}/share", data={"csrf": csrf(u)}).status_code == 404, "and this workspace can't share theirs")
+shutil.rmtree(sfolder, ignore_errors=True)
+
 print(f"\nall {passed} product checks passed ({TMP})")

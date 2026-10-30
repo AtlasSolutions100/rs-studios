@@ -7,6 +7,7 @@ markup is the margin. Change MARKUP in settings, not here.
 """
 import math
 import os
+import re
 
 MARKUP = float(os.environ.get("RS_MARKUP", "2.0"))
 # 1080p carries a smaller markup of its own (owner decision D9): the vendor's
@@ -232,6 +233,103 @@ def talking_prompt(ad_type: str, product: str, script: str, presenter_id: str = 
             f"the camera and talks directly to the viewer in a natural, unscripted tone with {voice['desc']}. They say: "
             f"\"{say}\" Lip movements match the speech exactly. {keep} Natural light, slight handheld movement, "
             "no on-screen text, no subtitles, no music.")
+
+
+# ---------------------------------------------------------------- image ad text
+# The image model draws the ad's text itself (there is no overlay renderer for
+# images), so the prompt has to say exactly which words may appear. Only the
+# member's headline, the optional subline and button text they typed, and the
+# brand name are allowed; everything else in the brief is treated as a scene
+# description, with any quoted words, "Callout:"-style text and sentences
+# about buttons, badges or prices taken out before it reaches the model.
+TEXT_LIMITS = {"headline": 120, "subline": 140, "cta": 30}
+_LABELED = re.compile(r'\b(Headline|Sub-?line|Sub-?headline|Button|CTA)\s*:\s*["“]([^"”]{1,200})["”][^.!?"“]*[.!?]?', re.I)
+_TEXT_LABELS = re.compile(r"\b(tag-?line|slogan|caption|callouts?|call[- ]to[- ]action|badge|sticker|banner text|"
+                          r"(?:on-screen|overlay) text|text overlay|bullet points?|copy)\s*:\s*[^.!?\n]*[.!?]?", re.I)
+_QUOTED = re.compile(r'["“”]([^"“”]{1,200})["“”]')
+_TEXTY = re.compile(r"\b(buttons?|badges?|callouts?|stickers?|seals? of|taglines?|slogans?|captions?|bullet points?|"
+                    r"feature list|price tags?|prices?|discounts?|percent|shop now|buy now|order now|call[- ]to[- ]action|"
+                    r"cta|hashtags?|url|website address|star ratings?|reviews?|text overlays?|on-screen text|"
+                    r"sale|limited time)\b", re.I)
+
+
+def split_image_brief(brief: str) -> dict:
+    """{scene, headline, subline, cta} from a stored image brief: the text the
+    member chose is written in it as Headline: "...", Subline: "...",
+    Button: "..."; the rest is the scene."""
+    out = {"headline": "", "subline": "", "cta": ""}
+    keys = {"headline": "headline", "subline": "subline", "sub-line": "subline", "subheadline": "subline",
+            "sub-headline": "subline", "button": "cta", "cta": "cta"}
+
+    def take(m):
+        k = keys.get(m.group(1).lower())
+        if k and not out[k]:
+            out[k] = " ".join(m.group(2).split())
+        return " "
+    scene = _LABELED.sub(take, brief or "")
+    out["scene"] = " ".join(scene.split())
+    return out
+
+
+def _norm(s: str) -> str:
+    return " ".join(re.findall(r"[a-z0-9]+", (s or "").lower()))
+
+
+def scene_only(text: str, allowed=(), forbid=()) -> str:
+    """The scene part of a brief with every source of extra on-image text taken
+    out: labeled text ("Callout: ..."), quoted words that aren't allowed,
+    sentences about buttons, badges, prices or captions, and any sentence that
+    repeats a product claim the member didn't put on the image."""
+    ok = {_norm(a) for a in allowed if a}
+    text = _LABELED.sub(" ", text or "")
+    text = _TEXT_LABELS.sub(" ", text)
+    text = _QUOTED.sub(lambda m: m.group(0) if _norm(m.group(1)) in ok else "", text)
+    bad = [_norm(f) for f in forbid if f and _norm(f) and _norm(f) not in ok]
+    keep = []
+    for sent in re.split(r"(?<=[.!?])\s+", " ".join(text.split())):
+        n = _norm(sent)
+        if not n or _TEXTY.search(sent) or any(b and b in n for b in bad):
+            continue
+        keep.append(re.sub(r"\s+([,.!?;:])", r"\1", sent).strip(" ,;:"))
+    return " ".join(k for k in keep if k)
+
+
+NO_EXTRA_TEXT = ("No other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, "
+                 "feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, "
+                 "percentages, discounts, hashtags, URLs, watermarks or extra logos.")
+
+
+def image_ad_prompt(scene: str, headline: str = "", subline: str = "", cta: str = "", brand: str = "",
+                    product: str = "", forbid=()) -> str:
+    """The prompt the image model gets for one image ad. It names every word
+    allowed on the image (headline, optional subline and button, brand name)
+    and forbids all others; product claims in `forbid` (the product's approved
+    and suggested claims) never enter it unless the member put that exact text
+    in the headline, subline or button."""
+    clean = lambda s, k: " ".join(str(s or "").split())[:TEXT_LIMITS[k]].replace('"', "'")  # noqa: E731
+    headline, subline, cta = clean(headline, "headline"), clean(subline, "subline"), clean(cta, "cta")
+    brand = " ".join(str(brand or "").split())[:80].replace('"', "'")
+    product = " ".join(str(product or "").split())[:80] or "product"
+    allowed = [x for x in (headline, subline, cta, brand) if x]
+    scene = scene_only(scene, allowed, forbid) or f"Clean, premium product shot of the {product}."
+    lines = [f"Advertising image. Scene: {scene}",
+             f"The product is the {product} exactly as in the reference photos: same shape, packaging, label, printed "
+             "text and colors. Don't redraw, change or add to its label."]
+    lines.append("Text on the image: only the words listed here, each shown once and spelled exactly as written.")
+    if headline:
+        lines.append(f'- Headline (the main text, large and easy to read): "{headline}"')
+    if subline:
+        lines.append(f'- Subline (smaller, under the headline): "{subline}"')
+    if cta:
+        lines.append(f'- Button (one simple button): "{cta}"')
+    if brand:
+        lines.append(f'- Brand name (optional, small): "{brand}"')
+    if not (headline or subline or cta):
+        lines.append("- No headline: add no words at all.")
+    lines.append("The only other text allowed is what is already printed on the product's own packaging in the photos.")
+    lines.append(NO_EXTRA_TEXT + (" Exactly one button, with the text above, and no other call to action." if cta else
+                                  " No buttons and no call to action."))
+    return "\n".join(lines)
 
 
 # Templates: the angles from the playbook. {product} and {brand} are filled from

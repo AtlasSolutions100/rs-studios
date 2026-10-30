@@ -23,7 +23,13 @@ MAX_IMAGES = 16
 MAX_IMAGE_BYTES = 15 * 1024 * 1024
 TOKENS_IN, TOKENS_OUT = 6000, 900
 SKIP_IMG = re.compile(r"(sprite|logo|icon|favicon|pixel|spacer|badge|payment|flag|avatar|rating|star|loader|"
-                      r"placeholder|blank|tracking|1x1)", re.I)
+                      r"placeholder|blank|tracking|1x1|award|winner|certif|trustpilot|trust[-_]?badge|guarantee|"
+                      r"as[-_]?seen|featured[-_]?in|infographic|percent|before[-_]?(and[-_]?)?after|before[-_]|"
+                      r"[-_]after(?![a-z])|testimonial|swatch|klarna|afterpay|paypal|shop[-_]?pay|visa|mastercard|amex|"
+                      r"(?<![a-z])(banner|chart|graph|stats?|results?|reviews?|social|arrow|chevron|ugc)(?![a-z]))", re.I)
+# Alt text that marks a graphic rather than a product photo.
+SKIP_ALT = re.compile(r"\b(badge|award|winner|seal|certified|logo|icon|before|after|results?|review|rating|stars?|"
+                      r"testimonial|as seen|featured in|infographic|chart|percent|%)\b", re.I)
 
 
 def estimate() -> int:
@@ -95,17 +101,28 @@ def extract(html: str, url: str) -> dict:
     meta = p.meta
     lds = _ld_products(p.jsonld)
     ld = lds[0] if lds else {}
-    imgs = []
-    for src in _img_urls(ld.get("image")) + [meta.get("og:image", ""), meta.get("og:image:secure_url", ""),
-                                            meta.get("twitter:image", "")] + [i["src"] for i in p.images]:
-        src = (src or "").strip()
-        if not src or src.startswith("data:") or src.lower().split("?")[0].endswith((".svg", ".gif", ".ico")):
+    own, seen = [], set()
+    # The product's own photos come first: the JSON-LD Product's images (and its
+    # variants'), then the page's share image. Other <img> tags on the page are
+    # often other products (cross-sells, "goes well with"), award badges, stat
+    # graphics or before/after photos: they're kept apart as "other images".
+    ld_imgs = _img_urls(ld.get("image"))
+    for v in (ld.get("hasVariant") or []) if isinstance(ld.get("hasVariant"), list) else []:
+        if isinstance(v, dict):
+            ld_imgs += _img_urls(v.get("image"))
+    for src in ld_imgs + [meta.get("og:image", ""), meta.get("og:image:secure_url", ""), meta.get("twitter:image", "")]:
+        absu = _usable(src, url)
+        if absu and _key(absu) not in seen:
+            seen.add(_key(absu))
+            own.append(absu)
+    others = []
+    for i in p.images:
+        absu = _usable(i.get("src"), url)
+        if not absu or _key(absu) in seen or SKIP_ALT.search(i.get("alt") or ""):
             continue
-        absu = urljoin(url, src)
-        if urlsplit(absu).scheme not in ("http", "https") or SKIP_IMG.search(absu.rsplit("/", 1)[-1]):
-            continue
-        if absu not in imgs:
-            imgs.append(absu)
+        seen.add(_key(absu))
+        others.append(absu)
+    imgs = own + others
     brand = ld.get("brand")
     brand = (brand.get("name") if isinstance(brand, dict) else brand) or meta.get("og:site_name", "")
     price = _price(ld) if ld else ""
@@ -117,7 +134,75 @@ def extract(html: str, url: str) -> dict:
     text = " ".join(" ".join(p.text).split())
     return {"url": url, "name": str(name or "").strip()[:200], "description": re.sub(r"\s+", " ", str(desc or "")).strip()[:1500],
             "price": str(price)[:60], "brand": str(brand or "")[:80], "images": imgs[:MAX_IMAGES],
+            "own": own[:MAX_IMAGES],
             "headings": [h for _, h in p.headings[:30]], "text": text[:9000]}
+
+
+def _usable(src, base) -> str:
+    """An absolute http(s) image URL worth offering, or "" (data URIs, SVG/GIF
+    icons, logos, badges and other graphics by file name)."""
+    src = (src or "").strip()
+    if not src or src.startswith("data:") or src.lower().split("?")[0].endswith((".svg", ".gif", ".ico")):
+        return ""
+    absu = urljoin(base, src)
+    if urlsplit(absu).scheme not in ("http", "https") or SKIP_IMG.search(absu.rsplit("/", 1)[-1].split("?")[0]):
+        return ""
+    return absu
+
+
+def _key(u: str) -> str:
+    """Same picture at another size (Shopify's _400x suffix, ?width=) counts once."""
+    path = urlsplit(u)
+    name = re.sub(r"_(\d+x\d*|\d*x\d+|pico|icon|thumb|small|compact|medium|large|grande|master)(?=\.\w+$)", "",
+                  path.path.rsplit("/", 1)[-1], flags=re.I)
+    return (path.netloc + path.path.rsplit("/", 1)[0] + "/" + name).lower()
+
+
+SHOPIFY_PATH = re.compile(r"/products/([A-Za-z0-9][A-Za-z0-9_.%-]{0,200})/?$")
+
+
+def shopify_json_url(url: str, html: str) -> str:
+    """The store's own product JSON (/products/<handle>.json) for a Shopify
+    product page, or "" when the page isn't one."""
+    parts = urlsplit(url)
+    m = SHOPIFY_PATH.search(parts.path)
+    if not m or not re.search(r"cdn\.shopify\.com|Shopify\.(shop|theme)|shopify-section", html or "", re.I):
+        return ""
+    handle = m.group(1)
+    if handle.endswith((".json", ".js")):
+        return ""
+    return f"{parts.scheme}://{parts.netloc}{parts.path.rstrip('/')}.json"
+
+
+def shopify_images(text: str) -> list:
+    """Image URLs from a Shopify /products/<handle>.json body (in its order)."""
+    try:
+        data = json.loads(text or "")
+    except ValueError:
+        return []
+    prod = data.get("product") if isinstance(data, dict) else None
+    if not isinstance(prod, dict):
+        return []
+    out = []
+    for im in prod.get("images") or []:
+        src = im.get("src") if isinstance(im, dict) else im if isinstance(im, str) else None
+        if isinstance(src, str) and src.startswith(("http://", "https://", "//")):
+            out.append("https:" + src if src.startswith("//") else src)
+    return out
+
+
+def prefer_images(facts: dict, first: list) -> dict:
+    """Put the product's own images (e.g. from its Shopify JSON) at the front."""
+    seen, own = set(), []
+    for u in list(first) + list(facts.get("own") or []):
+        absu = _usable(u, facts["url"])
+        if absu and _key(absu) not in seen:
+            seen.add(_key(absu))
+            own.append(absu)
+    others = [u for u in facts.get("images") or [] if _key(u) not in seen]
+    facts["own"] = own[:MAX_IMAGES]
+    facts["images"] = (own + others)[:MAX_IMAGES]
+    return facts
 
 
 SYSTEM = """You turn a product web page into a product record for an ad tool. Use only what the page says.
@@ -180,7 +265,7 @@ def build(facts: dict, ai: dict | None) -> dict:
     import products as _products
     form["category"] = _products.guess_category(" ".join([form["tags"], form["name"], form["description"]]))
     return {"form": form, "pending": claims[:12], "brand": str(ai.get("brand") or facts["brand"] or "")[:80],
-            "import": {"url": facts["url"], "images": facts["images"], "taken": []}}
+            "import": {"url": facts["url"], "images": facts["images"], "own": facts.get("own") or [], "taken": []}}
 
 
 def download_image(url: str) -> tuple[bytes, str]:

@@ -165,6 +165,19 @@ spaces (rate-limited; authors and admins delete, admins pin), take courses with 
 as .ics. Workspace users of the owning workspace are members automatically (owner/admin). Member pages are escaped,
 run no scripts and send the strict CSP; everything goes offline if the plan drops below Scale.
 
+## Image ad text and share links
+
+The image model draws an image ad's text itself, so `catalog.image_ad_prompt` (built by the worker for every image
+job, whichever flow made it) lists the only words allowed on the image: the member's headline, the optional subline
+and button text they typed in Create, and the brand name. Everything else in the brief is treated as scene: quoted
+words, "Callout:"-style text, sentences about buttons, badges or prices, and any sentence repeating one of the
+product's claims (approved or only suggested) are taken out before it reaches the model. "Write it for me" sees the
+selected product photo (vision) when Anthropic is on, and otherwise is told not to describe colours or packaging.
+
+Any finished output can get a private share link (`/s/<token>`, `share_routes.py`) from the ad's Details: a bare,
+noindex page with just the file, the product's name and a "Made with Campaignify" link; the file is served through
+the token so it works logged out. Stop sharing (or deleting the ad) makes the link 404; sharing again makes a new token.
+
 ## Tests
 
     python tests/test_app.py        # generation API and Stripe faked; 122 checks

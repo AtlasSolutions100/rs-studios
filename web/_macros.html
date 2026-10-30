@@ -80,6 +80,24 @@
       {% if os_ and has_feature('adhub') %}<a class="btn dark sm" href="{{ url_for('adhub.export_page', oid=os_[0].id) }}">Export for Meta / TikTok</a>{% endif %}
       {% if j.batch_id %}<a class="btn dark sm" href="{{ url_for('create.batch', bid=j.batch_id) }}">Open its batch</a>{% endif %}
     </div>
+    {% if j.status == 'done' and os_ %}
+    <div class="jd-share">
+      <h3 class="small" style="margin:14px 0 6px">Share privately</h3>
+      {% for o in os_ %}
+      {% if o.share_token %}{% set link = url_for('share.view', token=o.share_token, _external=True) %}
+      <div class="row" style="gap:6px;margin-bottom:6px">
+        <label class="sr" for="share-{{ o.id }}">Share link{{ ' ' ~ loop.index if os_|length > 1 }}</label>
+        <input id="share-{{ o.id }}" type="text" readonly value="{{ link }}" data-select-all style="flex:1;min-width:0">
+        <button type="button" class="btn sm" data-copy="share-{{ o.id }}">Copy</button>
+        <form method="post" action="{{ url_for('share.revoke', oid=o.id) }}" data-confirm="Stop sharing? The link stops working for everyone who has it."><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ back }}"><button class="btn dark sm">Stop sharing</button></form>
+      </div>
+      {% else %}
+      <form method="post" action="{{ url_for('share.create', oid=o.id) }}" style="display:inline-block;margin:0 6px 6px 0"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ back }}"><button class="btn dark sm">Create share link{{ ' ' ~ loop.index if os_|length > 1 }}</button></form>
+      {% endif %}
+      {% endfor %}
+      <p class="small muted" style="margin:4px 0 0">Anyone with the link sees just this ad and the product's name, no prices or other details. Not listed in search engines.</p>
+    </div>
+    {% endif %}
     {% if j.status in ('done', 'failed') %}<form method="post" action="{{ url_for('jobs.delete', jid=j.id) }}" data-confirm="Delete this ad? Credits already spent stay in your history." class="jd-del"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ back }}"><button class="linkbtn">Delete this ad</button></form>{% endif %}
   </template>
 </article>
