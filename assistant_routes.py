@@ -8,6 +8,7 @@ free up to assistant.free_credits() per workspace, then cost what they use
 (x markup) once the member has said that's fine.
 """
 import json
+import re
 
 from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
 
@@ -23,6 +24,7 @@ from core import charge_ai, login_required, queue_job
 
 bp = Blueprint("assistant", __name__)
 PER_HOUR = 80          # member messages per workspace per hour
+APP_TAG_RE = re.compile(r"\(\s*app\s*\)", re.I)
 
 
 def _thread(conn, create=True):
@@ -55,6 +57,36 @@ def _save(conn, t, data, credits=0, free=0, usd=0.0):
                  (json.dumps(data), credits, free, round(usd, 5), db.now(), t["id"]))
     conn.execute("UPDATE workspaces SET setup_json=? WHERE id=?", (json.dumps(data.get("setup") or {}), g.ws["id"]))
     conn.commit()
+
+
+SPEND_CARDS = ("propose_import", "propose_first_ad")
+
+
+def _claim(conn, t, card) -> bool:
+    """Mark a spend card as taken, atomically, before anything is spent on it.
+    Two tabs, a double click or a retried request all read the card as open;
+    only the first to claim it may spend. False when it's no longer open. The
+    final _save writes the card's real status (done, or open again)."""
+    conn.commit()
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        row = conn.execute("SELECT data_json FROM assistant_threads WHERE id=?", (t["id"],)).fetchone()
+        try:
+            stored = json.loads(row["data_json"] or "{}") if row else {}
+        except ValueError:
+            stored = {}
+        c = (stored.get("cards") or {}).get(card["id"])
+        if not c or c.get("status") != "open":
+            conn.rollback()
+            return False
+        c["status"] = "working"
+        conn.execute("UPDATE assistant_threads SET data_json=?, updated_at=? WHERE id=?",
+                     (json.dumps(stored), db.now(), t["id"]))
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def _free_left(conn):
@@ -178,6 +210,9 @@ def _turn(conn, t, data, screen, job_started=False):
 def say():
     d = request.get_json(silent=True) or {}
     text = " ".join(str(d.get("text") or "").split())[:1500]
+    # "(app)" marks the app's own notes (what was really started or spent); a
+    # member typing it must not pass as one, to the model or in the panel.
+    text = APP_TAG_RE.sub("[app]", text)
     screen = str(d.get("screen") or "")[:80]
     if not llm.anthropic_ready():
         return jsonify({"error": "The setup guide isn't switched on yet."}), 503
@@ -212,11 +247,17 @@ def say():
 
 
 def _confirm_by_text(conn, t, data, card, text, screen):
+    if not _claim(conn, t, card):
+        return jsonify(_payload(conn, data, {"items": [], "error": "That card was already answered."}))
     ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone()
-    if card["kind"] == "propose_import":
-        note, extra = _do_import(conn, card)
-    else:
-        note, extra = _do_first_ad(conn, ws, card)
+    try:
+        if card["kind"] == "propose_import":
+            note, extra = _do_import(conn, card)
+        else:
+            note, extra = _do_first_ad(conn, ws, card)
+    except Exception:
+        _save(conn, t, data)        # the card is open again (nothing was spent)
+        raise
     data["cards"][card["id"]] = card
     assistant.add_member(data, text)
     if note is None:        # e.g. not enough credits for the import: nothing ran
@@ -245,14 +286,22 @@ def action():
             return jsonify(_payload(conn, data, {"items": [], "error": "That card was already answered."}))
         choice = d.get("choice")
         note, extra = None, {}
+        spends = choice != "cancel" and (card["kind"] == "propose_import" or
+                                         (card["kind"] == "propose_first_ad" and card.get("ad") == "image"))
+        if spends and not _claim(conn, t, card):
+            return jsonify(_payload(conn, data, {"items": [], "error": "That card was already answered."}))
         ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone()
-        if choice == "cancel":
+        if spends:
+            try:
+                note, extra = _do_import(conn, card) if card["kind"] == "propose_import" else _do_first_ad(conn, ws, card)
+            except Exception:
+                _save(conn, t, data)        # the card is open again (nothing was spent)
+                raise
+        elif choice == "cancel":
             card["status"] = "cancelled"
             note = {"propose_import": "The seller didn't import the page.", "propose_first_ad": "The seller said not now to the first ad.",
                     "review_suggested_claims": "The seller approved none of the suggested claims.",
                     "request_photo": "The seller skipped photos for now."}.get(card["kind"], "The seller dismissed the card.")
-        elif card["kind"] == "propose_import":
-            note, extra = _do_import(conn, card)
         elif card["kind"] == "review_suggested_claims":
             p = products.get_product(conn, g.ws["id"], card.get("product"))
             if p is None:
@@ -284,8 +333,6 @@ def action():
             note = f"The seller added photos; the product has {n} photo(s) now." if n else None
             if not n:
                 return jsonify(_payload(conn, data, {"items": [], "error": "No photos arrived. Try the upload again."}))
-        elif card["kind"] == "propose_first_ad" and card.get("ad") == "image":
-            note, extra = _do_first_ad(conn, ws, card)
         else:
             card["status"] = "done"
             note = "The seller opened it."

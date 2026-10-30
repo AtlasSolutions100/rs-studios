@@ -361,13 +361,18 @@ def trim(messages):
     return messages[cut:]
 
 
-STARTED_RE = re.compile(
-    r"\b(being (made|built|created|generated|rendered)|on (its|it's|the) way|in the works|(is|are|it's|its) "
-    r"(generating|rendering|cooking|processing|queued|started|underway|running)|(i'?ve|i have|i) (started|kicked off|"
-    r"queued|submitted|launched)|(making|building|creating|generating|rendering) (it|your (first )?ad|the ad|that) now|"
-    r"(it'?s|it is|your ad is|the ad is) (done|ready|finished|live)|(check|see|find) (it )?(in )?(the|your) library)", re.I)
+_PROGRESS = (r"being (made|built|created|generated|rendered)|on (its|it's|the) way|in the works|(is|are|it's|its) "
+             r"(generating|rendering|cooking|processing|queued|started|underway|running)|(i'?ve|i have|i) (started|"
+             r"kicked off|queued|submitted|launched)|(making|building|creating|generating|rendering) (it|your (first )?"
+             r"(ad|video)|the (ad|video)|that) now")
+_DONE = r"(it'?s|it is|your (ad|video) is|the (ad|video) is) (done|ready|finished|live)"
+_LIBRARY = r"(check|see|find) (it )?(in )?(the|your) library"
+STARTED_RE = re.compile(rf"\b({_PROGRESS}|{_DONE}|{_LIBRARY})", re.I)
+PROGRESS_RE, DONE_RE, LIBRARY_RE = (re.compile(rf"\b({x})", re.I) for x in (_PROGRESS, _DONE, _LIBRARY))
 NOT_STARTED = ("Nothing has started yet. Press **Make it** on the card above (or type \"make it\") and I'll start "
                "it right away.")
+NOTHING_MADE = ("Nothing is being made yet. I can't start ads myself: they start when you press the button on a card "
+                "(Make it, or Open Create for a video).")
 
 
 def awaiting_make(cards: dict) -> bool:
@@ -376,31 +381,55 @@ def awaiting_make(cards: dict) -> bool:
                for c in (cards or {}).values())
 
 
-def guard_started(thread: dict, start: int, shown: list[dict], job_started: bool) -> list[dict]:
+def guard_started(thread: dict, start: int, shown: list[dict], job_started: bool, in_flight: bool = True,
+                  made: bool = True) -> list[dict]:
     """The guide may not tell the seller an ad is being made when the app
     didn't start one. Rewrites such lines from this turn (in the stored
-    conversation too, so the model doesn't keep believing it)."""
-    if job_started or not awaiting_make(thread.get("cards")):
+    conversation too, so the model doesn't keep believing it).
+
+    While an image Make-it card is open, any started/done talk is wrong. With
+    no card open it's still wrong when nothing is in flight (in_flight: a
+    pending or running job in the workspace) or, for "it's done", when nothing
+    was ever made (made)."""
+    if job_started:
         return shown
+    if awaiting_make(thread.get("cards")):
+        def false(t):
+            return STARTED_RE.search(t)
+        fix = NOT_STARTED
+    elif in_flight and made:
+        return shown
+    else:
+        def false(t):
+            return ((not in_flight and PROGRESS_RE.search(t)) or (not made and DONE_RE.search(t))
+                    or (not in_flight and not made and LIBRARY_RE.search(t)))
+        fix = NOTHING_MADE
     fixed = False
     for m in thread["messages"][start:]:
         if m["role"] != "assistant":
             continue
         for b in m["content"]:
-            if b.get("type") == "text" and STARTED_RE.search(b.get("text") or ""):
-                b["text"] = NOT_STARTED     # never empty: the API refuses empty text blocks
+            if b.get("type") == "text" and false(b.get("text") or ""):
+                b["text"] = fix     # never empty: the API refuses empty text blocks
                 fixed = True
     if not fixed:
         return shown
     out, said = [], False
     for it in shown:
-        if it.get("role") == "assistant" and STARTED_RE.search(it.get("text") or ""):
+        if it.get("role") == "assistant" and false(it.get("text") or ""):
             if not said:
-                out.append({"role": "assistant", "text": NOT_STARTED})
+                out.append({"role": "assistant", "text": fix})
                 said = True
             continue
         out.append(it)
     return out
+
+
+def job_counts(conn, ws_id) -> tuple[bool, bool]:
+    """(anything pending or running, anything finished) in the workspace."""
+    r = conn.execute("SELECT COALESCE(SUM(status IN ('pending','running')),0), COALESCE(SUM(status='done'),0) FROM jobs "
+                     "WHERE workspace_id=? AND deleted_at IS NULL", (ws_id,)).fetchone()
+    return bool(r[0]), bool(r[1])
 
 
 def run(conn, ws, thread: dict, screen: str, usage: llm.Usage, job_started: bool = False) -> list[dict]:
@@ -445,7 +474,8 @@ def run(conn, ws, thread: dict, screen: str, usage: llm.Usage, job_started: bool
             [{"type": "text", "text": "Done. What next?"}]
         msgs.append({"role": "assistant", "content": content})
         shown += [{"role": "assistant", "text": b["text"].strip()} for b in content if b.get("text", "").strip()]
-    return guard_started(thread, start, shown, job_started)
+    in_flight, made = job_counts(conn, ws["id"])
+    return guard_started(thread, start, shown, job_started, in_flight, made)
 
 
 CONFIRM_WORDS = {"yes", "yep", "yeah", "yup", "ya", "y", "ok", "okay", "k", "sure", "confirm", "confirmed", "go", "ahead",
