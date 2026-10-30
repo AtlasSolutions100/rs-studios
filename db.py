@@ -407,6 +407,13 @@ CREATE TABLE IF NOT EXISTS free_previews (
 CREATE TABLE IF NOT EXISTS c_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, title TEXT NOT NULL, starts_at TEXT NOT NULL,
     tz TEXT, duration_min INTEGER NOT NULL DEFAULT 60, link TEXT, about TEXT, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS outreach_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, to_addr TEXT NOT NULL, brand TEXT, subject TEXT NOT NULL, body_text TEXT,
+    follow_up INTEGER NOT NULL DEFAULT 0, is_test INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'sending',
+    provider_id TEXT, error TEXT, user_id INTEGER, created_at TEXT NOT NULL, sent_at TEXT);
+CREATE INDEX IF NOT EXISTS idx_outreach_to ON outreach_log(to_addr, created_at);
+CREATE TABLE IF NOT EXISTS outreach_suppressions (
+    entry TEXT PRIMARY KEY, note TEXT, user_id INTEGER, created_at TEXT NOT NULL);
 """
 
 # Columns added after the first release: (table, column, definition).

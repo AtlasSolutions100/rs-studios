@@ -33,6 +33,8 @@ name: Deploy Campaignify (campaignify.ai)
 #   RS_FREE_PREVIEW / RS_FREE_PREVIEWS_PER_DAY               optional variables: the free 480p preview (cap default 30/day)
 #   RS_EMAIL_VERIFY / RS_ACCOUNT_MAIL_FROM                  optional variables: confirm-your-email for free accounts
 #                          (0 switches it off) and its From (default "Campaignify" <no-reply@RS_MAIL_DOMAIN>)
+#   RS_OUTREACH_FROM       optional variable: the From of admin outreach emails (/admin/outreach),
+#                          default "Koby Stull" <hello@RS_MAIL_DOMAIN>; replies go to hello@ its domain
 # A secret or variable that isn't set is simply not sent, so the server keeps
 # whatever it already has.
 on:
@@ -97,6 +99,7 @@ jobs:
           RS_FREE_PREVIEWS_PER_DAY: ${{ vars.RS_FREE_PREVIEWS_PER_DAY }}
           RS_EMAIL_VERIFY: ${{ vars.RS_EMAIL_VERIFY }}
           RS_ACCOUNT_MAIL_FROM: ${{ vars.RS_ACCOUNT_MAIL_FROM }}
+          RS_OUTREACH_FROM: ${{ vars.RS_OUTREACH_FROM }}
         run: |
           git archive --format=tar.gz -o /tmp/app.tgz HEAD
           python3 - <<'PY'
@@ -107,7 +110,7 @@ jobs:
                                              "RESEND_API_KEY", "RESEND_WEBHOOK_SECRET", "RS_MAIL_DOMAIN", "RS_POSTAL_ADDRESS",
                                              "RS_HD_MARKUP", "RS_VIDEO_UPSCALE_MODEL", "RS_VIDEO_UPSCALE_USD_PER_SECOND",
                                              "RS_FREE_PREVIEW", "RS_FREE_PREVIEWS_PER_DAY", "RS_EMAIL_VERIFY",
-                                             "RS_ACCOUNT_MAIL_FROM", "TWILIO_ACCOUNT_SID",
+                                             "RS_ACCOUNT_MAIL_FROM", "RS_OUTREACH_FROM", "TWILIO_ACCOUNT_SID",
                                              "TWILIO_AUTH_TOKEN", "TWILIO_PRIMARY_PROFILE_SID", "TWILIO_NOTIFY_EMAIL")
                       if os.environ.get(k)}
           print("settings sent:", ", ".join(settings) or "none")

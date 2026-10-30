@@ -1761,6 +1761,53 @@ def admin_ref_toggle(rid):
     return redirect(url_for("admin"))
 
 
+@app.route("/admin/outreach", methods=["GET", "POST"])
+@admin_required
+def admin_outreach():
+    """One-to-one outreach emails to small brands (outreach.py has the rules)."""
+    import mailer
+    import outreach
+    form = {}
+    if request.method == "POST":
+        form = {k: request.form.get(k) or "" for k in ("to", "brand", "subject", "body")}
+        form["follow_up"] = bool(request.form.get("follow_up"))
+        test = request.form.get("do") == "test"
+        with db.connect() as conn:
+            try:
+                row = outreach.send(conn, to=form["to"], brand=form["brand"], subject=form["subject"],
+                                    body=form["body"], follow_up=form["follow_up"],
+                                    test_to=g.user["email"] if test else None, user_id=g.user["id"])
+            except outreach.Refused as e:
+                flash(str(e))
+                row = None
+        if row is not None:
+            if row["status"] == "sent":
+                flash(f"Test sent to {row['to_addr']}." if test else f"Sent to {row['to_addr']}.", "ok")
+                if not test:
+                    return redirect(url_for("admin_outreach"))
+            else:
+                flash(f"The email service refused it: {row['error']}")
+    with db.connect() as conn:
+        log, sup, today = outreach.recent(conn), outreach.suppressions(conn), outreach.sent_last_day(conn)
+    return render_template("admin_outreach.html", form=form, log=log, sup=sup, today=today, cap=outreach.DAILY_CAP,
+                           repeat_days=outreach.REPEAT_DAYS, frm=outreach.from_header(), reply_to=outreach.reply_to(),
+                           address=outreach.postal_address(), opt_out=outreach.OPT_OUT_LINE,
+                           mail_on=mailer.configured())
+
+
+@app.route("/admin/outreach/suppress", methods=["POST"])
+@admin_required
+def admin_outreach_suppress():
+    import outreach
+    with db.connect() as conn:
+        try:
+            entry = outreach.suppress(conn, request.form.get("entry"), request.form.get("note"), g.user["id"])
+            flash(f"{entry} is on the do-not-contact list.", "ok")
+        except outreach.Refused as e:
+            flash(str(e))
+    return redirect(url_for("admin_outreach") + "#dnc")
+
+
 @app.route("/ref/<int:rid>")
 @login_required
 def ref_video(rid):

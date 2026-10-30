@@ -2967,3 +2967,5 @@ if __name__ == "__main__":
     # own process (their own throwaway database).
     import subprocess
     subprocess.run([sys.executable, os.path.join(HERE, "test_products.py")], check=True)
+    # Admin outreach emails (/admin/outreach), email stubbed.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_outreach.py")], check=True)

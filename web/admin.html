@@ -2,7 +2,7 @@
 {% block body %}
 <div class="page full">
 <p class="eyebrow">Admin</p><h1>Run the <span class="gold">studio</span></h1>
-<p class="muted">AI writing (planner, copy, SEO): <b>{{ ai_status }}</b></p>
+<p class="muted">AI writing (planner, copy, SEO): <b>{{ ai_status }}</b> · <a href="{{ url_for('admin_outreach') }}">Brand outreach emails</a></p>
 <p class="muted">Generation service: <b>{{ 'connected' if configured else 'not connected (set HF_KEY)' }}</b> · markup {{ markup }}× (1080p {{ hd_markup }}×) · 1 credit = $0.01</p>
 <div class="grid" style="gap:24px">
 <div class="panel scrollx">
