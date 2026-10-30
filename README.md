@@ -90,7 +90,22 @@ Audits are rate-limited per workspace (30/hour). `seo.py` parses the page and sc
 AEO, GEO including AI crawler rules in robots.txt and llms.txt), and the optional AI pass writes a title, description,
 answer-first summary, FAQ, keyword and topic ideas; `seo.jsonld` serializes schema.org JSON-LD itself so it's always
 valid. The audit is free; AI suggestions are charged at cost. The planner gets an `audit_page` tool on Growth+.
-Our own site serves `/robots.txt`, `/sitemap.xml`, `/llms.txt`, canonical links and Organization JSON-LD.
+Our own site's search metadata lives in `public_site.py`: a title, description, canonical URL on
+https://campaignify.ai, share card (`static/img/og-campaignify.png`) and JSON-LD (Organization, WebSite, WebPage,
+SoftwareApplication with Offers from `plans.py`, FAQPage where a FAQ shows) for each public page, `/sitemap.xml`,
+`/robots.txt`, `/llms.txt`, and the answer-first pages (`/ai-ugc-ad-generator`, `/arcads-alternative`,
+`/ai-product-ads-for-shopify`, `/ai-ad-copy-generator`, `web/solution.html`) plus `/pricing`. Everything else
+(the app, admin, login/signup, files, share links) sends `X-Robots-Tag: noindex` and a noindex robots meta.
+
+## Google Ads tag (`gads.py`)
+
+The Google tag `AW-18543041154` loads on every page built on `web/base.html` (public site and app; never on
+members' pages or share links). Ad cookies start denied in the EEA/UK/CH and under GPC/Do Not Track (there's no
+cookie banner). Conversions fire only when their labels are set: `GADS_SIGNUP_LABEL` (sign_up, on the first page after
+a new non-owner account) and `GADS_PURCHASE_LABEL` (purchase, on the billing page Stripe returns to with
+`session_id`, value + currency, transaction_id = the Checkout Session id, reported once via `ad_conversions`).
+A visit with UTM tags or a gclid/gbraid/wbraid leaves a 90-day first-party cookie (`cfy_ft`) that sign-up saves on
+`users.first_touch`.
 
 ## Ad-account setup hub (`/app/ad-accounts`, Starter+)
 
@@ -180,13 +195,13 @@ the token so it works logged out. Stop sharing (or deleting the ad) makes the li
 
 ## Tests
 
-    python tests/test_app.py        # generation API and Stripe faked; 122 checks
+    python tests/test_app.py        # generation API and Stripe faked; also runs test_products, test_outreach, test_public_site
 
 ## Deploy
 
 Push to main. The workflow runs the tests, then sends the commit and the
 settings from GitHub secrets (`HIGGSFIELD_API_KEY`, `STRIPE_SECRET_KEY`,
-`STRIPE_WEBHOOK_SECRET`; optional variables `RS_MARKUP`, `RS_STARTER_CREDITS`) to the deploy hook on the Crowdcut server, authenticated with a
+`STRIPE_WEBHOOK_SECRET`; optional variables `RS_MARKUP`, `RS_STARTER_CREDITS`, `GADS_SIGNUP_LABEL`, `GADS_PURCHASE_LABEL`) to the deploy hook on the Crowdcut server, authenticated with a
 GitHub OIDC token (no SSH key). The hook writes `/opt/rs-studios`, keeps
 `data/` and `settings.txt`, and runs `docker compose -p rs-studios up -d --build`.
 Crowdcut's Caddy serves campaignify.ai (studio.rectorandstull.com redirects there) and proxies to

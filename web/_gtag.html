@@ -1,0 +1,17 @@
+{# Google tag (gads.py). Ad cookies start denied in the EEA/UK/CH and under GPC or Do Not Track. #}
+{% if gads_tag is defined and gads_tag %}{% set evs = gads_events() %}
+<script async src="https://www.googletagmanager.com/gtag/js?id={{ gads_tag|urlencode }}"></script>
+<script>
+window.dataLayer = window.dataLayer || [];
+function gtag(){ dataLayer.push(arguments); }
+(function(){
+  var off = navigator.globalPrivacyControl === true || navigator.doNotTrack === '1' || window.doNotTrack === '1';
+  var d = off ? 'denied' : 'granted';
+  gtag('consent', 'default', {ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied', analytics_storage: 'denied', region: {{ gads_consent_regions|tojson }}});
+  gtag('consent', 'default', {ad_storage: d, ad_user_data: d, ad_personalization: d, analytics_storage: 'denied'});
+  gtag('js', new Date());
+  gtag('config', {{ gads_tag|tojson }});
+  {% for ev in evs %}gtag('event', 'conversion', {{ ev.params|tojson }});
+  {% endfor %}
+})();
+</script>{% endif %}

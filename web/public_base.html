@@ -1,21 +1,26 @@
 {% extends "base.html" %}
-{% block head %}{{ super() }}<link rel="canonical" href="{{ request.base_url }}">{% block pubhead %}{% endblock %}<script>
-// Muted loops play only while on screen; nothing is fetched until they get close.
-(function(){
-  var vids = [].slice.call(document.querySelectorAll('video[data-inview]'));
-  if (!vids.length) return;
-  var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (!('IntersectionObserver' in window)) { vids.forEach(function(v){ if (v.dataset.poster) v.poster = v.dataset.poster; }); if (!still) vids.forEach(function(v){ v.play().catch(function(){}); }); return; }
-  function poster(v){ if (v.dataset.poster && !v.poster) v.poster = v.dataset.poster; }
-  var near = new IntersectionObserver(function(es){ es.forEach(function(e){ if (e.isIntersecting) { poster(e.target); near.unobserve(e.target); } }); }, {rootMargin: '800px 0px'});
-  var io = new IntersectionObserver(function(es){ es.forEach(function(e){
-    var v = e.target;
-    if (e.isIntersecting && !still) { poster(v); if (v.preload === 'none') v.preload = 'auto'; v.play().catch(function(){}); }
-    else if (!v.paused) v.pause();
-  }); }, {rootMargin: '200px 0px', threshold: 0.15});
-  vids.forEach(function(v){ near.observe(v); io.observe(v); });
-})();
-</script>
+{% block title %}{{ page_meta.title if page_meta is defined else 'Campaignify' }}{% endblock %}
+{% block robots %}<meta name="robots" content="index, follow, max-image-preview:large">{% endblock %}
+{% block head %}{{ super() }}{% if page_meta is defined %}{% set pm = page_meta %}
+<meta name="description" content="{{ pm.description }}">
+<link rel="canonical" href="{{ pm.url }}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{{ pm.url }}">
+<meta property="og:title" content="{{ pm.title }}">
+<meta property="og:description" content="{{ pm.description }}">
+<meta property="og:image" content="{{ pm.image }}">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="{{ pm.image_alt }}">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ pm.title }}">
+<meta name="twitter:description" content="{{ pm.description }}">
+<meta name="twitter:image" content="{{ pm.image }}">
+<meta name="twitter:image:alt" content="{{ pm.image_alt }}">
+<script type="application/ld+json">{{ pm.jsonld|safe }}</script>
+{% endif %}{% block pubhead %}{% endblock %}
 {% endblock %}
 {% block shell %}
 <a class="skip" href="#main">Skip to content</a>
@@ -26,7 +31,7 @@
       <a href="{{ url_for('features') }}">Features</a>
       <a href="{{ url_for('index') }}#journey">How it works</a>
       <a href="{{ url_for('index') }}#reps">For reps</a>
-      <a href="{{ url_for('index') }}#pricing">Pricing</a>
+      <a href="{{ url_for('pricing') }}">Pricing</a>
       <a href="{{ url_for('index') }}#faq">FAQ</a>
     </nav>
     <div class="lp-actions">
@@ -38,24 +43,7 @@
 </header>
 <main id="main">
 {% for m in get_flashed_messages() %}<div class="lp-wrap"><div class="flash" style="margin-top:20px">{{ m }}</div></div>{% endfor %}
-{% block main %}<script>
-// Muted loops play only while on screen; nothing is fetched until they get close.
-(function(){
-  var vids = [].slice.call(document.querySelectorAll('video[data-inview]'));
-  if (!vids.length) return;
-  var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (!('IntersectionObserver' in window)) { vids.forEach(function(v){ if (v.dataset.poster) v.poster = v.dataset.poster; }); if (!still) vids.forEach(function(v){ v.play().catch(function(){}); }); return; }
-  function poster(v){ if (v.dataset.poster && !v.poster) v.poster = v.dataset.poster; }
-  var near = new IntersectionObserver(function(es){ es.forEach(function(e){ if (e.isIntersecting) { poster(e.target); near.unobserve(e.target); } }); }, {rootMargin: '800px 0px'});
-  var io = new IntersectionObserver(function(es){ es.forEach(function(e){
-    var v = e.target;
-    if (e.isIntersecting && !still) { poster(v); if (v.preload === 'none') v.preload = 'auto'; v.play().catch(function(){}); }
-    else if (!v.paused) v.pause();
-  }); }, {rootMargin: '200px 0px', threshold: 0.15});
-  vids.forEach(function(v){ near.observe(v); io.observe(v); });
-})();
-</script>
-{% endblock %}
+{% block main %}{% endblock %}
 </main>
 <footer class="lp-foot">
   <div class="lp-wrap lp-foot-in">
@@ -63,14 +51,27 @@
       <a class="lp-logo sm" href="{{ url_for('index') }}" aria-label="Campaignify home">{% include "_wordmark.svg" %}</a>
       <p class="small muted" style="margin:10px 0 0">Your whole campaign, in minutes.</p>
     </div>
-    <nav class="lp-foot-links" aria-label="Footer">
-      <a href="{{ url_for('features') }}">Features</a>
-      <a href="{{ url_for('index') }}#pricing">Pricing</a>
-      <a href="{{ url_for('login') }}">Log in</a>
-      <a href="{{ url_for('privacy') }}">Privacy</a>
-      <a href="{{ url_for('terms') }}">Terms</a>
-      <a href="mailto:hello@campaignify.ai">Contact</a>
-    </nav>
+    <div class="lp-foot-cols">
+      <nav class="lp-foot-links" aria-label="Product">
+        <b>Product</b>
+        <a href="{{ url_for('features') }}">Features</a>
+        <a href="{{ url_for('pricing') }}">Pricing</a>
+        <a href="{{ url_for('signup') }}">Start free</a>
+        <a href="{{ url_for('login') }}">Log in</a>
+      </nav>
+      <nav class="lp-foot-links" aria-label="Use cases">
+        <b>Use cases</b>
+        {% for slug in solution_links() %}<a href="{{ url_for('solution', slug=slug) }}">{{ solution_nav(slug) }}</a>
+        {% endfor %}
+      </nav>
+      <nav class="lp-foot-links" aria-label="Company">
+        <b>Company</b>
+        <a href="{{ url_for('privacy') }}">Privacy</a>
+        <a href="{{ url_for('terms') }}">Terms</a>
+        <a href="{{ url_for('messaging.policy') }}">Messaging policy</a>
+        <a href="mailto:hello@campaignify.ai">Contact</a>
+      </nav>
+    </div>
   </div>
   <div class="lp-wrap">
     <p class="small dim lp-legal">Campaignify isn't run, sponsored or endorsed by any direct-sales company. The products in our examples are invented and AI-generated, and the app screens use demo data.</p>

@@ -29,11 +29,13 @@ import owners
 import compliance
 import creator
 import db
+import gads
 import hf
 import plans
 import presenter_stills
 import preview
 import products
+import public_site
 import verify
 import worker
 from core import admin_required, brand, feature_required, is_owner, login_required, owner_required, picked_product  # noqa: F401
@@ -264,7 +266,51 @@ def _security_headers(resp):
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
     resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    if request.path.startswith(PRIVATE_PREFIXES) or request.path in PRIVATE_PATHS:
+        resp.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
+    _first_touch(resp)
     return resp
+
+
+# Never indexed, whatever they render (the app, admin, accounts, files, webhooks, share links).
+PRIVATE_PREFIXES = ("/app", "/admin", "/api/", "/media/", "/photo/", "/ref/", "/presenter/", "/verify", "/webhooks/",
+                    "/s/", "/t/", "/u/", "/_")
+PRIVATE_PATHS = {"/login", "/signup", "/logout", "/health"}
+# Our own public pages: where a visit's UTM tags / Google click id are kept for sign-up (gads.py).
+# Members' pages and smart links (/p/, /l/, /f/, /c/) carry *their* campaigns and are left alone.
+FIRST_TOUCH_ENDPOINTS = {"index", "features", "pricing", "solution", "privacy", "terms", "messaging.policy",
+                         "signup", "login"}
+
+
+def _first_touch(resp):
+    if request.method != "GET" or request.endpoint not in FIRST_TOUCH_ENDPOINTS or not request.args:
+        return
+    from urllib.parse import urlsplit
+    ref = urlsplit(request.referrer or "").hostname or ""
+    value = gads.touch(request.args, request.headers, request.path, request.cookies.get(gads.COOKIE),
+                       "" if ref == request.host.split(":")[0] else ref)
+    if value:
+        resp.set_cookie(gads.COOKIE, value, max_age=gads.COOKIE_DAYS * 86400, httponly=True, samesite="Lax",
+                        secure=request.is_secure)
+
+
+@app.context_processor
+def _public_meta():
+    """Title, description, canonical, share card and JSON-LD for the public pages
+    (public_site.py), plus the Google tag and this page's conversion events."""
+    out = {"gads_tag": gads.tag_id(), "gads_consent_regions": gads.CONSENT_REGIONS, "gads_events": _gads_events}
+    m = public_site.meta(request.endpoint, request.view_args)
+    if m:
+        out["page_meta"] = m
+    return out
+
+
+def _gads_events():
+    """Called once by the layout: the conversions to fire on this page."""
+    if "gads_done" in g:
+        return []
+    g.gads_done = True
+    return gads.take(session) if gads.SESSION_KEY in session else []
 
 
 def _video_seconds(path):
@@ -368,30 +414,13 @@ JOURNEY = [
 ]
 
 
-def _site_jsonld(root, description):
-    return json.dumps({"@context": "https://schema.org", "@graph": [
-        {"@type": "Organization", "@id": root + "#org", "name": "Campaignify", "url": root, "email": "hello@campaignify.ai",
-         "logo": url_for("static", filename="img/campaignify-icon-512.png", _external=True)},
-        {"@type": "WebSite", "name": "Campaignify", "url": root, "publisher": {"@id": root + "#org"}},
-        {"@type": "SoftwareApplication", "name": "Campaignify", "applicationCategory": "BusinessApplication",
-         "operatingSystem": "Web", "url": root, "description": description,
-         "featureList": [f["name"] for f in plans.FEATURES.values() if f["shipped"]],
-         "offers": [{"@type": "Offer", "name": f"{p['name']} plan", "price": p["usd"], "priceCurrency": "USD"}
-                    for p in plans.PAID]}]}).replace("</", "<\\/")
-
-
-SITE_DESCRIPTION = ("Campaignify plans, makes and runs a marketing campaign in one place: an AI campaign planner, "
-                    "image and video ads from a product photo, copy for every platform, SEO and AI-answer audits, "
-                    "ad-account setup, landing pages, smart links, forms, contacts and a community.")
-
-
 @app.route("/")
 def index():
     """Logged in: the studio. Logged out: the public landing page."""
     if g.user:
         return redirect(url_for("studio"))
     return render_template("landing.html", gallery=GALLERY, hero=HERO_MEDIA, journey=JOURNEY,
-                           site_jsonld=_site_jsonld(request.host_url, SITE_DESCRIPTION))
+                           faq=public_site.home_faq())
 
 
 # Extra lines for the public features page, by feature key (only shipped ones show).
@@ -454,27 +483,42 @@ def features():
     return render_template("features.html", feature_details=FEATURE_DETAILS, journey=JOURNEY)
 
 
-PUBLIC_PAGES = ["index", "features", "privacy", "terms", "messaging.policy"]
+@app.route("/pricing")
+def pricing():
+    return render_template("pricing.html", faq=public_site.pricing_faq())
+
+
+def solution(slug):
+    """The answer-first pages for search intent (public_site.SOLUTIONS)."""
+    return render_template("solution.html", s=public_site.solution(slug),
+                           others=[public_site.solution(o) for o in public_site.SOLUTIONS[slug]["related"]])
+
+
+for _slug in public_site.SOLUTION_ORDER:
+    app.add_url_rule(f"/{_slug}", "solution", solution, defaults={"slug": _slug})
 
 
 @app.route("/robots.txt")
 def robots_txt():
     body = ("User-agent: *\nDisallow: /app\nDisallow: /admin\nDisallow: /api\nDisallow: /media\nDisallow: /photo\n"
             "Disallow: /ref\nDisallow: /verify\nDisallow: /webhooks\nDisallow: /t/\nDisallow: /u/\nAllow: /\n\n"
-            f"Sitemap: {request.host_url}sitemap.xml\n")
+            f"Sitemap: {public_site.SITE_URL}/sitemap.xml\n")
     return app.response_class(body, mimetype="text/plain")
 
 
 @app.route("/sitemap.xml")
 def sitemap_xml():
-    urls = "".join(f"<url><loc>{request.host_url.rstrip('/')}{url_for(p)}</loc></url>" for p in PUBLIC_PAGES)
+    """The public pages only: never the app, admin, share links (/s/) or members' pages."""
+    urls = "".join(f"<url><loc>{public_site.absolute(p)}</loc></url>" for p in public_site.sitemap_paths())
     return app.response_class('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/'
                               f'sitemap/0.9">{urls}</urlset>', mimetype="application/xml")
 
 
 @app.route("/llms.txt")
 def llms_txt():
-    return app.response_class(render_template("llms.txt", feature_details=FEATURE_DETAILS, journey=JOURNEY),
+    return app.response_class(render_template("llms.txt", feature_details=FEATURE_DETAILS, journey=JOURNEY,
+                                              site=public_site, tools_full=catalog.TOOLS,
+                                              solutions=[public_site.solution(x) for x in public_site.SOLUTION_ORDER]),
                               mimetype="text/plain")
 
 
@@ -589,10 +633,11 @@ def signup():
             # Owner setup links only work for their own address, so that one counts as confirmed;
             # everyone else confirms by email before the free credits work (verify.py).
             cur = conn.execute("INSERT INTO users (email, name, pw_hash, is_admin, workspace_id, created_at, role, "
-                               "email_verified_at, verify_nonce) VALUES (?,?,?,?,?,?,?,?,?)",
+                               "email_verified_at, verify_nonce, first_touch) VALUES (?,?,?,?,?,?,?,?,?,?)",
                                (email, name, generate_password_hash(pw), is_admin, ws_id, db.now(),
                                 "member" if joins else "owner", db.now() if owner else None,
-                                None if owner else verify.new_nonce()))
+                                None if owner else verify.new_nonce(),
+                                gads.first_touch_json(request.cookies.get(gads.COOKIE))))
             if inv:
                 conn.execute("UPDATE invites SET used_by=? WHERE code=?", (cur.lastrowid, code))
             conn.commit()
@@ -606,9 +651,14 @@ def signup():
                 verify.send_link(conn, app.secret_key, u)
         if not owner:
             db.hit(f"signup:{ip}")
+            # Google Ads sign_up conversion, fired on the first page after this (owners' setup links don't count).
+            gads.queue(session, "sign_up", transaction_id=f"signup-{cur.lastrowid}")
         # New accounts land on Home, which is the first-ad form until they've made one
         # (the setup guide is a link from there, not a detour).
-        return redirect(url_for(dest))
+        resp = redirect(url_for(dest))
+        if request.cookies.get(gads.COOKIE):
+            resp.delete_cookie(gads.COOKIE)   # it's on the account now
+        return resp
     return render_template("signup.html", invite=code, owner=owner, email="")
 
 
@@ -1226,6 +1276,8 @@ def billing_page():
     elif request.args.get("plan") == "success":
         flash("You're subscribed, thank you. Your plan and its monthly credits switch on in a few seconds; "
               "refresh if they haven't yet.")
+    if "success" in (request.args.get("checkout"), request.args.get("plan")):
+        _report_purchase((request.args.get("session_id") or "").strip()[:200], request.args.get("plan") == "success")
     try:
         if _maybe_reconcile(g.ws["id"], force=request.args.get("plan") == "success"):
             with db.connect() as conn:
@@ -1242,6 +1294,32 @@ def billing_page():
     return render_template("billing.html", purchases=purchases, ledger=ledger, packs_by=catalog.PACK_BY_CODE,
                            invoices=invoices, current=plans.plan(g.ws), subscribed=_subscribed(g.ws),
                            owner=is_owner())
+
+
+def _report_purchase(sid: str, plan: bool):
+    """Google Ads purchase conversion for the Checkout Session Stripe just returned
+    from: only a session this workspace started (ad_conversions), once. A plan's value
+    is what Stripe charged (promotion codes included) when we can read the session,
+    else the plan's price recorded at checkout."""
+    if not sid.startswith("cs_") or not gads.send_to("purchase"):
+        return
+    cents = currency = None
+    if plan:
+        try:
+            cs = billing.get_checkout_session(sid)
+            meta = cs.get("metadata") or {}
+            if meta.get("app") != billing.APP_TAG or str(meta.get("workspace_id")) != str(g.ws["id"]):
+                return
+            if cs.get("status") not in (None, "complete") and cs.get("payment_status") not in ("paid", "no_payment_required"):
+                return
+            if isinstance(cs.get("amount_total"), int):
+                cents, currency = cs["amount_total"], cs.get("currency")
+        except Exception:  # noqa: BLE001 — never break the billing page over a conversion
+            log.info("couldn't read checkout session %s for the conversion; using the recorded price", sid)
+    with db.connect() as conn:
+        ev = gads.claim_purchase(conn, sid, g.ws["id"], db.now(), value_cents=cents, currency=currency)
+    if ev:
+        gads.queue(session, "purchase", **ev)
 
 
 def _subscribed(ws) -> bool:
@@ -1267,7 +1345,7 @@ def subscribe():
     try:
         sess = billing.create_subscription_session(
             price_id=p["price_id"],
-            success_url=f"{base}{url_for('billing_page')}?plan=success",
+            success_url=f"{base}{url_for('billing_page')}?plan=success&session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{base}{url_for('billing_page')}?checkout=cancel",
             email=g.user["email"], customer=g.ws["stripe_customer_id"],
             client_reference_id=f"cfy-ws-{g.ws['id']}",
@@ -1278,6 +1356,9 @@ def subscribe():
         log.warning("plan checkout failed for workspace %s: %s", g.ws["id"], e)
         flash("Checkout couldn't start. Try again in a minute.")
         return redirect(url_for("billing_page"))
+    with db.connect() as conn:
+        gads.record_checkout(conn, sess["id"], g.ws["id"], g.user["id"], p["usd"] * 100, "usd", db.now())
+        conn.commit()
     return redirect(sess["url"], code=303)
 
 
@@ -1323,7 +1404,7 @@ def checkout():
     try:
         sess = billing.create_checkout_session(
             price_id=pack["price_id"],
-            success_url=f"{base}{url_for('billing_page')}?checkout=success",
+            success_url=f"{base}{url_for('billing_page')}?checkout=success&session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{base}{url_for('billing_page')}?checkout=cancel",
             email=g.user["email"],
             client_reference_id=f"cfy-{pid}",
@@ -1340,6 +1421,7 @@ def checkout():
         return redirect(url_for("billing_page"))
     with db.connect() as conn:
         conn.execute("UPDATE purchases SET stripe_session_id=? WHERE id=?", (sess["id"], pid))
+        gads.record_checkout(conn, sess["id"], g.ws["id"], g.user["id"], pack["usd"] * 100, "usd", db.now())
         conn.commit()
     return redirect(sess["url"], code=303)
 
@@ -1854,6 +1936,8 @@ app.register_blueprint(forms_routes.bp)
 app.register_blueprint(community_routes.bp)
 app.register_blueprint(share_routes.bp)
 app.jinja_env.globals["has_endpoint"] = lambda name: name in app.view_functions
+app.jinja_env.globals.update(faq_answer=public_site.answer_html, solution_links=lambda: public_site.SOLUTION_ORDER,
+                             solution_nav=lambda slug: public_site.SOLUTIONS[slug]["nav"])
 
 
 @app.errorhandler(400)

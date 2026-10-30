@@ -50,3 +50,9 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # Prices: Twilio per segment (x RS_MARKUP), carrier per segment and registration fees at cost, numbers x RS_MARKUP.
 # RS_SMS_USD_PER_SEGMENT=0.0083  RS_SMS_CARRIER_USD=0.0030  RS_SMS_LOCAL_NUMBER_USD=1.15  RS_SMS_TOLLFREE_NUMBER_USD=2.15
 # RS_10DLC_BRAND_LOW_USD=4  RS_10DLC_BRAND_STD_USD=44  RS_10DLC_VETTING_USD=15  RS_10DLC_CAMPAIGN_MONTHLY_USD=10
+# ---- Google Ads (our own site). The tag AW-18543041154 loads on every page; conversions fire only once their
+# labels are set (Google Ads > Goals > the conversion action > Tag setup: "send_to": "AW-18543041154/<label>").
+# The bare label or the whole send_to value both work. GADS_TAG_ID=off drops the tag (local dev).
+# GADS_SIGNUP_LABEL=AbCdEfGhIjKlMnOp
+# GADS_PURCHASE_LABEL=QrStUvWxYz012345
+# GADS_TAG_ID=AW-18543041154

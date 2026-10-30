@@ -1,0 +1,38 @@
+{% extends "public_base.html" %}
+{% block main %}
+{% set r = rates() %}{% set sc = starter_credits() %}
+<section class="lp-hero lp-hero-sm">
+  <div class="lp-wrap">
+    <p class="eyebrow">Pricing</p>
+    <h1>Campaignify pricing</h1>
+    <p class="lp-lede">Start free with {{ '{:,}'.format(sc) }} credits and no card. Plans are ${{ plans.PLANS.starter.usd }}, ${{ plans.PLANS.growth.usd }} and ${{ plans.PLANS.scale.usd }} a month with monthly credits and the campaign tools, and credit packs top up any account. 1 credit = $0.01, and you see the price of every ad before it's made.</p>
+  </div>
+</section>
+<section class="lp-sec" id="plans">
+  <div class="lp-wrap">
+    <h2 class="lp-h2">Plans and credit packs</h2>
+    <p class="lp-sub muted">The free studio makes ads. Starter adds the planner, copy, ad-account setup, a landing page and smart links; Growth adds search and AI-answer audits, forms, contacts and full link analytics; Scale adds your community. An image ad is {{ r.image }} credits, a 5-second video {{ r.video5 }}, a 10-second video {{ r.video10 }}.</p>
+    {% include "_pricing.html" %}
+    <p class="small muted">Want the detail behind each plan? See <a href="{{ url_for('features') }}">every feature, step by step</a>.</p>
+  </div>
+</section>
+<section class="lp-sec" id="faq">
+  <div class="lp-wrap lp-faq">
+    <div>
+      <p class="eyebrow">FAQ</p>
+      <h2 class="lp-h2">Pricing questions</h2>
+    </div>
+    <div>
+      {% for q, a in faq %}<details><summary>{{ q }}</summary><p>{{ faq_answer(a) }}</p></details>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+<section class="lp-sec lp-final">
+  <div class="lp-wrap">
+    <h2 class="lp-h2">Make your first ad free.</h2>
+    <p class="muted">{{ '{:,}'.format(sc) }} free credits when you sign up, enough for {{ sc // r.image }} image ads. No card needed.</p>
+    <a class="btn lg" href="{{ url_for('signup') }}">Start free</a>
+  </div>
+</section>
+{% endblock %}

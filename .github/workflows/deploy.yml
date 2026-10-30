@@ -35,6 +35,10 @@ name: Deploy Campaignify (campaignify.ai)
 #                          (0 switches it off) and its From (default "Campaignify" <no-reply@RS_MAIL_DOMAIN>)
 #   RS_OUTREACH_FROM       optional variable: the From of admin outreach emails (/admin/outreach),
 #                          default "Koby Stull" <hello@RS_MAIL_DOMAIN>; replies go to hello@ its domain
+#   GADS_SIGNUP_LABEL      optional variable: Google Ads conversion label for sign_up (not a secret; it's
+#                          in every page's HTML once set). Unset: the tag loads but this conversion doesn't fire
+#   GADS_PURCHASE_LABEL    optional variable: Google Ads conversion label for purchase (plans and packs)
+#   GADS_TAG_ID            optional variable: another Google tag id (default AW-18543041154)
 # A secret or variable that isn't set is simply not sent, so the server keeps
 # whatever it already has.
 on:
@@ -100,6 +104,9 @@ jobs:
           RS_EMAIL_VERIFY: ${{ vars.RS_EMAIL_VERIFY }}
           RS_ACCOUNT_MAIL_FROM: ${{ vars.RS_ACCOUNT_MAIL_FROM }}
           RS_OUTREACH_FROM: ${{ vars.RS_OUTREACH_FROM }}
+          GADS_SIGNUP_LABEL: ${{ vars.GADS_SIGNUP_LABEL }}
+          GADS_PURCHASE_LABEL: ${{ vars.GADS_PURCHASE_LABEL }}
+          GADS_TAG_ID: ${{ vars.GADS_TAG_ID }}
         run: |
           git archive --format=tar.gz -o /tmp/app.tgz HEAD
           python3 - <<'PY'
@@ -111,7 +118,8 @@ jobs:
                                              "RS_HD_MARKUP", "RS_VIDEO_UPSCALE_MODEL", "RS_VIDEO_UPSCALE_USD_PER_SECOND",
                                              "RS_FREE_PREVIEW", "RS_FREE_PREVIEWS_PER_DAY", "RS_EMAIL_VERIFY",
                                              "RS_ACCOUNT_MAIL_FROM", "RS_OUTREACH_FROM", "TWILIO_ACCOUNT_SID",
-                                             "TWILIO_AUTH_TOKEN", "TWILIO_PRIMARY_PROFILE_SID", "TWILIO_NOTIFY_EMAIL")
+                                             "TWILIO_AUTH_TOKEN", "TWILIO_PRIMARY_PROFILE_SID", "TWILIO_NOTIFY_EMAIL",
+                                             "GADS_SIGNUP_LABEL", "GADS_PURCHASE_LABEL", "GADS_TAG_ID")
                       if os.environ.get(k)}
           print("settings sent:", ", ".join(settings) or "none")
           body = {"commit": os.environ["GITHUB_SHA"], "settings": settings,
