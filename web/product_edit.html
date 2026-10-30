@@ -83,11 +83,16 @@
           </div>
           {% else %}<div class="empty" style="grid-column:1/-1">No photos yet. Every image and video starts from one, so add a clear shot of the real product.</div>{% endfor %}
         </div>
-        {% if candidates %}
+        {% if candidates or more_candidates %}
         <form method="post" action="{{ url_for('products.import_photos', pid=p.id) }}" class="cands" data-busy>
           <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-          <h3>From the product page</h3><p class="small muted" style="margin-top:0">Pick the ones that show the real product. We download them into your photos.</p>
-          <div class="photos big">{% for u in candidates %}<label class="photo"><input type="checkbox" name="img" value="{{ u }}"><img src="{{ u }}" alt="" loading="lazy" referrerpolicy="no-referrer"></label>{% endfor %}</div>
+          <h3>From the product page</h3><p class="small muted" style="margin-top:0">{% if candidates %}The page lists these as this product's photos. {% endif %}Pick the ones that show the real product. We download them into your photos.</p>
+          {% if candidates %}<div class="photos big">{% for u in candidates %}<label class="photo"><input type="checkbox" name="img" value="{{ u }}"><img src="{{ u }}" alt="" loading="lazy" referrerpolicy="no-referrer"></label>{% endfor %}</div>{% endif %}
+          {% if more_candidates %}
+          <details {{ 'open' if not candidates }} style="margin-top:12px"><summary class="small">{{ 'Other images on the page' if candidates else 'Images on the page' }} ({{ more_candidates|length }}){{ ': may show other products or graphics' if candidates }}</summary>
+            <div class="photos big" style="margin-top:8px">{% for u in more_candidates %}<label class="photo"><input type="checkbox" name="img" value="{{ u }}"><img src="{{ u }}" alt="" loading="lazy" referrerpolicy="no-referrer"></label>{% endfor %}</div>
+          </details>
+          {% endif %}
           <p style="margin:12px 0 0"><button class="btn sm">Add selected photos</button></p>
         </form>
         {% endif %}

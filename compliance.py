@@ -13,7 +13,7 @@ RULES = [
     ("block", r"\b(los[et]|losing|drop|shed|burn)\b[^.]{0,30}\b(weight|pounds|lbs|kilos?|fat|inches|belly)\b",
      "No weight-loss language."),
     ("block", r"\bweight[- ]?loss\b|\bslim(ming)?\b|\bskinny\b|\bfat[- ]burn", "No weight-loss language."),
-    ("block", r"\bbefore\s*(and|&|/)\s*after\b", "No before-and-after content."),
+    ("block", r"\bbefore\s*-?\s*(and|&|/|vs\.?)\s*-?\s*after\b", "No before-and-after content.", "negatable"),
     ("block", r"\b(cure[sd]?|treat(s|ment)?|heal(s|ing)?|prevent(s|ion)?|diagnos\w*)\b",
      "No health or disease claims: use only the label's words."),
     ("block", r"\b(diabetes|cancer|anxiety|depression|adhd|arthritis|disease|blood pressure|cholesterol)\b",
@@ -44,15 +44,34 @@ RULES = [
      "AI presenters can't speak as customers or claim results."),
 ]
 
-_COMPILED = [(lvl, re.compile(p, re.I), msg) for lvl, p, msg in RULES]
+_COMPILED = [(r[0], re.compile(r[1], re.I), r[2], "negatable" in r[3:]) for r in RULES]
+
+# A rule marked "negatable" doesn't fire on a phrase that rules the thing out
+# ("no before/after imagery", "without before-and-after shots", "avoid
+# before & after"). "No more ..." is not a negation: it promises a change.
+_NEGATION = re.compile(r"\b(no|not|never|without|avoid(ing)?|don'?t (use|show|include)|do not (use|show|include)|"
+                       r"zero|free of|instead of|rather than)\b(\s+(any|a|an|the|real|actual|explicit|obvious))*\s*$", re.I)
+
+
+def _negated(text: str, start: int) -> bool:
+    before = text[max(0, start - 40):start]
+    return bool(_NEGATION.search(before)) and not re.search(r"\bno\s+more\s*$", before, re.I)
+
+
+def _hits(rx, text: str, negatable: bool) -> bool:
+    if not negatable:
+        return bool(rx.search(text))
+    return any(not _negated(text, m.start()) for m in rx.finditer(text))
 
 
 def check(*texts: str) -> dict:
-    """{'ok': bool, 'blocks': [msg], 'warnings': [msg]} for the combined text."""
+    """{'ok': bool, 'blocks': [msg], 'warnings': [msg]} for the combined text.
+    The same rules run for every kind of text everywhere (headlines, concepts,
+    scripts, briefs); callers check each piece the member sees on its own."""
     text = " ".join(t for t in texts if t)
     blocks, warns = [], []
-    for lvl, rx, msg in _COMPILED:
-        if rx.search(text):
+    for lvl, rx, msg, negatable in _COMPILED:
+        if _hits(rx, text, negatable):
             (blocks if lvl == "block" else warns).append(msg)
     dedupe = lambda xs: list(dict.fromkeys(xs))
     return {"ok": not blocks, "blocks": dedupe(blocks), "warnings": dedupe(warns)}

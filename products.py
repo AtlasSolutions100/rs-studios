@@ -148,6 +148,21 @@ def import_info(product) -> dict:
         return {}
 
 
+def import_candidates(product) -> tuple[list, list]:
+    """(the product's own photos, other images on its page) found by the
+    import and not added yet. Own photos come from the page's structured data
+    (JSON-LD Product, og:image, Shopify product JSON); the others may be other
+    products, badges or graphics, so they're offered apart. Imports made before
+    the split count everything as the product's own."""
+    imp = import_info(product)
+    taken = set(imp.get("taken") or [])
+    allimgs = [u for u in imp.get("images") or [] if u not in taken]
+    if "own" not in imp:
+        return allimgs, []
+    own = set(imp.get("own") or [])
+    return [u for u in allimgs if u in own], [u for u in allimgs if u not in own]
+
+
 def claims_list(text) -> list:
     return [c.strip(" -•\t") for c in (text or "").splitlines() if c.strip(" -•\t")]
 

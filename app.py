@@ -1834,6 +1834,7 @@ import adhub_routes  # noqa: E402
 import pages_routes  # noqa: E402
 import forms_routes  # noqa: E402
 import community_routes  # noqa: E402
+import share_routes  # noqa: E402
 
 app.register_blueprint(product_routes.bp)
 app.register_blueprint(create_routes.bp)
@@ -1851,6 +1852,7 @@ app.register_blueprint(adhub_routes.bp)
 app.register_blueprint(pages_routes.bp)
 app.register_blueprint(forms_routes.bp)
 app.register_blueprint(community_routes.bp)
+app.register_blueprint(share_routes.bp)
 app.jinja_env.globals["has_endpoint"] = lambda name: name in app.view_functions
 
 

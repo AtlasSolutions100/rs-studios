@@ -340,7 +340,8 @@ def _card(name, inp, ctx):
                 "(or types yes / make it); an (app) note will tell you. Until then don't say it's being made."}
     if name == "request_photo":
         p = products.get_product(conn, ws["id"], ws["product_id"])
-        found = [u for u in products.import_info(p).get("images", []) if u not in products.import_info(p).get("taken", [])]
+        own, others = products.import_candidates(p)
+        found = own or others
         return {"ok": True, "shown": True, "photos_found_on_page": len(found),
                 "note": "The card shows those page photos to tick, plus an upload box. Wait for them."}
     if name in ("offer_choices", "show_link"):

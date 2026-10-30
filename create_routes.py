@@ -274,14 +274,30 @@ def script():
         if busy:
             return busy
         usage = llm.Usage()
+        photo = None
+        if catalog.AD_TYPE_BY_ID[typ]["script"] != "spoken":
+            ph = _writer_photo(conn, p["id"], d.get("photos"))
+            photo = creator.photo_for_writer(ph["path"]) if ph is not None else None
         try:
             out, err = creator.script(brand(p["id"]), typ, angle, duration, max(1, min(MAX_ITEMS, int(d.get("n") or 3))),
-                                      usage), None
+                                      usage, photo=photo), None
         except llm.LLMError as e:
             out, err = {"items": [], "body": "", "on_screen": []}, f"The writer didn't finish ({e}). Try again."
         taken = charge_ai(conn, usage.credits, "AI script") if usage.calls else 0
         conn.commit()
     return jsonify(dict(out, charged=taken, balance=_bal(), **({"error": err} if err else {})))
+
+
+def _writer_photo(conn, pid, picked):
+    """The product photo the writer looks at: the first one picked in the
+    form if it belongs to this workspace, else the product's primary photo."""
+    rows = products.photos_for(conn, g.ws["id"], pid, everything=True)
+    by_id = {r["id"]: r for r in rows}
+    for x in picked or []:
+        if str(x).isdigit() and int(x) in by_id:
+            return by_id[int(x)]
+    own = [r for r in rows if r["product_id"] == pid]
+    return own[0] if own else None
 
 
 def _bal():
@@ -426,13 +442,25 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
     elif kind == "image":
         n = max(1, min(4, int(d.get("versions") or 1)))
         credits, usd = catalog.price_credits(tool, batch=n), catalog.cost_usd(tool, batch=n)
+        subline, cta = image_text(d)
+        if body:
+            chk = compliance.check(body)
+            if not chk["ok"]:
+                raise ConfigError("Image concept: " + " ".join(chk["blocks"]), "script")
+        for label, txt in (("Subline", subline), ("Button text", cta)):
+            chk = compliance.check(txt)
+            if txt and not chk["ok"]:
+                raise ConfigError(f"{label}: " + " ".join(chk["blocks"]), "script")
         for i, item in enumerate(items):
-            brief_txt = (body + (f' Headline: "{item}"' if body else f'Headline: "{item}"')).strip()
-            chk = compliance.check(brief_txt)
+            item = item[:catalog.TEXT_LIMITS["headline"]]
+            chk = compliance.check(item)
             if not chk["ok"]:
                 raise ConfigError(f"Headline {i + 1}: " + " ".join(chk["blocks"]), "script")
+            text = f'Headline: "{item}"' + (f' Subline: "{subline}"' if subline else "") + (f' Button: "{cta}"' if cta else "")
+            brief_txt = (body[:2000 - len(text) - 1] + " " + text).strip()
             for asp in aspects:
-                params = dict(base, batch=n, aspect=asp, audience=(b.get("audience") or "")[:200], niche="")
+                params = dict(base, batch=n, aspect=asp, audience=(b.get("audience") or "")[:200], niche="",
+                              headline=item, subline=subline, cta=cta)
                 jobs.append({"tool": tool, "brief": brief_txt[:2000], "params": params, "credits": credits, "usd": usd,
                              "label": f"{asp} · {n} version{'s' if n > 1 else ''}", "hook": item, "key": f"{i}::{asp}"})
     elif tool == "photo_to_video":
@@ -469,6 +497,13 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
                           "fewer hooks, presenters or shapes.", "review" if every > len(jobs) or d.get("lines") else "cast"
                           if kind == "spoken" else "format")
     return {"product": p, "type": at, "tool": tool, "every": every, "all": alljobs}, jobs
+
+
+def image_text(d) -> tuple[str, str]:
+    """The optional subline and button text the member typed for an image ad
+    (the only words besides the headline and brand name allowed on it)."""
+    clean = lambda k, lim: " ".join(str(d.get(k) or "").split())[:lim].replace('"', "'")  # noqa: E731
+    return clean("subline", catalog.TEXT_LIMITS["subline"]), clean("cta", catalog.TEXT_LIMITS["cta"])
 
 
 def _default_voice(presenter_id):
@@ -512,16 +547,24 @@ def check_step():
     lim = catalog.max_words(dur)
     out = []
     for i, item in enumerate(items):
+        # Spoken lines are said with the body, so they're checked together (as
+        # generate does). A headline or scene is checked on its own and the
+        # image concept separately: a rule the concept breaks is shown on the
+        # concept, never on a clean headline.
         said = (item + " " + body).strip() if kind == "spoken" else item
-        chk = compliance.check(said if kind != "image" else (item + " " + body))
+        chk = compliance.check(said)
         blocks = list(chk["blocks"])
         if kind == "spoken" and creator.CUSTOMER_VOICE in chk["warnings"]:
             blocks.append(creator.CUSTOMER_VOICE)
         words = len(said.split())
         out.append({"i": i, "words": words, "over": kind == "spoken" and words > int(lim * 1.2), "blocks": blocks})
     bchk = compliance.check(body) if body else {"blocks": []}
-    return jsonify({"items": out, "limit": lim, "body_blocks": bchk["blocks"],
-                    "ok": not any(x["over"] or x["blocks"] for x in out) and not bchk["blocks"]})
+    text_blocks = []
+    if kind == "image":
+        subline, cta = image_text(d)
+        text_blocks = compliance.check(subline, cta)["blocks"] if (subline or cta) else []
+    return jsonify({"items": out, "limit": lim, "body_blocks": bchk["blocks"], "text_blocks": text_blocks,
+                    "ok": not any(x["over"] or x["blocks"] for x in out) and not bchk["blocks"] and not text_blocks})
 
 
 @bp.route("/app/create/generate", methods=["POST"])
@@ -552,7 +595,8 @@ def generate():
         aid = save_angle(conn, p["id"], angle, "ai" if angle.get("ai") else "user") if angle.get("title") else None
         save_script(conn, p["id"], meta["type"]["id"], d.get("items"), d.get("body"), angle.get("title"), aid)
         cfg = {k: d.get(k) for k in ("type", "angle", "items", "body", "presenters", "voices", "voice", "duration",
-                                     "aspects", "platforms", "versions", "ref", "photos", "setting", "audio", "resolution")}
+                                     "aspects", "platforms", "versions", "ref", "photos", "setting", "audio", "resolution",
+                                     "subline", "cta")}
         cfg["made"] = [j["key"] for j in jobs]
         cfg["every"] = meta["every"]
         cfg["product"] = p["id"]

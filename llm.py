@@ -199,11 +199,20 @@ def chat(*, system, messages: list, tools: list | None = None, tool_choice: dict
 
 
 def structured(*, system: str, prompt: str, schema: dict, name: str = "submit", max_tokens: int = 3000,
-               usage: Usage | None = None, temperature: float = 0.7, model_id: str | None = None) -> dict:
+               usage: Usage | None = None, temperature: float = 0.7, model_id: str | None = None,
+               images: list | None = None) -> dict:
     """Ask for one JSON object matching `schema`. Anthropic: a forced tool call
-    (reliable JSON). Groq fallback: JSON mode with the schema in the prompt."""
+    (reliable JSON). Groq fallback: JSON mode with the schema in the prompt.
+    `images` ([(bytes, media type)]) go to Anthropic with the prompt (vision);
+    the text-only fallback never sees them, so prompts must not rely on them."""
     if anthropic_ready():
-        resp = chat(system=system, messages=[{"role": "user", "content": prompt}], max_tokens=max_tokens,
+        content = prompt
+        if images:
+            import base64
+            content = [{"type": "image", "source": {"type": "base64", "media_type": mt,
+                                                    "data": base64.b64encode(data).decode("ascii")}}
+                       for data, mt in images if data] + [{"type": "text", "text": prompt}]
+        resp = chat(system=system, messages=[{"role": "user", "content": content}], max_tokens=max_tokens,
                     tools=[{"name": name, "description": "Return the result.", "input_schema": schema}],
                     tool_choice={"type": "tool", "name": name}, usage=usage, temperature=temperature,
                     model_id=model_id)

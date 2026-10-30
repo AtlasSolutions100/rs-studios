@@ -118,7 +118,7 @@ def edit(pid):
     imp = products.import_info(p)
     return render_template("product_edit.html", p=p, b=b, form=p, photos=photos, pend=products.pending(p), imp=imp,
                            angles=angles, scripts=scripts, ads=ads,
-                           candidates=[u for u in imp.get("images", []) if u not in imp.get("taken", [])])
+                           candidates=products.import_candidates(p)[0], more_candidates=products.import_candidates(p)[1])
 
 
 @bp.route("/app/products/<int:pid>/photos/<int:phid>/primary", methods=["POST"])
@@ -212,6 +212,15 @@ def import_url(conn, url, brand_id, use_ai=True):
     if "html" not in (page["content_type"] or "").lower() and "<html" not in page["text"][:2000].lower():
         raise fetcher.FetchError("That link isn't a web page.")
     facts = product_import.extract(page["text"], page["url"])
+    sj = product_import.shopify_json_url(page["url"], page["text"])
+    if sj:
+        # A Shopify store lists exactly this product's photos in its product JSON.
+        try:
+            r = fetcher.fetch(sj, accept="application/json")
+            if r["status"] < 400:
+                product_import.prefer_images(facts, product_import.shopify_images(r["text"]))
+        except fetcher.FetchError:
+            pass
     ai, charged = None, 0
     if use_ai and llm.anthropic_ready():
         usage = llm.Usage()

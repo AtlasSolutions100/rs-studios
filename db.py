@@ -484,6 +484,9 @@ COLUMNS = [
     # email verification (verify.py): accounts made before it are grandfathered in init()
     ("users", "email_verified_at", "TEXT"),
     ("users", "verify_nonce", "TEXT"),
+    # private share links for a finished ad (share_routes.py)
+    ("outputs", "share_token", "TEXT"),
+    ("outputs", "shared_at", "TEXT"),
 ]
 
 
@@ -518,6 +521,7 @@ def init():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_ws_sub ON workspaces(stripe_subscription_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_p ON photos(product_id, id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_p ON jobs(workspace_id, product_id, id)")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_outputs_share ON outputs(share_token)")
         conn.commit()
         if not conn.execute("SELECT 1 FROM meta WHERE key='owner_admin_v1'").fetchone():
             # Koby signed up through the normal form (user 1, workspace 1, the Scale
