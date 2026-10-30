@@ -666,7 +666,7 @@ check(r.status_code == 303 and r.headers["Location"] == "https://checkout.stripe
 kw = sessions[-1]
 check(kw["price_id"] == catalog.PACK_BY_CODE["starter"]["price_id"] and kw["email"] == "rep@example.com"
       and kw["metadata"]["app"] == "campaignify" and kw["metadata"]["pack"] == "starter"
-      and "account_id" not in kw["metadata"] and kw["success_url"].endswith("/app/billing?checkout=success"),
+      and "account_id" not in kw["metadata"] and kw["success_url"].endswith("/app/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}"),
       "session: our price, email, metadata (never Crowdcut's account_id)")
 with db.connect() as conn:
     pur = conn.execute("SELECT * FROM purchases ORDER BY id DESC").fetchone()
@@ -2969,3 +2969,5 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_products.py")], check=True)
     # Admin outreach emails (/admin/outreach), email stubbed.
     subprocess.run([sys.executable, os.path.join(HERE, "test_outreach.py")], check=True)
+    # The public site's SEO (titles, schema, sitemap, noindex) and the Google Ads tag and conversions.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_public_site.py")], check=True)

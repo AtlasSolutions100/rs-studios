@@ -132,6 +132,10 @@ def _get(path: str, params: list | None = None) -> dict:
     return r.json()
 
 
+def get_checkout_session(session_id: str) -> dict:
+    return _get(f"/checkout/sessions/{session_id}")
+
+
 def get_subscription(sub_id: str) -> dict:
     return _get(f"/subscriptions/{sub_id}")
 

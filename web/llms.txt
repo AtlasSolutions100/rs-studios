@@ -1,25 +1,33 @@
 # Campaignify
 
-> Campaignify (campaignify.ai) is one workspace for launching and running a marketing campaign from start to finish, built for small brands and independent sellers. An AI planner turns a brief into angles, hooks, scripts, ads and a launch checklist; the ad studio turns a product photo into image and video ads; and the rest of the campaign (copy, SEO and AI-answer audits, ad-account setup, landing pages, smart links, forms, contacts and a community) lives in the same place. Every brief, piece of copy and landing page is checked for income, health, discount and recruiting claims.
+> Campaignify ({{ site.SITE_URL }}) is an AI marketing studio for brands and independent sellers. Paste a product page and it makes UGC-style video ads (an AI presenter holds the product and says a script), product videos and image ads from the product's own photos, then writes the ad copy for each platform and keeps the landing page, smart links, forms and launch checklist in the same workspace. Prices are shown in credits (1 credit = $0.01) before anything is generated, failed generations are refunded, and every brief, piece of copy and landing page is checked for income, health, discount and recruiting claims.
 
 ## How a campaign runs in Campaignify
 {% for s in journey %}
 {{ loop.index }}. {{ s.step }}: {{ s.body }}{% endfor %}
 
-Campaignify doesn't post ads or read results from ad platforms. It guides ad-account setup and exports each ad at the platform's sizes; you launch the ads in each platform's ads manager. Its analytics cover the pages, smart links and forms you run on Campaignify.
+Campaignify doesn't post ads, buy media or read results from ad platforms. It guides ad-account setup and exports each ad at the platform's sizes; you launch the ads in each platform's ads manager. Its analytics cover the pages, smart links and forms you run on Campaignify. AI presenters are generated characters, not real people, and never speak as customers.
 
 ## Pages
 
-- [Home]({{ request.host_url }}): the campaign steps, example ads, compliance checks, pricing and FAQ.
-- [Features]({{ request.host_url }}features): every tool that's live today, by campaign step, and which plan includes it.
-- [Terms]({{ request.host_url }}terms): credits, plans, what you can't make.
-- [Privacy]({{ request.host_url }}privacy): what we collect and why.
+- [Home]({{ site.SITE_URL }}/): the campaign steps, example ads, compliance checks, pricing and FAQ.
+- [Features]({{ site.SITE_URL }}/features): every tool that's live today, by campaign step, and which plan includes it.
+- [Pricing]({{ site.SITE_URL }}/pricing): the free tier, the monthly plans, credit packs and what a credit buys.
+{% for s in solutions %}- [{{ s.h1 }}]({{ site.SITE_URL }}/{{ s.slug }}): {{ s.description }}
+{% endfor %}- [Terms]({{ site.SITE_URL }}/terms): credits, plans, what you can't make.
+- [Privacy]({{ site.SITE_URL }}/privacy): what we collect and why.
+- [Messaging policy]({{ site.SITE_URL }}/messaging-policy): rules for emails and texts sent through Campaignify.
 
 ## Plans
 
-{% for p in plans.PAID %}- {{ p.name }}: ${{ p.usd }} a month, {{ '{:,}'.format(p.credits) }} credits a month.
-{% endfor %}- Free: starter credits and the ad studio. Credit packs ($29, $79, $199) top up any account.
+- Free: {{ '{:,}'.format(starter_credits()) }} starter credits and the ad studio, no card.
+{% for p in plans.PAID %}- {{ p.name }}: ${{ p.usd }} a month, {{ '{:,}'.format(p.credits) }} credits a month. {{ p.line }}
+{% endfor %}- Credit packs ({% for p in packs %}${{ p.usd }}{{ ', ' if not loop.last }}{% endfor %}) top up any account.
 - 1 credit = $0.01. Plan credits expire at each renewal; pack credits never expire.
+
+## What it makes
+{% for k, t in [('ad_image', 'Image ad'), ('photo_to_video', 'Product video'), ('ugc_video', 'Talking (UGC) video'), ('motion_copy', "Copy a video's motion")] %}
+- {{ t }}: {{ tools_full[k].blurb }}{% endfor %}
 
 ## Tools
 {% for k, f in plans.FEATURES.items() if f.shipped %}

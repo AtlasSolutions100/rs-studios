@@ -414,6 +414,11 @@ CREATE TABLE IF NOT EXISTS outreach_log (
 CREATE INDEX IF NOT EXISTS idx_outreach_to ON outreach_log(to_addr, created_at);
 CREATE TABLE IF NOT EXISTS outreach_suppressions (
     entry TEXT PRIMARY KEY, note TEXT, user_id INTEGER, created_at TEXT NOT NULL);
+-- Google Ads conversions of our own site (gads.py): one row per checkout we started, reported once.
+CREATE TABLE IF NOT EXISTS ad_conversions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, ref TEXT NOT NULL, workspace_id INTEGER,
+    user_id INTEGER, value_cents INTEGER, currency TEXT, created_at TEXT NOT NULL, reported_at TEXT,
+    UNIQUE(kind, ref));
 """
 
 # Columns added after the first release: (table, column, definition).
@@ -487,6 +492,7 @@ COLUMNS = [
     # private share links for a finished ad (share_routes.py)
     ("outputs", "share_token", "TEXT"),
     ("outputs", "shared_at", "TEXT"),
+    ("users", "first_touch", "TEXT"),            # JSON: UTM tags / click ids of the visit that brought them
 ]
 
 

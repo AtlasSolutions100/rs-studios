@@ -1,0 +1,107 @@
+{% extends "public_base.html" %}
+{# Answer-first pages for search intent; the copy lives in public_site.SOLUTIONS. #}
+{% block main %}
+{% set r = rates() %}{% set sc = starter_credits() %}
+<section class="lp-hero lp-hero-sm">
+  <div class="lp-wrap sol-hero">
+    <div>
+      <p class="eyebrow">{{ s.eyebrow }}</p>
+      <h1>{{ s.h1 }}</h1>
+      <p class="lp-lede sol-answer">{{ s.answer }}</p>
+      <div class="lp-cta">
+        <a class="btn lg" href="{{ url_for('signup') }}">Start free</a>
+        <a class="lp-textlink" href="#how">How it works →</a>
+      </div>
+      <p class="small muted lp-note">{{ '{:,}'.format(sc) }} free credits when you sign up, enough for {{ sc // r.image }} image ads. No card needed.</p>
+    </div>
+    {% if s.media %}
+    <figure class="sol-media">
+      {% for src, alt in s.media %}<img src="{{ url_for('static', filename=src) }}" alt="{{ alt }}" width="540" height="960" {{ 'fetchpriority=high' if loop.first else 'loading=lazy' }} decoding="async">{% endfor %}
+      <figcaption class="small dim">Examples made with AI for this site; the products and presenters are invented.</figcaption>
+    </figure>
+    {% elif s.shot %}
+    <figure class="sol-shot">
+      <img class="th-dark" src="{{ url_for('static', filename=s.shot[0] ~ '-dark.webp') }}" alt="{{ s.shot[1] }}" width="1200" height="936" decoding="async">
+      <img class="th-light" src="{{ url_for('static', filename=s.shot[0] ~ '-light.webp') }}" alt="{{ s.shot[1] }}" width="1200" height="936" decoding="async">
+      <figcaption class="small dim">The copy studio with demo data.</figcaption>
+    </figure>
+    {% endif %}
+  </div>
+</section>
+
+<section class="lp-sec" id="how">
+  <div class="lp-wrap">
+    <p class="eyebrow">How it works</p>
+    <h2 class="lp-h2">Three steps.</h2>
+    <ol class="sol-steps">
+      {% for title, body in s.steps %}
+      <li><span class="lp-num">{{ loop.index }}</span><div><h3>{{ title }}</h3><p class="muted">{{ body }}</p></div></li>
+      {% endfor %}
+    </ol>
+  </div>
+</section>
+
+{% if s.gets %}
+<section class="lp-sec" id="what-you-get">
+  <div class="lp-wrap">
+    <p class="eyebrow">What you get</p>
+    <h2 class="lp-h2">What you get.</h2>
+    <div class="feat-grid">
+      {% for title, body in s.gets %}<article class="feat"><h3>{{ title }}</h3><p class="muted">{{ body }}</p></article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if s.compare %}
+<section class="lp-sec" id="compare">
+  <div class="lp-wrap">
+    <p class="eyebrow">What you get, side by side</p>
+    <h2 class="lp-h2">Questions to ask any AI UGC tool.</h2>
+    <p class="lp-sub muted">Ask every tool on your list the same questions. Here are Campaignify's answers.</p>
+    <div class="sol-table" role="table" aria-label="Campaignify's answers">
+      <div class="sol-tr sol-th" role="row"><span role="columnheader">Question</span><span role="columnheader">Campaignify</span></div>
+      {% for q, a in s.compare %}<div class="sol-tr" role="row"><b role="cell">{{ q }}</b><span role="cell" class="muted">{{ a }}</span></div>
+      {% endfor %}
+    </div>
+    {% if s.limits %}
+    <h3 class="lp-h3" style="margin-top:36px">Where Campaignify may not fit</h3>
+    <ul class="sol-limits muted">{% for l in s.limits %}<li>{{ l }}</li>{% endfor %}</ul>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+<section class="lp-sec" id="faq">
+  <div class="lp-wrap lp-faq">
+    <div>
+      <p class="eyebrow">FAQ</p>
+      <h2 class="lp-h2">Questions.</h2>
+    </div>
+    <div>
+      {% for q, a in s.faq %}<details {{ 'open' if loop.first }}><summary>{{ q }}</summary><p>{{ faq_answer(a) }}</p></details>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="lp-sec" id="more">
+  <div class="lp-wrap">
+    <h2 class="lp-h2">More from Campaignify</h2>
+    <div class="feat-grid sol-more">
+      {% for o in others %}<a class="feat sol-link" href="{{ url_for('solution', slug=o.slug) }}"><h3>{{ o.h1 }}</h3><p class="muted small">{{ o.description }}</p></a>
+      {% endfor %}
+    </div>
+    <p class="small muted" style="margin-top:18px">Or see <a href="{{ url_for('features') }}">every feature</a> and <a href="{{ url_for('pricing') }}">pricing</a>.</p>
+  </div>
+</section>
+
+<section class="lp-sec lp-final">
+  <div class="lp-wrap">
+    <h2 class="lp-h2">Try it on your own product.</h2>
+    <p class="muted">{{ '{:,}'.format(sc) }} free credits when you sign up. No card needed.</p>
+    <a class="btn lg" href="{{ url_for('signup') }}">Start free</a>
+  </div>
+</section>
+{% endblock %}
