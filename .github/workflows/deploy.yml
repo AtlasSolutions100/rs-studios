@@ -104,8 +104,8 @@ jobs:
           RS_EMAIL_VERIFY: ${{ vars.RS_EMAIL_VERIFY }}
           RS_ACCOUNT_MAIL_FROM: ${{ vars.RS_ACCOUNT_MAIL_FROM }}
           RS_OUTREACH_FROM: ${{ vars.RS_OUTREACH_FROM }}
-          GADS_SIGNUP_LABEL: ${{ vars.GADS_SIGNUP_LABEL }}
-          GADS_PURCHASE_LABEL: ${{ vars.GADS_PURCHASE_LABEL }}
+          GADS_SIGNUP_LABEL: ${{ vars.GADS_SIGNUP_LABEL || 'vf0bCP_Xja8dEIK1gYpF' }}
+          GADS_PURCHASE_LABEL: ${{ vars.GADS_PURCHASE_LABEL || 'RzDtCPzXja8dEIK1gYpF' }}
           GADS_TAG_ID: ${{ vars.GADS_TAG_ID }}
         run: |
           git archive --format=tar.gz -o /tmp/app.tgz HEAD
