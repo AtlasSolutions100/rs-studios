@@ -1,0 +1,48 @@
+{% extends "base.html" %}{% block title %}Outreach · Admin · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+<p class="eyebrow"><a href="{{ url_for('admin') }}">Admin</a></p><h1>Brand <span class="gold">outreach</span></h1>
+<p class="muted">One-to-one emails to small brands, each with a free sample ad made for them. From <code>{{ frm }}</code>, replies to <code>{{ reply_to }}</code>.
+{% if not mail_on %}<b>Email sending isn't connected (RESEND_API_KEY and RS_MAIL_DOMAIN).</b>{% endif %}</p>
+<div class="grid" style="gap:24px">
+<div class="panel" id="compose">
+  <h2>New email</h2>
+  <p class="small muted">{{ today }} of {{ cap }} sent in the last 24 hours. The same address once every {{ repeat_days }} days unless it's a follow-up. Anything still in <code>{braces}</code> is refused.</p>
+  <form method="post" action="{{ url_for('admin_outreach') }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <label for="o-to">To</label><input id="o-to" type="email" name="to" maxlength="200" inputmode="email" value="{{ form.to or '' }}" placeholder="founder@brand.com">
+    <label for="o-brand">Brand</label><input id="o-brand" type="text" name="brand" maxlength="120" value="{{ form.brand or '' }}" placeholder="Brand name">
+    <label for="o-subj">Subject</label><input id="o-subj" type="text" name="subject" maxlength="200" value="{{ form.subject or '' }}">
+    <label for="o-body">Body <span class="dim">(plain text; a blank line starts a new paragraph)</span></label>
+    <textarea id="o-body" name="body" maxlength="8000" style="min-height:260px">{{ form.body or '' }}</textarea>
+    <p class="small dim" style="margin:6px 0 0">Added at the bottom automatically: “Campaignify · {{ address }}” and “{{ opt_out }}”</p>
+    <label class="pp-check" style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" name="follow_up" value="1" {{ 'checked' if form.follow_up }} style="position:static;opacity:1;width:auto;height:auto"><span>Follow-up <span class="dim">(lets you email the same address again within {{ repeat_days }} days)</span></span></label>
+    <div class="row" style="gap:8px;margin-top:14px">
+      <button class="btn sm" name="do" value="send">Send</button>
+      <button class="btn dark sm" name="do" value="test">Send test to me ({{ g.user.email }})</button>
+    </div>
+  </form>
+</div>
+<div class="panel scrollx" id="dnc">
+  <h2>Do not contact</h2>
+  <p class="small muted">Someone replied “no thanks”? Add their address, or their whole domain. Sending to anything on this list is refused.</p>
+  <form method="post" action="{{ url_for('admin_outreach_suppress') }}" class="row" style="gap:8px">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <input type="text" name="entry" maxlength="200" placeholder="name@brand.com or brand.com" style="width:260px" required>
+    <input type="text" name="note" maxlength="200" placeholder="note, e.g. replied no thanks" style="width:240px">
+    <button class="btn dark sm">Add</button>
+  </form>
+  <table style="margin-top:12px"><tr><th>Address or domain</th><th>Note</th><th>Added</th></tr>
+  {% for s in sup %}<tr><td>{{ s.entry }}</td><td class="small muted">{{ s.note or '' }}</td><td class="muted">{{ s.created_at|localtime('date') }}</td></tr>
+  {% else %}<tr><td colspan="3" class="muted">Nobody yet.</td></tr>{% endfor %}</table>
+</div>
+<div class="panel scrollx" id="log">
+  <h2>Last 50 sends</h2>
+  <table><tr><th>When</th><th>To</th><th>Brand</th><th>Subject</th><th>Result</th></tr>
+  {% for r in log %}<tr><td class="muted">{{ r.created_at|localtime }}</td><td>{{ r.to_addr }}{% if r.is_test %} <span class="tag">test</span>{% endif %}{% if r.follow_up %} <span class="tag">follow-up</span>{% endif %}</td><td>{{ r.brand or '' }}</td><td>{{ r.subject }}</td>
+  <td class="small">{% if r.status == 'sent' %}<span class="tag ok">sent</span> <code class="dim">{{ r.provider_id or '' }}</code>{% elif r.status == 'failed' %}<span class="tag bad">failed</span> <span class="muted">{{ (r.error or '')[:120] }}</span>{% else %}<span class="tag warn">{{ r.status }}</span>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="5" class="muted">Nothing sent yet.</td></tr>{% endfor %}</table>
+</div>
+</div>
+</div>
+{% endblock %}
