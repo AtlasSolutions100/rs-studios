@@ -20,7 +20,7 @@ import fetcher
 import llm
 import product_import
 import products
-from core import charge_ai, login_required, queue_job
+from core import charge_ai, login_required, queue_job, verify_block
 
 bp = Blueprint("assistant", __name__)
 PER_HOUR = 80          # member messages per workspace per hour
@@ -372,6 +372,9 @@ def _do_first_ad(conn, ws, card):
     p = products.get_product(conn, g.ws["id"], card.get("product"))
     if p is None:
         abort(404)
+    blocked = verify_block(conn)
+    if blocked:        # nothing ran; the card stays open for after they confirm
+        return None, {"error": blocked + " Press Resend at the top of the page if it didn't arrive.", "verify": True}
     tpl = catalog.TEMPLATE_BY_ID.get(card.get("template")) or catalog.first_run_templates()[0]
     b = products.brief_for(conn, ws, p["id"])
     brief = catalog.fill(tpl["brief"], b)

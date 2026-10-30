@@ -34,9 +34,11 @@ import plans
 import presenter_stills
 import preview
 import products
+import verify
 import worker
 from core import admin_required, brand, feature_required, is_owner, login_required, owner_required, picked_product  # noqa: F401
 from core import queue_job as _queue_job  # noqa: E402
+from core import verify_block as core_verify_block  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 from core import MAX_PHOTO_MB, MAX_VIDEO_MB, PHOTO_TYPES, UPLOADS, VIDEO_TYPES, save_upload as _save_upload  # noqa: E402
@@ -218,6 +220,16 @@ def _nav():
                                                           (g.ws["id"],)).fetchone()
         out["active_brand"], out["active_product"] = g.get("brand_row"), g.get("product_row")
     return out
+
+
+@app.context_processor
+def _verify_banner():
+    """Free accounts that haven't confirmed their email see a banner with Resend."""
+    if g.get("user") is not None and g.get("ws") is not None and request.endpoint not in (None, "static"):
+        with db.connect() as conn:
+            if verify.blocked(conn, g.ws, g.user):
+                return {"verify_banner": {"email": g.user["email"], "message": verify.message(g.user["email"])}}
+    return {}
 
 
 CSRF_EXEMPT = {"static", "stripe_webhook", "forms.public", "messaging.resend_webhook", "messaging.unsubscribe",
@@ -448,7 +460,7 @@ PUBLIC_PAGES = ["index", "features", "privacy", "terms", "messaging.policy"]
 @app.route("/robots.txt")
 def robots_txt():
     body = ("User-agent: *\nDisallow: /app\nDisallow: /admin\nDisallow: /api\nDisallow: /media\nDisallow: /photo\n"
-            "Disallow: /ref\nDisallow: /webhooks\nDisallow: /t/\nDisallow: /u/\nAllow: /\n\n"
+            "Disallow: /ref\nDisallow: /verify\nDisallow: /webhooks\nDisallow: /t/\nDisallow: /u/\nAllow: /\n\n"
             f"Sitemap: {request.host_url}sitemap.xml\n")
     return app.response_class(body, mimetype="text/plain")
 
@@ -574,21 +586,77 @@ def signup():
                         db.adjust_credits(conn, ws_id, catalog.starter_credits(), "starter credits")
             joins = bool(inv and inv["workspace_id"]) or (owner and conn.execute(
                 "SELECT 1 FROM users WHERE workspace_id=?", (ws_id,)).fetchone() is not None)
-            cur = conn.execute("INSERT INTO users (email, name, pw_hash, is_admin, workspace_id, created_at, role) "
-                               "VALUES (?,?,?,?,?,?,?)", (email, name, generate_password_hash(pw), is_admin, ws_id,
-                                                          db.now(), "member" if joins else "owner"))
+            # Owner setup links only work for their own address, so that one counts as confirmed;
+            # everyone else confirms by email before the free credits work (verify.py).
+            cur = conn.execute("INSERT INTO users (email, name, pw_hash, is_admin, workspace_id, created_at, role, "
+                               "email_verified_at, verify_nonce) VALUES (?,?,?,?,?,?,?,?,?)",
+                               (email, name, generate_password_hash(pw), is_admin, ws_id, db.now(),
+                                "member" if joins else "owner", db.now() if owner else None,
+                                None if owner else verify.new_nonce()))
             if inv:
                 conn.execute("UPDATE invites SET used_by=? WHERE code=?", (cur.lastrowid, code))
             conn.commit()
             session.clear()
             session["uid"] = cur.lastrowid
             csrf_token()
+            u = conn.execute("SELECT * FROM users WHERE id=?", (cur.lastrowid,)).fetchone()
+            ws_row = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+            if verify.blocked(conn, ws_row, u):
+                db.hit(f"verify:{u['id']}")
+                verify.send_link(conn, app.secret_key, u)
         if not owner:
             db.hit(f"signup:{ip}")
         # New accounts land on Home, which is the first-ad form until they've made one
         # (the setup guide is a link from there, not a detour).
         return redirect(url_for(dest))
     return render_template("signup.html", invite=code, owner=owner, email="")
+
+
+@app.route("/verify")
+def verify_email():
+    """The link in the confirmation email. Works once, for 48 hours; it confirms
+    the address but doesn't log anyone in."""
+    with db.connect() as conn:
+        outcome, u = verify.confirm(conn, app.secret_key, request.args.get("t") or "")
+        conn.commit()
+    mine = bool(g.user and u is not None and g.user["id"] == u["id"])
+    if outcome == "ok":
+        flash("Email confirmed. Your free credits are ready to use." if mine else
+              "That email is confirmed." if g.user else "Email confirmed. Log in to use your free credits.", "ok")
+    elif outcome == "already":
+        flash("Your email is already confirmed.", "ok")
+    elif outcome == "expired":
+        flash("That link has expired. Press Resend for a new one." if g.user else
+              "That link has expired. Log in and press Resend for a new one.")
+    else:
+        flash("That link doesn't work. Use the newest email we sent, or press Resend." if g.user else
+              "That link doesn't work. Log in and press Resend for a new one.")
+    return redirect(url_for("studio") if g.user else url_for("login"))
+
+
+@app.route("/app/verify/resend", methods=["POST"])
+@login_required
+def verify_resend():
+    """Send the confirmation link again: once a minute, a few times an hour."""
+    back = request.form.get("back") or ""
+    dest = back if back.startswith("/") and not back.startswith("//") else url_for("studio")
+    if verify.is_verified(g.user):
+        flash("Your email is already confirmed.", "ok")
+        return redirect(dest)
+    key, ipkey = f"verify:{g.user['id']}", f"verify-ip:{client_ip()}"
+    if db.throttled(key, 1, verify.RESEND_GAP_S):
+        flash("We just sent a link. Give it a minute, and check your spam folder.")
+        return redirect(dest)
+    if db.throttled(key, verify.RESEND_PER_HOUR, 3600) or db.throttled(ipkey, verify.RESEND_PER_IP_HOUR, 3600):
+        flash("We've sent a few links already. Check your spam folder, or try again in an hour.")
+        return redirect(dest)
+    db.hit(key)
+    db.hit(ipkey)
+    with db.connect() as conn:
+        sent = verify.send_link(conn, app.secret_key, g.user)
+    flash(f"Sent a new link to {g.user['email']}. It can take a minute; check spam too." if sent else
+          "We couldn't send the email just now. Try again in a few minutes.", "ok" if sent else "message")
+    return redirect(dest)
 
 
 @app.route("/logout", methods=["POST"])
@@ -635,7 +703,7 @@ def _studio_page(form=None, status=200):
             first = _first_ad_context(conn, form or ({"kind": "preview"} if request.args.get("preview") else {}))
             pv_ok = first["preview"]["ok"]
         else:
-            pv_ok = preview.status(conn, g.ws, g.user["email"])["ok"]
+            pv_ok = preview.status(conn, g.ws, g.user["email"], g.user)["ok"]
     return render_template("studio.html", templates=catalog.templates_for(brand()), templates_by_id=catalog.TEMPLATE_BY_ID,
                            recent=recent, outs=outs, photos=photos, brand=brand(), configured=hf.configured(),
                            first_run=not recent or bool(first), ad_types=types, preview_ok=pv_ok, angles=angles, batches=batches,
@@ -645,12 +713,13 @@ def _studio_page(form=None, status=200):
 
 def _first_ad_context(conn, form):
     """What the first-ad form needs: templates, the free preview's status, photos already added."""
-    pv = preview.status(conn, g.ws, g.user["email"])
+    pv = preview.status(conn, g.ws, g.user["email"], g.user)
     photos = conn.execute("SELECT * FROM photos WHERE workspace_id=? ORDER BY id DESC LIMIT 12",
                           (g.ws["id"],)).fetchall()
-    kind = form.get("kind") or ("preview" if pv["ok"] else "image")
+    kind = form.get("kind") or ("preview" if pv["ok"] or pv["why"] == "verify" else "image")
     tpls = catalog.first_run_templates(brand())
     return {"tpls": tpls, "photos": photos, "form": form, "preview": pv, "kind": kind,
+            "verify": verify.message(g.user["email"]) if verify.blocked(conn, g.ws, g.user) else None,
             "price": catalog.price_credits("ad_image", batch=1), "presenters": [p for p in presenter_stills.with_photos(url_for) if p["id"] in preview.PRESENTERS],
             "line": form.get("line") or "", "default_line": preview.DEFAULT_LINE, "pick": form.get("template") or
             tpls[0]["id"], "seconds": preview.SECONDS,
@@ -751,6 +820,11 @@ def start():
         flash(msg)
         return _studio_page(f, 400)
 
+    with db.connect() as conn:
+        blocked = core_verify_block(conn)
+    if blocked:
+        flash(blocked, "verify")
+        return _studio_page(f, 403)
     if not product:
         return again("Add your product's name.")
     b = {"name": brand_name or g.ws["brand_name"] or "", "product": product}
@@ -777,7 +851,7 @@ def start():
     photo_id, path = None, None
     with db.connect() as conn:
         mine = {r["id"] for r in conn.execute("SELECT id FROM photos WHERE workspace_id=?", (g.ws["id"],))}
-        if kind == "preview" and not preview.status(conn, g.ws, g.user["email"])["ok"]:
+        if kind == "preview" and not preview.status(conn, g.ws, g.user["email"], g.user)["ok"]:
             return again("The free preview isn't available on this account. Make an image ad instead, or see "
                          "plans on Billing.")
     if fs and fs.filename:

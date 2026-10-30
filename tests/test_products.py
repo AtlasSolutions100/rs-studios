@@ -82,6 +82,11 @@ old.execute("INSERT INTO workspaces (id, name, brand_name, product_name, created
 old.execute("INSERT INTO brands (id, workspace_id, brand_name, product_name, created_at) VALUES (2,2,'Alpha','Alpha Tea',?)", (T,))
 old.execute("INSERT INTO brands (id, workspace_id, brand_name, product_name, created_at) VALUES (3,2,'Beta',NULL,?)", (T,))
 old.execute("INSERT INTO jobs (workspace_id, user_id, tool, status, created_at, updated_at) VALUES (2,1,'ad_image','done',?,?)", (T, T))
+# Accounts made before email verification existed (the owner's and his partner's).
+old.execute("INSERT INTO users (email, name, pw_hash, is_admin, workspace_id, created_at, role) VALUES "
+            "('owner@legacy.example','Owner','x',0,1,?,'owner')", (T,))
+old.execute("INSERT INTO users (email, name, pw_hash, is_admin, workspace_id, created_at, role) VALUES "
+            "('partner@legacy.example','Partner','x',0,2,?,'owner')", (T,))
 # Workspace 3: brand kit only on the workspace row (no brand row yet).
 old.execute("INSERT INTO workspaces (id, name, brand_name, product_name, claims, created_at) VALUES "
             "(3,'Three','Glow Co','GlowSerum','30 ml',?)", (T,))
@@ -116,6 +121,14 @@ with db.connect() as conn:
 check(len(p2) == 1 and p2[0]["brand_id"] == 2 and w2["product_id"] is None and j2["product_id"] is None,
       "two brands: only the kit with a product becomes one; work isn't guessed at")
 check(w3["brand_id"] and len(p3) == 1 and p3[0]["name"] == "GlowSerum", "a workspace without a brand row gets one, and its product")
+with db.connect() as conn:
+    lus = conn.execute("SELECT * FROM users ORDER BY id").fetchall()
+    w2row = conn.execute("SELECT * FROM workspaces WHERE id=2").fetchone()
+import verify  # noqa: E402
+with db.connect() as conn:
+    check(len(lus) == 2 and all(u["email_verified_at"] == T and not u["verify_nonce"] for u in lus)
+          and not verify.blocked(conn, w2row, lus[1]),
+          "accounts made before email verification count as confirmed (nobody is locked out)")
 db.init()
 with db.connect() as conn:
     check(conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 3, "running the migration again adds nothing")
@@ -181,6 +194,14 @@ def png(size=64, color=(200, 120, 40)):
 def wsrow(ws_id):
     with db.connect() as conn:
         return conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+
+
+def confirm_email(email):
+    """Click the link a new free account's confirmation email carries (verify.py)."""
+    import verify
+    with db.connect() as conn:
+        u = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+    return client().get("/verify?t=" + verify.make_token(appmod.app.secret_key, u))
 
 
 def signup(email):
@@ -862,6 +883,19 @@ check(zp["audience"] == "People who love cozy evenings at home" and setup == {"g
 check(fa["kind"] == "propose_first_ad" and fa["credits"] == catalog.price_credits("ad_image", batch=1) and nj == 0,
       "the first ad is offered on a card with its price; nothing made yet")
 bal1 = db.balance(wsrow(zws))
+n_llm = len(asst_bodies)
+r = jpost(z, "/app/assistant/action", {"card": fa["id"], "choice": "confirm"}).get_json()
+with db.connect() as conn:
+    nj = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (zws,)).fetchone()[0]
+check((r.get("error") or "").startswith("Confirm your email to use your free credits — we sent a link to newbie@example.com.")
+      and r.get("verify") and nj == 0 and db.balance(wsrow(zws)) == bal1 and len(asst_bodies) == n_llm,
+      "unconfirmed email: Make it answers with the confirm-your-email message; nothing charged, no AI call")
+r = say(z, "yes")
+with db.connect() as conn:
+    nj = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (zws,)).fetchone()[0]
+check("Confirm your email" in (r.get("error") or "") and nj == 0 and db.balance(wsrow(zws)) == bal1,
+      "typing yes gets the same answer")
+confirm_email("newbie@example.com")
 asst_q[:] = [[txt("It's on its way. Want to set up your ad accounts next?"), tu2("show_link", {"target": "ad_accounts", "label": "Ad accounts"})], [txt("")]]
 r = jpost(z, "/app/assistant/action", {"card": fa["id"], "choice": "confirm"}).get_json()
 with db.connect() as conn:
@@ -940,6 +974,7 @@ import time  # noqa: E402
 import assistant_routes  # noqa: E402
 sx = client()
 sx.post("/signup", data={"csrf": csrf(sx), "email": "twotabs@example.com", "password": "longpassword"})
+confirm_email("twotabs@example.com")
 with db.connect() as conn:
     sws = conn.execute("SELECT workspace_id FROM users WHERE email='twotabs@example.com'").fetchone()[0]
 credits(sws, 200)
@@ -1003,6 +1038,7 @@ check(all(i["card"]["status"] in ("done", "cancelled") for i in th["items"]
 
 sy = client()
 sy.post("/signup", data={"csrf": csrf(sy), "email": "falseclaim@example.com", "password": "longpassword"})
+confirm_email("falseclaim@example.com")
 with db.connect() as conn:
     yws = conn.execute("SELECT workspace_id FROM users WHERE email='falseclaim@example.com'").fetchone()[0]
 asst_q[:] = [[tu2("create_brand", {"name": "Claim Co"})],

@@ -18,7 +18,7 @@ import llm
 import platforms
 import presenter_stills
 import products
-from core import brand, can_afford, charge_ai, login_required, queue_job
+from core import brand, can_afford, charge_ai, login_required, queue_job, verify_block
 
 bp = Blueprint("create", __name__)
 MAX_BATCH = 12
@@ -534,6 +534,9 @@ def generate():
         except ConfigError as e:
             return jsonify({"error": str(e), "step": e.step}), 400
         total = sum(j["credits"] for j in jobs)
+        blocked = verify_block(conn)
+        if blocked:
+            return jsonify({"error": blocked, "verify": True}), 403
         if meta["tool"] in VIDEO_TOOLS and len(jobs) > CONFIRM_VIDEOS and not d.get("confirm_many"):
             return jsonify({"error": f"That's {len(jobs)} videos ({total:,} credits, {usd(total)}). Tick the box to "
                                      "confirm you want all of them, or untick some.", "confirm": True}), 400

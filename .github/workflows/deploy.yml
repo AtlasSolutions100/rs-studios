@@ -30,7 +30,9 @@ name: Deploy Campaignify (campaignify.ai)
 #   TWILIO_NOTIFY_EMAIL    optional repo variable: where Twilio sends registration notices
 #   RS_HD_MARKUP           optional repo variable: 1080p markup, default 1.4
 #   RS_VIDEO_UPSCALE_MODEL / RS_VIDEO_UPSCALE_USD_PER_SECOND  optional variables: switch on upscaling
-#   RS_FREE_PREVIEW / RS_FREE_PREVIEWS_PER_DAY               optional variables: the free 480p preview
+#   RS_FREE_PREVIEW / RS_FREE_PREVIEWS_PER_DAY               optional variables: the free 480p preview (cap default 30/day)
+#   RS_EMAIL_VERIFY / RS_ACCOUNT_MAIL_FROM                  optional variables: confirm-your-email for free accounts
+#                          (0 switches it off) and its From (default "Campaignify" <no-reply@RS_MAIL_DOMAIN>)
 # A secret or variable that isn't set is simply not sent, so the server keeps
 # whatever it already has.
 on:
@@ -93,6 +95,8 @@ jobs:
           RS_VIDEO_UPSCALE_USD_PER_SECOND: ${{ vars.RS_VIDEO_UPSCALE_USD_PER_SECOND }}
           RS_FREE_PREVIEW: ${{ vars.RS_FREE_PREVIEW }}
           RS_FREE_PREVIEWS_PER_DAY: ${{ vars.RS_FREE_PREVIEWS_PER_DAY }}
+          RS_EMAIL_VERIFY: ${{ vars.RS_EMAIL_VERIFY }}
+          RS_ACCOUNT_MAIL_FROM: ${{ vars.RS_ACCOUNT_MAIL_FROM }}
         run: |
           git archive --format=tar.gz -o /tmp/app.tgz HEAD
           python3 - <<'PY'
@@ -102,7 +106,8 @@ jobs:
                                              "STRIPE_PORTAL_CONFIG", "RS_MARKUP", "RS_STARTER_CREDITS",
                                              "RESEND_API_KEY", "RESEND_WEBHOOK_SECRET", "RS_MAIL_DOMAIN", "RS_POSTAL_ADDRESS",
                                              "RS_HD_MARKUP", "RS_VIDEO_UPSCALE_MODEL", "RS_VIDEO_UPSCALE_USD_PER_SECOND",
-                                             "RS_FREE_PREVIEW", "RS_FREE_PREVIEWS_PER_DAY", "TWILIO_ACCOUNT_SID",
+                                             "RS_FREE_PREVIEW", "RS_FREE_PREVIEWS_PER_DAY", "RS_EMAIL_VERIFY",
+                                             "RS_ACCOUNT_MAIL_FROM", "TWILIO_ACCOUNT_SID",
                                              "TWILIO_AUTH_TOKEN", "TWILIO_PRIMARY_PROFILE_SID", "TWILIO_NOTIFY_EMAIL")
                       if os.environ.get(k)}
           print("settings sent:", ", ".join(settings) or "none")

@@ -163,10 +163,28 @@ def not_enough(credits: int):
     flash(f"That needs about {credits:,} credits and you have {db.balance(g.ws):,}. Top up on the Billing page.")
 
 
+def verify_block(conn):
+    """The friendly message when this member must confirm their email before
+    spending free credits (verify.py); None when they may go ahead."""
+    import verify
+    if g.get("user") is None or g.get("ws") is None:
+        return None
+    return verify.message(g.user["email"]) if verify.blocked(conn, g.ws, g.user) else None
+
+
 def queue_job(conn, tool, tpl_id, brief, params, usd, credits, quiet=False, product_id=None, batch_id=None):
     """Insert a pending job and take its credits in one transaction. None (and a
-    message) when the workspace can't afford it. The job is tagged with its
-    product (default: the active one) and that product's brand."""
+    message) when the workspace can't afford it, or when a free account hasn't
+    confirmed its email yet (then g.verify_blocked holds the message and nothing
+    uncommitted on `conn` is kept). The job is tagged with its product (default:
+    the active one) and that product's brand."""
+    msg = verify_block(conn)
+    if msg:
+        conn.rollback()
+        g.verify_blocked = msg
+        if not quiet:
+            flash(msg, "verify")
+        return None
     now = db.now()
     pid = product_id or g.ws["product_id"]
     p = products.get_product(conn, g.ws["id"], pid) if pid else None

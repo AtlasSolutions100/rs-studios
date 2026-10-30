@@ -1,5 +1,6 @@
 {# The first-ad form: the only thing on Home until a workspace has made something. #}
 {% set F = first.form %}
+{% set pv_on = first.preview.ok or first.preview.why == 'verify' %}
 <form method="post" action="{{ url_for('start') }}" enctype="multipart/form-data" class="fa panel" id="fa" data-kind="{{ first.kind }}">
   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
   <p class="eyebrow" style="margin:0 0 6px">Your first ad</p>
@@ -27,17 +28,17 @@
 
   <fieldset class="fa-kinds">
     <legend>What to make</legend>
-    {% if first.preview.ok %}
+    {% if pv_on %}
     <label class="fa-kind"><input type="radio" name="kind" value="preview" {{ 'checked' if first.kind == 'preview' }}>
       <span class="thumb"><img src="{{ url_for('static', filename='site/ugc-coffee.jpg') }}" alt="" loading="lazy"><span class="chip motion">Speaks</span></span>
       <span><b>Talking video preview <em class="tag ok">Free, once</em></b><span class="small muted">A presenter holds your product and says one line. {{ first.seconds }} seconds, 480p, with a PREVIEW watermark, so you can see it before you pay.</span></span></label>
     {% endif %}
-    <label class="fa-kind"><input type="radio" name="kind" value="image" {{ 'checked' if first.kind == 'image' or not first.preview.ok }}>
+    <label class="fa-kind"><input type="radio" name="kind" value="image" {{ 'checked' if first.kind == 'image' or not pv_on }}>
       <span class="thumb"><img src="{{ url_for('static', filename='previews/ad_image.jpg') }}" alt="" loading="lazy"></span>
       <span><b>Image ad <em class="tag">{{ first.price }} credits</em></b><span class="small muted">A finished ad image with a headline, from a template. You have {{ '{:,}'.format(balance()) }} credits.</span></span></label>
   </fieldset>
 
-  {% if first.preview.ok %}
+  {% if pv_on %}
   <div class="fa-opt" data-for="preview">
     <label for="line">What they say <span class="dim">(about {{ first.max_words - 4 }} words; checked against the rules)</span></label>
     <input id="line" type="text" name="line" maxlength="200" value="{{ first.line }}" data-default="{{ first.default_line }}" placeholder="{{ first.default_line|replace('{product}', 'your product') }}">
@@ -67,8 +68,9 @@
   </div>
 
   <div class="fa-go">
-    <button class="btn lg" data-go>{{ 'Make my free preview' if first.kind == 'preview' and first.preview.ok else 'Make my first ad · ' ~ first.price ~ ' credits' }}</button>
-    <span class="small muted" data-go-note>{{ 'Free. Nothing is charged.' if first.kind == 'preview' and first.preview.ok else 'Failed generations are refunded automatically.' }}</span>
+    <button class="btn lg" data-go {{ 'disabled' if first.verify }}>{{ 'Make my free preview' if first.kind == 'preview' and pv_on else 'Make my first ad · ' ~ first.price ~ ' credits' }}</button>
+    {% if first.verify %}<span class="small warnc" data-go-note data-verify-note>Confirm your email first: open the link we sent to {{ g.user.email }}, then come back here.</span>
+    {% else %}<span class="small muted" data-go-note>{{ 'Free. Nothing is charged.' if first.kind == 'preview' and pv_on else 'Failed generations are refunded automatically.' }}</span>{% endif %}
   </div>
   <p class="small muted" style="margin:16px 0 0">No income, health or results claims; AI presenters never speak as customers.{% if assistant_on() %} Prefer a guided chat? <a href="{{ url_for('assistant.page') }}">Open the setup guide</a>.{% endif %}</p>
 </form>
@@ -94,7 +96,7 @@
     form.dataset.kind = k;
     form.querySelectorAll('.fa-opt').forEach(function(o){ o.hidden = o.dataset.for !== k; });
     form.querySelector('[data-go]').textContent = k === 'preview' ? 'Make my free preview' : 'Make my first ad · ' + price + ' credits';
-    form.querySelector('[data-go-note]').textContent = k === 'preview' ? 'Free. Nothing is charged.' : 'Failed generations are refunded automatically.';
+    if(!form.querySelector('[data-verify-note]')) form.querySelector('[data-go-note]').textContent = k === 'preview' ? 'Free. Nothing is charged.' : 'Failed generations are refunded automatically.';
   }
   form.addEventListener('change', function(e){ if(e.target.name === 'kind') kind(); if(e.target.name === 'template'){ edited = false; fill(); } });
   pn.addEventListener('input', fill); bn.addEventListener('input', fill); if(line) line.addEventListener('input', fill);
