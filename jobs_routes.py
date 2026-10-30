@@ -88,15 +88,21 @@ def retry(jid):
             flash(msg)
             return _back(url_for("library"))
         params = json.loads(j["params_json"] or "{}")
+        # The failed card makes way, and claiming it first (in the same transaction
+        # as the charge) means a double click or a second tab can't retry it twice.
+        if conn.execute("UPDATE jobs SET deleted_at=? WHERE id=? AND deleted_at IS NULL", (db.now(), j["id"])).rowcount != 1:
+            conn.rollback()
+            if _wants_json():
+                return jsonify({"error": "It's already being tried again."}), 409
+            return _back(url_for("library"))
         new = queue_job(conn, j["tool"], j["template_id"], j["brief"], params, usd, credits, quiet=_wants_json(),
                         product_id=j["product_id"], batch_id=j["batch_id"])
-        if not new:
+        if not new:      # queue_job rolled back, so the failed card is back too
             if _wants_json():
                 return jsonify({"error": f"That needs {credits:,} credits and you have {db.balance(g.ws):,}.",
                                 "billing": url_for("billing_page")}), 402
             return _back(url_for("library"))
         conn.execute("UPDATE jobs SET parent_job_id=? WHERE id=?", (j["id"], new))
-        conn.execute("UPDATE jobs SET deleted_at=? WHERE id=?", (db.now(), j["id"]))   # the failed card makes way
         conn.commit()
     if _wants_json():
         return jsonify({"ok": True, "job": new})

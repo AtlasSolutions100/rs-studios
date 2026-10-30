@@ -47,7 +47,32 @@ LOGIN_FAILS_PER_EMAIL, LOGIN_FAILS_PER_IP = 8, 30
 log = logging.getLogger("campaignify")
 
 app = Flask(__name__, template_folder=os.path.join(HERE, "web"), static_folder=os.path.join(HERE, "static"))
-app.secret_key = os.environ.get("RS_SECRET_KEY") or secrets.token_hex(32)
+def _secret_key() -> str:
+    """RS_SECRET_KEY, else one generated once and kept in the data folder. A
+    fresh random key per start would log every member out and expire every
+    open form ("This form expired") on each deploy."""
+    key = (os.environ.get("RS_SECRET_KEY") or "").strip()
+    if key:
+        return key
+    path = os.path.join(db.DATA, "secret_key")
+    try:
+        with open(path) as f:
+            key = f.read().strip()
+    except OSError:
+        key = ""
+    if len(key) < 32:
+        key = secrets.token_hex(32)
+        try:
+            os.makedirs(db.DATA, exist_ok=True)
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w") as f:
+                f.write(key)
+        except OSError:
+            log.warning("couldn't keep the session key in %s; sessions end on restart", path)
+    return key
+
+
+app.secret_key = _secret_key()
 app.config.update(MAX_CONTENT_LENGTH=(MAX_VIDEO_MB + 5) * 1024 * 1024,
                   SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
                   SESSION_COOKIE_SECURE=os.environ.get("RS_COOKIE_SECURE", "0") == "1")
@@ -216,6 +241,18 @@ def load_user():
         sent = request.form.get("csrf") or request.headers.get("X-CSRF")
         if not sent or not secrets.compare_digest(sent, session.get("csrf", "")):
             abort(400, "This form expired. Go back, refresh and try again.")
+
+
+@app.after_request
+def _security_headers(resp):
+    """Baseline on every response (pages that need stricter set their own CSP):
+    files are served as the type we say (no sniffing an uploaded "photo" into a
+    page), and nothing of ours is framed by another site (clickjacking the
+    Make it, Billing or Team buttons)."""
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    return resp
 
 
 def _video_seconds(path):
@@ -1335,6 +1372,12 @@ def _plan_invoice_paid(inv):
             return jsonify({"ignored": "not a campaignify plan invoice"})
         if (inv.get("currency") or "usd").lower() != "usd" or inv.get("status") not in (None, "paid"):
             return jsonify({"ignored": "invoice not paid in usd"})
+        if sub_id and ws["stripe_subscription_id"] == sub_id and ws["plan_status"] == "canceled":
+            # Canceled is final in Stripe: a late or replayed invoice.paid for that
+            # subscription must not switch the plan (and its credits) back on.
+            log.warning("stripe webhook: invoice %s paid for canceled subscription %s (workspace %s); not applied",
+                        inv.get("id"), sub_id, ws["id"])
+            return jsonify({"ignored": "subscription already canceled"})
         priced = [plans.BY_PRICE[ln["price"]] for ln in lines if ln["price"] in plans.BY_PRICE and ln["amount"] > 0]
         p = max(priced or ours, key=lambda x: plans.rank(x["code"]))
         reason = inv.get("billing_reason") or "subscription_cycle"

@@ -20,9 +20,37 @@ MAX_PHOTO_MB = 25
 MAX_VIDEO_MB = 150
 
 
+MAX_PHOTO_PIXELS = 50_000_000      # ~8K x 6K; anything bigger is a decompression bomb, not a product photo
+_PIL_TYPES = {"JPEG": ("image/jpeg", ".jpg"), "PNG": ("image/png", ".png"), "WEBP": ("image/webp", ".webp")}
+
+
+def _check_photo(path: str):
+    """(content type, extension) of a real JPEG, PNG or WebP, read from the
+    file itself (the browser's label can say anything). Raises ValueError."""
+    from PIL import Image
+    try:
+        with Image.open(path) as im:
+            fmt = (im.format or "").upper()
+            w, h = im.size
+            if fmt not in _PIL_TYPES:
+                raise ValueError("Use a JPEG, PNG or WebP photo.")
+            if w * h > MAX_PHOTO_PIXELS:
+                raise ValueError("That photo is too large in pixels. Use one under 50 megapixels.")
+            im.load()      # a truncated or corrupt file fails here, not at the generation API
+    except ValueError:
+        raise
+    except Exception:  # noqa: BLE001 — Pillow raises many kinds for broken files
+        raise ValueError("That file isn't a photo we can read. Use a JPEG, PNG or WebP.") from None
+    return _PIL_TYPES[fmt]
+
+
 def save_upload(fs, folder, allowed, max_mb):
     ctype = fs.mimetype or mimetypes.guess_type(fs.filename or "")[0] or ""
+    name = (fs.filename or "").lower()
     if ctype not in allowed:
+        if ctype in ("image/heic", "image/heif") or name.endswith((".heic", ".heif")):
+            raise ValueError("iPhone HEIC photos aren't supported yet. Export it as a JPEG (on iPhone: Settings > "
+                             "Camera > Formats > Most Compatible, or share it as JPEG) and upload that.")
         raise ValueError("That file type isn't supported.")
     os.makedirs(folder, exist_ok=True)
     ext = mimetypes.guess_extension(ctype) or os.path.splitext(fs.filename or "")[1] or ""
@@ -31,6 +59,16 @@ def save_upload(fs, folder, allowed, max_mb):
     if os.path.getsize(path) > max_mb * 1024 * 1024:
         os.remove(path)
         raise ValueError(f"Files up to {max_mb} MB.")
+    if ctype.startswith("image/"):
+        try:
+            real, real_ext = _check_photo(path)
+        except ValueError:
+            os.remove(path)
+            raise
+        if real != ctype:       # a PNG labelled JPEG still works; store and serve it as what it is
+            fixed = os.path.splitext(path)[0] + real_ext
+            os.replace(path, fixed)
+            path, ctype = fixed, real
     return path, ctype
 
 

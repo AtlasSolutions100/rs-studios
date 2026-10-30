@@ -243,7 +243,12 @@ def tick() -> int:
         for job in conn.execute("SELECT * FROM jobs WHERE status='running' ORDER BY id LIMIT 20").fetchall():
             try:
                 res = hf.status(job["request_id"])
-            except Exception:  # noqa: BLE001 — try again next tick
+            except Exception:  # noqa: BLE001 — try again next tick, but not forever
+                # A request the vendor no longer knows (404) or a status call that
+                # keeps failing must still end: same deadline as a job that never finishes.
+                if job["updated_at"] < _minutes_ago(STUCK_MINUTES * 4):
+                    _fail(conn, job, "Timed out.")
+                    changed += 1
                 continue
             st = (res.get("status") or "").lower()
             if st == "completed":

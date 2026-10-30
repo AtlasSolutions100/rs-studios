@@ -19,6 +19,7 @@ import urllib3
 MAX_BYTES = 2 * 1024 * 1024
 MAX_REDIRECTS = 4
 TIMEOUT = urllib3.Timeout(connect=5, read=10)
+TOTAL_SECONDS = 25      # the whole fetch, redirects included: a page that drips bytes can't hold a worker thread
 UA = "Mozilla/5.0 (compatible; CampaignifyBot/1.0; +https://campaignify.ai)"
 
 
@@ -112,9 +113,27 @@ def fetch_bytes(url: str, max_bytes: int = 15 * 1024 * 1024, accept: str = "imag
     return r
 
 
-def _get(url: str, accept: str, max_bytes: int) -> dict:
-    seen = 0
+def _chunks(r):
+    """The body as it arrives. read1 returns whatever is there (stream() waits
+    for a full 64 KB, so a page dripping a byte at a time would never reach the
+    deadline check)."""
+    if not hasattr(r, "read1"):        # urllib3 < 2.3
+        yield from r.stream(65536, decode_content=True)
+        return
     while True:
+        chunk = r.read1(65536, decode_content=True)
+        if not chunk:
+            return
+        yield chunk
+
+
+def _get(url: str, accept: str, max_bytes: int) -> dict:
+    import time
+    seen = 0
+    deadline = time.monotonic() + TOTAL_SECONDS
+    while True:
+        if time.monotonic() > deadline:
+            raise FetchError("The site took too long to answer.")
         scheme, host, port, path, full = check_url(url)
         ip = resolve(host, port)
         pool = _open(scheme, host, port, ip)
@@ -134,13 +153,18 @@ def _get(url: str, accept: str, max_bytes: int) -> dict:
                     raise FetchError("Too many redirects.")
                 url = urljoin(full, r.headers["Location"])
                 continue
-            data = b""
-            for chunk in r.stream(65536, decode_content=True):
-                data += chunk
-                if len(data) > max_bytes:
-                    break
+            data = bytearray()
+            try:
+                for chunk in _chunks(r):
+                    data += chunk
+                    if len(data) > max_bytes:
+                        break
+                    if time.monotonic() > deadline:
+                        raise FetchError("The site took too long to answer.")
+            except (urllib3.exceptions.HTTPError, OSError):
+                raise FetchError("The site didn't answer in time.") from None
             return {"url": full, "status": r.status, "content_type": r.headers.get("Content-Type", ""),
-                    "data": data[:max_bytes]}
+                    "data": bytes(data[:max_bytes])}
         finally:
             r.release_conn()
             pool.close()

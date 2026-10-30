@@ -15,6 +15,7 @@ import products
 from core import MAX_PHOTO_MB, PHOTO_TYPES, UPLOADS, can_afford, charge_ai, login_required, not_enough, save_upload
 
 bp = Blueprint("products", __name__)
+IMPORTS_PER_HOUR = 30   # product-page imports per workspace (each one fetches a member-supplied URL)
 
 
 def _back(default):
@@ -239,6 +240,11 @@ def import_page():
     url = (request.form.get("url") or "").strip()[:500]
     bid = request.form.get("brand", type=int) or g.ws["brand_id"]
     use_ai = request.form.get("ai", "1") == "1"
+    key = f"import:{g.ws['id']}"
+    if db.throttled(key, IMPORTS_PER_HOUR, 3600):
+        flash("That's a lot of imports this hour. Try again in a little while.")
+        return redirect(url_for("products.new", brand=bid))
+    db.hit(key)
     if use_ai and llm.anthropic_ready() and not can_afford(product_import.estimate()):
         not_enough(product_import.estimate())
         return redirect(url_for("products.new", brand=bid))

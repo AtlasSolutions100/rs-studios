@@ -2602,6 +2602,167 @@ _out = _sp.run([_sys.executable, "-c", "import catalog; print(catalog.price_cred
                env={k: v for k, v in os.environ.items() if k not in ("RS_VIDEO_USD_PER_SECOND", "RS_TALKING_USD_PER_SECOND")},
                cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 check(_out.stdout.split() == ["463", "925"], "default video prices follow the vendor's 720p rate (2x margin)")
+
+print("== stress: stuck jobs, retry races, uploads, late invoices, slow pages, headers")
+import threading as _th  # noqa: E402
+import time as _time  # noqa: E402
+sa = client()
+sa.post("/signup", data={"csrf": csrf(sa), "email": "stress@example.com", "password": "longpassword"})
+with db.connect() as conn:
+    saws = conn.execute("SELECT workspace_id FROM users WHERE email='stress@example.com'").fetchone()[0]
+    db.adjust_credits(conn, saws, 500, "test top-up")
+    conn.commit()
+
+
+def sbal():
+    return db.balance(wsrow(saws))
+
+
+def sjob(jid):
+    with db.connect() as conn:
+        return conn.execute("SELECT * FROM jobs WHERE id=?", (jid,)).fetchone()
+
+
+r = sa.post("/app/photos", data={"csrf": csrf(sa), "photos": (png(), "p.png")}, content_type="multipart/form-data")
+with db.connect() as conn:
+    sph = conn.execute("SELECT id FROM photos WHERE workspace_id=?", (saws,)).fetchone()
+check(sph is not None, "a real PNG uploads")
+b0 = sbal()
+sa.post("/app/generate", data={"csrf": csrf(sa), "tool": "ad_image", "brief": "Candle on a shelf", "photo": str(sph["id"]),
+                               "batch": "1", "aspect": "9:16"})
+with db.connect() as conn:
+    stuck = conn.execute("SELECT * FROM jobs WHERE workspace_id=? ORDER BY id DESC", (saws,)).fetchone()
+worker.tick()
+check(sjob(stuck["id"])["status"] == "running" and sbal() == b0 - stuck["credits"], "the job is running, credits held")
+_real_status = hf.status
+
+
+def gone(rid):
+    raise hf.GenError("404: request not found")
+
+
+hf.status = gone
+worker.tick()
+check(sjob(stuck["id"])["status"] == "running", "a failed status check is retried (not failed at once)")
+with db.connect() as conn:
+    conn.execute("UPDATE jobs SET updated_at='2020-01-01T00:00:00+00:00' WHERE id=?", (stuck["id"],))
+    conn.commit()
+worker.tick()
+hf.status = _real_status
+j = sjob(stuck["id"])
+check(j["status"] == "failed" and j["error"].endswith("Credits refunded.") and sbal() == b0,
+      "a job whose status can never be read still times out, and the credits come back")
+
+retry_price = jobs_routes.price_now(None, j)[0]
+_real_price = jobs_routes.price_now
+
+
+def slow_price(conn, job):      # both tabs read the failed job before either claims it
+    _time.sleep(0.3)
+    return _real_price(conn, job)
+
+
+jobs_routes.price_now = slow_price
+sb = appmod.app.test_client()
+sb.environ_base["REMOTE_ADDR"] = sa.environ_base["REMOTE_ADDR"]
+sb.set_cookie("session", sa.get_cookie("session").value)
+codes = []
+ths = [_th.Thread(target=lambda c=c: codes.append(c.post(f"/app/jobs/{j['id']}/retry", data={"csrf": csrf(sa), "total": str(retry_price)},
+                                                       headers={"Accept": "application/json"}).status_code)) for c in (sa, sb)]
+[t.start() for t in ths]
+[t.join() for t in ths]
+jobs_routes.price_now = _real_price
+with db.connect() as conn:
+    kids = conn.execute("SELECT COUNT(*) FROM jobs WHERE parent_job_id=?", (j["id"],)).fetchone()[0]
+check(kids == 1 and sorted(codes)[0] == 200 and sbal() == b0 - retry_price,
+      "Try again pressed in two tabs at once retries once and charges once")
+with db.connect() as conn:
+    conn.execute("UPDATE workspaces SET credits=0, plan_credits=0 WHERE id=?", (saws,))
+    fj2 = conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, brief, params_json, status, error, credits, cost_usd, "
+                       "created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                       (saws, 1, "ad_image", "x", json.dumps({"batch": 1}), "failed", "x", 22, 0.1, db.now(), db.now())).lastrowid
+    conn.commit()
+r = sa.post(f"/app/jobs/{fj2}/retry", data={"csrf": csrf(sa), "total": str(catalog.price_credits("ad_image", batch=1))},
+            headers={"Accept": "application/json"})
+check(r.status_code == 402 and sjob(fj2)["deleted_at"] is None, "a retry without the credits leaves the failed card in place")
+
+svg = b'<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"></svg>'
+from PIL import Image as _Img  # noqa: E402
+_bomb = io.BytesIO()
+_Img.new("1", (30000, 30000)).save(_bomb, "PNG")
+_jpg_png = io.BytesIO()
+_Img.new("RGB", (64, 64)).save(_jpg_png, "PNG")
+for name, data, ctype, why in (("x.png", svg, "image/png", "an SVG labelled PNG"),
+                               ("x.jpg", b"\xff\xd8\xff not really", "image/jpeg", "a corrupt JPEG"),
+                               ("bomb.png", _bomb.getvalue(), "image/png", "a 900-megapixel decompression bomb"),
+                               ("IMG_1.HEIC", b"\0\0\0\x18ftypheic", "image/heic", "an iPhone HEIC")):
+    r = sa.post("/app/photos", data={"csrf": csrf(sa), "photos": (io.BytesIO(data), name, ctype)},
+                content_type="multipart/form-data", follow_redirects=True)
+    with db.connect() as conn:
+        n = conn.execute("SELECT COUNT(*) FROM photos WHERE workspace_id=? AND filename=?", (saws, name)).fetchone()[0]
+    check(n == 0 and (name != "IMG_1.HEIC" or "Export it as a JPEG" in r.get_data(as_text=True)), f"{why} is refused at upload")
+r = sa.post("/app/photos", data={"csrf": csrf(sa), "photos": (io.BytesIO(_jpg_png.getvalue()), "mislabeled.jpg", "image/jpeg")},
+            content_type="multipart/form-data")
+with db.connect() as conn:
+    ph = conn.execute("SELECT * FROM photos WHERE workspace_id=? AND filename='mislabeled.jpg'", (saws,)).fetchone()
+check(ph and ph["content_type"] == "image/png" and ph["path"].endswith(".png"), "a PNG labelled JPEG is kept as the PNG it is")
+r = sa.get(f"/photo/{ph['id']}")
+check(r.headers.get("X-Content-Type-Options") == "nosniff" and r.headers.get("X-Frame-Options") == "SAMEORIGIN",
+      "files are served with nosniff and app pages can't be framed by other sites")
+
+lws = wsrow(saws)
+deliver(plan_invoice("in_late_0", saws, "starter", sub="sub_late"))
+deliver({"id": "evt_late_del", "type": "customer.subscription.deleted", "data": {"object": {
+    "id": "sub_late", "status": "canceled", "metadata": {"app": "campaignify", "workspace_id": str(saws)}, "items": {"data": []}}}})
+r = deliver(plan_invoice("in_late_1", saws, "starter", reason="subscription_cycle", sub="sub_late"))
+w = wsrow(saws)
+check(r.get_json().get("ignored") and w["plan"] == "free" and w["plan_credits"] == 0,
+      "a late invoice.paid for a canceled subscription doesn't switch the plan and its credits back on")
+r = deliver(plan_invoice("in_new_1", saws, "growth", sub="sub_new"))
+check(wsrow(saws)["plan"] == "growth" and r.get_json().get("credited") == 6000, "subscribing again (a new subscription) still works")
+
+from http.server import BaseHTTPRequestHandler as _BH, ThreadingHTTPServer as _TS  # noqa: E402
+
+
+class _Drip(_BH):
+    def log_message(self, *a):
+        pass
+
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.end_headers()
+        try:
+            for _ in range(200):
+                self.wfile.write(b"<")
+                self.wfile.flush()
+                _time.sleep(0.5)
+        except OSError:
+            pass
+
+
+_srv = _TS(("127.0.0.1", 0), _Drip)
+_th.Thread(target=_srv.serve_forever, daemon=True).start()
+_saved = (fetcher._public, fetcher.check_url, fetcher.TOTAL_SECONDS)
+fetcher._public = lambda ip: True
+fetcher.check_url = lambda url: ("http", "127.0.0.1", _srv.server_address[1], "/", url)
+fetcher.TOTAL_SECONDS = 2
+_t = _time.monotonic()
+try:
+    fetcher.fetch("http://drip.example/")
+    _err = ""
+except fetcher.FetchError as e:
+    _err = str(e)
+fetcher._public, fetcher.check_url, fetcher.TOTAL_SECONDS = _saved
+_srv.shutdown()
+check("too long" in _err and _time.monotonic() - _t < 6, "a page that drips a byte at a time is cut off at the fetch deadline")
+
+_kd = tempfile.mkdtemp(prefix="rs_key_")
+_ks = [_sp.run([_sys.executable, "-c", "import app; print(app.app.secret_key)"], capture_output=True, text=True,
+               env=dict({k: v for k, v in os.environ.items() if k != "RS_SECRET_KEY"}, RS_DATA=_kd, RS_WORKER="0",
+                        RS_PLAN_SYNC="0"),
+               cwd=os.path.dirname(HERE)).stdout.strip() for _ in range(2)]
+check(len(_ks[0]) >= 32 and _ks[0] == _ks[1], "without RS_SECRET_KEY the session key survives a restart (no mass log-out on deploy)")
 print(f"\nall {passed} checks passed ({TMP})")
 
 if __name__ == "__main__":
