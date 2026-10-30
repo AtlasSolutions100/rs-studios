@@ -98,6 +98,8 @@ def retry(jid):
         new = queue_job(conn, j["tool"], j["template_id"], j["brief"], params, usd, credits, quiet=_wants_json(),
                         product_id=j["product_id"], batch_id=j["batch_id"])
         if not new:      # queue_job rolled back, so the failed card is back too
+            if _wants_json() and g.get("verify_blocked"):
+                return jsonify({"error": g.verify_blocked, "verify": True}), 403
             if _wants_json():
                 return jsonify({"error": f"That needs {credits:,} credits and you have {db.balance(g.ws):,}.",
                                 "billing": url_for("billing_page")}), 402
@@ -141,6 +143,8 @@ def hd(jid):
         new = queue_job(conn, tool, j["template_id"], j["brief"], params, usd, credits, quiet=_wants_json(),
                         product_id=j["product_id"], batch_id=j["batch_id"])
         if not new:
+            if _wants_json() and g.get("verify_blocked"):
+                return jsonify({"error": g.verify_blocked, "verify": True}), 403
             if _wants_json():
                 return jsonify({"error": f"That needs {credits:,} credits and you have {db.balance(g.ws):,}.",
                                 "billing": url_for("billing_page")}), 402

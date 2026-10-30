@@ -474,6 +474,9 @@ COLUMNS = [
     ("forms", "consent_sms_text", "TEXT"),
     # texts (phase 9)
     ("messages", "scheduled_at", "TEXT"),
+    # email verification (verify.py): accounts made before it are grandfathered in init()
+    ("users", "email_verified_at", "TEXT"),
+    ("users", "verify_nonce", "TEXT"),
 ]
 
 
@@ -502,6 +505,9 @@ def init():
                     # The first person in each existing workspace owns it.
                     conn.execute("UPDATE users SET role='owner' WHERE id IN "
                                  "(SELECT MIN(id) FROM users GROUP BY workspace_id)")
+                if (table, col) == ("users", "email_verified_at"):
+                    # Everyone who signed up before verification existed counts as verified.
+                    conn.execute("UPDATE users SET email_verified_at=COALESCE(created_at, ?)", (now(),))
         conn.execute("CREATE INDEX IF NOT EXISTS idx_ws_sub ON workspaces(stripe_subscription_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_p ON photos(product_id, id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_p ON jobs(workspace_id, product_id, id)")

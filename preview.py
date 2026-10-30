@@ -4,9 +4,10 @@ A free account gets ONE 8-second talking video at 480p, watermarked, instead of
 video credits: the first-run "wow". It costs us the vendor's 480p rate
 ($0.2056/s, about $1.64) and the member nothing. Limits: one per workspace and
 one per email address (normalised: case, +tags and Gmail dots don't make a new
-address), plus the signup IP throttles and a daily cap across all accounts
-(RS_FREE_PREVIEWS_PER_DAY). A preview that fails on our side can be tried again
-(up to MAX_TRIES). RS_FREE_PREVIEW=0 switches it off.
+address), a confirmed email (verify.py), the signup IP throttles and a daily
+cap across all accounts (RS_FREE_PREVIEWS_PER_DAY, default 30). A preview that
+fails on our side can be tried again (up to MAX_TRIES). RS_FREE_PREVIEW=0
+switches it off.
 """
 import hashlib
 import os
@@ -21,6 +22,7 @@ USD_PER_SECOND = float(os.environ.get("RS_PREVIEW_USD_PER_SECOND", "0.2056"))
 MAX_TRIES = 3
 DEFAULT_LINE = "Meet {product}. Let me show you what it is and why it's worth a look."
 PRESENTERS = ("maya", "jordan", "priya", "marcus")
+DEFAULT_DAILY_CAP = 30     # free previews a day across all accounts (about $50 of vendor cost)
 
 
 def enabled() -> bool:
@@ -29,9 +31,9 @@ def enabled() -> bool:
 
 def daily_cap() -> int:
     try:
-        return int(os.environ.get("RS_FREE_PREVIEWS_PER_DAY", "150"))
+        return int(os.environ.get("RS_FREE_PREVIEWS_PER_DAY", str(DEFAULT_DAILY_CAP)))
     except ValueError:
-        return 150
+        return DEFAULT_DAILY_CAP
 
 
 def cost_usd() -> float:
@@ -53,8 +55,9 @@ def ip_hash(ip: str) -> str:
     return hashlib.sha256(("cfy-preview:" + (ip or "")).encode()).hexdigest()[:24]
 
 
-def status(conn, ws, email: str) -> dict:
-    """{"ok": bool, "why": str}: can this workspace (and this login's email) make its free preview now?"""
+def status(conn, ws, email: str, user=None) -> dict:
+    """{"ok": bool, "why": str}: can this workspace (and this login's email) make its free preview now?
+    With `user`, an unconfirmed email is "verify" (verify.py)."""
     if not enabled():
         return {"ok": False, "why": "off"}
     if plans.plan_code(ws) != "free":
@@ -64,6 +67,10 @@ def status(conn, ws, email: str) -> dict:
     for r in rows:
         if r["job_id"] or r["tries"] >= MAX_TRIES:
             return {"ok": False, "why": "used"}
+    if user is not None:
+        import verify
+        if verify.blocked(conn, ws, user):
+            return {"ok": False, "why": "verify"}
     since = (datetime.now(timezone.utc) - timedelta(days=1)).replace(microsecond=0).isoformat()
     made = conn.execute("SELECT COUNT(*) FROM free_previews WHERE created_at>=? AND job_id IS NOT NULL",
                         (since,)).fetchone()[0]

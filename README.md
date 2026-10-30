@@ -22,7 +22,7 @@ presenters or testimonials, no claims of posting ads or reading ad-platform resu
     pip install -r requirements.txt
     RS_DATA=./data HIGGSFIELD_API_KEY=key:secret python app.py      # http://localhost:8080
 
-Owners (Koby, Travis) sign up with their one-time setup links (`owners.py` holds only the code hashes) and become admins of the Rector & Stull workspace. Anyone else can sign up and gets their own workspace with the starter credits (signups are rate-limited per IP and have a honeypot; there is no mail sending, so no email verification). Invite links from Admin join an existing workspace. Admin: top up credits, create
+Owners (Koby, Travis) sign up with their one-time setup links (`owners.py` holds only the code hashes) and become admins of the Rector & Stull workspace. Anyone else can sign up and gets their own workspace with the starter credits (signups are rate-limited per IP and have a honeypot). A new free account confirms its email before the starter credits or the free talking-video preview work: signup emails a signed, single-use link (`/verify`, 48 hours; `verify.py`), a banner offers Resend (once a minute, three an hour), and paid plans, pack buyers, admins and accounts made before this check are never blocked (`RS_EMAIL_VERIFY=0` switches it off; free previews are capped at `RS_FREE_PREVIEWS_PER_DAY`, default 30). Invite links from Admin join an existing workspace. Admin: top up credits, create
 invite links, see purchases, upload reference videos for "Copy a video's motion".
 
 ## Credit packs (Stripe)
