@@ -4,7 +4,7 @@
 {% endblock %}
 {% block main %}
 {% set r = rates() %}
-{% set sc = starter_credits() %}
+{% set so = signup_offer() %}{% set sc = so.credits %}
 {% macro plan_tag(key) -%}{% set f = plans.FEATURES[key] %}<span class="tag {{ 'ok' if f.plan == 'free' else '' }}">{{ f.name }} · {{ 'every account' if f.plan == 'free' else plans.PLANS[f.plan].name ~ '+' }}</span>{%- endmacro %}
 
 <section class="lp-hero">
@@ -14,10 +14,10 @@
       <h1>Your whole campaign, <span class="gold">in minutes.</span></h1>
       <p class="lp-lede">Plan it, make the ads, write the copy, get found, set up your ad accounts, capture leads, grow an audience and see what's working. One workspace for the whole campaign, with compliance checks on every brief.</p>
       <div class="lp-cta">
-        <a class="btn lg" href="{{ url_for('signup') }}">Start free</a>
+        <a class="btn lg" href="{{ url_for('signup') }}">{{ so.cta }}</a>
         <a class="lp-textlink" href="#journey">See how a campaign runs →</a>
       </div>
-      <p class="small muted lp-note">{{ '{:,}'.format(sc) }} free credits when you sign up, enough for {{ sc // r.image }} image ads. No card needed. The campaign tools come with a plan.</p>
+      <p class="small muted lp-note">{{ so.body }} The campaign tools come with a plan.</p>
     </div>
     <div class="lp-hero-art" aria-hidden="true">
       {% for gi in hero %}

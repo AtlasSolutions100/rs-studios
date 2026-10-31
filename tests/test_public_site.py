@@ -19,7 +19,9 @@ sys.path.insert(0, ROOT)
 TMP = tempfile.mkdtemp(prefix="rs_site_")
 os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret", RS_PLAN_SYNC="0", RS_EMAIL_VERIFY="0",
                   STRIPE_SECRET_KEY="sk_test_fake", STRIPE_WEBHOOK_SECRET="whsec_test_only")
-for k in ("GADS_SIGNUP_LABEL", "GADS_PURCHASE_LABEL", "GADS_TAG_ID", "RS_SITE_URL"):
+# Live prices (test_app.py's fixtures pin older vendor rates), so the sign-up offer copy matches the site.
+for k in ("GADS_SIGNUP_LABEL", "GADS_PURCHASE_LABEL", "GADS_TAG_ID", "RS_SITE_URL", "RS_VIDEO_USD_PER_SECOND",
+          "RS_TALKING_USD_PER_SECOND", "RS_MARKUP", "RS_STARTER_CREDITS", "SIGNUP_CREDITS_ADS"):
     os.environ.pop(k, None)
 
 import app as appmod  # noqa: E402
@@ -385,6 +387,147 @@ x.post("/signup", data={"csrf": csrf(x), "email": "organic@example.com", "passwo
 with db.connect() as conn:
     check(conn.execute("SELECT first_touch FROM users WHERE email='organic@example.com'").fetchone()[0] is None,
           "no first touch, nothing stored")
+
+print("== free sign-up copy and the paid-ad offer (SIGNUP_CREDITS_ADS)")
+import adoffer  # noqa: E402
+import catalog  # noqa: E402
+
+os.environ.pop("SIGNUP_CREDITS_ADS", None)
+check(adoffer.credits() == 500 and catalog.starter_credits() == 44, "the ad offer defaults to 500; everyone else 44")
+check(adoffer.paid_source({"gclid": "x"}) and adoffer.paid_source({"utm_medium": "CPC"})
+      and adoffer.paid_source({"utm_medium": "paid_social"}) and adoffer.paid_source({"fbclid": "y"})
+      and adoffer.paid_source({"ttclid": "t"}) and adoffer.paid_source({"rdt_cid": "r"})
+      and adoffer.paid_source({"twclid": "w"}) and adoffer.paid_source({"wbraid": "b"}),
+      "paid-ad sources: cpc / paid* mediums and ad click ids")
+check(not adoffer.paid_source({}) and not adoffer.paid_source({"utm_medium": "email", "utm_source": "newsletter"})
+      and not adoffer.paid_source({"utm_source": "google"}), "organic and newsletter visits aren't")
+r_ = catalog.rates()
+check(r_["video5"] <= 500 < r_["talk8"], "500 covers a 5-second product video, not a talking video")
+
+
+def page(c, path):
+    return c.get(path).get_data(as_text=True)
+
+
+def ws_of(email):
+    with db.connect() as conn:
+        u = conn.execute("SELECT workspace_id FROM users WHERE email=?", (email,)).fetchone()
+        ws = conn.execute("SELECT credits FROM workspaces WHERE id=?", (u[0],)).fetchone()
+        led = conn.execute("SELECT delta, reason FROM ledger WHERE workspace_id=? ORDER BY id", (u[0],)).fetchall()
+    return ws[0], [tuple(x) for x in led]
+
+
+def sign(c, email):
+    return c.post("/signup", data={"csrf": csrf(c), "email": email, "password": "longpassword1"})
+
+
+ORGANIC = ("Try 2 image ads free", "Free sign-up includes 2 image ads (44 credits). No card needed.")
+for path in ("/", "/pricing", "/features", "/signup", "/ai-ugc-ad-generator", "/arcads-alternative",
+             "/ai-product-ads-for-shopify", "/llms.txt"):
+    html = page(client(), path)
+    check("first ad free" not in html.lower() and "first video free" not in html.lower()
+          and "video ad free" not in html, f"organic {path}: no free-video or first-ad-free promise")
+for path in ("/", "/pricing", "/ai-ugc-ad-generator"):
+    html = page(client(), path)
+    check(ORGANIC[0] in html and ORGANIC[1] in html, f"organic {path}: 'Try 2 image ads free' + what sign-up includes")
+html = page(client(), "/pricing")
+check('<h2 class="lp-h2">Try 2 image ads free.</h2>' in html, "the pricing footer no longer says 'Make your first ad free'")
+for path in ("/", "/pricing", "/ai-ugc-ad-generator", "/arcads-alternative"):
+    m = Page(page(client(), path))
+    check("Free sign-up includes 2 image ads" in m.meta["description"] or "Try 2 image ads free" in m.meta["description"],
+          f"{path} meta description says what free sign-up includes")
+check("free sign-up includes 2 image ads" in page(client(), "/llms.txt"), "llms.txt says what free sign-up includes")
+
+# An ad visitor (gclid) sees the video offer from their first page, and sign-up grants it.
+a = client()
+html = page(a, "/ai-ugc-ad-generator?gclid=Ad-1")
+check("Make your first video ad free" in html and "Free sign-up includes 500 credits" in html
+      and ORGANIC[1] not in html, "ad visitor: 'Make your first video ad free' on the landing page")
+check("Free sign-up includes 500 credits, enough for your first video ad" in page(a, "/signup"),
+      "and the sign-up page says what they'll get (from the cookie)")
+r = sign(a, "adbuyer@gmail.com")
+bal, led = ws_of("adbuyer@gmail.com")
+check(bal == 500 and led == [(500, adoffer.REASON)], "sign-up grants 500 starter credits, once (one ledger row)")
+check("cfy_adg=1" in " ".join(r.headers.getlist("Set-Cookie")), "and marks the browser")
+with db.connect() as conn:
+    check(conn.execute("SELECT COUNT(*) FROM ad_signup_grants WHERE email_norm='adbuyer@gmail.com'").fetchone()[0] == 1,
+          "one ad grant recorded for that person")
+
+# Same browser, new email: the offer doesn't come back (copy and grant agree).
+a2 = appmod.app.test_client()
+a2.environ_base["REMOTE_ADDR"] = "10.9.200.1"
+a2.set_cookie(adoffer.BROWSER_COOKIE, "1")
+a2.get("/login")
+html = page(a2, "/?gclid=Ad-2")
+check("Make your first video ad free" not in html and ORGANIC[0] in html, "a browser that had the offer sees image-ad copy")
+sign(a2, "second-try@example.com")
+check(ws_of("second-try@example.com")[0] == 44, "and gets the normal 44")
+
+# Same person, disguised email (+tag, dots, case): 44.
+b = client()
+b.get("/?utm_source=meta&utm_medium=paid_social")
+sign(b, "Ad.Buyer+again@gmail.com")
+check(ws_of("ad.buyer+again@gmail.com")[0] == 44, "the same Gmail with dots / +tag doesn't get the offer twice")
+
+# Organic and opted-out visitors keep 44.
+o = client()
+o.get("/?utm_source=newsletter&utm_medium=email")
+check(ORGANIC[0] in page(o, "/pricing"), "newsletter visitor: image-ad copy")
+sign(o, "newsletter@example.com")
+check(ws_of("newsletter@example.com")[0] == 44, "newsletter visitor: 44")
+gpc = client(**{"Sec-GPC": "1"})
+check(ORGANIC[0] in page(gpc, "/?gclid=gpc"), "GPC visitor (no first-touch cookie): image-ad copy")
+sign(gpc, "gpc@example.com")
+check(ws_of("gpc@example.com")[0] == 44, "GPC visitor: 44")
+
+# One network: at most IP_LIMIT grants in 30 days; the copy changes with it.
+net = []
+for i in range(adoffer.IP_LIMIT + 1):
+    c = appmod.app.test_client()
+    c.environ_base["REMOTE_ADDR"] = "10.77.0.1"
+    c.get("/login")
+    net.append((c, "Make your first video ad free" in page(c, f"/?gclid=net{i}")))
+    sign(c, f"net{i}@example.com")
+check(all(v for _, v in net[:-1]) and not net[-1][1], "the offer copy stops once a network has had its grants")
+check([ws_of(f"net{i}@example.com")[0] for i in range(adoffer.IP_LIMIT + 1)] == [500] * adoffer.IP_LIMIT + [44],
+      "and so do the grants")
+
+# Daily cap across all accounts.
+with db.connect() as conn:
+    made = conn.execute("SELECT COUNT(*) FROM ad_signup_grants").fetchone()[0]
+os.environ["SIGNUP_CREDITS_ADS_PER_DAY"] = str(made)
+d = client()
+check(ORGANIC[0] in page(d, "/?gclid=cap"), "daily cap reached: image-ad copy")
+sign(d, "capped@example.com")
+check(ws_of("capped@example.com")[0] == 44, "daily cap reached: 44")
+os.environ.pop("SIGNUP_CREDITS_ADS_PER_DAY")
+
+# Switched off ("0" / "off"): 44 for everyone, organic copy for ad visitors too.
+for off in ("0", "off"):
+    os.environ["SIGNUP_CREDITS_ADS"] = off
+    e = client()
+    check(ORGANIC[0] in page(e, "/?gclid=off") and adoffer.credits() == 0, f"SIGNUP_CREDITS_ADS={off}: image-ad copy")
+    sign(e, f"off{off}@example.com")
+    check(ws_of(f"off{off}@example.com")[0] == 44, f"SIGNUP_CREDITS_ADS={off}: 44")
+# A grant too small for a video keeps image-ad copy, with the right count.
+os.environ["SIGNUP_CREDITS_ADS"] = "100"
+f_ = client()
+html = page(f_, "/?gclid=small")
+check("Try 4 image ads free" in html and "video ad free" not in html, "SIGNUP_CREDITS_ADS=100: 'Try 4 image ads free'")
+sign(f_, "small@example.com")
+check(ws_of("small@example.com")[0] == 100, "SIGNUP_CREDITS_ADS=100: 100 credits")
+os.environ.pop("SIGNUP_CREDITS_ADS")
+
+# Invites and logged-in members never see or get the offer.
+import verify  # noqa: E402
+with db.connect() as conn:
+    ua = conn.execute("SELECT * FROM users WHERE email='adbuyer@gmail.com'").fetchone()
+    uo = conn.execute("SELECT * FROM users WHERE email='newsletter@example.com'").fetchone()
+    check(verify._free_what(conn, ua) == "your free Campaignify credits (your first video ad or 22 image ads)"
+          and verify._free_what(conn, uo) == "your free Campaignify credits (2 image ads)",
+          "the confirm-your-email message says what that account's free credits buy")
+html = page(a, "/pricing?gclid=member")
+check("Make your first video ad free" not in html and ORGANIC[0] in html, "a logged-in member sees the normal copy")
 
 print("== layout at phone width")
 css = open(os.path.join(ROOT, "static", "style.css")).read()

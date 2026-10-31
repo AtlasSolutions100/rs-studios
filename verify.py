@@ -114,6 +114,20 @@ def confirm(conn, secret: str, token: str, max_age: int | None = None) -> tuple[
 
 # ---------------------------------------------------------------- the email
 
+def _free_what(conn, user) -> str:
+    """'your free Campaignify credits (2 image ads)': what the starter credits on this account buy."""
+    import catalog
+    r = catalog.rates()
+    row = conn.execute("SELECT delta FROM ledger WHERE workspace_id=? AND reason LIKE 'starter credits%' "
+                       "ORDER BY id LIMIT 1", (user["workspace_id"],)).fetchone()
+    n = row["delta"] if row and row["delta"] > 0 else catalog.starter_credits()
+    images = n // max(r["image"], 1)
+    ads = f"{images} image ad{'' if images == 1 else 's'}"
+    if n >= r["video5"]:
+        ads = f"your first video ad or {ads}"
+    return f"your free Campaignify credits ({ads})"
+
+
 def send_link(conn, secret: str, user) -> bool:
     """Email the confirmation link (makes a nonce if the account has none; commits).
     False when email isn't connected or the send failed (logged)."""
@@ -122,12 +136,15 @@ def send_link(conn, secret: str, user) -> bool:
         conn.commit()
         user = conn.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone()
     link = public_url() + "/verify?t=" + make_token(secret, user)
-    text = ("Hi,\n\nConfirm your email to start using your free Campaignify credits and your free talking-video "
-            f"preview:\n\n{link}\n\nThe link works for 48 hours. If you didn't sign up for Campaignify, ignore this "
-            "email and nothing happens.\n\nCampaignify")
+    import preview
+    # Say what the free credits buy (2 image ads by default); mention the watermarked preview only when it's on.
+    what = _free_what(conn, user)
+    if preview.enabled():
+        what += f" and your free {preview.SECONDS}-second talking-video preview (480p, watermarked)"
+    text = (f"Hi,\n\nConfirm your email to start using {what}:\n\n{link}\n\nThe link works for 48 hours. If you "
+            "didn't sign up for Campaignify, ignore this email and nothing happens.\n\nCampaignify")
     html = ('<div style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.5;color:#111">'
-            "<p>Hi,</p><p>Confirm your email to start using your free Campaignify credits and your free "
-            "talking-video preview.</p>"
+            f"<p>Hi,</p><p>Confirm your email to start using {what}.</p>"
             f'<p><a href="{link}" style="display:inline-block;background:#111;color:#fff;padding:12px 20px;'
             'border-radius:8px;text-decoration:none;font-weight:600">Confirm my email</a></p>'
             f'<p style="font-size:13px;color:#555">Or paste this link into your browser:<br>{link}</p>'

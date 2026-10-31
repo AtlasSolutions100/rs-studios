@@ -137,7 +137,7 @@ SOLUTIONS = {
         "nav": "AI UGC ad generator",
         "title": "AI UGC Ad Generator: UGC-Style Video Ads · Campaignify",
         "description": "Turn a product page into UGC-style video ads: an AI presenter holds your product and says your "
-                       "script. See the price first. Start free, no card.",
+                       "script, priced up front. Free sign-up includes {sc_images} image ads.",
         "eyebrow": "AI UGC ads",
         "h1": "AI UGC ad generator",
         "answer": "Campaignify turns your product page into UGC-style video ads. Paste the link, pick an AI presenter "
@@ -199,13 +199,13 @@ SOLUTIONS = {
         "query": "Arcads alternative",
         "nav": "Arcads alternative",
         "title": "Arcads Alternative for AI UGC Video Ads · Campaignify",
-        "description": "Comparing Arcads alternatives? Campaignify makes UGC-style video and image ads from your "
-                       "product page, plus the copy and landing page. Start free.",
+        "description": "Comparing Arcads alternatives? Campaignify makes UGC-style video and image ads, copy and a "
+                       "landing page from your product page. Try {sc_images} image ads free.",
         "eyebrow": "Comparing tools",
         "h1": "Looking for an Arcads alternative?",
         "answer": "Campaignify is an AI ad studio that makes UGC-style video ads and image ads from your product page, "
-                  "and keeps the copy, landing page and launch checklist in the same workspace. You can start free "
-                  "without a card and see the price of every ad before it's made. This page only describes what "
+                  "and keeps the copy, landing page and launch checklist in the same workspace. Free sign-up includes "
+                  "{sc_images} image ads with no card, and you see the price of every ad before it's made. This page only describes what "
                   "Campaignify does, so you can hold it up against Arcads or any other tool on your list.",
         "steps": [
             ("Paste a product page",
@@ -379,6 +379,7 @@ def solution(slug: str) -> dict:
     s, f = SOLUTIONS[slug], facts()
     out = dict(s, slug=slug)
     out["answer"] = s["answer"].format(**f)
+    out["description"] = s["description"].format(**f)
     out["steps"] = _fmt(s["steps"], f)
     for key in ("gets", "compare", "faq"):
         if key in s:
@@ -392,13 +393,13 @@ def solution(slug: str) -> dict:
 
 PAGES = {  # endpoint -> (path, title, description)
     "index": ("/", "Campaignify: AI UGC Ads and Your Whole Campaign",
-              "Make UGC-style video ads and image ads from a product page, then the copy, landing page and launch "
-              "checklist. One AI marketing studio. Start free, no card."),
+              "UGC-style video and image ads from a product page, then the copy, landing page and launch checklist. "
+              "Free sign-up includes {sc_images} image ads, no card."),
     "features": ("/features", "Features: Every Campaignify Tool, Step by Step",
                  "Every Campaignify tool in the order a campaign runs: plan, make the ads, write the copy, get found, "
                  "launch, capture leads, grow and measure."),
     "pricing": ("/pricing", "Pricing: Plans From ${starter} a Month · Campaignify",
-                "Start free with no card. Plans at ${starter}, ${growth} and ${scale} a month with monthly credits, or "
+                "Free sign-up includes {sc_images} image ads, no card. Plans at ${starter}, ${growth} and ${scale} a month, or "
                 "one-time credit packs. See every price before you generate."),
     "privacy": ("/privacy", "Privacy Policy · Campaignify",
                 "What Campaignify collects to run your account and make your ads, the services it uses, the Google "
@@ -431,7 +432,7 @@ def meta(endpoint: str | None, view_args: dict | None) -> dict | None:
     elif endpoint in PAGES:
         path, title, desc = PAGES[endpoint]
         prices = {c: plans.PLANS[c]["usd"] for c in ("starter", "growth", "scale")}
-        title, desc = title.format(**prices), desc.format(**prices)
+        title, desc = title.format(**prices), desc.format(sc_images=facts()["sc_images"], **prices)
     else:
         return None
     url = absolute(path)
@@ -455,7 +456,9 @@ def _website():
 def offers() -> list[dict]:
     """One Offer per plan, from plans.PLANS (free + the paid monthly plans)."""
     out = [{"@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD",
-            "description": f"{catalog.starter_credits():,} starter credits and the ad studio", "url": absolute("/pricing")}]
+            "description": f"{catalog.starter_credits():,} starter credits (free sign-up includes "
+                           f"{catalog.starter_credits() // max(catalog.rates()['image'], 1)} image ads) and the ad studio",
+            "url": absolute("/pricing")}]
     for p in plans.PAID:
         out.append({"@type": "Offer", "name": f"{p['name']} plan", "price": str(p["usd"]), "priceCurrency": "USD",
                     "description": f"{p['credits']:,} credits a month. {p['line']}", "url": absolute("/pricing"),

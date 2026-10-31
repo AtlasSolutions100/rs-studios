@@ -6,6 +6,10 @@ RS_SECRET_KEY=change-me-to-a-long-random-string
 RS_MARKUP=2.0
 # Free credits for a new self-serve account (default when unset: 2 image ads = 44).
 RS_STARTER_CREDITS=44
+# Starter credits for sign-ups that came from a paid ad (first touch utm_medium=cpc/paid* or an ad click id),
+# once per person (email, network, browser) and at most SIGNUP_CREDITS_ADS_PER_DAY a day (default 200).
+# Default when unset: 500 (covers a 5-second product video). 0 or off: everyone gets RS_STARTER_CREDITS.
+# SIGNUP_CREDITS_ADS=500
 # Credit-pack checkout: a Stripe key with Checkout Sessions write access, and the
 # signing secret of the https://campaignify.ai/webhooks/stripe endpoint.
 STRIPE_SECRET_KEY=rk_live_xxx

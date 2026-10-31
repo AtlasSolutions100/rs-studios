@@ -1,11 +1,11 @@
-{# Plans + packs, shared by the landing page and /features. Needs r = rates(), sc = starter_credits(). #}
+{# Plans + packs, shared by the landing page and /features. Needs r = rates(), sc = the visitor's starter credits (signup_offer().credits). #}
 <p class="lp-anchor">Talking videos from <b>{{ credits_usd(r.talk8) }}</b> · product videos from <b>{{ credits_usd(r.video5) }}</b> · image ads from <b>{{ credits_usd(r.image) }}</b>, paid in credits (1 credit = $0.01). You see the price before anything runs.</p>
 <div class="lp-prices plans">
   <div class="lp-price free">
     <h3>Free</h3>
     <div class="lp-amt">$0</div>
     <p class="lp-cr">{{ '{:,}'.format(sc) }} starter credits</p>
-    <p class="muted small">{{ sc // r.image }} image ads to try the studio on your own product. No card needed.</p>
+    <p class="muted small">{{ sc // r.image }} image ads to try the studio on your own product{{ ', or your first video ad' if sc >= r.video5 }}. No card needed.</p>
     <ul class="plan-feats">{% for k, f in plans.FEATURES.items() if f.plan == 'free' and f.shipped %}<li>{{ f.name }}</li>{% endfor %}<li>Credit packs whenever you need more</li></ul>
     <a class="btn dark" href="{{ url_for('signup') }}">Start free</a>
   </div>

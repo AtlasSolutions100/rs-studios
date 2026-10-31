@@ -20,7 +20,7 @@ Campaignify doesn't post ads, buy media or read results from ad platforms. It gu
 
 ## Plans
 
-- Free: {{ '{:,}'.format(starter_credits()) }} starter credits and the ad studio, no card.
+- Free: {{ '{:,}'.format(starter_credits()) }} starter credits (free sign-up includes {{ starter_credits() // rates().image }} image ads) and the ad studio, no card.
 {% for p in plans.PAID %}- {{ p.name }}: ${{ p.usd }} a month, {{ '{:,}'.format(p.credits) }} credits a month. {{ p.line }}
 {% endfor %}- Credit packs ({% for p in packs %}${{ p.usd }}{{ ', ' if not loop.last }}{% endfor %}) top up any account.
 - 1 credit = $0.01. Plan credits expire at each renewal; pack credits never expire.
