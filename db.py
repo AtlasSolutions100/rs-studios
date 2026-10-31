@@ -430,6 +430,12 @@ CREATE TABLE IF NOT EXISTS conversion_queue (
     payload TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0, error TEXT,
     created_at TEXT NOT NULL, sent_at TEXT, UNIQUE(platform, event_id));
 CREATE INDEX IF NOT EXISTS idx_conversion_queue_status ON conversion_queue(status, created_at);
+-- "Import from a link" tries (product_routes.import_url): which store, how it was read
+-- (page / jsonld / og / shopify-json / manual) and the outcome (ok / blocked / failed), for the admin system card.
+CREATE TABLE IF NOT EXISTS import_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER, domain TEXT NOT NULL, method TEXT NOT NULL,
+    status TEXT NOT NULL, http_status INTEGER, detail TEXT, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_import_attempts_at ON import_attempts(created_at);
 """
 
 # Columns added after the first release: (table, column, definition).

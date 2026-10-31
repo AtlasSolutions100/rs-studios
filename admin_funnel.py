@@ -86,6 +86,34 @@ def _meta(conn, key):
         return None
 
 
+IMPORT_METHODS = ("shopify-json", "jsonld", "og", "page", "manual")
+
+
+def imports(conn, days: int = 7) -> dict:
+    """"Import from a link" over the last `days` days: tries, outcomes, how each
+    product was read (page / jsonld / og / shopify-json / manual) and the stores
+    that refused us most."""
+    since = _since(days)
+    rows = conn.execute("SELECT method, status, COUNT(*) n FROM import_attempts WHERE created_at >= ? "
+                        "GROUP BY method, status", (since,)).fetchall()
+    by = {}
+    status = {"ok": 0, "blocked": 0, "failed": 0}
+    for r in rows:
+        if r["method"] == "manual":
+            continue
+        status[r["status"]] = status.get(r["status"], 0) + r["n"]
+        if r["status"] == "ok":
+            by[r["method"]] = by.get(r["method"], 0) + r["n"]
+    manual = sum(r["n"] for r in rows if r["method"] == "manual")
+    blocked = conn.execute("SELECT domain, COUNT(*) n FROM import_attempts WHERE created_at >= ? AND status='blocked' "
+                           "GROUP BY domain ORDER BY n DESC, domain LIMIT 5", (since,)).fetchall()
+    return {"days": days, "tries": sum(status.values()), "ok": status["ok"], "blocked": status["blocked"],
+            "failed": status["failed"], "manual": manual,
+            "methods": [(m, by[m]) for m in IMPORT_METHODS if by.get(m)] + [(m, n) for m, n in by.items()
+                                                                          if m not in IMPORT_METHODS],
+            "blocked_domains": [(r["domain"], r["n"]) for r in blocked]}
+
+
 def health(conn) -> dict:
     """The admin system card: provider, vendor-price check, pixels, last 24h of jobs."""
     import worker
@@ -121,4 +149,4 @@ def health(conn) -> dict:
                         + (" · purchase label" if google["purchase"] else " · no purchase label") if google["tag"] else ""),
                        ("Meta", bool(px["meta"]), px["meta"]), ("TikTok", bool(px["tiktok"]), px["tiktok"]),
                        ("Reddit", bool(px["reddit"]), px["reddit"]), ("X", bool(px["x"]), px["x"])],
-            "server_side": server, "warn": warn}
+            "server_side": server, "warn": warn, "imports": imports(conn)}

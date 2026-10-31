@@ -53,6 +53,17 @@ def switch():
     return redirect(_back(url_for("studio")))
 
 
+def _manual_ctx(b, src, why):
+    """What the by-hand form shows after an import couldn't read the store:
+    why, and a first guess at the brand (from the domain) and the product's
+    name (from the link)."""
+    if why not in ("blocked", "failed"):
+        return None
+    link = src if src.lower().startswith(("http://", "https://")) else ""      # never a javascript: link
+    return {"why": why, "src": src, "link": link, "domain": product_import.domain(src),
+            "brand": "" if (b["brand_name"] or "").strip() else product_import.brand_guess(src)}
+
+
 @bp.route("/app/products/new", methods=["GET", "POST"])
 @login_required
 def new():
@@ -61,21 +72,71 @@ def new():
         b = products.get_brand(conn, g.ws["id"], bid)
         if b is None:
             abort(404)
+        src = (request.values.get("src") or "").strip()[:500]
+        manual = _manual_ctx(b, src, request.values.get("manual") or "")
         if request.method == "POST":
             try:
                 if _locked(conn, b["id"]):
                     raise products.ProductError("That brand is locked on your plan. Upgrade to add products to it.")
-                pid = products.create_product(conn, g.ws, b["id"], request.form)
+                pid, charged = _create_by_hand(conn, b, request.form, manual)
                 products.activate(conn, g.ws, product_id=pid)
             except products.ProductError as e:
                 flash(str(e))
                 return render_template("product_edit.html", p=None, b=b, form=request.form, photos=[], pend=[],
-                                       imp={}, angles=[], scripts=[]), 400
-            _save_photos(conn, pid)
-            flash("Product added. It's your active product now, so every flow starts from it.")
+                                       imp={}, angles=[], scripts=[], manual=manual,
+                                       import_quote=product_import.estimate(), ai_on=llm.anthropic_ready()), 400
+            n = _save_photos(conn, pid)
+            if manual:
+                product_import.log_attempt(conn, g.ws["id"], manual["src"] or request.form.get("url") or "", "manual", "ok",
+                                           detail=("text" if (request.form.get("page_text") or "").strip() else "form")
+                                           + f", {n} photo{'s' if n != 1 else ''}")
+            p = products.get_product(conn, g.ws["id"], pid)
+            pend = len(products.pending(p))
+            flash("Product added. It's your active product now, so every flow starts from it."
+                  + (f" {pend} claim{'s' if pend != 1 else ''} from the text you pasted wait for your approval." if pend else "")
+                  + (f" Reading the text cost {charged} credit{'s' if charged != 1 else ''}." if charged else ""))
             return redirect(url_for("products.edit", pid=pid))
-    return render_template("product_edit.html", p=None, b=b, form={}, photos=[], pend=[], imp={}, angles=[], scripts=[],
-                           import_quote=product_import.estimate(), ai_on=llm.anthropic_ready())
+    form = {}
+    if manual:
+        form = {"name": product_import.name_guess(src), "url": src}
+    return render_template("product_edit.html", p=None, b=b, form=form, photos=[], pend=[], imp={}, angles=[], scripts=[],
+                           import_quote=product_import.estimate(), ai_on=llm.anthropic_ready(), manual=manual)
+
+
+PASTE_MAX = 20000
+
+
+def _create_by_hand(conn, b, form, manual):
+    """A product from the form. With pasted page text, the same AI read an
+    import uses fills what the member left empty, and its claims (only ones the
+    text states) wait for approval; what the member typed always wins.
+    Returns (product id, credits charged)."""
+    vals = {k: form.get(k) for k in form if k not in ("csrf", "brand", "page_text", "brand_name", "manual", "src")}
+    pasted = (form.get("page_text") or "").strip()[:PASTE_MAX]
+    pending, charged, brand = [], 0, (form.get("brand_name") or "").strip()[:80]
+    if pasted:
+        facts = product_import.text_facts(pasted, (vals.get("url") or "").strip(), (vals.get("name") or "").strip())
+        use_ai = llm.anthropic_ready() and can_afford(product_import.estimate())
+        if llm.anthropic_ready() and not use_ai:
+            flash("Not enough credits for the AI read of the text, so we filled in what we could without it.")
+        ai, charged = _ai_read(conn, facts, use_ai)
+        built = product_import.build(facts, ai)
+        typed = set(ln.strip() for ln in (vals.get("claims") or "").splitlines() if ln.strip())
+        for k, v in built["form"].items():
+            if k == "name" and not ai and not (vals.get("name") or "").strip():
+                v = facts["name"] or ""
+            if not (vals.get(k) or "").strip() and v and v != "Imported product":
+                vals[k] = v
+        pending = [c for c in built["pending"] if c not in typed]
+        brand = brand or built["brand"]
+    if not (vals.get("name") or "").strip():
+        raise products.ProductError("Give the product a name.")
+    if manual and brand:
+        _name_brand(conn, b["id"], brand)
+    pid = products.create_product(conn, g.ws, b["id"], vals, pending_claims=pending,
+                                  import_json={"url": vals.get("url") or "", "images": [], "own": [], "taken": [],
+                                               "by_hand": True} if manual else None)
+    return pid, charged
 
 
 def _save_photos(conn, pid):
@@ -200,27 +261,55 @@ def delete_script(pid, sid):
 
 # ---------------------------------------------------------------- import from URL
 
-def import_url(conn, url, brand_id, use_ai=True):
-    """Fetch a product page and make a product from it (shared with the setup
-    assistant). Returns (product id, facts, credits charged). Raises
-    fetcher.FetchError or products.ProductError."""
-    if _locked(conn, brand_id):
-        raise products.ProductError("That brand is locked on your plan.")
+def read_store(url):
+    """(facts, method) for a product link, read honestly with our own
+    user-agent (fetcher.UA): the store's published product data first
+    (Shopify's <product-url>.js / .json), then the page itself for its JSON-LD
+    Product, Open Graph tags and text. The first refusal (401/403/429 or a bot
+    challenge) stops the import: product_import.Blocked, nothing retried or
+    disguised. Other failures raise fetcher.FetchError."""
+    fetcher.check_url(url)      # the SSRF guard runs again on every request (fetcher._get)
+    shop = None
+    for ep in product_import.shopify_endpoints(url):
+        try:
+            r = fetcher.fetch(ep, accept="application/json")
+        except fetcher.FetchError:
+            break               # the page request below gives the member the real reason
+        if product_import.refused(r):
+            raise product_import.Blocked(r["status"], "shopify-json")
+        if r["status"] < 400:
+            shop = product_import.shopify_facts(r["text"], url, r["content_type"])
+            if shop:
+                break
     page = fetcher.fetch(url)
+    if product_import.refused(page):
+        if shop:                # the store published this product's data; that's enough, and we stop asking
+            return shop, "shopify-json"
+        raise product_import.Blocked(page["status"], "page")
     if page["status"] >= 400:
+        if shop:
+            return shop, "shopify-json"
         raise fetcher.FetchError(f"The page answered {page['status']}.")
     if "html" not in (page["content_type"] or "").lower() and "<html" not in page["text"][:2000].lower():
+        if shop:
+            return shop, "shopify-json"
         raise fetcher.FetchError("That link isn't a web page.")
     facts = product_import.extract(page["text"], page["url"])
-    sj = product_import.shopify_json_url(page["url"], page["text"])
+    if shop:
+        return product_import.merge(facts, shop), "shopify-json"
+    sj = "" if product_import.shopify_endpoints(url) else product_import.shopify_json_url(page["url"], page["text"])
     if sj:
-        # A Shopify store lists exactly this product's photos in its product JSON.
+        # A Shopify page reached from another link (a redirect): its product JSON lists exactly this product's photos.
         try:
             r = fetcher.fetch(sj, accept="application/json")
-            if r["status"] < 400:
+            if not product_import.refused(r) and r["status"] < 400:
                 product_import.prefer_images(facts, product_import.shopify_images(r["text"]))
         except fetcher.FetchError:
             pass
+    return facts, product_import.method_of(facts)
+
+
+def _ai_read(conn, facts, use_ai):
     ai, charged = None, 0
     if use_ai and llm.anthropic_ready():
         usage = llm.Usage()
@@ -231,16 +320,49 @@ def import_url(conn, url, brand_id, use_ai=True):
         if usage.calls:
             charged = charge_ai(conn, usage.credits, "AI product import")
             conn.commit()
-    built = product_import.build(facts, ai)
+    return ai, charged
+
+
+def _name_brand(conn, brand_id, name):
     b = products.get_brand(conn, g.ws["id"], brand_id)
-    if b is not None and not (b["brand_name"] or "").strip() and built["brand"]:
+    if b is not None and not (b["brand_name"] or "").strip() and (name or "").strip():
         try:
-            products.update_brand(conn, g.ws["id"], b["id"], {"brand_name": built["brand"]})
+            products.update_brand(conn, g.ws["id"], b["id"], {"brand_name": name.strip()})
         except products.ProductError:
             pass
-    pid = products.create_product(conn, g.ws, brand_id, built["form"], pending_claims=built["pending"],
-                                  import_json=built["import"])
+
+
+def import_url(conn, url, brand_id, use_ai=True):
+    """Fetch a product page and make a product from it (shared with the setup
+    assistant). Returns (product id, facts, credits charged). Raises
+    product_import.Blocked (the store refuses apps), fetcher.FetchError or
+    products.ProductError. Every try is logged for the admin card."""
+    if _locked(conn, brand_id):
+        raise products.ProductError("That brand is locked on your plan.")
+    try:
+        facts, method = read_store(url)
+    except product_import.Blocked as e:
+        product_import.log_attempt(conn, g.ws["id"], url, e.method, "blocked", e.status)
+        raise
+    except fetcher.FetchError as e:
+        product_import.log_attempt(conn, g.ws["id"], url, "page", "failed", detail=str(e))
+        raise
+    ai, charged = _ai_read(conn, facts, use_ai)
+    built = product_import.build(facts, ai)
+    _name_brand(conn, brand_id, built["brand"])
+    try:
+        pid = products.create_product(conn, g.ws, brand_id, built["form"], pending_claims=built["pending"],
+                                      import_json=built["import"])
+    except products.ProductError as e:
+        product_import.log_attempt(conn, g.ws["id"], url, method, "failed", detail=str(e))
+        raise
+    product_import.log_attempt(conn, g.ws["id"], url, method, "ok")
     return pid, facts, charged
+
+
+def manual_url(bid, url, why="blocked"):
+    """The add-product page with the by-hand form open and prefilled from the link."""
+    return url_for("products.new", brand=bid, manual=why, src=(url or "")[:500]) + "#details"
 
 
 @bp.route("/app/products/import", methods=["POST"])
@@ -263,7 +385,16 @@ def import_page():
         try:
             pid, facts, charged = import_url(conn, url, bid, use_ai=use_ai)
             products.activate(conn, g.ws, product_id=pid)
-        except (fetcher.FetchError, products.ProductError) as e:
+        except product_import.Blocked:
+            return redirect(manual_url(bid, url, "blocked"))
+        except fetcher.FetchError as e:
+            if "private or internal" in str(e) or "Only " in str(e) or "username or password" in str(e) \
+                    or "Add a URL" in str(e):
+                flash(f"Couldn't import that page: {e}")      # not a store link we may read: no form prefilled from it
+                return redirect(url_for("products.new", brand=bid))
+            flash(f"Couldn't read that page: {e}")
+            return redirect(manual_url(bid, url, "failed"))
+        except products.ProductError as e:
             flash(f"Couldn't import that page: {e}")
             return redirect(url_for("products.new", brand=bid))
     flash("Imported. Check the details, approve the claims you're allowed to make, and pick the photos to keep."
