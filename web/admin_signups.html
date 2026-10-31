@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% block title %}Sign-ups · Admin · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+<p class="eyebrow"><a href="{{ url_for('admin') }}">Admin</a></p><h1>Sign-ups, last {{ data.days }} days</h1>
+{% set t = data.totals %}
+<p class="muted">{{ t.signups }} sign-ups · {{ t.verified }} confirmed their email · {{ t.paid_source }} came from an ad · {{ t.ad_grant }} got the ad offer ({{ ad_credits or 'off' }}{{ ' credits' if ad_credits }}) · {{ t.made }} started a generation · {{ t.finished }} got a finished one · {{ t.paying }} paying</p>
+<p class="small muted">Starter credits: {{ starter }} normally, {{ ad_credits or 'no ad offer' }}{{ ' for an ad sign-up' if ad_credits }} (once per person). Owners' accounts are marked and left out of the totals. Emails are masked.</p>
+<div class="panel scrollx">
+<table><tr><th>Email</th><th>Signed up</th><th>Confirmed</th><th>First touch</th><th>Starter credits</th><th>Generations</th><th>Paying</th></tr>
+{% for r in data.rows %}<tr>
+  <td><code>{{ r.email }}</code>{% if r.admin %} <span class="tag">owner</span>{% elif r.joined %} <span class="small muted">joined a team</span>{% endif %}</td>
+  <td class="small">{{ r.created_at|localtime }}</td>
+  <td>{% if r.verified %}<span class="tag ok">yes</span>{% else %}<span class="tag warn">no</span>{% endif %}</td>
+  <td>{{ r.source.label }}{% if r.source.paid %} <span class="tag ok">ad</span>{% endif %}{% if r.source.detail %}<div class="small dim">{{ r.source.detail }}</div>{% endif %}</td>
+  <td>{{ r.starter or '—' }}{% if r.ad_grant %} <span class="tag ok">ad offer</span>{% endif %}</td>
+  <td>{{ r.jobs }}{% if r.jobs %} <span class="small muted">({{ r.done }} done)</span>{% endif %}</td>
+  <td>{{ 'yes' if r.paying else '—' }}</td>
+</tr>{% else %}<tr><td colspan="7" class="muted">No sign-ups in the last {{ data.days }} days.</td></tr>{% endfor %}
+</table>
+</div>
+</div>
+{% endblock %}

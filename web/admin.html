@@ -4,13 +4,27 @@
 <p class="eyebrow">Admin</p><h1>Run the <span class="gold">studio</span></h1>
 <p class="muted">AI writing (planner, copy, SEO): <b>{{ ai_status }}</b> · <a href="{{ url_for('admin_outreach') }}">Brand outreach emails</a></p>
 <p class="muted">Generation service: <b>{{ 'connected' if configured else 'not connected (set HF_KEY)' }}</b> · markup {{ markup }}× (1080p {{ hd_markup }}×) · 1 credit = $0.01</p>
+{% for w in health.warn %}<p class="flash warn" role="status" style="margin:0 0 10px"><b>Vendor price:</b> {{ w }}</p>{% endfor %}
 <div class="grid" style="gap:24px">
+<div class="panel scrollx" id="health">
+  <h2>System</h2>
+  <table>
+  <tr><th>Generation provider</th><td>{{ 'key set' if health.configured else 'not connected (set HF_KEY)' }} · last key check: <b>{{ health.probe }}</b>
+    <form method="post" action="{{ url_for('admin_health_check') }}" style="display:inline;margin-left:6px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Check now</button></form>
+    <div class="small muted">Last 24h: {{ health.jobs_24h.n }} jobs · {{ health.jobs_24h.done }} done · {{ health.jobs_24h.failed }} failed · {{ health.jobs_24h.open }} in progress{% if health.last_fail %} · last failure #{{ health.last_fail.id }} {{ health.last_fail.updated_at|localtime }}: {{ (health.last_fail.error or '')[:90] }}{% endif %}</div></td></tr>
+  <tr><th>Vendor-price check</th><td>{% if health.check_at %}{{ health.check_answered }} of {{ health.check_total }} formats priced · {{ health.check_at|localtime }}{% else %}never run{% endif %}
+    <div class="small muted">Live (talking videos, before each starts): {% if health.live.at %}{{ 'readable' if health.live.ok else 'unreadable — started at our table price' }}{% if health.live.vendor is not none %} (${{ '%.3f'|format(health.live.vendor) }} vs ours ${{ '%.3f'|format(health.live.ours) }}){% endif %} · {{ health.live.at|localtime }}{% if not health.live.ok and health.live.why %}<div class="dim" style="word-break:break-word">{{ health.live.why[:200] }}</div>{% endif %}{% else %}no talking video since the last deploy{% endif %}. Refused only when a readable estimate is over {{ health.tolerance }}× our price.</div></td></tr>
+  <tr><th>Pixels</th><td>{% for name, on, detail in health.pixels %}<span class="tag {{ 'ok' if on else 'warn' }}" title="{{ detail }}">{{ name }} {{ 'on' if on else 'off' }}</span> {% endfor %}
+    <div class="small muted">{% for name, on, detail in health.pixels if on %}{{ name }}: {{ detail }}{% if not loop.last %} · {% endif %}{% endfor %}{% if health.server_side %} · server-side: {{ health.server_side|join(', ') }}{% endif %}</div></td></tr>
+  <tr><th>Sign-ups (30 days)</th><td>{{ funnel.signups }} · {{ funnel.verified }} confirmed · {{ funnel.paid_source }} from ads ({{ funnel.ad_grant }} got the ad credits) · {{ funnel.made }} made something · {{ funnel.paying }} paying · <a href="{{ url_for('admin_signups') }}">See sign-ups</a></td></tr>
+  </table>
+</div>
 <div class="panel scrollx">
   <h2 id="prices">Vendor prices</h2>
-  <p class="small muted">What the generation vendor charges right now for one sample of each format (free estimates), next to what we assume. Talking videos are refused (and refunded) if the vendor's estimate is over 1.25× our price.</p>
+  <p class="small muted">What the generation vendor charges right now for one sample of each format (free estimates), next to what we assume. Talking videos are refused (and refunded) only if the vendor's readable estimate is over {{ health.tolerance }}× our price; with no readable estimate they start at our table price. Image ads and product videos aren't priced live.</p>
   <form method="post" action="{{ url_for('admin_prices') }}" style="margin:0 0 10px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Check vendor prices</button></form>
   {% if vendor %}<div class="scrollx"><table><tr><th>Format</th><th>Sample</th><th>We assume</th><th>Vendor now</th><th>We charge</th></tr>
-  {% for r in vendor.rows %}<tr><td>{{ r.name }}</td><td class="small muted">{{ r.setting }}</td><td>${{ '%.3f'|format(r.ours) }}</td><td>{% if r.vendor is not none %}${{ '%.3f'|format(r.vendor) }}{% if r.vendor > r.ours * 1.05 %} <span class="tag bad">higher</span>{% endif %}{% else %}<span class="muted">no answer</span>{% if r.why %}<div class="small dim" style="max-width:420px;word-break:break-word">{{ r.model }} · {{ r.why }}</div>{% endif %}{% endif %}</td><td>{{ r.credits }} credits</td></tr>{% endfor %}
+  {% for r in vendor.rows %}<tr><td>{{ r.name }}</td><td class="small muted">{{ r.setting }}</td><td>${{ '%.3f'|format(r.ours) }}</td><td>{% if r.vendor is not none %}${{ '%.3f'|format(r.vendor) }}{% if r.vendor > r.ours * 1.05 %} <span class="tag bad">higher</span>{% endif %}{% if r.how and r.how != 'field usd' %}<div class="small dim">read from {{ r.how }}</div>{% endif %}{% else %}<span class="muted">no answer</span>{% if r.why %}<div class="small dim" style="max-width:420px;word-break:break-word">{{ r.model }} · {{ r.why }}</div>{% endif %}{% endif %}</td><td>{{ r.credits }} credits</td></tr>{% endfor %}
   </table></div><p class="small dim">Checked {{ vendor.at|localtime }}</p>{% endif %}
 </div>
 <div class="panel scrollx" id="presenters">

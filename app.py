@@ -24,6 +24,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import adoffer
+import admin_funnel
 import billing
 import catalog
 import conversions
@@ -1745,13 +1746,34 @@ def admin():
         if any(j.get("status") == "running" for j in stills["jobs"].values()) and hf.configured():
             presenter_stills.collect(conn)
             stills = presenter_stills.state(conn)
+        sys_health = admin_funnel.health(conn)
+        funnel = admin_funnel.signups(conn, 30)["totals"]
     vendor = json.loads(row["value"]) if row else None
     return render_template("admin.html", wss=wss, invites=invites, refs=refs, jobs=jobs, purchases=purchases,
                            billing_on=billing.configured(), vendor=vendor,
                            markup=catalog.MARKUP, hd_markup=catalog.HD_MARKUP, configured=hf.configured(),
                            base=request.host_url, stills=stills, presenters=presenter_stills.with_photos(url_for),
                            stills_cap=presenter_stills.CAP_USD,
-                           ai_status=llm.status())
+                           ai_status=llm.status(), health=sys_health, funnel=funnel)
+
+
+@app.route("/admin/signups")
+@admin_required
+def admin_signups():
+    """Sign-ups in the last 30 days (emails masked): where they came from, the
+    starter credits they got (the ad offer included) and whether they made anything."""
+    with db.connect() as conn:
+        data = admin_funnel.signups(conn, 30)
+    return render_template("admin_signups.html", data=data, ad_credits=adoffer.credits(),
+                           starter=catalog.starter_credits())
+
+
+@app.route("/admin/health-check", methods=["POST"])
+@admin_required
+def admin_health_check():
+    """Ask the generation provider now whether our key is accepted (a free call)."""
+    flash(f"Generation provider: {hf.probe(max_age=0)}.", "ok")
+    return redirect(url_for("admin") + "#health")
 
 
 @app.route("/admin/presenters", methods=["POST"])
@@ -1806,14 +1828,19 @@ def admin_prices():
     for tool, kw, inputs in samples:
         ours = catalog.cost_usd(tool, **kw)
         vendor, why = hf.estimate_detail(catalog.TOOLS[tool]["model"], inputs)
+        if vendor is None:
+            log.warning("vendor price check: no readable estimate for %s (%s)", tool, why)
         rows.append({"tool": tool, "name": catalog.TOOLS[tool]["name"], "setting": ", ".join(f"{k} {v}" for k, v in kw.items()),
                      "ours": round(ours, 4), "vendor": vendor, "why": why, "model": catalog.TOOLS[tool]["model"],
+                     "how": hf.last_estimate.get("how"), "sample": (hf.last_estimate.get("sample") or "")[:300],
                      "credits": catalog.price_credits(tool, **kw)})
     with db.connect() as conn:
         conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('vendor_prices', ?)",
                      (json.dumps({"at": db.now(), "rows": rows}),))
         conn.commit()
-    flash("Vendor prices checked.", "ok")
+    got = sum(r["vendor"] is not None for r in rows)
+    flash(f"Vendor prices checked: {got} of {len(rows)} formats priced."
+          + ("" if got else " Generation isn't blocked: talking videos start at our table price."), "ok")
     return redirect(url_for("admin") + "#prices")
 
 
