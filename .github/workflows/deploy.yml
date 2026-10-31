@@ -126,8 +126,8 @@ jobs:
           GADS_SIGNUP_LABEL: ${{ vars.GADS_SIGNUP_LABEL || 'vf0bCP_Xja8dEIK1gYpF' }}
           GADS_PURCHASE_LABEL: ${{ vars.GADS_PURCHASE_LABEL || 'RzDtCPzXja8dEIK1gYpF' }}
           GADS_TAG_ID: ${{ vars.GADS_TAG_ID }}
-          META_PIXEL_ID: ${{ vars.META_PIXEL_ID }}
-          TIKTOK_PIXEL_ID: ${{ vars.TIKTOK_PIXEL_ID }}
+          META_PIXEL_ID: ${{ vars.META_PIXEL_ID || '1420967503351211' }}
+          TIKTOK_PIXEL_ID: ${{ vars.TIKTOK_PIXEL_ID || 'DBJ3O4JC77U38B7LS1FG' }}
           REDDIT_PIXEL_ID: ${{ vars.REDDIT_PIXEL_ID }}
           X_PIXEL_ID: ${{ vars.X_PIXEL_ID }}
           X_EVENT_SIGNUP: ${{ vars.X_EVENT_SIGNUP }}
