@@ -382,7 +382,8 @@ print("== deploy settings")
 dy = open(os.path.join(ROOT, ".github", "workflows", "deploy.yml")).read()
 for k in ("META_PIXEL_ID", "TIKTOK_PIXEL_ID", "REDDIT_PIXEL_ID", "X_PIXEL_ID", "X_EVENT_SIGNUP", "X_EVENT_PURCHASE",
           "X_EVENT_VIEWCONTENT", "META_TEST_EVENT_CODE", "TIKTOK_TEST_EVENT_CODE"):
-    check(f"{k}: ${{{{ vars.{k} }}}}" in dy and f'"{k}"' in dy, f"{k} is a repo variable sent to the server")
+    check((f"{k}: ${{{{ vars.{k} }}}}" in dy or f"{k}: ${{{{ vars.{k} || '" in dy) and f'"{k}"' in dy,
+          f"{k} is a repo variable sent to the server")
 for k in ("META_CAPI_TOKEN", "TIKTOK_EVENTS_TOKEN", "REDDIT_CAPI_TOKEN"):
     check(f"{k}: ${{{{ secrets.{k} }}}}" in dy and f'"{k}"' in dy, f"{k} is a secret sent to the server")
 priv = pub.get("/privacy").get_data(as_text=True)
