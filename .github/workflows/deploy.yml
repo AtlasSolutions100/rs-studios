@@ -39,6 +39,19 @@ name: Deploy Campaignify (campaignify.ai)
 #                          in every page's HTML once set). Unset: the tag loads but this conversion doesn't fire
 #   GADS_PURCHASE_LABEL    optional variable: Google Ads conversion label for purchase (plans and packs)
 #   GADS_TAG_ID            optional variable: another Google tag id (default AW-18543041154)
+#   Ad pixels (pixels.py; repo variables, not secrets: pixel ids are public, they're in every page's HTML).
+#   Each pixel loads only once its variable is set; "off" switches one off again.
+#   META_PIXEL_ID          Meta Events Manager > the dataset (pixel) id
+#   TIKTOK_PIXEL_ID        TikTok Ads Manager > Assets > Events > Web events > the pixel code
+#   REDDIT_PIXEL_ID        Reddit Ads > Events Manager > the pixel id (a2_... / t2_...)
+#   X_PIXEL_ID             X Ads > Tools > Events manager > the base pixel id
+#   X_EVENT_SIGNUP / X_EVENT_PURCHASE / X_EVENT_VIEWCONTENT   X event ids (tw-<pixel>-<event>) of the
+#                          conversion events made in X Ads; an X event without its id isn't sent
+#   Server-side copies (conversions.py, optional secrets; a platform is skipped until its token is set):
+#   META_CAPI_TOKEN        Meta Conversions API access token (dataset > Settings)
+#   TIKTOK_EVENTS_TOKEN    TikTok Events API access token (pixel > Settings)
+#   REDDIT_CAPI_TOKEN      Reddit Conversions API access token
+#   META_TEST_EVENT_CODE / TIKTOK_TEST_EVENT_CODE   optional variables: send server events to the test tools
 # A secret or variable that isn't set is simply not sent, so the server keeps
 # whatever it already has.
 on:
@@ -107,6 +120,18 @@ jobs:
           GADS_SIGNUP_LABEL: ${{ vars.GADS_SIGNUP_LABEL || 'vf0bCP_Xja8dEIK1gYpF' }}
           GADS_PURCHASE_LABEL: ${{ vars.GADS_PURCHASE_LABEL || 'RzDtCPzXja8dEIK1gYpF' }}
           GADS_TAG_ID: ${{ vars.GADS_TAG_ID }}
+          META_PIXEL_ID: ${{ vars.META_PIXEL_ID }}
+          TIKTOK_PIXEL_ID: ${{ vars.TIKTOK_PIXEL_ID }}
+          REDDIT_PIXEL_ID: ${{ vars.REDDIT_PIXEL_ID }}
+          X_PIXEL_ID: ${{ vars.X_PIXEL_ID }}
+          X_EVENT_SIGNUP: ${{ vars.X_EVENT_SIGNUP }}
+          X_EVENT_PURCHASE: ${{ vars.X_EVENT_PURCHASE }}
+          X_EVENT_VIEWCONTENT: ${{ vars.X_EVENT_VIEWCONTENT }}
+          META_CAPI_TOKEN: ${{ secrets.META_CAPI_TOKEN }}
+          TIKTOK_EVENTS_TOKEN: ${{ secrets.TIKTOK_EVENTS_TOKEN }}
+          REDDIT_CAPI_TOKEN: ${{ secrets.REDDIT_CAPI_TOKEN }}
+          META_TEST_EVENT_CODE: ${{ vars.META_TEST_EVENT_CODE }}
+          TIKTOK_TEST_EVENT_CODE: ${{ vars.TIKTOK_TEST_EVENT_CODE }}
         run: |
           git archive --format=tar.gz -o /tmp/app.tgz HEAD
           python3 - <<'PY'
@@ -119,7 +144,11 @@ jobs:
                                              "RS_FREE_PREVIEW", "RS_FREE_PREVIEWS_PER_DAY", "RS_EMAIL_VERIFY",
                                              "RS_ACCOUNT_MAIL_FROM", "RS_OUTREACH_FROM", "TWILIO_ACCOUNT_SID",
                                              "TWILIO_AUTH_TOKEN", "TWILIO_PRIMARY_PROFILE_SID", "TWILIO_NOTIFY_EMAIL",
-                                             "GADS_SIGNUP_LABEL", "GADS_PURCHASE_LABEL", "GADS_TAG_ID")
+                                             "GADS_SIGNUP_LABEL", "GADS_PURCHASE_LABEL", "GADS_TAG_ID",
+                                             "META_PIXEL_ID", "TIKTOK_PIXEL_ID", "REDDIT_PIXEL_ID", "X_PIXEL_ID",
+                                             "X_EVENT_SIGNUP", "X_EVENT_PURCHASE", "X_EVENT_VIEWCONTENT",
+                                             "META_CAPI_TOKEN", "TIKTOK_EVENTS_TOKEN", "REDDIT_CAPI_TOKEN",
+                                             "META_TEST_EVENT_CODE", "TIKTOK_TEST_EVENT_CODE")
                       if os.environ.get(k)}
           print("settings sent:", ", ".join(settings) or "none")
           body = {"commit": os.environ["GITHUB_SHA"], "settings": settings,

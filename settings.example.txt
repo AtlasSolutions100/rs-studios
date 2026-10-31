@@ -56,3 +56,16 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # GADS_SIGNUP_LABEL=AbCdEfGhIjKlMnOp
 # GADS_PURCHASE_LABEL=QrStUvWxYz012345
 # GADS_TAG_ID=AW-18543041154
+# ---- Ad pixels on our own site (pixels.py). Each loads only once its id is set ("off" switches one off).
+# META_PIXEL_ID=1234567890123456
+# TIKTOK_PIXEL_ID=CXXXXXXXXXXXXXXXXXXX
+# REDDIT_PIXEL_ID=a2_xxxxxxxxxx
+# X_PIXEL_ID=xxxxx
+# X_EVENT_SIGNUP=tw-xxxxx-yyyyy
+# X_EVENT_PURCHASE=tw-xxxxx-zzzzz
+# X_EVENT_VIEWCONTENT=tw-xxxxx-vvvvv
+# ---- Server-side copies of sign-up and purchase (conversions.py), each skipped until its token is set.
+# META_CAPI_TOKEN=EAA...
+# TIKTOK_EVENTS_TOKEN=...
+# REDDIT_CAPI_TOKEN=...
+# META_TEST_EVENT_CODE=TEST12345   TIKTOK_TEST_EVENT_CODE=TEST12345   REDDIT_CAPI_TEST=1

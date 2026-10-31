@@ -419,6 +419,13 @@ CREATE TABLE IF NOT EXISTS ad_conversions (
     id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, ref TEXT NOT NULL, workspace_id INTEGER,
     user_id INTEGER, value_cents INTEGER, currency TEXT, created_at TEXT NOT NULL, reported_at TEXT,
     UNIQUE(kind, ref));
+-- Server-side copies of our own conversions (conversions.py: Meta CAPI, TikTok Events API, Reddit CAPI),
+-- one row per platform and event id, sent once and retried by the worker.
+CREATE TABLE IF NOT EXISTS conversion_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, platform TEXT NOT NULL, event TEXT NOT NULL, event_id TEXT NOT NULL,
+    payload TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0, error TEXT,
+    created_at TEXT NOT NULL, sent_at TEXT, UNIQUE(platform, event_id));
+CREATE INDEX IF NOT EXISTS idx_conversion_queue_status ON conversion_queue(status, created_at);
 """
 
 # Columns added after the first release: (table, column, definition).
@@ -493,6 +500,7 @@ COLUMNS = [
     ("outputs", "share_token", "TEXT"),
     ("outputs", "shared_at", "TEXT"),
     ("users", "first_touch", "TEXT"),            # JSON: UTM tags / click ids of the visit that brought them
+    ("ad_conversions", "ctx_json", "TEXT"),      # browser context for the server-side purchase (conversions.py)
 ]
 
 

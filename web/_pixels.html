@@ -1,0 +1,78 @@
+{# Meta, TikTok, Reddit and X pixels (pixels.py). Each loads only when its id is set; none load under
+   GPC / Do Not Track, in the EEA/UK/CH (by the edge's country or a European time zone), or on a page
+   whose address could carry personal data. Only event names, ids and the purchase amount are sent. #}
+{% set px = ad_pixels() if ad_pixels is defined else None %}{% if px %}
+<script>
+(function(){
+  var P = {{ px.ids|tojson }}, XE = {{ px.x_events|tojson }}, EV = {{ px.events|tojson }}, VC = {{ px.view_content|tojson }};
+  var off = navigator.globalPrivacyControl === true || navigator.doNotTrack === '1' || window.doNotTrack === '1';
+  try { var tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+        if (tz.indexOf({{ px.consent_tz_prefix|tojson }}) === 0 || {{ px.consent_tz|tojson }}.indexOf(tz) >= 0) off = true; } catch (e) {}
+  if (off) { try { document.cookie = {{ px.optout_cookie|tojson }} + '=0; max-age=31536000; path=/; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : ''); } catch (e) {} return; }
+  function load(src) { var el = document.createElement('script'); el.async = true; el.src = src; document.head.appendChild(el); }
+  // Each platform's queue stub (calls made before its script arrives are replayed by it), then its script.
+{%- if px.ids.meta %}
+  if (P.meta) {
+    if (!window.fbq) {
+      var fq = window.fbq = function () { fq.callMethod ? fq.callMethod.apply(fq, arguments) : fq.queue.push(arguments); };
+      window._fbq = window._fbq || fq; fq.push = fq; fq.loaded = true; fq.version = '2.0'; fq.queue = [];
+      load('https://connect.facebook.net/en_US/fbevents.js');
+    }
+    fbq('set', 'autoConfig', false, P.meta);   // no automatic button / form scraping
+    fbq('init', P.meta); fbq('track', 'PageView');
+  }
+{%- endif %}
+{%- if px.ids.tiktok %}
+  if (P.tiktok) {
+    window.TiktokAnalyticsObject = 'ttq';
+    var tq = window.ttq = window.ttq || [];
+    tq.methods = ['page', 'track', 'identify', 'instances', 'debug', 'on', 'off', 'once', 'ready', 'alias', 'group',
+                  'enableCookie', 'disableCookie', 'holdConsent', 'revokeConsent', 'grantConsent'];
+    tq.setAndDefer = function (obj, m) { obj[m] = function () { obj.push([m].concat([].slice.call(arguments))); }; };
+    for (var k = 0; k < tq.methods.length; k++) tq.setAndDefer(tq, tq.methods[k]);
+    tq.instance = function (id) { var q = tq._i[id] || []; for (var j = 0; j < tq.methods.length; j++) tq.setAndDefer(q, tq.methods[j]); return q; };
+    tq.load = function (id, opts) {
+      var u = 'https://analytics.tiktok.com/i18n/pixel/events.js';
+      tq._i = tq._i || {}; tq._i[id] = []; tq._i[id]._u = u; tq._t = tq._t || {}; tq._t[id] = +new Date;
+      tq._o = tq._o || {}; tq._o[id] = opts || {};
+      load(u + '?sdkid=' + id + '&lib=ttq');
+    };
+    ttq.load(P.tiktok); ttq.page();
+  }
+{%- endif %}
+{%- if px.ids.reddit %}
+  if (P.reddit) {
+    if (!window.rdt) {
+      var rq = window.rdt = function () { rq.sendEvent ? rq.sendEvent.apply(rq, arguments) : rq.callQueue.push(arguments); };
+      rq.callQueue = [];
+      load('https://www.redditstatic.com/ads/pixel.js');
+    }
+    rdt('init', P.reddit, {optOut: false, useDecimalCurrencyValues: true}); rdt('track', 'PageVisit');
+  }
+{%- endif %}
+{%- if px.ids.x %}
+  if (P.x) {
+    if (!window.twq) {
+      var xq = window.twq = function () { xq.exe ? xq.exe.apply(xq, arguments) : xq.queue.push(arguments); };
+      xq.version = '1.1'; xq.queue = [];
+      load('https://static.ads-twitter.com/uwt.js');
+    }
+    twq('config', P.x);
+  }
+{%- endif %}
+  var MT = {SignUp: 'CompleteRegistration', Purchase: 'Purchase', ViewContent: 'ViewContent'},
+      TT = {SignUp: 'CompleteRegistration', Purchase: 'CompletePayment', ViewContent: 'ViewContent'},
+      RD = {SignUp: 'SignUp', Purchase: 'Purchase', ViewContent: 'ViewContent'};
+  // One event to every pixel, with one event id (the server-side copies use the same id).
+  function fire(name, eid, o) {
+    var v = (o && typeof o.value === 'number' && isFinite(o.value)) ? {value: o.value, currency: o.currency || 'USD'} : {},
+        extra = name === 'ViewContent' ? {content_id: 'pricing', content_type: 'product', content_name: 'Campaignify pricing'} : {};
+    try { if (window.fbq && MT[name]) fbq('track', MT[name], Object.assign({}, extra, v), {eventID: eid}); } catch (e) {}
+    try { if (window.ttq && TT[name]) ttq.track(TT[name], Object.assign({}, extra, v), {event_id: eid}); } catch (e) {}
+    try { if (window.rdt && RD[name]) rdt('track', RD[name], Object.assign({conversionId: eid}, v)); } catch (e) {}
+    try { if (window.twq && XE[name]) twq('event', XE[name], Object.assign({conversion_id: eid}, v)); } catch (e) {}
+  }
+  if (VC) fire('ViewContent', 'viewcontent-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
+  for (var i = 0; i < EV.length; i++) fire(EV[i].name, EV[i].event_id, EV[i]);
+})();
+</script>{% endif %}
