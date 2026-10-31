@@ -7,7 +7,7 @@
     <div>
       <p class="eyebrow">{{ b.brand_name or 'Your brand' }} · {{ 'Product' if p else 'New product' }}</p>
       <h1>{% if p %}{{ p.name }}{% else %}Add a <span class="gold">product</span>{% endif %}</h1>
-      {% if not p %}<p class="muted">The name, a few clear photos and the claims printed on the label are enough. Everything else makes the AI's ideas sharper.</p>{% endif %}
+      {% if not p and not manual %}<p class="muted">The name, a few clear photos and the claims printed on the label are enough. Everything else makes the AI's ideas sharper.</p>{% endif %}
     </div>
     {% if p %}<div class="phead-actions">
       {% if not active_product or active_product.id != p.id %}<form method="post" action="{{ url_for('products.switch') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="product" value="{{ p.id }}"><input type="hidden" name="back" value="{{ request.path }}"><button class="btn dark">Make active</button></form>{% else %}<span class="tag ok">Active product</span>{% endif %}
@@ -15,7 +15,18 @@
     </div>{% endif %}
   </div>
 
-  {% if not p %}
+  {% if not p and manual %}
+  <section class="panel manualbar" id="manual" aria-labelledby="manual-h">
+    <h2 id="manual-h">{% if manual.why == 'blocked' %}This store doesn't let apps read its pages automatically.{% else %}We couldn't read that page.{% endif %} <span class="gold">Add the details yourself — takes 30 seconds:</span></h2>
+    <p class="small muted">{% if manual.domain %}{{ manual.domain }} · {% endif %}{% if manual.why == 'blocked' %}Its bot protection turned us away, and we never try to get around that.{% endif %} Copy the name, price and claims from the product page{% if manual.link %} (<a href="{{ manual.link }}" target="_blank" rel="noopener noreferrer">open it in a new tab</a>){% endif %}, or paste the whole page's text below and we'll pull them out.</p>
+    <details class="manual-retry"><summary class="small">Try another link</summary>
+      <form method="post" action="{{ url_for('products.import_page') }}" class="importbar-f" data-busy style="margin-top:10px">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="brand" value="{{ b.id }}">
+        <label class="sr" for="imp-url2">Product page link</label><input id="imp-url2" type="text" name="url" inputmode="url" placeholder="https://yourstore.com/products/…" required><button class="btn dark">Import</button>
+      </form>
+    </details>
+  </section>
+  {% elif not p %}
   <form method="post" action="{{ url_for('products.import_page') }}" class="panel importbar" data-busy>
     <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="brand" value="{{ b.id }}">
     <div class="importbar-t"><b>Fastest: import it from its page</b><span class="small muted">We read the page and fill this in{% if ai_on %} (up to {{ import_quote }} credits for the AI read){% endif %}. Suggested claims wait for your approval.</span></div>
@@ -24,16 +35,7 @@
   <p class="or"><span>or fill it in</span></p>
   {% endif %}
 
-  <div class="pedit">
-    <div class="pedit-main">
-      <form method="post" action="{{ url_for('products.edit', pid=p.id) if p else url_for('products.new') }}" class="panel" enctype="multipart/form-data" id="details">
-        <input type="hidden" name="csrf" value="{{ csrf_token() }}">{% if not p %}<input type="hidden" name="brand" value="{{ b.id }}">{% endif %}
-        <h2>Details</h2>
-        <div class="two-col">
-          <div><label for="pn">Product name</label><input id="pn" type="text" name="name" maxlength="80" required value="{{ f.name or '' }}" placeholder="e.g. Sunrise Blend"></div>
-          <div><label for="pp">Price <span class="dim">(as you sell it)</span></label><input id="pp" type="text" name="price" maxlength="60" value="{{ f.price or '' }}" placeholder="e.g. $34 or $29 / month"></div>
-        </div>
-        <label for="pd">Short description</label><textarea id="pd" name="description" maxlength="600" style="min-height:84px" placeholder="What it is and who it's for, in a sentence or two.">{{ f.description or '' }}</textarea>
+  {% macro extra_fields(f) %}
         <div class="two-col">
           <div><label for="po">Offer <span class="dim">(optional: a bundle or free extra)</span></label><input id="po" type="text" name="offer" maxlength="200" value="{{ f.offer or '' }}" placeholder="e.g. Free frother with the starter kit"></div>
           <div><label for="pa">Audience</label><input id="pa" type="text" name="audience" maxlength="300" value="{{ f.audience or '' }}" placeholder="e.g. Women 25-44 who love their morning coffee"></div>
@@ -44,20 +46,56 @@
         </div>
         <label for="pcat">What kind of product <span class="dim">(picks the templates that fit)</span></label>
         <select id="pcat" name="category"><option value="">Not sure</option>{% set guessed = category_of(f) if f else '' %}{% for k, label in categories %}<option value="{{ k }}" {{ 'selected' if guessed == k }}>{{ label }}</option>{% endfor %}</select>
+  {% endmacro %}
+  {% macro photo_drop() %}
+        <label for="pph">Photos <span class="dim">(clear shots of the real product; you can add more later)</span></label>
+        <div class="dropzone" data-drop>
+          <input id="pph" class="dz-input" type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple>
+          <label for="pph" class="dz-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8"/></svg>
+            <b class="dz-touch">Tap to add photos</b><b class="dz-mouse">Drop photos here, paste one, or browse</b>
+            <span class="small muted">JPEG, PNG or WebP · up to 25 MB each</span></label>
+          <div class="dz-thumbs" aria-live="polite"></div>
+        </div>
+  {% endmacro %}
+
+  <div class="pedit">
+    <div class="pedit-main">
+      <form method="post" action="{{ url_for('products.edit', pid=p.id) if p else url_for('products.new') }}" class="panel{{ ' manual' if manual }}" enctype="multipart/form-data" id="details">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">{% if not p %}<input type="hidden" name="brand" value="{{ b.id }}">{% endif %}
+        {% if manual %}<input type="hidden" name="manual" value="{{ manual.why }}"><input type="hidden" name="src" value="{{ manual.src }}">{% endif %}
+        <h2>{{ 'Product details' if manual else 'Details' }}</h2>
+        {% if manual and (manual.brand or not b.brand_name) %}
+        <label for="pbn">Brand</label><input id="pbn" type="text" name="brand_name" maxlength="80" value="{{ f.brand_name or manual.brand or '' }}" placeholder="e.g. Glow Co" autocomplete="organization">
+        {% endif %}
+        <div class="two-col">
+          <div><label for="pn">Product name</label><input id="pn" type="text" name="name" maxlength="80" {{ '' if manual else 'required' }} value="{{ f.name or '' }}" placeholder="e.g. Sunrise Blend" autocomplete="off"></div>
+          <div><label for="pp">Price <span class="dim">(as you sell it)</span></label><input id="pp" type="text" name="price" maxlength="60" value="{{ f.price or '' }}" placeholder="e.g. $34 or $29 / month"></div>
+        </div>
+        <label for="pd">Short description</label><textarea id="pd" name="description" maxlength="600" style="min-height:84px" placeholder="What it is and who it's for, in a sentence or two.">{{ f.description or '' }}</textarea>
+        {% if manual %}
+        <label for="pc" id="claims">Key claims <span class="dim">(one per line, copied from their page or the label: the only claims AI may use)</span></label>
+        <textarea id="pc" name="claims" maxlength="2000" placeholder="Natural caffeine&#10;30 servings&#10;Hot water and 30 seconds">{{ f.claims or '' }}</textarea>
+        {{ photo_drop() }}
+        <div class="pastebox">
+          <label for="ptext">Or paste the product page text here <span class="dim">(optional)</span></label>
+          <textarea id="ptext" name="page_text" maxlength="20000" placeholder="On the product page: select all, copy, and paste it here. We pull out the name, price and the claims it states.">{{ f.page_text or '' }}</textarea>
+          <span class="small muted">{% if ai_on %}Read by AI (up to {{ import_quote }} credits). {% endif %}What you typed above wins; claims found in the text wait for your approval.</span>
+        </div>
+        <details class="more"><summary>More details <span class="dim">(optional: offer, audience, link, tags)</span></summary>{{ extra_fields(f) }}</details>
+        {% else %}
+        {{ extra_fields(f) }}
         <label for="pc" id="claims">Approved claims <span class="dim">(one per line, copied from the label: the only claims AI may use)</span></label>
         <textarea id="pc" name="claims" maxlength="2000" placeholder="Natural caffeine&#10;30 servings&#10;Hot water and 30 seconds">{{ f.claims or '' }}</textarea>
-        {% if not p %}
-        <label for="pph">Photos <span class="dim">(clear shots of the real product; you can add more later)</span></label>
-        <input id="pph" type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple>
+        {% if not p %}{{ photo_drop() }}{% endif %}
         {% endif %}
-        <div class="go"><span class="small muted">Checked against the same rules as your ads before it's saved.</span><button class="btn">{{ 'Save product' if p else 'Add product' }}</button></div>
+        <div class="go"><span class="small muted">Checked against the same rules as your ads before it's saved.</span><button class="btn" id="details-go">{{ 'Save product' if p else 'Add product' }}</button></div>
       </form>
 
       {% if p %}
       {% if pend %}
       <section class="panel pend" id="pending">
         <h2>Suggested claims <span class="tag warn">{{ pend|length }} to review</span></h2>
-        <p class="small muted">Found on {{ imp.url or 'the product page' }}. None of these is used until you approve it. Approve only what the label or your compliance team allows.</p>
+        <p class="small muted">{% if imp.by_hand %}Found in the page text you pasted{% else %}Found on {{ imp.url or 'the product page' }}{% endif %}. None of these is used until you approve it. Approve only what the label or your compliance team allows.</p>
         <form method="post" action="{{ url_for('products.claims', pid=p.id) }}">
           <input type="hidden" name="csrf" value="{{ csrf_token() }}">
           <ul class="claimlist">{% for c in pend %}<li><label><input type="checkbox" name="i" value="{{ loop.index0 }}"><span>{{ c }}</span></label></li>{% endfor %}</ul>
@@ -129,4 +167,42 @@
   </div>
 </div>
 {% endblock %}
-{% block scripts %}<script>document.querySelectorAll('form[data-busy]').forEach(function(f){f.addEventListener('submit',function(){var b=f.querySelector('button');if(b){b.disabled=true;b.textContent='Working…';}});});</script>{% endblock %}
+{% block scripts %}<script>document.querySelectorAll('form[data-busy]').forEach(function(f){f.addEventListener('submit',function(){var b=f.querySelector('button');if(b){b.disabled=true;b.textContent='Working…';}});});
+(function(){
+  var dz=document.querySelector('[data-drop]'); if(!dz) return;
+  var input=dz.querySelector('input[type=file]'), thumbs=dz.querySelector('.dz-thumbs'), OK=['image/jpeg','image/png','image/webp'];
+  var canSet=true; try{new DataTransfer();}catch(e){canSet=false;}
+  function show(){
+    thumbs.innerHTML='';
+    Array.prototype.forEach.call(input.files||[],function(f,i){
+      var d=document.createElement('div'); d.className='dz-thumb';
+      var im=document.createElement('img'); im.alt=f.name; im.src=URL.createObjectURL(f); d.appendChild(im);
+      if(canSet){var x=document.createElement('button'); x.type='button'; x.className='btn dark sm'; x.textContent='×'; x.setAttribute('aria-label','Remove '+f.name);
+        x.addEventListener('click',function(){var dt=new DataTransfer();Array.prototype.forEach.call(input.files,function(g,j){if(j!==i)dt.items.add(g);});input.files=dt.files;show();});d.appendChild(x);}
+      thumbs.appendChild(d);
+    });
+    dz.classList.toggle('has',!!(input.files&&input.files.length));
+  }
+  function add(list){
+    if(!canSet) return;
+    var dt=new DataTransfer(); Array.prototype.forEach.call(input.files||[],function(f){dt.items.add(f);});
+    var n=0; Array.prototype.forEach.call(list,function(f){if(OK.indexOf(f.type)>=0&&dt.items.length<20){dt.items.add(f);n++;}});
+    if(n){input.files=dt.files;show();}
+  }
+  input.addEventListener('change',show);
+  ['dragenter','dragover'].forEach(function(t){dz.addEventListener(t,function(e){e.preventDefault();dz.classList.add('over');});});
+  ['dragleave','drop'].forEach(function(t){dz.addEventListener(t,function(e){e.preventDefault();dz.classList.remove('over');});});
+  dz.addEventListener('drop',function(e){if(e.dataTransfer&&e.dataTransfer.files)add(e.dataTransfer.files);});
+  document.addEventListener('paste',function(e){
+    var items=(e.clipboardData&&e.clipboardData.items)||[], files=[];
+    Array.prototype.forEach.call(items,function(it){if(it.kind==='file'){var f=it.getAsFile();if(f)files.push(f);}});
+    if(files.length){e.preventDefault();add(files);}
+  });
+})();
+(function(){
+  var form=document.querySelector('form#details.manual'); if(!form) return;
+  var name=form.querySelector('#pn'), text=form.querySelector('#ptext'), go=form.querySelector('#details-go');
+  function req(){name.required=!(text&&text.value.trim());}
+  if(text){text.addEventListener('input',req);} req();
+  form.addEventListener('submit',function(){if(go){go.disabled=true;go.textContent=(text&&text.value.trim())?'Reading the text…':'Adding…';}});
+})();</script>{% endblock %}

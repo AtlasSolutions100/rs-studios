@@ -356,6 +356,13 @@ def _do_import(conn, card):
     try:
         pid, facts, charged = product_routes.import_url(conn, card["url"], ws["brand_id"])
         products.activate(conn, ws, product_id=pid)
+    except product_import.Blocked as e:
+        # The store's bot protection refused us. We never try to get around it: the seller adds the details by hand.
+        card["status"] = "failed"
+        card["error"] = f"{e} Add the details yourself — takes 30 seconds."
+        card["manual_url"] = product_routes.manual_url(ws["brand_id"], card["url"], "blocked")
+        return (f"The import didn't work: {e} (the store's bot protection refused us; don't suggest retrying). The card "
+                "now links to a short form to add the product by hand, prefilled with what we know."), {}
     except (fetcher.FetchError, products.ProductError) as e:
         card["status"] = "failed"
         card["error"] = str(e)

@@ -132,10 +132,11 @@ def extract(html: str, url: str) -> dict:
     name = ld.get("name") or meta.get("og:title") or " ".join(p.title.split())
     desc = ld.get("description") or meta.get("og:description") or meta.get("description", "")
     text = " ".join(" ".join(p.text).split())
+    source = "jsonld" if ld else "og" if (meta.get("og:title") or meta.get("og:description")) else "page"
     return {"url": url, "name": str(name or "").strip()[:200], "description": re.sub(r"\s+", " ", str(desc or "")).strip()[:1500],
             "price": str(price)[:60], "brand": str(brand or "")[:80], "images": imgs[:MAX_IMAGES],
             "own": own[:MAX_IMAGES],
-            "headings": [h for _, h in p.headings[:30]], "text": text[:9000]}
+            "headings": [h for _, h in p.headings[:30]], "text": text[:9000], "source": source}
 
 
 def _usable(src, base) -> str:
@@ -159,6 +160,219 @@ def _key(u: str) -> str:
 
 
 SHOPIFY_PATH = re.compile(r"/products/([A-Za-z0-9][A-Za-z0-9_.%-]{0,200})/?$")
+
+# ---------------------------------------------------------------- stores that refuse apps
+# Some stores' bot protection refuses our server. We never try to get past it:
+# no other user-agent, no other address, no headless browser, no retry. The
+# first refusal from a store ends the import and the member adds the details
+# by hand (a 30-second form, prefilled with what we know).
+REFUSED = (401, 403, 429)
+CHALLENGE_TITLE = re.compile(r"<title[^>]*>\s*(just a moment|attention required|access denied|are you a (robot|human)|"
+                             r"verify(ing)? you are (a )?human|pardon our interruption|security check|"
+                             r"one more step|robot check|request blocked|bot (check|protection))", re.I)
+CHALLENGE_MARK = re.compile(r'id="challenge-(form|running|stage)"|captcha-delivery\.com|px-captcha|'
+                            r'/_Incapsula_Resource|cf-browser-verification|g-recaptcha', re.I)
+
+
+class Blocked(fetcher.FetchError):
+    """The store refused us (403/429/a bot challenge). Not retried."""
+
+    def __init__(self, status: int, method: str = "page"):
+        self.status, self.method = status, method
+        super().__init__("This store doesn't let apps read its pages automatically.")
+
+
+def refused(r: dict) -> bool:
+    """True when a store's answer is its bot protection saying no: 401/403/429,
+    or a challenge page (any status) instead of the product."""
+    if r["status"] in REFUSED:
+        return True
+    head = (r.get("text") or "")[:20000]
+    if CHALLENGE_TITLE.search(head):
+        return True
+    # A challenge page is small and has no product in it; a real product page
+    # that merely loads a captcha script for its review form is not one.
+    return (r["status"] >= 400 or len(head) < 15000) and bool(CHALLENGE_MARK.search(head)) \
+        and "application/ld+json" not in head and 'property="og:title"' not in head
+
+
+def domain(url: str) -> str:
+    """The store's host name for the log ("" when the link has none)."""
+    url = (url or "").strip()
+    if "://" not in url:
+        url = "https://" + url
+    try:
+        host = (urlsplit(url).hostname or "").strip(".").lower()
+    except ValueError:
+        host = ""
+    return (host[4:] if host.startswith("www.") else host)[:120]
+
+
+COMMON_SUB = {"www", "shop", "store", "m", "us", "en", "eu", "uk", "ca", "au"}
+
+
+def brand_guess(url: str) -> str:
+    """A first guess at the brand from the store's domain: glow-co.com -> "Glow Co",
+    shop.hearthcandles.com -> "Hearthcandles". The member corrects it."""
+    host = domain(url)
+    if not host or re.fullmatch(r"[\d.:]+|\[[0-9a-f:]+\]", host):
+        return ""
+    parts = [p for p in host.split(".") if p]
+    if parts and parts[-1] in ("com", "net", "org", "co", "io", "store", "shop", "us", "uk", "ca", "au", "de", "fr",
+                               "nl", "eu", "ai", "app", "life", "studio", "beauty", "health", "inc", "biz", "info"):
+        parts = parts[:-1]
+    if len(parts) > 1 and parts[-1] in ("co", "com", "org", "net"):      # .co.uk, .com.au
+        parts = parts[:-1]
+    parts = [p for p in parts if p not in COMMON_SUB] or parts
+    if not parts:
+        return ""
+    name = parts[0] if parts[-1] == "myshopify" else parts[-1]
+    words = [w for w in re.split(r"[-_]+", name) if w]
+    return " ".join(w[:1].upper() + w[1:] for w in words)[:80]
+
+
+def name_guess(url: str) -> str:
+    """The product's name from its link: /products/vitamin-c-serum -> "Vitamin C Serum"."""
+    try:
+        path = urlsplit(url if "://" in (url or "") else "https://" + (url or "")).path
+    except ValueError:
+        return ""
+    segs = [s for s in path.split("/") if s]
+    if not segs:
+        return ""
+    slug = segs[-1]
+    slug = re.sub(r"\.(html?|php|aspx?)$", "", slug, flags=re.I)
+    if segs[:-1] and segs[-2] in ("p", "dp") and re.fullmatch(r"[A-Z0-9]{8,12}", slug):
+        slug = segs[-3] if len(segs) > 2 else ""        # amazon-style /<name>/dp/<asin>
+    from urllib.parse import unquote
+    slug = unquote(slug)
+    if not re.search(r"[A-Za-z]{3}", slug) or re.fullmatch(r"[0-9a-f-]{16,}", slug, re.I):
+        return ""
+    words = [w for w in re.split(r"[-_+\s]+", slug) if w and not re.fullmatch(r"\d{5,}", w)]
+    out = " ".join(w if w.isupper() else w[:1].upper() + w[1:] for w in words)
+    return out[:80]
+
+
+# ---------------------------------------------------------------- the store's published product data
+def shopify_endpoints(url: str) -> list:
+    """Shopify's documented product endpoints for a product link
+    (<product-url>.js, then <product-url>.json), or [] when the path isn't
+    /products/<handle>. The query string is dropped (it's the variant)."""
+    try:
+        parts = urlsplit(url if "://" in url else "https://" + url)
+    except ValueError:
+        return []
+    m = SHOPIFY_PATH.search(parts.path)
+    if not m or m.group(1).endswith((".json", ".js")) or parts.scheme not in ("http", "https"):
+        return []
+    base = f"{parts.scheme}://{parts.netloc}{parts.path.rstrip('/')}"
+    return [base + ".js", base + ".json"]
+
+
+def _strip_html(s: str) -> str:
+    s = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", s or "")
+    s = re.sub(r"(?i)<br\s*/?>|</(p|li|h\d|div)>", "\n", s)
+    s = re.sub(r"<[^>]+>", " ", s)
+    import html as _html
+    s = _html.unescape(s)
+    return "\n".join(" ".join(line.split()) for line in s.splitlines() if line.strip())
+
+
+def shopify_facts(text: str, url: str, ctype: str = "") -> dict | None:
+    """Facts (the same shape as extract()) from a Shopify product .js or .json
+    body, or None when it isn't one. .js prices are in cents, .json in units."""
+    if ctype and not re.search(r"json|javascript", ctype, re.I):
+        return None
+    try:
+        data = json.loads(text or "")
+    except ValueError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    cents = "product" not in data
+    prod = data.get("product") if not cents else data
+    if not isinstance(prod, dict) or not prod.get("title") or not isinstance(prod.get("title"), str):
+        return None
+    vs = [v for v in prod.get("variants") or [] if isinstance(v, dict)]
+    raw = prod.get("price") if cents else None
+    if raw is None and vs:
+        raw = vs[0].get("price")
+    price = ""
+    try:
+        if raw not in (None, ""):
+            n = float(raw) / (100 if cents and isinstance(raw, int) else 1)
+            price = f"${n:,.2f}".replace(".00", "") if n else ""
+    except (TypeError, ValueError):
+        price = ""
+    imgs = []
+    for im in (prod.get("images") or []):
+        src = im if isinstance(im, str) else im.get("src") if isinstance(im, dict) else None
+        if isinstance(src, str) and src.startswith(("http://", "https://", "//")):
+            imgs.append("https:" + src if src.startswith("//") else src)
+    desc_html = prod.get("description") if cents else prod.get("body_html")
+    body = _strip_html(desc_html if isinstance(desc_html, str) else "")
+    first = re.split(r"(?<=[.!?])\s|\n", body, maxsplit=2)
+    desc = " ".join(first[:2]).strip()[:600] if body else ""
+    tags = prod.get("tags")
+    tags = tags if isinstance(tags, list) else [t.strip() for t in str(tags or "").split(",") if t.strip()]
+    own, seen = [], set()
+    for u in imgs:
+        absu = _usable(u, url)
+        if absu and _key(absu) not in seen:
+            seen.add(_key(absu))
+            own.append(absu)
+    return {"url": url, "name": prod["title"].strip()[:200], "description": desc, "price": price[:60],
+            "brand": str(prod.get("vendor") or "")[:80], "images": own[:MAX_IMAGES], "own": own[:MAX_IMAGES],
+            "headings": [], "text": body[:9000], "shop_tags": [str(t) for t in tags[:5]], "source": "shopify-json"}
+
+
+def merge(page: dict, shop: dict) -> dict:
+    """The page's facts with the store's product data filled in: Shopify's
+    title, vendor, photos and description text win where the page is thin."""
+    out = dict(page)
+    # A page's JSON-LD name is the product's own; a bare <title>/og:title often carries the store's slogan.
+    out["name"] = (page.get("name") if page.get("source") == "jsonld" else "") or shop["name"] or page.get("name", "")
+    out["brand"] = page.get("brand") or shop["brand"]
+    out["price"] = page.get("price") or shop["price"]
+    out["description"] = page.get("description") or shop["description"]
+    out["text"] = (shop["text"] + " " + page.get("text", "")).strip()[:9000]
+    prefer_images(out, shop["own"])
+    out["source"] = "shopify-json"
+    return out
+
+
+def text_facts(text: str, url: str = "", name: str = "") -> dict:
+    """Facts from product page text the member pasted (the store wouldn't let
+    us read it). Only a first guess at the name and price; the AI step does
+    the rest, exactly as for a page we read ourselves."""
+    text = (text or "").replace("\r", "")[:20000]
+    lines = [" ".join(ln.split()) for ln in text.split("\n") if ln.strip()]
+    def ok(ln):
+        return 3 <= len(ln) <= 80 and re.search(r"[A-Za-z]{3}", ln) \
+            and not re.search(r"[$€£]|\b(cart|menu|sign in|log in|account|search|shipping|reviews?)\b", ln, re.I)
+    # Product pages put the name just above the price; failing that, the first plausible line.
+    at = next((i for i, ln in enumerate(lines) if re.search(r"[$€£]\s?\d", ln)), None)
+    above = [ln for ln in (lines[:at] if at else []) if ok(ln)]
+    guess = name or (above[-1] if above else next((ln for ln in lines if ok(ln)), ""))
+    m = re.search(r"(?:US\s?)?([$€£])\s?(\d{1,5}(?:[.,]\d{2})?)", text)
+    price = f"{m.group(1)}{m.group(2)}" if m else ""
+    body = " ".join(lines)
+    return {"url": url, "name": guess[:200], "description": "", "price": price, "brand": "", "images": [], "own": [],
+            "headings": [], "text": body[:9000], "source": "manual"}
+
+
+def method_of(facts: dict) -> str:
+    """Which of the page's structured data the import mostly stood on."""
+    return facts.get("source") or "page"
+
+
+def log_attempt(conn, ws_id, url: str, method: str, status: str, http: int | None = None, detail: str = ""):
+    """One row per import try, for the admin system card (domain, how, outcome)."""
+    import db
+    conn.execute("INSERT INTO import_attempts (workspace_id, domain, method, status, http_status, detail, created_at) "
+                 "VALUES (?,?,?,?,?,?,?)", (ws_id, domain(url) or "(none)", method, status, http, (detail or "")[:200],
+                                           db.now()))
+    conn.commit()
 
 
 def shopify_json_url(url: str, html: str) -> str:
@@ -261,7 +475,8 @@ def build(facts: dict, ai: dict | None) -> dict:
     form = {"name": str(ai.get("name") or facts["name"] or "")[:80].strip() or "Imported product",
             "description": desc, "price": str(ai.get("price") or facts["price"])[:60], "offer": offer,
             "audience": str(ai.get("audience") or "")[:300] if compliance.check(str(ai.get("audience") or ""))["ok"] else "",
-            "url": facts["url"][:500], "tags": ", ".join(str(t) for t in (ai.get("tags") or [])[:5])}
+            "url": facts["url"][:500],
+            "tags": ", ".join(str(t) for t in (ai.get("tags") or facts.get("shop_tags") or [])[:5])}
     import products as _products
     form["category"] = _products.guess_category(" ".join([form["tags"], form["name"], form["description"]]))
     return {"form": form, "pending": claims[:12], "brand": str(ai.get("brand") or facts["brand"] or "")[:80],

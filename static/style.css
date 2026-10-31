@@ -1180,3 +1180,38 @@ a.sol-link:hover{border-color:rgba(var(--accent-rgb),.6)}
 a.sol-link h3{margin-top:0}
 @media (max-width:900px){.sol-hero{grid-template-columns:1fr;gap:32px}.sol-steps{grid-template-columns:1fr}.sol-media{max-width:520px}}
 @media (max-width:560px){.sol-tr{grid-template-columns:1fr;gap:6px;padding:16px}.sol-th{display:none}.sol-media{gap:8px}.sol-media img{border-radius:12px}.sol-media img:nth-child(2){transform:translateY(-12px)}.lp-foot-cols{gap:24px 40px}}
+
+/* ---------------------------------------------------------------- add a product by hand (the store wouldn't let us read it) */
+.manualbar{margin:20px 0 0;border-color:rgba(var(--accent-rgb),.45)}
+.manualbar h2{font-size:20px;line-height:1.3;margin:0 0 6px}
+.manualbar h2 .gold{display:block;margin-top:2px}
+.manualbar p{margin:0}
+.manual-retry{margin-top:10px}
+.manual-retry summary{cursor:pointer;color:var(--link)}
+.dropzone{position:relative;border:1.5px dashed var(--line);border-radius:14px;background:var(--field);transition:border-color .15s,background .15s}
+.dropzone.over{border-color:rgba(var(--accent-rgb),.8);background:rgba(var(--accent-rgb),.06)}
+.dz-input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.dz-input:focus-visible+.dz-label{outline:2px solid var(--accent);outline-offset:2px;border-radius:14px}
+.dz-label{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;margin:0;padding:22px 16px;min-height:120px;cursor:pointer;text-align:center;color:var(--ink);font-weight:500}
+.dz-label svg{width:28px;height:28px;color:var(--gold2)}
+.dz-touch{display:none}
+@media (hover:none){.dz-touch{display:inline}.dz-mouse{display:none}}
+.dz-thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;padding:0 12px}
+.dropzone.has .dz-thumbs{padding:0 12px 12px}
+.dropzone.has .dz-label{min-height:0;padding:14px 16px}
+.dz-thumb{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:var(--thumb-bg)}
+.dz-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.dz-thumb .btn{position:absolute;top:4px;right:4px;padding:0 8px;min-width:28px;min-height:28px}
+.pastebox{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.pastebox textarea{min-height:110px}
+.pastebox .small{display:block;margin-top:6px}
+#details details.more{margin-top:16px}
+#details details.more summary{cursor:pointer;font-weight:600;padding:8px 0}
+@media (max-width:760px){
+  .manualbar{padding:16px}
+  .manualbar h2{font-size:18px}
+  #details.manual input,#details.manual textarea,#details.manual select{font-size:16px}
+  #details.manual .go{flex-direction:column-reverse;align-items:stretch}
+  #details.manual .go .btn{width:100%;min-height:48px}
+  .manual-retry .importbar-f{flex-wrap:wrap}.manual-retry .importbar-f input{flex:1 1 100%}.manual-retry .importbar-f .btn{flex:1}
+}
