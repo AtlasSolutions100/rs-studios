@@ -20,9 +20,13 @@ import db
 import hf
 
 log = logging.getLogger("campaignify")
-# A talking video is refused (and refunded) if the vendor now charges more than
-# this times what we priced it at; the admin page shows the live estimates.
+# A talking video is refused (and refunded) if the vendor's estimate says it now
+# charges more than this times what we priced it at; the admin page shows the live
+# estimates. With no readable estimate (vendor down, reply format changed) the video
+# goes ahead at our own table price: that's the price the member was quoted and
+# paid, and the margin (MARKUP) covers drift. The miss is logged and shown on admin.
 PRICE_TOLERANCE = 1.25
+ESTIMATE_META = "vendor_estimate_live"
 
 MEDIA = os.path.join(db.DATA, "media")
 POLL_SECONDS = float(os.environ.get("RS_POLL_SECONDS", "5"))
@@ -244,6 +248,54 @@ def make_poster(video_path: str) -> str | None:
     return out if os.path.exists(out) else None
 
 
+def table_cost(job) -> float:
+    """What we priced this job at: its stored cost, else today's table price."""
+    if job["cost_usd"]:
+        return float(job["cost_usd"])
+    p = json.loads(job["params_json"] or "{}")
+    try:
+        return catalog.cost_usd(job["tool"], duration=float(p.get("duration") or 10),
+                                resolution=p.get("resolution") or catalog.DEFAULT_RESOLUTION)
+    except (KeyError, TypeError, ValueError):
+        return 0.0
+
+
+def note_estimate(conn, **kw):
+    """The last live estimate the worker asked for (admin health card + warning)."""
+    try:
+        row = conn.execute("SELECT value FROM meta WHERE key=?", (ESTIMATE_META,)).fetchone()
+        st = json.loads(row["value"]) if row else {}
+    except (ValueError, TypeError):
+        st = {}
+    if kw.get("ok"):
+        st.update(misses=0, last_ok_at=kw["at"])
+    else:
+        st["misses"] = int(st.get("misses") or 0) + 1
+    st.update(kw)
+    conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (ESTIMATE_META, json.dumps(st)))
+    conn.commit()
+
+
+def price_ok(conn, job, model: str, inputs: dict) -> bool:
+    """May this talking video start? False only when the vendor's readable estimate is
+    over PRICE_TOLERANCE x our price. A missing or unreadable estimate fails open."""
+    ours = table_cost(job)
+    vendor = hf.estimate(model, inputs)
+    why = None if vendor is not None else (hf.last_estimate.get("why") or "no estimate")
+    try:
+        note_estimate(conn, at=db.now(), ok=vendor is not None, job=job["id"], vendor=vendor, ours=round(ours, 4),
+                      why=why and str(why)[:300])
+    except Exception:  # noqa: BLE001 — bookkeeping never blocks a video
+        log.exception("couldn't record the vendor estimate")
+    if vendor is None:
+        log.warning("job %s: no vendor estimate (%s); starting at our table price $%.3f", job["id"], why, ours)
+        return True
+    if ours > 0 and vendor > ours * PRICE_TOLERANCE:
+        log.warning("job %s: vendor estimate $%.3f over our price $%.3f; refused", job["id"], vendor, ours)
+        return False
+    return True
+
+
 def tick() -> int:
     """One pass over pending and running jobs. Returns how many changed."""
     changed = 0
@@ -252,12 +304,8 @@ def tick() -> int:
             try:
                 inputs = build_inputs(conn, job)
                 model = catalog.TOOLS[job["tool"]]["model"]
-                if job["tool"] == "ugc_video":
-                    vendor = hf.estimate(model, inputs)
-                    if vendor is not None and vendor > (job["cost_usd"] or 0) * PRICE_TOLERANCE:
-                        log.warning("job %s: vendor estimate $%.3f over our price $%.3f; refused", job["id"], vendor,
-                                    job["cost_usd"])
-                        raise hf.GenError("This format's price changed and it couldn't start. We've been told.")
+                if job["tool"] == "ugc_video" and not price_ok(conn, job, model, inputs):
+                    raise hf.GenError("This format's price changed and it couldn't start. We've been told.")
                 rid = hf.submit(model, inputs)
                 _set(conn, job["id"], status="running", request_id=rid, attempts=job["attempts"] + 1)
             except hf.GenError as e:

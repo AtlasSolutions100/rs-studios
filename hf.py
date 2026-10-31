@@ -14,6 +14,7 @@ Auth header: "Key <api_key>:<api_secret>" (one HF_KEY or HF_API_KEY + HF_API_SEC
 Failed and nsfw results are not charged by the vendor.
 """
 import os
+import re
 
 import requests
 
@@ -141,30 +142,201 @@ def upload(data: bytes, content_type: str) -> str:
     return j["public_url"]
 
 
+# ---------------------------------------------------------------- price estimates
+#
+# POST {BASE}/estimate/{model_id} with the model's inputs is free. It used to answer
+# {"usd": 4.622}; it now answers with a pricing *description* as well or instead (plain
+# text, a JSON string, or JSON whose fields hold text such as "$4.62" or
+# "Estimated cost: 4.6220 USD ($0.4622/s x 10s)"). parse_usd() reads all of these and
+# only ever returns US dollars: a bare credit count is never taken as dollars.
+
+_MONEY = r"(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?|\.\d+)"
+_AMOUNT_RE = re.compile(r"(?:US\s?\$|\$\s?|USD\s*)" + _MONEY + r"|" + _MONEY + r"\s*(?:USD|usd|dollars?)\b", re.I)
+_RATE_RE = re.compile(r"^\s*(?:USD\b\s*)?(?:/|per\b|an?\s+(?:second|sec|image|generation)\b|each\b|x\b|×)", re.I)
+_RATE_UNIT_RE = re.compile(r"^\s*(?:USD\b\s*)?(?:/|per\s+|an?\s+)\s*(s|sec|secs|second|seconds|image|images|generation|"
+                           r"generations|output|outputs|video|videos)\b", re.I)
+_TOTAL_RE = re.compile(r"(total|estimated|estimate|est\.|cost|price|charge|≈|~|=)\W{0,12}$", re.I)
+_USD_KEYS = ("usd", "cost_usd", "price_usd", "total_usd", "estimated_usd", "estimate_usd", "usd_total", "amount_usd")
+_PLAIN_KEYS = ("total", "estimated_cost", "estimate", "cost", "price", "amount", "total_cost", "estimated_price")
+_NEST_KEYS = ("estimate", "pricing", "price", "cost", "data", "result", "quote")
+_TEXT_KEYS = ("description", "pricing", "text", "message", "detail", "summary", "estimate", "price", "cost")
+
+
+def _num(v):
+    """A dollar figure from a JSON value: 4.62, "4.6220", "$4.62", "4.62 USD"; else None."""
+    if isinstance(v, bool) or v is None:
+        return None
+    if isinstance(v, (int, float)):
+        return float(v) if v >= 0 else None
+    if isinstance(v, str):
+        t = v.strip()
+        if re.fullmatch(r"\$?\s*" + _MONEY + r"\s*(?:USD|usd)?", t):
+            return float(re.sub(r"[^\d.]", "", t))
+    return None
+
+
+def _units(unit: str, inputs: dict | None) -> float | None:
+    inputs = inputs or {}
+    unit = unit.lower()
+    if unit.startswith(("s", "sec", "second")):
+        d = inputs.get("duration")
+        try:
+            return float(d) if d else None
+        except (TypeError, ValueError):
+            return None
+    try:
+        return float(inputs.get("batch_size") or 1)
+    except (TypeError, ValueError):
+        return 1.0
+
+
+def _pick(found: list, res: str):
+    """One amount from several: the one next to our resolution ("720p: $4.62"),
+    else None — a guess could refuse a paying member's video."""
+    if len(found) == 1:
+        return found[0]
+    if res:
+        # the label before the amount ("720p: $4.62") or after it ("$4.62 at 720p"); if
+        # the two readings disagree the text is ambiguous
+        picks = {tuple(near[0][:2]) for near in ([f for f in found if res in f[side]] for side in (-1, -2))
+                 if len(near) == 1}
+        if len(picks) == 1:
+            return picks.pop()
+    if len({f[0] for f in found}) == 1:
+        return found[0]
+    return None
+
+
+def parse_text_usd(text: str, inputs: dict | None = None) -> float | None:
+    """Dollars from a pricing description, or None. A total ("Total: $4.62",
+    "= $4.62") wins; then a single flat amount; a per-second or per-image rate
+    alone is multiplied out by the inputs (duration, batch_size). Several amounts
+    (a price list by resolution) count only when one sits next to our resolution."""
+    if not text:
+        return None
+    res = str((inputs or {}).get("resolution") or "").lower()
+    flats, totals, rates = [], [], []
+    ms = list(_AMOUNT_RE.finditer(text))
+    for i, m in enumerate(ms):
+        raw = m.group(1) or m.group(2)
+        try:
+            val = float(raw.replace(",", ""))
+        except ValueError:
+            continue
+        after, before = text[m.end():m.end() + 24], text[max(0, m.start() - 24):m.start()]
+        # this amount's own labels: back to the previous amount, on to the next one or a separator
+        lab_b = text[ms[i - 1].end() if i else 0:m.start()].lower()
+        lab_b = re.split(r"[,;\n]", lab_b)[-1]
+        lab_a = re.split(r"[,;\n(]", text[m.end():ms[i + 1].start() if i + 1 < len(ms) else len(text)].lower())[0]
+        ctx = (lab_a, lab_b)
+        unit = _RATE_UNIT_RE.match(after)
+        if unit:
+            rates.append((val, unit.group(1), *ctx))
+        elif _RATE_RE.match(after) and not re.match(r"^\s*(?:USD\b\s*)?=", after):
+            # "$0.46 x 10s": a factor in a sum; the result after "=" is what counts
+            rates.append((val, "s" if re.search(r"\bs(?:ec|econds?)?\b", after) else "generation", *ctx))
+        elif _TOTAL_RE.search(before) and re.search(r"(total|=|≈)", before, re.I):
+            totals.append(val)
+        else:
+            flats.append((val, *ctx))
+    if totals:
+        return totals[-1]
+    if flats:
+        f = _pick(flats, res)
+        return f[0] if f else None
+    r = _pick(rates, res)
+    if r:
+        n = _units(r[1], inputs)
+        if n:
+            return round(r[0] * n, 6)
+    return None
+
+
+def parse_usd(body, inputs: dict | None = None) -> tuple[float | None, str]:
+    """(USD or None, how): read the estimate endpoint's reply, whatever shape it
+    takes. `body` is the decoded JSON (dict, list, str, number) or the raw text."""
+    if isinstance(body, (int, float)) and not isinstance(body, bool):
+        return (float(body), "number") if body >= 0 else (None, "negative number")
+    if isinstance(body, str):
+        t = body.strip()
+        if t[:1] in "{[\"":
+            try:
+                import json
+                return parse_usd(json.loads(t), inputs)
+            except ValueError:
+                pass
+        v = _num(t)
+        if v is not None:
+            return v, "number"
+        v = parse_text_usd(t, inputs)
+        return (v, "text") if v is not None else (None, "no single clear dollar amount in the text")
+    if isinstance(body, list):
+        for item in body[:5]:
+            v, how = parse_usd(item, inputs)
+            if v is not None:
+                return v, how
+        return None, "no dollar amount in the list"
+    if not isinstance(body, dict):
+        return None, "empty reply"
+    cur = str(body.get("currency") or "usd").strip().lower()
+    for k in _USD_KEYS:
+        v = _num(body.get(k))
+        if v is not None:
+            return v, f"field {k}"
+    if cur in ("usd", "$", "us$"):
+        for k in _PLAIN_KEYS:
+            v = _num(body.get(k))
+            if v is not None:
+                return v, f"field {k}"
+        q, up = _num(body.get("quantity")), _num(body.get("unit_price"))
+        if q is not None and up is not None:
+            return round(q * up, 6), "unit_price x quantity"
+    for k in _NEST_KEYS:
+        if isinstance(body.get(k), (dict, list)):
+            v, how = parse_usd(body[k], inputs)
+            if v is not None:
+                return v, f"{k}.{how}"
+    for k in _TEXT_KEYS:
+        if isinstance(body.get(k), str):
+            v = parse_text_usd(body[k], inputs)
+            if v is not None:
+                return v, f"text in {k}"
+    return None, "no dollar amount in the reply"
+
+
+# What the last estimate call got back (the admin health card shows it).
+last_estimate = {"at": None, "ok": None, "why": None, "sample": None, "how": None}
+
+
 def estimate_detail(model_id: str, inputs: dict) -> tuple[float | None, str | None]:
-    """(USD, None) or (None, why) — the admin price check shows the why."""
+    """(USD, None) or (None, why). Never raises; the admin price check shows the why."""
+    import time
+    usd, why, sample, how = None, None, None, None
     try:
         r = requests.post(f"{BASE}/estimate/{model_id.strip('/')}", json=inputs, headers=_headers(), timeout=15)
+        sample = (r.text or "")[:300]
+        if r.status_code >= 400:
+            why = f"{r.status_code}: {sample[:200]}"
+        else:
+            try:
+                body = r.json()
+            except ValueError:
+                body = r.text
+            usd, how = parse_usd(body, inputs)
+            if usd is None:
+                why = f"{how}; reply: {sample[:200]}"
     except (requests.RequestException, GenError) as e:
-        return None, str(e)[:200]
-    if r.status_code >= 400:
-        return None, f"{r.status_code}: {r.text[:200]}"
-    try:
-        return float((r.json() or {}).get("usd")), None
-    except (ValueError, TypeError):
-        return None, f"unexpected reply: {r.text[:200]}"
+        why = str(e)[:200]
+    except Exception as e:  # noqa: BLE001 — an estimate never breaks generation
+        why = f"unreadable reply ({type(e).__name__}): {(sample or '')[:160]}"
+    last_estimate.update(at=time.time(), ok=usd is not None, why=why, sample=sample, how=how, model=model_id)
+    return usd, why
 
 
 def estimate(model_id: str, inputs: dict) -> float | None:
     """The vendor's price in USD for these inputs (a free call), or None when
-    it can't be had. Never raises."""
-    try:
-        r = requests.post(f"{BASE}/estimate/{model_id.strip('/')}", json=inputs, headers=_headers(), timeout=15)
-        if r.status_code >= 400:
-            return None
-        return float((r.json() or {}).get("usd"))
-    except (requests.RequestException, GenError, ValueError, TypeError):
-        return None
+    it can't be had or read. Never raises."""
+    return estimate_detail(model_id, inputs)[0]
 
 
 def cancel(request_id: str) -> bool:
