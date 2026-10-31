@@ -5,7 +5,7 @@ name, approved claims, product photos), and generation of image ads, photo-to-vi
 clips and motion-copy videos. Members pay in RS credits (1 credit = $0.01; price =
 our cost x `RS_MARKUP`). Public and self-serve: the landing page at `/` (logged
 out), open signup with free starter credits (`RS_STARTER_CREDITS`, default two
-image ads), a guided first ad (`/app/start`), and credit packs bought through
+image ads; sign-ups from a paid ad get `SIGNUP_CREDITS_ADS`, default 500, once per person: `adoffer.py`), a guided first ad (`/app/start`), and credit packs bought through
 Stripe Checkout (`/app/billing`). Built for independent reps: income, earnings
 and recruiting claims are blocked on every brief.
 

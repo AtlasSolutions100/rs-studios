@@ -1,6 +1,6 @@
 {% extends "public_base.html" %}
 {% block main %}
-{% set r = rates() %}{% set sc = starter_credits() %}
+{% set r = rates() %}{% set so = signup_offer() %}{% set sc = so.credits %}
 <section class="lp-hero lp-hero-sm">
   <div class="lp-wrap">
     <p class="eyebrow">Features</p>
@@ -63,7 +63,7 @@
 <section class="lp-sec lp-final">
   <div class="lp-wrap">
     <h2 class="lp-h2">Launch your next campaign here.</h2>
-    <p class="muted">{{ '{:,}'.format(sc) }} free credits when you sign up. No card needed.</p>
+    <p class="muted">{{ so.body }}</p>
     <a class="btn lg" href="{{ url_for('signup') }}">Start free</a>
   </div>
 </section>

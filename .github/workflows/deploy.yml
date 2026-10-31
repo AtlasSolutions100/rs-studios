@@ -19,6 +19,10 @@ name: Deploy Campaignify (campaignify.ai)
 #   STRIPE_PORTAL_CONFIG   optional repo variable: Customer Portal configuration id
 #   RS_MARKUP              optional repo variable, default 2.0
 #   RS_STARTER_CREDITS     optional repo variable; default = 2 image ads (44 credits)
+#   SIGNUP_CREDITS_ADS     optional repo variable: starter credits for sign-ups whose first touch is a paid ad
+#                          (utm_medium cpc/paid*, or gclid/fbclid/ttclid/rdt_cid/twclid); default 500 when
+#                          unset, "0" or "off" gives everyone RS_STARTER_CREDITS (adoffer.py)
+#   SIGNUP_CREDITS_ADS_PER_DAY  optional repo variable: most ad-offer grants a day (default 200)
 #   RESEND_API_KEY         email sending for flows (Resend, full access: sending + domains)
 #   RESEND_WEBHOOK_SECRET  svix signing secret of https://campaignify.ai/webhooks/resend
 #                          (events: email.sent, delivered, bounced, complained, opened, clicked)
@@ -101,6 +105,8 @@ jobs:
           STRIPE_PORTAL_CONFIG: ${{ vars.STRIPE_PORTAL_CONFIG }}
           RS_MARKUP: ${{ vars.RS_MARKUP }}
           RS_STARTER_CREDITS: ${{ vars.RS_STARTER_CREDITS }}
+          SIGNUP_CREDITS_ADS: ${{ vars.SIGNUP_CREDITS_ADS }}
+          SIGNUP_CREDITS_ADS_PER_DAY: ${{ vars.SIGNUP_CREDITS_ADS_PER_DAY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_WEBHOOK_SECRET: ${{ secrets.RESEND_WEBHOOK_SECRET }}
           RS_MAIL_DOMAIN: ${{ vars.RS_MAIL_DOMAIN }}
@@ -139,6 +145,7 @@ jobs:
           settings = {k: os.environ[k] for k in ("HF_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET",
                                              "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "GROQ_API_KEY", "GROQ_MODEL",
                                              "STRIPE_PORTAL_CONFIG", "RS_MARKUP", "RS_STARTER_CREDITS",
+                                             "SIGNUP_CREDITS_ADS", "SIGNUP_CREDITS_ADS_PER_DAY",
                                              "RESEND_API_KEY", "RESEND_WEBHOOK_SECRET", "RS_MAIL_DOMAIN", "RS_POSTAL_ADDRESS",
                                              "RS_HD_MARKUP", "RS_VIDEO_UPSCALE_MODEL", "RS_VIDEO_UPSCALE_USD_PER_SECOND",
                                              "RS_FREE_PREVIEW", "RS_FREE_PREVIEWS_PER_DAY", "RS_EMAIL_VERIFY",

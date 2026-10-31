@@ -585,8 +585,8 @@ INTERNAL = {
             {"type": "exit_if", "test": {"kind": "has_tag", "tag": "made-talking-video"}},
             _e("Let a presenter talk about your product", "Hi {{first_name}},\n\nImage ads are a good start. The "
                "format people stop scrolling for is a short talking video: an AI presenter holds your product and "
-               "says your script in about ten seconds.\n\nYour account includes one free preview so you can see "
-               "it with your own product first: {{link:create}}\n\nThe Campaignify team",
+               "says your script in about ten seconds.\n\nYour account includes one free 8-second preview (480p, "
+               "watermarked) so you can see it with your own product first: {{link:create}}\n\nThe Campaignify team",
                "Day 3: the feature most worth seeing (the free talking-video preview)."),
             _w(4),
             _e("How is it going?", "Hi {{first_name}},\n\nYou've had Campaignify for a week. What's the one thing "

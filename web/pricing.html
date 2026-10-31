@@ -1,11 +1,11 @@
 {% extends "public_base.html" %}
 {% block main %}
-{% set r = rates() %}{% set sc = starter_credits() %}
+{% set r = rates() %}{% set so = signup_offer() %}{% set sc = so.credits %}
 <section class="lp-hero lp-hero-sm">
   <div class="lp-wrap">
     <p class="eyebrow">Pricing</p>
     <h1>Campaignify pricing</h1>
-    <p class="lp-lede">Start free with {{ '{:,}'.format(sc) }} credits and no card. Plans are ${{ plans.PLANS.starter.usd }}, ${{ plans.PLANS.growth.usd }} and ${{ plans.PLANS.scale.usd }} a month with monthly credits and the campaign tools, and credit packs top up any account. 1 credit = $0.01, and you see the price of every ad before it's made.</p>
+    <p class="lp-lede">{{ so.body }} Plans are ${{ plans.PLANS.starter.usd }}, ${{ plans.PLANS.growth.usd }} and ${{ plans.PLANS.scale.usd }} a month with monthly credits and the campaign tools, and credit packs top up any account. 1 credit = $0.01, and you see the price of every ad before it's made.</p>
   </div>
 </section>
 <section class="lp-sec" id="plans">
@@ -30,8 +30,8 @@
 </section>
 <section class="lp-sec lp-final">
   <div class="lp-wrap">
-    <h2 class="lp-h2">Make your first ad free.</h2>
-    <p class="muted">{{ '{:,}'.format(sc) }} free credits when you sign up, enough for {{ sc // r.image }} image ads. No card needed.</p>
+    <h2 class="lp-h2">{{ so.cta }}.</h2>
+    <p class="muted">{{ so.body }}</p>
     <a class="btn lg" href="{{ url_for('signup') }}">Start free</a>
   </div>
 </section>

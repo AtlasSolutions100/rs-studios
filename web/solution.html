@@ -1,7 +1,7 @@
 {% extends "public_base.html" %}
 {# Answer-first pages for search intent; the copy lives in public_site.SOLUTIONS. #}
 {% block main %}
-{% set r = rates() %}{% set sc = starter_credits() %}
+{% set r = rates() %}{% set so = signup_offer() %}{% set sc = so.credits %}
 <section class="lp-hero lp-hero-sm">
   <div class="lp-wrap sol-hero">
     <div>
@@ -9,10 +9,10 @@
       <h1>{{ s.h1 }}</h1>
       <p class="lp-lede sol-answer">{{ s.answer }}</p>
       <div class="lp-cta">
-        <a class="btn lg" href="{{ url_for('signup') }}">Start free</a>
+        <a class="btn lg" href="{{ url_for('signup') }}">{{ so.cta }}</a>
         <a class="lp-textlink" href="#how">How it works →</a>
       </div>
-      <p class="small muted lp-note">{{ '{:,}'.format(sc) }} free credits when you sign up, enough for {{ sc // r.image }} image ads. No card needed.</p>
+      <p class="small muted lp-note">{{ so.body }}</p>
     </div>
     {% if s.media %}
     <figure class="sol-media">
@@ -100,7 +100,7 @@
 <section class="lp-sec lp-final">
   <div class="lp-wrap">
     <h2 class="lp-h2">Try it on your own product.</h2>
-    <p class="muted">{{ '{:,}'.format(sc) }} free credits when you sign up. No card needed.</p>
+    <p class="muted">{{ so.body }}</p>
     <a class="btn lg" href="{{ url_for('signup') }}">Start free</a>
   </div>
 </section>

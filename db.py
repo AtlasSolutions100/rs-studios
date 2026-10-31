@@ -404,6 +404,10 @@ CREATE TABLE IF NOT EXISTS job_reviews (
 CREATE TABLE IF NOT EXISTS free_previews (
     id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL UNIQUE, email_norm TEXT NOT NULL UNIQUE,
     ip_hash TEXT, job_id INTEGER, tries INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS ad_signup_grants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL UNIQUE, email_norm TEXT NOT NULL UNIQUE,
+    ip_hash TEXT, credits INTEGER NOT NULL, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_ad_grants_ip ON ad_signup_grants(ip_hash, created_at);
 CREATE TABLE IF NOT EXISTS c_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, title TEXT NOT NULL, starts_at TEXT NOT NULL,
     tz TEXT, duration_min INTEGER NOT NULL DEFAULT 60, link TEXT, about TEXT, created_at TEXT NOT NULL);

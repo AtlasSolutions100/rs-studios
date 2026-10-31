@@ -23,6 +23,7 @@ from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, r
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
+import adoffer
 import billing
 import catalog
 import conversions
@@ -294,6 +295,24 @@ def _first_touch(resp):
     if value:
         resp.set_cookie(gads.COOKIE, value, max_age=gads.COOKIE_DAYS * 86400, httponly=True, samesite="Lax",
                         secure=request.is_secure)
+
+
+def _signup_offer() -> dict:
+    """What a free sign-up gives this visitor right now (adoffer.offer): the paid-ad
+    offer only when sign-up would grant it to them, the normal starter credits otherwise."""
+    if "signup_offer" not in g:
+        n = None
+        if adoffer.credits() and not g.get("user"):
+            touch = adoffer.effective_touch(request, FIRST_TOUCH_ENDPOINTS)
+            if adoffer.paid_source(touch):
+                with db.connect() as conn:
+                    if adoffer.eligible(conn, touch, client_ip(), bool(request.cookies.get(adoffer.BROWSER_COOKIE))):
+                        n = adoffer.credits()
+        g.signup_offer = adoffer.offer(n)
+    return g.signup_offer
+
+
+app.jinja_env.globals["signup_offer"] = _signup_offer
 
 
 @app.context_processor
@@ -595,6 +614,7 @@ def signup():
                           db.throttled(f"signup:{ip}", SIGNUPS_PER_DAY, 86400)):
             return again("Too many new accounts from your network. Try again later.", 429)
         dest = "studio"
+        ad_credits = 0
         with db.connect() as conn:
             if conn.execute("SELECT 1 FROM users WHERE email=?", (email,)).fetchone():
                 return again("That email already has an account. Log in instead.")
@@ -629,7 +649,12 @@ def signup():
                 else:
                     ws_id = conn.execute("INSERT INTO workspaces (name, credits, created_at) VALUES (?,?,?)",
                                          ((name or email.split("@")[0]) + "'s studio", 0, db.now())).lastrowid
-                    if catalog.starter_credits():
+                    # Ad-sourced sign-ups get SIGNUP_CREDITS_ADS instead, once per person (adoffer.py).
+                    ad_credits = adoffer.claim(conn, ws_id, email, ip, gads.parse_cookie(request.cookies.get(gads.COOKIE)),
+                                               bool(request.cookies.get(adoffer.BROWSER_COOKIE)), db.now())
+                    if ad_credits:
+                        db.adjust_credits(conn, ws_id, ad_credits, adoffer.REASON)
+                    elif catalog.starter_credits():
                         db.adjust_credits(conn, ws_id, catalog.starter_credits(), "starter credits")
             joins = bool(inv and inv["workspace_id"]) or (owner and conn.execute(
                 "SELECT 1 FROM users WHERE workspace_id=?", (ws_id,)).fetchone() is not None)
@@ -667,6 +692,9 @@ def signup():
         resp = redirect(url_for(dest))
         if request.cookies.get(gads.COOKIE):
             resp.delete_cookie(gads.COOKIE)   # it's on the account now
+        if ad_credits:   # this browser has had the ad offer (adoffer.py)
+            resp.set_cookie(adoffer.BROWSER_COOKIE, "1", max_age=adoffer.BROWSER_COOKIE_DAYS * 86400, httponly=True,
+                            samesite="Lax", secure=request.is_secure)
         return resp
     return render_template("signup.html", invite=code, owner=owner, email="")
 

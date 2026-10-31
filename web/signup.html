@@ -1,6 +1,6 @@
 {% extends "auth_base.html" %}{% block title %}Create your account · Campaignify{% endblock %}
 {% block auth %}
-  {% set r = rates() %}{% set sc = starter_credits() %}
+  {% set r = rates() %}{% set so = signup_offer() %}{% set sc = so.credits %}
   {% if owner %}
   <h2>Set up your admin account</h2>
   <p class="muted">This link is for {{ owner }}. Pick your password and you're in, as an admin of your team's Campaignify workspace.</p>
@@ -9,7 +9,7 @@
   <p class="muted">Your invite puts you in your team's workspace. Pick a password and you're in.</p>
   {% else %}
   <h2>Start free</h2>
-  <p class="muted">{{ '{:,}'.format(sc) }} free credits, enough for {{ sc // r.image }} image ads. No card needed.</p>
+  <p class="muted">{{ so.body }}</p>
   {% endif %}
   <form method="post" action="{{ url_for('signup') }}">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
