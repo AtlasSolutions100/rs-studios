@@ -2971,3 +2971,5 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_outreach.py")], check=True)
     # The public site's SEO (titles, schema, sitemap, noindex) and the Google Ads tag and conversions.
     subprocess.run([sys.executable, os.path.join(HERE, "test_public_site.py")], check=True)
+    # The Meta / TikTok / Reddit / X pixels and the server-side conversions (ad platforms faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_pixels.py")], check=True)

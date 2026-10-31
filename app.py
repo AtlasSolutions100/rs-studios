@@ -25,7 +25,9 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 import billing
 import catalog
+import conversions
 import owners
+import pixels
 import compliance
 import creator
 import db
@@ -297,8 +299,9 @@ def _first_touch(resp):
 @app.context_processor
 def _public_meta():
     """Title, description, canonical, share card and JSON-LD for the public pages
-    (public_site.py), plus the Google tag and this page's conversion events."""
-    out = {"gads_tag": gads.tag_id(), "gads_consent_regions": gads.CONSENT_REGIONS, "gads_events": _gads_events}
+    (public_site.py), plus the Google tag, the ad pixels (pixels.py) and this page's conversion events."""
+    out = {"gads_tag": gads.tag_id(), "gads_consent_regions": gads.CONSENT_REGIONS, "gads_events": _gads_events,
+           "ad_pixels": lambda: pixels.context(request, _gads_events, request.endpoint)}
     m = public_site.meta(request.endpoint, request.view_args)
     if m:
         out["page_meta"] = m
@@ -306,11 +309,11 @@ def _public_meta():
 
 
 def _gads_events():
-    """Called once by the layout: the conversions to fire on this page."""
-    if "gads_done" in g:
-        return []
-    g.gads_done = True
-    return gads.take(session) if gads.SESSION_KEY in session else []
+    """The conversions to fire on this page, taken from the session once per request
+    (the Google tag and the pixels both read this same list)."""
+    if "gads_events" not in g:
+        g.gads_events = gads.take(session) if gads.SESSION_KEY in session else []
+    return g.gads_events
 
 
 def _video_seconds(path):
@@ -653,6 +656,12 @@ def signup():
             db.hit(f"signup:{ip}")
             # Google Ads sign_up conversion, fired on the first page after this (owners' setup links don't count).
             gads.queue(session, "sign_up", transaction_id=f"signup-{cur.lastrowid}")
+            # and the server-side copy for Meta / TikTok / Reddit (same event id), when a token is set
+            try:
+                with db.connect() as conn:
+                    conversions.on_signup(conn, cur.lastrowid, conversions.context(request))
+            except Exception:  # noqa: BLE001 — measurement never breaks sign-up
+                log.exception("server-side sign-up conversion not queued")
         # New accounts land on Home, which is the first-ad form until they've made one
         # (the setup guide is a link from there, not a detour).
         resp = redirect(url_for(dest))
@@ -1297,11 +1306,11 @@ def billing_page():
 
 
 def _report_purchase(sid: str, plan: bool):
-    """Google Ads purchase conversion for the Checkout Session Stripe just returned
+    """Google Ads (and pixel) purchase conversion for the Checkout Session Stripe just returned
     from: only a session this workspace started (ad_conversions), once. A plan's value
     is what Stripe charged (promotion codes included) when we can read the session,
     else the plan's price recorded at checkout."""
-    if not sid.startswith("cs_") or not gads.send_to("purchase"):
+    if not sid.startswith("cs_") or not gads.wanted("purchase"):
         return
     cents = currency = None
     if plan:
@@ -1357,7 +1366,8 @@ def subscribe():
         flash("Checkout couldn't start. Try again in a minute.")
         return redirect(url_for("billing_page"))
     with db.connect() as conn:
-        gads.record_checkout(conn, sess["id"], g.ws["id"], g.user["id"], p["usd"] * 100, "usd", db.now())
+        gads.record_checkout(conn, sess["id"], g.ws["id"], g.user["id"], p["usd"] * 100, "usd", db.now(),
+                            conversions.context(request))
         conn.commit()
     return redirect(sess["url"], code=303)
 
@@ -1421,7 +1431,8 @@ def checkout():
         return redirect(url_for("billing_page"))
     with db.connect() as conn:
         conn.execute("UPDATE purchases SET stripe_session_id=? WHERE id=?", (sess["id"], pid))
-        gads.record_checkout(conn, sess["id"], g.ws["id"], g.user["id"], pack["usd"] * 100, "usd", db.now())
+        gads.record_checkout(conn, sess["id"], g.ws["id"], g.user["id"], pack["usd"] * 100, "usd", db.now(),
+                            conversions.context(request))
         conn.commit()
     return redirect(sess["url"], code=303)
 
@@ -1477,7 +1488,16 @@ def _pack_paid(sess):
         db.adjust_credits(conn, p["workspace_id"], p["credits"],
                           f"{catalog.PACK_BY_CODE.get(p['pack'], {}).get('name', p['pack'])} pack")
         conn.commit()
+        _server_purchase(conn, sess, p["workspace_id"])
     return jsonify({"ok": True, "credited": p["credits"]})
+
+
+def _server_purchase(conn, sess, workspace_id):
+    """Server-side Purchase for Meta / TikTok / Reddit (conversions.py), same event id as the pixels."""
+    try:
+        conversions.on_checkout_paid(conn, sess, workspace_id)
+    except Exception:  # noqa: BLE001 — never fail the webhook over measurement
+        log.exception("server-side purchase conversion not queued for %s", sess.get("id"))
 
 
 def _our_workspace(conn, meta: dict, sub_id: str | None):
@@ -1512,6 +1532,7 @@ def _plan_checkout_completed(sess):
                      "plan_status=COALESCE(plan_status, 'active') WHERE id=?",
                      (customer, sub_id, code, ws["id"]))
         conn.commit()
+        _server_purchase(conn, sess, ws["id"])
     return jsonify({"ok": True, "workspace": ws["id"]})
 
 

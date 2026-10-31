@@ -104,8 +104,21 @@ members' pages or share links). Ad cookies start denied in the EEA/UK/CH and und
 cookie banner). Conversions fire only when their labels are set: `GADS_SIGNUP_LABEL` (sign_up, on the first page after
 a new non-owner account) and `GADS_PURCHASE_LABEL` (purchase, on the billing page Stripe returns to with
 `session_id`, value + currency, transaction_id = the Checkout Session id, reported once via `ad_conversions`).
-A visit with UTM tags or a gclid/gbraid/wbraid leaves a 90-day first-party cookie (`cfy_ft`) that sign-up saves on
-`users.first_touch`.
+A visit with UTM tags or an ad click id (gclid/gbraid/wbraid, fbclid, ttclid, rdt_cid, twclid) leaves a 90-day
+first-party cookie (`cfy_ft`) that sign-up saves on `users.first_touch`.
+
+## Ad pixels (`pixels.py`, `web/_pixels.html`) and server-side conversions (`conversions.py`)
+
+Meta, TikTok, Reddit and X pixels load on the same pages as the Google tag once their ids are set (repo variables
+`META_PIXEL_ID`, `TIKTOK_PIXEL_ID`, `REDDIT_PIXEL_ID`, `X_PIXEL_ID`, plus `X_EVENT_SIGNUP` / `X_EVENT_PURCHASE` /
+`X_EVENT_VIEWCONTENT` for X's per-event ids); unset, nothing loads. Page view everywhere, ViewContent on `/pricing`,
+SignUp (Meta/TikTok CompleteRegistration, Reddit SignUp, X sign-up event; id `signup-<user id>`) and Purchase (Meta
+Purchase, TikTok CompletePayment, Reddit Purchase, X purchase event; value + currency, id
+`purchase-<Checkout Session id>`) at the same moments as the Google conversions. They never load under GPC/DNT, in
+the EEA/UK/CH (edge country or a European time zone), on admin pages, or on a page whose query has anything but
+UTM tags, click ids or the checkout return. With `META_CAPI_TOKEN` / `TIKTOK_EVENTS_TOKEN` / `REDDIT_CAPI_TOKEN`
+(secrets) the server also sends SignUp (at sign-up) and Purchase (Stripe webhook) with the same event ids
+(`conversion_queue`, retried by the worker), so each platform counts each conversion once.
 
 ## Ad-account setup hub (`/app/ad-accounts`, Starter+)
 

@@ -11,7 +11,7 @@ function gtag(){ dataLayer.push(arguments); }
   gtag('consent', 'default', {ad_storage: d, ad_user_data: d, ad_personalization: d, analytics_storage: 'denied'});
   gtag('js', new Date());
   gtag('config', {{ gads_tag|tojson }});
-  {% for ev in evs %}gtag('event', 'conversion', {{ ev.params|tojson }});
+  {% for ev in evs if ev.params %}gtag('event', 'conversion', {{ ev.params|tojson }});
   {% endfor %}
 })();
 </script>{% endif %}
