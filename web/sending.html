@@ -28,7 +28,7 @@
       <div class="panel">
         <h2 style="margin-top:0">Prices and limits</h2>
         <ul class="rules">
-          <li>Each email: <b>{{ credits }} credit{{ 's' if credits != 1 }}</b> ({{ credits_usd(credits) }}), charged when it's sent.</li>
+          <li>Each email: <b>{{ credits }} credit{{ 's' if credits != 1 }}</b>, charged when it's sent.</li>
           <li>Daily limit: <b>{{ '{:,}'.format(cap) if cap else '—' }}</b> emails{% if cap == 50 %} (a new sender starts at 50 a day for the first week){% endif %}; at most 2 a day to one person.</li>
           <li>A flow pauses itself if its emails draw spam complaints above 0.3% or bounce above 5%.</li>
           <li>Texts ({{ plans.required('flows_sms').name }}): {{ sms_seg }} credits a segment, plus the number and carrier registration (shown before you start).</li>

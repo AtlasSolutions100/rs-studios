@@ -30,7 +30,7 @@
       {% for t in ad_types %}
       <a class="typecard" href="{{ url_for('create.index', type=t.id) }}" data-hoverplay>
         <div class="thumb"><video src="{{ url_for('static', filename=t.preview ~ '.mp4') }}" poster="{{ url_for('static', filename=t.preview ~ '.jpg') }}" muted loop playsinline preload="none"></video>{% if t.talking %}<span class="chip motion">Speaks</span>{% endif %}</div>
-        <div class="typecard-b"><b>{{ t.name }}</b><span class="small muted">{{ t.line }}</span><span class="small dim">from {{ '{:,}'.format(from_price[t.tool]) }} credits · {{ credits_usd(from_price[t.tool]) }}</span>{% if from_price[t.tool] > bal %}<span class="tag warn">Needs {{ '{:,}'.format(from_price[t.tool] - bal) }} more credits</span>{% endif %}</div>
+        <div class="typecard-b"><b>{{ t.name }}</b><span class="small muted">{{ t.line }}</span><span class="small dim">from {{ from_price[t.tool]|credits }}</span>{% if from_price[t.tool] > bal %}<span class="tag warn">Needs {{ '{:,}'.format(from_price[t.tool] - bal) }} more credits</span>{% endif %}</div>
       </a>
       {% endfor %}
     </div>

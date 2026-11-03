@@ -1,6 +1,6 @@
 # Campaignify
 
-> Campaignify ({{ site.SITE_URL }}) is an AI marketing studio for brands and independent sellers. Paste a product page and it makes UGC-style video ads (an AI presenter holds the product and says a script), product videos and image ads from the product's own photos, then writes the ad copy for each platform and keeps the landing page, smart links, forms and launch checklist in the same workspace. Prices are shown in credits (1 credit = $0.01) before anything is generated, failed generations are refunded, and every brief, piece of copy and landing page is checked for income, health, discount and recruiting claims.
+> Campaignify ({{ site.SITE_URL }}) is an AI marketing studio for brands and independent sellers. Paste a product page and it makes UGC-style video ads (an AI presenter holds the product and says a script), product videos and image ads from the product's own photos, then writes the ad copy for each platform and keeps the landing page, smart links, forms and launch checklist in the same workspace. Prices are shown in credits before anything is generated, failed generations are refunded, and every brief, piece of copy and landing page is checked for income, health, discount and recruiting claims.
 
 ## How a campaign runs in Campaignify
 {% for s in journey %}
@@ -23,7 +23,7 @@ Campaignify doesn't post ads, buy media or read results from ad platforms. It gu
 - Free: {{ '{:,}'.format(starter_credits()) }} starter credits (free sign-up includes {{ starter_credits() // rates().image }} image ads) and the ad studio, no card.
 {% for p in plans.PAID %}- {{ p.name }}: ${{ p.usd }} a month, {{ '{:,}'.format(p.credits) }} credits a month. {{ p.line }}
 {% endfor %}- Credit packs ({% for p in packs %}${{ p.usd }}{{ ', ' if not loop.last }}{% endfor %}) top up any account.
-- 1 credit = $0.01. Plan credits expire at each renewal; pack credits never expire.
+- Every ad is priced in credits, shown before it's made. Plan credits expire at each renewal; pack credits never expire.
 
 ## What it makes
 {% for k, t in [('ad_image', 'Image ad'), ('photo_to_video', 'Product video'), ('ugc_video', 'Talking (UGC) video'), ('motion_copy', "Copy a video's motion")] %}

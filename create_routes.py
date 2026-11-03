@@ -39,12 +39,6 @@ class ConfigError(ValueError):
         self.step = step
 
 
-def usd(credits) -> str:
-    """Credits as dollars (1 credit = $0.01)."""
-    cents = int(credits or 0)
-    return f"${cents // 100:,}" if cents % 100 == 0 else f"${cents / 100:,.2f}"
-
-
 def suggest_pack(short: int):
     """The cheapest credit pack that covers a shortfall (or the biggest one)."""
     if short <= 0:
@@ -525,7 +519,7 @@ def quote():
     total, bal = sum(j["credits"] for j in jobs), db.balance(g.ws)
     chosen = {j["key"] for j in jobs}
     videos = meta["tool"] in VIDEO_TOOLS
-    return jsonify({"count": len(jobs), "total": total, "usd": usd(total), "each": jobs[0]["credits"] if jobs else 0,
+    return jsonify({"count": len(jobs), "total": total, "each": jobs[0]["credits"] if jobs else 0,
                     "every": len(everything), "videos": videos, "warn": videos and len(jobs) > WARN_VIDEOS,
                     "confirm": videos and len(jobs) > CONFIRM_VIDEOS, "max": MAX_BATCH,
                     "balance": bal, "short": max(0, total - bal), "pack": suggest_pack(total - bal),
@@ -581,7 +575,7 @@ def generate():
         if blocked:     # video (or past the unconfirmed allowance): the page asks for the code, then sends this again
             return verify_json(blocked)
         if meta["tool"] in VIDEO_TOOLS and len(jobs) > CONFIRM_VIDEOS and not d.get("confirm_many"):
-            return jsonify({"error": f"That's {len(jobs)} videos ({total:,} credits, {usd(total)}). Tick the box to "
+            return jsonify({"error": f"That's {len(jobs)} videos ({total:,} credits). Tick the box to "
                                      "confirm you want all of them, or untick some.", "confirm": True}), 400
         if str(total) != str(d.get("total")):
             return jsonify({"error": f"The total changed to {total:,} credits. Check it and confirm again.",

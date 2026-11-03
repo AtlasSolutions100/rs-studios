@@ -141,7 +141,7 @@
           <label class="cf-many" data-many-wrap hidden><input type="checkbox" data-many> <span data-many-text></span></label>
           <div class="flash bad" data-err role="alert" hidden></div>
           <div class="cf-go">
-            <div><span class="muted small">Total</span><div class="price" aria-live="polite"><span data-total>–</span></div><span class="muted small">credits<span data-total-usd></span> · you have <b data-bal>{{ '{:,}'.format(boot.balance) }}</b></span></div>
+            <div><span class="muted small">Total</span><div class="price" aria-live="polite"><span data-total>–</span></div><span class="muted small">credits · you have <b data-bal>{{ '{:,}'.format(boot.balance) }}</b></span></div>
             <div class="cf-go-btns"><button type="button" class="btn dark" data-one hidden>Make 1 first</button><button type="button" class="btn lg" data-generate disabled>Generate</button></div>
           </div>
           <p class="dim small" style="margin:12px 0 0">Nothing runs until you press Generate. Failed videos are refunded automatically. Scripts and the angle are saved to the product. “Make 1 first” makes only the first ticked line; the rest wait on the batch page.</p>
@@ -180,7 +180,7 @@
   var $ = function(s, r){ return (r||document).querySelector(s); }, $$ = function(s, r){ return [].slice.call((r||document).querySelectorAll(s)); };
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   function n(x){ return Number(x || 0).toLocaleString(); }
-  function usd(c){ c = Number(c || 0); return '$' + (c % 100 ? (c / 100).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : (c / 100).toLocaleString()); }
+  function cr(c){ c = Number(c || 0); return n(c) + (c === 1 ? ' credit' : ' credits'); }
   function plural(k, w, ws){ return k + ' ' + (k === 1 ? w : (ws || w + 's')); }
   function T(){ return B.types.filter(function(t){ return t.id === S.type; })[0]; }
   function kind(){ var t = T(); return t ? t.script : 'spoken'; }
@@ -209,7 +209,7 @@
     return {count: count, each: each, total: count * each, factors: f, video: isVideo()};
   }
   function what(c){ return isVideo() ? plural(c, 'video') : plural(c, kind() === 'image' ? 'image ad' : 'ad'); }
-  function formula(e){ return e.factors.join(' × ') + ' = ' + what(e.count) + ' · ' + n(e.total) + ' credits (' + usd(e.total) + ')'; }
+  function formula(e){ return e.factors.join(' × ') + ' = ' + what(e.count) + ' · ' + cr(e.total); }
   function caution(e){
     if(!e || !e.count) return '';
     if(e.count > B.max_batch) return {bad: true, t: 'One batch makes at most ' + B.max_batch + '. Pick fewer before you go on.'};
@@ -221,13 +221,13 @@
   function showTotals(){
     var e = est(), c = caution(e);
     $$('[data-formula]').forEach(function(el){
-      if(!e || !e.count){ el.innerHTML = e ? '<span class="muted">' + plural(1, isVideo() ? 'video' : 'ad') + ' costs ' + n(e.each) + ' credits (' + usd(e.each) + ')</span>' : ''; return; }
+      if(!e || !e.count){ el.innerHTML = e ? '<span class="muted">' + plural(1, isVideo() ? 'video' : 'ad') + ' costs ' + cr(e.each) + '</span>' : ''; return; }
       el.innerHTML = '<b>' + esc(formula(e)) + '</b>' + (c ? '<span class="' + (c.bad ? 'bad' : 'warnc') + '">' + esc(c.t) + '</span>' : '');
     });
     var atReview = S.step === 'review' && lastQuote && lastQuote.count;
     if(!atReview){
       $('[data-side-total]').textContent = e && e.count ? n(e.total) : (e ? n(e.each) : '–');
-      $('[data-side-count]').textContent = e && e.count ? what(e.count) + ' · ' + n(e.each) + ' each · ' + usd(e.total) : (e ? 'per ' + (isVideo() ? 'video' : 'ad') + ' · ' + usd(e.each) : 'Pick the steps to see a price');
+      $('[data-side-count]').textContent = e && e.count ? 'credits · ' + what(e.count) + ' at ' + n(e.each) + ' each' : (e ? 'credits per ' + (isVideo() ? 'video' : 'ad') : 'Pick the steps to see a price');
       $('[data-side-formula]').textContent = e && e.count ? e.factors.join(' × ') : '';
     }
     var bar = $('[data-bar]'), ok = !!e && steps().indexOf(S.step) >= steps().indexOf('angle');
@@ -235,7 +235,7 @@
     if(ok){
       var cnt = atReview ? lastQuote.count : e.count, tot = atReview ? lastQuote.total : e.total;
       $('[data-bar-count]').textContent = cnt ? what(cnt) : 'Per ' + (isVideo() ? 'video' : 'ad');
-      $('[data-bar-price]').textContent = ' · ' + n(cnt ? tot : e.each) + ' credits · ' + usd(cnt ? tot : e.each);
+      $('[data-bar-price]').textContent = ' · ' + cr(cnt ? tot : e.each);
       $('[data-bar-go]').textContent = S.step === 'review' ? 'Generate ↓' : 'Review →';
       $('[data-bar-go]').disabled = S.step !== 'review' && !!(c && c.bad);
     }
@@ -412,7 +412,7 @@
     $('[data-res-wrap]').hidden = !resd;
     if(resd){ var p7 = B.prices[tool][d], p10 = B.prices[tool + '_1080p'][d];
       $('[data-res]').innerHTML = [['720p', p7, ''], ['1080p', p10, ' (+' + n(p10 - p7) + ')']].map(function(r){ return '<label class="choice"><input type="radio" name="cf-res" value="' + r[0] + '"' + (S.resolution === r[0] ? ' checked' : '') + '>' + r[0] + ' <span class="cf-chipp">' + n(r[1]) + r[2] + '</span></label>'; }).join('');
-      $('[data-res-note]').textContent = S.resolution === '1080p' ? 'Sharper on big screens. Per video: ' + n(p10) + ' credits (' + usd(p10) + '), ' + n(p10 - p7) + ' more than 720p.' : '720p looks right on phones. You can re-render a finished video in 1080p later.'; }
+      $('[data-res-note]').textContent = S.resolution === '1080p' ? 'Sharper on big screens. Per video: ' + cr(p10) + ', ' + n(p10 - p7) + ' more than 720p.' : '720p looks right on phones. You can re-render a finished video in 1080p later.'; }
     $('[data-vdur-wrap]').hidden = tool !== 'photo_to_video';
     $('[data-vdurs]').innerHTML = [5, 10].map(function(d){ return '<label class="choice"><input type="radio" name="cf-vdur" value="' + d + '"' + ((S.duration == d || (d == 5 && S.duration != 10)) ? ' checked' : '') + '>' + d + ' s <span class="cf-chipp">' + n(B.prices.photo_to_video[d]) + '</span></label>'; }).join('');
     $('[data-audio]').checked = S.audio;
@@ -457,10 +457,10 @@
       lastQuote = q;
       if(!full){ if(q.error && S.step !== 'review'){ $('[data-side-count]').textContent = q.error; } return; }
       $('[data-side-total]').textContent = q.count ? n(q.total) : '–';
-      $('[data-side-count]').textContent = q.count ? what(q.count) + ' · ' + usd(q.total) : (q.error || 'Pick the steps to see a price');
+      $('[data-side-count]').textContent = q.count ? 'credits · ' + what(q.count) : (q.error || 'Pick the steps to see a price');
       var err = $('[data-err]'); err.hidden = !q.error;
       err.innerHTML = q.error ? esc(q.error) + (q.step && q.step !== 'review' && STEP_NAMES[q.step] ? ' <button type="button" class="linkbtn" data-goto="' + q.step + '">Fix it in ' + STEP_NAMES[q.step] + ' →</button>' : '') : '';
-      $('[data-total]').textContent = q.count ? n(q.total) : '–'; $('[data-total-usd]').textContent = q.count ? ' · ' + usd(q.total) : ''; setBal(q.balance);
+      $('[data-total]').textContent = q.count ? n(q.total) : '–'; setBal(q.balance);
       var e = est();
       $('[data-matrix]').innerHTML = e && q.every ? '<b>' + esc(e.factors.join(' × ')) + '</b> = <b class="gold">' + esc(what(q.every)) + '</b>' + (q.count !== q.every ? ' <span class="muted">· ' + q.count + ' ticked</span>' : '') : '';
       $('[data-lines-hint]').hidden = !(q.lines && q.lines.length > 1);
@@ -470,7 +470,7 @@
       $('[data-many-wrap]').hidden = !q.confirm;
       if(!q.confirm) S.many = false;
       $('[data-many]').checked = S.many;
-      $('[data-many-text]').textContent = q.confirm ? 'Yes, make all ' + q.count + ' videos for ' + n(q.total) + ' credits (' + usd(q.total) + ').' : '';
+      $('[data-many-text]').textContent = q.confirm ? 'Yes, make all ' + q.count + ' videos for ' + cr(q.total) + '.' : '';
       var gb = $('[data-generate]'); gb.disabled = !q.count || q.total > q.balance || (q.confirm && !S.many);
       gb.textContent = q.count ? 'Generate ' + what(q.count) + ' · ' + n(q.total) : 'Generate';
       var first = (q.lines || []).filter(function(l){ return l.on; })[0], one = $('[data-one]');

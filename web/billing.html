@@ -5,7 +5,7 @@
 <div class="page full">
   <p class="eyebrow">Billing</p>
   <h1>Your plan and <span class="gold">credits</span></h1>
-  <p class="muted">1 credit = $0.01. Talking videos from {{ '{:,}'.format(r.talk8) }} credits ({{ credits_usd(r.talk8) }}) · 10-second talking video {{ '{:,}'.format(r.talk10) }} ({{ '{:,}'.format(r.talk10_1080) }} in 1080p) · 5-second product video {{ r.video5 }} · image ad {{ r.image }}. Failed generations are refunded automatically.</p>
+  <p class="muted">Talking videos from {{ r.talk8|credits }} · 10-second talking video {{ '{:,}'.format(r.talk10) }} ({{ '{:,}'.format(r.talk10_1080) }} in 1080p) · 5-second product video {{ r.video5 }} · image ad {{ r.image }}. Failed generations are refunded automatically.</p>
 
   <div class="bill-top">
     <div class="panel bal">
@@ -13,7 +13,7 @@
       <div class="price">{{ '{:,}'.format(balance()) }}</div>
       {% set n = balance() // r.image %}
       {% set tv = balance() // r.talk10 %}{% set pv = balance() // r.video5 %}
-      <span class="muted small">credits · {{ credits_usd(balance()) }} · ≈ {{ tv }} talking video{{ '' if tv == 1 else 's' }} (10 s), {{ pv }} product video{{ '' if pv == 1 else 's' }} (5 s) or {{ '{:,}'.format(n) }} image ad{{ '' if n == 1 else 's' }}</span>
+      <span class="muted small">credits · ≈ {{ tv }} talking video{{ '' if tv == 1 else 's' }} (10 s), {{ pv }} product video{{ '' if pv == 1 else 's' }} (5 s) or {{ '{:,}'.format(n) }} image ad{{ '' if n == 1 else 's' }}</span>
       {% if g.ws.plan_credits %}<p class="small muted" style="margin:12px 0 0">{{ '{:,}'.format(g.ws.plan_credits) }} plan credits{% if g.ws.plan_period_end %} (renew {{ g.ws.plan_period_end|localtime('date') }}){% endif %} · {{ '{:,}'.format(g.ws.credits) }} pack credits</p>{% endif %}
     </div>
     <div class="panel planbox">

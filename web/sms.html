@@ -36,8 +36,8 @@
       <h2 style="margin-top:0"><span class="lp-num">1</span> Route</h2>
       <label for="vol">Texts you expect to send a month</label><input id="vol" type="number" name="volume" min="0" max="1000000" value="{{ f.volume or '' }}" placeholder="e.g. 500" style="max-width:220px">
       <div class="smsroutes">
-        <label class="fa-kind"><input type="radio" name="path" value="tollfree" {{ 'checked' if path == 'tollfree' }}><span><b>Toll-free number {% if path == 'tollfree' %}<em class="tag ok">Recommended</em>{% endif %}</b><span class="small muted">Best under about {{ '{:,}'.format(low) }} texts a month: faster approval (usually 1–5 business days), no brand or campaign fees.</span><span class="small">{{ '{:,}'.format(fees.tollfree.per_month) }} credits a month ({{ credits_usd(fees.tollfree.per_month) }}) for the number.</span></span></label>
-        <label class="fa-kind"><input type="radio" name="path" value="10dlc" {{ 'checked' if path == '10dlc' }}><span><b>Local number (A2P 10DLC) {% if path == '10dlc' %}<em class="tag ok">Recommended</em>{% endif %}</b><span class="small muted">For more volume or a local area code. Brand + campaign registration; 1–2 weeks.</span><span class="small">{{ '{:,}'.format(fees['10dlc'].now) }} credits to start ({{ credits_usd(fees['10dlc'].now) }}), then {{ '{:,}'.format(fees['10dlc'].per_month) }} a month.</span></span></label>
+        <label class="fa-kind"><input type="radio" name="path" value="tollfree" {{ 'checked' if path == 'tollfree' }}><span><b>Toll-free number {% if path == 'tollfree' %}<em class="tag ok">Recommended</em>{% endif %}</b><span class="small muted">Best under about {{ '{:,}'.format(low) }} texts a month: faster approval (usually 1–5 business days), no brand or campaign fees.</span><span class="small">{{ '{:,}'.format(fees.tollfree.per_month) }} credits a month for the number.</span></span></label>
+        <label class="fa-kind"><input type="radio" name="path" value="10dlc" {{ 'checked' if path == '10dlc' }}><span><b>Local number (A2P 10DLC) {% if path == '10dlc' %}<em class="tag ok">Recommended</em>{% endif %}</b><span class="small muted">For more volume or a local area code. Brand + campaign registration; 1–2 weeks.</span><span class="small">{{ '{:,}'.format(fees['10dlc'].now) }} credits to start, then {{ '{:,}'.format(fees['10dlc'].per_month) }} a month.</span></span></label>
       </div>
     </section>
     <section class="panel">
@@ -68,9 +68,9 @@
     <section class="panel">
       <h2 style="margin-top:0"><span class="lp-num">4</span> Price and submit</h2>
       <table class="small" style="max-width:520px">{% for k in ('tollfree', '10dlc') %}{% set fe = fees[k] %}<tr data-route="{{ k }}"><th colspan="2">{{ 'Toll-free' if k == 'tollfree' else 'Local (10DLC)' }}</th></tr>
-        {% for n, c in fe.once.items() %}<tr data-route="{{ k }}"><td>{{ n }} (once, at cost)</td><td>{{ '{:,}'.format(c) }} credits · {{ credits_usd(c) }}</td></tr>{% endfor %}
-        {% for n, c in fe.monthly.items() %}<tr data-route="{{ k }}"><td>{{ n }} (monthly)</td><td>{{ '{:,}'.format(c) }} credits · {{ credits_usd(c) }}</td></tr>{% endfor %}{% endfor %}
-        <tr><td>Each text segment (160 characters)</td><td>{{ seg }} credits · {{ credits_usd(seg) }}</td></tr></table>
+        {% for n, c in fe.once.items() %}<tr data-route="{{ k }}"><td>{{ n }} (once, at cost)</td><td>{{ c|credits }}</td></tr>{% endfor %}
+        {% for n, c in fe.monthly.items() %}<tr data-route="{{ k }}"><td>{{ n }} (monthly)</td><td>{{ c|credits }}</td></tr>{% endfor %}{% endfor %}
+        <tr><td>Each text segment (160 characters)</td><td>{{ seg|credits }}</td></tr></table>
       <p class="small muted">The first month is charged when you submit; then on the 1st of each month. Carrier and registration fees are passed through at cost.</p>
       <div class="row" style="gap:10px;margin-top:12px"><button class="btn dark" name="action" value="save">Save for later</button><button class="btn" name="action" value="register" {{ 'disabled' if not connected or not has }} data-confirm="Submit the registration and pay the setup fees shown?" data-confirm-ok="Submit">Submit registration</button></div>
     </section>
