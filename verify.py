@@ -1,19 +1,29 @@
-"""Email verification for free accounts (stress-test fix).
+"""Email verification for free accounts (stress-test fix, #50; relaxed for video only).
 
-A free account's starter credits and its free talking-video preview cost real
-vendor money, so they only work once the member has confirmed their email:
-signup sends a signed, expiring, single-use link (/verify?t=...); until it is
-clicked, generation is refused with a friendly message and a banner offers to
-resend the link (rate limited).
+Video costs real vendor money, so a free account confirms its email before it
+makes any video (talking/UGC, product video, motion copy, 1080p, the free
+talking-video preview). Everything else (image ads, copy, pages...) works
+straight away with the starter or ad-offer credits, up to UNVERIFIED_CREDITS
+of generations; past that the email has to be confirmed too.
+
+Signup sends one email with both a signed, expiring, single-use link
+(/verify?t=..., 48 hours) and a 6-digit code (15 minutes, CODE_TRIES tries,
+stored as an HMAC, never logged). When an unconfirmed member starts a video the
+app shows a small "Confirm your email" box: it sends a fresh code if the last
+one is gone, takes the code and carries on with what they started. A banner
+offers Resend (rate limited: once a minute, three an hour, ten an hour per IP).
 
 Never blocked: workspaces on a paid plan (live subscription or an admin comp),
 workspaces that bought a credit pack, and site admins. Accounts that existed
 before this check are marked verified when the column is added (db.py).
 RS_EMAIL_VERIFY=0 switches the check off.
 """
+import hashlib
+import hmac
 import logging
 import os
 import secrets
+import time
 
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
@@ -28,6 +38,10 @@ MAX_AGE_S = 48 * 3600          # a link works for 48 hours
 RESEND_PER_HOUR = 3            # resend clicks per account per hour
 RESEND_GAP_S = 60              # and at most one a minute
 RESEND_PER_IP_HOUR = 10
+CODE_TTL_S = 15 * 60           # a code works for 15 minutes
+CODE_TRIES = 5                 # wrong guesses per code, then Resend
+CHECKS_PER_IP_HOUR = 30        # code checks per network per hour
+DEFAULT_UNVERIFIED_CREDITS = 250   # generation credits an unconfirmed free account may spend (about 11 image ads)
 
 
 def required() -> bool:
@@ -65,14 +79,55 @@ def paid(conn, ws) -> bool:
 
 
 def blocked(conn, ws, user) -> bool:
-    """True when this member may not spend the free credits or claim the free preview yet."""
+    """True while this member's email is unconfirmed and that matters: a free
+    workspace (no plan, no pack bought), not a site admin. needs() says which
+    generations wait for it (video, and anything past the unconfirmed allowance)."""
     if not required() or user is None or is_verified(user) or user["is_admin"]:
         return False
     return not paid(conn, ws)
 
 
+def unverified_credits() -> int:
+    """RS_UNVERIFIED_CREDITS: what an unconfirmed free account may spend on (non-video) generations."""
+    try:
+        return max(0, int(os.environ.get("RS_UNVERIFIED_CREDITS", str(DEFAULT_UNVERIFIED_CREDITS))))
+    except ValueError:
+        return DEFAULT_UNVERIFIED_CREDITS
+
+
+def is_video(tool) -> bool:
+    """Does this tool make a video? (An unknown tool counts as video.)"""
+    import catalog
+    return bool(tool) and catalog.DISPLAY_TOOLS[tool].get("kind") != "image"
+
+
+def spent_on_jobs(conn, ws_id) -> int:
+    """Credits this workspace has spent on generations, net of refunds."""
+    return -int(conn.execute("SELECT COALESCE(SUM(delta),0) FROM ledger WHERE workspace_id=? AND job_id IS NOT NULL",
+                             (ws_id,)).fetchone()[0] or 0)
+
+
+def needs(conn, ws, user, tool, credits: int = 0):
+    """Why this member must confirm their email before this generation: "video",
+    "cap" (spent the unconfirmed allowance), or None to go ahead."""
+    if not blocked(conn, ws, user):
+        return None
+    if is_video(tool):
+        return "video"
+    if credits > 0 and spent_on_jobs(conn, ws["id"]) + credits > unverified_credits():
+        return "cap"
+    return None
+
+
 def message(email: str) -> str:
-    return f"Confirm your email to use your free credits — we sent a link to {email}."
+    """The banner while the email is unconfirmed."""
+    return f"Image ads work now. Video ads need a confirmed email: we sent a link and a code to {email}."
+
+
+def needs_message(reason: str, email: str) -> str:
+    if reason == "cap":
+        return f"Confirm your email to keep making ads. We sent a code to {email}."
+    return f"Confirm your email to make video ads. We sent a code to {email}."
 
 
 # ---------------------------------------------------------------- tokens
@@ -105,14 +160,66 @@ def confirm(conn, secret: str, token: str, max_age: int | None = None) -> tuple[
         return "bad", None
     if not data.get("n") or user["verify_nonce"] != data.get("n"):
         return ("already" if is_verified(user) else "used"), user
-    cur = conn.execute("UPDATE users SET email_verified_at=?, verify_nonce=NULL WHERE id=? AND verify_nonce=?",
+    cur = conn.execute("UPDATE users SET email_verified_at=?, verify_nonce=NULL, verify_code_hash=NULL, "
+                       "verify_code_exp=NULL, verify_code_tries=0 WHERE id=? AND verify_nonce=?",
                        (db.now(), user["id"], data["n"]))
     if cur.rowcount != 1:
         return "used", user
     return "ok", user
 
 
-# ---------------------------------------------------------------- the email
+# ---------------------------------------------------------------- codes
+
+def _code_hash(secret: str, user_id: int, code: str) -> str:
+    return hmac.new(str(secret).encode(), f"cfy-code:{user_id}:{code}".encode(), hashlib.sha256).hexdigest()
+
+
+def new_code(conn, secret: str, user) -> str:
+    """A fresh 6-digit code for this member (replaces the last one; no commit)."""
+    code = f"{secrets.randbelow(10 ** 6):06d}"
+    conn.execute("UPDATE users SET verify_code_hash=?, verify_code_exp=?, verify_code_tries=0 WHERE id=?",
+                 (_code_hash(secret, user["id"], code), int(time.time()) + CODE_TTL_S, user["id"]))
+    return code
+
+
+def code_live(user) -> bool:
+    """Is there a code in the member's inbox they can still use?"""
+    return bool(user["verify_code_hash"]) and int(user["verify_code_exp"] or 0) > time.time() \
+        and int(user["verify_code_tries"] or 0) < CODE_TRIES
+
+
+def check_code(conn, secret: str, user, code: str) -> tuple[str, int]:
+    """Check a typed code and confirm the email when it's right (commits).
+    Returns (outcome, tries left): "ok" | "already" | "format" | "none" |
+    "expired" | "locked" | "wrong"."""
+    user = conn.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone()
+    if is_verified(user):
+        return "already", 0
+    code = "".join(ch for ch in str(code or "") if ch.isdigit())
+    if len(code) != 6:
+        return "format", CODE_TRIES - int(user["verify_code_tries"] or 0)
+    if not user["verify_code_hash"]:
+        return "none", 0
+    if int(user["verify_code_tries"] or 0) >= CODE_TRIES:
+        return "locked", 0
+    if int(user["verify_code_exp"] or 0) <= time.time():
+        return "expired", 0
+    # Count the try before comparing, so parallel guesses can't get past the limit.
+    cur = conn.execute("UPDATE users SET verify_code_tries=verify_code_tries+1 WHERE id=? AND verify_code_hash=? "
+                       "AND verify_code_tries<?", (user["id"], user["verify_code_hash"], CODE_TRIES))
+    conn.commit()
+    if cur.rowcount != 1:
+        return "locked", 0
+    left = CODE_TRIES - int(user["verify_code_tries"] or 0) - 1
+    if not hmac.compare_digest(_code_hash(secret, user["id"], code), user["verify_code_hash"]):
+        return ("locked" if left <= 0 else "wrong"), max(left, 0)
+    conn.execute("UPDATE users SET email_verified_at=?, verify_nonce=NULL, verify_code_hash=NULL, verify_code_exp=NULL, "
+                 "verify_code_tries=0 WHERE id=? AND email_verified_at IS NULL", (db.now(), user["id"]))
+    conn.commit()
+    return "ok", left
+
+
+# ---------------------------------------------------------------- the email (link + code)
 
 def _free_what(conn, user) -> str:
     """'your free Campaignify credits (2 image ads)': what the starter credits on this account buy."""
@@ -129,29 +236,39 @@ def _free_what(conn, user) -> str:
 
 
 def send_link(conn, secret: str, user) -> bool:
-    """Email the confirmation link (makes a nonce if the account has none; commits).
-    False when email isn't connected or the send failed (logged)."""
+    """Email the confirmation link and a fresh 6-digit code, together (makes a
+    nonce if the account has none; commits). False when email isn't connected
+    or the send failed (logged, without the code)."""
     if not user["verify_nonce"]:
         conn.execute("UPDATE users SET verify_nonce=? WHERE id=?", (new_nonce(), user["id"]))
         conn.commit()
         user = conn.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone()
     link = public_url() + "/verify?t=" + make_token(secret, user)
+    code = new_code(conn, secret, user)
+    conn.commit()
     import preview
     # Say what the free credits buy (2 image ads by default); mention the watermarked preview only when it's on.
     what = _free_what(conn, user)
-    if preview.enabled():
-        what += f" and your free {preview.SECONDS}-second talking-video preview (480p, watermarked)"
-    text = (f"Hi,\n\nConfirm your email to start using {what}:\n\n{link}\n\nThe link works for 48 hours. If you "
-            "didn't sign up for Campaignify, ignore this email and nothing happens.\n\nCampaignify")
+    what = what[0].upper() + what[1:] + " are ready: image ads work right away. Video ads need this confirmation"
+    what += (f", and so does your free {preview.SECONDS}-second talking-video preview." if preview.enabled() else ".")
+    mins = CODE_TTL_S // 60
+    text = (f"Hi,\n\nYour Campaignify code is {code}\n\nType it in the box in Campaignify. It works for {mins} minutes.\n\n"
+            f"Or confirm with this link (it works for 48 hours):\n\n{link}\n\n"
+            f"{what}\n\n"
+            "If you didn't sign up for Campaignify, ignore this email and nothing happens.\n\nCampaignify")
     html = ('<div style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.5;color:#111">'
-            f"<p>Hi,</p><p>Confirm your email to start using {what}.</p>"
+            "<p>Hi,</p><p>Your Campaignify code is:</p>"
+            f'<p style="font-size:30px;font-weight:700;letter-spacing:6px;margin:8px 0 4px">{code}</p>'
+            f'<p style="font-size:13px;color:#555;margin-top:0">Type it in the box in Campaignify. It works for {mins} minutes.</p>'
+            '<p>Or confirm with this link:</p>'
             f'<p><a href="{link}" style="display:inline-block;background:#111;color:#fff;padding:12px 20px;'
             'border-radius:8px;text-decoration:none;font-weight:600">Confirm my email</a></p>'
             f'<p style="font-size:13px;color:#555">Or paste this link into your browser:<br>{link}</p>'
+            f"<p>{what}</p>"
             '<p style="font-size:13px;color:#555">The link works for 48 hours. If you didn\'t sign up for '
             "Campaignify, ignore this email and nothing happens.</p></div>")
     try:
-        mailer.send(frm=from_address(), to=user["email"], subject="Confirm your email for Campaignify",
+        mailer.send(frm=from_address(), to=user["email"], subject=f"{code} is your Campaignify code",
                     html=html, text=text, reply_to=reply_to(), tags={"kind": "verify_email"})
         return True
     except mailer.MailError as e:

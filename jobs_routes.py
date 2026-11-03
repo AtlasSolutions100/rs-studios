@@ -12,7 +12,7 @@ from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template
 
 import catalog
 import db
-from core import login_required, queue_job
+from core import login_required, queue_job, verify_json
 
 bp = Blueprint("jobs", __name__)
 VERDICTS = ("approved", "rejected")
@@ -99,7 +99,7 @@ def retry(jid):
                         product_id=j["product_id"], batch_id=j["batch_id"])
         if not new:      # queue_job rolled back, so the failed card is back too
             if _wants_json() and g.get("verify_blocked"):
-                return jsonify({"error": g.verify_blocked, "verify": True}), 403
+                return verify_json(g.verify_blocked)
             if _wants_json():
                 return jsonify({"error": f"That needs {credits:,} credits and you have {db.balance(g.ws):,}.",
                                 "billing": url_for("billing_page")}), 402
@@ -144,7 +144,7 @@ def hd(jid):
                         product_id=j["product_id"], batch_id=j["batch_id"])
         if not new:
             if _wants_json() and g.get("verify_blocked"):
-                return jsonify({"error": g.verify_blocked, "verify": True}), 403
+                return verify_json(g.verify_blocked)
             if _wants_json():
                 return jsonify({"error": f"That needs {credits:,} credits and you have {db.balance(g.ws):,}.",
                                 "billing": url_for("billing_page")}), 402

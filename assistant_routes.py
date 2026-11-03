@@ -379,10 +379,11 @@ def _do_first_ad(conn, ws, card):
     p = products.get_product(conn, g.ws["id"], card.get("product"))
     if p is None:
         abort(404)
-    blocked = verify_block(conn)
-    if blocked:        # nothing ran; the card stays open for after they confirm
-        return None, {"error": blocked + " Press Resend at the top of the page if it didn't arrive.", "verify": True}
     tpl = catalog.TEMPLATE_BY_ID.get(card.get("template")) or catalog.first_run_templates()[0]
+    blocked = verify_block(conn, "ad_image", catalog.price_credits("ad_image", batch=1))
+    if blocked:        # past the unconfirmed allowance; the card stays open for after they confirm
+        return None, {"error": blocked + " Press Resend at the top of the page if it didn't arrive.", "verify": True,
+                      "reason": g.get("verify_reason")}
     b = products.brief_for(conn, ws, p["id"])
     brief = catalog.fill(tpl["brief"], b)
     if not compliance.check(brief, b.get("audience") or "")["ok"]:

@@ -884,17 +884,20 @@ check(fa["kind"] == "propose_first_ad" and fa["credits"] == catalog.price_credit
       "the first ad is offered on a card with its price; nothing made yet")
 bal1 = db.balance(wsrow(zws))
 n_llm = len(asst_bodies)
+os.environ["RS_UNVERIFIED_CREDITS"] = "0"   # image ads work unconfirmed, up to this allowance (verify.py)
 r = jpost(z, "/app/assistant/action", {"card": fa["id"], "choice": "confirm"}).get_json()
 with db.connect() as conn:
     nj = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (zws,)).fetchone()[0]
-check((r.get("error") or "").startswith("Confirm your email to use your free credits — we sent a link to newbie@example.com.")
-      and r.get("verify") and nj == 0 and db.balance(wsrow(zws)) == bal1 and len(asst_bodies) == n_llm,
-      "unconfirmed email: Make it answers with the confirm-your-email message; nothing charged, no AI call")
+check((r.get("error") or "").startswith("Confirm your email to keep making ads. We sent a code to newbie@example.com.")
+      and r.get("verify") and r.get("reason") == "cap" and nj == 0 and db.balance(wsrow(zws)) == bal1
+      and len(asst_bodies) == n_llm,
+      "unconfirmed past the allowance: Make it answers with the confirm-your-email message; nothing charged, no AI call")
 r = say(z, "yes")
 with db.connect() as conn:
     nj = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (zws,)).fetchone()[0]
 check("Confirm your email" in (r.get("error") or "") and nj == 0 and db.balance(wsrow(zws)) == bal1,
       "typing yes gets the same answer")
+os.environ.pop("RS_UNVERIFIED_CREDITS")
 confirm_email("newbie@example.com")
 asst_q[:] = [[txt("It's on its way. Want to set up your ad accounts next?"), tu2("show_link", {"target": "ad_accounts", "label": "Ad accounts"})], [txt("")]]
 r = jpost(z, "/app/assistant/action", {"card": fa["id"], "choice": "confirm"}).get_json()

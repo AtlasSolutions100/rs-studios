@@ -563,6 +563,9 @@
     busy(btn, true, 'Starting…');
     post(B.urls.generate, body).then(function(r){
       if(r.ok){ location.href = r.url; return; }
+      // A video (or past the unconfirmed allowance): confirm the email in the box, then start the same thing again.
+      if(r.verify && window.cfyVerify && window.CFY_VERIFY){ busy(btn, false);
+        window.cfyVerify(r.reason).then(function(yes){ if(yes) generate(btn, one); else { var e2 = $('[data-err]'); e2.hidden = false; e2.textContent = r.error; } }); return; }
       busy(btn, false); var e = $('[data-err]'); e.hidden = false; e.textContent = r.error || 'Couldn\'t start.'; if(r._status === 409 || r.confirm) quote(true);
     }).catch(function(){ busy(btn, false); });
   }

@@ -5,6 +5,7 @@
 import io
 import os
 import re
+import time
 import sys
 import tempfile
 
@@ -352,14 +353,29 @@ vlink = re.search(r"https://campaignify\.test/verify\?t=[\w.\-]+", vmail[0]["tex
 check(len(vmail) == 1 and vmail[0]["to"] == ["vera@example.com"] and vlink and vlink.group(0) in vmail[0]["html"]
       and vmail[0]["from"] == '"Campaignify" <no-reply@mail.campaignify.ai>' and vmail[0]["reply_to"] == "hello@campaignify.ai",
       "signup emails one confirmation link (site address, never the Host header) from no-reply on the mail domain")
+vcode = re.search(r"code is (\d{6})", vmail[0]["text"] if vmail else "")
+check(vcode and vcode.group(1) in vmail[0]["html"] and vcode.group(1) in vmail[0]["subject"]
+      and "works for 15 minutes" in vmail[0]["text"] and "image ads work right away" in vmail[0]["text"],
+      "the same email carries a 6-digit code (15 minutes) next to the link, and says image ads work now")
+vcode = vcode.group(1)
+with db.connect() as conn:
+    vrow = dict(conn.execute("SELECT * FROM users WHERE id=?", (vu["id"],)).fetchone())
+check(vrow["verify_code_hash"] and vcode not in json.dumps(vrow) and vrow["verify_code_tries"] == 0,
+      "the code is stored only as a keyed hash, never as itself")
 home = vc.get("/app").get_data(as_text=True)
-check("data-verify-banner" in home and "Confirm your email to use your free credits — we sent a link to vera@example.com." in home
-      and "/app/verify/resend" in home, "Home shows the confirm-your-email banner with Resend")
-check('value="preview"' in home and "data-verify-note" in home and re.search(r"<button class=\"btn lg\" data-go\s+disabled", home),
-      "the first-ad form still shows the free preview, but its button waits for the confirmation")
+check("data-verify-banner" in home and "Image ads work now. Video ads need a confirmed email: we sent a link and a code "
+      "to vera@example.com." in home and "/app/verify/resend" in home and "data-verify-open" in home
+      and '"check": "/app/verify/code"' in home and '"send": "/app/verify/code/send"' in home,
+      "Home's banner says only video ads wait for the email, with Enter code and Resend")
+check('value="preview"' in home and 'data-verify-preview="video"' in home and 'data-verify-image=""' in home
+      and not re.search(r"data-go\s+disabled", home) and "with a code we send you" in home,
+      "the first-ad form keeps the free preview (it opens the code box first) and image ads aren't held back")
 with db.connect() as conn:
     check(preview.status(conn, vws, vu["email"], vu)["why"] == "verify", "preview status says: confirm the email first")
     check(preview.status(conn, vws, vu["email"])["ok"], "(without the member, the old per-workspace answer is unchanged)")
+    check(verify.is_video("ugc_video") and verify.is_video("photo_to_video") and verify.is_video("motion_copy")
+          and verify.is_video("video_upscale") and verify.is_video("something_new") and not verify.is_video("ad_image"),
+          "every video tool (and any unknown one) counts as video; image ads don't")
 r = vc.post("/app/start", data={"csrf": csrf(vc), "kind": "preview", "product_name": "Vera Tea", "line": "",
                                 "presenter": "maya", "photo": (png(), "tea.png")}, content_type="multipart/form-data")
 body = r.get_data(as_text=True)
@@ -367,36 +383,68 @@ with db.connect() as conn:
     vjobs = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (vws["id"],)).fetchone()[0]
     vprev = conn.execute("SELECT COUNT(*) FROM free_previews WHERE workspace_id=?", (vws["id"],)).fetchone()[0]
     vbal = conn.execute("SELECT credits FROM workspaces WHERE id=?", (vws["id"],)).fetchone()[0]
-check(r.status_code == 403 and 'class="vbanner hot"' in body and "we sent a link to vera@example.com" in body
+check(r.status_code == 403 and 'class="vbanner hot"' in body and "Confirm your email to make video ads. We sent a code to "
+      "vera@example.com." in body and '"auto": "video"' in body and 'value="Vera Tea"' in body
       and vjobs == 0 and vprev == 0 and vbal == STARTER,
-      "unconfirmed: the free preview can't be claimed (friendly banner, nothing recorded)")
+      "unconfirmed: the free preview (a video) waits for the code (box opens, form kept, nothing recorded)")
+vc.post("/app/brand", data={"csrf": csrf(vc), "brand_name": "Vera Co", "product_name": "Vera Tea", "claims": "", "audience": ""})
+vc.post("/app/photos", data={"csrf": csrf(vc), "photos": (png(), "tea.png")}, content_type="multipart/form-data")
+with db.connect() as conn:
+    vphoto = conn.execute("SELECT id FROM photos WHERE workspace_id=?", (vws["id"],)).fetchone()["id"]
+    vpid = conn.execute("SELECT product_id FROM workspaces WHERE id=?", (vws["id"],)).fetchone()[0]
+r = vc.post("/app/generate", data={"csrf": csrf(vc), "tool": "photo_to_video", "brief": "Slow turn", "photo": str(vphoto)},
+            follow_redirects=True)
+with db.connect() as conn:
+    vjobs = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (vws["id"],)).fetchone()[0]
+check(vjobs == 0 and 'class="vbanner hot"' in r.get_data(as_text=True), "nor any other video (the studio's generate)")
+vvid = {"type": "product_video", "product": vpid, "angle": {"title": "Turn"}, "items": ["Slow turn on a desk"],
+        "duration": 5, "photos": [vphoto]}
+vq = vc.post("/app/create/quote", json=vvid, headers={"X-CSRF": csrf(vc)}).get_json()
+r = vc.post("/app/create/generate", json=dict(vvid, total=vq["total"]), headers={"X-CSRF": csrf(vc)})
+with db.connect() as conn:
+    vjobs = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (vws["id"],)).fetchone()[0]
+    vbat = conn.execute("SELECT COUNT(*) FROM batches WHERE workspace_id=?", (vws["id"],)).fetchone()[0]
+    vbal = conn.execute("SELECT credits FROM workspaces WHERE id=?", (vws["id"],)).fetchone()[0]
+check(vq["count"] == 1 and r.status_code == 403 and r.get_json()["verify"] and r.get_json()["reason"] == "video"
+      and r.get_json()["error"].startswith("Confirm your email to make video ads") and vjobs == 0 and vbat == 0
+      and vbal == STARTER,
+      "or Create's generate for a video (JSON that opens the code box; no batch, no credits spent)")
 r = vc.post("/app/start", data={"csrf": csrf(vc), "kind": "image", "product_name": "Vera Tea", "template": "hero",
                                 "photo": (png(), "tea.png")}, content_type="multipart/form-data")
 with db.connect() as conn:
     vjobs = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (vws["id"],)).fetchone()[0]
     vbal = conn.execute("SELECT credits FROM workspaces WHERE id=?", (vws["id"],)).fetchone()[0]
-check(r.status_code == 403 and vjobs == 0 and vbal == STARTER, "nor can the first image ad spend the starter credits")
-vc.post("/app/brand", data={"csrf": csrf(vc), "brand_name": "Vera Co", "product_name": "Vera Tea", "claims": "", "audience": ""})
-vc.post("/app/photos", data={"csrf": csrf(vc), "photos": (png(), "tea.png")}, content_type="multipart/form-data")
-with db.connect() as conn:
-    vphoto = conn.execute("SELECT id FROM photos WHERE workspace_id=?", (vws["id"],)).fetchone()["id"]
-r = vc.post("/app/generate", data={"csrf": csrf(vc), "tool": "ad_image", "brief": "Tea on a sunny desk", "photo": str(vphoto)},
-            follow_redirects=True)
-with db.connect() as conn:
-    vjobs = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (vws["id"],)).fetchone()[0]
-check(vjobs == 0 and 'class="vbanner hot"' in r.get_data(as_text=True), "or any other generation (the studio's generate)")
-with db.connect() as conn:
-    vpid = conn.execute("SELECT product_id FROM workspaces WHERE id=?", (vws["id"],)).fetchone()[0]
-vcfg = {"type": "image", "product": vpid, "angle": {"title": "Desk"}, "items": [], "body": "Tea on a sunny desk",
+check(r.status_code == 302 and "/app/create/batch/" in r.headers["Location"] and vjobs == 1 and vbal == STARTER - 22,
+      "unconfirmed: an image ad goes straight through on the starter credits")
+check(verify.unverified_credits() == 250, "unconfirmed accounts may spend up to 250 credits on non-video by default")
+os.environ["RS_UNVERIFIED_CREDITS"] = "22"
+vimg = {"type": "image", "product": vpid, "angle": {"title": "Desk"}, "items": [], "body": "Tea on a sunny desk",
         "aspects": ["9:16"], "versions": 1, "photos": [vphoto]}
-vq = vc.post("/app/create/quote", json=vcfg, headers={"X-CSRF": csrf(vc)}).get_json()
-r = vc.post("/app/create/generate", json=dict(vcfg, total=vq["total"]), headers={"X-CSRF": csrf(vc)})
+vq = vc.post("/app/create/quote", json=vimg, headers={"X-CSRF": csrf(vc)}).get_json()
+r = vc.post("/app/create/generate", json=dict(vimg, total=vq["total"]), headers={"X-CSRF": csrf(vc)})
 with db.connect() as conn:
     vjobs = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (vws["id"],)).fetchone()[0]
-    vbat = conn.execute("SELECT COUNT(*) FROM batches WHERE workspace_id=?", (vws["id"],)).fetchone()[0]
-check(vq["count"] == 1 and r.status_code == 403 and r.get_json()["verify"] and vjobs == 0 and vbat == 0
-      and r.get_json()["error"].startswith("Confirm your email to use your free credits"),
-      "or Create's generate (a JSON answer the page shows; no empty batch left behind)")
+check(r.status_code == 403 and r.get_json()["reason"] == "cap" and r.get_json()["error"].startswith(
+      "Confirm your email to keep making ads") and vjobs == 1,
+      "past the unconfirmed allowance (RS_UNVERIFIED_CREDITS), image ads wait for the code too")
+os.environ.pop("RS_UNVERIFIED_CREDITS")
+# The code box: opening it doesn't send another email while the signup code still works.
+r = vc.post("/app/verify/code/send", json={"auto": True}, headers={"X-CSRF": csrf(vc)})
+check(r.status_code == 200 and r.get_json()["ok"] and not r.get_json()["sent"] and len(vmail) == 1,
+      "opening the code box reuses the code already sent (no second email)")
+r = vc.post("/app/verify/code/send", json={}, headers={"X-CSRF": csrf(vc)})
+check(r.status_code == 429 and len(vmail) == 1, "Resend code right after signup waits a minute")
+r = vc.post("/app/verify/code", json={"code": "12ab"}, headers={"X-CSRF": csrf(vc)})
+check(r.status_code == 400 and r.get_json()["outcome"] == "format", "a code that isn't 6 digits is refused without using a try")
+wrong = "%06d" % ((int(vcode) + 1) % 10 ** 6)
+outs = [vc.post("/app/verify/code", json={"code": wrong}, headers={"X-CSRF": csrf(vc)}).get_json() for _ in range(5)]
+check([o["outcome"] for o in outs] == ["wrong"] * 4 + ["locked"] and [o["left"] for o in outs[:4]] == [4, 3, 2, 1]
+      and "3 tries left" in outs[1]["error"], "wrong codes count down from 5 tries, then the code locks")
+r = vc.post("/app/verify/code", json={"code": vcode}, headers={"X-CSRF": csrf(vc)})
+with db.connect() as conn:
+    still = conn.execute("SELECT email_verified_at FROM users WHERE id=?", (vu["id"],)).fetchone()[0]
+check(r.status_code == 400 and r.get_json()["outcome"] == "locked" and "Resend code" in r.get_json()["error"] and not still,
+      "after 5 wrong tries even the right code is refused until Resend")
 # Resend: once a minute, three an hour (the signup email counts).
 r = vc.post("/app/verify/resend", data={"csrf": csrf(vc), "back": "/app"})
 check(r.status_code == 302 and len(vmail) == 1, "Resend right after signup waits a minute")
@@ -411,7 +459,7 @@ def _age_throttle(key, secs):
 _age_throttle(f"verify:{vu['id']}", 61)
 r = vc.post("/app/verify/resend", data={"csrf": csrf(vc), "back": "/app"})
 check(r.status_code == 302 and len(vmail) == 2 and vmail[1]["to"] == ["vera@example.com"]
-      and "Sent a new link" in vc.get("/app").get_data(as_text=True), "Resend sends a new link")
+      and "Sent a new link and code" in vc.get("/app").get_data(as_text=True), "Resend sends a new link (and code)")
 r = vc.post("/app/verify/resend", data={"csrf": csrf(vc), "back": "/app"})
 check(len(vmail) == 2, "a second Resend inside the minute sends nothing")
 _age_throttle(f"verify:{vu['id']}", 61)
@@ -447,13 +495,12 @@ with db.connect() as conn:
 check(vu3["email_verified_at"] == vu2["email_verified_at"] and "already confirmed" in vc.get("/app").get_data(as_text=True),
       "a link works once: the next click just says it's already confirmed")
 home = vc.get("/app").get_data(as_text=True)
-check("data-verify-banner" not in home and "data-verify-note>" not in home and not re.search(r"data-go\s+disabled", home),
-      "once confirmed, the banner goes away and the first-ad button works")
+check("data-verify-banner" not in home and "CFY_VERIFY" not in home, "once confirmed, the banner and the code box go away")
 r = vc.post("/app/generate", data={"csrf": csrf(vc), "tool": "ad_image", "brief": "Tea on a sunny desk", "photo": str(vphoto)})
 with db.connect() as conn:
     vjobs = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (vws["id"],)).fetchone()[0]
     vbal = conn.execute("SELECT credits FROM workspaces WHERE id=?", (vws["id"],)).fetchone()[0]
-check(vjobs == 1 and vbal == STARTER - 22, "confirmed: the starter credits work")
+check(vjobs == 2 and vbal == STARTER - 44, "confirmed: the rest of the starter credits work too")
 # Paying workspaces never wait for the email.
 pc = client()
 pc.post("/signup", data={"csrf": csrf(pc), "email": "packbuyer@example.com", "password": "longpassword"})
@@ -480,6 +527,61 @@ with db.connect() as conn:
     check(not verify.blocked(conn, sub, unconf) and not verify.blocked(conn, comp, unconf)
           and verify.blocked(conn, dict(sub, plan="free", plan_status=None), unconf),
           "an active subscription or a comped plan is never blocked; a free unconfirmed one is")
+# The code box end to end: an ad sign-up (500 credits) starts a video, confirms with the code, and the video starts.
+cc = client()
+cc.post("/signup", data={"csrf": csrf(cc), "email": "cody@example.com", "password": "longpassword"})
+with db.connect() as conn:
+    cu = conn.execute("SELECT * FROM users WHERE email='cody@example.com'").fetchone()
+    db.adjust_credits(conn, cu["workspace_id"], 500, "starter credits (ad sign-up offer)")
+    conn.commit()
+ccode = re.search(r"code is (\d{6})", vmail[-1]["text"]).group(1)
+clink = re.search(r"/verify\?t=[\w.\-]+", vmail[-1]["text"]).group(0)
+cc.post("/app/brand", data={"csrf": csrf(cc), "brand_name": "Cody Co", "product_name": "Cody Cold Brew", "claims": "",
+                            "audience": ""})
+cc.post("/app/photos", data={"csrf": csrf(cc), "photos": (png(), "cb.png")}, content_type="multipart/form-data")
+with db.connect() as conn:
+    cph = conn.execute("SELECT id FROM photos WHERE workspace_id=?", (cu["workspace_id"],)).fetchone()["id"]
+    cpid = conn.execute("SELECT product_id FROM workspaces WHERE id=?", (cu["workspace_id"],)).fetchone()[0]
+    cbal0 = db.balance(conn.execute("SELECT * FROM workspaces WHERE id=?", (cu["workspace_id"],)).fetchone())
+cvid = {"type": "product_video", "product": cpid, "angle": {"title": "Pour"}, "items": ["Slow pour over ice"],
+        "duration": 5, "photos": [cph]}
+cq = cc.post("/app/create/quote", json=cvid, headers={"X-CSRF": csrf(cc)}).get_json()
+r = cc.post("/app/create/generate", json=dict(cvid, total=cq["total"]), headers={"X-CSRF": csrf(cc)})
+with db.connect() as conn:
+    cj = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (cu["workspace_id"],)).fetchone()[0]
+check(cq["total"] <= cbal0 and r.status_code == 403 and r.get_json()["reason"] == "video" and cj == 0,
+      "an unconfirmed ad sign-up who can afford a video gets the code box, not a generation")
+with db.connect() as conn:
+    conn.execute("UPDATE users SET verify_code_exp=? WHERE id=?", (int(time.time()) - 1, cu["id"]))
+    conn.commit()
+r = cc.post("/app/verify/code", json={"code": ccode}, headers={"X-CSRF": csrf(cc)})
+check(r.status_code == 400 and r.get_json()["outcome"] == "expired" and "expired" in r.get_json()["error"],
+      "an expired code (older than 15 minutes) is refused")
+_n = len(vmail)
+r = cc.post("/app/verify/code/send", json={"auto": True}, headers={"X-CSRF": csrf(cc)})
+check(r.get_json()["ok"] and not r.get_json()["sent"] and len(vmail) == _n,
+      "with the old code gone, the box still waits out the minute before emailing again")
+_age_throttle(f"verify:{cu['id']}", 61)
+r = cc.post("/app/verify/code/send", json={"auto": True}, headers={"X-CSRF": csrf(cc)})
+check(r.get_json()["sent"] and len(vmail) == _n + 1 and vmail[-1]["to"] == ["cody@example.com"],
+      "then opening the box emails a fresh code")
+ccode2 = re.search(r"code is (\d{6})", vmail[-1]["text"]).group(1)
+r = cc.post("/app/verify/code", json={"code": ccode2}, headers={"X-CSRF": csrf(cc)})
+with db.connect() as conn:
+    cu2 = conn.execute("SELECT * FROM users WHERE id=?", (cu["id"],)).fetchone()
+check(r.status_code == 200 and r.get_json()["ok"] and cu2["email_verified_at"] and not cu2["verify_code_hash"]
+      and not cu2["verify_nonce"], "the right code confirms the email")
+r = cc.post("/app/create/generate", json=dict(cvid, total=cq["total"]), headers={"X-CSRF": csrf(cc)})
+with db.connect() as conn:
+    cj = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=? AND tool='photo_to_video'",
+                      (cu["workspace_id"],)).fetchone()[0]
+    cbal = db.balance(conn.execute("SELECT * FROM workspaces WHERE id=?", (cu["workspace_id"],)).fetchone())
+check(r.status_code == 200 and r.get_json()["ok"] and cj == 1 and cbal == cbal0 - cq["total"],
+      "and the same video request then goes through")
+cc.get(clink)
+check("already confirmed" in cc.get("/app").get_data(as_text=True), "the email's link afterwards just says it's confirmed")
+r = cc.post("/app/verify/code/send", json={"auto": True}, headers={"X-CSRF": csrf(cc)})
+check(r.get_json().get("verified") and len(vmail) == _n + 1, "and the box sends nothing once confirmed")
 os.environ["RS_EMAIL_VERIFY"] = "0"
 with db.connect() as conn:
     check(not verify.blocked(conn, dict(sub, plan="free", plan_status=None), unconf), "RS_EMAIL_VERIFY=0 switches the check off")

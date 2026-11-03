@@ -163,27 +163,39 @@ def not_enough(credits: int):
     flash(f"That needs about {credits:,} credits and you have {db.balance(g.ws):,}. Top up on the Billing page.")
 
 
-def verify_block(conn):
+def verify_block(conn, tool, credits: int = 0):
     """The friendly message when this member must confirm their email before
-    spending free credits (verify.py); None when they may go ahead."""
+    this generation (verify.needs: any video, or past the unconfirmed
+    allowance); None when they may go ahead. Sets g.verify_reason."""
     import verify
+    g.verify_reason = None
     if g.get("user") is None or g.get("ws") is None:
         return None
-    return verify.message(g.user["email"]) if verify.blocked(conn, g.ws, g.user) else None
+    ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone() or g.ws
+    reason = verify.needs(conn, ws, g.user, tool, credits)
+    g.verify_reason = reason
+    return verify.needs_message(reason, g.user["email"]) if reason else None
+
+
+def verify_json(msg):
+    """The JSON answer that opens the confirm-your-email box (static/app.js cfyVerify)."""
+    from flask import jsonify
+    return jsonify({"error": msg, "verify": True, "reason": g.get("verify_reason") or "video"}), 403
 
 
 def queue_job(conn, tool, tpl_id, brief, params, usd, credits, quiet=False, product_id=None, batch_id=None):
     """Insert a pending job and take its credits in one transaction. None (and a
     message) when the workspace can't afford it, or when a free account hasn't
-    confirmed its email yet (then g.verify_blocked holds the message and nothing
-    uncommitted on `conn` is kept). The job is tagged with its product (default:
-    the active one) and that product's brand."""
-    msg = verify_block(conn)
+    confirmed its email and this is a video (or past its unconfirmed allowance;
+    then g.verify_blocked holds the message and nothing uncommitted on `conn` is
+    kept). The job is tagged with its product (default: the active one) and that
+    product's brand."""
+    msg = verify_block(conn, tool, credits)
     if msg:
         conn.rollback()
         g.verify_blocked = msg
         if not quiet:
-            flash(msg, "verify")
+            flash(msg, "verify-cap" if g.verify_reason == "cap" else "verify")
         return None
     now = db.now()
     pid = product_id or g.ws["product_id"]
