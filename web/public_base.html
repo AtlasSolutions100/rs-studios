@@ -37,7 +37,7 @@
     <div class="lp-actions">
       <button type="button" class="theme icon" data-theme-toggle aria-label="Switch light or dark theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg></button>
       <a class="lp-login" href="{{ url_for('login') }}">Log in</a>
-      <a class="btn sm" href="{{ url_for('signup') }}">Start free</a>
+      <a class="btn sm" href="{{ url_for('signup') }}" data-cta="nav">Start free</a>
     </div>
   </div>
 </header>
@@ -56,7 +56,7 @@
         <b>Product</b>
         <a href="{{ url_for('features') }}">Features</a>
         <a href="{{ url_for('pricing') }}">Pricing</a>
-        <a href="{{ url_for('signup') }}">Start free</a>
+        <a href="{{ url_for('signup') }}" data-cta="footer">Start free</a>
         <a href="{{ url_for('login') }}">Log in</a>
       </nav>
       <nav class="lp-foot-links" aria-label="Use cases">

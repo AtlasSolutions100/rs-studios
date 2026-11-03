@@ -40,6 +40,7 @@ import presenter_stills
 import preview
 import products
 import public_site
+import site_events
 import verify
 import worker
 from core import admin_required, brand, feature_required, is_owner, login_required, owner_required, picked_product  # noqa: F401
@@ -243,7 +244,7 @@ def _verify_banner():
     return {}
 
 
-CSRF_EXEMPT = {"static", "stripe_webhook", "forms.public", "messaging.resend_webhook", "messaging.unsubscribe",
+CSRF_EXEMPT = {"static", "stripe_webhook", "site_event", "forms.public", "messaging.resend_webhook", "messaging.unsubscribe",
                "sms.inbound", "sms.status"}  # public forms carry their own signed token
 
 
@@ -347,7 +348,8 @@ def _public_meta():
     """Title, description, canonical, share card and JSON-LD for the public pages
     (public_site.py), plus the Google tag, the ad pixels (pixels.py) and this page's conversion events."""
     out = {"gads_tag": gads.tag_id(), "gads_consent_regions": gads.CONSENT_REGIONS, "gads_events": _gads_events,
-           "ad_pixels": lambda: pixels.context(request, _gads_events, request.endpoint)}
+           "ad_pixels": lambda: pixels.context(request, _gads_events, request.endpoint),
+           "site_beacon": lambda: site_events.beacon(request, g.get("user"))}
     m = public_site.meta(request.endpoint, request.view_args)
     if m:
         out["page_meta"] = m
@@ -527,6 +529,15 @@ FEATURE_DETAILS = {
 }
 
 
+@app.route(site_events.ENDPOINT, methods=["POST"])
+def site_event():
+    """First-party funnel beacon (web/_beacon.html): CLIENT_EVENTS only, small, rate-limited, no bots."""
+    body, status = site_events.handle(request, g.get("user"))
+    resp = app.response_class(body, status=status)
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
 @app.route("/features")
 def features():
     return render_template("features.html", feature_details=FEATURE_DETAILS, journey=JOURNEY)
@@ -704,6 +715,10 @@ def signup():
             if verify.blocked(conn, ws_row, u):
                 db.hit(f"verify:{u['id']}")
                 verify.send_link(conn, app.secret_key, u)
+            if not owner and not joins:
+                # the funnel's sign-up step (site_events.py), with this visitor's first touch
+                site_events.on_signup(conn, ws_id, u["id"], request,
+                                      detail="invite" if inv else "ad_offer" if ad_credits else "starter")
         if not owner:
             db.hit(f"signup:{ip}")
             # Google Ads sign_up conversion, fired on the first page after this (owners' setup links don't count).
@@ -1484,6 +1499,7 @@ def subscribe():
         gads.record_checkout(conn, sess["id"], g.ws["id"], g.user["id"], p["usd"] * 100, "usd", db.now(),
                             conversions.context(request))
         conn.commit()
+        site_events.on_workspace_step(conn, "checkout", g.ws["id"], request, detail=f"plan:{p['code']}")
     return redirect(sess["url"], code=303)
 
 
@@ -1549,6 +1565,7 @@ def checkout():
         gads.record_checkout(conn, sess["id"], g.ws["id"], g.user["id"], pack["usd"] * 100, "usd", db.now(),
                             conversions.context(request))
         conn.commit()
+        site_events.on_workspace_step(conn, "checkout", g.ws["id"], request, detail=f"pack:{pack['code']}")
     return redirect(sess["url"], code=303)
 
 
@@ -1604,6 +1621,8 @@ def _pack_paid(sess):
                           f"{catalog.PACK_BY_CODE.get(p['pack'], {}).get('name', p['pack'])} pack")
         conn.commit()
         _server_purchase(conn, sess, p["workspace_id"])
+        # the funnel's paid step: this purchase only just turned paid, so once per pack
+        site_events.on_workspace_step(conn, "paid", p["workspace_id"], detail=f"pack:{p['pack']}", path="")
     return jsonify({"ok": True, "credited": p["credits"]})
 
 
@@ -1694,6 +1713,9 @@ def _plan_invoice_paid(inv):
                      "stripe_customer_id=COALESCE(?, stripe_customer_id) WHERE id=?",
                      (p["code"], granted, _iso(period_end), sub_id, customer, ws["id"]))
         conn.commit()
+        if reason == "subscription_create":
+            # the funnel's paid step: a plan's first invoice (this invoice id only gets here once)
+            site_events.on_workspace_step(conn, "paid", ws["id"], detail=f"plan:{p['code']}", path="")
     return jsonify({"ok": True, "credited": grant, "plan": p["code"]})
 
 

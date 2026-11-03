@@ -3125,6 +3125,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_public_site.py")], check=True)
     # The Meta / TikTok / Reddit / X pixels and the server-side conversions (ad platforms faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_pixels.py")], check=True)
+    # The first-party funnel log (site_events, POST /e) that HQ reads.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_site_events.py")], check=True)
     # The vendor-price check and how it gates generation (vendor faked), and the admin sign-ups / system card.
     subprocess.run([sys.executable, os.path.join(HERE, "test_vendor_price.py")], check=True)
     # "Import from a link": structured data first, stores that refuse apps, the by-hand form (HTTP faked).

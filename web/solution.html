@@ -9,7 +9,7 @@
       <h1>{{ s.h1 }}</h1>
       <p class="lp-lede sol-answer">{{ s.answer }}</p>
       <div class="lp-cta">
-        <a class="btn lg" href="{{ url_for('signup') }}">{{ so.cta }}</a>
+        <a class="btn lg" href="{{ url_for('signup') }}" data-cta="hero">{{ so.cta }}</a>
         <a class="lp-textlink" href="#how">How it works →</a>
       </div>
       <p class="small muted lp-note">{{ so.body }}</p>
@@ -101,7 +101,7 @@
   <div class="lp-wrap">
     <h2 class="lp-h2">Try it on your own product.</h2>
     <p class="muted">{{ so.body }}</p>
-    <a class="btn lg" href="{{ url_for('signup') }}">Start free</a>
+    <a class="btn lg" href="{{ url_for('signup') }}" data-cta="closing">Start free</a>
   </div>
 </section>
 {% endblock %}

@@ -7,7 +7,7 @@
     <p class="lp-cr">{{ '{:,}'.format(sc) }} starter credits</p>
     <p class="muted small">{{ sc // r.image }} image ads to try the studio on your own product{{ ', or your first video ad' if sc >= r.video5 }}. No card needed.</p>
     <ul class="plan-feats">{% for k, f in plans.FEATURES.items() if f.plan == 'free' and f.shipped %}<li>{{ f.name }}</li>{% endfor %}<li>Credit packs whenever you need more</li></ul>
-    <a class="btn dark" href="{{ url_for('signup') }}">Start free</a>
+    <a class="btn dark" href="{{ url_for('signup') }}" data-cta="pricing-free">Start free</a>
   </div>
   {% for p in plans.PAID %}
   <div class="lp-price {{ 'hot' if p.code == 'growth' }}">
@@ -19,7 +19,7 @@
     <p class="muted small">{{ p.line }}</p>
     {% include "_plan_features.html" %}
     {% if billing_configured() %}
-    <a class="btn {{ '' if p.code == 'growth' else 'dark' }}" href="{{ url_for('signup') }}">Start with {{ p.name }}</a>
+    <a class="btn {{ '' if p.code == 'growth' else 'dark' }}" href="{{ url_for('signup') }}" data-cta="pricing-{{ p.code }}">Start with {{ p.name }}</a>
     {% else %}
     <span class="btn dark disabled" aria-disabled="true">Opens soon</span>
     {% endif %}
