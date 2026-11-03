@@ -146,8 +146,8 @@ pub = client()
 
 print("== titles, descriptions, canonical, share cards")
 paths = public_site.sitemap_paths()
-check(paths[:3] == ["/", "/features", "/pricing"] and len(paths) == 15 and "/for-reps" in paths and "/llm-info" in paths,
-      "the sitemap list: home, features, pricing, seven answer-first pages, for reps, llm-info, privacy, terms, messaging policy")
+check(paths[:3] == ["/", "/features", "/pricing"] and len(paths) == 16 and "/for-reps" in paths and "/llm-info" in paths,
+      "the sitemap list: home, features, pricing, eight answer-first pages, for reps, llm-info, privacy, terms, messaging policy")
 pages = {}
 for p in paths:
     r = pub.get(p)
@@ -268,7 +268,7 @@ check(arc["source"] == "https://help.arcads.ai/en/articles/17595066-how-does-arc
       and "No card" in arc["rows"][0][2] and "740" in arc["rows"][2][2],
       "Arcads: the 72-hour card trial, unpublished prices and 800 credits per talking video, against no card and 740 credits")
 check("Higgsfield" not in "".join(pub.get(p).get_data(as_text=True) for p in paths), "the vendor isn't named on the public site")
-for s in ("ai-ugc-ad-generator", "ai-product-ads-for-shopify"):
+for s in ("ai-ugc-ad-generator", "ai-product-ads-for-shopify", "ai-marketing-platform-for-small-business"):
     body = pub.get(f"/{s}").get_data(as_text=True)
     hero = body.split('<section class="lp-sec" id="how">')[0]
     check("sol-clips" in hero and hero.count("<video") == 3 and "lp-snd" in hero and ".jpg" in hero and "740 credits" in hero
@@ -281,9 +281,41 @@ check("Sidekick writes your descriptions. Campaignify makes the ads." in shop an
 for s in public_site.SOLUTION_ORDER:
     body = pub.get(f"/{s}").get_data(as_text=True)
     h2s = re.findall(r'<h2 class="lp-h2">(.*?)</h2>', body)
-    q = {"ai-ugc-ad-generator": "ugc ad generator", "ai-product-ads-for-shopify": "shopify", "ai-ad-copy-generator": "ad copy generator"}.get(
-        s, s.split("-")[0])
+    q = {"ai-ugc-ad-generator": "ugc ad generator", "ai-product-ads-for-shopify": "shopify", "ai-ad-copy-generator": "ad copy generator",
+         "ai-marketing-platform-for-small-business": "small business"}.get(s, s.split("-")[0])
     check(sum(q in h.lower() for h in h2s) >= 2, f"/{s}: the H2s carry the page's keyword ({q})")
+print("== the small business page")
+SMB = "/ai-marketing-platform-for-small-business"
+smb_pg, smb = pages[SMB], pub.get(SMB).get_data(as_text=True)
+smb_sol = public_site.solution(SMB[1:])
+import html as _html  # noqa: E402
+smb_text = _html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", smb.split("<main")[1].split('<footer')[0])))
+rr = public_site.catalog.rates()
+check(smb_pg.title == "AI Marketing Platform for Small Business · Campaignify"
+      and re.search(r"<h1[^>]*>AI marketing platform for small business</h1>", smb)
+      and "small business" in smb_pg.meta["description"].lower() and "$39 a month" in smb_pg.meta["description"],
+      f"{SMB}: the keyword in the title, the H1 and the description, with the plan price")
+check("local shops, service businesses and small online stores" in smb_text and "without hiring an agency" in smb_text,
+      f"{SMB}: answers who it's for first (local shops, service businesses, small online stores)")
+check("launch them yourself in each platform's ads manager" in smb_text and "Does Campaignify post or run my ads? No." in smb_text,
+      f"{SMB}: says plainly that you download the ads and launch them in each platform's ads manager")
+check(not re.search(r"\b(we|campaignify|it) (post|posts|run|runs|publish|publishes) (your|the) ads\b", smb_text, re.I),
+      f"{SMB}: never claims the app posts or runs ads")
+check(f"{public_site.catalog.starter_credits()} credits, enough for 2 image ads" in smb_text
+      and all(f"{rr[k]} credits" in smb_text for k in ("image", "talk8")) and f"product video {rr['video5']}" in smb_text,
+      f"{SMB}: free sign-up with 2 image ads (44 credits) and per-item costs in credits")
+plan_usd = {str(p["usd"]) for p in plans.PAID} | {str(k["usd"]) for k in public_site.catalog.PACKS}
+check(set(re.findall(r"\$(\d+)", smb_text)) <= plan_usd and "$39" in smb_text,
+      f"{SMB}: dollars only on plan and pack prices, everything else in credits")
+for word, feat in (("copy studio", "copy"), ("campaign planner", "planner"), ("smart links", "links"), ("Flows", "flows"),
+                   ("forms", "forms"), ("SEO & AEO optimizer", "seo"), ("ad-account setup hub", "adhub"),
+                   ("email sending in flows", "flows_email"), ("landing page", "pages")):
+    check(word in smb_text and plans.FEATURES[feat]["shipped"], f"{SMB}: mentions {word}, a shipped feature")
+check(not any(w in smb_text.lower() for w in ("testimonial", "customers love", "trusted by", "5-star", "rated "))
+      and "doesn't promise sales, leads or views" in smb_text, f"{SMB}: no testimonials or result claims")
+check("\u2014" not in json.dumps(smb_sol, ensure_ascii=False), f"{SMB}: no em dashes in the copy")
+check(smb.count('href="/ai-ugc-ad-generator"') >= 2 and f'href="{SMB}"' in pub.get("/").get_data(as_text=True),
+      f"{SMB}: linked from the home footer and links its related pages")
 still = pub.get("/arcads-alternative").get_data(as_text=True)
 check('srcset="/static/site/ugc-bakery-sm.jpg 270w, /static/site/ugc-bakery.jpg 540w"' in still and 'sizes="' in still,
       "presenter stills carry a srcset with a 270px version")

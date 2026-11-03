@@ -413,6 +413,82 @@ SOLUTIONS = {
                "faq": "AI ad copy generator questions"},
         "related": ["ai-ugc-ad-generator", "ai-product-ads-for-shopify", "makeugc-alternative"],
     },
+    "ai-marketing-platform-for-small-business": {
+        "query": "AI marketing platform for small business",
+        "nav": "AI marketing for small business",
+        "title": "AI Marketing Platform for Small Business · Campaignify",
+        "description": "Ads, ad copy, landing pages, forms and email follow-ups in one place for your small business, "
+                       "no agency. Plans from ${starter_usd} a month; {sc_images} image ads free.",
+        "eyebrow": "For small businesses",
+        "h1": "AI marketing platform for small business",
+        "answer": "Campaignify is an AI marketing platform for small businesses: local shops, service businesses and "
+                  "small online stores. In one workspace you make image and video ads from photos of what you sell, "
+                  "write the ad copy, publish a landing page with a form, share smart links and draft the email "
+                  "follow-ups, without hiring an agency. You download the ads and launch them yourself in each "
+                  "platform's ads manager. Plans start at ${starter_usd} a month, and free sign-up includes "
+                  "{sc_images} image ads with no card.",
+        "clips": ["ugc-bakery", "product-video", "ugc-app"],
+        "price_line": "Plans from ${starter_usd} a month. Image ad: {image} credits. 8-second talking video: {talk8} "
+                      "credits. Shown before you press Generate.",
+        "h2": {"how": "How a small business uses the AI marketing platform",
+               "gets": "What's in the marketing platform for small business",
+               "faq": "Small business marketing platform questions"},
+        "steps": [
+            ("Add what you sell",
+             "Paste the page it's on, or upload your own photos and type the details. Suggested claims wait for your "
+             "approval, and every ad, line of copy and page starts from them."),
+            ("Make the ads and write the copy",
+             "Make image ads, short product videos or UGC-style videos with an AI presenter, and see each price in "
+             "credits first. On Starter and up, the copy studio writes the text for each platform's ad fields."),
+            ("Launch the ads, then follow up",
+             "Download or export each ad at the platform's sizes and launch it in that platform's ads manager. Send "
+             "the clicks to your landing page, collect sign-ups with a form and follow up with a flow."),
+        ],
+        "gets": [
+            ("Ads from your own photos", "Image ads in {image_shapes}, 5 or 10 second product videos from one photo, "
+                                         "and talking videos with {presenters} AI presenters. Failed generations are "
+                                         "refunded."),
+            ("A campaign plan and the copy", "On Starter (${starter_usd} a month) and up: an AI planner for angles, "
+                                             "scripts and a launch checklist, and copy for {platform_count} ad "
+                                             "platforms, captions and emails."),
+            ("Landing pages and smart links", "On Starter and up: a page built from blocks and published on "
+                                              "campaignify.ai (1 on Starter, unlimited on Growth), and short links "
+                                              "with your UTM tags."),
+            ("Forms and contacts", "On Growth (${growth_usd} a month) and up: forms on your pages or as a hosted link, "
+                                   "and a contacts list with tags, notes and the page, link and form each person "
+                                   "came through."),
+            ("Email follow-ups with Flows", "Emails, waits, tags and branches after someone signs up, drafted by AI "
+                                            "from a sentence. On Starter each email becomes a task with the copy "
+                                            "ready; Growth and up send them."),
+            ("Ad-account setup and SEO", "On Starter and up: step-by-step setup for 8 ad platforms, with exports at "
+                                         "each one's sizes. On Growth: the SEO & AEO optimizer for search and AI "
+                                         "answers."),
+        ],
+        "faq": [
+            ("Does Campaignify post or run my ads?",
+             "No. You download or export each ad at the platform's sizes and launch it yourself in that platform's "
+             "ads manager, where your ad spend and results stay. Campaignify's own analytics cover the pages, smart "
+             "links and forms you run on it."),
+            ("How much does it cost for a small business?",
+             "Free sign-up includes {sc} credits, enough for {sc_images} image ads, with no card. Plans are "
+             "${starter_usd}, ${growth_usd} and ${scale_usd} a month. Each ad has a price in credits shown before you "
+             "generate: an image ad is {image} credits, a 5-second product video {video5} and an 8-second talking "
+             "video {talk8}. Your ad spend is paid to the ad platforms, not to Campaignify."),
+            ("Which plan does a small business need?",
+             "Free lets you try the ad studio. Starter (${starter_usd} a month) adds the campaign planner, copy "
+             "studio, ad-account setup hub, 1 landing page, smart links and flows. Growth (${growth_usd} a month) "
+             "adds forms and contacts, email sending in flows, the SEO & AEO optimizer, link analytics and unlimited "
+             "pages. See [pricing](/pricing)."),
+            ("Does it work for a local shop or a service business?",
+             "If you can photograph what you sell, yes: a product, a dish or your shop. Paste the page it's on, or "
+             "upload photos and type the details yourself. Product hero, Daily routine and your own brief work for "
+             "anything."),
+            ("Will it get me customers?",
+             "Campaignify doesn't promise sales, leads or views. It helps you plan, make and organize the campaign; "
+             "how the ads do depends on your offer, your audience and your ad spend."),
+        ],
+        "related": ["ai-product-ads-for-shopify", "ai-ad-copy-generator", "ai-ugc-ad-generator"],
+    },
     "creatify-alternative": {
         "query": "Creatify alternative",
         "nav": "Creatify alternative",
@@ -675,7 +751,7 @@ SOLUTIONS = {
     },
 }
 SOLUTION_ORDER = ["ai-ugc-ad-generator", "arcads-alternative", "ai-product-ads-for-shopify", "ai-ad-copy-generator",
-                  "creatify-alternative", "makeugc-alternative", "adcreative-ai-alternative"]
+                  "ai-marketing-platform-for-small-business", "creatify-alternative", "makeugc-alternative", "adcreative-ai-alternative"]
 
 
 def solution(slug: str) -> dict:
