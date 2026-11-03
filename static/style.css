@@ -181,6 +181,9 @@ code{font-size:12px;color:var(--gold2);word-break:break-all}
 .theme:hover{color:var(--ink);border-color:rgba(var(--accent-rgb),.5)}
 .theme svg{width:15px;height:15px}
 .auth .theme{position:fixed;top:16px;right:16px;background:var(--panel)}
+.auth-next{display:none}
+@media (min-width:900px){.auth.wide{grid-template-columns:minmax(0,440px) 300px;gap:28px;align-content:center;justify-content:center}.auth.wide .panel{max-width:440px}
+.auth-next{display:block;padding:30px 4px;align-self:center}.auth-next ol{margin:12px 0 0;padding:0 0 0 22px;display:grid;gap:12px;font-size:14px;line-height:1.5;color:var(--muted)}.auth-next ol b{color:var(--ink)}}
 :root[data-theme=light] .play svg,:root[data-theme=light] .dur{color:#fff}
 .dur{color:#fff}
 
@@ -1154,7 +1157,15 @@ input[type=datetime-local],input[type=time],input[type=tel],input[type=url],inpu
 .vbanner form{flex:none;margin:0}
 .vbanner.hot{border-color:var(--amber);background:rgba(248,193,62,.16);box-shadow:0 0 0 3px rgba(248,193,62,.18)}
 @media (max-width:720px){.vbanner{margin:14px 16px 0;flex-wrap:wrap}.vbanner p{flex-basis:calc(100% - 34px)}.vbanner form,.vbanner [data-verify-open]{margin-left:32px}.vbanner [data-verify-open]:not([hidden])+form{margin-left:0}}
-.fa-verify{margin:0 0 16px}
+.fa-verify{margin:18px 0 0;padding:14px 16px;border:1px solid rgba(248,193,62,.5);background:rgba(248,193,62,.08);border-radius:14px}
+.fa-verify-row{gap:10px;align-items:center;flex-wrap:wrap}.fa-verify .vcode{width:150px;font-size:20px;letter-spacing:4px;text-align:center;margin:0}
+.fa-import{margin:0 0 18px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--chipbg)}.fa-import>label{margin-top:0}
+.fa-import-row{gap:10px;align-items:center}.fa-import-row input{flex:1;min-width:0;margin:0}
+.fa-banner .vbanner{margin:16px 0 0}
+.fa-kinds.three{grid-template-columns:1fr 1fr 1fr}
+.made{margin:0 0 22px}.made .bgrid{margin-top:14px}.made .whilecard{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.fa-unlock{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:16px 0 0;padding:12px 16px;border:1px solid rgba(248,193,62,.5);background:rgba(248,193,62,.08);border-radius:14px}.fa-unlock b{display:block}
+@media (max-width:760px){.fa-kinds.three{grid-template-columns:1fr}.fa-import-row{flex-wrap:wrap}.fa-import-row .btn{width:100%}}
 
 /* ---- public site: footer columns, pricing and the answer-first pages (web/solution.html) */
 .lp-foot-cols{display:flex;flex-wrap:wrap;gap:28px 56px}
