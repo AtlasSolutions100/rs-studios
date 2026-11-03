@@ -527,6 +527,7 @@ COLUMNS = [
     ("outputs", "shared_at", "TEXT"),
     ("users", "first_touch", "TEXT"),            # JSON: UTM tags / click ids of the visit that brought them
     ("ad_conversions", "ctx_json", "TEXT"),      # browser context for the server-side purchase (conversions.py)
+    ("users", "auth_provider", "TEXT"),          # "google" for accounts made with Continue with Google (google_auth.py)
 ]
 
 

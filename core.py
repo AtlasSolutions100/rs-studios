@@ -4,9 +4,10 @@ import functools
 import json
 import mimetypes
 import os
+import secrets
 import uuid
 
-from flask import abort, flash, g, redirect, render_template, request, url_for
+from flask import abort, flash, g, redirect, render_template, request, session, url_for
 
 import db
 import plans
@@ -18,6 +19,13 @@ PHOTO_TYPES = {"image/jpeg", "image/png", "image/webp"}
 VIDEO_TYPES = {"video/mp4", "video/quicktime", "video/webm"}
 MAX_PHOTO_MB = 25
 MAX_VIDEO_MB = 150
+
+
+def csrf_token():
+    """The session's form token (every POST carries it; app.load_user checks it)."""
+    if "csrf" not in session:
+        session["csrf"] = secrets.token_urlsafe(24)
+    return session["csrf"]
 
 
 MAX_PHOTO_PIXELS = 50_000_000      # ~8K x 6K; anything bigger is a decompression bomb, not a product photo
