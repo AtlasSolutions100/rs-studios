@@ -37,6 +37,7 @@ name: Deploy Campaignify (campaignify.ai)
 #   RS_FREE_PREVIEW / RS_FREE_PREVIEWS_PER_DAY               optional variables: the free 480p preview (cap default 30/day)
 #   RS_EMAIL_VERIFY / RS_ACCOUNT_MAIL_FROM                  optional variables: confirm-your-email for free accounts
 #                          (0 switches it off) and its From (default "Campaignify" <no-reply@RS_MAIL_DOMAIN>)
+#   FIRST_RUN_NUDGES       optional variable: "0" switches off the "your free ads are waiting" emails (nudges.py)
 #   RS_OUTREACH_FROM       optional variable: the From of admin outreach emails (/admin/outreach),
 #                          default "Koby Stull" <hello@RS_MAIL_DOMAIN>; replies go to hello@ its domain
 #   GADS_SIGNUP_LABEL      optional variable: Google Ads conversion label for sign_up (not a secret; it's
@@ -123,6 +124,7 @@ jobs:
           RS_EMAIL_VERIFY: ${{ vars.RS_EMAIL_VERIFY }}
           RS_ACCOUNT_MAIL_FROM: ${{ vars.RS_ACCOUNT_MAIL_FROM }}
           RS_OUTREACH_FROM: ${{ vars.RS_OUTREACH_FROM }}
+          FIRST_RUN_NUDGES: ${{ vars.FIRST_RUN_NUDGES }}
           GADS_SIGNUP_LABEL: ${{ vars.GADS_SIGNUP_LABEL || 'vf0bCP_Xja8dEIK1gYpF' }}
           GADS_PURCHASE_LABEL: ${{ vars.GADS_PURCHASE_LABEL || 'RzDtCPzXja8dEIK1gYpF' }}
           GADS_TAG_ID: ${{ vars.GADS_TAG_ID }}
@@ -149,7 +151,7 @@ jobs:
                                              "RESEND_API_KEY", "RESEND_WEBHOOK_SECRET", "RS_MAIL_DOMAIN", "RS_POSTAL_ADDRESS",
                                              "RS_HD_MARKUP", "RS_VIDEO_UPSCALE_MODEL", "RS_VIDEO_UPSCALE_USD_PER_SECOND",
                                              "RS_FREE_PREVIEW", "RS_FREE_PREVIEWS_PER_DAY", "RS_EMAIL_VERIFY",
-                                             "RS_ACCOUNT_MAIL_FROM", "RS_OUTREACH_FROM", "TWILIO_ACCOUNT_SID",
+                                             "RS_ACCOUNT_MAIL_FROM", "RS_OUTREACH_FROM", "FIRST_RUN_NUDGES", "TWILIO_ACCOUNT_SID",
                                              "TWILIO_AUTH_TOKEN", "TWILIO_PRIMARY_PROFILE_SID", "TWILIO_NOTIFY_EMAIL",
                                              "GADS_SIGNUP_LABEL", "GADS_PURCHASE_LABEL", "GADS_TAG_ID",
                                              "META_PIXEL_ID", "TIKTOK_PIXEL_ID", "REDDIT_PIXEL_ID", "X_PIXEL_ID",
