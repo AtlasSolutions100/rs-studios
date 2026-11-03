@@ -2,8 +2,8 @@
 <html lang="en" class="pp pp-light">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ fm.name }}</title>
 <meta name="robots" content="noindex">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link rel="preload" as="font" type="font/woff2" href="{{ url_for('static', filename='fonts/inter-latin.woff2') }}" crossorigin>
+<link rel="stylesheet" href="{{ url_for('static', filename='fonts.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='page.css') }}"><style>:root{--pp-accent:#BDFA25}</style></head>
 <body><main class="pp-sec" style="border:0"><div class="pp-wrap pp-center">
   <h1 style="font-size:36px">{{ fm.name }}</h1>

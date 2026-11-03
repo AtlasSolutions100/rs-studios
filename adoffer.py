@@ -16,7 +16,7 @@ rule for spending free credits (verify.py, #50):
 Anyone who doesn't qualify gets the normal starter credits.
 
 The page copy uses the same test (offer(), web templates' signup_offer()): a
-visitor sees "Make your first video ad free" only when the grant would be made
+visitor sees "Your first video ad is on us: 500 credits" only when the grant would be made
 for them and it covers the cheapest video ad (a 5-second product video);
 everyone else sees "Try 2 image ads free".
 """
@@ -120,9 +120,9 @@ def offer(n_credits: int | None = None) -> dict:
     video = n > base and n >= r["video5"]   # the cheapest video ad: a 5-second product video
     ads = f"{images} image ad{'' if images == 1 else 's'}"
     if video:
-        cta = "Make your first video ad free"
-        body = (f"Free sign-up includes {n:,} credits, enough for your first video ad (a 5-second product video) "
-                f"or {ads}. No card needed.")
+        cta = f"Your first video ad is on us: {n:,} credits"
+        body = (f"Free sign-up includes {n:,} credits: enough for a 5-second product video, or {ads}. "
+                f"Talking presenter videos from {r['talk8']:,} credits. No card needed.")
     else:
         cta = f"Try {ads} free"
         body = f"Free sign-up includes {ads} ({n:,} credits). No card needed."

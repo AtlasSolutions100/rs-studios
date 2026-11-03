@@ -410,6 +410,13 @@ code{font-size:12px;color:var(--gold2);word-break:break-all}
 .plan-feats li::before{content:"";position:absolute;left:0;top:7px;width:10px;height:6px;border-left:2px solid var(--gold2);border-bottom:2px solid var(--gold2);transform:rotate(-45deg)}
 .plan-feats b{color:var(--ink);font-weight:600}
 .lp-prices.plans .lp-price .btn{margin-top:auto}
+/* Plan features: a 3-column grid on desktop (one list per paid plan), an accordion on phones. */
+.plan-more{margin:0}
+.plan-more summary{list-style:none;cursor:default;font:600 12px var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:8px 0 6px}
+.plan-more summary::-webkit-details-marker{display:none}
+.plan-more summary::after{content:"";display:none}
+@media (min-width:761px){.plan-more>summary{pointer-events:none}}
+@media (max-width:760px){.plan-more summary{cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--line)}.plan-more summary::after{display:block;width:8px;height:8px;border-right:2px solid var(--dim);border-bottom:2px solid var(--dim);transform:rotate(45deg);transition:transform .15s}.plan-more[open] summary::after{transform:rotate(-135deg)}}
 .lp-price .plan-feats{margin-bottom:22px}
 .lp-h3{font:700 20px var(--display);margin:0 0 14px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
 .lp-packs{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:10px}
@@ -1187,13 +1194,18 @@ input[type=datetime-local],input[type=time],input[type=tel],input[type=url],inpu
 .sol-tr{display:grid;grid-template-columns:.8fr 1.2fr;gap:24px;padding:18px 22px;border-top:1px solid var(--line)}
 .sol-tr:first-child{border-top:0}
 .sol-th{font:600 12px var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding-top:14px;padding-bottom:14px}
+.sol-table-3 .sol-tr{grid-template-columns:.7fr 1.15fr 1.15fr}
+.sol-who{display:none;font:600 11px var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
+.sol-price{margin:0 0 12px;font-size:15px;color:var(--ink)}
+.sol-clips .lp-g-media:nth-child(2){transform:translateY(-22px)}
+.sol-clips .lp-g-badge{font-size:10px}
 .sol-limits{margin:0;padding-left:20px;max-width:760px}
 .sol-limits li{margin:8px 0}
 a.sol-link{text-decoration:none;color:inherit;display:block;transition:border-color .15s}
 a.sol-link:hover{border-color:rgba(var(--accent-rgb),.6)}
 a.sol-link h3{margin-top:0}
 @media (max-width:900px){.sol-hero{grid-template-columns:1fr;gap:32px}.sol-steps{grid-template-columns:1fr}.sol-media{max-width:520px}}
-@media (max-width:560px){.sol-tr{grid-template-columns:1fr;gap:6px;padding:16px}.sol-th{display:none}.sol-media{gap:8px}.sol-media img{border-radius:12px}.sol-media img:nth-child(2){transform:translateY(-12px)}.lp-foot-cols{gap:24px 40px}}
+@media (max-width:560px){.sol-tr,.sol-table-3 .sol-tr{grid-template-columns:1fr;gap:6px;padding:16px}.sol-th{display:none}.sol-who{display:block}.sol-table-3 .sol-tr>span{padding-top:6px}.sol-clips .lp-g-media:nth-child(2){transform:translateY(-12px)}.sol-media{gap:8px}.sol-media img{border-radius:12px}.sol-media img:nth-child(2){transform:translateY(-12px)}.lp-foot-cols{gap:24px 40px}}
 
 /* ---------------------------------------------------------------- add a product by hand (the store wouldn't let us read it) */
 .manualbar{margin:20px 0 0;border-color:rgba(var(--accent-rgb),.45)}
@@ -1229,3 +1241,4 @@ a.sol-link h3{margin-top:0}
   #details.manual .go .btn{width:100%;min-height:48px}
   .manual-retry .importbar-f{flex-wrap:wrap}.manual-retry .importbar-f input{flex:1 1 100%}.manual-retry .importbar-f .btn{flex:1}
 }
+.llm-info h2{margin-top:30px}.llm-info ul{padding-left:20px}.llm-info li{margin:6px 0}

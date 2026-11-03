@@ -101,7 +101,9 @@ class Page(HTMLParser):
             self.hrefs.append(a["href"])
         elif tag == "script" and a.get("type") == "application/ld+json":
             self._in, self._buf = "ld", ""
-        elif tag == "summary":
+        elif tag == "details":
+            self._plan = "plan-more" in (a.get("class") or "")   # the pricing cards' feature accordion isn't an FAQ
+        elif tag == "summary" and not getattr(self, "_plan", False):
             self._in, self._buf = "summary", ""
 
     def handle_data(self, data):
@@ -144,8 +146,8 @@ pub = client()
 
 print("== titles, descriptions, canonical, share cards")
 paths = public_site.sitemap_paths()
-check(paths[:3] == ["/", "/features", "/pricing"] and len(paths) == 10, "the sitemap list: home, features, pricing, "
-      "four answer-first pages, privacy, terms, messaging policy")
+check(paths[:3] == ["/", "/features", "/pricing"] and len(paths) == 15 and "/for-reps" in paths and "/llm-info" in paths,
+      "the sitemap list: home, features, pricing, seven answer-first pages, for reps, llm-info, privacy, terms, messaging policy")
 pages = {}
 for p in paths:
     r = pub.get(p)
@@ -199,6 +201,8 @@ print("== sitemap, robots, llms.txt")
 sm = pub.get("/sitemap.xml").get_data(as_text=True)
 locs = re.findall(r"<loc>(.*?)</loc>", sm)
 check(locs == [SITE + p for p in paths], "sitemap.xml lists exactly the public pages on https://campaignify.ai")
+mods = re.findall(r"<lastmod>(\d{4}-\d{2}-\d{2})</lastmod>", sm)
+check(len(mods) == len(paths) and len(set(mods)) == 1 and mods[0] == public_site.lastmod(), "every sitemap entry carries a <lastmod> date")
 check(not any(x in sm for x in ("/app", "/admin", "/s/", "/login", "/signup", "/p/", "/l/")),
       "the sitemap leaves out the app, admin, share links, auth and members' pages")
 rt = pub.get("/robots.txt").get_data(as_text=True)
@@ -207,6 +211,12 @@ check(f"Sitemap: {SITE}/sitemap.xml" in rt and "Disallow: /app" in rt and "Disal
 lt = pub.get("/llms.txt").get_data(as_text=True)
 check(all(f"{SITE}/{s}" in lt for s in public_site.SOLUTION_ORDER) and f"{SITE}/pricing" in lt and "$39 a month" in lt,
       "llms.txt describes the product and links every public page")
+rr = public_site.catalog.rates()
+check(f"Image ad: {rr['image']} credits" in lt and f"{rr['talk8']} credits for 8 seconds" in lt and f"{rr['video5']} credits for 5 seconds" in lt
+      and f"{rr['motion_per_s']} credits per second" in lt, "llms.txt lists the credit rate of every tool")
+li = pub.get("/llm-info").get_data(as_text=True)
+check(f"Image ad: {rr['image']} credits" in li and "What each one costs" in li and f'href="{SITE}/pricing"' in li
+      and "<h2" in li, "/llm-info mirrors llms.txt as HTML with headings and links")
 
 print("== internal links")
 seen = {}
@@ -226,21 +236,57 @@ for p, pg in pages.items():
                 check(False, f"{p} → {href}: #{u.fragment} exists")
 check(len(seen) >= 12, f"every internal link on the public pages resolves, anchors included ({len(seen)} paths)")
 foot = set(pages["/privacy"].hrefs)
-check(all(f"/{s}" in foot for s in public_site.SOLUTION_ORDER) and "/pricing" in foot, "the footer links the four answer-first pages and pricing")
+check(all(f"/{s}" in foot for s in public_site.SOLUTION_ORDER) and "/pricing" in foot, "the footer links every answer-first page and pricing")
 for s in public_site.SOLUTION_ORDER:
     others = [o for o in public_site.SOLUTION_ORDER if o != s]
+    related = public_site.SOLUTIONS[s]["related"]
     body = pub.get(f"/{s}").get_data(as_text=True)
-    check(all(body.count(f'href="/{o}"') >= 2 for o in others) and 'href="/signup"' in body,
-          f"/{s} links to the other three in its body and footer, and to sign-up")
+    check(all(body.count(f'href="/{o}"') >= 1 for o in others) and all(body.count(f'href="/{o}"') >= 2 for o in related)
+          and 'href="/signup"' in body, f"/{s} links every other answer-first page (footer) and its related three in the body, and sign-up")
 
 print("== answer-first pages")
 for s in public_site.SOLUTION_ORDER:
     sol = public_site.solution(s)
     check(len(sol["steps"]) == 3 and 3 <= len(sol["faq"]) <= 5 and (sol.get("gets") or sol.get("compare"))
           and not re.search(r"\{[a-z_0-9]+\}", json.dumps(sol)), f"/{s}: three steps, what you get, 3-5 FAQs, every number filled in")
-arc = pub.get("/arcads-alternative").get_data(as_text=True)
-check("$" not in re.sub(r"\$(39|99|249|\d+\.\d\d)", "", arc.split('<section class="lp-sec" id="compare">')[1].split("</section>")[0])
-      and "doesn't describe their product" in arc, "the Arcads page makes no claims about Arcads' prices or product")
+print("== comparison pages: every competitor fact sourced and dated")
+for s in ("arcads-alternative", "creatify-alternative", "makeugc-alternative", "adcreative-ai-alternative"):
+    sol = public_site.solution(s)
+    t = sol["table"]
+    body = pub.get(f"/{s}").get_data(as_text=True)
+    sec = body.split('<section class="lp-sec" id="compare">')[1].split("</section>")[0]
+    check(t["source"].startswith("https://") and re.match(r"\d{4}-\d{2}-\d{2}$", t["date"]) and len(t["rows"]) == 3
+          and sec.count(t["source"]) >= 2 and f"as of {t['date']}" in sec.lower() and f"isn't affiliated with {t['competitor']}" in sec,
+          f"/{s}: a 3-row table, the competitor's column sourced with a URL and an 'as of' date, no affiliation")
+    check(sol["h1"].startswith("Campaignify is a") and "alternative" in sol["h1"], f"/{s}: a declarative H1")
+    check(any("not listed" in row[1] or "not stated" in row[1] for row in t["rows"]) or s == "arcads-alternative",
+          f"/{s}: absences are written as 'not listed', never guessed")
+arc = public_site.solution("arcads-alternative")["table"]
+check(arc["source"] == "https://help.arcads.ai/en/articles/17595066-how-does-arcads-pricing-work"
+      and "72" in arc["rows"][0][1] and "card is required" in arc["rows"][0][1] and "Starter monthly plan starts automatically" in arc["rows"][0][1]
+      and "Not listed on the public site" in arc["rows"][1][1] and "800 credits" in arc["rows"][2][1]
+      and "No card" in arc["rows"][0][2] and "740" in arc["rows"][2][2],
+      "Arcads: the 72-hour card trial, unpublished prices and 800 credits per talking video, against no card and 740 credits")
+check("Higgsfield" not in "".join(pub.get(p).get_data(as_text=True) for p in paths), "the vendor isn't named on the public site")
+for s in ("ai-ugc-ad-generator", "ai-product-ads-for-shopify"):
+    body = pub.get(f"/{s}").get_data(as_text=True)
+    hero = body.split('<section class="lp-sec" id="how">')[0]
+    check("sol-clips" in hero and hero.count("<video") == 3 and "lp-snd" in hero and ".jpg" in hero and "740 credits" in hero
+          and "22 credits" in hero and "Shown before you press Generate" in hero,
+          f"/{s}: the hero plays three clips with a sound button and shows the credit prices under the H1")
+shop = pub.get("/ai-product-ads-for-shopify").get_data(as_text=True)
+check("Sidekick writes your descriptions. Campaignify makes the ads." in shop and "Shopify ad creator" in shop
+      and "product video for Shopify" in shop and "photo_to_video.mp4" in shop,
+      "the Shopify page: the Sidekick line, the 'Shopify ad creator' and 'product video for Shopify' phrases, a product-video clip")
+for s in public_site.SOLUTION_ORDER:
+    body = pub.get(f"/{s}").get_data(as_text=True)
+    h2s = re.findall(r'<h2 class="lp-h2">(.*?)</h2>', body)
+    q = {"ai-ugc-ad-generator": "ugc ad generator", "ai-product-ads-for-shopify": "shopify", "ai-ad-copy-generator": "ad copy generator"}.get(
+        s, s.split("-")[0])
+    check(sum(q in h.lower() for h in h2s) >= 2, f"/{s}: the H2s carry the page's keyword ({q})")
+still = pub.get("/arcads-alternative").get_data(as_text=True)
+check('srcset="/static/site/ugc-bakery-sm.jpg 270w, /static/site/ugc-bakery.jpg 540w"' in still and 'sizes="' in still,
+      "presenter stills carry a srcset with a 270px version")
 check("Higgsfield" not in "".join(pub.get(p).get_data(as_text=True) for p in paths), "the vendor isn't named on the public site")
 
 print("== noindex on private routes")
@@ -441,9 +487,11 @@ check("free sign-up includes 2 image ads" in page(client(), "/llms.txt"), "llms.
 # An ad visitor (gclid) sees the video offer from their first page, and sign-up grants it.
 a = client()
 html = page(a, "/ai-ugc-ad-generator?gclid=Ad-1")
-check("Make your first video ad free" in html and "Free sign-up includes 500 credits" in html
-      and ORGANIC[1] not in html, "ad visitor: 'Make your first video ad free' on the landing page")
-check("Free sign-up includes 500 credits, enough for your first video ad" in page(a, "/signup"),
+VIDEO_CTA = "Your first video ad is on us: 500 credits"
+check(VIDEO_CTA in html and "Free sign-up includes 500 credits: enough for a 5-second product video, or 22 image ads. "
+      "Talking presenter videos from 740 credits." in html and ORGANIC[1] not in html,
+      "ad visitor: 'Your first video ad is on us: 500 credits' on the landing page, with what it buys in credits")
+check("Free sign-up includes 500 credits: enough for a 5-second product video" in page(a, "/signup"),
       "and the sign-up page says what they'll get (from the cookie)")
 r = sign(a, "adbuyer@gmail.com")
 bal, led = ws_of("adbuyer@gmail.com")
@@ -459,7 +507,7 @@ a2.environ_base["REMOTE_ADDR"] = "10.9.200.1"
 a2.set_cookie(adoffer.BROWSER_COOKIE, "1")
 a2.get("/login")
 html = page(a2, "/?gclid=Ad-2")
-check("Make your first video ad free" not in html and ORGANIC[0] in html, "a browser that had the offer sees image-ad copy")
+check(VIDEO_CTA not in html and ORGANIC[0] in html, "a browser that had the offer sees image-ad copy")
 sign(a2, "second-try@example.com")
 check(ws_of("second-try@example.com")[0] == 44, "and gets the normal 44")
 
@@ -486,7 +534,7 @@ for i in range(adoffer.IP_LIMIT + 1):
     c = appmod.app.test_client()
     c.environ_base["REMOTE_ADDR"] = "10.77.0.1"
     c.get("/login")
-    net.append((c, "Make your first video ad free" in page(c, f"/?gclid=net{i}")))
+    net.append((c, VIDEO_CTA in page(c, f"/?gclid=net{i}")))
     sign(c, f"net{i}@example.com")
 check(all(v for _, v in net[:-1]) and not net[-1][1], "the offer copy stops once a network has had its grants")
 check([ws_of(f"net{i}@example.com")[0] for i in range(adoffer.IP_LIMIT + 1)] == [500] * adoffer.IP_LIMIT + [44],
@@ -527,7 +575,7 @@ with db.connect() as conn:
           and verify._free_what(conn, uo) == "your free Campaignify credits (2 image ads)",
           "the confirm-your-email message says what that account's free credits buy")
 html = page(a, "/pricing?gclid=member")
-check("Make your first video ad free" not in html and ORGANIC[0] in html, "a logged-in member sees the normal copy")
+check(VIDEO_CTA not in html and ORGANIC[0] in html, "a logged-in member sees the normal copy")
 
 print("== layout at phone width")
 css = open(os.path.join(ROOT, "static", "style.css")).read()

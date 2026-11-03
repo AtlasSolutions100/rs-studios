@@ -6,8 +6,8 @@
 {% if p.description %}<meta name="description" content="{{ p.description }}"><meta property="og:description" content="{{ p.description }}">{% endif %}
 <meta property="og:title" content="{{ p.title }}"><meta property="og:type" content="website">
 {% if not preview %}<link rel="canonical" href="{{ request.base_url }}">{% else %}<meta name="robots" content="noindex">{% endif %}
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link rel="preload" as="font" type="font/woff2" href="{{ url_for('static', filename='fonts/inter-latin.woff2') }}" crossorigin>
+<link rel="stylesheet" href="{{ url_for('static', filename='fonts.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='page.css') }}">
 <style>:root{--pp-accent:{{ p.accent }}}</style>
 </head>
