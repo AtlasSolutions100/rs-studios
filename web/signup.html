@@ -22,6 +22,7 @@
   <h2>Start free</h2>
   <p class="muted">{{ so.body }}</p>
   {% endif %}
+  {% if not owner and google_signin() %}{% with href=url_for('google_auth.start', invite=invite or None) %}{% include "_google_button.html" %}{% endwith %}{% endif %}
   <form method="post" action="{{ url_for('signup') }}">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
     <div class="hp" aria-hidden="true"><label for="website">Website</label><input id="website" type="text" name="website" tabindex="-1" autocomplete="off"></div>

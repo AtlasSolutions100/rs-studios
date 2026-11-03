@@ -23,6 +23,7 @@ from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, r
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
+import accounts
 import adoffer
 import admin_funnel
 import billing
@@ -51,7 +52,7 @@ from core import verify_block as core_verify_block  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 from core import MAX_PHOTO_MB, MAX_VIDEO_MB, PHOTO_TYPES, UPLOADS, VIDEO_TYPES, save_upload as _save_upload  # noqa: E402
 # Signup abuse limits (per client IP): new accounts per hour and per day.
-SIGNUPS_PER_HOUR, SIGNUPS_PER_DAY = 5, 10
+SIGNUPS_PER_HOUR, SIGNUPS_PER_DAY = accounts.SIGNUPS_PER_HOUR, accounts.SIGNUPS_PER_DAY
 # Failed logins allowed per IP+email and per IP in 15 minutes.
 LOGIN_FAILS_PER_EMAIL, LOGIN_FAILS_PER_IP = 8, 30
 log = logging.getLogger("campaignify")
@@ -95,10 +96,7 @@ worker.start()
 
 # ---------------------------------------------------------------- helpers
 
-def csrf_token():
-    if "csrf" not in session:
-        session["csrf"] = secrets.token_urlsafe(24)
-    return session["csrf"]
+from core import csrf_token  # noqa: E402
 
 
 def _has(feature):
@@ -306,7 +304,7 @@ def _security_headers(resp):
 
 # Never indexed, whatever they render (the app, admin, accounts, files, webhooks, share links).
 PRIVATE_PREFIXES = ("/app", "/admin", "/api/", "/media/", "/photo/", "/ref/", "/presenter/", "/verify", "/webhooks/",
-                    "/s/", "/t/", "/u/", "/_")
+                    "/s/", "/t/", "/u/", "/_", "/auth/")
 PRIVATE_PATHS = {"/login", "/signup", "/logout", "/health"}
 # Our own public pages: where a visit's UTM tags / Google click id are kept for sign-up (gads.py).
 # Members' pages and smart links (/p/, /l/, /f/, /c/) carry *their* campaigns and are left alone.
@@ -641,16 +639,20 @@ def login():
             return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else url_for("studio"))
         db.hit(f"login:{ip}:{email}")
         db.hit(f"login:{ip}")
-        flash("That email and password don't match.")
+        if u and u["auth_provider"] == "google":
+            flash("This account signs in with Google. Use the Google button.")
+        else:
+            flash("That email and password don't match.")
     return render_template("login.html")
 
 
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     """Open to anyone: a new account gets its own workspace and the starter
-    credits, then the guided first ad. An invite link joins an existing
-    workspace instead; owner setup links (owners.py) make a Rector & Stull admin
-    and work only with their own email."""
+    credits, then the guided first ad (accounts.self_serve_signup, shared with
+    "Continue with Google"). An invite link joins an existing workspace instead;
+    owner setup links (owners.py) make a Rector & Stull admin and work only with
+    their own email."""
     code = (request.form.get("invite") if request.method == "POST" else request.args.get("invite")) or ""
     code = code.strip()
     owner = owners.owner_email(code)
@@ -670,95 +672,38 @@ def signup():
             return again("Something went wrong. Please try again.", 400)
         if "@" not in email or "." not in email.split("@")[-1] or len(email) > 200 or len(pw) < 8:
             return again("Use a real email and a password of at least 8 characters.")
-        if not owner and (db.throttled(f"signup:{ip}", SIGNUPS_PER_HOUR, 3600) or
-                          db.throttled(f"signup:{ip}", SIGNUPS_PER_DAY, 86400)):
+        if not owner and accounts.signup_throttled(ip):
             return again("Too many new accounts from your network. Try again later.", 429)
-        dest = "studio"
-        ad_credits = 0
+        if not owner:
+            try:
+                return accounts.self_serve_signup(email, name, generate_password_hash(pw), request, ip, app.secret_key,
+                                                  invite_code=code)
+            except accounts.SignupRefused as e:
+                return again(str(e), e.status)
+        # An owner setup link: a Rector & Stull admin, confirmed (the link only works for its own address).
         with db.connect() as conn:
             if conn.execute("SELECT 1 FROM users WHERE email=?", (email,)).fetchone():
                 return again("That email already has an account. Log in instead.")
-            inv = None
-            is_admin = 0
-            if owner:
-                if owner != email:
-                    return again("This setup link is for a different email.")
-                ws = conn.execute("SELECT id FROM workspaces WHERE name=? ORDER BY id LIMIT 1",
-                                  ("Rector & Stull",)).fetchone()
-                ws_id = ws["id"] if ws else conn.execute(
-                    "INSERT INTO workspaces (name, credits, created_at) VALUES (?,?,?)",
-                    ("Rector & Stull", 0, db.now())).lastrowid
-                is_admin, dest = 1, "brand_kit"
-            else:
-                if code:
-                    inv = conn.execute("SELECT * FROM invites WHERE code=? AND used_by IS NULL", (code,)).fetchone()
-                    if not inv:
-                        return again("That invite link has expired or was already used. Clear the invite code "
-                                     "to create your own free account instead.")
-                if inv and inv["workspace_id"]:
-                    ws_id, dest = inv["workspace_id"], "studio"
-                    target = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
-                    maker = conn.execute("SELECT is_admin FROM users WHERE id=?", (inv["created_by"],)).fetchone() \
-                        if inv["created_by"] else None
-                    members = conn.execute("SELECT COUNT(*) FROM users WHERE workspace_id=?", (ws_id,)).fetchone()[0]
-                    # Team invites count against the plan's seats; operator (site admin) invites don't.
-                    if inv["created_by"] and not (maker and maker["is_admin"]) and \
-                            not plans.within(target, "seats", members):
-                        return again("That team is full on its current plan. Ask the owner to upgrade "
-                                     "or free a seat.")
-                else:
-                    ws_id = conn.execute("INSERT INTO workspaces (name, credits, created_at) VALUES (?,?,?)",
-                                         ((name or email.split("@")[0]) + "'s studio", 0, db.now())).lastrowid
-                    # Ad-sourced sign-ups get SIGNUP_CREDITS_ADS instead, once per person (adoffer.py).
-                    ad_credits = adoffer.claim(conn, ws_id, email, ip, gads.parse_cookie(request.cookies.get(gads.COOKIE)),
-                                               bool(request.cookies.get(adoffer.BROWSER_COOKIE)), db.now())
-                    if ad_credits:
-                        db.adjust_credits(conn, ws_id, ad_credits, adoffer.REASON)
-                    elif catalog.starter_credits():
-                        db.adjust_credits(conn, ws_id, catalog.starter_credits(), "starter credits")
-            joins = bool(inv and inv["workspace_id"]) or (owner and conn.execute(
-                "SELECT 1 FROM users WHERE workspace_id=?", (ws_id,)).fetchone() is not None)
-            # Owner setup links only work for their own address, so that one counts as confirmed;
-            # everyone else confirms by email before the free credits work (verify.py).
+            if owner != email:
+                return again("This setup link is for a different email.")
+            ws = conn.execute("SELECT id FROM workspaces WHERE name=? ORDER BY id LIMIT 1",
+                              ("Rector & Stull",)).fetchone()
+            ws_id = ws["id"] if ws else conn.execute(
+                "INSERT INTO workspaces (name, credits, created_at) VALUES (?,?,?)",
+                ("Rector & Stull", 0, db.now())).lastrowid
+            joins = conn.execute("SELECT 1 FROM users WHERE workspace_id=?", (ws_id,)).fetchone() is not None
             cur = conn.execute("INSERT INTO users (email, name, pw_hash, is_admin, workspace_id, created_at, role, "
                                "email_verified_at, verify_nonce, first_touch) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                               (email, name, generate_password_hash(pw), is_admin, ws_id, db.now(),
-                                "member" if joins else "owner", db.now() if owner else None,
-                                None if owner else verify.new_nonce(),
+                               (email, name, generate_password_hash(pw), 1, ws_id, db.now(),
+                                "member" if joins else "owner", db.now(), None,
                                 gads.first_touch_json(request.cookies.get(gads.COOKIE))))
-            if inv:
-                conn.execute("UPDATE invites SET used_by=? WHERE code=?", (cur.lastrowid, code))
             conn.commit()
             session.clear()
             session["uid"] = cur.lastrowid
             csrf_token()
-            u = conn.execute("SELECT * FROM users WHERE id=?", (cur.lastrowid,)).fetchone()
-            ws_row = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
-            if verify.blocked(conn, ws_row, u):
-                db.hit(f"verify:{u['id']}")
-                verify.send_link(conn, app.secret_key, u)
-            if not owner and not joins:
-                # the funnel's sign-up step (site_events.py), with this visitor's first touch
-                site_events.on_signup(conn, ws_id, u["id"], request,
-                                      detail="invite" if inv else "ad_offer" if ad_credits else "starter")
-        if not owner:
-            db.hit(f"signup:{ip}")
-            # Google Ads sign_up conversion, fired on the first page after this (owners' setup links don't count).
-            gads.queue(session, "sign_up", transaction_id=f"signup-{cur.lastrowid}")
-            # and the server-side copy for Meta / TikTok / Reddit (same event id), when a token is set
-            try:
-                with db.connect() as conn:
-                    conversions.on_signup(conn, cur.lastrowid, conversions.context(request))
-            except Exception:  # noqa: BLE001 — measurement never breaks sign-up
-                log.exception("server-side sign-up conversion not queued")
-        # New accounts land on Home, which is the first-ad form until they've made one
-        # (the setup guide is a link from there, not a detour).
-        resp = redirect(url_for(dest))
+        resp = redirect(url_for("brand_kit"))
         if request.cookies.get(gads.COOKIE):
             resp.delete_cookie(gads.COOKIE)   # it's on the account now
-        if ad_credits:   # this browser has had the ad offer (adoffer.py)
-            resp.set_cookie(adoffer.BROWSER_COOKIE, "1", max_age=adoffer.BROWSER_COOKIE_DAYS * 86400, httponly=True,
-                            samesite="Lax", secure=request.is_secure)
         return resp
     return render_template("signup.html", invite=code, owner=owner, email="")
 
@@ -2292,8 +2237,11 @@ import pages_routes  # noqa: E402
 import forms_routes  # noqa: E402
 import community_routes  # noqa: E402
 import share_routes  # noqa: E402
+import google_auth  # noqa: E402
 
 app.register_blueprint(product_routes.bp)
+app.register_blueprint(google_auth.bp)
+app.jinja_env.globals["google_signin"] = google_auth.configured   # the Continue with Google button
 app.register_blueprint(create_routes.bp)
 app.register_blueprint(jobs_routes.bp)
 app.register_blueprint(flows_routes.bp)

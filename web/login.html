@@ -2,6 +2,7 @@
 {% block auth %}
   <h2>Welcome back</h2>
   <p class="muted">Make this week's ads in one sitting.</p>
+  {% if google_signin() %}{% with href=url_for('google_auth.start', next=request.args.get('next') or None) %}{% include "_google_button.html" %}{% endwith %}{% endif %}
   <form method="post">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
     <label for="email">Email</label><input id="email" type="email" name="email" required autocomplete="email">
