@@ -1,0 +1,27 @@
+name: Tests (pull requests)
+
+# Runs the test suite on every pull request to main so a PR shows a check
+# before it is merged. This workflow never deploys and uses no secrets:
+# deploying stays in deploy.yml, which runs only on push to main (and by hand).
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python tests/test_app.py
