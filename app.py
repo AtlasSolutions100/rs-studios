@@ -156,13 +156,14 @@ NAV = [item for _, items in NAV_GROUPS for item in items]
 app.jinja_env.filters["fromjson"] = lambda s: json.loads(s or "{}")
 
 
-def credits_usd(n) -> str:
-    """Credits as dollars (1 credit = $0.01): 925 -> "$9.25", 11100 -> "$111"."""
+def credits_text(n) -> str:
+    """A credit amount as members see it: 1 -> "1 credit", 1250 -> "1,250 credits".
+    Costs are shown in credits only; dollars are for plan and pack prices and payments."""
     try:
-        cents = int(n or 0)
+        n = int(n or 0)
     except (TypeError, ValueError):
         return ""
-    return f"${cents // 100:,}" if cents % 100 == 0 else f"${cents / 100:,.2f}"
+    return f"{n:,} credit" + ("" if n == 1 else "s")
 
 
 def first_upper(s) -> str:
@@ -182,9 +183,9 @@ def localtime(iso, mode="datetime"):
     return Markup(f'<time datetime="{escape(iso)}" data-local="{escape(mode)}">{escape(fallback)}</time>')
 
 
-app.jinja_env.filters.update(first_upper=first_upper, localtime=localtime, usd=credits_usd,
+app.jinja_env.filters.update(first_upper=first_upper, localtime=localtime, credits=credits_text,
                               failure_text=worker.failure_text)
-app.jinja_env.globals.update(credits_usd=credits_usd, categories=products.CATEGORIES, category_of=products.category_of)
+app.jinja_env.globals.update(categories=products.CATEGORIES, category_of=products.category_of)
 
 
 def _hd_offer(job):

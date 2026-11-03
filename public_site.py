@@ -23,20 +23,15 @@ OG_IMAGE_ALT = "campaignify: AI UGC ads from your product page, beside three pho
 CONTACT = "hello@campaignify.ai"
 
 
-def usd(credits: int) -> str:
-    cents = int(credits or 0)
-    return f"${cents // 100:,}" if cents % 100 == 0 else f"${cents / 100:,.2f}"
-
-
 def facts() -> dict:
     """Live numbers for the copy (str.format keys)."""
     r, sc = catalog.rates(), catalog.starter_credits()
     p = plans.PLANS
     names = [platforms.PLATFORMS[k]["name"] for k in platforms.ORDER if k not in ("email", "landing")]
     talk = catalog.TOOLS["ugc_video"]
-    return {"talk8": f"{r['talk8']:,}", "talk8_usd": usd(r["talk8"]), "talk10": f"{r['talk10']:,}",
-            "talk10_usd": usd(r["talk10"]), "image": r["image"], "image_usd": usd(r["image"]),
-            "video5_usd": usd(r["video5"]), "video10_usd": usd(r["video10"]),
+    # Costs are quoted in credits only; dollars appear only for plan and pack prices.
+    return {"talk8": f"{r['talk8']:,}", "talk10": f"{r['talk10']:,}", "image": r["image"],
+            "video5": f"{r['video5']:,}", "video10": f"{r['video10']:,}",
             "sc": f"{sc:,}", "sc_images": sc // max(r["image"], 1),
             "starter_usd": p["starter"]["usd"], "growth_usd": p["growth"]["usd"], "scale_usd": p["scale"]["usd"],
             "starter_credits": f"{p['starter']['credits']:,}",
@@ -94,7 +89,7 @@ HOME_FAQ = [
      "Plan credits arrive with each monthly payment and expire at your next renewal, and they're used before any "
      "other credits. Credits from packs and your free starter credits never expire."),
     ("What does a credit buy?",
-     "1 credit is $0.01. An image ad is {image} credits, a 5-second video {video5}, a 10-second video {video10}, and "
+     "An image ad is {image} credits, a 5-second video {video5}, a 10-second video {video10}, and "
      "copying a reference video's motion is {motion_per_s} credits per second of the reference (up to {motion_max}). "
      "The AI writing tools charge what the AI actually used. You always see the price before you generate."),
     ("What if a generation fails?", "Your credits come back automatically. You only pay for ads that finish."),
@@ -162,9 +157,8 @@ SOLUTIONS = {
                                           "rather not show a face."),
             ("Image ads and product clips", "Image ads in {image_shapes}; 5 or 10 second clips from one product "
                                             "photo; and your product in a reference video's motion."),
-            ("Prices before you press Generate", "Paid in credits (1 credit = $0.01): an 8-second talking video is "
-                                                 "{talk8} credits ({talk8_usd}) at 720p. Failed generations are "
-                                                 "refunded."),
+            ("Prices before you press Generate", "Paid in credits: an 8-second talking video is {talk8} credits "
+                                                 "at 720p. Failed generations are refunded."),
             ("Compliance checks on every brief", "Income, health, discount and recruiting claims are blocked, and "
                                                  "AI presenters never speak as customers."),
             ("Sizes for every feed", "On Starter and up, export each finished ad at each platform's sizes and get "
@@ -180,8 +174,8 @@ SOLUTIONS = {
              "characters generated with each video, not real people, and they don't pose as customers or describe "
              "personal results."),
             ("How much does an AI UGC video cost?",
-             "Talking videos are paid in credits, 1 credit = $0.01: an 8-second video is {talk8} credits ({talk8_usd}) "
-             "and a 10-second one {talk10} credits ({talk10_usd}) at 720p. New accounts get {sc} free credits, enough "
+             "Talking videos are paid in credits: an 8-second video is {talk8} credits "
+             "and a 10-second one {talk10} credits at 720p. New accounts get {sc} free credits, enough "
              "for {sc_images} image ads. Plans start at ${starter_usd} a month with {starter_credits} credits."),
             ("Can I write my own script?",
              "Yes. AI drafts the spoken lines from your product and the angle you pick, and you can edit or replace "
@@ -216,14 +210,14 @@ SOLUTIONS = {
              "price before you generate."),
             ("Judge it on your own product",
              "Compare the result with what you get elsewhere. Your free credits cover {sc_images} image ads; talking "
-             "videos start at {talk8_usd}."),
+             "videos start at {talk8} credits."),
         ],
         "compare": [
             ("Can it start from my product page?",
              "Yes. Paste the link and it fills in the product from the page; Shopify product pages are recognised. "
              "You can also upload photos."),
             ("Do I see the price before I generate?",
-             "Yes, in credits (1 credit = $0.01), and failed generations are refunded automatically."),
+             "Yes, in credits, and failed generations are refunded automatically."),
             ("Who are the presenters?",
              "{presenters} AI presenters, each drawn from a written description with every video. They're not real "
              "people, so two videos with the same presenter look alike but not identical."),
@@ -288,9 +282,9 @@ SOLUTIONS = {
         "gets": [
             ("Image ads from your photos", "Finished ad images in {image_shapes}. Only the headline, subline and "
                                            "button text you type and your brand name are drawn on the image."),
-            ("Product videos", "5 or 10 second clips that bring one product photo to life, from {video5_usd}."),
+            ("Product videos", "5 or 10 second clips that bring one product photo to life, from {video5} credits."),
             ("UGC-style talking videos", "An AI presenter holds your product and says a script written for it, "
-                                         "from {talk8_usd}."),
+                                         "from {talk8} credits."),
             ("Every product in one place", "Each product keeps its photos, offer, approved claims and audience; "
                                            "Growth and Scale add more brands."),
             ("Copy and a landing page", "On Starter and up: ad copy for each platform's fields and a landing page "
@@ -312,8 +306,8 @@ SOLUTIONS = {
              "They're generated from your product photos, but AI can still get details wrong, such as small label "
              "text. Check every ad before you post it. Failed generations are refunded; finished ones are charged."),
             ("How much does a Shopify product ad cost?",
-             "An image ad is {image} credits ({image_usd}), a 5-second product video {video5_usd} and an 8-second "
-             "talking video {talk8_usd}. New accounts get {sc} free credits; plans start at ${starter_usd} a month."),
+             "An image ad is {image} credits, a 5-second product video {video5} credits and an 8-second "
+             "talking video {talk8} credits. New accounts get {sc} free credits; plans start at ${starter_usd} a month."),
             ("Can it run the ads or sync them to my store?",
              "No. You download the ads and launch them in each ad platform's ads manager. Campaignify doesn't change "
              "your store."),

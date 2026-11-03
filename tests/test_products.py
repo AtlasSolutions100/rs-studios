@@ -588,9 +588,9 @@ big = dict(cfg, items=cfg["items"] + ["Thirty seconds, then back to work."], pre
            aspects=["9:16", "1:1"])
 q = jpost(u, "/app/create/quote", big).get_json()
 keys = [l["key"] for l in q["lines"]]
-check(q["count"] == 12 and q["every"] == 12 and q["total"] == 12 * each and q["usd"] == create_routes.usd(12 * each)
+check(q["count"] == 12 and q["every"] == 12 and q["total"] == 12 * each and "usd" not in q
       and len(set(keys)) == 12 and all(l["on"] for l in q["lines"]) and q["warn"] and q["confirm"],
-      "3 hooks x 2 presenters x 2 shapes = 12 videos, each line keyed, with dollars and the big-batch flags")
+      "3 hooks x 2 presenters x 2 shapes = 12 videos, each line keyed, priced in credits only, with the big-batch flags")
 q10 = jpost(u, "/app/create/quote", dict(big, lines=keys[2:])).get_json()
 check(q10["count"] == 10 and q10["total"] == 10 * each and q10["every"] == 12
       and [l["on"] for l in q10["lines"]][:3] == [False, False, True], "unticking two lines prices 10 videos")

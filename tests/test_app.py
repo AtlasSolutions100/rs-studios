@@ -39,6 +39,15 @@ def check(cond, msg):
     print("  ok ", msg)
 
 
+def stray_dollars(html):
+    """Dollar amounts on a page other than plan and pack prices (and payments of them).
+    What things cost to make is shown in credits only."""
+    import plans
+    ok = {"$0"} | {f"${p['usd']}" for p in plans.PAID} | {f"${p['usd']}" for p in catalog.PACKS}
+    ok |= {f"{a}.00" for a in ok}
+    return [m for m in re.findall(r"\$\s?\d+(?:,\d{3})*(?:\.\d+)?", html) if m not in ok]
+
+
 _ip = [0]
 
 
@@ -139,6 +148,10 @@ for section in ('id="journey"', 'id="gallery"', 'id="reps"', 'id="pricing"', 'id
                 "/privacy", "/terms", "$29", "$79", "$199", "Checkout coming soon"):
     check(section in html, f"landing has {section}")
 check(not re.search(r"higgsfield", html, re.I), "landing never names the vendor")
+check(not stray_dollars(html) and "1 credit =" not in html, f"landing prices ads in credits, not dollars: {stray_dollars(html)}")
+for _pg in ("/pricing", "/features", "/terms", "/llms.txt"):
+    _h = x.get(_pg).get_data(as_text=True)
+    check(not stray_dollars(_h) and "1 credit =" not in _h, f"{_pg}: only plan and pack prices are in dollars: {stray_dollars(_h)}")
 check(not re.search(r"\$\s?\d[\d,]*\s*(a|per)\s*(week|month)|financial freedom|passive income|six figures", html, re.I),
       "landing makes no income or earnings claims")
 check(html.count("previews/") >= 8 and "site/phones.mp4" in html, "gallery shows the example ads")
@@ -671,6 +684,7 @@ check(fp and fp["email_norm"] == "patpreview@gmail.com" and fp["job_id"] == pj["
 html = pv.get(r.headers["Location"]).get_data(as_text=True)
 check("This is your free preview" in html and "Make it for real" in html and "While it renders" in html,
       "the batch page explains the preview and offers the real thing")
+check(re.search(r"Make it for real · [\d,]+ credits<", html) and not stray_dollars(html), "the batch upsell is priced in credits only")
 r = pv.post("/app/start", data={"csrf": csrf(pv), "kind": "preview", "product_name": "Glow Drops", "photo": (png(), "d.png")},
             content_type="multipart/form-data")
 with db.connect() as conn:
@@ -847,6 +861,8 @@ portal_calls = []
 billing.create_portal_session = lambda **kw: portal_calls.append(kw) or "https://billing.stripe.test/portal"
 html = n.get("/app/billing").get_data(as_text=True)
 check("Get Growth" in html and "$99" in html and "Credit packs" in html, "billing page offers the plans and the packs")
+check(not stray_dollars(html) and "1 credit =" not in html,
+      f"billing: the balance and what things cost are in credits; dollars only for plans, packs and payments: {stray_dollars(html)}")
 check(n.post("/app/billing/subscribe", data={"csrf": csrf(n), "plan": "gold"}).status_code == 400, "unknown plan refused")
 r = n.post("/app/billing/subscribe", data={"csrf": csrf(n), "plan": "growth"})
 kw = subs[-1]
@@ -1229,6 +1245,7 @@ html = x.get(f"/app/campaigns/{camp['id']}").get_data(as_text=True)
 for bit in ("Seven a.m. skin", "Your 7am routine is too long.", "Ads to make", "Generate selected ads", "Launch checklist",
             "Install the Meta pixel", "Test three morning angles", "How it was planned", "60%"):
     check(bit in html, f"campaign page shows {bit!r}")
+check(not re.search(r"credits?\W{0,4}\(?\$\d", html), "campaign plan costs are in credits only")
 check(x.get(f"/app/campaigns/{camp['id']}/status").get_json()["status"] == "ready", "status endpoint")
 check(n.get(f"/app/campaigns/{camp['id']}").status_code == 404, "other workspaces can't open the campaign")
 img, vid = cads[0], cads[1]
@@ -1942,6 +1959,8 @@ catalog.TOOLS["video_upscale"] = {"preview": "photo_to_video", "name": "Upscale 
 lib = a.get("/app/library?type=talking").get_data(as_text=True)
 up = catalog.price_credits("video_upscale", duration=10)
 check(f"Upscale · {up}" in lib, "with the upscale model set, an Upscale button shows its price")
+check(f"Upscale this video to 1080p for {up:,} credits?" in lib and not re.search(r"credits?\W{0,4}\(?\$\d", lib),
+      "library retry, 1080p and upscale prices are in credits only")
 r = a.post(f"/app/jobs/{vj}/hd", data={"csrf": csrf(a), "how": "upscale", "total": str(up)}, headers={"Accept": "application/json"})
 with db.connect() as conn:
     uj = conn.execute("SELECT * FROM jobs WHERE id=?", (r.get_json()["job"],)).fetchone()
@@ -1975,6 +1994,7 @@ r = a.get("/presenter/maya.jpg")
 check(r.status_code == 200 and r.mimetype == "image/jpeg" and a.get("/presenter/nobody.jpg").status_code == 404,
       "stills are served to signed-in members")
 html = a.get("/app/create?type=ugc").get_data(as_text=True)
+check("usd(" not in html and "data-total-usd" not in html and "function cr(" in html, "the create flow quotes credits, not dollars")
 check('/presenter/maya.jpg' in html and "Presenter samples" in a.get("/admin").get_data(as_text=True),
       "presenter cards carry the stills; the admin page shows the tool")
 
@@ -2714,8 +2734,10 @@ for raw, want in (("Blocked by the content filter. Try a different brief or phot
                   ("Couldn't start: boom", "Couldn't start: boom. Credits refunded.")):
     check(worker.failure_text(raw) == want, f"failure copy: {want!r}")
 with appmod.app.test_request_context():
-    check(appmod.credits_usd(925) == "$9.25" and appmod.credits_usd(11100) == "$111" and appmod.credits_usd(0) == "$0",
-          "credits_usd shows dollars")
+    check(appmod.credits_text(1250) == "1,250 credits" and appmod.credits_text(1) == "1 credit"
+          and appmod.credits_text(0) == "0 credits", "credits_text shows credits")
+    check("usd" not in appmod.app.jinja_env.filters and "credits_usd" not in appmod.app.jinja_env.globals,
+          "templates have no credits-to-dollars helper: costs show in credits only")
     check(appmod.first_upper("AI angle ideas") == "AI angle ideas" and appmod.first_upper("generation") == "Generation",
           "first_upper keeps acronyms")
     lt = str(appmod.localtime("2026-10-29T05:03:00+00:00"))

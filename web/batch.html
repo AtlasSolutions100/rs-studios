@@ -22,7 +22,7 @@
   <div class="lgrid bgrid" style="margin-top:20px" data-live-cards="batch" data-keyreview>
     {% for j in jobs %}{{ card(j, outs, templates, tools, ctx='batch', verdict=verdicts.get(j.id), price=prices.get(j.id, 0), names=names, eta=eta) }}{% endfor %}
   </div>
-  {% if is_preview %}<div class="panel fa-upsell"><div><b>This is your free preview</b><span class="small muted">480p with a PREVIEW watermark. The real thing is 720p, no watermark, and you can pick the presenter, length and shapes.</span></div><a class="btn" href="{{ url_for('create.index', batch=b.id) }}">Make it for real · {{ '{:,}'.format(full_price) }} credits ({{ credits_usd(full_price) }})</a></div>{% endif %}
+  {% if is_preview %}<div class="panel fa-upsell"><div><b>This is your free preview</b><span class="small muted">480p with a PREVIEW watermark. The real thing is 720p, no watermark, and you can pick the presenter, length and shapes.</span></div><a class="btn" href="{{ url_for('create.index', batch=b.id) }}">Make it for real · {{ full_price|credits }}</a></div>{% endif %}
   {% if first_batch %}
   <div class="panel whilecard">
     <h2>{{ 'While it renders' if running else 'Next steps' }}</h2>
