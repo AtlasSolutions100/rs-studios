@@ -244,21 +244,42 @@ CSRF_EXEMPT = {"static", "stripe_webhook", "forms.public", "messaging.resend_web
 
 @app.before_request
 def load_user():
-    g.user = g.ws = None
+    g.user = g.ws = g.viewing = None
     uid = session.get("uid")
     if uid:
         with db.connect() as conn:
             u = conn.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
             if u:
                 g.user = u
-                g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (u["workspace_id"],)).fetchone()
+                ws_id = u["workspace_id"]
+                # An admin viewing another workspace (/admin "View"): the app shows
+                # that workspace, read-only (see the POST check below).
+                vw = session.get("view_ws")
+                if vw:
+                    other = conn.execute("SELECT * FROM workspaces WHERE id=?", (int(vw),)).fetchone() \
+                        if u["is_admin"] and int(vw) != u["workspace_id"] else None
+                    if other:
+                        ws_id, g.viewing = other["id"], other
+                    else:
+                        session.pop("view_ws", None)
+                g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
                 if g.ws:
                     g.brand_row, g.product_row = products.load_active(conn, g.ws)
-                    g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (u["workspace_id"],)).fetchone()
+                    g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
     if request.method == "POST" and request.endpoint not in CSRF_EXEMPT:
         sent = request.form.get("csrf") or request.headers.get("X-CSRF")
         if not sent or not secrets.compare_digest(sent, session.get("csrf", "")):
             abort(400, "This form expired. Go back, refresh and try again.")
+    if g.viewing and request.method not in ("GET", "HEAD", "OPTIONS") \
+            and request.endpoint not in VIEW_WRITE_OK and not (request.endpoint or "").startswith("admin"):
+        abort(403, f"You're viewing {g.viewing['name']} read-only. Go back to your own workspace to make or "
+                   "change anything.")
+
+
+# What an admin may still POST while viewing another workspace (everything else
+# is read-only there): leaving the view and signing out. /admin* routes act on
+# explicit workspace ids, so they stay open too.
+VIEW_WRITE_OK = {"admin_view_exit", "logout"}
 
 
 @app.after_request
@@ -1755,6 +1776,29 @@ def admin():
                            base=request.host_url, stills=stills, presenters=presenter_stills.with_photos(url_for),
                            stills_cap=presenter_stills.CAP_USD,
                            ai_status=llm.status(), health=sys_health, funnel=funnel)
+
+
+@app.route("/admin/workspaces/<int:wid>/view", methods=["POST"])
+@admin_required
+def admin_view_workspace(wid):
+    """See another workspace as its members do (Library, products, campaigns...),
+    read-only, until Back to my workspace."""
+    with db.connect() as conn:
+        ws = conn.execute("SELECT id, name FROM workspaces WHERE id=?", (wid,)).fetchone()
+    if not ws:
+        abort(404)
+    if ws["id"] == g.user["workspace_id"]:
+        session.pop("view_ws", None)
+    else:
+        session["view_ws"] = ws["id"]
+    return redirect(url_for("library"))
+
+
+@app.route("/admin/view/exit", methods=["POST"])
+@login_required
+def admin_view_exit():
+    session.pop("view_ws", None)
+    return redirect(url_for("admin") if g.user["is_admin"] else url_for("studio"))
 
 
 @app.route("/admin/signups")
