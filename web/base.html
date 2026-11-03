@@ -100,6 +100,7 @@
   </aside>
   <div class="scrim" data-nav-close hidden></div>
   <main class="main" id="main">
+    {% if g.viewing %}<form method="post" action="{{ url_for('admin_view_exit') }}" class="flash warn flash-top viewbar" role="status" style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><span>Viewing <b>#{{ g.viewing.id }} {{ g.viewing.name }}</b> as admin · read-only</span><span class="row" style="gap:8px"><a class="btn sm" href="{{ url_for('admin') }}">All workspaces</a><button class="btn dark sm">Back to my workspace</button></span></form>{% endif %}
     {% set flashes = get_flashed_messages(with_categories=true) %}
     {% set vb = verify_banner if verify_banner is defined else None %}
     {% if vb %}{% set hot = flashes|selectattr(0, 'equalto', 'verify')|list %}

@@ -2960,6 +2960,34 @@ _ks = [_sp.run([_sys.executable, "-c", "import app; print(app.app.secret_key)"],
                         RS_PLAN_SYNC="0"),
                cwd=os.path.dirname(HERE)).stdout.strip() for _ in range(2)]
 check(len(_ks[0]) >= 32 and _ks[0] == _ks[1], "without RS_SECRET_KEY the session key survives a restart (no mass log-out on deploy)")
+print("== admin: view another workspace, read-only")
+with db.connect() as conn:
+    S_WS = conn.execute("SELECT workspace_id FROM users WHERE email='stranger@example.com'").fetchone()[0]
+    a_ws = conn.execute("SELECT workspace_id FROM users WHERE email='koby@example.com'").fetchone()[0]
+    conn.execute("UPDATE workspaces SET name='Zebra Snacks Co' WHERE id=?", (S_WS,))
+    n_before = conn.execute("SELECT COUNT(*) FROM brands WHERE workspace_id=?", (S_WS,)).fetchone()[0]
+    conn.commit()
+adm = a.get("/admin").get_data(as_text=True)
+check(f'/admin/workspaces/{S_WS}/view' in adm, "admin: each workspace has a View button")
+r = a.post(f"/admin/workspaces/{S_WS}/view", data={"csrf": csrf(a)})
+check(r.status_code == 302 and r.headers["Location"].endswith("/app/library"), "View opens that workspace's Library")
+lib = a.get("/app/library")
+html = lib.get_data(as_text=True)
+check(lib.status_code == 200 and "Viewing <b>#%d Zebra Snacks Co</b>" % S_WS in html and "read-only" in html,
+      "the Library shows the viewed workspace with a read-only banner")
+r = a.post("/app/brands", data={"csrf": csrf(a), "name": "Sneaky brand"})
+with db.connect() as conn:
+    n_after = conn.execute("SELECT COUNT(*) FROM brands WHERE workspace_id=?", (S_WS,)).fetchone()[0]
+check(r.status_code == 403 and "read-only" in r.get_data(as_text=True) and n_after == n_before,
+      "viewing is read-only: a change is refused and nothing is written")
+check(a.get("/admin").status_code == 200, "admin pages stay open while viewing")
+r = x.post(f"/admin/workspaces/{a_ws}/view", data={"csrf": csrf(x)})
+check(r.status_code in (302, 403) and "Viewing" not in x.get("/app/library").get_data(as_text=True),
+      "a member can't view other workspaces")
+r = a.post("/admin/view/exit", data={"csrf": csrf(a)})
+check(r.status_code == 302 and "Viewing" not in a.get("/app/library").get_data(as_text=True),
+      "Back to my workspace ends the view")
+
 print(f"\nall {passed} checks passed ({TMP})")
 
 if __name__ == "__main__":
