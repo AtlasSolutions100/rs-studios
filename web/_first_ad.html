@@ -1,11 +1,26 @@
-{# The first-ad form: the only thing on Home until a workspace has made something. #}
+{# The first-ad form: the only thing on Home until a workspace has made something.
+   Paste a product page (the importer fills name, brand and photo), or type the name and upload a photo;
+   pick what to make; press the button. Video kinds confirm the email with a code typed right here. #}
 {% set F = first.form %}
 {% set pv_on = first.preview.ok or first.preview.why == 'verify' %}
-<form method="post" action="{{ url_for('start') }}" enctype="multipart/form-data" class="fa panel" id="fa" data-kind="{{ first.kind }}" data-verify-preview="{{ first.needs.preview or '' }}" data-verify-image="{{ first.needs.image or '' }}" data-needs-verify="{{ first.needs[first.kind if first.kind == 'preview' and pv_on else 'image'] or '' }}">
+{% set kinds = (['video'] if first.video_on else []) + ['image'] + (['preview'] if pv_on else []) %}
+{% set go_text = {'image': ('Make my 2 free ads' if first.free_images else 'Make my ' ~ first.n_images ~ ' image ad' ~ ('s' if first.n_images > 1 else '') ~ ' · ' ~ first.images_price ~ ' credits'),
+                  'video': 'Make my free video ad', 'preview': 'Make my free preview'} %}
+{% set go_note = {'image': 'Failed generations are refunded automatically.', 'video': 'Included in your free credits. Failed generations are refunded automatically.', 'preview': 'Free. Nothing is charged.'} %}
+<form method="post" action="{{ url_for('start') }}" enctype="multipart/form-data" class="fa panel" id="fa" data-kind="{{ first.kind }}" data-verify-preview="{{ first.needs.preview or '' }}" data-verify-image="{{ first.needs.image or '' }}" data-verify-video="{{ first.needs.video or '' }}" data-go-text='{{ go_text|tojson|forceescape }}' data-go-note='{{ go_note|tojson|forceescape }}' data-import-url="{{ url_for('start_import') }}" data-first-run>
   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
   <p class="eyebrow" style="margin:0 0 6px">Your first ad</p>
-  <h2 class="fa-title">See your product in an ad in a few minutes</h2>
-  <p class="muted" style="margin:0 0 18px">Add its name and one clear photo. Your product is saved under Products as you go.</p>
+  <h2 class="fa-title">{% if first.video_on %}Your free video ad is ready to make{% elif first.free_images %}Make your 2 free ads{% else %}See your product in an ad in a few minutes{% endif %}</h2>
+  <p class="muted" style="margin:0 0 18px">Paste your product's page and we read the name, brand and photo. Or type the name and add one photo. Your product is saved under Products as you go.</p>
+
+  <div class="fa-import">
+    <label for="purl">Paste your product page</label>
+    <div class="row fa-import-row">
+      <input id="purl" type="url" name="product_url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://yourstore.com/products/sunrise-blend" value="{{ F.get('product_url') or '' }}">
+      <button type="button" class="btn dark" data-import>Read it</button>
+    </div>
+    <p class="small muted" data-import-status style="margin:6px 0 0">Free. Works with Shopify, WooCommerce and most store pages. No page? Type the name below.</p>
+  </div>
 
   <div class="fa-grid">
     <div>
@@ -21,21 +36,28 @@
         <span id="droptxt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg><b>Upload a photo</b><span class="small dim">The real product, label unedited. JPG, PNG or WebP.</span></span>
       </label>
       <input id="photo" class="sr" type="file" name="photo" accept="image/jpeg,image/png,image/webp">
-      {% if first.photos %}<p class="small muted" style="margin:10px 0 6px">Or use one you've added:</p>
-      <div class="photos">{% for p in first.photos %}<label class="photo"><input type="radio" name="photo_id" value="{{ p.id }}" {{ 'checked' if loop.first }}><img src="{{ url_for('photo', pid=p.id) }}" alt="{{ p.filename }}"></label>{% endfor %}</div>{% endif %}
+      <p class="small muted" data-photos-note style="margin:10px 0 6px" {{ '' if first.photos else 'hidden' }}>Or use one you've added:</p>
+      <div class="photos" data-photos>{% for p in first.photos %}<label class="photo"><input type="radio" name="photo_id" value="{{ p.id }}" {{ 'checked' if loop.first }}><img src="{{ url_for('photo', pid=p.id) }}" alt="{{ p.filename }}"></label>{% endfor %}</div>
     </div>
   </div>
 
-  <fieldset class="fa-kinds">
+  <fieldset class="fa-kinds {{ 'three' if kinds|length == 3 }}">
     <legend>What to make</legend>
-    {% if pv_on %}
+    {% for k in kinds %}
+    {% if k == 'video' %}
+    <label class="fa-kind"><input type="radio" name="kind" value="video" {{ 'checked' if first.kind == 'video' }}>
+      <span class="thumb"><img src="{{ url_for('static', filename='previews/photo_to_video.jpg') }}" alt="" loading="lazy"><span class="chip video">Video</span></span>
+      <span><b>Your free video ad <em class="tag ok">included</em></b><span class="small muted">A 5-second product video from your photo, 720p. {{ first.video_price }} of your {{ '{:,}'.format(first.bal) }} free credits.</span></span></label>
+    {% elif k == 'image' %}
+    <label class="fa-kind"><input type="radio" name="kind" value="image" {{ 'checked' if first.kind == 'image' }}>
+      <span class="thumb"><img src="{{ url_for('static', filename='previews/ad_image.jpg') }}" alt="" loading="lazy"></span>
+      <span><b>{{ '2 image ads' if first.n_images > 1 else 'Image ad' }} <em class="tag {{ 'ok' if first.free_images }}">{{ 'free' if first.free_images else first.images_price ~ ' credits' }}</em></b><span class="small muted">{{ 'Two finished ad images' if first.n_images > 1 else 'A finished ad image' }} with a headline, from a template. Ready in about a minute. You have {{ '{:,}'.format(first.bal) }} credits.</span></span></label>
+    {% else %}
     <label class="fa-kind"><input type="radio" name="kind" value="preview" {{ 'checked' if first.kind == 'preview' }}>
       <span class="thumb"><img src="{{ url_for('static', filename='site/ugc-coffee.jpg') }}" alt="" loading="lazy"><span class="chip motion">Speaks</span></span>
-      <span><b>Talking video preview <em class="tag ok">Free, once</em></b><span class="small muted">A presenter holds your product and says one line. {{ first.seconds }} seconds, 480p, with a PREVIEW watermark, so you can see it before you pay.</span></span></label>
+      <span><b>Talking video preview <em class="tag {{ 'ok' if not first.needs.preview }}">{{ 'after you confirm your email' if first.needs.preview else 'Free, once' }}</em></b><span class="small muted">A presenter holds your product and says one line. {{ first.seconds }} seconds, 480p, with a PREVIEW watermark, so you can see it before you pay.</span></span></label>
     {% endif %}
-    <label class="fa-kind"><input type="radio" name="kind" value="image" {{ 'checked' if first.kind == 'image' or not pv_on }}>
-      <span class="thumb"><img src="{{ url_for('static', filename='previews/ad_image.jpg') }}" alt="" loading="lazy"></span>
-      <span><b>Image ad <em class="tag">{{ first.price }} credits</em></b><span class="small muted">A finished ad image with a headline, from a template. You have {{ '{:,}'.format(balance()) }} credits.</span></span></label>
+    {% endfor %}
   </fieldset>
 
   {% if pv_on %}
@@ -47,6 +69,15 @@
     <div class="fa-pres" role="radiogroup" aria-label="Presenter">
       {% for p in first.presenters %}<label class="choice"><input type="radio" name="presenter" value="{{ p.id }}" {{ 'checked' if (F.get('presenter') or first.presenters[0].id) == p.id }}>{% if p.photo %}<img class="fa-ava" src="{{ p.photo }}" alt="">{% endif %}{{ p.name }} <span class="cf-chipp">{{ p.vibe }}</span></label>{% endfor %}
     </div>
+  </div>
+  {% endif %}
+  {% if first.video_on %}
+  <div class="fa-opt" data-for="video">
+    <details class="fa-more" {{ 'open' if F.get('scene') }}><summary>Edit the scene</summary>
+      <label for="scene">What happens in the 5 seconds</label>
+      <textarea id="scene" name="scene" maxlength="600" data-default="{{ first.scene }}" placeholder="{{ first.scene|replace('{product}', 'your product') }}">{{ F.get('scene') or '' }}</textarea>
+      <p class="small muted" style="margin:6px 0 0">Leave it empty for a slow turn of the product in soft daylight. Checked against the rules.</p>
+    </details>
   </div>
   {% endif %}
   <div class="fa-opt" data-for="image">
@@ -67,45 +98,142 @@
     </details>
   </div>
 
+  {# The confirm-your-email box, inline: shows when the chosen kind waits for a confirmed email (any video). #}
+  <div class="fa-verify" data-vinline hidden>
+    <b data-vtitle>Confirm your email to make video ads</b>
+    <p class="small muted" data-vmsg style="margin:4px 0 10px">We're emailing a 6-digit code to {{ first.verify_email }}.</p>
+    <div class="row fa-verify-row">
+      <label for="fa-code" class="sr">6-digit code</label>
+      <input id="fa-code" class="vcode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" placeholder="123456">
+      <button type="button" class="btn" data-vok>Confirm</button>
+      <button type="button" class="linkbtn small" data-vresend>Resend code</button>
+    </div>
+    <p class="small" data-verr role="alert" style="margin:8px 0 0" hidden></p>
+    <p class="small muted" data-vstart style="margin:8px 0 0">Your video starts the moment you paste the code.</p>
+  </div>
+
   <div class="fa-go">
-    <button class="btn lg" data-go>{{ 'Make my free preview' if first.kind == 'preview' and pv_on else 'Make my first ad · ' ~ first.price ~ ' credits' }}</button>
-    <span class="small muted" data-go-note>{{ 'Free. Nothing is charged.' if first.kind == 'preview' and pv_on else 'Failed generations are refunded automatically.' }}{% if first.needs[first.kind if first.kind == 'preview' and pv_on else 'image'] %} You'll confirm your email first, with a code we send you.{% endif %}</span>
+    <button class="btn lg" data-go>{{ go_text[first.kind] }}</button>
+    <span class="small muted" data-go-note>{{ go_note[first.kind] }}{% if first.needs[first.kind] %} Confirm your email first, with the code we sent you.{% endif %}</span>
   </div>
   <p class="small muted" style="margin:16px 0 0">No income, health or results claims; AI presenters never speak as customers.{% if assistant_on() %} Prefer a guided chat? <a href="{{ url_for('assistant.page') }}">Open the setup guide</a>.{% endif %}</p>
 </form>
+{% set vb = verify_banner if verify_banner is defined else None %}
+{% if vb %}{% set flashes = get_flashed_messages(with_categories=true) %}{% set hot = flashes|selectattr(0, 'in', ['verify', 'verify-cap'])|list %}
+<div class="fa-banner">{% include "_verify_banner.html" %}</div>{% endif %}
 <script>
 (function(){
   var form = document.getElementById('fa'); if(!form) return;
-  var brief = document.getElementById('brief'), pn = document.getElementById('pn'), bn = document.getElementById('bn'), line = document.getElementById('line');
-  var price = {{ first.price|tojson }}, max = {{ first.max_words|tojson }};
+  var brief = document.getElementById('brief'), pn = document.getElementById('pn'), bn = document.getElementById('bn'), line = document.getElementById('line'), scene = document.getElementById('scene');
+  var goText = JSON.parse(form.dataset.goText), goNote = JSON.parse(form.dataset.goNote), max = {{ first.max_words|tojson }};
+  var ev = function(name, detail){ if(window.cfyEvent) window.cfyEvent(name, detail); };
   var edited = brief.value.trim() !== '';
   brief.addEventListener('input', function(){ edited = true; });
   function name(){ return pn.value.trim(); }
   function fill(){
     if(!edited){ var t = form.querySelector('input[name=template]:checked');
       if(t) brief.value = t.dataset.brief.replace(/\b([Tt]he|[Yy]our) \{product\}/g, function(m, w){ return w + ' ' + (name() || 'product'); }).split('{product}').join(name() || 'your product').split('{brand}').join(bn.value.trim()); }
+    if(scene) scene.placeholder = scene.dataset.default.split('{product}').join(name() || 'your product');
     if(line){ var said = line.value.trim() || line.dataset.default.split('{product}').join(name() || 'your product');
       line.placeholder = line.dataset.default.split('{product}').join(name() || 'your product');
       var n = said.split(/\s+/).filter(Boolean).length, w = form.querySelector('[data-words]');
       w.textContent = (line.value.trim() ? '' : 'Leave it empty to use the line above. ') + n + ' words' + (n > max ? ': too long for ' + {{ first.seconds|tojson }} + ' seconds.' : '.');
       w.classList.toggle('warnc', n > max); }
   }
+  function kindNow(){ return (form.querySelector('input[name=kind]:checked') || {}).value || 'image'; }
+  function needs(){ var k = kindNow(); return window.CFY_VERIFY ? (form.dataset['verify' + k.charAt(0).toUpperCase() + k.slice(1)] || '') : ''; }
   function kind(){
-    var k = (form.querySelector('input[name=kind]:checked') || {}).value || 'image';
+    var k = kindNow();
     form.dataset.kind = k;
     form.querySelectorAll('.fa-opt').forEach(function(o){ o.hidden = o.dataset.for !== k; });
-    form.querySelector('[data-go]').textContent = k === 'preview' ? 'Make my free preview' : 'Make my first ad · ' + price + ' credits';
-    // A video (the preview), or an image ad past the unconfirmed allowance, opens the confirm-your-email box first (app.js).
-    form.dataset.needsVerify = (k === 'preview' ? form.dataset.verifyPreview : form.dataset.verifyImage) || '';
-    form.querySelector('[data-go-note]').textContent = (k === 'preview' ? 'Free. Nothing is charged.' : 'Failed generations are refunded automatically.') +
-      (form.dataset.needsVerify && window.CFY_VERIFY ? ' You\'ll confirm your email first, with a code we send you.' : '');
+    form.querySelector('[data-go]').textContent = goText[k];
+    // Videos wait for a confirmed email: the code box opens right here, under the choice (not a wall before the form).
+    var need = needs();
+    form.dataset.needsVerify = '';   // this form handles the code itself (below), not app.js's pop-up
+    form.querySelector('[data-go-note]').textContent = goNote[k] + (need ? ' Confirm your email first, with the code we sent you.' : '');
+    vshow(need, k);
   }
-  form.addEventListener('change', function(e){ if(e.target.name === 'kind') kind(); if(e.target.name === 'template'){ edited = false; fill(); } });
+  // ---- inline confirm-your-email box
+  var vbox = form.querySelector('[data-vinline]'), vinp = document.getElementById('fa-code'), verr = form.querySelector('[data-verr]'),
+      vmsg = form.querySelector('[data-vmsg]'), vok = form.querySelector('[data-vok]'), vagain = form.querySelector('[data-vresend]'), vopened = false;
+  function vpost(url, body){ var V = window.CFY_VERIFY;
+    return fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF': V.csrf}, body: JSON.stringify(body || {})})
+      .then(function(r){ return r.json().catch(function(){ return {error: 'Something went wrong. Try again.'}; }); }); }
+  function vsay(t, bad){ verr.hidden = !t; verr.textContent = t || ''; verr.classList.toggle('warnc', !!bad); }
+  function vshow(need, k){
+    var V = window.CFY_VERIFY;
+    vbox.hidden = !(need && V);
+    if(vbox.hidden) return;
+    form.querySelector('[data-vtitle]').textContent = need === 'cap' ? 'Confirm your email to keep making ads' : 'Confirm your email to make video ads';
+    form.querySelector('[data-vstart]').textContent = k === 'image' ? 'Your ads start the moment you paste the code.' : 'Your video starts the moment you paste the code.';
+    if(!vopened){ vopened = true; ev('verify_box_opened', k);
+      vpost(V.send, {auto: true}).then(function(r){ if(r.verified){ vdone(); return; } if(r.message) vmsg.textContent = r.message; if(r.error) vsay(r.error, true); }).catch(function(){}); }
+  }
+  function vdone(){
+    window.CFY_VERIFY = null; vbox.hidden = true;
+    var bn_ = document.querySelector('[data-verify-banner]'); if(bn_) bn_.remove();
+    form.querySelector('[data-go-note]').textContent = goNote[kindNow()];
+    if(form.checkValidity() && hasPhoto()){ if(form.requestSubmit) form.requestSubmit(form.querySelector('[data-go]')); else form.submit(); }
+    else { vsay(''); pn.focus(); }
+  }
+  function vcheck(){
+    var code = vinp.value.replace(/\D/g, '');
+    if(code.length !== 6){ vsay('Enter the 6-digit code from the email.', true); vinp.focus(); return; }
+    vok.disabled = true; vok.textContent = 'Checking…';
+    vpost(window.CFY_VERIFY.check, {code: code}).then(function(r){
+      vok.disabled = false; vok.textContent = 'Confirm';
+      if(r.ok){ vdone(); return; }
+      vsay(r.error || 'That didn\'t work. Try again.', true); vinp.select();
+    }).catch(function(){ vok.disabled = false; vok.textContent = 'Confirm'; vsay('Something went wrong. Try again.', true); });
+  }
+  vok.addEventListener('click', vcheck);
+  vinp.addEventListener('input', function(){ if(vinp.value.replace(/\D/g, '').length === 6 && window.CFY_VERIFY) vcheck(); });
+  vinp.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); vcheck(); } });
+  vagain.addEventListener('click', function(){ vagain.disabled = true;
+    vpost(window.CFY_VERIFY.send, {}).then(function(r){ vagain.disabled = false; if(r.verified){ vdone(); return; }
+      if(r.ok){ vmsg.textContent = r.message; vsay(''); vinp.value = ''; vinp.focus(); } else vsay(r.error, true); })
+      .catch(function(){ vagain.disabled = false; }); });
+  // ---- the product page importer
+  var purl = document.getElementById('purl'), imp = form.querySelector('[data-import]'), istat = form.querySelector('[data-import-status]');
+  function addPhoto(p){
+    var box = form.querySelector('[data-photos]'), note = form.querySelector('[data-photos-note]');
+    box.querySelectorAll('input[name=photo_id]').forEach(function(r){ r.checked = false; });
+    var l = document.createElement('label'); l.className = 'photo';
+    l.innerHTML = '<input type="radio" name="photo_id" checked><img alt="">';
+    l.querySelector('input').value = p.id; l.querySelector('img').src = p.url; l.querySelector('img').alt = p.name || '';
+    box.insertBefore(l, box.firstChild); note.hidden = false;
+    var f = document.getElementById('photo'); f.value = ''; var im = document.getElementById('dropimg'); im.src = p.url; im.hidden = false; document.getElementById('droptxt').hidden = true;
+  }
+  function doImport(){
+    var u = purl.value.trim(); if(!u){ purl.focus(); return; }
+    imp.disabled = true; imp.textContent = 'Reading…'; istat.textContent = 'Reading the page. This takes a few seconds.'; istat.classList.remove('warnc');
+    fetch(form.dataset.importUrl, {method: 'POST', headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF': form.querySelector('input[name=csrf]').value}, body: JSON.stringify({url: u})})
+      .then(function(r){ return r.json().catch(function(){ return {error: 'Something went wrong. Type the name and upload a photo instead.'}; }); })
+      .then(function(r){
+        imp.disabled = false; imp.textContent = 'Read it';
+        if(!r.ok){ istat.textContent = r.error || 'Couldn\'t read that page. Type the name and upload a photo instead.'; istat.classList.add('warnc'); pn.focus(); return; }
+        if(r.name && !pn.value.trim()) pn.value = r.name; else if(r.name) pn.value = r.name;
+        if(r.brand && !bn.value.trim()) bn.value = r.brand;
+        if(r.photo) addPhoto(r.photo);
+        edited = false; fill();
+        istat.textContent = 'Got it: ' + (r.name || 'the product') + (r.photo ? ', with its photo.' : '. No usable photo on the page: upload one.') + ' Check the name, then press the button.';
+        ev('first_run_imported', r.photo ? 'photo' : 'nophoto');
+      }).catch(function(){ imp.disabled = false; imp.textContent = 'Read it'; istat.textContent = 'Couldn\'t reach the page. Type the name and upload a photo instead.'; istat.classList.add('warnc'); });
+  }
+  imp.addEventListener('click', doImport);
+  purl.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); doImport(); } });
+  // ---- the rest of the form
+  form.addEventListener('change', function(e){ if(e.target.name === 'kind'){ kind(); ev('first_run_kind_chosen', e.target.value); } if(e.target.name === 'template'){ edited = false; fill(); } });
   pn.addEventListener('input', fill); bn.addEventListener('input', fill); if(line) line.addEventListener('input', fill);
   var f = document.getElementById('photo'), img = document.getElementById('dropimg'), txt = document.getElementById('droptxt');
+  function hasPhoto(){ return !!(f.files && f.files[0]) || !!form.querySelector('input[name=photo_id]:checked'); }
   f.addEventListener('change', function(){ if(!f.files[0]) return; img.src = URL.createObjectURL(f.files[0]); img.hidden = false; txt.hidden = true;
     form.querySelectorAll('input[name=photo_id]').forEach(function(r){ r.checked = false; }); });
-  form.addEventListener('submit', function(e){ if(e.defaultPrevented) return; var b = form.querySelector('[data-go]'); setTimeout(function(){ b.disabled = true; b.textContent = 'Starting…'; }, 0); });
-  kind(); fill();
+  form.addEventListener('submit', function(e){
+    if(e.defaultPrevented) return;
+    if(needs()){ e.preventDefault(); vbox.hidden = false; vinp.focus(); vsay('Paste the code from the email first; your ' + (kindNow() === 'image' ? 'ads' : 'video') + ' start' + (kindNow() === 'image' ? '' : 's') + ' right after.', true); return; }
+    var b = form.querySelector('[data-go]'); setTimeout(function(){ b.disabled = true; b.textContent = 'Starting…'; }, 0);
+  });
+  kind(); fill(); ev('first_run_viewed', kindNow());
 })();
 </script>

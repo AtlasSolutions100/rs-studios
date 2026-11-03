@@ -30,6 +30,11 @@ Events, in funnel order (FUNNEL):
     signup_view  browser: the sign-up page rendered (GET /signup, not invite links)
     signup       server: a new workspace created by a free sign-up (app.signup; not invites or owner links)
     first_ad     server: the workspace's first generation queued (core.queue_job), once per workspace
+    first_run_viewed, first_run_kind_chosen, first_run_imported, verify_box_opened, first_output_viewed
+                 browser, logged in: the first-ad form shown; a kind picked on it (detail = image | video |
+                 preview); a product page read into it; the confirm-email code box opened; the first finished
+                 ad shown on Home
+    verify_completed  server: the sign-up's email confirmed (code box, link or the nudge email's magic link), once
     checkout     server: a Stripe Checkout Session created for a plan or a credit pack
     paid         server: from the Stripe webhook, a credit pack paid (once per purchase) or a plan's
                  first invoice paid (billing_reason subscription_create, once per invoice)
@@ -72,8 +77,16 @@ import pixels
 
 log = logging.getLogger("campaignify")
 
-CLIENT_EVENTS = ("lp_view", "cta_click", "signup_view")
-SERVER_EVENTS = ("signup", "first_ad", "checkout", "paid")
+CLIENT_EVENTS = ("lp_view", "cta_click", "signup_view",
+                 # the first run, from the app (logged in; app.js cfyEvent): the first-ad form shown, a kind picked
+                 # (detail = image / video / preview), the confirm-email code box opened, the first finished ad seen
+                 "first_run_viewed", "first_run_kind_chosen", "first_run_imported", "verify_box_opened",
+                 "first_output_viewed")
+SERVER_EVENTS = ("signup", "first_ad", "checkout", "paid",
+                 "verify_completed")   # the email confirmed (code, link or magic link), once per workspace
+# Client events that carry a detail label.
+DETAIL_EVENTS = {"cta_click", "first_run_viewed", "first_run_kind_chosen", "first_run_imported", "verify_box_opened",
+                 "first_output_viewed"}
 EVENTS = CLIENT_EVENTS + SERVER_EVENTS
 FUNNEL = [("lp_view", "Landing visitors"), ("cta_click", "CTA clicks"), ("signup_view", "Sign-up page"),
           ("signup", "Sign-ups"), ("first_ad", "First ad"), ("checkout", "Checkouts"), ("paid", "Paid")]
@@ -260,7 +273,7 @@ def _workspace_attr(conn, workspace_id: int, req) -> tuple[str | None, dict]:
 def on_workspace_step(conn, name: str, workspace_id: int, req=None, detail=None, path=None,
                       once: bool = False) -> int | None:
     """first_ad / checkout / paid for a workspace. `once`: skip when this workspace already has one."""
-    if name not in ("first_ad", "checkout", "paid") or not workspace_id:
+    if name not in ("first_ad", "checkout", "paid", "verify_completed") or not workspace_id:
         return None
     try:
         if once and conn.execute("SELECT 1 FROM site_events WHERE workspace_id=? AND name=?",
@@ -363,9 +376,14 @@ def handle(req, user=None):
     if ref and ref == (req.host or "").split(":")[0].lower():
         ref = None
     touch = gads.parse_cookie(req.cookies.get(gads.COOKIE)) or (user["first_touch"] if user is not None else None)
-    detail = d.get("detail") if name == "cta_click" else None
+    detail = d.get("detail") if name in DETAIL_EVENTS else None
+    ws_id = user["workspace_id"] if user is not None and "workspace_id" in user.keys() else None
     with db.connect() as conn:
-        record(conn, name, vid=vid, path=d.get("path"), attr=attribution(conn, vid, touch, ref), detail=detail)
+        if ws_id:   # a member's event: credited to the workspace's sign-up source, like the server-side steps
+            vid, attr = _workspace_attr(conn, ws_id, req)
+        else:
+            attr = attribution(conn, vid, touch, ref)
+        record(conn, name, vid=vid, path=d.get("path"), attr=attr, detail=detail, workspace_id=ws_id)
     return ("", 204)
 
 

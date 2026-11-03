@@ -165,7 +165,17 @@ def confirm(conn, secret: str, token: str, max_age: int | None = None) -> tuple[
                        (db.now(), user["id"], data["n"]))
     if cur.rowcount != 1:
         return "used", user
+    completed(conn, user, "/verify")
     return "ok", user
+
+
+def completed(conn, user, path: str = "/app"):
+    """The funnel's verify_completed step (site_events), once per workspace. Never raises."""
+    try:
+        import site_events
+        site_events.on_workspace_step(conn, "verify_completed", user["workspace_id"], detail=None, path=path, once=True)
+    except Exception:  # noqa: BLE001
+        log.warning("verify_completed not recorded for user %s", user["id"])
 
 
 # ---------------------------------------------------------------- codes
@@ -216,6 +226,7 @@ def check_code(conn, secret: str, user, code: str) -> tuple[str, int]:
     conn.execute("UPDATE users SET email_verified_at=?, verify_nonce=NULL, verify_code_hash=NULL, verify_code_exp=NULL, "
                  "verify_code_tries=0 WHERE id=? AND email_verified_at IS NULL", (db.now(), user["id"]))
     conn.commit()
+    completed(conn, user)
     return "ok", left
 
 
@@ -268,7 +279,7 @@ def send_link(conn, secret: str, user) -> bool:
             '<p style="font-size:13px;color:#555">The link works for 48 hours. If you didn\'t sign up for '
             "Campaignify, ignore this email and nothing happens.</p></div>")
     try:
-        mailer.send(frm=from_address(), to=user["email"], subject=f"{code} is your Campaignify code",
+        mailer.send(frm=from_address(), to=user["email"], subject=f"Your Campaignify code: {code}",
                     html=html, text=text, reply_to=reply_to(), tags={"kind": "verify_email"})
         return True
     except mailer.MailError as e:

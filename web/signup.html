@@ -1,4 +1,15 @@
 {% extends "auth_base.html" %}{% block title %}Create your account · Campaignify{% endblock %}
+{% block auth_class %}{{ ' wide' if not owner and not invite }}{% endblock %}
+{% block auth_aside %}{% if not owner and not invite %}
+<aside class="auth-next" aria-labelledby="next-h">
+  <p class="eyebrow" id="next-h">What happens next</p>
+  <ol>
+    <li><b>Paste your product page</b> or add a photo. We read the name, brand and photo for you.</li>
+    <li><b>Pick a template.</b> The brief is written for you; edit it if you like.</li>
+    <li><b>Your ad is ready in about a minute.</b> Every price is shown in credits before you press the button.</li>
+  </ol>
+  <p class="small muted" style="margin:14px 0 0">No card. Nothing to cancel. Costs are in credits only; the free credits never expire.</p>
+</aside>{% endif %}{% endblock %}
 {% block auth %}
   {% set r = rates() %}{% set so = signup_offer() %}{% set sc = so.credits %}
   {% if owner %}

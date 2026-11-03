@@ -408,6 +408,9 @@ CREATE TABLE IF NOT EXISTS ad_signup_grants (
     id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL UNIQUE, email_norm TEXT NOT NULL UNIQUE,
     ip_hash TEXT, credits INTEGER NOT NULL, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_ad_grants_ip ON ad_signup_grants(ip_hash, created_at);
+-- "Your free ads are waiting" emails to sign-ups with no job yet (nudges.py): one row per step sent.
+CREATE TABLE IF NOT EXISTS first_run_nudges (
+    user_id INTEGER NOT NULL, step INTEGER NOT NULL, sent_at TEXT NOT NULL, PRIMARY KEY (user_id, step));
 CREATE TABLE IF NOT EXISTS c_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, title TEXT NOT NULL, starts_at TEXT NOT NULL,
     tz TEXT, duration_min INTEGER NOT NULL DEFAULT 60, link TEXT, about TEXT, created_at TEXT NOT NULL);

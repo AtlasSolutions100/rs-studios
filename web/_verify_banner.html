@@ -1,0 +1,7 @@
+{# The confirm-your-email banner (verify.py): Enter code and Resend. Needs vb (verify_banner) and hot in scope. #}
+<div class="vbanner {{ 'hot' if hot }}" role="{{ 'alert' if hot else 'status' }}" data-verify-banner>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 7l8.5 6 8.5-6"/></svg>
+  <p>{{ hot[0][1] if hot else vb.message }}</p>
+  <button type="button" class="btn sm" data-verify-open hidden>Enter code</button>
+  <form method="post" action="{{ url_for('verify_resend') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ request.full_path if request.full_path.startswith('/app') else '' }}"><button class="btn sm dark">Resend</button></form>
+</div>

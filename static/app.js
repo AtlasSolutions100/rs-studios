@@ -110,7 +110,16 @@
     });
   }, true);
   // A video that was refused on the server (no script at the time) opens the box on the next page.
-  function vauto(){ var V = window.CFY_VERIFY; if(V && V.auto) window.cfyVerify(V.auto).then(function(yes){ if(yes) vdone('Email confirmed. Press the button again to start.'); }); }
+  function vauto(){ var V = window.CFY_VERIFY; if(V && V.auto && !V.inline) window.cfyVerify(V.auto).then(function(yes){ if(yes) vdone('Email confirmed. Press the button again to start.'); }); }
+
+  // ---- first-party funnel events from the app (site_events.py CLIENT_EVENTS; the server drops anything else)
+  window.cfyEvent = function(name, detail){
+    try {
+      var b = JSON.stringify({name: name, path: location.pathname, detail: detail || null});
+      if(navigator.sendBeacon && navigator.sendBeacon('/e', new Blob([b], {type: 'text/plain'}))) return;
+      fetch('/e', {method: 'POST', headers: {'Content-Type': 'text/plain'}, body: b, keepalive: true, credentials: 'same-origin'}).catch(function(){});
+    } catch(e) {}
+  };
 
   // ---- themed confirm
   var dlg = null;

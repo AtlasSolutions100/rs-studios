@@ -35,6 +35,7 @@ import creator
 import db
 import gads
 import hf
+import nudges
 import plans
 import presenter_stills
 import preview
@@ -763,6 +764,21 @@ def verify_email():
     return redirect(url_for("studio") if g.user else url_for("login"))
 
 
+@app.route("/m")
+def magic_login():
+    """The link in a first-run nudge email (nudges.py): logs that account in and
+    opens Home, the first-ad form. Reaching the inbox confirms the address too."""
+    with db.connect() as conn:
+        u = nudges.open_link(conn, app.secret_key, request.args.get("t") or "")
+    if u is None:
+        flash("That link has expired. Log in with your email and password.")
+        return redirect(url_for("login"))
+    session.clear()
+    session["uid"] = u["id"]
+    csrf_token()
+    return redirect(url_for("studio"))
+
+
 def _resend_wait():
     """Why a confirmation email can't go out right now (once a minute, three an
     hour per account, ten an hour per network), or None after recording the send."""
@@ -879,37 +895,139 @@ def _studio_page(form=None, status=200):
                   "motion_copy": catalog.price_credits("motion_copy", ref_seconds=5)}
     bal = db.balance(g.ws)
     types = sorted(catalog.ad_types(), key=lambda t: from_price[t["tool"]] > bal)  # what they can afford first
-    first, pv_ok = None, False
+    first, pv_ok, made = None, False, None
     with db.connect() as conn:
         if not recent or request.args.get("preview") or form:
             first = _first_ad_context(conn, form or ({"kind": "preview"} if request.args.get("preview") else {}))
             pv_ok = first["preview"]["ok"]
         else:
             pv_ok = preview.status(conn, g.ws, g.user["email"], g.user)["ok"]
+            made = _made_context(conn, batches, request.args.get("made", type=int))
     return render_template("studio.html", templates=catalog.templates_for(brand()), templates_by_id=catalog.TEMPLATE_BY_ID,
                            recent=recent, outs=outs, photos=photos, brand=brand(), configured=hf.configured(),
                            first_run=not recent or bool(first), ad_types=types, preview_ok=pv_ok, angles=angles, batches=batches,
                            nprod=nprod, pphotos=pphotos, from_price=from_price, ad_type_names=catalog.AD_TYPE_BY_ID,
-                           bal=bal, first=first, preview_seconds=preview.SECONDS), status
+                           bal=bal, first=first, preview_seconds=preview.SECONDS, made=made,
+                           verify_banner_below=bool(first)), status
+
+
+def _made_context(conn, batches, made_id):
+    """The first batch, rendering on Home right after the first-run form (or
+    while the workspace's only batch is still busy): its jobs as live cards, the
+    time it usually takes, and whether the first finished ad is on the page."""
+    import jobs_routes
+    b = None
+    if made_id:
+        b = conn.execute("SELECT * FROM batches WHERE id=? AND workspace_id=?", (made_id, g.ws["id"])).fetchone()
+    elif len(batches) == 1 and batches[0]["busy"]:
+        b = batches[0]
+    if b is None:
+        return None
+    jobs = conn.execute("SELECT * FROM jobs WHERE batch_id=? AND workspace_id=? AND deleted_at IS NULL ORDER BY id",
+                        (b["id"], g.ws["id"])).fetchall()
+    if not jobs:
+        return None
+    first_batch = conn.execute("SELECT COUNT(*) FROM batches WHERE workspace_id=? AND id<?",
+                               (g.ws["id"], b["id"])).fetchone()[0] == 0
+    cfg = json.loads(b["config_json"] or "{}")
+    return {"batch": b, "jobs": jobs, "outs": _outputs(conn, [j["id"] for j in jobs]),
+            "running": [j for j in jobs if j["status"] in ("pending", "running")],
+            "done": [j for j in jobs if j["status"] == "done"], "eta": jobs_routes.eta_minutes(conn),
+            "verdicts": jobs_routes.verdicts(conn, [j["id"] for j in jobs]), "first_batch": first_batch,
+            "is_video": cfg.get("type") != "image", "video_unlock": verify.needs(conn, g.ws, g.user, "photo_to_video"),
+            "full_price": catalog.price_credits("ugc_video", duration=preview.SECONDS) if cfg.get("type") == "ugc" else 0}
 
 
 def _first_ad_context(conn, form):
-    """What the first-ad form needs: templates, the free preview's status, photos already added."""
+    """What the first-ad form needs: templates, photos already added, the kinds on
+    offer and which one is picked first.
+
+    Everyone starts on image ads (2 at once when the free credits cover them: the
+    first thing people should see is the form, not a confirm-your-email wall).
+    Ad-grant accounts (adoffer.py, 500 credits) are offered the 5-second product
+    video first, since the grant covers it. The free talking-video preview stays
+    as a later choice, "after you confirm your email"."""
     pv = preview.status(conn, g.ws, g.user["email"], g.user)
     photos = conn.execute("SELECT * FROM photos WHERE workspace_id=? ORDER BY id DESC LIMIT 12",
                           (g.ws["id"],)).fetchall()
-    kind = form.get("kind") or ("preview" if pv["ok"] or pv["why"] == "verify" else "image")
-    tpls = catalog.first_run_templates(brand())
+    ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone() or g.ws
+    bal = db.balance(ws)
     price = catalog.price_credits("ad_image", batch=1)
-    # Which choice opens the confirm-your-email box first: the preview (a video), and
-    # an image ad only once the unconfirmed allowance is used up.
-    needs = {"preview": verify.needs(conn, g.ws, g.user, "ugc_video"),
-             "image": verify.needs(conn, g.ws, g.user, "ad_image", price)}
+    two = catalog.price_credits("ad_image", batch=2)
+    n_images = 2 if bal >= two else 1
+    images_price = two if n_images == 2 else price
+    video_price = catalog.price_credits("photo_to_video", duration=5)
+    grant = conn.execute("SELECT 1 FROM ad_signup_grants WHERE workspace_id=?", (g.ws["id"],)).fetchone() is not None
+    video_on = grant and bal >= video_price
+    kind = form.get("kind") if form.get("kind") in ("image", "video", "preview") else ("video" if video_on else "image")
+    if kind == "video" and not video_on:
+        kind = "image"
+    tpls = catalog.first_run_templates(brand())
+    # Which choice opens the confirm-your-email box first: any video, and an image ad only once the
+    # unconfirmed allowance is used up.
+    needs = {"preview": verify.needs(conn, ws, g.user, "ugc_video"),
+             "image": verify.needs(conn, ws, g.user, "ad_image", images_price),
+             "video": verify.needs(conn, ws, g.user, "photo_to_video", video_price)}
     return {"tpls": tpls, "photos": photos, "form": form, "preview": pv, "kind": kind, "needs": needs,
-            "price": catalog.price_credits("ad_image", batch=1), "presenters": [p for p in presenter_stills.with_photos(url_for) if p["id"] in preview.PRESENTERS],
+            "price": price, "n_images": n_images, "images_price": images_price, "video_on": video_on,
+            "video_price": video_price, "grant": grant, "bal": bal,
+            "free_images": n_images == 2 and bal <= catalog.starter_credits(),   # the 2 free ads of a plain sign-up
+            "presenters": [p for p in presenter_stills.with_photos(url_for) if p["id"] in preview.PRESENTERS],
             "line": form.get("line") or "", "default_line": preview.DEFAULT_LINE, "pick": form.get("template") or
-            tpls[0]["id"], "seconds": preview.SECONDS,
-            "max_words": int(catalog.max_words(preview.SECONDS) * 1.2)}
+            tpls[0]["id"], "seconds": preview.SECONDS, "scene": FIRST_VIDEO_SCENE,
+            "max_words": int(catalog.max_words(preview.SECONDS) * 1.2), "verify_email": g.user["email"],
+            "import_quote": 0}
+
+
+FIRST_VIDEO_SCENE = ("A slow, smooth turn of {product} on a clean surface in soft daylight, the label readable, "
+                     "nothing else in frame.")
+
+
+@app.route("/app/start/import", methods=["POST"])
+@login_required
+def start_import():
+    """The first-run form's "Paste your product page" (JSON {"url"}): the same
+    importer as Products > Import from a link (product_routes.import_url), without
+    the AI read, so it costs nothing and the free credits stay for the ads. Makes
+    the product, downloads its first photo, and answers with what the form
+    pre-fills: name, brand, the photo, a description for the brief."""
+    import fetcher
+    import product_import
+    import product_routes
+    url = str((request.get_json(silent=True) or {}).get("url") or request.form.get("url") or "").strip()[:500]
+    if not url:
+        return jsonify({"error": "Paste the link to your product's page."}), 400
+    if not url.lower().startswith(("http://", "https://")):
+        url = "https://" + url
+    key = f"import:{g.ws['id']}"
+    if db.throttled(key, product_routes.IMPORTS_PER_HOUR, 3600):
+        return jsonify({"error": "That's a lot of imports this hour. Add the name and a photo by hand."}), 429
+    db.hit(key)
+    with db.connect() as conn:
+        try:
+            pid, facts, _ = product_routes.import_url(conn, url, g.ws["brand_id"], use_ai=False)
+            products.activate(conn, g.ws, product_id=pid)
+        except product_import.Blocked:
+            return jsonify({"error": "That store doesn't let apps read its pages. Type the name and upload a photo "
+                                     "instead; it takes 30 seconds.", "manual": True}), 422
+        except fetcher.FetchError as e:
+            return jsonify({"error": f"Couldn't read that page: {e} Type the name and upload a photo instead.",
+                            "manual": True}), 422
+        except products.ProductError as e:
+            return jsonify({"error": str(e), "manual": True}), 422
+        p = products.get_product(conn, g.ws["id"], pid)
+        imp = products.import_info(p)
+        photo = None
+        if imp.get("images"):
+            product_routes.add_candidate_photos(conn, g.ws["id"], p, imp["images"][:1])
+            row = conn.execute("SELECT id, filename FROM photos WHERE product_id=? ORDER BY id DESC LIMIT 1",
+                               (pid,)).fetchone()
+            if row:
+                photo = {"id": row["id"], "url": url_for("photo", pid=row["id"]), "name": row["filename"] or ""}
+        b = products.get_brand(conn, g.ws["id"], p["brand_id"])
+    return jsonify({"ok": True, "product_id": pid, "name": p["name"] or "", "brand": (b["brand_name"] if b else "") or "",
+                    "description": (p["description"] or "")[:300] if "description" in p.keys() else "",
+                    "photo": photo, "photos": len(imp.get("images") or [])})
 
 
 def _outputs(conn, job_ids):
@@ -988,14 +1106,16 @@ def generate():
 @app.route("/app/start", methods=["GET", "POST"])
 @login_required
 def start():
-    """The first-ad form lives on Home now; this takes its POST. Product name,
-    brand (optional) and one photo, then either the free talking-video preview
-    or an image ad from a template. Fills the product as a side effect and
-    opens the batch page, which shows what to do while it renders."""
+    """The first-ad form lives on Home; this takes its POST. Product name, brand
+    (optional) and one photo (uploaded, or the one the page import found), then
+    one of: image ads from a template (2 at once when the free credits cover
+    them), the 5-second product video (ad-grant accounts), or the free
+    talking-video preview. Fills the product as a side effect and goes back to
+    Home, which shows the ads rendering."""
     if request.method == "GET":
         return redirect(url_for("studio"))
     f = request.form
-    kind = "preview" if f.get("kind") == "preview" else "image"
+    kind = f.get("kind") if f.get("kind") in ("image", "video", "preview") else "image"
     product = (f.get("product_name") or "").strip()[:80]
     brand_name = (f.get("brand_name") or "").strip()[:80]
     audience = (f.get("audience") or "").strip()[:200]
@@ -1006,9 +1126,15 @@ def start():
         flash(msg)
         return _studio_page(f, 400)
 
-    with db.connect() as conn:   # video (the preview) waits for a confirmed email; image ads don't
-        blocked = core_verify_block(conn, "ugc_video" if kind == "preview" else "ad_image",
-                                    0 if kind == "preview" else catalog.price_credits("ad_image", batch=1))
+    with db.connect() as conn:
+        ctx = _first_ad_context(conn, f)
+    if kind == "video" and not ctx["video_on"]:
+        return again("The free video ad isn't on this account. Make image ads instead.")
+    n_images = ctx["n_images"]
+    img_price = ctx["images_price"]
+    tool = {"image": "ad_image", "video": "photo_to_video", "preview": "ugc_video"}[kind]
+    with db.connect() as conn:   # videos wait for a confirmed email; image ads don't
+        blocked = core_verify_block(conn, tool, {"image": img_price, "video": ctx["video_price"], "preview": 0}[kind])
     if blocked:
         flash(blocked, "verify-cap" if g.get("verify_reason") == "cap" else "verify")
         return _studio_page(f, 403)
@@ -1025,6 +1151,13 @@ def start():
         check = compliance.check(line, product, brand_name, audience)
         if not check["ok"] or creator.CUSTOMER_VOICE in check["warnings"]:
             return again(" ".join(check["blocks"] or [creator.CUSTOMER_VOICE]))
+    elif kind == "video":
+        scene = " ".join((f.get("scene") or "").split())[:600] or catalog.fill(FIRST_VIDEO_SCENE, b)
+        if "{product}" in scene or "{brand}" in scene:
+            scene = catalog.fill(scene, b)
+        check = compliance.check(scene, product, brand_name, audience)
+        if not check["ok"]:
+            return again(" ".join(check["blocks"]))
     else:
         if not tpl:
             return again("Pick a template.")
@@ -1068,10 +1201,14 @@ def start():
             cfg = {"type": "ugc", "product": pid, "angle": {"title": "First look"}, "items": [line], "body": "",
                    "presenters": [presenter], "duration": preview.SECONDS, "aspects": ["9:16"], "photos": [photo_id]}
             title = "Your free preview"
+        elif kind == "video":
+            cfg = {"type": "product_video", "product": pid, "angle": {"title": "First look"}, "items": [scene],
+                   "duration": 5, "photos": [photo_id]}
+            title = "Your free video ad"
         else:
             cfg = {"type": "image", "product": pid, "angle": {"title": tpl["name"]}, "items": [], "body": brief,
-                   "aspects": [tpl.get("aspect") or "9:16"], "versions": 1, "photos": [photo_id]}
-            title = "Your first ad"
+                   "aspects": [tpl.get("aspect") or "9:16"], "versions": n_images, "photos": [photo_id]}
+            title = "Your first ads" if n_images > 1 else "Your first ad"
         bid = conn.execute("INSERT INTO batches (workspace_id, user_id, product_id, ad_type, title, config_json, credits, "
                            "created_at) VALUES (?,?,?,?,?,?,?,?)",
                            (g.ws["id"], g.user["id"], pid, cfg["type"], title, json.dumps(cfg), 0, db.now())).lastrowid
@@ -1089,13 +1226,21 @@ def start():
             if jid:
                 conn.execute("UPDATE ledger SET reason='free talking-video preview' WHERE job_id=?", (jid,))
             conn.commit()
-        else:
-            params = {"photo_ids": [photo_id], "batch": 1, "aspect": tpl.get("aspect") or "9:16",
-                      "audience": audience or tpl.get("audience") or "", "niche": "", "label": tpl["name"]}
-            jid = _queue_job(conn, "ad_image", tpl["id"], brief, params, catalog.cost_usd("ad_image", batch=1),
-                             catalog.price_credits("ad_image", batch=1), product_id=pid, batch_id=bid)
+        elif kind == "video":
+            params = {"photo_ids": [photo_id], "duration": 5, "audio": False, "resolution": catalog.DEFAULT_RESOLUTION,
+                      "label": "5s · your free video ad", "hook": scene[:200]}
+            jid = _queue_job(conn, "photo_to_video", None, scene, params, catalog.cost_usd("photo_to_video", duration=5),
+                             ctx["video_price"], product_id=pid, batch_id=bid)
             if jid:
-                conn.execute("UPDATE batches SET credits=? WHERE id=?", (catalog.price_credits("ad_image", batch=1), bid))
+                conn.execute("UPDATE batches SET credits=? WHERE id=?", (ctx["video_price"], bid))
+                conn.commit()
+        else:
+            params = {"photo_ids": [photo_id], "batch": n_images, "aspect": tpl.get("aspect") or "9:16",
+                      "audience": audience or tpl.get("audience") or "", "niche": "", "label": tpl["name"]}
+            jid = _queue_job(conn, "ad_image", tpl["id"], brief, params, catalog.cost_usd("ad_image", batch=n_images),
+                             img_price, product_id=pid, batch_id=bid)
+            if jid:
+                conn.execute("UPDATE batches SET credits=? WHERE id=?", (img_price, bid))
                 conn.commit()
         if not jid:
             conn.execute("DELETE FROM batches WHERE id=?", (bid,))
@@ -1105,7 +1250,8 @@ def start():
             return redirect(url_for("billing_page"))
     for w in check["warnings"]:
         flash("Heads up: " + w)
-    return redirect(url_for("create.batch", bid=bid, first=1))
+    # Back to Home, which shows the ads rendering (and, unconfirmed, the confirm-your-email box under them).
+    return redirect(url_for("studio", made=bid))
 
 
 LIB_TYPES = {"image": ("ad_image",), "video": ("photo_to_video", "motion_copy"), "talking": ("ugc_video",)}
@@ -1829,6 +1975,7 @@ def _start_plan_sync():
 
 
 _start_plan_sync()
+nudges.start(app)
 
 
 # ---------------------------------------------------------------- admin

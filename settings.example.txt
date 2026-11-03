@@ -29,6 +29,11 @@ RS_MAIL_DOMAIN=mail.campaignify.ai
 # RS_UNVERIFIED_CREDITS=250
 # RS_ACCOUNT_MAIL_FROM="Campaignify" <no-reply@mail.campaignify.ai>
 # RS_ACCOUNT_MAIL_REPLY_TO=hello@campaignify.ai
+# First-run nudges (nudges.py): a sign-up with no ad yet gets "Your 2 free ads are waiting" (ad-grant
+# accounts: "Your free video ad is waiting") 10 minutes after signing up and again a day later, with a
+# magic link to /app (72 hours, logs in and confirms the email). Same From as the account emails.
+# FIRST_RUN_NUDGES=0 switches them off.
+# FIRST_RUN_NUDGES=1
 # Admin outreach emails (/admin/outreach) come from "Koby Stull" <hello@RS_MAIL_DOMAIN> unless set;
 # replies go to hello@ the From's domain.
 # RS_OUTREACH_FROM="Koby Stull" <hello@campaignify.ai>

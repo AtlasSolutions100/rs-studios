@@ -194,9 +194,9 @@ check(sws["credits"] == STARTER and len(sled) == 1 and sled[0]["reason"] == "sta
       "new workspace gets the starter credits")
 r = x.get("/")
 check(r.status_code == 302 and r.headers["Location"].endswith("/app"), "logged in: / goes to the studio")
-check(x.get("/app").status_code == 200 and b"See your product in an ad" in x.get("/app").data
+check(x.get("/app").status_code == 200 and b"Make your 2 free ads" in x.get("/app").data and b"Paste your product page" in x.get("/app").data
       and b"Start a new ad" not in x.get("/app").data and b'name="name"' not in x.get("/signup").data,
-      "Home is just the first-ad form for a new account; signup has no name field")
+      "Home is just the first-ad form for a new account (paste a page, or name + photo); signup has no name field")
 r = x.post("/signup", data={"csrf": csrf(x), "email": "stranger@example.com", "password": "longpassword"})
 check(r.status_code == 302, "signup while logged in just goes to the studio")
 rl = client(ip="10.9.9.9")
@@ -381,8 +381,11 @@ check("data-verify-banner" in home and "Image ads work now. Video ads need a con
       and '"check": "/app/verify/code"' in home and '"send": "/app/verify/code/send"' in home,
       "Home's banner says only video ads wait for the email, with Enter code and Resend")
 check('value="preview"' in home and 'data-verify-preview="video"' in home and 'data-verify-image=""' in home
-      and not re.search(r"data-go\s+disabled", home) and "with a code we send you" in home,
-      "the first-ad form keeps the free preview (it opens the code box first) and image ads aren't held back")
+      and not re.search(r"data-go\s+disabled", home) and 'value="image" checked' in home and 'value="preview" checked' not in home
+      and "after you confirm your email" in home and "data-vinline" in home
+      and home.index("data-verify-banner") > home.index('action="/app/start"'),
+      "unconfirmed: the form starts on image ads, keeps the preview as 'after you confirm your email' with the code box "
+      "inline, and the banner sits under the form")
 with db.connect() as conn:
     check(preview.status(conn, vws, vu["email"], vu)["why"] == "verify", "preview status says: confirm the email first")
     check(preview.status(conn, vws, vu["email"])["ok"], "(without the member, the old per-workspace answer is unchanged)")
@@ -427,8 +430,11 @@ r = vc.post("/app/start", data={"csrf": csrf(vc), "kind": "image", "product_name
 with db.connect() as conn:
     vjobs = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (vws["id"],)).fetchone()[0]
     vbal = conn.execute("SELECT credits FROM workspaces WHERE id=?", (vws["id"],)).fetchone()[0]
-check(r.status_code == 302 and "/app/create/batch/" in r.headers["Location"] and vjobs == 1 and vbal == STARTER - 22,
-      "unconfirmed: an image ad goes straight through on the starter credits")
+check(r.status_code == 302 and "/app?made=" in r.headers["Location"] and vjobs == 1 and vbal == STARTER - 43,
+      "unconfirmed: the 2 free image ads go straight through on the starter credits, back to Home")
+vhome = vc.get(r.headers["Location"]).get_data(as_text=True)
+check("data-made" in vhome and "Making 1 of 1" in vhome and "Confirm your email to unlock video ads" in vhome
+      and 'data-live-cards="batch"' in vhome, "Home shows the ads rendering with the unlock-video box under them")
 check(verify.unverified_credits() == 250, "unconfirmed accounts may spend up to 250 credits on non-video by default")
 os.environ["RS_UNVERIFIED_CREDITS"] = "22"
 vimg = {"type": "image", "product": vpid, "angle": {"title": "Desk"}, "items": [], "body": "Tea on a sunny desk",
@@ -513,7 +519,8 @@ r = vc.post("/app/generate", data={"csrf": csrf(vc), "tool": "ad_image", "brief"
 with db.connect() as conn:
     vjobs = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (vws["id"],)).fetchone()[0]
     vbal = conn.execute("SELECT credits FROM workspaces WHERE id=?", (vws["id"],)).fetchone()[0]
-check(vjobs == 2 and vbal == STARTER - 44, "confirmed: the rest of the starter credits work too")
+check(r.status_code == 302 and vjobs == 1 and vbal == STARTER - 43,
+      "confirmed: the 2 free ads used the starter credits; a third waits for a pack (nothing charged)")
 # Paying workspaces never wait for the email.
 pc = client()
 pc.post("/signup", data={"csrf": csrf(pc), "email": "packbuyer@example.com", "password": "longpassword"})
@@ -619,7 +626,8 @@ confirm_email("rep@example.com")
 r = n.get("/app/start")
 check(r.status_code == 302 and r.headers["Location"].endswith("/app"), "the old first-ad URL opens Home")
 r = n.get("/app")
-check(r.status_code == 200 and b"Product hero" in r.data and b"Make my first ad" in r.data, "first-ad form renders on Home")
+check(r.status_code == 200 and b"Product hero" in r.data and b"Make my 2 free ads" in r.data and b"data-import" in r.data,
+      "first-ad form renders on Home: templates, the 2 free ads button, the page importer")
 r = n.post("/app/start", data={"csrf": csrf(n), "product_name": "GlowSerum", "template": "hero",
                                "brief": "Make $500 a week with GlowSerum", "photo": (png(), "serum.png")},
            content_type="multipart/form-data")
@@ -631,24 +639,27 @@ check(r.status_code == 400 and "income" in r.get_data(as_text=True) and njobs ==
 r = n.post("/app/start", data={"csrf": csrf(n), "product_name": "GlowSerum", "brand_name": "Glow Co", "template": "hero",
                                "brief": "", "audience": "Women 30-50", "photo": (png(), "serum.png")},
            content_type="multipart/form-data")
-check(r.status_code == 302 and "/app/create/batch/" in r.headers["Location"], "first ad queued from one form; opens its batch")
+check(r.status_code == 302 and "/app?made=" in r.headers["Location"], "first ads queued from one form; back to Home, rendering")
 html = n.get(r.headers["Location"]).get_data(as_text=True)
-check("While it renders" in html and "Write the caption" in html and "landing page" in html,
-      "the first batch shows what to do while it renders")
+check("While it renders" in html and "Making 1 of 1" in html and "about a minute" in html and "Approve what's on the label" in html
+      and "data-verify-unlock" not in html, "Home shows the batch rendering and what to do meanwhile (confirmed: no unlock box)")
+bhtml = n.get(f"/app/create/batch/{r.headers['Location'].rsplit('=', 1)[1]}").get_data(as_text=True)
+check("While it renders" in bhtml and "Write the caption" in bhtml and "landing page" in bhtml,
+      "the batch page still shows what to do while it renders")
 with db.connect() as conn:
     nws = conn.execute("SELECT * FROM workspaces WHERE id=?", (nws["id"],)).fetchone()
     nj = conn.execute("SELECT * FROM jobs WHERE workspace_id=?", (nws["id"],)).fetchone()
     nph = conn.execute("SELECT COUNT(*) FROM photos WHERE workspace_id=?", (nws["id"],)).fetchone()[0]
 check(nws["product_name"] == "GlowSerum" and nws["brand_name"] == "Glow Co" and nws["audience"] == "Women 30-50" and nph == 1,
       "brand kit filled as a side effect (name, brand, audience, photo)")
-check(nj["tool"] == "ad_image" and nj["template_id"] == "hero" and "GlowSerum" in nj["brief"] and nj["credits"] == 22,
-      "first ad is a 22-credit image ad with the product in the brief")
-check(nws["credits"] == STARTER - 22, "starter credits cover it (one more image ad left)")
+check(nj["tool"] == "ad_image" and nj["template_id"] == "hero" and "GlowSerum" in nj["brief"] and nj["credits"] == 43
+      and json.loads(nj["params_json"])["batch"] == 2, "the first ads are one 43-credit job for 2 image ads with the product in the brief")
+check(nws["credits"] == STARTER - 43, "the starter credits cover both")
 worker.tick()
 model, inputs = calls["submit"][-1]
 check(model == "higgsfield/ads-studio/v1.0" and "GlowSerum" in inputs["prompt"] and inputs["aspect_ratio"] == "4:5",
       "first ad submitted with the template's shape")
-check(b"See your product in an ad" not in n.get("/app").data, "first-ad form goes away after the first ad")
+check(b"data-first-run" not in n.get("/app").data, "first-ad form goes away after the first ad")
 
 print("== free talking-video preview (phase 2, D2)")
 import shutil as _sh  # noqa: E402
@@ -668,7 +679,7 @@ r = pv.post("/app/start", data={"csrf": csrf(pv), "kind": "preview", "product_na
 check(r.status_code == 400 and "8-second" in r.get_data(as_text=True), "a line too long for 8 seconds is refused")
 r = pv.post("/app/start", data={"csrf": csrf(pv), "kind": "preview", "product_name": "Glow Drops", "brand_name": "Glow Co",
                                 "line": "", "presenter": "jordan", "photo": (png(), "drops.png")}, content_type="multipart/form-data")
-check(r.status_code == 302 and "/app/create/batch/" in r.headers["Location"], "the preview starts and opens its batch page")
+check(r.status_code == 302 and "/app?made=" in r.headers["Location"], "the preview starts; Home shows it rendering")
 with db.connect() as conn:
     pws = conn.execute("SELECT w.* FROM workspaces w JOIN users u ON u.workspace_id=w.id WHERE u.email='pat.preview+ads@gmail.com'").fetchone()
     pj = conn.execute("SELECT * FROM jobs WHERE workspace_id=?", (pws["id"],)).fetchone()
@@ -683,7 +694,7 @@ check(fp and fp["email_norm"] == "patpreview@gmail.com" and fp["job_id"] == pj["
       and "preview" in pled[0]["reason"], "the preview is recorded against the workspace and the normalised email")
 html = pv.get(r.headers["Location"]).get_data(as_text=True)
 check("This is your free preview" in html and "Make it for real" in html and "While it renders" in html,
-      "the batch page explains the preview and offers the real thing")
+      "Home explains the preview and offers the real thing")
 check(re.search(r"Make it for real · [\d,]+ credits<", html) and not stray_dollars(html), "the batch upsell is priced in credits only")
 r = pv.post("/app/start", data={"csrf": csrf(pv), "kind": "preview", "product_name": "Glow Drops", "photo": (png(), "d.png")},
             content_type="multipart/form-data")
@@ -3131,3 +3142,5 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_vendor_price.py")], check=True)
     # "Import from a link": structured data first, stores that refuse apps, the by-hand form (HTTP faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_import.py")], check=True)
+    # The first run: sign-up to first ad (page import, 2 free ads, the free video ad, events, nudge emails).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_first_run.py")], check=True)
