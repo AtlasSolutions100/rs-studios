@@ -21,9 +21,12 @@ STRIPE_WEBHOOK_SECRET=whsec_xxx
 RESEND_API_KEY=re_xxx
 RESEND_WEBHOOK_SECRET=whsec_xxx
 RS_MAIL_DOMAIN=mail.campaignify.ai
-# New free accounts confirm their email before spending the starter credits or the free preview
-# (paid plans and pack buyers never wait). The link is sent from no-reply@RS_MAIL_DOMAIN unless set;
+# New free accounts make image ads (and copy, pages...) right away; any video, including the free
+# preview, waits until they confirm their email with the link or the 6-digit code in the signup email
+# (paid plans and pack buyers never wait). Unconfirmed accounts can spend up to RS_UNVERIFIED_CREDITS
+# (default 250) on generations. The email is sent from no-reply@RS_MAIL_DOMAIN unless set;
 # replies go to hello@campaignify.ai. RS_EMAIL_VERIFY=0 switches the check off.
+# RS_UNVERIFIED_CREDITS=250
 # RS_ACCOUNT_MAIL_FROM="Campaignify" <no-reply@mail.campaignify.ai>
 # RS_ACCOUNT_MAIL_REPLY_TO=hello@campaignify.ai
 # Admin outreach emails (/admin/outreach) come from "Koby Stull" <hello@RS_MAIL_DOMAIN> unless set;

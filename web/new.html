@@ -2,7 +2,7 @@
 {% block body %}
 <div class="page full">
 <p style="margin:0 0 14px"><a href="{{ url_for('studio') }}">← All templates</a></p>
-<form method="post" action="{{ url_for('generate') }}" class="create">
+<form method="post" action="{{ url_for('generate') }}" class="create" {% if t.kind != 'image' %}data-needs-verify="video"{% endif %}>
   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
   <input type="hidden" name="tool" value="{{ tool }}">
   {% if tpl %}<input type="hidden" name="template" value="{{ tpl.id }}">{% endif %}

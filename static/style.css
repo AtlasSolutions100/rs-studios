@@ -932,6 +932,9 @@ dialog.cdlg::backdrop{background:rgba(0,0,0,.55)}
 .cdlg-d{margin:0 0 4px}
 .cdlg-go{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;flex-wrap:wrap}
 .btn.danger{background:var(--bad);color:#fff;box-shadow:none}
+.vdlg .vcode{width:100%;font:600 26px/1.2 var(--body);letter-spacing:.35em;text-align:center;padding:12px 10px}
+.vdlg .linkbtn{font-size:inherit;padding:0}
+.vbanner [data-verify-open]{flex:none}
 time[data-local]{white-space:nowrap}
 
 /* ---------------------------------------------------------------- Create: running total, line picks, phone bar */
@@ -1150,7 +1153,7 @@ input[type=datetime-local],input[type=time],input[type=tel],input[type=url],inpu
 .vbanner p{flex:1;min-width:0;margin:0;font-size:14px;line-height:1.45;overflow-wrap:anywhere}
 .vbanner form{flex:none;margin:0}
 .vbanner.hot{border-color:var(--amber);background:rgba(248,193,62,.16);box-shadow:0 0 0 3px rgba(248,193,62,.18)}
-@media (max-width:720px){.vbanner{margin:14px 16px 0;flex-wrap:wrap}.vbanner p{flex-basis:calc(100% - 34px)}.vbanner form{margin-left:32px}}
+@media (max-width:720px){.vbanner{margin:14px 16px 0;flex-wrap:wrap}.vbanner p{flex-basis:calc(100% - 34px)}.vbanner form,.vbanner [data-verify-open]{margin-left:32px}.vbanner [data-verify-open]:not([hidden])+form{margin-left:0}}
 .fa-verify{margin:0 0 16px}
 
 /* ---- public site: footer columns, pricing and the answer-first pages (web/solution.html) */

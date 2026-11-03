@@ -26,6 +26,92 @@
   }
   window.cfyLocalTimes = localTimes;
 
+  // ---- confirm your email (window.CFY_VERIFY is set only while it's needed, web/base.html)
+  // cfyVerify(reason) opens a small box: we email a 6-digit code (unless the last one still
+  // works), they type it, and it resolves true once the email is confirmed. Forms marked
+  // data-needs-verify="video|cap" open it before submitting, then submit as they were.
+  var vdlg = null;
+  function vpost(url, body){
+    var V = window.CFY_VERIFY;
+    return fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF': V.csrf},
+      body: JSON.stringify(body || {})}).then(function(r){ return r.json().catch(function(){ return {error: 'Something went wrong. Try again.'}; }); });
+  }
+  function vbuild(){
+    vdlg = document.createElement('dialog'); vdlg.className = 'cdlg vdlg'; vdlg.setAttribute('aria-labelledby', 'vdlg-t');
+    vdlg.innerHTML = '<form data-vform novalidate><p id="vdlg-t" class="cdlg-t"></p><p class="small muted" data-vmsg style="margin:0 0 14px"></p>' +
+      '<label for="vdlg-code" class="sr">6-digit code</label><input id="vdlg-code" class="vcode" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" placeholder="123456">' +
+      '<p class="small" data-verr role="alert" style="margin:8px 0 0" hidden></p>' +
+      '<p class="small muted" style="margin:12px 0 0">No email? Check spam, or <button type="button" class="linkbtn" data-vresend>Resend code</button></p>' +
+      '<div class="cdlg-go"><button class="btn dark" type="button" data-vcancel>Not now</button><button class="btn" type="submit" data-vok>Confirm</button></div></form>';
+    document.body.appendChild(vdlg);
+  }
+  window.cfyVerify = function(reason){
+    var V = window.CFY_VERIFY;
+    if(!V) return Promise.resolve(true);
+    if(!window.HTMLDialogElement || !window.fetch){ return Promise.resolve(false); }
+    if(!vdlg) vbuild();
+    if(vdlg.open) return Promise.resolve(false);
+    var form = vdlg.querySelector('[data-vform]'), inp = vdlg.querySelector('.vcode'), err = vdlg.querySelector('[data-verr]'),
+        msg = vdlg.querySelector('[data-vmsg]'), ok = vdlg.querySelector('[data-vok]'), again = vdlg.querySelector('[data-vresend]');
+    vdlg.querySelector('.cdlg-t').textContent = reason === 'cap' ? 'Confirm your email to keep making ads' : 'Confirm your email to make video ads';
+    msg.textContent = 'We\'re emailing a 6-digit code to ' + V.email + '.';
+    inp.value = ''; err.hidden = true; ok.disabled = false; ok.textContent = 'Confirm';
+    function say(t, bad){ err.hidden = !t; err.textContent = t || ''; err.classList.toggle('warnc', !!bad); }
+    vpost(V.send, {auto: true}).then(function(r){
+      if(r.verified){ finish(true); return; }
+      if(r.message) msg.textContent = r.message;
+      if(r.error) say(r.error, true);
+    }).catch(function(){});
+    var done = false, resolveFn;
+    function finish(yes){
+      if(done) return; done = true;
+      if(yes){ window.CFY_VERIFY = null; var bn = document.querySelector('[data-verify-banner]'); if(bn) bn.remove(); }
+      if(vdlg.open) vdlg.close();
+      resolveFn(yes);
+    }
+    form.onsubmit = function(e){
+      e.preventDefault(); var code = inp.value.replace(/\D/g, '');
+      if(code.length !== 6){ say('Enter the 6-digit code from the email.', true); inp.focus(); return; }
+      ok.disabled = true; ok.textContent = 'Checking…';
+      vpost(V.check, {code: code}).then(function(r){
+        ok.disabled = false; ok.textContent = 'Confirm';
+        if(r.ok){ finish(true); return; }
+        say(r.error || 'That didn\'t work. Try again.', true); inp.select();
+      }).catch(function(){ ok.disabled = false; ok.textContent = 'Confirm'; say('Something went wrong. Try again.', true); });
+    };
+    again.onclick = function(){
+      again.disabled = true;
+      vpost(V.send, {}).then(function(r){ again.disabled = false; if(r.verified){ finish(true); return; }
+        if(r.ok){ msg.textContent = r.message; say(''); inp.value = ''; inp.focus(); } else say(r.error, true); })
+        .catch(function(){ again.disabled = false; });
+    };
+    vdlg.querySelector('[data-vcancel]').onclick = function(){ finish(false); };
+    vdlg.onclose = function(){ finish(false); };
+    return new Promise(function(resolve){ resolveFn = resolve; vdlg.showModal(); inp.focus(); });
+  };
+  document.addEventListener('click', function(e){
+    if(!e.target.closest('[data-verify-open]')) return;
+    window.cfyVerify('video').then(function(yes){ if(yes) vdone('Email confirmed. Video ads are unlocked.'); });
+  });
+  function vdone(text){
+    var m = document.querySelector('main') || document.body, d = document.createElement('div');
+    d.className = 'flash flash-top'; d.dataset.cat = 'ok'; d.setAttribute('role', 'status'); d.innerHTML = '<span></span>';
+    d.firstChild.textContent = text; m.insertBefore(d, m.firstChild); flashes();
+  }
+  // Runs before the data-confirm hook below, so a video form asks for the code first and its usual question after.
+  document.addEventListener('submit', function(e){
+    var f = e.target, need = f.dataset && f.dataset.needsVerify;
+    if(!need || !window.CFY_VERIFY || !window.HTMLDialogElement) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    var sub = e.submitter;
+    window.cfyVerify(need).then(function(yes){
+      if(!yes) return;
+      if(f.requestSubmit){ f.requestSubmit(sub || undefined); } else f.submit();
+    });
+  }, true);
+  // A video that was refused on the server (no script at the time) opens the box on the next page.
+  function vauto(){ var V = window.CFY_VERIFY; if(V && V.auto) window.cfyVerify(V.auto).then(function(yes){ if(yes) vdone('Email confirmed. Press the button again to start.'); }); }
+
   // ---- themed confirm
   var dlg = null;
   function build(){
@@ -162,6 +248,6 @@
     }).catch(function(){ location.href = a.href; });
   });
 
-  function ready(){ localTimes(); flashes(); players(); liveCards(); }
+  function ready(){ localTimes(); flashes(); players(); liveCards(); [].forEach.call(document.querySelectorAll('[data-verify-open]'), function(b){ b.hidden = !window.CFY_VERIFY; }); vauto(); }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready); else ready();
 })();

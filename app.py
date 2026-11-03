@@ -230,11 +230,15 @@ def _nav():
 
 @app.context_processor
 def _verify_banner():
-    """Free accounts that haven't confirmed their email see a banner with Resend."""
+    """Free accounts that haven't confirmed their email see a banner with Enter
+    code and Resend; the page also gets what the confirm box needs (app.js)."""
     if g.get("user") is not None and g.get("ws") is not None and request.endpoint not in (None, "static"):
         with db.connect() as conn:
             if verify.blocked(conn, g.ws, g.user):
-                return {"verify_banner": {"email": g.user["email"], "message": verify.message(g.user["email"])}}
+                return {"verify_banner": {"email": g.user["email"], "message": verify.message(g.user["email"]),
+                                          "box": {"email": g.user["email"], "csrf": csrf_token(),
+                                                  "send": url_for("verify_code_send"),
+                                                  "check": url_for("verify_code_check")}}}
     return {}
 
 
@@ -730,8 +734,8 @@ def verify_email():
         conn.commit()
     mine = bool(g.user and u is not None and g.user["id"] == u["id"])
     if outcome == "ok":
-        flash("Email confirmed. Your free credits are ready to use." if mine else
-              "That email is confirmed." if g.user else "Email confirmed. Log in to use your free credits.", "ok")
+        flash("Email confirmed. Video ads are unlocked." if mine else
+              "That email is confirmed." if g.user else "Email confirmed. Log in to make your ads.", "ok")
     elif outcome == "already":
         flash("Your email is already confirmed.", "ok")
     elif outcome == "expired":
@@ -743,29 +747,82 @@ def verify_email():
     return redirect(url_for("studio") if g.user else url_for("login"))
 
 
+def _resend_wait():
+    """Why a confirmation email can't go out right now (once a minute, three an
+    hour per account, ten an hour per network), or None after recording the send."""
+    key, ipkey = f"verify:{g.user['id']}", f"verify-ip:{client_ip()}"
+    if db.throttled(key, 1, verify.RESEND_GAP_S):
+        return "We just sent one. Give it a minute, and check your spam folder."
+    if db.throttled(key, verify.RESEND_PER_HOUR, 3600) or db.throttled(ipkey, verify.RESEND_PER_IP_HOUR, 3600):
+        return "We've sent a few links already. Check your spam folder, or try again in an hour."
+    db.hit(key)
+    db.hit(ipkey)
+    return None
+
+
 @app.route("/app/verify/resend", methods=["POST"])
 @login_required
 def verify_resend():
-    """Send the confirmation link again: once a minute, a few times an hour."""
+    """Send the confirmation link and a new code again: once a minute, a few times an hour."""
     back = request.form.get("back") or ""
     dest = back if back.startswith("/") and not back.startswith("//") else url_for("studio")
     if verify.is_verified(g.user):
         flash("Your email is already confirmed.", "ok")
         return redirect(dest)
-    key, ipkey = f"verify:{g.user['id']}", f"verify-ip:{client_ip()}"
-    if db.throttled(key, 1, verify.RESEND_GAP_S):
-        flash("We just sent a link. Give it a minute, and check your spam folder.")
+    wait = _resend_wait()
+    if wait:
+        flash(wait)
         return redirect(dest)
-    if db.throttled(key, verify.RESEND_PER_HOUR, 3600) or db.throttled(ipkey, verify.RESEND_PER_IP_HOUR, 3600):
-        flash("We've sent a few links already. Check your spam folder, or try again in an hour.")
-        return redirect(dest)
-    db.hit(key)
-    db.hit(ipkey)
     with db.connect() as conn:
         sent = verify.send_link(conn, app.secret_key, g.user)
-    flash(f"Sent a new link to {g.user['email']}. It can take a minute; check spam too." if sent else
+    flash(f"Sent a new link and code to {g.user['email']}. It can take a minute; check spam too." if sent else
           "We couldn't send the email just now. Try again in a few minutes.", "ok" if sent else "message")
     return redirect(dest)
+
+
+@app.route("/app/verify/code/send", methods=["POST"])
+@login_required
+def verify_code_send():
+    """The confirm box (JSON). {"auto": true} when it opens: send a code only if
+    the last one can't be used any more. Otherwise it's the Resend code button.
+    Same limits as Resend."""
+    if verify.is_verified(g.user):
+        return jsonify({"ok": True, "verified": True})
+    auto = bool((request.get_json(silent=True) or {}).get("auto"))
+    if auto and verify.code_live(g.user):
+        return jsonify({"ok": True, "sent": False, "message": f"We sent a code to {g.user['email']}."})
+    wait = _resend_wait()
+    if wait:
+        if auto:   # the signup email (or the last Resend) is still on its way
+            return jsonify({"ok": True, "sent": False, "message": wait})
+        return jsonify({"error": wait}), 429
+    with db.connect() as conn:
+        sent = verify.send_link(conn, app.secret_key, g.user)
+    if not sent:
+        return jsonify({"error": "We couldn't send the email just now. Try again in a few minutes."}), 503
+    return jsonify({"ok": True, "sent": True, "message": f"We sent a new code to {g.user['email']}. "
+                                                         "It can take a minute; check spam too."})
+
+
+@app.route("/app/verify/code", methods=["POST"])
+@login_required
+def verify_code_check():
+    """Check the 6-digit code from the confirm box (JSON {"code": "123456"})."""
+    ipkey = f"verify-check-ip:{client_ip()}"
+    if db.throttled(ipkey, verify.CHECKS_PER_IP_HOUR, 3600):
+        return jsonify({"error": "Too many tries from here. Use the link in the email, or try again in an hour."}), 429
+    db.hit(ipkey)
+    code = str((request.get_json(silent=True) or {}).get("code") or request.form.get("code") or "")
+    with db.connect() as conn:
+        outcome, left = verify.check_code(conn, app.secret_key, g.user, code)
+    if outcome in ("ok", "already"):
+        return jsonify({"ok": True, "message": "Email confirmed. Video ads are unlocked."})
+    msg = {"format": "Enter the 6-digit code from the email.",
+           "none": "Press Resend code and we'll email you one.",
+           "expired": "That code has expired. Press Resend code for a new one.",
+           "locked": "Too many wrong tries. Press Resend code for a new one.",
+           "wrong": f"That code isn't right. {left} {'try' if left == 1 else 'tries'} left."}[outcome]
+    return jsonify({"error": msg, "outcome": outcome, "left": left}), 400
 
 
 @app.route("/logout", methods=["POST"])
@@ -827,8 +884,12 @@ def _first_ad_context(conn, form):
                           (g.ws["id"],)).fetchall()
     kind = form.get("kind") or ("preview" if pv["ok"] or pv["why"] == "verify" else "image")
     tpls = catalog.first_run_templates(brand())
-    return {"tpls": tpls, "photos": photos, "form": form, "preview": pv, "kind": kind,
-            "verify": verify.message(g.user["email"]) if verify.blocked(conn, g.ws, g.user) else None,
+    price = catalog.price_credits("ad_image", batch=1)
+    # Which choice opens the confirm-your-email box first: the preview (a video), and
+    # an image ad only once the unconfirmed allowance is used up.
+    needs = {"preview": verify.needs(conn, g.ws, g.user, "ugc_video"),
+             "image": verify.needs(conn, g.ws, g.user, "ad_image", price)}
+    return {"tpls": tpls, "photos": photos, "form": form, "preview": pv, "kind": kind, "needs": needs,
             "price": catalog.price_credits("ad_image", batch=1), "presenters": [p for p in presenter_stills.with_photos(url_for) if p["id"] in preview.PRESENTERS],
             "line": form.get("line") or "", "default_line": preview.DEFAULT_LINE, "pick": form.get("template") or
             tpls[0]["id"], "seconds": preview.SECONDS,
@@ -929,10 +990,11 @@ def start():
         flash(msg)
         return _studio_page(f, 400)
 
-    with db.connect() as conn:
-        blocked = core_verify_block(conn)
+    with db.connect() as conn:   # video (the preview) waits for a confirmed email; image ads don't
+        blocked = core_verify_block(conn, "ugc_video" if kind == "preview" else "ad_image",
+                                    0 if kind == "preview" else catalog.price_credits("ad_image", batch=1))
     if blocked:
-        flash(blocked, "verify")
+        flash(blocked, "verify-cap" if g.get("verify_reason") == "cap" else "verify")
         return _studio_page(f, 403)
     if not product:
         return again("Add your product's name.")
@@ -1022,6 +1084,8 @@ def start():
         if not jid:
             conn.execute("DELETE FROM batches WHERE id=?", (bid,))
             conn.commit()
+            if g.get("verify_blocked"):
+                return _studio_page(f, 403)
             return redirect(url_for("billing_page"))
     for w in check["warnings"]:
         flash("Heads up: " + w)
