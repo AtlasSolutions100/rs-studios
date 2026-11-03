@@ -215,4 +215,6 @@ def queue_job(conn, tool, tpl_id, brief, params, usd, credits, quiet=False, prod
                   "on the Billing page.")
         return None
     conn.commit()
+    import site_events   # the funnel's first_ad step (once per workspace); never raises
+    site_events.on_job_queued(conn, g.ws["id"], jid, tool, request)
     return jid

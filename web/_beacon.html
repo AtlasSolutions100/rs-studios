@@ -1,0 +1,43 @@
+{# First-party funnel beacon (site_events.py): lp_view / signup_view once per page load and cta_click on links
+   to /signup, posted to our own /e. Logged-out visitors on the public pages and the sign-up page only. Same
+   consent rule as the ad pixels: nothing runs and no cookie is set under GPC / Do Not Track or with a European
+   time zone (the server already left out consent-region countries). Sends only the event name, the page path
+   (no query), the referring site's host and which CTA was clicked. #}
+{% set sb = site_beacon() if site_beacon is defined else None %}{% if sb %}
+<script>
+(function(){
+  var C = {{ sb|tojson }};
+  var off = navigator.globalPrivacyControl === true || navigator.doNotTrack === '1' || window.doNotTrack === '1';
+  try { var tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+        if (tz.indexOf(C.consent_tz_prefix) === 0 || C.consent_tz.indexOf(tz) >= 0) off = true; } catch (e) {}
+  var sec = location.protocol === 'https:' ? '; Secure' : '';
+  if (off) { try { document.cookie = C.optout_cookie + '=0; max-age=31536000; path=/; SameSite=Lax' + sec; } catch (e) {} return; }
+  try {
+    if (!new RegExp('(?:^|; )' + C.vid_cookie + '=[a-z0-9]{8,40}(?:;|$)').test(document.cookie)) {
+      var v = '';
+      if (window.crypto && crypto.getRandomValues) { var a = new Uint8Array(12); crypto.getRandomValues(a);
+        for (var i = 0; i < a.length; i++) v += ('0' + a[i].toString(16)).slice(-2); }
+      else v = Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+      document.cookie = C.vid_cookie + '=' + v + '; max-age=' + (C.vid_days * 86400) + '; path=/; SameSite=Lax' + sec;
+    }
+  } catch (e) {}
+  function refHost() { try { var h = document.referrer ? new URL(document.referrer).hostname : ''; return h && h !== location.hostname ? h : ''; } catch (e) { return ''; } }
+  function send(name, detail) {
+    try {
+      var b = JSON.stringify({name: name, path: location.pathname, ref: refHost(), detail: detail || null});
+      if (navigator.sendBeacon && navigator.sendBeacon(C.url, new Blob([b], {type: 'text/plain'}))) return;
+      fetch(C.url, {method: 'POST', headers: {'Content-Type': 'text/plain'}, body: b, keepalive: true, credentials: 'same-origin'}).catch(function () {});
+    } catch (e) {}
+  }
+  if (C.view && !window.__cfyView) { window.__cfyView = 1; send(C.view); }
+  if (C.cta) document.addEventListener('click', function (ev) {
+    try {
+      var el = ev.target && ev.target.closest ? ev.target.closest('a[href]') : null;
+      if (!el) return;
+      var u = new URL(el.getAttribute('href'), location.href);
+      if (u.host !== location.host || u.pathname !== '/signup' || u.searchParams.has('invite')) return;
+      send('cta_click', el.getAttribute('data-cta') || (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60));
+    } catch (e) {}
+  }, true);
+})();
+</script>{% endif %}

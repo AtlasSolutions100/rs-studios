@@ -120,6 +120,37 @@ UTM tags, click ids or the checkout return. With `META_CAPI_TOKEN` / `TIKTOK_EVE
 (secrets) the server also sends SignUp (at sign-up) and Purchase (Stripe webhook) with the same event ids
 (`conversion_queue`, retried by the worker), so each platform counts each conversion once.
 
+## Funnel events for HQ (`site_events.py`, `web/_beacon.html`, table `site_events`)
+
+An append-only table in the main database (`rs.db`) that HQ (dashboard.rectorandstull.com) reads to show the
+funnel by first-touch source and ad, the same way it reads Crowdcut's. One row per step; columns (a contract with
+HQ's reader, don't rename): `id`, `ts` (ISO UTC), `vid` (random id from the first-party `cfy_vid` cookie; never an
+email or user id), `name`, `path` (no query), `utm_source` / `utm_medium` / `utm_campaign` / `utm_content` /
+`utm_term` and `click_id` + `click_type` (`gclid` / `fbclid` / `ttclid`) of the visitor's first touch (the same
+`cfy_ft` capture as `gads.py`, then `users.first_touch`), `referrer_host`, `detail` (<= 120 chars, never personal)
+and `workspace_id` (server-side steps only). Indexes on `ts` and `(name, ts)` (plus `vid` and `workspace_id`).
+
+| step | written by | where |
+|---|---|---|
+| `lp_view` | browser, once per page load | `/`, `/features`, `/pricing`, the solution pages |
+| `cta_click` | browser, `detail` = the CTA's `data-cta` (hero, nav, footer, closing, pricing-…) | links to `/signup` on those pages |
+| `signup_view` | browser | `GET /signup` (not invite links) |
+| `signup` | server, with `workspace_id`, once | `app.signup`: a new workspace (not invite joins or owner links); `detail` starter / ad_offer / invite |
+| `first_ad` | server, once per workspace | `core.queue_job`: the workspace's first generation; `detail` = the tool |
+| `checkout` | server | `/app/billing/subscribe` and `/app/billing/checkout`; `detail` `plan:<code>` / `pack:<code>` |
+| `paid` | server, Stripe webhook | a pack paid (once per purchase) or a plan's first invoice (`subscription_create`, once per invoice) |
+
+Browsers post to `POST /e` (JSON or a `text/plain` sendBeacon body): CSRF-exempt, same-origin only, browser steps
+only, 2 KB max, 30 a minute per visitor and per IP (in memory), bots dropped by user agent. No IP address or email
+is stored. Server-side steps copy the workspace's `signup` row (vid + first touch), so every step credits the
+same source. Consent follows the pixels: under GPC / Do Not Track, in the EEA/UK/CH or with a European time zone
+the beacon doesn't run and sets no cookie; those visitors' server-side steps still count, with no vid.
+
+Test traffic is written and left out when read, as Crowdcut does: `utm_source` = `probe` (any case) or
+`click_id` = `test123` (`FUNNEL_TEST_SOURCES` / `FUNNEL_TEST_CLICK_IDS`); `site_events.test_traffic_sql()` is
+the condition. Visitor steps (`lp_view`, `cta_click`, `signup_view`) are meant to be counted as distinct `vid`
+(`COALESCE(vid, id)`), the rest as rows.
+
 ## Ad-account setup hub (`/app/ad-accounts`, Starter+)
 
 `adhub.py`: per platform (Meta, TikTok, YouTube/Google Ads, X, LinkedIn, Pinterest, Snapchat, Reddit) the setup steps,
@@ -208,7 +239,7 @@ the token so it works logged out. Stop sharing (or deleting the ad) makes the li
 
 ## Tests
 
-    python tests/test_app.py        # generation API and Stripe faked; also runs test_products, test_outreach, test_public_site
+    python tests/test_app.py        # generation API and Stripe faked; also runs test_products, test_outreach, test_public_site, test_pixels, test_site_events, ...
 
 ## Deploy
 

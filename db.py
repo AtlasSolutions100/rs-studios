@@ -430,6 +430,16 @@ CREATE TABLE IF NOT EXISTS conversion_queue (
     payload TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0, error TEXT,
     created_at TEXT NOT NULL, sent_at TEXT, UNIQUE(platform, event_id));
 CREATE INDEX IF NOT EXISTS idx_conversion_queue_status ON conversion_queue(status, created_at);
+-- First-party funnel events (site_events.py): append-only, read by HQ. The columns are a contract
+-- with HQ's reader; see site_events.py before changing them.
+CREATE TABLE IF NOT EXISTS site_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, vid TEXT, name TEXT NOT NULL, path TEXT,
+    utm_source TEXT, utm_medium TEXT, utm_campaign TEXT, utm_content TEXT, utm_term TEXT,
+    click_id TEXT, click_type TEXT, referrer_host TEXT, detail TEXT, workspace_id INTEGER);
+CREATE INDEX IF NOT EXISTS idx_site_events_ts ON site_events(ts);
+CREATE INDEX IF NOT EXISTS idx_site_events_name ON site_events(name, ts);
+CREATE INDEX IF NOT EXISTS idx_site_events_vid ON site_events(vid, id);
+CREATE INDEX IF NOT EXISTS idx_site_events_ws ON site_events(workspace_id, name);
 -- "Import from a link" tries (product_routes.import_url): which store, how it was read
 -- (page / jsonld / og / shopify-json / manual) and the outcome (ok / blocked / failed), for the admin system card.
 CREATE TABLE IF NOT EXISTS import_attempts (
