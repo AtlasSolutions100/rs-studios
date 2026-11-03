@@ -143,7 +143,8 @@ print("== accounts")
 x = client()
 r = x.get("/")
 html = r.get_data(as_text=True)
-check(r.status_code == 200 and "The AI marketing studio" in html and "Start free" in html, "logged out: / is the landing page")
+check(r.status_code == 200 and "AI ads from your product page" in html and "Paste your product page. " in html
+      and "Start free" in html, "logged out: / is the landing page (paste your product page, get the ads)")
 for section in ('id="journey"', 'id="gallery"', 'id="reps"', 'id="pricing"', 'id="faq"', "© 2026 Campaignify",
                 "/privacy", "/terms", "$29", "$79", "$199", "Checkout coming soon"):
     check(section in html, f"landing has {section}")
@@ -158,6 +159,10 @@ check(html.count("previews/") >= 8 and "site/phones.mp4" in html, "gallery shows
 gal = html.split('id="gallery"', 1)[1].split("</section>", 1)[0]
 check(gal.index("site/show-amber.mp4") < gal.index("previews/ad_image.mp4") and gal.count("site/show-") >= 10,
       "the studio showcase clips lead the gallery")
+check(html.index('id="gallery"') < html.index('id="journey"') and "lp-snd" in gal and 'id="faq"' in html,
+      "the gallery (with sound) sits above the 8-step journey; the FAQ stays")
+check("lp-rules" not in html and 'href="/for-reps"' in html and "lp-rules" in x.get("/for-reps").get_data(as_text=True),
+      "the 'Built for people who sell' block lives on /for-reps (the For reps link), off the home page")
 talk = [g for g in appmod.GALLERY if g.get("talk")]
 check(len(talk) >= 4 and gal.count('class="lp-snd"') == len(talk) and gal.count('class="lp-g-badge">AI presenter</span>') == len(talk),
       "presenter clips are labeled as AI and get a sound button")
@@ -174,7 +179,8 @@ check(vids and all("muted" in v and "playsinline" in v and "poster=" in v for v 
       "every landing video is muted, inline and has a poster")
 check(sum('preload="none"' in v and "data-poster=" in v for v in vids) >= len(vids) - 3,
       "below-the-fold videos and their posters load lazily")
-check(html.count('rel="preload"') == 1, "only the hero poster is preloaded")
+check(html.count('rel="preload"') == 2 and 'as="font"' in html and "fonts/inter-latin.woff2" in html
+      and "fonts.googleapis" not in html and "fonts.css" in html, "only the hero poster and the self-hosted body font are preloaded; no Google Fonts")
 check(not re.search(r"auto-?post|posts? your ads|publish(es)? your ads to", html, re.I), "landing never claims to post ads")
 for path in sorted(set(re.findall(r'/static/((?:site|previews)/[^"?]+)', html))):
     check(os.path.exists(os.path.join(os.path.dirname(HERE), "static", path)), f"landing asset exists: {path}")
@@ -1067,7 +1073,9 @@ a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": 
 check(plans.plan_code(wsrow(xws["id"])) == "free", "comp cleared")
 html = client().get("/").get_data(as_text=True)
 for bit in ("$39", "$99", "$249", "2,000 credits every month", "6,000 credits every month", "18,000 credits every month",
-            "Credit packs", "expire at each renewal"):
+            "Credit packs", "Plan credits reset monthly, pack credits never", "No trial that bills you. No card.",
+            "Only want ads? Buy a pack. Credits never expire.", appmod.public_site.basket(2000)["line"] + " a month (2,000 credits)",
+            'class="plan-more" open'):
     check(bit in html, f"landing pricing shows {bit!r}")
 fh = client().get("/features")
 check(fh.status_code == 200 and b"UGC ad studio" in fh.data and b"Compliance checks" in fh.data, "features page renders")

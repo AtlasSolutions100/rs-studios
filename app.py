@@ -420,6 +420,9 @@ GALLERY = [
      "alt": "A lit candle in an amber glass jar beside dried eucalyptus."},
 ]
 HERO_MEDIA = [_IN_HAND, _PRODUCT_HERO, _FLOATING_HERO]
+# Clips the answer-first pages can put in their hero (public_site.SOLUTIONS[...]["clips"]), by a short key.
+CLIP_BY_KEY = {g["poster"].rsplit("/", 1)[-1].rsplit(".", 1)[0]: g for g in GALLERY}
+CLIP_BY_KEY["product-video"] = dict(_FLOATING_HERO, title="5-second product video")
 
 # The landing page's spine: one campaign, start to finish. `features` are
 # plans.FEATURES keys (their plan tags come from there); `shot` is a real
@@ -544,6 +547,12 @@ def features():
     return render_template("features.html", feature_details=FEATURE_DETAILS, journey=JOURNEY)
 
 
+@app.route("/for-reps")
+def for_reps():
+    """The compliance block for independent reps (the For reps nav link), off the home page's default path."""
+    return render_template("for_reps.html")
+
+
 @app.route("/pricing")
 def pricing():
     return render_template("pricing.html", faq=public_site.pricing_faq())
@@ -551,7 +560,8 @@ def pricing():
 
 def solution(slug):
     """The answer-first pages for search intent (public_site.SOLUTIONS)."""
-    return render_template("solution.html", s=public_site.solution(slug),
+    sol = public_site.solution(slug)
+    return render_template("solution.html", s=sol, clips=[CLIP_BY_KEY[k] for k in sol.get("clips", [])],
                            others=[public_site.solution(o) for o in public_site.SOLUTIONS[slug]["related"]])
 
 
@@ -570,17 +580,28 @@ def robots_txt():
 @app.route("/sitemap.xml")
 def sitemap_xml():
     """The public pages only: never the app, admin, share links (/s/) or members' pages."""
-    urls = "".join(f"<url><loc>{public_site.absolute(p)}</loc></url>" for p in public_site.sitemap_paths())
+    mod = public_site.lastmod()
+    urls = "".join(f"<url><loc>{public_site.absolute(p)}</loc><lastmod>{mod}</lastmod></url>"
+                   for p in public_site.sitemap_paths())
     return app.response_class('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/'
                               f'sitemap/0.9">{urls}</urlset>', mimetype="application/xml")
 
 
+def _llms_text() -> str:
+    return render_template("llms.txt", feature_details=FEATURE_DETAILS, journey=JOURNEY, site=public_site,
+                           tools_full=catalog.TOOLS, rc=catalog.rates(),
+                           solutions=[public_site.solution(x) for x in public_site.SOLUTION_ORDER])
+
+
 @app.route("/llms.txt")
 def llms_txt():
-    return app.response_class(render_template("llms.txt", feature_details=FEATURE_DETAILS, journey=JOURNEY,
-                                              site=public_site, tools_full=catalog.TOOLS,
-                                              solutions=[public_site.solution(x) for x in public_site.SOLUTION_ORDER]),
-                              mimetype="text/plain")
+    return app.response_class(_llms_text(), mimetype="text/plain")
+
+
+@app.route("/llm-info")
+def llm_info():
+    """The same text as /llms.txt as an HTML page (headings, lists and links), for people and crawlers that read HTML."""
+    return render_template("llm_info.html", blocks=public_site.text_blocks(_llms_text()))
 
 
 @app.route("/privacy")
@@ -2291,7 +2312,7 @@ app.register_blueprint(community_routes.bp)
 app.register_blueprint(share_routes.bp)
 app.jinja_env.globals["has_endpoint"] = lambda name: name in app.view_functions
 app.jinja_env.globals.update(faq_answer=public_site.answer_html, solution_links=lambda: public_site.SOLUTION_ORDER,
-                             solution_nav=lambda slug: public_site.SOLUTIONS[slug]["nav"])
+                             solution_nav=lambda slug: public_site.SOLUTIONS[slug]["nav"], basket=public_site.basket)
 
 
 @app.errorhandler(400)

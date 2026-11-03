@@ -1,0 +1,41 @@
+{% extends "public_base.html" %}
+{# The "Built for people who sell" block, off the home page's default path (the For reps nav link). #}
+{% block main %}
+{% set so = signup_offer() %}
+<section class="lp-hero lp-hero-sm">
+  <div class="lp-wrap">
+    <p class="eyebrow">Built for people who sell</p>
+    <h1>Compliance checks at every step.</h1>
+    <p class="lp-lede">If you're an independent rep, your company has rules about what your ads can say, and so does the FTC. Campaignify checks every ad brief, every piece of copy and every landing page before it goes out, and stops the ones that would get you in trouble.</p>
+    <div class="lp-cta">
+      <a class="btn lg" href="{{ url_for('signup') }}" data-cta="hero">{{ so.cta }}</a>
+      <a class="lp-textlink" href="{{ url_for('index') }}#gallery">See ads made here →</a>
+    </div>
+    <p class="small muted lp-note">{{ so.body }}</p>
+  </div>
+</section>
+<section class="lp-sec lp-reps" id="rules">
+  <div class="lp-wrap lp-reps-in">
+    <div>
+      <p class="eyebrow">What the checks stop</p>
+      <h2 class="lp-h2">Five rules, on every account.</h2>
+      <p class="muted">The checks run on every brief, every copy variant and every landing page, before anything is generated or published.</p>
+      <p class="small dim">The checks are a guard rail, not legal advice. Always follow your company's policies and the FTC's guidance on endorsements and earnings claims.</p>
+    </div>
+    <ul class="lp-rules">
+      <li><b>No income or earnings claims</b><span>Promises about pay, income or lifestyle are blocked on every account. Your ads sell the product, not the opportunity.</span></li>
+      <li><b>No recruiting in product ads</b><span>Team-building and business-opportunity pitches don't belong in a product creative, so they're blocked.</span></li>
+      <li><b>No weight-loss or health claims beyond the label</b><span>Disease, cure and before-and-after language is blocked. Use the claims printed on your label, nothing more.</span></li>
+      <li><b>No discount promises</b><span>Coupons, percent-off and free-shipping offers are blocked. Most direct-sales companies set the price, not the rep.</span></li>
+      <li><b>Disclosure built in</b><span>Every ad comes with the reminder: #ad first in the caption, AI label on. We flag briefs where an AI presenter speaks as a customer.</span></li>
+    </ul>
+  </div>
+</section>
+<section class="lp-sec lp-final">
+  <div class="lp-wrap">
+    <h2 class="lp-h2">Try it on your own product.</h2>
+    <p class="muted">{{ so.body }}</p>
+    <a class="btn lg" href="{{ url_for('signup') }}" data-cta="closing">Start free</a>
+  </div>
+</section>
+{% endblock %}

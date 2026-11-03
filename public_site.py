@@ -4,8 +4,9 @@ answer-first pages for search intent (/ai-ugc-ad-generator and friends).
 
 Everything here describes what Campaignify does today (plans.FEATURES,
 catalog.TOOLS, catalog.rates()); prices come from the plans and the rate card,
-never typed in. No invented customers, numbers or testimonials, and nothing about
-other companies' products.
+never typed in. No invented customers, numbers or testimonials. The comparison
+pages (COMPARE) state facts about other tools only with the page they were read
+from and the date, and say "not listed" where a page doesn't say; never a guess.
 """
 import json
 import os
@@ -39,7 +40,22 @@ def facts() -> dict:
             "talk_max": talk["durations"][-1], "talk_shapes": ", ".join(talk["aspects"][:-1]) + f" or {talk['aspects'][-1]}",
             "image_shapes": ", ".join(catalog.TOOLS["ad_image"]["aspects"]),
             "presenters": len(catalog.PRESENTERS), "max_batch": _max_batch(),
-            "platform_list": ", ".join(names[:-1]) + f" and {names[-1]}", "platform_count": len(names)}
+            "platform_list": ", ".join(names[:-1]) + f" and {names[-1]}", "platform_count": len(names),
+            "pack_usd": ", ".join(f"${k['usd']}" for k in catalog.PACKS[:-1]) + f" and ${catalog.PACKS[-1]['usd']}",
+            "pack_min_usd": catalog.PACKS[0]["usd"], "pack_min_credits": f"{catalog.PACKS[0]['credits']:,}"}
+
+
+def basket(credits: int) -> dict:
+    """What a month's (or a pack's) credits buy as a mixed basket, for the pricing
+    copy: 1 talking video and 2 product videos per 2,000 credits, the rest image
+    ads. E.g. 2,000 credits: 1 talking video, 2 product videos and 15 image ads."""
+    r = catalog.rates()
+    talk = max(1, credits // 2000)
+    vids = 2 * talk
+    rest = credits - talk * r["talk8"] - vids * r["video5"]
+    images = max(0, rest // max(r["image"], 1))
+    return {"talk": talk, "videos": vids, "images": images, "credits": credits,
+            "line": f"e.g. {talk} talking video{'s' if talk != 1 else ''}, {vids} product videos and {images} image ads"}
 
 
 def _max_batch() -> int:
@@ -164,9 +180,10 @@ SOLUTIONS = {
             ("Sizes for every feed", "On Starter and up, export each finished ad at each platform's sizes and get "
                                      "step-by-step setup for eight ad platforms."),
         ],
-        "media": [("site/ugc-coffee.jpg", "An AI presenter in a sunny kitchen holds up a coffee bag."),
-                  ("site/ugc-serum.jpg", "An AI presenter in a bright bathroom shows a face serum."),
-                  ("site/ugc-sneakers.jpg", "An AI presenter in a gym shows off a sage-green running sneaker.")],
+        "clips": ["ugc-coffee", "ugc-serum", "ugc-sneakers"],
+        "price_line": "8-second talking video: {talk8} credits. Image ad: {image} credits. Shown before you press Generate.",
+        "h2": {"how": "How the AI UGC ad generator works", "gets": "What the AI UGC ad generator makes",
+               "faq": "AI UGC ad generator questions"},
         "faq": [
             ("What is a UGC ad?",
              "A UGC (user-generated content) ad looks like a post someone filmed on their phone: a person holding the "
@@ -187,20 +204,21 @@ SOLUTIONS = {
              "No. You download or export each ad and launch it in the platform's own ads manager, where your ad "
              "spend and results stay."),
         ],
-        "related": ["ai-product-ads-for-shopify", "ai-ad-copy-generator", "arcads-alternative"],
+        "related": ["ai-product-ads-for-shopify", "arcads-alternative", "creatify-alternative"],
     },
     "arcads-alternative": {
         "query": "Arcads alternative",
         "nav": "Arcads alternative",
         "title": "Arcads Alternative for AI UGC Video Ads · Campaignify",
-        "description": "Comparing Arcads alternatives? Campaignify makes UGC-style video and image ads, copy and a "
-                       "landing page from your product page. Try {sc_images} image ads free.",
+        "description": "Comparing Arcads alternatives? Campaignify makes UGC-style video and image ads from your "
+                       "product page, no card, price shown first. Try {sc_images} image ads free.",
         "eyebrow": "Comparing tools",
-        "h1": "Looking for an Arcads alternative?",
+        "h1": "Campaignify is an Arcads alternative for AI UGC video ads, priced before you generate",
         "answer": "Campaignify is an AI ad studio that makes UGC-style video ads and image ads from your product page, "
                   "and keeps the copy, landing page and launch checklist in the same workspace. Free sign-up includes "
-                  "{sc_images} image ads with no card, and you see the price of every ad before it's made. This page only describes what "
-                  "Campaignify does, so you can hold it up against Arcads or any other tool on your list.",
+                  "{sc_images} image ads with no card, and you see the price of every ad before it's made. The table "
+                  "below puts the two side by side; every Arcads fact is quoted from Arcads' own help center, with the "
+                  "date it was read.",
         "steps": [
             ("Paste a product page",
              "Campaignify reads the product's name, description, price and photos from its page. You approve the "
@@ -212,6 +230,31 @@ SOLUTIONS = {
              "Compare the result with what you get elsewhere. Your free credits cover {sc_images} image ads; talking "
              "videos start at {talk8} credits."),
         ],
+        "table": {
+            "competitor": "Arcads",
+            "source": "https://help.arcads.ai/en/articles/17595066-how-does-arcads-pricing-work",
+            "source_name": "Arcads' help center: How does Arcads pricing work?",
+            "date": "2026-11-03",
+            "rows": [
+                ("Trying it",
+                 "A 72-hour trial of every feature with 1,000 credits. \"A card is required at sign-up but isn't charged "
+                 "during the trial.\" \"After 72 hours, the Starter monthly plan starts automatically.\"",
+                 "No card. Free sign-up includes {sc} credits ({sc_images} image ads). Nothing starts by itself: you "
+                 "buy a pack or pick a plan when you want more."),
+                ("Prices on the public site",
+                 "Not listed on the public site (as of 2026-11-03): \"Current prices are on the pricing page in the "
+                 "app.\" Plans are named Starter, Creator, Pro, Scale, Business and Enterprise.",
+                 "On this site: plans at ${starter_usd}, ${growth_usd} and ${scale_usd} a month and packs at "
+                 "{pack_usd}, and every ad's price in credits before you generate."),
+                ("Credits per talking video",
+                 "800 credits per Arcads 1.0 talking-actor video (up to 2 minutes); 800 per started minute for "
+                 "audio-driven and OmniHuman 1.5 videos; 800 per 8-second Veo 3.1 clip.",
+                 "8-second UGC videos from {talk8} credits, 10 seconds {talk10}; a 5-second product video {video5}; "
+                 "an image ad {image}. Failed generations are refunded."),
+            ],
+        },
+        "h2": {"how": "How this Arcads alternative works", "compare": "Arcads and Campaignify, side by side",
+               "faq": "Arcads alternative questions"},
         "compare": [
             ("Can it start from my product page?",
              "Yes. Paste the link and it fills in the product from the page; Shopify product pages are recognised. "
@@ -227,9 +270,6 @@ SOLUTIONS = {
             ("What stops risky claims?",
              "Every brief, piece of copy and landing page is checked for income, health, discount and recruiting "
              "claims before it goes out."),
-            ("What does it cost?",
-             "Free to start with {sc} credits and no card. Plans are ${starter_usd}, ${growth_usd} and ${scale_usd} a "
-             "month with monthly credits; credit packs top up any account."),
         ],
         "limits": [
             "It makes AI presenters only; it doesn't book or film real creators.",
@@ -243,7 +283,8 @@ SOLUTIONS = {
         "faq": [
             ("Is Campaignify affiliated with Arcads?",
              "No. Campaignify is an independent product made by Rector & Stull LLC. Arcads is a trademark of its "
-             "owner, and this page doesn't describe their product, pricing or results."),
+             "owner. The Arcads facts on this page are quoted from Arcads' own help center with the date they were "
+             "read; check their site for today's terms."),
             ("Can I try Campaignify before I pay?",
              "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, with no card. Buy a credit "
              "pack or pick a plan when you want to make more."),
@@ -254,7 +295,7 @@ SOLUTIONS = {
              "Yes, you can use the ads you make in your own marketing, including paid ads. You're responsible for "
              "what you post; see the [terms](/terms)."),
         ],
-        "related": ["ai-ugc-ad-generator", "ai-product-ads-for-shopify", "ai-ad-copy-generator"],
+        "related": ["ai-ugc-ad-generator", "creatify-alternative", "makeugc-alternative"],
     },
     "ai-product-ads-for-shopify": {
         "query": "AI product ads for Shopify stores",
@@ -267,7 +308,13 @@ SOLUTIONS = {
         "answer": "Paste a Shopify product page into Campaignify and it pulls the product's name, description, price "
                   "and photos from the store, then makes image ads, short product videos and UGC-style talking "
                   "videos from those photos. There's no app to install. You approve the claims, see the price of "
-                  "each ad first, and download finished ads for Meta, TikTok, Pinterest and the other feeds.",
+                  "each ad first, and download finished ads for Meta, TikTok, Pinterest and the other feeds. "
+                  "Sidekick writes your descriptions. Campaignify makes the ads.",
+        "clips": ["ugc-coffee", "product-video", "show-amber"],
+        "price_line": "8-second talking video: {talk8} credits. 5-second product video: {video5} credits. Image ad: "
+                      "{image} credits. Shown before you press Generate.",
+        "h2": {"how": "How the Shopify ad creator works", "gets": "What you get: image ads, a product video for Shopify, "
+               "UGC videos", "faq": "Shopify ad creator questions"},
         "steps": [
             ("Paste the product link",
              "No Shopify app needed: Campaignify reads the public product page and the store's own product data for "
@@ -282,7 +329,8 @@ SOLUTIONS = {
         "gets": [
             ("Image ads from your photos", "Finished ad images in {image_shapes}. Only the headline, subline and "
                                            "button text you type and your brand name are drawn on the image."),
-            ("Product videos", "5 or 10 second clips that bring one product photo to life, from {video5} credits."),
+            ("A product video for Shopify", "5 or 10 second clips that bring one product photo to life, from {video5} "
+                                            "credits: the sneaker clip above is a 5-second product video from one photo."),
             ("UGC-style talking videos", "An AI presenter holds your product and says a script written for it, "
                                          "from {talk8} credits."),
             ("Every product in one place", "Each product keeps its photos, offer, approved claims and audience; "
@@ -292,13 +340,12 @@ SOLUTIONS = {
             ("Checks before anything runs", "Prices shown before you generate, failures refunded, and income, health "
                                             "and discount claims blocked."),
         ],
-        "media": [("site/show-amber.jpg", "A gold coffee bag floating before a wall of type."),
-                  ("site/headphones.jpg", "Blue over-ear headphones floating against a bright orange background."),
-                  ("site/candle.jpg", "A lit candle in an amber glass jar beside dried eucalyptus.")],
         "faq": [
-            ("Do I need to install a Shopify app?",
-             "No. Paste the product's link; Campaignify reads the public page. Nothing is added to your store and it "
-             "never asks for store access."),
+            ("Is this a Shopify ad creator or a Shopify app?",
+             "A Shopify ad creator that works from the product page: paste the link and it reads the public page and the "
+             "store's own product data for that item's photos. It isn't an app and never asks for store access. Shopify "
+             "Sidekick can write your product descriptions; Campaignify makes the ads from the page those descriptions "
+             "live on."),
             ("Does it work with stores that aren't on Shopify?",
              "Yes. It reads any product page that states its details plainly (product data, share tags and images), "
              "and you can always upload photos and type the details yourself."),
@@ -312,7 +359,7 @@ SOLUTIONS = {
              "No. You download the ads and launch them in each ad platform's ads manager. Campaignify doesn't change "
              "your store."),
         ],
-        "related": ["ai-ugc-ad-generator", "ai-ad-copy-generator", "arcads-alternative"],
+        "related": ["ai-ugc-ad-generator", "ai-ad-copy-generator", "adcreative-ai-alternative"],
     },
     "ai-ad-copy-generator": {
         "query": "AI ad copy generator",
@@ -362,10 +409,273 @@ SOLUTIONS = {
              "action, fit and compliance) for free, and an AI review explains the biggest fix and writes three "
              "rewrites."),
         ],
-        "related": ["ai-ugc-ad-generator", "ai-product-ads-for-shopify", "arcads-alternative"],
+        "h2": {"how": "How the AI ad copy generator works", "gets": "What the AI ad copy generator writes",
+               "faq": "AI ad copy generator questions"},
+        "related": ["ai-ugc-ad-generator", "ai-product-ads-for-shopify", "makeugc-alternative"],
+    },
+    "creatify-alternative": {
+        "query": "Creatify alternative",
+        "nav": "Creatify alternative",
+        "title": "Creatify Alternative: Price Shown First · Campaignify",
+        "description": "Comparing Creatify alternatives? Campaignify shows each ad's price in credits before you "
+                       "generate, no card, pack credits never expire. {sc_images} ads free.",
+        "eyebrow": "Comparing tools",
+        "h1": "Campaignify is a Creatify alternative with a fixed credit price per ad, shown before you generate",
+        "answer": "Campaignify makes UGC-style video ads, product videos and image ads from your product page. Every "
+                  "ad has a fixed price in credits that you see before you press Generate, failed generations are "
+                  "refunded, and pack credits never expire. Free sign-up includes {sc_images} image ads with no card. "
+                  "The Creatify facts below are quoted from Creatify's pricing page, with the date it was read.",
+        "steps": [
+            ("Paste a product page",
+             "Campaignify reads the product's name, description, price and photos from its page. You approve the "
+             "claims and pick the photos."),
+            ("See the price, then generate",
+             "Pick a UGC presenter video, a product video or an image ad. The price in credits is on the button "
+             "before anything runs."),
+            ("Judge it on your own product",
+             "Your free credits cover {sc_images} image ads. Talking videos start at {talk8} credits, product videos "
+             "at {video5}."),
+        ],
+        "table": {
+            "competitor": "Creatify",
+            "source": "https://creatify.ai/pricing",
+            "source_name": "Creatify's pricing page",
+            "date": "2026-11-03",
+            "rows": [
+                ("Trying it",
+                 "A free plan with 10 credits a month, \"up to 2 video ads or 20 image ads\", exports with a watermark. "
+                 "Whether a card is needed: not listed on creatify.ai/pricing (as of 2026-11-03).",
+                 "No card. Free sign-up includes {sc} credits ({sc_images} image ads), no watermark on image ads."),
+                ("What an ad costs",
+                 "\"Credit usage varies by the model, feature, and type of output\"; the cost is shown before you "
+                 "confirm a generation. Plans listed from $10 a month (Standard, 55 credits) to $136 a month "
+                 "(Business, 1,500 credits); the page shows a \"save 30% on annual plan\" banner.",
+                 "A fixed price per ad: {image} credits an image ad, {video5} a 5-second product video, {talk8} an "
+                 "8-second talking video, shown before you generate. Plans at ${starter_usd}, ${growth_usd} and "
+                 "${scale_usd} a month; packs from ${pack_min_usd}."),
+                ("Do credits expire?",
+                 "\"Credits expire after 2 months.\"",
+                 "Plan credits reset at each monthly renewal. Pack credits and the free starter credits never expire."),
+            ],
+        },
+        "h2": {"how": "How this Creatify alternative works", "compare": "Creatify and Campaignify, side by side",
+               "faq": "Creatify alternative questions"},
+        "compare": [
+            ("Do I see the price before I generate?",
+             "Yes, in credits, on the button, and failed generations are refunded automatically."),
+            ("Can it start from my product page?",
+             "Yes. Paste the link and it fills in the product from the page; Shopify product pages are recognised."),
+            ("Who are the presenters?",
+             "{presenters} AI presenters, each drawn from a written description with every video. They're not real "
+             "people and never speak as customers."),
+            ("What else does it make?",
+             "Image ads in {image_shapes}; 5 or 10 second product videos; motion copied from a reference clip; and on "
+             "paid plans, copy for {platform_count} ad platforms, a campaign planner and landing pages."),
+        ],
+        "limits": [
+            "It makes AI presenters only; it doesn't book or film real creators.",
+            "A talking video is at most {talk_max} seconds long.",
+            "It doesn't buy media, post ads or read results from the ad platforms.",
+        ],
+        "media": [("site/ugc-serum.jpg", "An AI presenter in a bright bathroom shows a face serum."),
+                  ("site/show-pastel.jpg", "A coffee bag among floating pastel cubes on a white pedestal."),
+                  ("site/ugc-sneakers.jpg", "An AI presenter in a gym shows off a sage-green running sneaker.")],
+        "faq": [
+            ("Is Campaignify affiliated with Creatify?",
+             "No. Campaignify is an independent product made by Rector & Stull LLC. Creatify is a trademark of its "
+             "owner. The Creatify facts on this page are quoted from Creatify's pricing page with the date it was "
+             "read; check their site for today's terms."),
+            ("Can I try Campaignify before I pay?",
+             "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, with no card and nothing "
+             "that starts billing by itself."),
+            ("What does a credit buy?",
+             "An image ad is {image} credits, a 5-second product video {video5}, an 8-second talking video {talk8} "
+             "and a 10-second one {talk10}. Plans are ${starter_usd}, ${growth_usd} and ${scale_usd} a month; packs "
+             "are {pack_usd}."),
+            ("Can I use the ads in paid campaigns?",
+             "Yes, in your own marketing, including paid ads. You're responsible for what you post; see the "
+             "[terms](/terms)."),
+        ],
+        "related": ["ai-ugc-ad-generator", "arcads-alternative", "makeugc-alternative"],
+    },
+    "makeugc-alternative": {
+        "query": "MakeUGC alternative",
+        "nav": "MakeUGC alternative",
+        "title": "MakeUGC Alternative: No Trial That Bills You · Campaignify",
+        "description": "Comparing MakeUGC alternatives? Campaignify starts free with no card, no trial that renews, "
+                       "and each ad's price shown first. Try {sc_images} image ads free.",
+        "eyebrow": "Comparing tools",
+        "h1": "Campaignify is a MakeUGC alternative with no card, no trial that renews, and the price shown first",
+        "answer": "Campaignify makes UGC-style video ads, product videos and image ads from your product page. There's "
+                  "no card at sign-up and no trial that turns into a plan: you start with {sc_images} free image ads, "
+                  "see every ad's price in credits before you generate, and buy a pack or a plan only when you want to. "
+                  "The MakeUGC facts below are quoted from MakeUGC's pricing page, with the date it was read.",
+        "steps": [
+            ("Paste a product page",
+             "Campaignify reads the product's name, description, price and photos from its page. You approve the "
+             "claims and pick the photos."),
+            ("See the price, then generate",
+             "Pick a UGC presenter video, a product video or an image ad. The price in credits is on the button "
+             "before anything runs."),
+            ("Pay only when you want more",
+             "Your free credits cover {sc_images} image ads. After that, a one-time pack from ${pack_min_usd} or a plan "
+             "from ${starter_usd} a month, cancel anytime."),
+        ],
+        "table": {
+            "competitor": "MakeUGC",
+            "source": "https://www.makeugc.ai/pricing",
+            "source_name": "MakeUGC's pricing page",
+            "date": "2026-11-03",
+            "rows": [
+                ("Trying it",
+                 "\"Try any plan for $1.\" It \"renews at the plan price unless you cancel from your account\"; the "
+                 "trial's length is shown at checkout. A free plan: not listed on makeugc.ai/pricing (as of "
+                 "2026-11-03).",
+                 "Free sign-up with no card: {sc} credits ({sc_images} image ads). Nothing renews unless you pick a "
+                 "plan."),
+                ("What an ad costs",
+                 "\"Each generation costs credits based on its model, duration and resolution\"; a per-video price is "
+                 "not listed on the page (as of 2026-11-03). Plans listed at $29, $39 and $79 a month billed yearly "
+                 "(500, 1,000 and 2,000 to 5,000 credits); monthly billing prices not listed per plan.",
+                 "A fixed price per ad, shown before you generate: {image} credits an image ad, {video5} a 5-second "
+                 "product video, {talk8} an 8-second talking video. Plans at ${starter_usd}, ${growth_usd} and "
+                 "${scale_usd} a month, billed monthly."),
+                ("Do credits expire?",
+                 "Credits \"refresh monthly\" and \"do not roll over\".",
+                 "Plan credits reset at each monthly renewal. Pack credits and the free starter credits never expire."),
+            ],
+        },
+        "h2": {"how": "How this MakeUGC alternative works", "compare": "MakeUGC and Campaignify, side by side",
+               "faq": "MakeUGC alternative questions"},
+        "compare": [
+            ("Is there a trial that turns into a subscription?",
+             "No. Free sign-up has no card and no end date. A plan starts only when you choose one, and you can cancel "
+             "it anytime."),
+            ("Do I see the price before I generate?",
+             "Yes, in credits, on the button, and failed generations are refunded automatically."),
+            ("Who are the presenters?",
+             "{presenters} AI presenters, each drawn from a written description with every video. They're not real "
+             "people and never speak as customers."),
+            ("What else does it make?",
+             "Image ads in {image_shapes}; 5 or 10 second product videos; motion copied from a reference clip; and on "
+             "paid plans, copy for {platform_count} ad platforms, a campaign planner and landing pages."),
+        ],
+        "limits": [
+            "It makes AI presenters only; it doesn't book or film real creators.",
+            "A talking video is at most {talk_max} seconds long.",
+            "It doesn't buy media, post ads or read results from the ad platforms.",
+        ],
+        "media": [("site/ugc-bakery.jpg", "An AI presenter behind a bakery counter shows a tray of croissants."),
+                  ("site/show-y2k.jpg", "A coffee bag on denim among chains, charms and a pink flip phone."),
+                  ("site/ugc-coffee.jpg", "An AI presenter in a sunny kitchen holds up a coffee bag.")],
+        "faq": [
+            ("Is Campaignify affiliated with MakeUGC?",
+             "No. Campaignify is an independent product made by Rector & Stull LLC. MakeUGC is a trademark of its "
+             "owner. The MakeUGC facts on this page are quoted from MakeUGC's pricing page with the date it was "
+             "read; check their site for today's terms."),
+            ("Can I try Campaignify before I pay?",
+             "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, with no card and no trial "
+             "that renews."),
+            ("What does a credit buy?",
+             "An image ad is {image} credits, a 5-second product video {video5}, an 8-second talking video {talk8} "
+             "and a 10-second one {talk10}. Plans are ${starter_usd}, ${growth_usd} and ${scale_usd} a month; packs "
+             "are {pack_usd}."),
+            ("Can I use the ads in paid campaigns?",
+             "Yes, in your own marketing, including paid ads. You're responsible for what you post; see the "
+             "[terms](/terms)."),
+        ],
+        "related": ["ai-ugc-ad-generator", "arcads-alternative", "creatify-alternative"],
+    },
+    "adcreative-ai-alternative": {
+        "query": "AdCreative.ai alternative",
+        "nav": "AdCreative.ai alternative",
+        "title": "AdCreative.ai Alternative, Priced First · Campaignify",
+        "description": "Comparing AdCreative.ai alternatives? Image and video ads from your product page, no card, "
+                       "no auto-billing trial, price shown first. Try {sc_images} image ads free.",
+        "eyebrow": "Comparing tools",
+        "h1": "Campaignify is an AdCreative.ai alternative with no card, no auto-billing trial, and every ad priced first",
+        "answer": "Campaignify makes image ads, product videos and UGC-style talking videos from your product page, "
+                  "then writes the copy for each platform. There's no card at sign-up and no trial that turns into a "
+                  "plan: you start with {sc_images} free image ads, see every ad's price in credits before you "
+                  "generate, and buy a pack or a plan only when you want to. The AdCreative.ai facts below are quoted "
+                  "from AdCreative.ai's site, with the date it was read.",
+        "steps": [
+            ("Paste a product page",
+             "Campaignify reads the product's name, description, price and photos from its page. You approve the "
+             "claims and pick the photos."),
+            ("See the price, then generate",
+             "Pick an image ad, a product video or a UGC presenter video. The price in credits is on the button "
+             "before anything runs."),
+            ("Pay only when you want more",
+             "Your free credits cover {sc_images} image ads. After that, a one-time pack from ${pack_min_usd} or a plan "
+             "from ${starter_usd} a month, cancel anytime."),
+        ],
+        "table": {
+            "competitor": "AdCreative.ai",
+            "source": "https://www.adcreative.ai/",
+            "source_name": "AdCreative.ai's site (its pricing section)",
+            "date": "2026-11-03",
+            "rows": [
+                ("Trying it",
+                 "\"7 day free trial. Cancel anytime.\" with 20 credits. Whether a card is needed, and whether the "
+                 "trial turns into a paid plan by itself: not stated on adcreative.ai (as of 2026-11-03); the page "
+                 "says \"We'll remind you before trial ends\".",
+                 "Free sign-up with no card and no end date: {sc} credits ({sc_images} image ads). Nothing starts "
+                 "billing by itself."),
+                ("What a plan costs",
+                 "Monthly plans listed at $39 (Starter, 20 credits, 1 brand), $249 (Professional, 300 credits) and "
+                 "$999 (Ultimate, 300 credits, 25 brands); quarterly and yearly discounts shown.",
+                 "Plans at ${starter_usd}, ${growth_usd} and ${scale_usd} a month ({starter_credits} credits on Starter), "
+                 "or a one-time pack from ${pack_min_usd} with {pack_min_credits} credits that never expire."),
+                ("What an ad costs",
+                 "Credits per plan are listed; a per-ad credit price is not listed on the page (as of 2026-11-03).",
+                 "A fixed price per ad, shown before you generate: {image} credits an image ad, {video5} a 5-second "
+                 "product video, {talk8} an 8-second talking video. Failed generations are refunded."),
+            ],
+        },
+        "h2": {"how": "How this AdCreative.ai alternative works", "compare": "AdCreative.ai and Campaignify, side by side",
+               "faq": "AdCreative.ai alternative questions"},
+        "compare": [
+            ("Is there a trial that turns into a subscription?",
+             "No. Free sign-up has no card and no end date. A plan starts only when you choose one, and you can cancel "
+             "it anytime."),
+            ("Do I see the price before I generate?",
+             "Yes, in credits, on the button, and failed generations are refunded automatically."),
+            ("Does it make video as well as image ads?",
+             "Yes: image ads in {image_shapes}, 5 or 10 second product videos, UGC-style talking videos with "
+             "{presenters} AI presenters, and motion copied from a reference clip."),
+            ("What about the copy?",
+             "On Starter and up, the copy studio writes every text field each platform takes, sized to its display "
+             "lengths, with compliance checks on every variant."),
+        ],
+        "limits": [
+            "It makes AI presenters only; it doesn't book or film real creators.",
+            "It doesn't score ads, buy media, post ads or read results from the ad platforms.",
+        ],
+        "media": [("site/headphones.jpg", "Blue over-ear headphones floating against a bright orange background."),
+                  ("site/ugc-app.jpg", "An AI presenter at a desk shows a to-do list app on his phone."),
+                  ("site/candle.jpg", "A lit candle in an amber glass jar beside dried eucalyptus.")],
+        "faq": [
+            ("Is Campaignify affiliated with AdCreative.ai?",
+             "No. Campaignify is an independent product made by Rector & Stull LLC. AdCreative.ai is a trademark of "
+             "its owner. The AdCreative.ai facts on this page are quoted from AdCreative.ai's site with the date it "
+             "was read; check their site for today's terms."),
+            ("Can I try Campaignify before I pay?",
+             "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, with no card and no trial "
+             "that renews."),
+            ("What does a credit buy?",
+             "An image ad is {image} credits, a 5-second product video {video5}, an 8-second talking video {talk8} "
+             "and a 10-second one {talk10}. Plans are ${starter_usd}, ${growth_usd} and ${scale_usd} a month; packs "
+             "are {pack_usd}."),
+            ("Can I use the ads in paid campaigns?",
+             "Yes, in your own marketing, including paid ads. You're responsible for what you post; see the "
+             "[terms](/terms)."),
+        ],
+        "related": ["ai-product-ads-for-shopify", "ai-ad-copy-generator", "creatify-alternative"],
     },
 }
-SOLUTION_ORDER = ["ai-ugc-ad-generator", "arcads-alternative", "ai-product-ads-for-shopify", "ai-ad-copy-generator"]
+SOLUTION_ORDER = ["ai-ugc-ad-generator", "arcads-alternative", "ai-product-ads-for-shopify", "ai-ad-copy-generator",
+                  "creatify-alternative", "makeugc-alternative", "adcreative-ai-alternative"]
 
 
 def solution(slug: str) -> dict:
@@ -380,6 +690,15 @@ def solution(slug: str) -> dict:
             out[key] = _fmt(s[key], f)
     if "limits" in s:
         out["limits"] = [x.format(**f) for x in s["limits"]]
+    if "price_line" in s:
+        out["price_line"] = s["price_line"].format(**f)
+    if "table" in s:
+        t = dict(s["table"])
+        t["rows"] = [(label, theirs.format(**f), ours.format(**f)) for label, theirs, ours in s["table"]["rows"]]
+        out["table"] = t
+    q = s["query"]
+    out["h2"] = {"how": f"How the {q} works", "gets": f"What you get with the {q}", "compare": f"{q}: side by side",
+                 "faq": f"{q} questions", **s.get("h2", {})}
     return out
 
 
@@ -395,6 +714,12 @@ PAGES = {  # endpoint -> (path, title, description)
     "pricing": ("/pricing", "Pricing: Plans From ${starter} a Month · Campaignify",
                 "Free sign-up includes {sc_images} image ads, no card. Plans at ${starter}, ${growth} and ${scale} a month, or "
                 "one-time credit packs. See every price before you generate."),
+    "for_reps": ("/for-reps", "For Independent Reps: Compliance Checks · Campaignify",
+                 "Selling as an independent rep? Campaignify blocks income, recruiting, health and discount claims in "
+                 "every ad brief, copy variant and landing page."),
+    "llm_info": ("/llm-info", "Campaignify for AI Assistants (llms.txt) · Campaignify",
+                 "What Campaignify is, what it makes, what each ad costs in credits and which plan includes each tool, "
+                 "in plain text for AI assistants and search engines."),
     "privacy": ("/privacy", "Privacy Policy · Campaignify",
                 "What Campaignify collects to run your account and make your ads, the services it uses, the Google "
                 "Ads tag, and how to see or delete your data."),
@@ -410,8 +735,60 @@ PAGES = {  # endpoint -> (path, title, description)
 def sitemap_paths() -> list[str]:
     paths = [PAGES[e][0] for e in ("index", "features", "pricing")]
     paths += [f"/{s}" for s in SOLUTION_ORDER]
-    paths += [PAGES[e][0] for e in ("privacy", "terms", "messaging.policy")]
+    paths += [PAGES[e][0] for e in ("for_reps", "llm_info", "privacy", "terms", "messaging.policy")]
     return paths
+
+
+def lastmod() -> str:
+    """The sitemap's <lastmod>: the day the public copy (this module, the templates,
+    the site media) last changed on disk, which on the server is the deploy."""
+    import datetime
+    here = os.path.dirname(os.path.abspath(__file__))
+    newest = 0.0
+    for folder, names in ((here, ("public_site.py", "app.py")), (os.path.join(here, "web"), None)):
+        for n in (names or os.listdir(folder)):
+            try:
+                newest = max(newest, os.path.getmtime(os.path.join(folder, n)))
+            except OSError:
+                pass
+    return datetime.datetime.fromtimestamp(newest, datetime.timezone.utc).strftime("%Y-%m-%d")
+
+
+_MD_LINK = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+|/[^)\s]*)\)")
+
+
+def text_blocks(text: str) -> list:
+    """The llms.txt text as (kind, content) blocks for the HTML mirror (/llm-info):
+    ("h1" | "h2", title), ("p", Markup), ("ul", [Markup, ...]). Links become <a>."""
+    def inline(line: str) -> Markup:
+        return Markup(_MD_LINK.sub(lambda m: f'<a href="{escape(m.group(2))}">{escape(m.group(1))}</a>', str(escape(line))))
+
+    out, items = [], []
+
+    def flush():
+        if items:
+            out.append(("ul", list(items)))
+            items.clear()
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            flush()
+            continue
+        if line.startswith("# "):
+            flush()
+            out.append(("h1", line[2:]))
+        elif line.startswith("## "):
+            flush()
+            out.append(("h2", line[3:]))
+        elif line.startswith("- "):
+            items.append(inline(line[2:]))
+        elif re.match(r"^\d+\. ", line):
+            items.append(inline(line.split(". ", 1)[1]))
+        else:
+            flush()
+            out.append(("p", inline(line[2:] if line.startswith("> ") else line)))
+    flush()
+    return out
 
 
 def absolute(path: str) -> str:

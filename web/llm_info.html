@@ -1,0 +1,17 @@
+{% extends "public_base.html" %}
+{# /llm-info: the HTML mirror of /llms.txt (same text, rendered). #}
+{% block main %}
+<section class="lp-hero lp-hero-sm">
+  <div class="lp-wrap">
+    <p class="eyebrow">For AI assistants and search engines</p>
+    <h1>Campaignify, in plain text</h1>
+    <p class="lp-lede">This page is the readable copy of <a href="{{ url_for('llms_txt') }}">/llms.txt</a>: what Campaignify is, what it makes, what each ad costs in credits and which plan includes each tool. Same words, same numbers, pulled from the live rate card and plans.</p>
+  </div>
+</section>
+<section class="lp-sec">
+  <div class="lp-wrap llm-info">
+    {% for kind, body in blocks %}{% if kind == 'h1' %}{% elif kind == 'h2' %}<h2 class="lp-h3">{{ body }}</h2>{% elif kind == 'ul' %}<ul>{% for it in body %}<li>{{ it }}</li>{% endfor %}</ul>{% else %}<p class="muted">{{ body }}</p>{% endif %}
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

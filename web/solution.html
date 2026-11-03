@@ -7,6 +7,7 @@
     <div>
       <p class="eyebrow">{{ s.eyebrow }}</p>
       <h1>{{ s.h1 }}</h1>
+      {% if s.price_line %}<p class="sol-price"><b>{{ s.price_line }}</b></p>{% endif %}
       <p class="lp-lede sol-answer">{{ s.answer }}</p>
       <div class="lp-cta">
         <a class="btn lg" href="{{ url_for('signup') }}" data-cta="hero">{{ so.cta }}</a>
@@ -14,9 +15,21 @@
       </div>
       <p class="small muted lp-note">{{ so.body }}</p>
     </div>
-    {% if s.media %}
+    {% if clips %}
+    <figure class="sol-media sol-clips">
+      {% for gi in clips %}
+      <div class="lp-g-media{{ ' talk' if gi.talk }}">
+        <video data-inview muted loop playsinline preload="{{ 'metadata' if loop.first else 'none' }}" poster="{{ url_for('static', filename=gi.poster) }}" aria-label="{{ gi.alt }}"><source src="{{ url_for('static', filename=gi.src) }}" type="video/mp4"></video>
+        {% if gi.talk %}<span class="lp-g-badge">AI presenter</span>
+        <button type="button" class="lp-snd" aria-pressed="false" aria-label="Play {{ gi.title|lower }} with sound"><svg class="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M22 9l-6 6M16 9l6 6"/></svg><svg class="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13"/></svg></button>
+        {% else %}<span class="lp-g-badge">{{ gi.title }}</span>{% endif %}
+      </div>
+      {% endfor %}
+      <figcaption class="small dim">Examples made with AI for this site; the products and presenters are invented. Tap the speaker to hear a presenter.</figcaption>
+    </figure>
+    {% elif s.media %}
     <figure class="sol-media">
-      {% for src, alt in s.media %}<img src="{{ url_for('static', filename=src) }}" alt="{{ alt }}" width="540" height="960" {{ 'fetchpriority=high' if loop.first else 'loading=lazy' }} decoding="async">{% endfor %}
+      {% for src, alt in s.media %}<img src="{{ url_for('static', filename=src) }}" srcset="{{ url_for('static', filename=src[:-4] ~ '-sm.jpg') }} 270w, {{ url_for('static', filename=src) }} 540w" sizes="(max-width: 560px) 30vw, (max-width: 900px) 160px, 180px" alt="{{ alt }}" width="540" height="960" {{ 'fetchpriority=high' if loop.first else 'loading=lazy' }} decoding="async">{% endfor %}
       <figcaption class="small dim">Examples made with AI for this site; the products and presenters are invented.</figcaption>
     </figure>
     {% elif s.shot %}
@@ -32,7 +45,7 @@
 <section class="lp-sec" id="how">
   <div class="lp-wrap">
     <p class="eyebrow">How it works</p>
-    <h2 class="lp-h2">Three steps.</h2>
+    <h2 class="lp-h2">{{ s.h2.how }}</h2>
     <ol class="sol-steps">
       {% for title, body in s.steps %}
       <li><span class="lp-num">{{ loop.index }}</span><div><h3>{{ title }}</h3><p class="muted">{{ body }}</p></div></li>
@@ -45,7 +58,7 @@
 <section class="lp-sec" id="what-you-get">
   <div class="lp-wrap">
     <p class="eyebrow">What you get</p>
-    <h2 class="lp-h2">What you get.</h2>
+    <h2 class="lp-h2">{{ s.h2.gets }}</h2>
     <div class="feat-grid">
       {% for title, body in s.gets %}<article class="feat"><h3>{{ title }}</h3><p class="muted">{{ body }}</p></article>
       {% endfor %}
@@ -54,17 +67,29 @@
 </section>
 {% endif %}
 
-{% if s.compare %}
+{% if s.table or s.compare %}
 <section class="lp-sec" id="compare">
   <div class="lp-wrap">
-    <p class="eyebrow">What you get, side by side</p>
-    <h2 class="lp-h2">Questions to ask any AI UGC tool.</h2>
-    <p class="lp-sub muted">Ask every tool on your list the same questions. Here are Campaignify's answers.</p>
+    <p class="eyebrow">Side by side</p>
+    <h2 class="lp-h2">{{ s.h2.compare }}</h2>
+    {% if s.table %}{% set t = s.table %}
+    <p class="lp-sub muted">What each one says about trying it and what an ad costs. The {{ t.competitor }} column quotes <a href="{{ t.source }}" rel="nofollow noopener" target="_blank">{{ t.source_name }}</a>, read on {{ t.date }}; where that page doesn't say, the row says so. The Campaignify column is this site today.</p>
+    <div class="sol-table sol-table-3" role="table" aria-label="{{ t.competitor }} and Campaignify, side by side">
+      <div class="sol-tr sol-th" role="row"><span role="columnheader">As of {{ t.date }}</span><span role="columnheader">{{ t.competitor }}</span><span role="columnheader">Campaignify</span></div>
+      {% for label, theirs, ours in t.rows %}<div class="sol-tr" role="row"><b role="cell">{{ label }}</b><span role="cell" class="muted"><span class="sol-who">{{ t.competitor }}</span>{{ theirs }}</span><span role="cell"><span class="sol-who">Campaignify</span>{{ ours }}</span></div>
+      {% endfor %}
+    </div>
+    <p class="small dim" style="margin-top:12px">Source for the {{ t.competitor }} column: <a href="{{ t.source }}" rel="nofollow noopener" target="_blank">{{ t.source }}</a> (as of {{ t.date }}). {{ t.competitor }} may have changed its terms since; check their site. Campaignify isn't affiliated with {{ t.competitor }}.</p>
+    {% endif %}
+    {% if s.compare %}
+    <h3 class="lp-h3" style="margin-top:36px">Questions to ask any AI ad tool</h3>
+    <p class="muted small" style="margin:0 0 14px">Ask every tool on your list the same questions. Here are Campaignify's answers.</p>
     <div class="sol-table" role="table" aria-label="Campaignify's answers">
       <div class="sol-tr sol-th" role="row"><span role="columnheader">Question</span><span role="columnheader">Campaignify</span></div>
       {% for q, a in s.compare %}<div class="sol-tr" role="row"><b role="cell">{{ q }}</b><span role="cell" class="muted">{{ a }}</span></div>
       {% endfor %}
     </div>
+    {% endif %}
     {% if s.limits %}
     <h3 class="lp-h3" style="margin-top:36px">Where Campaignify may not fit</h3>
     <ul class="sol-limits muted">{% for l in s.limits %}<li>{{ l }}</li>{% endfor %}</ul>
@@ -77,7 +102,7 @@
   <div class="lp-wrap lp-faq">
     <div>
       <p class="eyebrow">FAQ</p>
-      <h2 class="lp-h2">Questions.</h2>
+      <h2 class="lp-h2">{{ s.h2.faq }}</h2>
     </div>
     <div>
       {% for q, a in s.faq %}<details {{ 'open' if loop.first }}><summary>{{ q }}</summary><p>{{ faq_answer(a) }}</p></details>
@@ -90,13 +115,32 @@
   <div class="lp-wrap">
     <h2 class="lp-h2">More from Campaignify</h2>
     <div class="feat-grid sol-more">
-      {% for o in others %}<a class="feat sol-link" href="{{ url_for('solution', slug=o.slug) }}"><h3>{{ o.h1 }}</h3><p class="muted small">{{ o.description }}</p></a>
+      {% for o in others %}<a class="feat sol-link" href="{{ url_for('solution', slug=o.slug) }}"><h3>{{ o.nav }}</h3><p class="muted small">{{ o.description }}</p></a>
       {% endfor %}
     </div>
     <p class="small muted" style="margin-top:18px">Or see <a href="{{ url_for('features') }}">every feature</a> and <a href="{{ url_for('pricing') }}">pricing</a>.</p>
   </div>
 </section>
 
+{% if clips %}
+<script>
+// Presenter clips in the hero: one at a time with sound; the rest stay muted.
+(function(){
+  var btns = [].slice.call(document.querySelectorAll('.sol-clips .lp-snd'));
+  function off(b){ var v = b.parentNode.querySelector('video'); v.muted = true; b.setAttribute('aria-pressed', 'false'); }
+  btns.forEach(function(b){
+    var v = b.parentNode.querySelector('video');
+    b.addEventListener('click', function(){
+      if (!v.muted) { off(b); return; }
+      btns.forEach(function(o){ if (o !== b) off(o); });
+      v.muted = false; v.currentTime = 0; b.setAttribute('aria-pressed', 'true');
+      var p = v.play(); if (p && p.catch) p.catch(function(){ off(b); });
+    });
+    v.addEventListener('pause', function(){ if (!v.muted) off(b); });
+  });
+})();
+</script>
+{% endif %}
 <section class="lp-sec lp-final">
   <div class="lp-wrap">
     <h2 class="lp-h2">Try it on your own product.</h2>
