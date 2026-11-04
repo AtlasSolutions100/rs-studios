@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Competitor snapshot · Campaignify{% endblock %}
+{% macro srcs(it) -%}
+{% for u in it.sources or [] %}<a class="src" href="{{ u }}" target="_blank" rel="noopener nofollow ugc" title="{{ u }}">{{ loop.index }}</a>{% endfor %}
+{%- endmacro %}
+{% block body %}
+{% set s = rep.synthesis or {} %}
+<div class="page full camp">
+  <p style="margin:0 0 14px"><a href="{{ url_for('competitors.index') }}">← Competitors</a></p>
+  <p class="eyebrow">Competitor snapshot{% if rep.as_of %} · as of {{ rep.as_of }}{% endif %}</p>
+  <h1>{% if rep.brand %}Where {{ rep.brand }} can win{% else %}Competitor research{% endif %}</h1>
+  <p class="muted">{% if inputs.competitors %}{{ inputs.competitors|map(attribute='name')|join(', ') }}{% else %}Your closest competitors, found by search{% endif %}{% if r.status == 'ready' %} · cost {{ r.credits|credits }}{% endif %}</p>
+
+  {% if r.status == 'running' %}
+  <div class="panel planning" id="running" data-steps="{{ steps|length }}">
+    <div class="row"><div class="spinner" style="margin:0"></div><b>Researching…</b><span class="muted small">This takes a few minutes. You can leave this page; it keeps going.</span></div>
+  </div>
+  {% elif r.status == 'failed' %}
+  <div class="flash bad">{{ r.error or "The research didn't finish. Nothing was charged." }}</div>
+  {% endif %}
+
+  <details class="panel steps" {{ 'open' if r.status != 'ready' }}>
+    <summary><b>How it was researched</b> <span class="muted small">{{ steps|length }} steps</span></summary>
+    <ol class="steplist">{% for st in steps %}<li class="{{ st.kind }}"><b>{{ st.title }}</b>{% if st.detail %}<span class="small muted">{{ st.detail }}</span>{% endif %}</li>{% else %}<li class="note"><b>Getting started…</b></li>{% endfor %}</ol>
+  </details>
+
+  {% if rep %}
+  <div class="row" style="gap:10px;margin:18px 0 0;flex-wrap:wrap">
+    <button type="button" class="btn dark sm" data-copy="md">Copy</button>
+    <a class="btn sm" href="{{ url_for('competitors.markdown', rid=r.id) }}">Download as Markdown</a>
+    <span class="small dim">Numbers in brackets link to the page each item came from.</span>
+  </div>
+  <pre id="md" hidden>{{ markdown }}</pre>
+
+  <section class="camp-sec">
+    <h2>Where you can win</h2>
+    {% if s.summary %}<p class="lede">{{ s.summary }}</p>{% endif %}
+    {% if s.angles %}<div class="panel"><h3>Angles and hooks to test</h3>
+      <ol class="rules comp-list">{% for a in s.angles %}<li><b>{{ a.angle }}</b>{% if a.hook %} · “{{ a.hook }}”{% endif %}<br><span class="small muted">{{ a.why }}</span> {{ srcs(a) }}</li>{% endfor %}</ol>
+    </div>{% endif %}
+    <div class="grid2">
+      {% if s.gaps %}<div class="panel"><h3>Positioning gaps</h3><ul class="rules comp-list">{% for it in s.gaps %}<li>{{ it.text }} {{ srcs(it) }}</li>{% endfor %}</ul></div>{% endif %}
+      {% if s.objections %}<div class="panel"><h3>Objections to pre-empt</h3><ul class="rules comp-list">{% for it in s.objections %}<li><b>{{ it.objection }}</b> {{ it.answer }} {{ srcs(it) }}</li>{% endfor %}</ul></div>{% endif %}
+      {% if s.offers_used %}<div class="panel"><h3>Offers competitors use</h3><ul class="rules comp-list">{% for it in s.offers_used %}<li>{{ it.text }} {{ srcs(it) }}</li>{% endfor %}</ul></div>{% endif %}
+      {% if s.avoid %}<div class="panel"><h3>What to avoid</h3><ul class="rules comp-list">{% for it in s.avoid %}<li>{{ it.text }} {{ srcs(it) }}</li>{% endfor %}</ul></div>{% endif %}
+    </div>
+  </section>
+
+  {% for c in rep.competitors %}
+  <section class="camp-sec">
+    <h2>{{ c.name }}</h2>
+    <p class="muted">{% if c.website %}<a href="{{ c.website }}" target="_blank" rel="noopener nofollow ugc">{{ c.website }}</a> · {% endif %}{{ c.summary }}</p>
+    <div class="grid2">
+      {% for key, title in sections %}{% set items = c.sections[key] or [] %}{% if items %}
+      <div class="panel"><h3>{{ title }}</h3><ul class="rules comp-list">{% for it in items %}<li>{{ it.text }}{% if it.price %} · <b>{{ it.price }}</b>{% endif %} {{ srcs(it) }}</li>{% endfor %}</ul>{% if key == 'offers' %}<p class="small dim">As listed on {{ rep.as_of }}.</p>{% endif %}</div>
+      {% endif %}{% endfor %}
+      <div class="panel"><h3>Their live ads</h3><p class="small muted">Ad libraries are built with scripts, so the research can't read them and doesn't guess. Look yourself:</p>
+        <p><a href="{{ c.ad_links.meta }}" target="_blank" rel="noopener nofollow">Meta Ad Library: {{ c.name }}</a><br><a href="{{ c.ad_links.tiktok }}" target="_blank" rel="noopener nofollow">TikTok Top Ads</a> <span class="small dim">(search the brand name)</span></p></div>
+    </div>
+    {% if c.unverified %}<details class="small" style="margin-top:12px"><summary>{{ c.unverified|length }} not verified</summary><p class="muted">These came without a source this run could confirm. Check them before using them.</p><ul class="rules">{% for u in c.unverified %}<li><span class="dim">{{ names.get(u.section, u.section) }}:</span> {{ u.text }}</li>{% endfor %}</ul></details>{% endif %}
+  </section>
+  {% endfor %}
+
+  {% if rep.unverified %}<section class="camp-sec"><details class="panel"><summary><b>{{ rep.unverified|length }} suggestion{{ 's' if rep.unverified|length != 1 }} set aside</b> <span class="muted small">no confirmed source, or broke the ad rules</span></summary>
+    <ul class="rules">{% for u in rep.unverified %}<li>{{ u.hook or u.text or u.objection or u.angle }}{% if u.note %} <span class="dim">{{ u.note }}</span>{% endif %}</li>{% endfor %}</ul></details></section>{% endif %}
+  {% if rep.skipped %}<p class="small muted">Not researched this time: {{ rep.skipped|join(', ') }}.</p>{% endif %}
+
+  {% if sources %}<section class="camp-sec"><details class="panel"><summary><b>Sources read</b> <span class="muted small">{{ sources|length }}</span></summary>
+    <ul class="rules">{% for x in sources %}<li><a href="{{ x.url }}" target="_blank" rel="noopener nofollow ugc">{{ x.title or x.url }}</a></li>{% endfor %}</ul></details></section>{% endif %}
+  {% endif %}
+</div>
+<style>.src{display:inline-block;min-width:18px;padding:0 5px;margin-left:3px;border-radius:999px;border:1px solid var(--line);font-size:11px;line-height:17px;text-align:center;text-decoration:none}.comp-list li{margin:8px 0}</style>
+{% include "_copyjs.html" %}
+<script>
+(function(){
+  var p = document.getElementById('running');
+  if (p) { setInterval(function(){ fetch('{{ url_for("competitors.status", rid=r.id) }}').then(function(x){ return x.json(); }).then(function(d){
+    if (d.status !== 'running' || d.steps != p.dataset.steps) location.reload(); }); }, 4000); }
+})();
+</script>
+{% endblock %}

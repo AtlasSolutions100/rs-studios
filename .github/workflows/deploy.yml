@@ -13,7 +13,7 @@ name: Deploy Campaignify (campaignify.ai)
 #   STRIPE_WEBHOOK_SECRET  signing secret of the https://campaignify.ai/webhooks/stripe
 #                          endpoint (Stripe dashboard > Developers > Webhooks)
 #   ANTHROPIC_API_KEY      the AI writing key (campaign planner, copy studio, SEO
-#                          optimizer); without it those tools show "not set up yet"
+#                          optimizer, competitor research with web search); without it those tools show "not set up yet"
 #   ANTHROPIC_MODEL        optional repo variable (default claude-sonnet-4-6)
 #   GROQ_API_KEY           optional fallback writing key; GROQ_MODEL optional variable
 #   STRIPE_PORTAL_CONFIG   optional repo variable: Customer Portal configuration id

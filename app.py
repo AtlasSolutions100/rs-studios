@@ -133,6 +133,7 @@ NAV_GROUPS = [
         ("campaigns.index", "Campaigns", "planner", "planner", ("campaigns.index", "campaigns.show")),
         ("copy.studio", "Copy", "copy", "copy", ("copy.studio", "copy.run", "copy.optimize", "copy.optimized")),
         ("seo.index", "SEO & AEO", "seo", "seo", ("seo.index", "seo.result")),
+        ("competitors.index", "Competitors", "competitors", "competitors", ("competitors.index", "competitors.show")),
     ]),
     ("Grow", [
         ("flows.index", "Flows", "flows", "flows", ("flows.index", "flows.edit", "flows.tasks")),
@@ -436,7 +437,7 @@ JOURNEY = [
      "body": "Give the AI planner your offer, audience, goal, budget and platforms. It proposes angles, writes hooks "
              "and scripts, lines up the ads with a credit quote for each, then adds a budget split, what to watch "
              "and a launch checklist.",
-     "features": ["planner"], "shot": "plan", "alt": "A campaign plan with a budget split, what to watch and three angles."},
+     "features": ["planner", "competitors"], "shot": "plan", "alt": "A campaign plan with a budget split, what to watch and three angles."},
     {"id": "make", "step": "Make the ads", "title": "Make the ads from one product photo",
      "body": "Pick the product, choose an angle and let AI write the script. Then make UGC videos with AI "
              "presenters, product videos, image ads in four shapes, or copy the motion of a reference clip, in "
@@ -2311,6 +2312,7 @@ import assistant_routes  # noqa: E402
 import campaign_routes  # noqa: E402
 import copy_routes  # noqa: E402  (blueprints import core, never app)
 import seo_routes  # noqa: E402
+import competitor_routes  # noqa: E402
 import adhub_routes  # noqa: E402
 import pages_routes  # noqa: E402
 import forms_routes  # noqa: E402
@@ -2332,6 +2334,7 @@ app.register_blueprint(assistant_routes.bp)
 app.register_blueprint(copy_routes.bp)
 app.register_blueprint(campaign_routes.bp)
 app.register_blueprint(seo_routes.bp)
+app.register_blueprint(competitor_routes.bp)
 app.register_blueprint(adhub_routes.bp)
 app.register_blueprint(pages_routes.bp)
 app.register_blueprint(forms_routes.bp)
