@@ -449,6 +449,14 @@ CREATE TABLE IF NOT EXISTS import_attempts (
     id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER, domain TEXT NOT NULL, method TEXT NOT NULL,
     status TEXT NOT NULL, http_status INTEGER, detail TEXT, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_import_attempts_at ON import_attempts(created_at);
+-- Single-use free-month codes (compcodes.py, /admin/codes): one per business, one per workspace.
+CREATE TABLE IF NOT EXISTS comp_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL UNIQUE, label TEXT, plan TEXT NOT NULL,
+    months INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, created_by INTEGER, redeem_by TEXT, batch TEXT,
+    redeemed_at TEXT, workspace_id INTEGER, redeemed_by INTEGER, comp_until TEXT,
+    revoked INTEGER NOT NULL DEFAULT 0, revoked_at TEXT);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_comp_codes_ws ON comp_codes(workspace_id) WHERE workspace_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_comp_codes_batch ON comp_codes(batch);
 """
 
 # Columns added after the first release: (table, column, definition).
@@ -528,6 +536,10 @@ COLUMNS = [
     ("users", "first_touch", "TEXT"),            # JSON: UTM tags / click ids of the visit that brought them
     ("ad_conversions", "ctx_json", "TEXT"),      # browser context for the server-side purchase (conversions.py)
     ("users", "auth_provider", "TEXT"),          # "google" for accounts made with Continue with Google (google_auth.py)
+    # free-month codes (compcodes.py): the plan, when it ends, when the next month's credits land
+    ("workspaces", "comp_plan", "TEXT"),
+    ("workspaces", "comp_until", "TEXT"),
+    ("workspaces", "comp_next_grant", "TEXT"),
 ]
 
 

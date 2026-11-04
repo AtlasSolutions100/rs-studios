@@ -10,6 +10,7 @@ from flask import redirect, session, url_for
 
 import adoffer
 import catalog
+import compcodes
 import conversions
 import db
 import gads
@@ -87,14 +88,23 @@ def create_self_serve_account(conn, email: str, name: str, pw_hash: str, req, ip
 
 
 def self_serve_signup(email: str, name: str, pw_hash: str, req, ip: str, secret: str, invite_code: str = "",
-                      auth_provider=None, verified: bool = False, dest: str = None):
+                      auth_provider=None, verified: bool = False, dest: str = None, comp_code: str = ""):
     """The whole self-serve sign-up: create the account, log it in, send the
     confirmation email when it needs one, record the funnel step and the
     conversions, and answer with the redirect (to `dest` or Home) and its cookies.
+    A free-month code (`comp_code`, compcodes.py) is used in the same transaction:
+    a code that doesn't work refuses the sign-up with its reason.
     Raises SignupRefused when the account can't be made (nothing is written then)."""
+    comp_row = None
     with db.connect() as conn:
         made = create_self_serve_account(conn, email, name, pw_hash, req, ip, invite_code,
                                          auth_provider=auth_provider, verified=verified)
+        if comp_code:
+            try:
+                comp_row = compcodes.redeem(conn, made["ws_id"], made["uid"], comp_code, commit=False)
+            except compcodes.Refused as e:
+                conn.rollback()
+                raise SignupRefused(str(e)) from None
         conn.commit()
         uid, ws_id, ad_credits = made["uid"], made["ws_id"], made["ad_credits"]
         session.clear()
@@ -118,6 +128,9 @@ def self_serve_signup(email: str, name: str, pw_hash: str, req, ip: str, secret:
             conversions.on_signup(conn, uid, conversions.context(req))
     except Exception:  # noqa: BLE001  measurement never breaks sign-up
         log.exception("server-side sign-up conversion not queued")
+    if comp_row is not None:
+        from flask import flash
+        flash(compcodes.applied_message(comp_row), "ok")
     # New accounts land on Home, which is the first-ad form until they've made one
     # (the setup guide is a link from there, not a detour).
     resp = redirect(dest or url_for("studio"))

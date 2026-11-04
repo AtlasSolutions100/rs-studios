@@ -31,6 +31,7 @@
     {% if owner %}<input type="hidden" name="invite" value="{{ invite }}">
     {% elif invite %}<label for="inv">Invite code</label><input id="inv" type="text" name="invite" value="{{ invite }}">
     {% else %}<details class="inv"><summary class="small muted">Have an invite code?</summary><label for="inv">Invite code</label><input id="inv" type="text" name="invite" value=""></details>{% endif %}
+    {% if not owner %}<details class="inv" {{ 'open' if comp_code }}><summary class="small muted">Have a free-month code?</summary><label for="comp">Code from our email</label><input id="comp" type="text" name="comp_code" maxlength="40" value="{{ comp_code or '' }}" placeholder="CFY-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false"></details>{% endif %}
     <p style="margin-top:22px"><button class="btn" style="width:100%">Create account</button></p>
     <p class="small dim" style="margin:0">By creating an account you agree to the <a href="{{ url_for('terms') }}">terms</a> and <a href="{{ url_for('privacy') }}">privacy policy</a>.</p>
   </form>

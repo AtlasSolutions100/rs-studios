@@ -14,12 +14,15 @@
       {% set n = balance() // r.image %}
       {% set tv = balance() // r.talk10 %}{% set pv = balance() // r.video5 %}
       <span class="muted small">credits · ≈ {{ tv }} talking video{{ '' if tv == 1 else 's' }} (10 s), {{ pv }} product video{{ '' if pv == 1 else 's' }} (5 s) or {{ '{:,}'.format(n) }} image ad{{ '' if n == 1 else 's' }}</span>
-      {% if g.ws.plan_credits %}<p class="small muted" style="margin:12px 0 0">{{ '{:,}'.format(g.ws.plan_credits) }} plan credits{% if g.ws.plan_period_end %} (renew {{ g.ws.plan_period_end|localtime('date') }}){% endif %} · {{ '{:,}'.format(g.ws.credits) }} pack credits</p>{% endif %}
+      {% if g.ws.plan_credits %}<p class="small muted" style="margin:12px 0 0">{{ '{:,}'.format(g.ws.plan_credits) }} plan credits{% if comp_on and not subscribed %} (until {{ comp_until_text(g.ws.comp_next_grant or g.ws.comp_until) }}){% elif g.ws.plan_period_end %} (renew {{ g.ws.plan_period_end|localtime('date') }}){% endif %} · {{ '{:,}'.format(g.ws.credits) }} pack credits</p>{% endif %}
     </div>
     <div class="panel planbox">
       <span class="muted small">Plan</span>
       <h2 style="margin:4px 0 2px">{{ current.name }}</h2>
-      {% if current.code != 'free' %}
+      {% if comp_on and current.code == g.ws.comp_plan and not subscribed %}
+        <p class="small" style="margin:0" id="comp-status"><b>{{ current.name }}, free until {{ comp_until_text(g.ws.comp_until) }}.</b> {% if g.ws.stripe_customer_id %}Nothing will be charged, won't renew.{% else %}No card on file, won't renew.{% endif %}</p>
+        <p class="muted small" style="margin:4px 0 0">{{ '{:,}'.format(current.credits) }} credits a month. After that you're back on Free, with your pack credits kept. To stay on a plan, pick one below.</p>
+      {% elif current.code != 'free' %}
         <p class="muted small" style="margin:0">{{ '{:,}'.format(current.credits) }} credits a month{% if g.ws.plan_override and not subscribed %} · complimentary{% endif %}{% if g.ws.plan_status == 'past_due' %} · <span class="bad">payment past due</span>{% endif %}{% if g.ws.plan_cancel_at_period_end %} · cancels {{ (g.ws.plan_period_end or '')[:10] }}{% elif g.ws.plan_period_end and subscribed %} · renews {{ g.ws.plan_period_end|localtime('date') }}{% endif %}</p>
       {% else %}
         <p class="muted small" style="margin:0">Starter credits and credit packs. Pick a plan for monthly credits, more brands and seats.</p>
@@ -29,6 +32,18 @@
       {% endif %}
     </div>
   </div>
+
+  {% if owner and not subscribed and not used_code and not comp_on %}
+  <div class="panel" id="code" style="margin-bottom:24px">
+    <h2 style="margin:0 0 4px">Have a code?</h2>
+    <p class="muted small" style="margin:0 0 10px">Enter the code from our email for your free month. No card needed, and it doesn't renew.</p>
+    <form method="post" action="{{ url_for('billing_code') }}" class="row" style="gap:8px;flex-wrap:wrap">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <input id="comp-code" type="text" name="code" aria-label="Code" maxlength="40" placeholder="CFY-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" style="width:220px" required>
+      <button class="btn sm">Apply code</button>
+    </form>
+  </div>
+  {% endif %}
 
   <div class="section-h" id="plans"><h2>Plans</h2><span class="muted small">Monthly. Cancel anytime from Manage plan.</span></div>
   <div class="plan-grid">
@@ -53,6 +68,7 @@
     </div>
     {% endfor %}
   </div>
+  {% if comp_on and not subscribed %}<p class="small dim">Picking a plan now starts it today, paid monthly, and ends your free months.</p>{% endif %}
   <p class="small dim">Plan credits arrive with each monthly payment and expire at the next renewal; they're spent before pack credits. Pack and starter credits never expire. Upgrades apply right away (you pay the difference and get the extra credits now); downgrades and cancellations take effect at the end of the month you've paid for.</p>
 
   <div class="section-h"><h2>Credit packs</h2><span class="muted small">One-time top-ups, on any plan. They never expire.</span></div>

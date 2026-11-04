@@ -28,6 +28,7 @@ import adoffer
 import admin_funnel
 import billing
 import catalog
+import compcodes
 import conversions
 import owners
 import pixels
@@ -116,7 +117,8 @@ app.jinja_env.globals.update(csrf_token=csrf_token, tools=catalog.DISPLAY_TOOLS,
                              COPY_KINDS=platforms_mod.KINDS,
                              starter_credits=catalog.starter_credits, rates=catalog.rates,
                              billing_configured=billing.configured, starter_image_ads=catalog.STARTER_IMAGE_ADS,
-                             plans=plans, has_feature=_has, balance=_balance)
+                             plans=plans, has_feature=_has, balance=_balance,
+                             comp_until_text=compcodes.free_until_text)
 
 # Sidebar: (endpoint, label, icon, feature or None, endpoints that light it up),
 # in groups (title or None, items). NAV is the flat list.
@@ -268,6 +270,10 @@ def load_user():
                     else:
                         session.pop("view_ws", None)
                 g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+                if g.ws and compcodes.due(g.ws):
+                    # a free-month code's next credits, or its end (back to free), right on time
+                    compcodes.settle(conn, ws_id)
+                    g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
                 if g.ws:
                     g.brand_row, g.product_row = products.load_active(conn, g.ws)
                     g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
@@ -657,9 +663,12 @@ def signup():
     code = code.strip()
     owner = owners.owner_email(code)
 
+    comp = ((request.form.get("comp_code") if request.method == "POST" else request.args.get("code")) or "").strip()[:40]
+
     def again(msg, status=200):
         flash(msg)
-        return render_template("signup.html", invite=code, owner=owner, email=request.form.get("email", "")), status
+        return render_template("signup.html", invite=code, owner=owner, email=request.form.get("email", ""),
+                               comp_code=comp), status
 
     if g.user:
         return redirect(url_for("studio"))
@@ -677,7 +686,7 @@ def signup():
         if not owner:
             try:
                 return accounts.self_serve_signup(email, name, generate_password_hash(pw), request, ip, app.secret_key,
-                                                  invite_code=code)
+                                                  invite_code=code, comp_code=comp)
             except accounts.SignupRefused as e:
                 return again(str(e), e.status)
         # An owner setup link: a Rector & Stull admin, confirmed (the link only works for its own address).
@@ -705,7 +714,7 @@ def signup():
         if request.cookies.get(gads.COOKIE):
             resp.delete_cookie(gads.COOKIE)   # it's on the account now
         return resp
-    return render_template("signup.html", invite=code, owner=owner, email="")
+    return render_template("signup.html", invite=code, owner=owner, email="", comp_code=comp)
 
 
 @app.route("/verify")
@@ -1542,9 +1551,25 @@ def billing_page():
                               (g.ws["id"],)).fetchall()
         invoices = conn.execute("SELECT * FROM plan_invoices WHERE workspace_id=? ORDER BY created_at DESC LIMIT 24",
                                 (g.ws["id"],)).fetchall()
+        used_code = compcodes.used_code(conn, g.ws["id"])
     return render_template("billing.html", purchases=purchases, ledger=ledger, packs_by=catalog.PACK_BY_CODE,
                            invoices=invoices, current=plans.plan(g.ws), subscribed=_subscribed(g.ws),
-                           owner=is_owner())
+                           owner=is_owner(), comp_on=compcodes.active(g.ws), used_code=used_code)
+
+
+@app.route("/app/billing/code", methods=["POST"])
+@owner_required
+def billing_code():
+    """"Have a code?" on Billing: a free-month code (compcodes.py). No Stripe involved."""
+    with db.connect() as conn:
+        try:
+            row = compcodes.redeem(conn, g.ws["id"], g.user["id"], request.form.get("code") or "")
+        except compcodes.Refused as e:
+            conn.rollback()
+            flash(str(e))
+            return redirect(url_for("billing_page") + "#code")
+    flash(compcodes.applied_message(row), "ok")
+    return redirect(url_for("billing_page"))
 
 
 def _report_purchase(sid: str, plan: bool):
@@ -1936,6 +1961,11 @@ def _start_plan_sync():
             time.sleep(3600)
             with app.app_context():
                 _reconcile_all()
+                try:
+                    with db.connect() as conn:
+                        compcodes.settle_all(conn)
+                except Exception:  # noqa: BLE001
+                    log.exception("free-month code sweep failed")
 
     threading.Thread(target=loop, name="rs-plan-sync", daemon=True).start()
 
@@ -2195,6 +2225,55 @@ def admin_outreach():
                            repeat_days=outreach.REPEAT_DAYS, frm=outreach.from_header(), reply_to=outreach.reply_to(),
                            address=outreach.postal_address(), opt_out=outreach.OPT_OUT_LINE,
                            mail_on=mailer.configured())
+
+
+@app.route("/admin/codes", methods=["GET", "POST"])
+@admin_required
+def admin_codes():
+    """Single-use free-month codes (compcodes.py): make a batch, see every code's status, revoke."""
+    form = {}
+    if request.method == "POST":
+        form = {k: request.form.get(k) or "" for k in ("plan", "months", "labels", "count", "redeem_by")}
+        with db.connect() as conn:
+            try:
+                batch, rows = compcodes.generate(conn, plan=form["plan"] or "growth", months=form["months"] or 1,
+                                                 labels=form["labels"].splitlines(), count=form["count"],
+                                                 redeem_by=form["redeem_by"], user_id=g.user["id"])
+            except compcodes.Refused as e:
+                flash(str(e))
+                batch = None
+        if batch:
+            flash(f"Made {len(rows)} code{'s' if len(rows) != 1 else ''}.", "ok")
+            return redirect(url_for("admin_codes", batch=batch))
+    batch = (request.args.get("batch") or "").strip()[:40]
+    with db.connect() as conn:
+        rows = compcodes.listing(conn)
+        fresh = conn.execute("SELECT * FROM comp_codes WHERE batch=? ORDER BY id", (batch,)).fetchall() if batch else []
+    return render_template("admin_codes.html", rows=rows, fresh=fresh, batch=batch, form=form, status=compcodes.status,
+                           now=db.now(), default_days=compcodes.DEFAULT_REDEEM_DAYS, max_months=compcodes.MAX_MONTHS,
+                           max_codes=compcodes.MAX_CODES)
+
+
+@app.route("/admin/codes.csv")
+@admin_required
+def admin_codes_csv():
+    batch = (request.args.get("batch") or "").strip()[:40]
+    with db.connect() as conn:
+        rows = conn.execute("SELECT * FROM comp_codes WHERE batch=? ORDER BY id", (batch,)).fetchall() if batch \
+            else conn.execute("SELECT * FROM comp_codes ORDER BY id").fetchall()
+    name = f"campaignify-codes-{batch or 'all'}.csv"
+    return app.response_class(compcodes.to_csv(rows), mimetype="text/csv",
+                              headers={"Content-Disposition": f'attachment; filename="{name}"',
+                                       "Cache-Control": "no-store"})
+
+
+@app.route("/admin/codes/<int:cid>/revoke", methods=["POST"])
+@admin_required
+def admin_code_revoke(cid):
+    with db.connect() as conn:
+        ok = compcodes.revoke(conn, cid, g.user["id"])
+    flash("Code revoked. It won't work any more." if ok else "Only unused codes can be revoked.", "ok" if ok else "message")
+    return redirect(url_for("admin_codes") + "#codes")
 
 
 @app.route("/admin/outreach/suppress", methods=["POST"])
