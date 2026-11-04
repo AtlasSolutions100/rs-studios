@@ -53,7 +53,12 @@ Credits live in two buckets: **plan credits** (each paid invoice replaces them, 
 renewal; upgrades add the difference right away) and **pack credits** (starter, packs, admin top-ups; never expire).
 Spending takes plan credits first; refunds go back to the bucket they came from. "Manage or cancel plan" opens the
 Stripe Customer Portal with the Campaignify configuration (`billing.PORTAL_CONFIG`: our three plans, upgrades invoiced
-immediately, downgrades and cancellations at period end). Admins can comp a workspace onto a plan (`plan_override`).
+immediately, downgrades and cancellations at period end). Admins can comp a workspace onto a plan (`plan_override`). Free-month codes (`compcodes.py`, `/admin/codes`): an admin makes
+single-use codes (CFY-XXXX-XXXX, one per label line, a plan, a number of months, a redeem-by date, CSV download,
+revoke); a workspace enters one at sign-up (`/signup?code=...` prefills it) or under "Have a code?" on Billing and
+gets that plan's features and monthly credits (`comp_plan` / `comp_until`) with no Stripe customer, card or
+subscription. One code per workspace, not for workspaces that already pay; at `comp_until` it drops back to Free on
+its own (plan credits expire, pack credits stay).
 Brands (`brands` table; the workspace's brand columns mirror the active brand) and seats (Team page, owner-made invite
 links) are capped per plan server-side; Scale jobs get queue priority.
 

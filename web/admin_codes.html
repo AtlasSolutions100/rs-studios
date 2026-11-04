@@ -1,0 +1,41 @@
+{% extends "base.html" %}{% block title %}Free-month codes · Admin · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+<p class="eyebrow"><a href="{{ url_for('admin') }}">Admin</a></p><h1>Free-month <span class="gold">codes</span></h1>
+<p class="muted">Single-use codes for a plan with no card and no renewal. One code per workspace. People enter it at sign-up (or open <code>/signup?code=CFY-XXXX-XXXX</code>) or under "Have a code?" on Billing. When the months are up the workspace goes back to Free on its own.</p>
+<div class="grid" style="gap:24px">
+<div class="panel" id="make">
+  <h2>Make codes</h2>
+  <form method="post" action="{{ url_for('admin_codes') }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <div class="row" style="gap:12px;flex-wrap:wrap">
+      <div><label for="c-plan">Plan</label><select id="c-plan" name="plan" style="width:auto">{% for p in plans.PAID %}<option value="{{ p.code }}" {{ 'selected' if (form.plan or 'growth') == p.code }}>{{ p.name }}</option>{% endfor %}</select></div>
+      <div><label for="c-months">Months</label><input id="c-months" type="number" name="months" min="1" max="{{ max_months }}" value="{{ form.months or 1 }}" style="width:90px"></div>
+      <div><label for="c-by">Redeem by <span class="dim">(blank = {{ default_days }} days)</span></label><input id="c-by" type="date" name="redeem_by" value="{{ form.redeem_by or '' }}" style="width:auto"></div>
+      <div><label for="c-count">Or just a number</label><input id="c-count" type="number" name="count" min="0" max="{{ max_codes }}" value="{{ form.count or '' }}" style="width:90px"></div>
+    </div>
+    <label for="c-labels">Labels, one per line <span class="dim">(e.g. brand and email; one code each)</span></label>
+    <textarea id="c-labels" name="labels" maxlength="40000" style="min-height:160px" placeholder="Acme Coffee · sam@acme.com">{{ form.labels or '' }}</textarea>
+    <p style="margin-top:12px"><button class="btn sm">Make codes</button></p>
+  </form>
+</div>
+{% if fresh %}
+<div class="panel scrollx" id="fresh">
+  <h2>Just made ({{ fresh|length }})</h2>
+  <p class="small muted"><a href="{{ url_for('admin_codes_csv', batch=batch) }}">Download CSV</a> · {{ plans.PLANS[fresh[0].plan].name }}, {{ fresh[0].months }} month{{ '' if fresh[0].months == 1 else 's' }}, redeem by {{ (fresh[0].redeem_by or '')[:10] }}</p>
+  <table><tr><th>Code</th><th>Label</th></tr>
+  {% for c in fresh %}<tr><td><code>{{ c.code }}</code></td><td>{{ c.label or '' }}</td></tr>{% endfor %}</table>
+</div>
+{% endif %}
+<div class="panel scrollx" id="codes">
+  <h2>All codes</h2>
+  <p class="small muted"><a href="{{ url_for('admin_codes_csv') }}">Download all as CSV</a></p>
+  <table><tr><th>Code</th><th>Label</th><th>Plan</th><th>Redeem by</th><th>Status</th><th></th></tr>
+  {% for c in rows %}{% set st = status(c, now) %}<tr><td><code>{{ c.code }}</code></td><td>{{ c.label or '' }}</td><td>{{ plans.PLANS[c.plan].name if c.plan in plans.PLANS else c.plan }} · {{ c.months }} mo</td><td class="muted">{{ (c.redeem_by or '')[:10] }}</td>
+  <td class="small">{% if st == 'redeemed' %}<span class="tag ok">redeemed</span> {{ c.redeemed_at|localtime('date') }} by #{{ c.workspace_id }} {{ c.ws_name or '' }}{% if c.user_email %} ({{ c.user_email }}){% endif %}, free until {{ (c.comp_until or '')[:10] }}{% elif st == 'revoked' %}<span class="tag bad">revoked</span>{% elif st == 'expired' %}<span class="tag warn">expired</span>{% else %}<span class="tag">open</span>{% endif %}</td>
+  <td>{% if st in ('open', 'expired') %}<form method="post" action="{{ url_for('admin_code_revoke', cid=c.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Revoke</button></form>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="6" class="muted">No codes yet.</td></tr>{% endfor %}</table>
+</div>
+</div>
+</div>
+{% endblock %}

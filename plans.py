@@ -12,10 +12,12 @@ Credits come in two buckets on a workspace:
 Spending always takes plan credits first (db.adjust_credits).
 
 Use `has(ws, feature)` / `limit(ws, key)` everywhere; never compare plan names
-by hand. A workspace's plan is its active Stripe subscription, or an admin
-"comp" plan (plan_override) when one is set.
+by hand. A workspace's plan is its active Stripe subscription, an admin
+"comp" plan (plan_override) when one is set, or a free-month code's plan
+(comp_plan, until comp_until; compcodes.py), whichever is highest.
 """
 import os
+from datetime import datetime, timezone
 
 # Order matters: each plan includes everything in the ones before it.
 ORDER = ["free", "starter", "growth", "scale"]
@@ -102,7 +104,15 @@ def plan_code(ws) -> str:
     code = sub if sub in PLANS and status in LIVE_STATUSES else "free"
     if override in PLANS and rank(override) > rank(code):
         code = override
+    comp = ws["comp_plan"] if "comp_plan" in keys else None
+    if comp in PLANS and rank(comp) > rank(code) and ws["comp_until"] and str(ws["comp_until"]) > _now_iso():
+        code = comp
     return code
+
+
+def _now_iso() -> str:
+    # the same format as db.now(), so ISO strings compare in time order
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
 def plan(ws) -> dict:
