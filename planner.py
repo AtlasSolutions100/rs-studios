@@ -459,6 +459,15 @@ def run(cid: int, notes: str | None = None):
     prompt = brief_prompt(c, brand, brief, notes)
     if previous and previous.final:
         prompt += "\n\nThe previous plan's summary: " + previous.final.get("summary", "")
+    try:
+        import competitors
+        with db.connect() as conn:
+            note = competitors.planner_note(conn, c["workspace_id"], c["brand_id"])
+    except Exception:  # noqa: BLE001 — research notes are a bonus; never block a plan
+        note = ""
+    if note:
+        prompt += "\n\n" + note
+        _step(steps, "read", "Read your competitor snapshot", note.split("\n", 1)[0][:200])
     messages = [{"role": "user", "content": prompt}]
     system = [{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}]
     cap = cap_credits()

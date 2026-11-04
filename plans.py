@@ -62,6 +62,8 @@ FEATURES = {
              "blurb": "Ad copy, hooks, captions, headlines, emails and landing copy for each platform."},
     "planner": {"plan": "starter", "name": "AI campaign planner", "shipped": True,
                 "blurb": "From a brief to angles, hooks, scripts, ad variants, copy and a launch checklist."},
+    "competitors": {"plan": "free", "name": "Competitor research", "shipped": True,
+                    "blurb": "Research your closest competitors on the web: offers, positioning, reviews and angles to test, each with its source."},
     "adhub": {"plan": "starter", "name": "Ad-account setup hub", "shipped": True,
               "blurb": "Step-by-step setup for each ad platform, pixel basics and export specs."},
     "pages": {"plan": "starter", "name": "Landing pages", "shipped": True,

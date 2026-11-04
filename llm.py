@@ -8,10 +8,14 @@ optional fallback for single structured calls. Settings:
     ANTHROPIC_API_KEY   main key; ANTHROPIC_MODEL optional (default below)
     GROQ_API_KEY        optional fallback; GROQ_MODEL optional
     LLM_USD_IN_PER_MTOK / LLM_USD_OUT_PER_MTOK   override the price table
+    LLM_USD_PER_WEB_SEARCH   override the web search fee (default $0.01 a search)
 
 Members pay in credits for what each call actually cost: tokens used x the
-provider's list price x RS_MARKUP, rounded up (catalog.MARKUP). When no key is
-set, `configured()` is False and the tools say so instead of failing.
+provider's list price x RS_MARKUP, rounded up (catalog.MARKUP). Anthropic's
+server-side web search adds a fee per search ($10 per 1,000, list price), read
+from usage.server_tool_use.web_search_requests; web fetch has no fee beyond the
+tokens of the pages it reads. When no key is set, `configured()` is False and
+the tools say so instead of failing.
 """
 import json
 import math
@@ -44,6 +48,7 @@ PRICES = [
     ("llama", (0.59, 0.79)),
 ]
 FALLBACK_PRICE = (3.0, 15.0)
+WEB_SEARCH_USD = 0.01   # Anthropic web search: $10 per 1,000 searches, on top of tokens
 
 
 class LLMError(RuntimeError):
@@ -100,6 +105,14 @@ def cost_usd(model_id: str, tokens_in: int, tokens_out: int) -> float:
     return tokens_in / 1e6 * pin + tokens_out / 1e6 * pout
 
 
+def web_search_usd() -> float:
+    env = _key("LLM_USD_PER_WEB_SEARCH")
+    try:
+        return float(env) if env else WEB_SEARCH_USD
+    except ValueError:
+        return WEB_SEARCH_USD
+
+
 def credits_for(usd: float) -> int:
     """What a call costs a member: at least 1 credit, cost x markup, rounded up."""
     return max(1, int(math.ceil(usd * catalog.MARKUP * 100 - 1e-9)))
@@ -117,13 +130,19 @@ class Usage:
         self.tokens_in = self.tokens_out = 0
         self.usd = 0.0
         self.calls = 0
+        self.web_searches = self.web_fetches = 0
 
-    def add(self, model_id: str, tin: int, tout: int, cache_write: int = 0, cache_read: int = 0):
-        """Prompt-cache writes bill at 1.25x the input price and reads at 0.1x."""
+    def add(self, model_id: str, tin: int, tout: int, cache_write: int = 0, cache_read: int = 0,
+            web_searches: int = 0, web_fetches: int = 0):
+        """Prompt-cache writes bill at 1.25x the input price and reads at 0.1x.
+        Each server-side web search adds its fee; fetches cost only their tokens."""
         pin, pout = price_per_mtok(model_id)
         self.tokens_in += tin + cache_write + cache_read
         self.tokens_out += tout
         self.usd += (tin + cache_write * 1.25 + cache_read * 0.1) / 1e6 * pin + tout / 1e6 * pout
+        self.usd += web_searches * web_search_usd()
+        self.web_searches += web_searches
+        self.web_fetches += web_fetches
         self.calls += 1
 
     @property
@@ -133,13 +152,13 @@ class Usage:
 
 # ---------------------------------------------------------------- raw calls
 
-def _anthropic(body: dict) -> dict:
+def _anthropic(body: dict, timeout: float | None = None) -> dict:
     key = _key("ANTHROPIC_API_KEY")
     if not key:
         raise LLMError("not configured")
     for attempt in range(3):
         try:
-            r = requests.post(ANTHROPIC_URL, json=body, timeout=TIMEOUT,
+            r = requests.post(ANTHROPIC_URL, json=body, timeout=timeout or TIMEOUT,
                               headers={"x-api-key": key, "anthropic-version": "2023-06-01",
                                        "content-type": "application/json"})
         except requests.RequestException as e:
@@ -173,28 +192,35 @@ def _groq(body: dict) -> dict:
 
 
 def chat(*, system, messages: list, tools: list | None = None, tool_choice: dict | None = None,
-         max_tokens: int = 2000, usage: Usage | None = None, temperature: float = 0.7, model_id: str | None = None) -> dict:
+         max_tokens: int = 2000, usage: Usage | None = None, temperature: float = 0.7, model_id: str | None = None,
+         timeout: float | None = None) -> dict:
     """One Anthropic Messages call. Returns the raw response (content blocks,
-    stop_reason); adds its tokens to `usage`. `model_id` picks another model
-    (e.g. fast_model()); if the API rejects it, the main model is used."""
+    stop_reason); adds its tokens (and any server-side web searches) to `usage`.
+    `tools` may include Anthropic's server tools (web_search / web_fetch); they
+    run on Anthropic's side within this one call. `model_id` picks another model
+    (e.g. fast_model()); if the API rejects it, the main model is used.
+    `timeout` (seconds) is for long calls such as a run of web searches."""
     body = {"model": model_id or model("anthropic"), "max_tokens": max_tokens, "system": system, "messages": messages,
             "temperature": temperature}
     if tools:
         body["tools"] = tools
     if tool_choice:
         body["tool_choice"] = tool_choice
+    extra = {"timeout": timeout} if timeout else {}
     try:
-        resp = _anthropic(body)
+        resp = _anthropic(body, **extra)
     except LLMError as e:
         if not model_id or model_id == model("anthropic") or not str(e).startswith(("404", "400")) \
                 or "model" not in str(e).lower():
             raise
         body["model"] = model("anthropic")
-        resp = _anthropic(body)
+        resp = _anthropic(body, **extra)
     u = resp.get("usage") or {}
+    stu = u.get("server_tool_use") or {}
     if usage is not None:
         usage.add(resp.get("model") or body["model"], int(u.get("input_tokens") or 0), int(u.get("output_tokens") or 0),
-                  int(u.get("cache_creation_input_tokens") or 0), int(u.get("cache_read_input_tokens") or 0))
+                  int(u.get("cache_creation_input_tokens") or 0), int(u.get("cache_read_input_tokens") or 0),
+                  web_searches=int(stu.get("web_search_requests") or 0), web_fetches=int(stu.get("web_fetch_requests") or 0))
     return resp
 
 

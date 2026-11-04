@@ -1,0 +1,37 @@
+{% extends "base.html" %}{% block title %}Competitors · Campaignify{% endblock %}
+{% block body %}
+<div class="page">
+  <section>
+    <p class="eyebrow">Competitor research{% if brand and brand.brand_name %} · {{ brand.brand_name }}{% endif %}</p>
+    <h1>See what your <span class="gold">competitors</span> sell and say</h1>
+    <p class="muted">We search the web and read their public pages: offers and prices as listed, how they position themselves, who they sell to, their landing pages, what reviews praise and complain about, and what they target in search. Then we show where you can win, with angles and hooks to test. Every item links to the page it came from; anything without a source is set aside and marked.</p>
+    {% if current %}<p><a class="btn dark sm" href="{{ url_for('competitors.show', rid=current.id) }}">Open the current snapshot</a> <span class="small dim">from {{ current.created_at|localtime }}. The campaign planner uses it.</span></p>{% endif %}
+    <form method="post" class="panel copyform" id="compform">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <input type="hidden" name="quote" id="quote" value="{{ quotes[0] }}">
+      <label>Competitors <span class="dim">(optional, up to {{ max_n }}: a name, a website, or both)</span></label>
+      {% for i in range(max_n) %}<input type="text" name="competitor" maxlength="200" class="comp-in" aria-label="Competitor {{ i + 1 }}" placeholder="{{ 'e.g. Brand name, brand.com' if i == 0 else '' }}" style="margin-top:8px">{% endfor %}
+      <p class="small muted" style="margin-top:10px">Leave them empty and we find your 3 to 5 closest competitors first. Each competitor gets up to {{ caps.searches }} web searches and {{ caps.fetches }} page reads. Ads: we link you to each one's Meta Ad Library and TikTok pages, since those can't be read automatically; we never make up ads.</p>
+      {% if not ai_on %}<p class="small muted">Competitor research isn't switched on yet.</p>{% endif %}
+      <div class="go"><span class="muted small">Up to <b id="qshow">{{ quotes[0] }}</b> credits · you pay what it actually uses · nothing if it fails · you have {{ '{:,}'.format(balance()) }} credits</span><button class="btn" {{ 'disabled' if not ai_on }}>Run research</button></div>
+      <p class="small dim" style="margin:10px 0 0">Takes about 2 to 6 minutes. You can leave the page; it keeps going.</p>
+    </form>
+  </section>
+  <aside class="rail">
+    <div class="panel">
+      <h2>Past runs</h2>
+      {% for r in runs %}{% set i = r.inputs_json|fromjson %}
+      <a class="runrow" href="{{ url_for('competitors.show', rid=r.id) }}"><b>{% if i.competitors %}{{ i.competitors|map(attribute='name')|join(', ')|truncate(60) }}{% else %}Closest competitors{% endif %}</b><span class="small dim">{{ r.created_at|localtime }} · {% if r.status == 'running' %}running{% elif r.status == 'failed' %}didn't finish{% else %}{{ r.credits|credits }}{% endif %}{% if current and current.id == r.id %} · current{% endif %}</span></a>
+      {% else %}<div class="empty">No runs yet.</div>{% endfor %}
+    </div>
+  </aside>
+</div>
+<script>
+(function(){
+  var Q = {{ quotes|tojson }}, ins = document.querySelectorAll('.comp-in');
+  function upd(){ var n = 0; ins.forEach(function(i){ if (i.value.trim()) n++; });
+    document.getElementById('quote').value = Q[n]; document.getElementById('qshow').textContent = Number(Q[n]).toLocaleString(); }
+  ins.forEach(function(i){ i.addEventListener('input', upd); }); upd();
+})();
+</script>
+{% endblock %}

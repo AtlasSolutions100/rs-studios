@@ -457,6 +457,14 @@ CREATE TABLE IF NOT EXISTS comp_codes (
     revoked INTEGER NOT NULL DEFAULT 0, revoked_at TEXT);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_comp_codes_ws ON comp_codes(workspace_id) WHERE workspace_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_comp_codes_batch ON comp_codes(batch);
+-- Competitor Snapshot runs (competitors.py): one row per run, kept as history; a brand's latest
+-- 'ready' row is its current report. status: running | ready | failed.
+CREATE TABLE IF NOT EXISTS competitor_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, brand_id INTEGER, user_id INTEGER,
+    status TEXT NOT NULL DEFAULT 'running', inputs_json TEXT, report_json TEXT, sources_json TEXT, steps_json TEXT,
+    usd_cost REAL NOT NULL DEFAULT 0, credits INTEGER NOT NULL DEFAULT 0, error TEXT,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_competitor_reports_ws ON competitor_reports(workspace_id, brand_id, id);
 """
 
 # Columns added after the first release: (table, column, definition).
