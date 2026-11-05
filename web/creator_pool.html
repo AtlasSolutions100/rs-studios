@@ -29,7 +29,7 @@
     <form method="post" action="{{ url_for('cpools.status', pid=p.id) }}" class="row" style="gap:8px;margin-bottom:12px">
       <input type="hidden" name="csrf" value="{{ csrf_token() }}">
       {% if p.status == 'live' %}<button class="btn dark sm" name="status" value="paused">Pause</button>{% else %}<button class="btn dark sm" name="status" value="active">Resume</button>{% endif %}
-      <button class="btn dark sm" name="status" value="ended" onclick="return confirm('End this pool? Creators can\'t send new posts, and what\'s left is refunded within {{ refund_days }} days.')">End now</button>
+      <button class="btn dark sm" name="status" value="ended" data-confirm="End this pool? Creators can&#39;t send new posts, and what&#39;s left is refunded within {{ refund_days }} days.">End now</button>
       <span class="small dim">Ending refunds what's left of the pool within {{ refund_days }} days.</span>
     </form>
     {% endif %}
