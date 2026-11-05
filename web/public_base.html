@@ -32,6 +32,7 @@
       <a href="{{ url_for('index') }}#journey">How it works</a>
       <a href="{{ url_for('for_reps') }}">For reps</a>
       <a href="{{ url_for('pricing') }}">Pricing</a>
+      <a href="{{ url_for('guides') }}">Guides</a>
       <a href="{{ url_for('index') }}#faq">FAQ</a>
     </nav>
     <div class="lp-actions">
@@ -59,11 +60,12 @@
         <a href="{{ url_for('signup') }}" data-cta="footer">Start free</a>
         <a href="{{ url_for('login') }}">Log in</a>
       </nav>
-      <nav class="lp-foot-links" aria-label="Use cases">
-        <b>Use cases</b>
-        {% for slug in solution_links() %}<a href="{{ url_for('solution', slug=slug) }}">{{ solution_nav(slug) }}</a>
+      {% for heading, links in footer_groups() %}<nav class="lp-foot-links" aria-label="{{ heading }}">
+        <b>{{ heading }}</b>
+        {% for href, label in links %}<a href="{{ href }}">{{ label }}</a>
         {% endfor %}
       </nav>
+      {% endfor %}
       <nav class="lp-foot-links" aria-label="Company">
         <b>Company</b>
         <a href="{{ url_for('privacy') }}">Privacy</a>

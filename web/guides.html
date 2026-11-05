@@ -1,0 +1,35 @@
+{% extends "public_base.html" %}
+{# /guides: the index of public_pages.GUIDES. #}
+{% block main %}
+{% set so = signup_offer() %}
+<section class="lp-hero lp-hero-sm">
+  <div class="lp-wrap">
+    <p class="eyebrow">Guides</p>
+    <h1>{{ ix.h1 }}</h1>
+    <p class="lp-lede">{{ ix.answer }}</p>
+  </div>
+</section>
+<section class="lp-sec" id="all-guides">
+  <div class="lp-wrap">
+    <h2 class="lp-h2">{{ ix.h2 }}</h2>
+    <div class="feat-grid sol-more">
+      {% for g in items %}<a class="feat sol-link" href="{{ g.path }}"><p class="eyebrow" style="margin:0 0 8px">{{ g.eyebrow }}</p><h3>{{ g.nav }}</h3><p class="muted small">{{ g.description }}</p></a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+<section class="lp-sec" id="compare-tools">
+  <div class="lp-wrap">
+    <h2 class="lp-h2">Comparing AI ad tools</h2>
+    <p class="muted" style="max-width:760px">Each comparison page puts another tool's published facts next to Campaignify's, with the source and the date it was read.</p>
+    <ul class="gd-links">{% for href, label in footer_groups()[1][1] %}<li><a href="{{ href }}">{{ label }}</a></li>{% endfor %}</ul>
+  </div>
+</section>
+<section class="lp-sec lp-final">
+  <div class="lp-wrap">
+    <h2 class="lp-h2">Try it on your own product.</h2>
+    <p class="muted">{{ so.body }}</p>
+    <a class="btn lg" href="{{ url_for('signup') }}" data-cta="closing">Start free</a>
+  </div>
+</section>
+{% endblock %}

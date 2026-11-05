@@ -30,3 +30,31 @@ Questions:
 Q: {{ q }}
 A: {{ answer_text(a) }}
 {% endfor %}{% endfor %}
+{% for g in guides %}
+## {{ g.h1 }} ({{ site.SITE_URL }}{{ g.path }})
+
+{{ g.answer }}
+{% if g.disclosure %}{{ g.disclosure }}
+{% endif %}{% for heading, anchor, blocks in g.sections %}
+### {{ heading }}
+{% for b in blocks %}{% if b is string %}
+{{ answer_text(b) }}
+{% elif b[0] == 'h3' %}
+{{ b[1] }}:
+{% elif b[0] == 'table' and g.table %}
+{{ g.table.cols|join(' | ') }}
+{% for row in g.table.rows %}{{ row|join(' | ') }}
+{% endfor %}{{ g.table.caption }}
+{% else %}
+{% for it in b[1] %}- {{ answer_text(it) }}
+{% endfor %}{% endif %}{% endfor %}{% endfor %}
+Questions:
+{% for q, a in g.faq %}
+Q: {{ q }}
+A: {{ answer_text(a) }}
+{% endfor %}{% if g.sources %}
+Sources (as listed on {{ g.sources_date }}):
+{% for name, u in g.sources %}- {{ name }}: {{ u }}
+{% endfor %}{% endif %}{% if g.not_advice %}
+{{ g.not_advice }}
+{% endif %}{% endfor %}

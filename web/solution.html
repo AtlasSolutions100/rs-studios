@@ -80,6 +80,7 @@
       {% endfor %}
     </div>
     <p class="small dim" style="margin-top:12px">Source for the {{ t.competitor }} column: <a href="{{ t.source }}" rel="nofollow noopener" target="_blank">{{ t.source }}</a> (as of {{ t.date }}). {{ t.competitor }} may have changed its terms since; check their site. Campaignify isn't affiliated with {{ t.competitor }}.</p>
+    {% if t.sources %}<p class="small dim" style="margin-top:6px">Other sources used on this page: {% for name, u in t.sources %}<a href="{{ u }}" rel="nofollow noopener" target="_blank">{{ name }}</a>{{ '; ' if not loop.last else '.' }}{% endfor %}</p>{% endif %}
     {% endif %}
     {% if s.compare %}
     <h3 class="lp-h3" style="margin-top:36px">Questions to ask any AI ad tool</h3>
@@ -115,7 +116,7 @@
   <div class="lp-wrap">
     <h2 class="lp-h2">More from Campaignify</h2>
     <div class="feat-grid sol-more">
-      {% for o in others %}<a class="feat sol-link" href="{{ url_for('solution', slug=o.slug) }}"><h3>{{ o.nav }}</h3><p class="muted small">{{ o.description }}</p></a>
+      {% for o in others %}<a class="feat sol-link" href="{{ o.href }}"><h3>{{ o.title }}</h3><p class="muted small">{{ o.description }}</p></a>
       {% endfor %}
     </div>
     <p class="small muted" style="margin-top:18px">Or see <a href="{{ url_for('features') }}">every feature</a> and <a href="{{ url_for('pricing') }}">pricing</a>.</p>
