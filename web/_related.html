@@ -1,0 +1,12 @@
+{# Related pages: cards linking the answer-first pages (public_site.RELATED). #}
+{% set cards = related_cards(request.endpoint) %}{% if cards %}
+<section class="lp-sec" id="more">
+  <div class="lp-wrap">
+    <h2 class="lp-h2">Related pages</h2>
+    <div class="feat-grid sol-more">
+      {% for o in cards %}<a class="feat sol-link" href="{{ o.href }}"><h3>{{ o.title }}</h3><p class="muted small">{{ o.description }}</p></a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}

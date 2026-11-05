@@ -210,3 +210,15 @@ jobs:
             sleep 6
           done
           exit 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Ping IndexNow with the sitemap
+        # Tells Bing and the other IndexNow engines about the public pages right after a deploy.
+        # The key is public (public_site.INDEXNOW_KEY, served at /<key>.txt). A failed ping doesn't fail the deploy.
+        continue-on-error: true
+        run: |
+          pip install -q markupsafe
+          python indexnow.py

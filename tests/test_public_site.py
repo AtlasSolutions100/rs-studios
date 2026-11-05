@@ -321,6 +321,51 @@ check('srcset="/static/site/ugc-bakery-sm.jpg 270w, /static/site/ugc-bakery.jpg 
       "presenter stills carry a srcset with a 270px version")
 check("Higgsfield" not in "".join(pub.get(p).get_data(as_text=True) for p in paths), "the vendor isn't named on the public site")
 
+print("== search engine verification, IndexNow, llms-full.txt, dashes")
+home_html = pub.get("/").get_data(as_text=True)
+check('<meta name="google-site-verification" content="rbYLQRwbrfockDcbnBLH-pYYgBUvzXchP2Ani4Zuw_M">' in home_html
+      and '<meta name="google-site-verification" content="TaTQ1t3pKtoG4y_te9_Z-e2mTFW8uoyhw4Yw6z6yE8E">' in home_html
+      and '<meta name="msvalidate.01" content="97386D3157EE9C0604AE6D8A368F083C">' in home_html,
+      "the home page carries both Google Search Console tags and the Bing verification tag")
+key = public_site.INDEXNOW_KEY
+kr = pub.get(f"/{key}.txt")
+check(re.fullmatch(r"[0-9a-f]{8,128}", key) and kr.status_code == 200 and kr.get_data(as_text=True) == key
+      and kr.mimetype == "text/plain", "the IndexNow key file is served at /<key>.txt with just the key")
+import indexnow  # noqa: E402
+urls = indexnow.sitemap_urls(sm)
+body = public_site.indexnow_body(urls + ["https://elsewhere.example/x"])
+check(urls == [SITE + p for p in paths] and body["host"] == "campaignify.ai" and body["key"] == key
+      and body["keyLocation"] == f"{SITE}/{key}.txt" and body["urlList"] == urls,
+      "the IndexNow ping sends every sitemap URL (and only ours) with the key location")
+lf = pub.get("/llms-full.txt")
+lft = lf.get_data(as_text=True)
+check(lf.status_code == 200 and lft.startswith("# Campaignify") and all(f"{SITE}/{s}" in lft for s in public_site.SOLUTION_ORDER)
+      and all(f"Q: {q}" in lft for q, _ in public_site.home_faq()) and "[terms](" not in lft,
+      "llms-full.txt: the summary plus every answer-first page's full text and FAQ, as plain text")
+check(f"{SITE}/llms-full.txt" in lt and "Manage or cancel plan" in lt and "hello@campaignify.ai" in lt
+      and "## Who it's for" in lt and all(SITE + p in lt for p in paths if p != "/llm-info") ,
+      "llms.txt: who it's for, how to cancel, contact, and a link to every sitemap page")
+for p, pg in pages.items():
+    nodes = graph(pg)
+    check(not any(k in json.dumps(nodes) for k in ('aggregateRating', '"Review"', '"reviewCount"')),
+          f"{p}: no ratings or reviews in the schema")
+    if p != "/":
+        check(node(nodes, "BreadcrumbList") and node(nodes, "WebSite"), f"{p}: WebSite and BreadcrumbList")
+check(node(graph(pages["/pricing"]), "SoftwareApplication")["offers"], "pricing carries SoftwareApplication offers")
+for p in ("/features", "/pricing", "/for-reps"):
+    b = pub.get(p).get_data(as_text=True)
+    check("Related pages" in b and all(f'href="/{k}"' in b for k in public_site.RELATED[p.strip("/").replace("-", "_")]),
+          f"{p}: a related-pages block")
+for p in paths + ["/llms.txt", "/llms-full.txt"]:
+    t = pub.get(p).get_data(as_text=True)
+    if p.endswith(".txt"):
+        text = t
+    else:
+        head = t.split("</head>")[0]
+        text = t.split("<main", 1)[1].split("<script>", 1)[0] + " ".join(re.findall(r'content="([^"]*)"', head)) + head.split("<title>")[1].split("</title>")[0]
+        text += " ".join(Page(t).ld)
+    check("\u2014" not in text and "\u2013" not in text, f"{p}: no em or en dashes in the public copy")
+
 print("== noindex on private routes")
 u = client()
 r = u.post("/signup", data={"csrf": csrf(u), "email": "seo@example.com", "password": "longpassword1"})

@@ -23,6 +23,19 @@ OG_IMAGE = "img/og-campaignify.png"
 OG_IMAGE_ALT = "campaignify: AI UGC ads from your product page, beside three phones showing AI-made ads."
 CONTACT = "hello@campaignify.ai"
 
+# IndexNow (https://www.indexnow.org): the key is public by design. Search engines
+# fetch it from /<key>.txt to confirm a ping came from this site, so it lives here
+# rather than in a secret. INDEXNOW_KEY overrides it (8-128 hex characters).
+INDEXNOW_KEY = os.environ.get("INDEXNOW_KEY") or "93eefb1e35ebe44cf5f9d86a424a9107"
+INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow"
+
+
+def indexnow_body(urls: list[str]) -> dict:
+    """The JSON an IndexNow ping sends for these URLs (all on this site)."""
+    host = SITE_URL.split("://", 1)[-1].split("/", 1)[0]
+    return {"host": host, "key": INDEXNOW_KEY, "keyLocation": f"{SITE_URL}/{INDEXNOW_KEY}.txt",
+            "urlList": [u for u in urls if u.startswith(SITE_URL + "/")]}
+
 
 def facts() -> dict:
     """Live numbers for the copy (str.format keys)."""
@@ -778,6 +791,24 @@ def solution(slug: str) -> dict:
     return out
 
 
+# "Related pages" blocks on the public pages that aren't answer-first pages.
+RELATED = {
+    "features": ["ai-marketing-platform-for-small-business", "ai-ugc-ad-generator", "ai-ad-copy-generator"],
+    "pricing": ["ai-marketing-platform-for-small-business", "creatify-alternative", "arcads-alternative"],
+    "for_reps": ["ai-ugc-ad-generator", "ai-ad-copy-generator", "ai-product-ads-for-shopify"],
+}
+
+
+def card(key: str) -> dict:
+    """{href, title, description} for a related-pages card."""
+    s = solution(key)
+    return {"href": f"/{key}", "title": s["nav"], "description": s["description"]}
+
+
+def related_cards(endpoint: str) -> list[dict]:
+    return [card(k) for k in RELATED.get(endpoint, [])]
+
+
 # ---------------------------------------------------------------- per-page meta
 
 PAGES = {  # endpoint -> (path, title, description)
@@ -914,8 +945,11 @@ def offers() -> list[dict]:
     return out
 
 
-SOFTWARE_DESCRIPTION = ("An AI marketing studio: UGC-style video ads and image ads from a product page, ad copy for "
-                        "every platform, a campaign planner, landing pages, smart links, forms and a community.")
+SOFTWARE_DESCRIPTION = ("An AI marketing platform for small businesses: an AI campaign planner, competitor research, "
+                        "UGC-style video ads with AI presenters and image ads from a product page, ad copy for every "
+                        "platform, an SEO, AEO and GEO optimizer, landing pages, smart links, forms and contacts, email "
+                        "and SMS follow-up flows, and community and courses. Every ad's cost is shown in credits "
+                        "before it is made.")
 
 
 def software():
