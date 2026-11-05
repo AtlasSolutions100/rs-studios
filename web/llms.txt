@@ -1,12 +1,26 @@
 # Campaignify
 
-> Campaignify ({{ site.SITE_URL }}) is an AI marketing studio for brands and independent sellers. Paste a product page and it makes UGC-style video ads (an AI presenter holds the product and says a script), product videos and image ads from the product's own photos, then writes the ad copy for each platform and keeps the landing page, smart links, forms and launch checklist in the same workspace. Prices are shown in credits before anything is generated, failed generations are refunded, and every brief, piece of copy and landing page is checked for income, health, discount and recruiting claims.
+> Campaignify ({{ site.SITE_URL }}) is an AI marketing platform for small businesses, brands and independent sellers. It covers the marketing side of a business in one workspace: an AI campaign planner, competitor research, UGC-style video ads (an AI presenter holds the product and says a script), product videos and image ads made from the product's own photos, ad copy for each platform, an SEO, AEO and GEO optimizer, landing pages, smart links, forms and contacts, and email and SMS follow-up flows. Prices are shown in credits before anything is generated, failed generations are refunded, and every brief, piece of copy and landing page is checked for income, health, discount and recruiting claims.
+
+## Who it's for
+
+- Small businesses: local shops, service businesses and small online stores that want ads, a landing page and follow-up without hiring an agency.
+- Online stores, including Shopify stores: paste a product page and the ads start from its photos and details.
+- Solo sellers and independent reps: the Starter plan is for one seller running their own campaigns, and the compliance checks block income, recruiting, health and discount claims.
+- Small teams and agencies: Growth includes 3 brands and 3 seats; Scale includes unlimited brands and 10 seats.
 
 ## How a campaign runs in Campaignify
 {% for s in journey %}
 {{ loop.index }}. {{ s.step }}: {{ s.body }}{% endfor %}
 
 Campaignify doesn't post ads, buy media or read results from ad platforms. It guides ad-account setup and exports each ad at the platform's sizes; you launch the ads in each platform's ads manager. Its analytics cover the pages, smart links and forms you run on Campaignify. AI presenters are generated characters, not real people, and never speak as customers.
+
+## Billing and cancelling
+
+- Free sign-up needs no card and has no end date. Nothing starts billing by itself.
+- Plans are billed monthly. Cancel yourself anytime from Billing in the app ("Manage or cancel plan"); the plan stays on until the end of the month you've paid for.
+- Plan credits arrive with each monthly payment and expire at the next renewal. Credits from packs and the free starter credits never expire.
+- Every ad's cost in credits is shown before it's made, and failed generations are refunded automatically.
 
 ## Pages
 
@@ -15,6 +29,7 @@ Campaignify doesn't post ads, buy media or read results from ad platforms. It gu
 - [Pricing]({{ site.SITE_URL }}/pricing): the free tier, the monthly plans, credit packs and what a credit buys.
 - [For reps]({{ site.SITE_URL }}/for-reps): the compliance checks for independent reps.
 - [LLM info]({{ site.SITE_URL }}/llm-info): this file as an HTML page.
+- [llms-full.txt]({{ site.SITE_URL }}/llms-full.txt): this file plus the full text and FAQ of every page below.
 {% for s in solutions %}- [{{ s.h1 }}]({{ site.SITE_URL }}/{{ s.slug }}): {{ s.description }}
 {% endfor %}- [Terms]({{ site.SITE_URL }}/terms): credits, plans, what you can't make.
 - [Privacy]({{ site.SITE_URL }}/privacy): what we collect and why.
@@ -44,4 +59,7 @@ Campaignify doesn't post ads, buy media or read results from ad platforms. It gu
 {% for k, f in plans.FEATURES.items() if f.shipped %}
 - {{ f.name }} ({{ 'every account' if f.plan == 'free' else plans.PLANS[f.plan].name ~ ' and up' }}): {{ f.blurb }}{% endfor %}
 
-Contact: hello@campaignify.ai
+## Contact
+
+- Email: hello@campaignify.ai
+- Sign up: {{ site.SITE_URL }}/signup

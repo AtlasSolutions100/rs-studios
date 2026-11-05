@@ -1,0 +1,32 @@
+{{ summary }}
+
+# Full text of the public pages
+
+## Home page FAQ
+{% for q, a in home_faq %}
+Q: {{ q }}
+A: {{ answer_text(a) }}
+{% endfor %}{% for s in solutions %}
+## {{ s.h1 }} ({{ site.SITE_URL }}/{{ s.slug }})
+
+{{ s.answer }}
+{% if s.price_line %}
+{{ s.price_line }}
+{% endif %}
+How it works:
+{% for title, body in s.steps %}{{ loop.index }}. {{ title }}: {{ body }}
+{% endfor %}{% if s.gets %}
+What you get:
+{% for title, body in s.gets %}- {{ title }}: {{ body }}
+{% endfor %}{% endif %}{% if s.table %}
+{{ s.table.competitor }} and Campaignify (the {{ s.table.competitor }} facts are from {{ s.table.source }}, as of {{ s.table.date }}):
+{% for label, theirs, ours in s.table.rows %}- {{ label }}. {{ s.table.competitor }}: {{ theirs }} Campaignify: {{ ours }}
+{% endfor %}{% endif %}{% if s.limits %}
+Where Campaignify may not fit:
+{% for l in s.limits %}- {{ l }}
+{% endfor %}{% endif %}
+Questions:
+{% for q, a in s.faq %}
+Q: {{ q }}
+A: {{ answer_text(a) }}
+{% endfor %}{% endfor %}

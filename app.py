@@ -603,6 +603,23 @@ def llms_txt():
     return app.response_class(_llms_text(), mimetype="text/plain")
 
 
+@app.route("/llms-full.txt")
+def llms_full_txt():
+    """llms.txt plus the full text of every answer-first page and FAQ, for AI assistants that read one file."""
+    body = render_template("llms-full.txt", summary=_llms_text(), site=public_site, home_faq=public_site.home_faq(),
+                           solutions=[public_site.solution(x) for x in public_site.SOLUTION_ORDER],
+                           answer_text=public_site.answer_text)
+    return app.response_class(body, mimetype="text/plain")
+
+
+def indexnow_key_file():
+    """IndexNow's key file (public by design): search engines read it to confirm our pings."""
+    return app.response_class(public_site.INDEXNOW_KEY, mimetype="text/plain")
+
+
+app.add_url_rule(f"/{public_site.INDEXNOW_KEY}.txt", "indexnow_key", indexnow_key_file)
+
+
 @app.route("/llm-info")
 def llm_info():
     """The same text as /llms.txt as an HTML page (headings, lists and links), for people and crawlers that read HTML."""
@@ -2342,7 +2359,8 @@ app.register_blueprint(community_routes.bp)
 app.register_blueprint(share_routes.bp)
 app.jinja_env.globals["has_endpoint"] = lambda name: name in app.view_functions
 app.jinja_env.globals.update(faq_answer=public_site.answer_html, solution_links=lambda: public_site.SOLUTION_ORDER,
-                             solution_nav=lambda slug: public_site.SOLUTIONS[slug]["nav"], basket=public_site.basket)
+                             solution_nav=lambda slug: public_site.SOLUTIONS[slug]["nav"], basket=public_site.basket,
+                             related_cards=public_site.related_cards)
 
 
 @app.errorhandler(400)
