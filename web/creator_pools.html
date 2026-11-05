@@ -1,0 +1,83 @@
+{% extends "base.html" %}{% block title %}Creator Pools · Campaignify{% endblock %}
+{% block body %}
+<div class="page">
+  <section>
+    <p class="eyebrow">Creator Pools{% if not public %} · testing (only you can see this){% endif %}</p>
+    <h1>Pay creators for <span class="gold">real views</span></h1>
+    <p class="muted">Fund a pool and Crowdcut's clippers make short videos about your product: they cut your videos, clip your streams or film their own. They post from their own accounts with #ad. You approve each post for brand fit, Crowdcut checks the views are real, and creators are paid per 1,000 verified views from your pool. The creators are independent Crowdcut users, not Campaignify staff, and views aren't guaranteed.</p>
+    <div class="panel" style="margin:14px 0">
+      <h2 style="margin-top:0">What it costs</h2>
+      <ul class="small">
+        <li><b>{{ fee }}</b> per campaign, paid once. That's our fee.</li>
+        <li><b>Your pool</b>, from {{ min_pool }}. 100% of it goes to creators for approved posts.</li>
+        <li>You set the rate ({{ '$%.0f'|format(rate_range[0]) }} to {{ '$%.0f'|format(rate_range[1]) }} per 1,000 views), the most one post and one creator can earn, and the run ({{ days_range[0] }} to {{ days_range[1] }} days).</li>
+        <li>What's left of the pool when it ends is refunded to you within {{ refund_days }} days. The fee isn't refunded.</li>
+      </ul>
+    </div>
+    {% if not connected %}<div class="flash warn">Creator Pools isn't connected to Crowdcut yet, so a pool can be saved but not paid for.{% if g.user.is_admin %} Admin: set the <code>POOLS_PARTNER_SECRET</code> repo secret in both repos and redeploy.{% endif %}</div>{% endif %}
+    {% if owner %}
+    <form method="post" class="panel copyform" enctype="multipart/form-data" id="cpform">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <h2 style="margin-top:0">New campaign</h2>
+      <div class="two-col">
+        <div><label for="title">Campaign title</label><input type="text" id="title" name="title" maxlength="120" required value="{{ form.title }}" placeholder="e.g. GlowJar launch clips"></div>
+        <div><label for="brand">Brand name</label><input type="text" id="brand" name="brand" maxlength="80" required value="{{ form.brand or brand_default }}" placeholder="The name creators say"></div>
+      </div>
+      <label for="product_url">Product link</label>
+      <input type="text" id="product_url" name="product_url" maxlength="500" required value="{{ form.product_url }}" placeholder="https://">
+      <label for="brief">The brief</label>
+      <textarea id="brief" name="brief" maxlength="1500" required style="min-height:90px" placeholder="What the videos should show, in a few sentences.">{{ form.brief }}</textarea>
+      <div class="two-col">
+        <div><label for="talking_points">Talking points <span class="dim">(one per line)</span></label><textarea id="talking_points" name="talking_points" maxlength="1500" placeholder="True things creators may say">{{ form.talking_points }}</textarea></div>
+        <div><label for="dos">Do <span class="dim">(one per line)</span></label><textarea id="dos" name="dos" maxlength="1500">{{ form.dos }}</textarea></div>
+      </div>
+      <label for="donts">Don't <span class="dim">(one per line)</span></label>
+      <textarea id="donts" name="donts" maxlength="1500">{{ form.donts }}</textarea>
+      <p class="small muted">Always on, and can't be removed: every post carries #ad or the platform's paid partnership label. Creators say only what your talking points and the brief allow: no health or money claims beyond them, and no fake reviews.</p>
+
+      <label>How creators take part <span class="dim">(pick one or more; each creator picks one)</span></label>
+      <div class="choices">{% for k, lbl in modes.items() %}<label class="choice chk"><input type="checkbox" name="modes" value="{{ k }}" {{ 'checked' if (form.getlist and k in form.getlist('modes')) or (not form and k == 'assets') }}>{{ lbl }}</label>{% endfor %}</div>
+      <label for="assets">Your videos and images <span class="dim">(for cutting: MP4, MOV or WebM up to 150 MB each; images as reference; up to 10 files)</span></label>
+      <input id="assets" type="file" name="assets" multiple accept="video/mp4,video/quicktime,video/webm,image/jpeg,image/png,image/webp">
+      <label for="links">Your livestreams, podcasts or videos <span class="dim">(links, one per line, for clipping)</span></label>
+      <textarea id="links" name="links" maxlength="3000" placeholder="https://www.youtube.com/@yourbrand/streams">{{ form.links }}</textarea>
+
+      <label>Platforms</label>
+      <div class="choices">{% for k, lbl in platforms.items() %}<label class="choice chk"><input type="checkbox" name="platforms" value="{{ k }}" {{ 'checked' if not form or (form.getlist and k in form.getlist('platforms')) }}>{{ lbl }}</label>{% endfor %}</div>
+      <div class="two-col">
+        <div><label for="rate">Rate per 1,000 views <span class="dim">(${{ '%.0f'|format(rate_range[0]) }} to ${{ '%.0f'|format(rate_range[1]) }})</span></label><input type="text" id="rate" name="rate_per_1k" inputmode="decimal" required value="{{ form.rate_per_1k or '2' }}"></div>
+        <div><label for="pool">Pool <span class="dim">({{ min_pool }} to {{ max_pool }})</span></label><input type="text" id="pool" name="pool_usd" inputmode="decimal" required value="{{ form.pool_usd or '500' }}"></div>
+      </div>
+      <div class="two-col">
+        <div><label for="ppc">Most one post can earn</label><input type="text" id="ppc" name="per_post_cap_usd" inputmode="decimal" required value="{{ form.per_post_cap_usd or '50' }}"></div>
+        <div><label for="pcc">Most one creator can earn</label><input type="text" id="pcc" name="per_creator_cap_usd" inputmode="decimal" required value="{{ form.per_creator_cap_usd or '150' }}"></div>
+      </div>
+      <div class="two-col">
+        <div><label for="mv">Minimum views to count</label><input type="text" id="mv" name="min_views" inputmode="numeric" value="{{ form.min_views or '1000' }}"></div>
+        <div><label for="days">Run length in days <span class="dim">({{ days_range[0] }} to {{ days_range[1] }})</span></label><input type="text" id="days" name="days" inputmode="numeric" value="{{ form.days or '30' }}"></div>
+      </div>
+      <div class="go"><span class="muted small" id="cpsum">You pay {{ fee }} plus the pool, once, by card through Stripe.</span><button class="btn" {{ 'disabled' if not billing_on }}>Pay and go live</button></div>
+      {% if not billing_on %}<p class="small dim">Checkout isn't switched on yet.</p>{% endif %}
+      <p class="small dim" style="margin:10px 0 0">By paying you agree to the Creator Pools part of the <a href="{{ url_for('terms') }}#creator-pools">terms</a>: you're responsible for your brief and claims, and we may remove a campaign that breaks the rules.</p>
+    </form>
+    {% else %}<p class="muted">Only the workspace owner can set up and pay for a Creator Pool.</p>{% endif %}
+  </section>
+  <aside class="rail">
+    <div class="panel">
+      <h2>Your pools</h2>
+      {% for p in pools %}
+      <a class="runrow" href="{{ url_for('cpools.show', pid=p.id) }}"><b>{{ p.title }}</b><span class="small">{{ p.status_text }}{% if p.new_posts %} · {{ p.new_posts }} new post{{ '' if p.new_posts == 1 else 's' }}{% endif %}</span><span class="small dim">{{ p.pool_text }} pool · {{ p.spent_text }} spent</span></a>
+      {% else %}<div class="empty">No pools yet.</div>{% endfor %}
+    </div>
+  </aside>
+</div>
+<script>
+(function(){
+  var f = document.getElementById('cpform'); if (!f) return;
+  var fee = {{ (fee.replace('$','').replace(',',''))|tojson }};
+  function upd(){ var p = parseFloat((f.pool_usd.value || '0').replace(/[$,]/g, '')) || 0;
+    document.getElementById('cpsum').textContent = 'You pay $' + (Number(fee) + p).toLocaleString(undefined, {maximumFractionDigits: 2}) + ' once: the $' + Number(fee).toLocaleString() + ' fee plus a $' + p.toLocaleString(undefined, {maximumFractionDigits: 2}) + ' pool.'; }
+  f.pool_usd.addEventListener('input', upd); upd();
+})();
+</script>
+{% endblock %}

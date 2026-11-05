@@ -1,0 +1,77 @@
+{% extends "base.html" %}{% block title %}{{ p.title }} · Creator Pools · Campaignify{% endblock %}
+{% block body %}
+<div class="page">
+  <section>
+    <p class="eyebrow"><a href="{{ url_for('cpools.index') }}">Creator Pools</a> · {{ p.brand }}</p>
+    <h1>{{ p.title }}</h1>
+    <p class="muted"><span class="status {{ {'live':'done','paused':'running','ended':'failed'}.get(p.status, 'running') }}"><span class="dot"></span>{{ p.status_text }}</span>
+      · {{ p.rate_text }} · up to {{ money((p.per_post_cap_usd * 100)|round|int) }} per post, {{ money((p.per_creator_cap_usd * 100)|round|int) }} per creator · counts from {{ '{:,}'.format(p.min_views) }} views{% if p.status in ('live', 'paused') %} · ends {{ ends_on }}{% endif %}</p>
+    {% if err %}<div class="flash warn">Couldn't reach Crowdcut just now ({{ err }}). The numbers below may be a few minutes old.</div>{% endif %}
+    {% if p.status in ('draft', 'checkout') %}
+    <div class="panel">
+      <h2 style="margin-top:0">Not paid yet</h2>
+      <p class="small">You pay {{ p.total_text }} once: the {{ p.fee_text }} fee plus the {{ p.pool_text }} pool. It goes live on Crowdcut as soon as the payment clears.</p>
+      {% if owner %}<form method="post" action="{{ url_for('cpools.pay', pid=p.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn" {{ 'disabled' if not billing_on }}>Pay {{ p.total_text }}</button></form>{% endif %}
+    </div>
+    {% elif p.status == 'paid' %}
+    <div class="flash">Paid. We're putting the pool live on Crowdcut; refresh in a minute.</div>
+    {% endif %}
+    {% if p.status in ('live', 'paused', 'ended') %}
+    <div class="stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0">
+      <div class="panel"><b style="font-size:22px">{{ p.pool_text }}</b><div class="small muted">pool</div></div>
+      <div class="panel"><b style="font-size:22px">{{ p.spent_text }}</b><div class="small muted">approved for creators</div></div>
+      <div class="panel"><b style="font-size:22px">{{ p.left_text }}</b><div class="small muted">left</div></div>
+      <div class="panel"><b style="font-size:22px">{{ (p.numbers.posts or {}).approved or 0 }}</b><div class="small muted">posts paid · {{ '{:,}'.format(p.numbers.approved_views or 0) }} verified views</div></div>
+    </div>
+    {% if p.status == 'ended' %}
+    <div class="flash">This pool has ended. {% if p.refund and p.refund.status == 'refunded' %}The unspent {{ money(p.refund.amount_cents) }} was refunded.{% else %}Unspent {{ money(p.refund.amount_cents if p.refund else 0) }} will be refunded within {{ refund_days }} days, once the last posts are checked. The {{ p.fee_text }} fee isn't refunded.{% endif %}</div>
+    {% elif owner %}
+    <form method="post" action="{{ url_for('cpools.status', pid=p.id) }}" class="row" style="gap:8px;margin-bottom:12px">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      {% if p.status == 'live' %}<button class="btn dark sm" name="status" value="paused">Pause</button>{% else %}<button class="btn dark sm" name="status" value="active">Resume</button>{% endif %}
+      <button class="btn dark sm" name="status" value="ended" onclick="return confirm('End this pool? Creators can\'t send new posts, and what\'s left is refunded within {{ refund_days }} days.')">End now</button>
+      <span class="small dim">Ending refunds what's left of the pool within {{ refund_days }} days.</span>
+    </form>
+    {% endif %}
+    <div class="panel" id="posts">
+      <h2 style="margin-top:0">Posts <span class="small dim">({{ counts.pending }} waiting for you · {{ counts.approved }} approved · {{ counts.rejected }} rejected)</span></h2>
+      <p class="small muted">Approve a post if it fits your brand and follows the brief. Crowdcut then checks the views are real (no bots or bought views) before anything is paid. Rejected posts aren't paid. You see each creator's handle and post, not their contact details.</p>
+      <div class="scrollx"><table>
+        <thead><tr><th>Sent</th><th>Creator</th><th>Post</th><th class="num">Views</th><th>Crowdcut's check</th><th>Your call</th></tr></thead>
+        <tbody>
+        {% for s in subs %}
+        <tr><td class="small">{{ s.created_at|localtime('date') }}</td>
+          <td>{{ s.creator_handle }}<br><span class="dim small">{{ {'clip':'Clip','ugc':'Original video','ad':'Walkthrough'}.get(s.kind, s.kind) }}</span></td>
+          <td><a href="{{ s.post_url }}" target="_blank" rel="noopener noreferrer">{{ platforms.get(s.platform, s.platform) }} post</a></td>
+          <td class="num">{{ '{:,}'.format(s.views_claimed or 0) }} claimed{% if s.verified_views is not none %}<br><span class="dim small">{{ '{:,}'.format(s.verified_views) }} checked</span>{% endif %}</td>
+          <td class="small">{{ s.audit_text }}{% if s.approved_cents %}<br>{{ money(s.approved_cents) }} paid{% endif %}{% if s.reject_reason and s.brand_status != 'rejected' %}<br><span class="dim">{{ s.reject_reason }}</span>{% endif %}</td>
+          <td>{% if s.brand_status == 'pending' and s.audit_status != 'rejected' %}
+            <form method="post" action="{{ url_for('cpools.review', pid=p.id) }}" style="display:flex;gap:6px;flex-wrap:wrap"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="sid" value="{{ s.id }}">
+              <button class="btn sm" name="decision" value="approve">Approve</button>
+              <input type="text" name="reason" maxlength="300" placeholder="Reason, if you reject" aria-label="Reason" style="min-width:140px">
+              <button class="btn dark sm" name="decision" value="reject">Reject</button></form>
+            {% elif s.brand_status == 'approved' %}<span class="small">Approved</span>
+            {% else %}<span class="small">Rejected</span>{% if s.brand_reason %}<br><span class="dim small">{{ s.brand_reason }}</span>{% endif %}{% endif %}</td></tr>
+        {% else %}<tr><td colspan="6" class="dim">No posts yet. Creators see your pool in Crowdcut's Earn tab.</td></tr>{% endfor %}
+        </tbody></table></div>
+    </div>
+    {% endif %}
+  </section>
+  <aside class="rail">
+    <div class="panel">
+      <h2>The brief</h2>
+      <p class="small" style="white-space:pre-line">{{ p.brief }}</p>
+      <p class="small"><b>Product:</b> <a href="{{ p.product_url }}" target="_blank" rel="noopener noreferrer">{{ p.product_url|truncate(48) }}</a></p>
+      {% if p.talking_points %}<p class="small"><b>Talking points:</b></p><ul class="small">{% for t in p.talking_points %}<li>{{ t }}</li>{% endfor %}</ul>{% endif %}
+      {% if p.dos %}<p class="small"><b>Do:</b></p><ul class="small">{% for t in p.dos %}<li>{{ t }}</li>{% endfor %}</ul>{% endif %}
+      {% if p.donts %}<p class="small"><b>Don't:</b></p><ul class="small">{% for t in p.donts %}<li>{{ t }}</li>{% endfor %}</ul>{% endif %}
+      <p class="small"><b>Always:</b> #ad or the platform's paid partnership label.</p>
+      <p class="small"><b>Creators may:</b> {% for m in p.modes %}{{ modes[m] }}{{ '; ' if not loop.last }}{% endfor %}</p>
+      {% if p.assets %}<p class="small"><b>Files:</b> {% for a in p.assets %}{{ a.filename }}{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+      {% if p.links %}<p class="small"><b>Links:</b></p><ul class="small">{% for l in p.links %}<li><a href="{{ l }}" target="_blank" rel="noopener noreferrer">{{ l|truncate(44) }}</a></li>{% endfor %}</ul>{% endif %}
+      <p class="small"><b>Platforms:</b> {% for k in p.platforms %}{{ platforms.get(k, k) }}{{ ', ' if not loop.last }}{% endfor %}</p>
+      <p class="small dim">Paid {{ p.total_text }}: {{ p.fee_text }} fee + {{ p.pool_text }} pool.</p>
+    </div>
+  </aside>
+</div>
+{% endblock %}

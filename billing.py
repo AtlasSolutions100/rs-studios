@@ -81,6 +81,44 @@ def create_checkout_session(*, price_id: str, quantity: int = 1, success_url: st
     return {"id": j["id"], "url": j["url"]}
 
 
+def create_line_items_session(*, lines: list[dict], success_url: str, cancel_url: str, email: str | None,
+                              metadata: dict, client_reference_id: str, description: str,
+                              idempotency_key: str) -> dict:
+    """A one-time Checkout Session with inline amounts (no Price objects):
+    lines = [{"name", "description", "cents"}], USD. Creator Pools uses it
+    (the fee and the pool). Returns {"id", "url"}."""
+    if not secret_key():
+        raise BillingError("Stripe is not configured.")
+    form = [("mode", "payment"), ("success_url", success_url), ("cancel_url", cancel_url),
+            ("client_reference_id", client_reference_id), ("submit_type", "pay"),
+            ("payment_intent_data[description]", description)]
+    for i, ln in enumerate(lines):
+        form += [(f"line_items[{i}][quantity]", "1"),
+                 (f"line_items[{i}][price_data][currency]", "usd"),
+                 (f"line_items[{i}][price_data][unit_amount]", str(int(ln["cents"]))),
+                 (f"line_items[{i}][price_data][product_data][name]", ln["name"])]
+        if ln.get("description"):
+            form.append((f"line_items[{i}][price_data][product_data][description]", ln["description"]))
+    if email:
+        form.append(("customer_email", email))
+    for k, v in metadata.items():
+        form.append((f"metadata[{k}]", str(v)))
+        form.append((f"payment_intent_data[metadata][{k}]", str(v)))
+    j = _post("/checkout/sessions", form, idempotency_key)
+    return {"id": j["id"], "url": j["url"]}
+
+
+def create_refund(payment_intent: str, amount_cents: int, idempotency_key: str, metadata: dict) -> dict:
+    """A partial refund on a payment. Only ever called from an admin's button
+    (Creator Pools: the unspent pool), never automatically."""
+    if not secret_key():
+        raise BillingError("Stripe is not configured.")
+    form = [("payment_intent", payment_intent), ("amount", str(int(amount_cents)))]
+    for k, v in metadata.items():
+        form.append((f"metadata[{k}]", str(v)))
+    return _post("/refunds", form, idempotency_key)
+
+
 def create_subscription_session(*, price_id: str, success_url: str, cancel_url: str, email: str | None,
                                 customer: str | None, metadata: dict, client_reference_id: str,
                                 idempotency_key: str) -> dict:
