@@ -465,6 +465,27 @@ CREATE TABLE IF NOT EXISTS competitor_reports (
     usd_cost REAL NOT NULL DEFAULT 0, credits INTEGER NOT NULL DEFAULT 0, error TEXT,
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_competitor_reports_ws ON competitor_reports(workspace_id, brand_id, id);
+-- Creator Pools (creator_pools.py): a brand pays a flat fee plus a pool; Crowdcut clippers make and
+-- post the videos. status: draft | checkout | paid (paid, not yet on Crowdcut) | live | paused | ended.
+CREATE TABLE IF NOT EXISTS creator_pools (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, user_id INTEGER, brand_id INTEGER,
+    title TEXT NOT NULL, brand TEXT NOT NULL, product_url TEXT, brief TEXT, talking_points TEXT, dos TEXT, donts TEXT,
+    modes TEXT NOT NULL, links TEXT, platforms TEXT NOT NULL, rate_per_1k REAL NOT NULL, per_post_cap_usd REAL NOT NULL,
+    per_creator_cap_usd REAL NOT NULL, min_views INTEGER NOT NULL, days INTEGER NOT NULL, pool_cents INTEGER NOT NULL,
+    fee_cents INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'draft', stripe_session_id TEXT, stripe_payment_intent TEXT,
+    paid_at TEXT, crowdcut_id INTEGER, live_at TEXT, sync_error TEXT, numbers_json TEXT, synced_at TEXT,
+    new_posts INTEGER NOT NULL DEFAULT 0, ended_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_creator_pools_ws ON creator_pools(workspace_id, id);
+CREATE TABLE IF NOT EXISTS creator_pool_assets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, pool_id INTEGER NOT NULL, workspace_id INTEGER NOT NULL, path TEXT NOT NULL,
+    filename TEXT, content_type TEXT, kind TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_creator_pool_assets ON creator_pool_assets(pool_id);
+-- Unspent pool money owed back to the brand (the fee is kept). Never automatic: an admin presses
+-- Refund (Stripe) or records a refund sent by hand. status: due | refunded
+CREATE TABLE IF NOT EXISTS creator_pool_refunds (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, pool_id INTEGER NOT NULL UNIQUE, workspace_id INTEGER NOT NULL,
+    amount_cents INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'due', method TEXT, stripe_refund_id TEXT,
+    reference TEXT, created_at TEXT NOT NULL, updated_at TEXT, done_at TEXT, done_by INTEGER);
 """
 
 # Columns added after the first release: (table, column, definition).
