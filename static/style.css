@@ -1245,3 +1245,22 @@ a.sol-link h3{margin-top:0}
   .manual-retry .importbar-f{flex-wrap:wrap}.manual-retry .importbar-f input{flex:1 1 100%}.manual-retry .importbar-f .btn{flex:1}
 }
 .llm-info h2{margin-top:30px}.llm-info ul{padding-left:20px}.llm-info li{margin:6px 0}
+/* Guides (web/guide.html, web/guides.html) */
+.gd-body .lp-wrap>h2,.gd-body .lp-wrap>p,.gd-body .lp-wrap>ul,.gd-body .lp-wrap>ol,.gd-body .lp-wrap>h3,.gd-body .lp-wrap>.gd-table-wrap{max-width:760px}
+.gd-body .lp-wrap>h2{margin:44px 0 14px}
+.gd-body .lp-wrap>h2:first-child{margin-top:0}
+.gd-body h3{font-size:18px;margin:24px 0 8px}
+.gd-body p,.gd-body li{line-height:1.65;color:var(--muted)}
+.gd-body ul,.gd-body ol{padding-left:22px}
+.gd-body li{margin:6px 0}
+.gd-meta{margin:0 0 18px}
+.gd-note{margin-top:28px}
+.gd-sources li{margin:6px 0;word-break:break-word}
+.gd-table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:16px;background:var(--panel-bg);margin:18px 0}
+.gd-table{border-collapse:collapse;width:100%;min-width:640px;font-size:14px}
+.gd-table caption{caption-side:bottom;text-align:left;padding:10px 14px}
+.gd-table th,.gd-table td{text-align:left;vertical-align:top;padding:12px 14px;border-top:1px solid var(--line)}
+.gd-table thead th{border-top:0;font:600 12px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.gd-table td{color:var(--muted)}
+.gd-links{columns:2;max-width:760px;padding-left:20px}
+@media (max-width:560px){.gd-links{columns:1}}

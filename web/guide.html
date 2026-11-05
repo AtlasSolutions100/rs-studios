@@ -1,0 +1,91 @@
+{% extends "public_base.html" %}
+{# Guides and the roundup; the copy lives in public_pages.GUIDES. #}
+{% block main %}
+{% set so = signup_offer() %}
+<section class="lp-hero lp-hero-sm">
+  <div class="lp-wrap{{ ' sol-hero' if clips }}">
+    <div>
+      <p class="eyebrow"><a href="{{ url_for('guides') }}">Guides</a> · {{ gd.eyebrow }}</p>
+      <h1>{{ gd.h1 }}</h1>
+      <p class="lp-lede sol-answer">{{ gd.answer }}</p>
+      <p class="small dim gd-meta">Updated {{ gd.updated_label }}. Written by the Campaignify team.{% if gd.disclosure %} {{ gd.disclosure }}{% endif %}</p>
+      <div class="lp-cta">
+        <a class="btn lg" href="{{ url_for('signup') }}" data-cta="hero">{{ so.cta }}</a>
+        <a class="lp-textlink" href="#{{ gd.sections[0][1] }}">Read the guide →</a>
+      </div>
+    </div>
+    {% if clips %}
+    <figure class="sol-media sol-clips">
+      {% for gi in clips %}
+      <div class="lp-g-media{{ ' talk' if gi.talk }}">
+        <video data-inview muted loop playsinline preload="{{ 'metadata' if loop.first else 'none' }}" poster="{{ url_for('static', filename=gi.poster) }}" aria-label="{{ gi.alt }}"><source src="{{ url_for('static', filename=gi.src) }}" type="video/mp4"></video>
+        <span class="lp-g-badge">{{ 'AI presenter' if gi.talk else gi.title }}</span>
+      </div>
+      {% endfor %}
+      <figcaption class="small dim">Examples made with AI for this site; the products and presenters are invented.</figcaption>
+    </figure>
+    {% endif %}
+  </div>
+</section>
+
+<article class="lp-sec gd-body">
+  <div class="lp-wrap">
+    {% for heading, anchor, blocks in gd.sections %}
+    <h2 class="lp-h2" id="{{ anchor }}">{{ heading }}</h2>
+    {% for b in blocks %}{% if b is string %}<p>{{ faq_answer(b) }}</p>
+    {% elif b[0] == 'h3' %}<h3>{{ b[1] }}</h3>
+    {% elif b[0] == 'ol' %}<ol>{% for it in b[1] %}<li>{{ faq_answer(it) }}</li>{% endfor %}</ol>
+    {% elif b[0] == 'table' and gd.table %}{% set t = gd.table %}
+    <div class="gd-table-wrap"><table class="gd-table"><caption class="small dim">{{ t.caption }}</caption>
+      <thead><tr>{% for c in t.cols %}<th scope="col">{{ c }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for row in t.rows %}<tr>{% for c in row %}{% if loop.first %}<th scope="row">{{ c }}</th>{% else %}<td>{{ c }}</td>{% endif %}{% endfor %}</tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}<ul>{% for it in b[1] %}<li>{{ faq_answer(it) }}</li>{% endfor %}</ul>
+    {% endif %}{% endfor %}
+    {% endfor %}
+    {% if gd.not_advice %}<p class="small dim gd-note">{{ gd.not_advice }}</p>{% endif %}
+  </div>
+</article>
+
+<section class="lp-sec" id="faq">
+  <div class="lp-wrap lp-faq">
+    <div>
+      <p class="eyebrow">FAQ</p>
+      <h2 class="lp-h2">{{ gd.faq_h2 }}</h2>
+    </div>
+    <div>
+      {% for q, a in gd.faq %}<details {{ 'open' if loop.first }}><summary>{{ q }}</summary><p>{{ faq_answer(a) }}</p></details>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{% if gd.sources %}
+<section class="lp-sec" id="sources">
+  <div class="lp-wrap gd-body">
+    <h2 class="lp-h3">Sources</h2>
+    <ol class="small muted gd-sources">{% for name, u in gd.sources %}<li><a href="{{ u }}" rel="nofollow noopener" target="_blank">{{ name }}</a></li>{% endfor %}</ol>
+    <p class="small dim">Facts about other companies are from the pages above, as listed on {{ gd.sources_date }}. They may have changed since; check each site. Campaignify isn't affiliated with any company named here, and their names are trademarks of their owners.</p>
+  </div>
+</section>
+{% endif %}
+
+<section class="lp-sec" id="more">
+  <div class="lp-wrap">
+    <h2 class="lp-h2">Related pages</h2>
+    <div class="feat-grid sol-more">
+      {% for o in others %}<a class="feat sol-link" href="{{ o.href }}"><h3>{{ o.title }}</h3><p class="muted small">{{ o.description }}</p></a>
+      {% endfor %}
+    </div>
+    <p class="small muted" style="margin-top:18px">Or see <a href="{{ url_for('guides') }}">every guide</a>, <a href="{{ url_for('features') }}">every feature</a> and <a href="{{ url_for('pricing') }}">pricing</a>.</p>
+  </div>
+</section>
+
+<section class="lp-sec lp-final">
+  <div class="lp-wrap">
+    <h2 class="lp-h2">Try it on your own product.</h2>
+    <p class="muted">{{ so.body }}</p>
+    <a class="btn lg" href="{{ url_for('signup') }}" data-cta="closing">Start free</a>
+  </div>
+</section>
+{% endblock %}

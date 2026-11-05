@@ -146,8 +146,10 @@ pub = client()
 
 print("== titles, descriptions, canonical, share cards")
 paths = public_site.sitemap_paths()
-check(paths[:3] == ["/", "/features", "/pricing"] and len(paths) == 16 and "/for-reps" in paths and "/llm-info" in paths,
-      "the sitemap list: home, features, pricing, eight answer-first pages, for reps, llm-info, privacy, terms, messaging policy")
+check(paths[:3] == ["/", "/features", "/pricing"] and len(paths) == 32 and "/for-reps" in paths and "/llm-info" in paths
+      and "/guides" in paths and "/best-ai-ugc-ad-generators" in paths,
+      "the sitemap list: home, features, pricing, 16 answer-first pages, guides and the roundup, for reps, llm-info, "
+      "privacy, terms, messaging policy")
 pages = {}
 for p in paths:
     r = pub.get(p)
@@ -241,7 +243,8 @@ for s in public_site.SOLUTION_ORDER:
     others = [o for o in public_site.SOLUTION_ORDER if o != s]
     related = public_site.SOLUTIONS[s]["related"]
     body = pub.get(f"/{s}").get_data(as_text=True)
-    check(all(body.count(f'href="/{o}"') >= 1 for o in others) and all(body.count(f'href="/{o}"') >= 2 for o in related)
+    rel_hrefs = [public_site.card(o)["href"] for o in related]
+    check(all(body.count(f'href="/{o}"') >= 1 for o in others) and all(body.count(f'href="{h}"') >= 2 for h in rel_hrefs)
           and 'href="/signup"' in body, f"/{s} links every other answer-first page (footer) and its related three in the body, and sign-up")
 
 print("== answer-first pages")
@@ -354,7 +357,7 @@ for p, pg in pages.items():
 check(node(graph(pages["/pricing"]), "SoftwareApplication")["offers"], "pricing carries SoftwareApplication offers")
 for p in ("/features", "/pricing", "/for-reps"):
     b = pub.get(p).get_data(as_text=True)
-    check("Related pages" in b and all(f'href="/{k}"' in b for k in public_site.RELATED[p.strip("/").replace("-", "_")]),
+    check("Related pages" in b and all(f'href="{public_site.card(k)["href"]}"' in b for k in public_site.RELATED[p.strip("/").replace("-", "_")]),
           f"{p}: a related-pages block")
 for p in paths + ["/llms.txt", "/llms-full.txt"]:
     t = pub.get(p).get_data(as_text=True)
@@ -365,6 +368,85 @@ for p in paths + ["/llms.txt", "/llms-full.txt"]:
         text = t.split("<main", 1)[1].split("<script>", 1)[0] + " ".join(re.findall(r'content="([^"]*)"', head)) + head.split("<title>")[1].split("</title>")[0]
         text += " ".join(Page(t).ld)
     check("\u2014" not in text and "\u2013" not in text, f"{p}: no em or en dashes in the public copy")
+
+print("== SEO launch 2: comparison, use-case and guide pages")
+import html as _h  # noqa: E402
+import public_pages  # noqa: E402
+
+
+def main_text(path):
+    t = pub.get(path).get_data(as_text=True)
+    m = re.sub(r"<script.*?</script>", "", t.split("<main", 1)[1].split("<footer")[0], flags=re.S)
+    return _h.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", m)))
+
+
+new_paths = ([f"/{x}" for x in public_pages.SOLUTION_ORDER] + ["/guides"]
+             + [public_site.guide_path(k) for k in public_site.GUIDE_ORDER])
+check(len(new_paths) == 16 and all(p in paths for p in new_paths), "16 new public pages, all in the sitemap")
+for p in new_paths:
+    txt = main_text(p)
+    n = len(txt.split())
+    check(p == "/guides" or 600 <= n <= 1400, f"{p}: {n} words of real copy")
+    check(not re.search(r"Rector|Stull|MarketPlace Global|\bISR\b|#1\b|Higgsfield", txt), f"{p}: stand-alone, no #1 claims")
+    check(not re.search(r"\{[a-z_0-9]+\}", txt), f"{p}: every number filled in")
+for slug in ("blaze-alternative", "predis-ai-alternative", "heygen-alternative", "topview-alternative"):
+    sol = public_site.solution(slug)
+    t = sol["table"]
+    sec = pub.get(f"/{slug}").get_data(as_text=True).split('<section class="lp-sec" id="compare">')[1].split("</section>")[0]
+    check(t["source"].startswith("https://") and t["date"] == "2026-11-04" and len(t["rows"]) >= 4
+          and f"as of {t['date']}" in sec.lower() and f"isn't affiliated with {t['competitor']}" in sec
+          and all(u.startswith("https://") for _, u in t.get("sources", [])),
+          f"/{slug}: competitor column sourced with a URL and an 'as of' date")
+    check(sum("Nov 4, 2026" in r[1] for r in t["rows"]) >= 1 and sol["h1"].startswith("Campaignify is a"),
+          f"/{slug}: prices 'as listed on Nov 4, 2026', a declarative H1")
+    check(slug == "topview-alternative" or any("not listed" in r[1].lower() or "not mentioned" in r[1].lower() for r in t["rows"]),
+          f"/{slug}: absences written as 'not listed', never guessed")
+blz = public_site.solution("blaze-alternative")["table"]["rows"]
+check("$79" in blz[1][1] and "$149" in blz[1][1] and "$999" in blz[1][1] and "No credit card required" in blz[0][1],
+      "Blaze: the plan prices and trial terms from the research")
+check("$19" in public_site.solution("predis-ai-alternative")["table"]["rows"][1][1]
+      and "$29" in public_site.solution("heygen-alternative")["table"]["rows"][1][1]
+      and "$29" in public_site.solution("topview-alternative")["table"]["rows"][1][1],
+      "Predis.ai, HeyGen and Topview entry prices match the research")
+agency = main_text("/ai-marketing-for-agencies")
+check(plans.PLANS["growth"]["brands"] == 3 and plans.PLANS["scale"]["brands"] is None and "3 brands" in agency
+      and "unlimited brands" in agency and plans.PLANS["scale"]["seats"] == 10 and "10 seats" in agency,
+      "the agencies page matches the plan limits (3 brands on Growth, unlimited and 10 seats on Scale)")
+check("Manage or cancel plan" in open(os.path.join(ROOT, "web", "billing.html")).read()
+      and "Manage or cancel plan" in main_text("/guides/credit-based-ai-ad-pricing"),
+      "self-serve cancel is real (Billing's button) and the pricing guide names it")
+for k in public_site.GUIDE_ORDER:
+    g = public_site.guide(k)
+    pth = g["path"]
+    pg = Page(pub.get(pth).get_data(as_text=True))
+    nodes = graph(pg)
+    art, faq, bc = node(nodes, "Article"), node(nodes, "FAQPage"), node(nodes, "BreadcrumbList")
+    check(art and art["datePublished"] == "2026-11-04" and art["headline"] == g["h1"] and art["author"]["@id"].endswith("#org"),
+          f"{pth}: Article schema with the publish date and the organization as author")
+    check(faq and [q["name"] for q in faq["mainEntity"]] == pg.summaries and 3 <= len(g["faq"]) <= 5,
+          f"{pth}: FAQPage matches the visible FAQ")
+    check(bc and [i["name"] for i in bc["itemListElement"]][:2] == ["Home", "Guides"] and len(bc["itemListElement"]) == 3,
+          f"{pth}: Home > Guides > page breadcrumbs")
+    check(all(u.startswith("https://") for _, u in g["sources"]) and (not g["sources"] or "Sources" in main_text(pth)),
+          f"{pth}: every source is a link")
+rnd = public_site.guide("best-ai-ugc-ad-generators")
+check(rnd["table"]["rows"][0][0] == "Campaignify" and len(rnd["table"]["rows"]) == 8
+      and "We make Campaignify" in main_text("/best-ai-ugc-ad-generators") and "as listed on Nov 4, 2026" in rnd["answer"],
+      "the roundup includes Campaignify, discloses that we make it, and dates every price")
+ftc = main_text("/guides/ftc-meta-rules-for-ai-ads")
+check("not legal advice" in ftc and "martech.org" in pub.get("/guides/ftc-meta-rules-for-ai-ads").get_data(as_text=True)
+      and "marketingdive.com" in pub.get("/guides/ftc-meta-rules-for-ai-ads").get_data(as_text=True),
+      "the FTC and Meta guide cites its sources and says it isn't legal advice")
+ix = pub.get("/guides").get_data(as_text=True)
+check(all(f'href="{public_site.guide_path(k)}"' in ix for k in public_site.GUIDE_ORDER)
+      and node(graph(Page(ix)), "ItemList"), "/guides lists every guide, with an ItemList")
+foot_html = pub.get("/privacy").get_data(as_text=True)
+check('aria-label="Compare"' in foot_html and 'aria-label="Guides"' in foot_html and 'href="/guides"' in foot_html
+      and all(f'href="{p}"' in foot_html for p in new_paths), "the footer links every new page; the nav links the guides")
+lt2 = pub.get("/llms.txt").get_data(as_text=True)
+lf2 = pub.get("/llms-full.txt").get_data(as_text=True)
+check(all(SITE + p in lt2 for p in new_paths) and all(public_site.guide(k)["sections"][0][0] in lf2 for k in public_site.GUIDE_ORDER)
+      and "Sources (as listed on Nov 4, 2026)" in lf2, "llms.txt links every new page; llms-full.txt carries the guides")
 
 print("== noindex on private routes")
 u = client()

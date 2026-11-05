@@ -31,6 +31,8 @@ Campaignify doesn't post ads, buy media or read results from ad platforms. It gu
 - [LLM info]({{ site.SITE_URL }}/llm-info): this file as an HTML page.
 - [llms-full.txt]({{ site.SITE_URL }}/llms-full.txt): this file plus the full text and FAQ of every page below.
 {% for s in solutions %}- [{{ s.h1 }}]({{ site.SITE_URL }}/{{ s.slug }}): {{ s.description }}
+{% endfor %}- [Guides]({{ site.SITE_URL }}/guides): every guide below in one list.
+{% for g in guides %}- [{{ g.h1 }}]({{ site.SITE_URL }}{{ g.path }}): {{ g.description }}
 {% endfor %}- [Terms]({{ site.SITE_URL }}/terms): credits, plans, what you can't make.
 - [Privacy]({{ site.SITE_URL }}/privacy): what we collect and why.
 - [Messaging policy]({{ site.SITE_URL }}/messaging-policy): rules for emails and texts sent through Campaignify.

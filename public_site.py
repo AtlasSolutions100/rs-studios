@@ -766,6 +766,56 @@ SOLUTIONS = {
 SOLUTION_ORDER = ["ai-ugc-ad-generator", "arcads-alternative", "ai-product-ads-for-shopify", "ai-ad-copy-generator",
                   "ai-marketing-platform-for-small-business", "creatify-alternative", "makeugc-alternative", "adcreative-ai-alternative"]
 
+# The pages added for the SEO launch (comparisons, use cases, guides) live in
+# public_pages.py under the same rules; they join the lists here.
+import public_pages  # noqa: E402
+
+SOLUTIONS.update(public_pages.SOLUTIONS)
+SOLUTION_ORDER += public_pages.SOLUTION_ORDER
+COMPARE = ["arcads-alternative", "creatify-alternative", "makeugc-alternative", "adcreative-ai-alternative",
+           "blaze-alternative", "predis-ai-alternative", "heygen-alternative", "topview-alternative"]
+GUIDES = public_pages.GUIDES
+GUIDE_ORDER = public_pages.GUIDE_ORDER
+GUIDES_INDEX = public_pages.GUIDES_INDEX
+
+
+def guide_path(slug: str) -> str:
+    return GUIDES[slug].get("path") or f"/guides/{slug}"
+
+
+def _fmt_block(b, f):
+    if isinstance(b, str):
+        return b.format(**f)
+    kind, items = b
+    return (kind, items.format(**f) if isinstance(items, str) else [x.format(**f) for x in items])
+
+
+def guide(slug: str) -> dict:
+    """A guide (or the roundup) with its copy filled in from the live numbers."""
+    g, f = GUIDES[slug], facts()
+    out = dict(g, slug=slug, path=guide_path(slug))
+    for k in ("title", "description", "h1", "answer"):
+        out[k] = g[k].format(**f)
+    out["sections"] = [(h.format(**f), re.sub(r"[^a-z0-9]+", "-", h.lower()).strip("-"), [_fmt_block(b, f) for b in blocks])
+                       for h, blocks in g["sections"]]
+    out["faq"] = _fmt(g["faq"], f)
+    if "table" in g:
+        t = dict(g["table"])
+        t["rows"] = [tuple(c.format(**f) for c in row) for row in g["table"]["rows"]]
+        out["table"] = t
+    return out
+
+
+def footer_groups() -> list:
+    """The footer's link columns: (heading, [(href, label)])."""
+    use = [s for s in SOLUTION_ORDER if s not in COMPARE]
+    comp = COMPARE + [k for k in GUIDE_ORDER if GUIDES[k].get("path")]
+    guides = [k for k in GUIDE_ORDER if not GUIDES[k].get("path")]
+    return [("Use cases", [(f"/{s}", SOLUTIONS[s]["nav"]) for s in use]),
+            ("Compare", [(f"/{s}", SOLUTIONS[s]["nav"]) if s in SOLUTIONS else (guide_path(s), GUIDES[s]["nav"])
+                         for s in comp]),
+            ("Guides", [("/guides", "All guides")] + [(guide_path(k), GUIDES[k]["nav"]) for k in guides])]
+
 
 def solution(slug: str) -> dict:
     """A solution page with its copy filled in from the live numbers."""
@@ -793,14 +843,21 @@ def solution(slug: str) -> dict:
 
 # "Related pages" blocks on the public pages that aren't answer-first pages.
 RELATED = {
-    "features": ["ai-marketing-platform-for-small-business", "ai-ugc-ad-generator", "ai-ad-copy-generator"],
-    "pricing": ["ai-marketing-platform-for-small-business", "creatify-alternative", "arcads-alternative"],
-    "for_reps": ["ai-ugc-ad-generator", "ai-ad-copy-generator", "ai-product-ads-for-shopify"],
+    "features": ["ai-marketing-platform-for-small-business", "plan-a-campaign-with-ai", "research-competitor-ads"],
+    "pricing": ["credit-based-ai-ad-pricing", "best-ai-ugc-ad-generators", "ai-marketing-platform-for-small-business"],
+    "for_reps": ["ai-ugc-ad-generator", "ftc-meta-rules-for-ai-ads", "ai-ads-for-coaches"],
 }
 
 
 def card(key: str) -> dict:
-    """{href, title, description} for a related-pages card."""
+    """{href, title, description} for a related-pages card (an answer-first page or a guide)."""
+    if key.startswith("/"):
+        ep = next(e for e, v in PAGES.items() if v[0] == key)
+        m = meta(ep, {})
+        return {"href": key, "title": m["title"].split(" · ")[0].split(": ")[0], "description": m["description"]}
+    if key in GUIDES:
+        g = guide(key)
+        return {"href": g["path"], "title": g["nav"], "description": g["description"]}
     s = solution(key)
     return {"href": f"/{key}", "title": s["nav"], "description": s["description"]}
 
@@ -842,6 +899,7 @@ PAGES = {  # endpoint -> (path, title, description)
 def sitemap_paths() -> list[str]:
     paths = [PAGES[e][0] for e in ("index", "features", "pricing")]
     paths += [f"/{s}" for s in SOLUTION_ORDER]
+    paths += ["/guides"] + [guide_path(k) for k in GUIDE_ORDER]
     paths += [PAGES[e][0] for e in ("for_reps", "llm_info", "privacy", "terms", "messaging.policy")]
     return paths
 
@@ -852,7 +910,7 @@ def lastmod() -> str:
     import datetime
     here = os.path.dirname(os.path.abspath(__file__))
     newest = 0.0
-    for folder, names in ((here, ("public_site.py", "app.py")), (os.path.join(here, "web"), None)):
+    for folder, names in ((here, ("public_site.py", "public_pages.py", "app.py")), (os.path.join(here, "web"), None)):
         for n in (names or os.listdir(folder)):
             try:
                 newest = max(newest, os.path.getmtime(os.path.join(folder, n)))
@@ -907,6 +965,11 @@ def meta(endpoint: str | None, view_args: dict | None) -> dict | None:
     if endpoint == "solution" and (view_args or {}).get("slug") in SOLUTIONS:
         s = solution(view_args["slug"])
         path, title, desc = f"/{s['slug']}", s["title"], s["description"]
+    elif endpoint == "guide" and (view_args or {}).get("slug") in GUIDES:
+        g = guide(view_args["slug"])
+        path, title, desc = g["path"], g["title"], g["description"]
+    elif endpoint == "guides":
+        path, title, desc = "/guides", GUIDES_INDEX["title"], GUIDES_INDEX["description"].format(**facts())
     elif endpoint in PAGES:
         path, title, desc = PAGES[endpoint]
         prices = {c: plans.PLANS[c]["usd"] for c in ("starter", "growth", "scale")}
@@ -979,7 +1042,27 @@ def jsonld(endpoint, view_args, url, title, desc) -> str:
     elif endpoint == "solution":
         s = solution(view_args["slug"])
         graph.append(faq_page(url, s["faq"]))
-    if endpoint != "index":
+    elif endpoint == "guide":
+        g = guide(view_args["slug"])
+        graph.append({"@type": "Article", "@id": url + "#article", "headline": g["h1"], "description": desc,
+                      "url": url, "mainEntityOfPage": {"@id": url}, "datePublished": g["published"],
+                      "dateModified": g.get("updated", g["published"]), "inLanguage": "en",
+                      "author": {"@id": SITE_URL + "/#org"}, "publisher": {"@id": SITE_URL + "/#org"},
+                      "about": {"@id": SITE_URL + "/#app"} if g.get("about_app") else None,
+                      "citation": [u for _, u in g.get("sources", [])] or None})
+        graph[-1] = {k: v for k, v in graph[-1].items() if v is not None}
+        graph.append(faq_page(url, g["faq"]))
+    elif endpoint == "guides":
+        graph.append({"@type": "ItemList", "@id": url + "#list", "itemListElement": [
+            {"@type": "ListItem", "position": i + 1, "url": absolute(guide_path(k)), "name": GUIDES[k]["nav"]}
+            for i, k in enumerate(GUIDE_ORDER)]})
+    if endpoint == "guide":
+        g = guide(view_args["slug"])
+        graph.append({"@type": "BreadcrumbList", "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": "Home", "item": SITE_URL + "/"},
+            {"@type": "ListItem", "position": 2, "name": "Guides", "item": SITE_URL + "/guides"},
+            {"@type": "ListItem", "position": 3, "name": g["nav"], "item": url}]})
+    elif endpoint != "index":
         name = title.split(" · ")[0].split(": ")[0]
         graph.append({"@type": "BreadcrumbList", "itemListElement": [
             {"@type": "ListItem", "position": 1, "name": "Home", "item": SITE_URL + "/"},

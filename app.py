@@ -567,11 +567,26 @@ def solution(slug):
     """The answer-first pages for search intent (public_site.SOLUTIONS)."""
     sol = public_site.solution(slug)
     return render_template("solution.html", s=sol, clips=[CLIP_BY_KEY[k] for k in sol.get("clips", [])],
-                           others=[public_site.solution(o) for o in public_site.SOLUTIONS[slug]["related"]])
+                           others=[public_site.card(o) for o in public_site.SOLUTIONS[slug]["related"]])
+
+
+def guide(slug):
+    """The guides and the roundup (public_pages.GUIDES)."""
+    g = public_site.guide(slug)
+    return render_template("guide.html", gd=g, clips=[CLIP_BY_KEY[k] for k in g.get("clips", [])],
+                           others=[public_site.card(o) for o in g["related"]])
+
+
+@app.route("/guides")
+def guides():
+    return render_template("guides.html", ix=public_site.GUIDES_INDEX,
+                           items=[public_site.guide(k) for k in public_site.GUIDE_ORDER])
 
 
 for _slug in public_site.SOLUTION_ORDER:
     app.add_url_rule(f"/{_slug}", "solution", solution, defaults={"slug": _slug})
+for _slug in public_site.GUIDE_ORDER:
+    app.add_url_rule(public_site.guide_path(_slug), "guide", guide, defaults={"slug": _slug})
 
 
 @app.route("/robots.txt")
@@ -595,7 +610,8 @@ def sitemap_xml():
 def _llms_text() -> str:
     return render_template("llms.txt", feature_details=FEATURE_DETAILS, journey=JOURNEY, site=public_site,
                            tools_full=catalog.TOOLS, rc=catalog.rates(),
-                           solutions=[public_site.solution(x) for x in public_site.SOLUTION_ORDER])
+                           solutions=[public_site.solution(x) for x in public_site.SOLUTION_ORDER],
+                           guides=[public_site.guide(x) for x in public_site.GUIDE_ORDER])
 
 
 @app.route("/llms.txt")
@@ -608,6 +624,7 @@ def llms_full_txt():
     """llms.txt plus the full text of every answer-first page and FAQ, for AI assistants that read one file."""
     body = render_template("llms-full.txt", summary=_llms_text(), site=public_site, home_faq=public_site.home_faq(),
                            solutions=[public_site.solution(x) for x in public_site.SOLUTION_ORDER],
+                           guides=[public_site.guide(x) for x in public_site.GUIDE_ORDER],
                            answer_text=public_site.answer_text)
     return app.response_class(body, mimetype="text/plain")
 
@@ -2360,7 +2377,7 @@ app.register_blueprint(share_routes.bp)
 app.jinja_env.globals["has_endpoint"] = lambda name: name in app.view_functions
 app.jinja_env.globals.update(faq_answer=public_site.answer_html, solution_links=lambda: public_site.SOLUTION_ORDER,
                              solution_nav=lambda slug: public_site.SOLUTIONS[slug]["nav"], basket=public_site.basket,
-                             related_cards=public_site.related_cards)
+                             related_cards=public_site.related_cards, footer_groups=public_site.footer_groups)
 
 
 @app.errorhandler(400)
