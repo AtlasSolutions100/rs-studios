@@ -295,7 +295,7 @@ SOLUTIONS = {
                   ("site/show-kawaii.jpg", "A coffee bag on a pink gingham beach picnic with glass hearts.")],
         "faq": [
             ("Is Campaignify affiliated with Arcads?",
-             "No. Campaignify is an independent product made by Rector & Stull LLC. Arcads is a trademark of its "
+             "No. Campaignify is an independent product with no connection to them. Arcads is a trademark of its "
              "owner. The Arcads facts on this page are quoted from Arcads' own help center with the date they were "
              "read; check their site for today's terms."),
             ("Can I try Campaignify before I pay?",
@@ -571,7 +571,7 @@ SOLUTIONS = {
                   ("site/ugc-sneakers.jpg", "An AI presenter in a gym shows off a sage-green running sneaker.")],
         "faq": [
             ("Is Campaignify affiliated with Creatify?",
-             "No. Campaignify is an independent product made by Rector & Stull LLC. Creatify is a trademark of its "
+             "No. Campaignify is an independent product with no connection to them. Creatify is a trademark of its "
              "owner. The Creatify facts on this page are quoted from Creatify's pricing page with the date it was "
              "read; check their site for today's terms."),
             ("Can I try Campaignify before I pay?",
@@ -659,7 +659,7 @@ SOLUTIONS = {
                   ("site/ugc-coffee.jpg", "An AI presenter in a sunny kitchen holds up a coffee bag.")],
         "faq": [
             ("Is Campaignify affiliated with MakeUGC?",
-             "No. Campaignify is an independent product made by Rector & Stull LLC. MakeUGC is a trademark of its "
+             "No. Campaignify is an independent product with no connection to them. MakeUGC is a trademark of its "
              "owner. The MakeUGC facts on this page are quoted from MakeUGC's pricing page with the date it was "
              "read; check their site for today's terms."),
             ("Can I try Campaignify before I pay?",
@@ -746,7 +746,7 @@ SOLUTIONS = {
                   ("site/candle.jpg", "A lit candle in an amber glass jar beside dried eucalyptus.")],
         "faq": [
             ("Is Campaignify affiliated with AdCreative.ai?",
-             "No. Campaignify is an independent product made by Rector & Stull LLC. AdCreative.ai is a trademark of "
+             "No. Campaignify is an independent product with no connection to them. AdCreative.ai is a trademark of "
              "its owner. The AdCreative.ai facts on this page are quoted from AdCreative.ai's site with the date it "
              "was read; check their site for today's terms."),
             ("Can I try Campaignify before I pay?",
@@ -985,8 +985,7 @@ def meta(endpoint: str | None, view_args: dict | None) -> dict | None:
 
 def _org():
     return {"@type": "Organization", "@id": SITE_URL + "/#org", "name": "Campaignify", "url": SITE_URL + "/",
-            "email": CONTACT, "logo": absolute("/static/img/campaignify-icon-512.png"),
-            "legalName": "Rector & Stull LLC"}
+            "email": CONTACT, "logo": absolute("/static/img/campaignify-icon-512.png")}
 
 
 def _website():

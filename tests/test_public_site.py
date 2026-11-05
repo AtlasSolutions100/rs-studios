@@ -389,6 +389,14 @@ for p in new_paths:
     check(p == "/guides" or 600 <= n <= 1400, f"{p}: {n} words of real copy")
     check(not re.search(r"Rector|Stull|MarketPlace Global|\bISR\b|#1\b|Higgsfield", txt), f"{p}: stand-alone, no #1 claims")
     check(not re.search(r"\{[a-z_0-9]+\}", txt), f"{p}: every number filled in")
+LEGAL = {"/terms", "/privacy", "/messaging-policy"}
+for p in paths:
+    if p in LEGAL:
+        continue
+    html = pub.get(p).get_data(as_text=True)
+    check("Rector" not in html and "Stull" not in html, f"{p}: stand-alone, no Rector & Stull in the page or its JSON-LD")
+for p in ("/llms.txt", "/llms-full.txt"):
+    check("Rector" not in pub.get(p).get_data(as_text=True), f"{p}: stand-alone, no Rector & Stull")
 for slug in ("blaze-alternative", "predis-ai-alternative", "heygen-alternative", "topview-alternative"):
     sol = public_site.solution(slug)
     t = sol["table"]
