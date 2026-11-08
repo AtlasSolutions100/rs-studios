@@ -470,9 +470,12 @@ def tick() -> int:
                 continue
             st = (res.get("status") or "").lower()
             if st == "completed":
+                if not _still_running(conn, job):
+                    continue    # a member's cancel got there first (refunded): don't deliver it (N11)
                 try:
                     _save_outputs(conn, job, res)
-                    _set(conn, job["id"], status="done", error=None, finished_at=db.now())
+                    if not _finish_done(conn, job):
+                        _drop_outputs(conn, job)
                 except hf.GenError as e:
                     _fail(conn, job, str(e))
                 except Exception as e:  # noqa: BLE001
@@ -488,6 +491,30 @@ def tick() -> int:
                 _timed_out(conn, job)
                 changed += 1
     return changed
+
+
+def _still_running(conn, job) -> bool:
+    r = conn.execute("SELECT status FROM jobs WHERE id=?", (job["id"],)).fetchone()
+    return bool(r and r["status"] == "running")
+
+
+def _finish_done(conn, job) -> bool:
+    """Mark a finished job done, only if it is still running: a concurrent cancel
+    (failed and refunded) is never overridden (N11). False when it lost."""
+    t = db.now()
+    cur = conn.execute("UPDATE jobs SET status='done', error=NULL, finished_at=?, updated_at=? WHERE id=? AND status='running'",
+                       (t, t, job["id"]))
+    conn.commit()
+    return cur.rowcount == 1
+
+
+def _drop_outputs(conn, job):
+    """The job was canceled and refunded while its files were saved: remove them again."""
+    import shutil
+    log.warning("job %s finished after it was canceled; its outputs are not kept", job["id"])
+    conn.execute("DELETE FROM outputs WHERE job_id=?", (job["id"],))
+    conn.commit()
+    shutil.rmtree(os.path.join(MEDIA, str(job["workspace_id"]), str(job["id"])), ignore_errors=True)
 
 
 def _minutes_ago(m):

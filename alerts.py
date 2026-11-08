@@ -343,6 +343,22 @@ def _our_payment(conn, obj: dict):
         row = conn.execute("SELECT workspace_id FROM purchases WHERE stripe_payment_intent=? LIMIT 1", (pi,)).fetchone()
         if row:
             return True, row["workspace_id"]
+        # a plan invoice's payment (stored at invoice.paid, N1)
+        row = conn.execute("SELECT workspace_id FROM plan_invoices WHERE payment_intent=? LIMIT 1", (pi,)).fetchone()
+        if row:
+            return True, row["workspace_id"]
+    if obj.get("id"):
+        # billing_holds matched it, or parked it as one of our customers' (N1)
+        row = conn.execute("SELECT workspace_id, ours FROM credit_reversals WHERE stripe_id=? LIMIT 1",
+                           (obj["id"],)).fetchone()
+        if row and (row["workspace_id"] or row["ours"]):
+            return True, row["workspace_id"]
+    cus = obj.get("customer")
+    cus = cus.get("id") if isinstance(cus, dict) else cus
+    if cus:
+        row = conn.execute("SELECT id FROM workspaces WHERE stripe_customer_id=? LIMIT 1", (cus,)).fetchone()
+        if row:
+            return True, row["id"]
     inv = obj.get("invoice")
     inv = inv.get("id") if isinstance(inv, dict) else inv
     if inv:
@@ -376,6 +392,9 @@ def watch_response(request, resp):
             obj = (ev.get("data") or {}).get("object") or {}
             if not kind or not obj.get("id"):
                 return
+            out = resp.get_json(silent=True) or {}
+            if out.get("parked") and out.get("ok"):
+                return      # ours but not matched yet: billing_holds sent its own "not applied yet" alert (N1)
             with db.connect() as conn:
                 ours, ws = _our_payment(conn, obj)
             if not ours:

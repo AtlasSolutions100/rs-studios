@@ -21,8 +21,14 @@ each step on its own row, tied by ledger.hold_id:
     +300  Competitor research: nothing used, 300 back      (release)
 
 A run that crashes leaves its hold; the worker gives it back after
-STALE_MINUTES (release_stale). A run that still finishes after that is charged
-what it used if the balance covers it, else what is there (logged).
+STALE_MINUTES (release_stale) without a sign of life. A run that is still
+going keeps its hold however long it takes (N13): while a hold is open in this
+process, a small ticker stamps credit_holds.alive_at every KEEPALIVE_SECONDS,
+and release_stale goes by that stamp. The process dying (deploy, crash) stops
+the stamps, so the hold goes back STALE_MINUTES later; a hold open longer than
+MAX_RUN_HOURS stops being kept alive (a leak, not a run). A run that still
+finishes after its hold went back is charged what it used if the balance
+covers it, else what is there (logged).
 
 Unused credits go back pack first (they never expire), then plan; plan credits
 go back to the plan bucket only while a plan is on (like db.refund_job).
@@ -35,6 +41,7 @@ CREDIT_HOLDS=off goes back to charging after the run (at most what's left).
 """
 import logging
 import os
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -44,7 +51,13 @@ log = logging.getLogger("campaignify")
 
 STALE_MINUTES = 30
 SWEEP_SECONDS = 60
+KEEPALIVE_SECONDS = 300          # well under STALE_MINUTES
+MAX_RUN_HOURS = 6
 _last_sweep = [0.0]
+# holds open in this process: id -> time.monotonic() when reserved (keepalive)
+_alive: dict = {}
+_alive_lock = threading.Lock()
+_ticker = [None]
 
 
 def enabled() -> bool:
@@ -94,6 +107,7 @@ def reserve(ws_id: int, amount: int, label: str, ref: str | None = None, conn=No
                                 (ws_id, amount, plan_part, label, ref, "held", 0, t, t)).lastrowid
                 c.execute("UPDATE ledger SET hold_id=? WHERE id=?", (hid, lid))
                 c.commit()
+                _keep_alive(hid)
                 return Hold(hid, ws_id, amount, label)
             c.rollback()
             # The conditional debit lost a race (another spend moved the buckets): try again while it still fits.
@@ -152,6 +166,7 @@ def settle(hold: Hold | None, actual: int) -> int:
                 c.commit()
                 return take
         return 0
+    _done(hold.id)
     with db.connect() as c:
         h = c.execute("SELECT * FROM credit_holds WHERE id=?", (hold.id,)).fetchone()
         if h is None:
@@ -200,6 +215,7 @@ def release(hold: Hold | None, why: str = "") -> int:
 
 
 def _release_id(hid, why=""):
+    _done(hid)
     with db.connect() as c:
         h = c.execute("SELECT * FROM credit_holds WHERE id=?", (hid,)).fetchone()
         if h is None:
@@ -221,18 +237,82 @@ def release_ref(ref: str, why: str = "the run stopped") -> int:
 
 
 def release_stale(minutes: int = STALE_MINUTES) -> int:
-    """Holds older than `minutes` belong to runs that died (deploy, crash): give
-    them back. Returns how many were released."""
+    """Holds with no sign of life for `minutes` belong to runs that died (deploy,
+    crash): give them back. A run still going stamps alive_at (keepalive), so
+    its hold stays. Returns how many were released."""
     cutoff = (datetime.now(timezone.utc) - timedelta(minutes=minutes)).replace(microsecond=0).isoformat()
     with db.connect() as c:
-        ids = [r[0] for r in c.execute("SELECT id FROM credit_holds WHERE status='held' AND created_at<?", (cutoff,))]
+        ids = [r[0] for r in c.execute("SELECT id FROM credit_holds WHERE status='held' AND created_at<? "
+                                       "AND COALESCE(alive_at, created_at)<?", (cutoff, cutoff))]
     n = 0
     for i in ids:
+        if i in _alive and _fresh(i):
+            continue    # still running in this process (its stamp may just be late)
         if _release_id(i, "the run stopped"):
             n += 1
     if n:
         log.warning("released %s stale credit hold(s)", n)
     return n
+
+
+# ---------------------------------------------------------------- keepalive (N13)
+
+def _fresh(hid) -> bool:
+    with _alive_lock:
+        return _fresh_unlocked(hid)
+
+
+def _keep_alive(hid):
+    with _alive_lock:
+        _alive[hid] = time.monotonic()
+        if _ticker[0] is None or not _ticker[0].is_alive():
+            _ticker[0] = threading.Thread(target=_tick_loop, name="rs-hold-keepalive", daemon=True)
+            _ticker[0].start()
+
+
+def _done(hid):
+    with _alive_lock:
+        _alive.pop(hid, None)
+
+
+def keepalive_tick() -> int:
+    """Stamp alive_at on every hold this process still has open (and drop the
+    ones past MAX_RUN_HOURS). Returns how many were stamped."""
+    with _alive_lock:
+        ids = list(_alive)
+        old = [i for i in ids if not _fresh_unlocked(i)]
+        for i in old:
+            _alive.pop(i, None)
+    for i in old:
+        log.warning("credit hold %s open over %s h; no longer kept alive", i, MAX_RUN_HOURS)
+    live = [i for i in ids if i not in old]
+    if not live:
+        return 0
+    with db.connect() as c:
+        t = db.now()
+        n = 0
+        for i in live:
+            n += c.execute("UPDATE credit_holds SET alive_at=? WHERE id=? AND status='held'", (t, i)).rowcount
+        c.commit()
+    return n
+
+
+def _fresh_unlocked(hid) -> bool:
+    t = _alive.get(hid)
+    return t is not None and time.monotonic() - t < MAX_RUN_HOURS * 3600
+
+
+def _tick_loop():
+    while True:
+        time.sleep(KEEPALIVE_SECONDS)
+        with _alive_lock:
+            if not _alive:
+                _ticker[0] = None
+                return
+        try:
+            keepalive_tick()
+        except Exception:  # noqa: BLE001
+            log.exception("credit hold keepalive failed")
 
 
 def maybe_release_stale():

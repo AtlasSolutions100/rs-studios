@@ -16,6 +16,7 @@ import re
 import secrets
 from datetime import timedelta
 
+import billing_holds
 import compliance
 import db
 import flows
@@ -190,6 +191,12 @@ def send_queued(now=None, limit=100) -> int:
                 _finish(conn, msg, "skipped", now, "Not sent: no email consent on record for this contact.")
             elif not compliance.check(msg["subject"], msg["body_text"])["ok"]:
                 _finish(conn, msg, "failed", now, "Not sent: the email breaks the content rules.")
+            elif billing_holds.reason(ws):
+                # A refund/dispute hold or a failed renewal (N6): nothing spends. The email stays
+                # queued and the flow pauses with the real reason, not "out of credits".
+                _pause(conn, f["id"], billing_holds.FLOW_REASON[billing_holds.reason(ws)], now)
+                conn.commit()
+                continue
             elif email_ready(ws):
                 continue
             elif _sent_since(conn, ws["id"], now - timedelta(days=1)) >= daily_cap(conn, ws, now):

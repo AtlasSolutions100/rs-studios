@@ -41,12 +41,18 @@
 </div>
 <div class="panel scrollx">
   <h2>Billing holds</h2>
-  <p class="small muted">A refund or dispute removes the credits that payment bought and pauses the workspace (downloads only). A dispute closed as won restores both. Automatic holds: <b>{{ 'on' if holds_on else 'off (BILLING_HOLD=off)' }}</b></p>
+  <p class="small muted">A full refund or a dispute removes the credits that payment bought and pauses the workspace (downloads only). A partial refund removes its share of the credits and pauses nothing. A dispute closed as won restores both. Automatic holds: <b>{{ 'on' if holds_on else 'off (BILLING_HOLD=off)' }}</b></p>
   <table><tr><th>Workspace</th><th>Since</th><th>Why</th><th>Credits (plan + pack)</th><th>Reversals</th><th></th></tr>
   {% for h in holds %}<tr><td>#{{ h.id }} {{ h.name }}</td><td>{{ h.billing_hold_at|localtime }}</td><td>{{ h.billing_hold_reason or '' }}</td><td>{{ h.plan_credits }} + {{ h.credits }}</td>
   <td class="small">{% for r in h.reversals %}{{ r.kind }} {{ r.status }}: {{ '{:,}'.format(r.credits) }} credits, ${{ '%.2f'|format(r.amount_cents/100) }} <code>{{ r.stripe_id }}</code><br>{% endfor %}</td>
-  <td><form method="post" action="{{ url_for('admin_lift_hold', wid=h.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm" title="Voided credits stay voided; top up below if they should come back">Lift hold</button></form></td></tr>
+  <td><form method="post" action="{{ url_for('admin_lift_hold', wid=h.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}">{% if h.voided %}<label class="small" style="display:block;margin-bottom:6px"><input type="checkbox" name="restore" value="1"> Restore voided credits ({{ '{:,}'.format(h.voided) }})</label>{% endif %}<button class="btn dark sm" title="Unless you tick restore, voided credits stay voided">Lift hold</button></form></td></tr>
   {% else %}<tr><td colspan="6" class="muted">No workspaces on hold.</td></tr>{% endfor %}</table>
+  {% if parked %}
+  <h3 style="margin-top:16px">Not matched yet</h3>
+  <p class="small muted">Refunds and disputes on our customers' payments that aren't matched to a credited payment yet. Nothing is voided or held until they match; the hourly sync retries them.</p>
+  <table><tr><th>Kind</th><th>Stripe id</th><th>Amount</th><th>Since</th><th>Tries</th><th>Last error</th></tr>
+  {% for r in parked %}<tr><td>{{ r.kind }}</td><td><code>{{ r.stripe_id }}</code></td><td>${{ '%.2f'|format(r.amount_cents/100) }}</td><td>{{ r.created_at|localtime }}</td><td>{{ r.attempts }}</td><td class="small">{{ r.last_error or '' }}</td></tr>{% endfor %}</table>
+  {% endif %}
 </div>
 <div class="panel scrollx">
   <h2>Workspaces</h2>
