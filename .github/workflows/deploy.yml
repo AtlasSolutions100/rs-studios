@@ -1,10 +1,15 @@
 name: Deploy Campaignify (campaignify.ai)
 
-# Every push to main: run the tests, then hand this commit and the settings
-# below to the server's deploy hook (https://campaignify.ai/_deploy).
+# Every push to main: run the tests and pip-audit, then hand this commit and the
+# settings below to the server's deploy hook (https://campaignify.ai/_deploy).
 # No SSH key is involved: the hook accepts a request only with a GitHub-signed
 # token proving it comes from this repo's main branch (OIDC, audience
 # "rs-deploy"), and it rebuilds only this app.
+# The hook (clipforgd deploy/deployer/deployer.py) builds the new image, starts it
+# beside the live one and waits for /health before switching; a build that fails
+# that check leaves the live container serving and fails this run. After the
+# switch it checks /health again and goes back to the previous image on its own.
+# To roll back by hand: Actions > "Roll back Campaignify" (rollback.yml).
 #
 # Settings: add or change a repo secret, then push (or re-run this workflow).
 #   HIGGSFIELD_API_KEY     the generation API key ("key:secret")
@@ -92,14 +97,22 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r requirements.txt
-      - run: python tests/test_app.py
+      - run: pip install --require-hashes -r requirements.txt
+      - name: pip-audit (fails on High or Critical only)
+        run: |
+          pip install --quiet pip-audit==2.10.1
+          pip-audit -r requirements.txt --disable-pip --require-hashes --format json -o audit.json --progress-spinner off || true
+          python tools/audit_gate.py audit.json
+      - name: python tests/test_app.py
+        env:
+          RS_DISK_MIN_GB: "0.2"
+        run: python tests/test_app.py
 
   deploy:
     needs: test
@@ -213,6 +226,10 @@ jobs:
           [ "$code" = "202" ] || exit 1
           echo "JOB=$(jq -r .job /tmp/resp.json)" >> "$GITHUB_ENV"
 
+      # The job log shows the build, the health check of the new image beside the live
+      # one ("health check before the switch"), the image kept as :prev, the switch
+      # and the check after it. "failed" with "were not touched" = the old release
+      # is still serving; "rolled back to ..." = it switched, was unhealthy, and went back.
       - name: Wait for the build
         run: |
           for i in $(seq 1 120); do

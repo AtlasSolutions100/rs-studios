@@ -3211,3 +3211,5 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_billing_holds.py")], check=True)
     # Plans on only when paid (pending), a paid period kept to its end, a failed renewal paused with credits kept.
     subprocess.run([sys.executable, os.path.join(HERE, "test_plan_pending.py")], check=True)
+    # The pip-audit gate (tools/audit_gate.py): severity from OSV, fail only on High or Critical (OSV faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_audit_gate.py")], check=True)
