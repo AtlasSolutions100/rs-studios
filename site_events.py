@@ -81,12 +81,13 @@ CLIENT_EVENTS = ("lp_view", "cta_click", "signup_view",
                  # the first run, from the app (logged in; app.js cfyEvent): the first-ad form shown, a kind picked
                  # (detail = image / video / preview), the confirm-email code box opened, the first finished ad seen
                  "first_run_viewed", "first_run_kind_chosen", "first_run_imported", "verify_box_opened",
-                 "first_output_viewed")
+                 "first_output_viewed",
+                 "first_run_sells")   # "What do you sell?" answered (detail = product / service; RS_SERVICE_PATH)
 SERVER_EVENTS = ("signup", "first_ad", "checkout", "paid",
                  "verify_completed")   # the email confirmed (code, link or magic link), once per workspace
 # Client events that carry a detail label.
 DETAIL_EVENTS = {"cta_click", "first_run_viewed", "first_run_kind_chosen", "first_run_imported", "verify_box_opened",
-                 "first_output_viewed"}
+                 "first_output_viewed", "first_run_sells"}
 EVENTS = CLIENT_EVENTS + SERVER_EVENTS
 FUNNEL = [("lp_view", "Landing visitors"), ("cta_click", "CTA clicks"), ("signup_view", "Sign-up page"),
           ("signup", "Sign-ups"), ("first_ad", "First ad"), ("checkout", "Checkouts"), ("paid", "Paid")]

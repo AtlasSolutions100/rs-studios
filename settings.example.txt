@@ -130,6 +130,18 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # Daily purge of the files of ads deleted over RS_PURGE_DELETED_DAYS days ago (off unless 1):
 # RS_STORAGE_PURGE_DELETED=0
 # RS_PURGE_DELETED_DAYS=30
+# ---- Service businesses (service_path.py, roadmap M5.2): the first run asks "What do you sell?"; a service imports
+# its website (name, logo, colors, 3 photos, suggested claims), makes the 2 free ads without a product photo, and
+# the planner adds a service area, a Google keyword list and the page, form and follow-up steps. Off unless 1:
+# RS_SERVICE_PATH=0
 # ---- Credit holds (credits.py): AI runs reserve their quote before calling the provider and settle after.
 # off charges after the run instead (at most what's left), as before.
 # CREDIT_HOLDS=on
+# ---- Connected ad accounts (adplatforms/, adconnect_routes.py, roadmap M2). Off unless AD_LAUNCH is beta or on.
+# AD_LAUNCH=off               off | beta | on
+# AD_LAUNCH_WORKSPACES=       workspace ids that see it while AD_LAUNCH=beta (admins always do)
+# AD_RATE_TIER=limited        limited | full (Meta's API access level for the app)
+# META_APP_ID=   META_APP_SECRET=   META_LOGIN_CONFIG_ID=
+# Token box key (secretsbox.py): 32 random bytes, base64. Old keys stay readable from TOKEN_KEYS_OLD
+# (comma separated) until `python3 secretsbox.py rotate` re-seals every token under TOKEN_KEY.
+# TOKEN_KEY=

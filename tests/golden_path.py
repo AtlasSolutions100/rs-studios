@@ -4,6 +4,7 @@ against a local server with every provider faked, timed per step.
     python tests/golden_path.py                    # both paths, prints the results table
     python tests/golden_path.py --path service     # one path
     python tests/golden_path.py --json out.json --markdown out.md --headed
+    python tests/golden_path.py --service-path     # with RS_SERVICE_PATH=1 (the service entrance, roadmap M5.2)
 
 Product path (store owner): sign up, confirm the email, paste the product page, make the 2 free ads, pick a plan,
 plan the campaign, make the creative batch, write the copy, publish a landing page, export the ads. Service path
@@ -20,10 +21,12 @@ picked, keys pressed, pages typed into the address bar). It asserts:
   * no step navigates the browser away from the app, except the known handoffs (KNOWN_HANDOFFS).
 
 Known gaps (KNOWN_GAPS) are failures the roadmap already tracks. They are reported as "known gap" and do not fail the
-run, so this output is the baseline. Today: the service path stops at the first-ads step because the first run needs
-a product photo (UX-13, roadmap M5.2). The steps after a known gap still run and are timed ("after the gap"), so their
-numbers are in the baseline too, but the path counts as blocked. A known gap that starts passing is reported, so the
-entry can be removed.
+run, so this output is the baseline. With RS_SERVICE_PATH off (the default): the service path stops at the first-ads
+step because the first run needs a product photo (UX-13). With RS_SERVICE_PATH=1 (or --service-path) the first run
+asks "What do you sell?", the service path picks "A service", imports the website and makes its 2 free ads without a
+photo, so that gap is not expected and a failure there fails the run. The steps after a known gap still run and are
+timed ("after the gap"), so their numbers are in the baseline too, but the path counts as blocked. A known gap that
+starts passing is reported, so the entry can be removed.
 
 With RS_NEXT_STEPS=1 in the environment (the Home step strip, roadmap M5.1) the run also checks the thread: after
 every step Home's "Your campaign" strip must show exactly one primary button (read with a request, not counted as a
@@ -57,12 +60,22 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
-KNOWN_GAPS = {
-    # (path, step): (finding id, what the step's error must contain, why)
-    ("service", "first_ads"): ("UX-13", "Add one photo of your product",
-                               "The first run needs a product photo; a service business has none "
-                               "(roadmap M5.2, 'I sell a service')."),
-}
+def service_path_on():
+    return os.environ.get("RS_SERVICE_PATH", "0").strip().lower() in ("1", "on", "true", "yes")
+
+
+def known_gaps():
+    gaps = {}   # (path, step): (finding id, a regex the step's error must match, why)
+    if not service_path_on():
+        # RS_SERVICE_PATH=1 (roadmap M5.2) closes this one: the service path then has to pass first_ads.
+        gaps[("service", "first_ads")] = ("UX-13", r"Add one photo of your product|made as product ads",
+                                          "The first run is product-only: it needs a product photo (or takes a "
+                                          "site photo as one) and writes a product ad; a service business has no "
+                                          "product (roadmap M5.2, RS_SERVICE_PATH=1 turns the service entrance on).")
+    return gaps
+
+
+KNOWN_GAPS = known_gaps()
 # Places the browser may leave the app for: the platforms' own pages that an app can't (or mustn't) do for the user.
 KNOWN_HANDOFFS = [
     (r"^https://checkout\.stripe\.com/", "Stripe Checkout (plan or pack payment)"),
@@ -148,12 +161,15 @@ class F:
     SERVICE_URL = "https://northside-hvac.example/"
     SERVICE_PAGE = """<!doctype html><html><head><title>Northside Heating & Air | AC repair and furnace service in Plano, TX</title>
 <meta name="description" content="Same-day AC repair, furnace tune-ups and new system installs in Plano and Allen. Free quotes.">
-<meta property="og:image" content="https://northside-hvac.example/img/logo.png">
+<meta property="og:image" content="https://northside-hvac.example/img/logo.png"><meta name="theme-color" content="#1f4e79">
+<style>.btn{background:#f2a900;color:#1f4e79}</style>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"HVACBusiness","name":"Northside Heating & Air",
 "description":"AC repair, furnace tune-ups and new system installs in Plano and Allen, Texas.",
 "logo":"https://northside-hvac.example/img/logo.png","telephone":"+1-972-555-0142",
 "address":{"@type":"PostalAddress","addressLocality":"Plano","addressRegion":"TX"},"areaServed":["Plano","Allen","Frisco"]}</script>
 </head><body><img src="/img/logo.png" alt="Northside Heating & Air logo"><h1>AC repair in Plano, same day</h1>
+<img src="/img/tech-at-work.jpg" alt="A technician checking an outdoor unit"><img src="/img/service-van.jpg" alt="Our van">
+<img src="/img/new-install.jpg" alt="A new furnace install">
 <p>Licensed technicians. Upfront prices. Free quotes on new systems.</p><a href="/quote">Get a free quote</a></body></html>"""
 
     BIZ = {
@@ -178,7 +194,7 @@ class F:
 
     # ---- generation API
     @classmethod
-    def submit(cls, model, inputs, webhook_url=None, idempotency_key=None):   # worker passes the key (M1.9)
+    def submit(cls, model, inputs, webhook_url=None, **kw):   # kw: idempotency_key (hf.py, M1.9)
         rid = f"req{len(cls.results) + 1}"
         cls.results[rid] = {"at": time.time(), "model": model, "inputs": inputs}
         return rid
@@ -367,7 +383,15 @@ class F:
         if step == 5 and service:
             return cls._reply("write_copy", {"platform": "meta", "kind": "ad", "angle": "all", "variants": 2})
         plats = ["google", "meta"] if service else ["meta", "google"]
-        return cls._reply("finish", {
+        extra = {}
+        if "search_keywords" in tools["finish"]["input_schema"]["properties"] and service:
+            # the model fills the keyword list when the schema asks for it (RS_SERVICE_PATH with Google picked)
+            extra["search_keywords"] = [{"term": t, "match": m} for t, m in (
+                ("ac repair plano", "exact"), ("ac repair allen", "exact"), ("ac repair near me", "phrase"),
+                ("furnace tune up plano", "exact"), ("furnace tune up near me", "phrase"), ("hvac company plano", "phrase"),
+                ("new ac unit cost", "phrase"), ("ac installation plano", "exact"), ("heating and air plano", "phrase"),
+                ("air conditioner not cooling", "broad"), ("northside heating and air", "exact"))]
+        return cls._reply("finish", {**extra,
             "summary": ("Leads first: Google Search for people already looking, Meta lead ads in the service area."
                         if service else "Image ads on Meta first, then the talking video once a hook wins."),
             "offer": "Free quote on a new system, same-day repair." if service else "Ember Candle, $34, 50 hour burn.",
@@ -557,14 +581,15 @@ class Run:
 
     def wait_jobs(self, since_id, n_min=1, timeout=120):
         def done():
-            rows = self.q("SELECT status FROM jobs WHERE workspace_id=? AND id>?", self.ws_id, since_id)
+            rows = self.q("SELECT status, error FROM jobs WHERE workspace_id=? AND id>?", self.ws_id, since_id)
             if len(rows) < n_min or any(r["status"] in ("pending", "running") for r in rows):
                 return None
             return rows
         rows = self.wait_until(done, "renders", timeout)
-        bad = [r["status"] for r in rows if r["status"] != "done"]
+        bad = [r for r in rows if r["status"] != "done"]
         if bad:
-            raise StepFailed(f"{len(bad)} of {len(rows)} renders ended {bad[0]}")
+            raise StepFailed(f"{len(bad)} of {len(rows)} renders ended {bad[0]['status']}"
+                             + (f" ({' '.join((bad[0]['error'] or '').split())[:160]})" if bad[0]["error"] else ""))
         return rows
 
     def last_job_id(self):
@@ -612,7 +637,7 @@ class Run:
             if bad:
                 st.status, st.error = "fail", f"left the app: {bad[0]}"
         gap = KNOWN_GAPS.get((self.path, key))
-        if gap and st.status == "fail" and gap[1] in st.error:
+        if gap and st.status == "fail" and re.search(gap[1], st.error):
             st.status, st.gap = "known_gap", gap[0]
             st.notes.append(gap[2])
             self.gap_hit = self.gap_hit or key
@@ -696,7 +721,11 @@ class Run:
             raise StepFailed("the code was refused: " + self.page.locator("dialog [data-verr]").inner_text())
         self.page.wait_for_selector("[data-verify-banner]", state="detached", timeout=5000)
 
-    def s_brand_kit(self, st, url, want_name):
+    def s_brand_kit(self, st, url, want_name, sells=None):
+        if sells and self.page.locator(f"input[name=sells][value={sells}]").count():
+            self.check(f"input[name=sells][value={sells}]", True)   # "What do you sell?" (RS_SERVICE_PATH)
+        elif sells == "service" and service_path_on():
+            raise StepFailed("RS_SERVICE_PATH is on but the first run doesn't ask 'What do you sell?'")
         self.fill("#purl", url)
         self.click("[data-import]")
         self.page.wait_for_function("() => (document.querySelector('#pn')||{}).value", timeout=15000)
@@ -704,13 +733,16 @@ class Run:
         brand_name = self.page.input_value("#bn")
         photos = self.page.locator("[data-photos] input[name=photo_id]").count()
         prod = self.q("SELECT * FROM products WHERE workspace_id=? ORDER BY id DESC", self.ws_id)
-        claims = 0
+        claims, logo, colors = 0, False, 0
         if prod:
-            try:
-                claims = len(json.loads(prod[0]["import_json"] or "{}").get("claims") or [])
+            try:   # suggested claims wait for approval in claims_pending (the importer never approves them)
+                claims = len(json.loads(prod[0]["claims_pending"] or "[]"))
+                site = json.loads(prod[0]["import_json"] or "{}").get("site") or {}
+                logo, colors = bool(site.get("logo_photo_id")), len(site.get("colors") or [])
             except Exception:  # noqa: BLE001
-                claims = 0
-        st.notes.append(f"filled: name '{name}', brand '{brand_name}', {photos} photo(s), {claims} suggested claim(s)"
+                pass
+        kit = f", logo {'yes' if logo else 'no'}, {colors} color(s)" if sells == "service" else ""
+        st.notes.append(f"filled: name '{name}', brand '{brand_name}'{kit}, {photos} photo(s), {claims} suggested claim(s)"
                         f" (target: name, colors, logo, 3 photos, 5 claims)")
         if want_name not in name:
             raise StepFailed(f"the importer filled '{name}', expected '{want_name}'")
@@ -725,6 +757,19 @@ class Run:
             raise StepFailed("the first ads didn't start: " + (" ".join(flash) or main[:120]).strip())
         self.wait_jobs(before, 1)
         self.page.wait_for_selector("text=/ready/i", timeout=20000)
+        if self.path == "service":
+            # A service's first ads must be made as a service ad: a site photo (a van, a technician) passed off as
+            # the "product" makes an ad told to keep the product's packaging exactly as photographed.
+            import db
+            import worker
+            with db.connect() as conn:
+                job = conn.execute("SELECT * FROM jobs WHERE workspace_id=? AND id>? ORDER BY id LIMIT 1",
+                                   (self.ws_id, before)).fetchone()
+                prompt = worker.image_prompt(conn, job) if job["tool"] == "ad_image" else ""
+            if "a service business" not in prompt:
+                raise StepFailed("the first ads were made as product ads (a site photo used as the product photo)")
+            st.notes.append(f"made as a service ad, {len(json.loads(job['params_json']).get('photo_ids') or [])} "
+                            "reference image(s)")
 
     def s_pick_plan(self, st, code):
         nxt = self.page.locator("[data-next-steps] [data-ns-primary]")
@@ -775,10 +820,12 @@ class Run:
         note = (f"plan: {self.page.locator('#ads .adrow').count()} ads proposed, budget split {yn['Budget split' in main]}, "
                 f"copy {yn['Copy for each platform' in main]}")
         if "google" in platforms_on:
-            note += f", search keyword list {yn['keyword' in main.lower()]}"
+            kw = self.page.locator("#keywords table.kwlist tbody tr").count()
+            note += f", search keyword list {yn[bool(kw)]}" + (f" ({kw} terms)" if kw else "")
         if goal == "leads":
             lead_items = bool(re.search(r"(?i)\bform\b", checklist) and re.search(r"(?i)\bflow\b", checklist))
-            note += f", lead page/form/follow-up in the checklist {yn[lead_items]}"
+            links = sec.locator("a[href='/app/pages'], a[href='/app/forms'], a[href='/app/flows']").count() if sec.count() else 0
+            note += f", lead page/form/follow-up in the checklist {yn[lead_items]}" + (f" ({links} linked)" if links else "")
         st.notes.append(note)
         return main
 
@@ -946,8 +993,9 @@ def service_path(r):
     r.step("signup", "Sign up", lambda st: r.s_signup(st, email))
     r.step("verify", "Confirm the email (code)", lambda st: r.s_verify(st, email))
     r.step("brand_kit", "Paste the website (brand kit)",
-           lambda st: r.s_brand_kit(st, F.SERVICE_URL, "Northside"))
-    r.step("first_ads", "First ads (needs a product photo)", r.s_first_ads)
+           lambda st: r.s_brand_kit(st, F.SERVICE_URL, "Northside", sells="service"))
+    r.step("first_ads", "First ads (from the website, no product photo)" if service_path_on()
+           else "First ads (the first run is product-only)", r.s_first_ads)
     code = comp_code()
     r.step("plan_pick", "Pick a plan", lambda st: r.s_pick_plan(st, code))
     r.step("planner", "Plan the campaign (Leads; Google, Meta)",
@@ -1020,7 +1068,12 @@ def main():
     ap.add_argument("--json", help="write the results as JSON here")
     ap.add_argument("--markdown", help="write the results table (Markdown) here")
     ap.add_argument("--shots", help="save a full-page screenshot of every failed or known-gap step here")
+    ap.add_argument("--service-path", action="store_true", help="run with RS_SERVICE_PATH=1 (roadmap M5.2)")
     args = ap.parse_args()
+    global KNOWN_GAPS
+    if args.service_path:
+        os.environ["RS_SERVICE_PATH"] = "1"
+    KNOWN_GAPS = known_gaps()
 
     try:
         from playwright.sync_api import sync_playwright
@@ -1028,7 +1081,7 @@ def main():
         raise SystemExit("Playwright for Python is required (pip install playwright; Chromium must be installed).")
 
     base, srv = boot(args.render_seconds)
-    print(f"== golden path against {base} (providers faked)")
+    print(f"== golden path against {base} (providers faked; RS_SERVICE_PATH {'on' if service_path_on() else 'off'})")
     steps = []
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=not args.headed, args=["--disable-dev-shm-usage"])

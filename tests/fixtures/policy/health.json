@@ -1,0 +1,332 @@
+{
+ "cases": [
+  {
+   "id": "h01",
+   "text": "Are you overweight? This tea can help.",
+   "platform": "meta",
+   "vertical": "supplements",
+   "ai": false,
+   "expect": [
+    "policy.personal_attributes"
+   ],
+   "house": []
+  },
+  {
+   "id": "h02",
+   "text": "Conquer your depression with daily sunlight walks.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.personal_attributes"
+   ],
+   "house": [
+    "disease_words"
+   ]
+  },
+  {
+   "id": "h03",
+   "text": "Made for people managing diabetes who still love dessert.",
+   "platform": "meta",
+   "vertical": "health",
+   "ai": false,
+   "expect": [
+    "policy.personal_attributes"
+   ],
+   "house": [
+    "disease_words"
+   ]
+  },
+  {
+   "id": "h04",
+   "text": "Struggling with acne? Meet our clay mask.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": false,
+   "expect": [
+    "policy.personal_attributes"
+   ],
+   "house": []
+  },
+  {
+   "id": "h05",
+   "text": "Our serum cures eczema in a week.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": false,
+   "expect": [
+    "policy.cure_claim"
+   ],
+   "house": [
+    "health_claim_words"
+   ]
+  },
+  {
+   "id": "h06",
+   "text": "A natural remedy for migraines.",
+   "platform": "meta",
+   "vertical": "health",
+   "ai": false,
+   "expect": [
+    "policy.cure_claim"
+   ],
+   "house": []
+  },
+  {
+   "id": "h07",
+   "text": "Helps prevent the flu all winter.",
+   "platform": "meta",
+   "vertical": "supplements",
+   "ai": false,
+   "expect": [
+    "policy.cure_claim"
+   ],
+   "house": [
+    "health_claim_words"
+   ]
+  },
+  {
+   "id": "h08",
+   "text": "My arthritis was gone in days.",
+   "platform": "meta",
+   "vertical": "supplements",
+   "ai": false,
+   "expect": [
+    "policy.cure_claim"
+   ],
+   "house": [
+    "disease_words"
+   ]
+  },
+  {
+   "id": "h09",
+   "text": "Lose 10 pounds in 2 weeks, no gym.",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric"
+   ],
+   "house": [
+    "weight_loss_phrase"
+   ]
+  },
+  {
+   "id": "h10",
+   "text": "Customers dropped 2 dress sizes.",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric"
+   ],
+   "house": []
+  },
+  {
+   "id": "h11",
+   "text": "Lowered my blood sugar by 40 points.",
+   "platform": "meta",
+   "vertical": "health",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric"
+   ],
+   "house": []
+  },
+  {
+   "id": "h12",
+   "text": "Feel 30% less joint pain by Friday.",
+   "platform": "meta",
+   "vertical": "supplements",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric",
+    "policy.results_claim"
+   ],
+   "house": []
+  },
+  {
+   "id": "h13",
+   "text": "See the before and after: down a full size.",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.before_after"
+   ],
+   "house": [
+    "before_after"
+   ],
+   "levels": {
+    "policy.before_after": "block"
+   }
+  },
+  {
+   "id": "h14",
+   "text": "Before & after: our whitening strips in 7 days.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": false,
+   "expect": [
+    "policy.before_after"
+   ],
+   "house": [
+    "before_after"
+   ],
+   "levels": {
+    "policy.before_after": "warn"
+   }
+  },
+  {
+   "id": "h15",
+   "text": "No before/after shots, just the product on a shelf.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "h16",
+   "text": "Day 1 vs day 30 on our meal plan.",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.implied_transformation"
+   ],
+   "house": []
+  },
+  {
+   "id": "h17",
+   "text": "Results after 4 weeks of our shakes.",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.implied_transformation"
+   ],
+   "house": []
+  },
+  {
+   "id": "h18",
+   "text": "Hide that embarrassing belly with our shapewear.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.appearance_inferiority"
+   ],
+   "house": []
+  },
+  {
+   "id": "h19",
+   "text": "Hate your thighs? Not after this.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": false,
+   "expect": [
+    "policy.appearance_inferiority"
+   ],
+   "house": []
+  },
+  {
+   "id": "h20",
+   "text": "Ask your doctor about semaglutide through our telehealth visit.",
+   "platform": "meta",
+   "vertical": "health",
+   "ai": false,
+   "expect": [
+    "policy.pharmacy"
+   ],
+   "house": []
+  },
+  {
+   "id": "h21",
+   "text": "Clinically proven to boost energy.",
+   "platform": "meta",
+   "vertical": "supplements",
+   "ai": false,
+   "expect": [
+    "policy.results_claim"
+   ],
+   "house": [
+    "promise_words"
+   ]
+  },
+  {
+   "id": "h22",
+   "text": "Clinically proven to boost energy.",
+   "platform": "meta",
+   "vertical": "supplements",
+   "ai": false,
+   "expect": [
+    "policy.results_claim"
+   ],
+   "claims_substantiated": true,
+   "house": [
+    "promise_words"
+   ],
+   "levels": {
+    "policy.results_claim": "warn"
+   }
+  },
+  {
+   "id": "h23",
+   "text": "Our gummies taste like real fruit. Two a day with breakfast.",
+   "platform": "meta",
+   "vertical": "supplements",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "h24",
+   "text": "Gentle cleanser for dry, sensitive skin.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "h25",
+   "text": "A calm evening tea with chamomile and mint.",
+   "platform": "meta",
+   "vertical": "health",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "h26",
+   "text": "Shed 15 lbs before summer with our plan.",
+   "platform": "tiktok",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric"
+   ],
+   "house": [
+    "weight_loss_phrase"
+   ]
+  },
+  {
+   "id": "h27",
+   "text": "Before and after using our slimming wrap.",
+   "platform": "snapchat",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.before_after"
+   ],
+   "house": [
+    "before_after",
+    "weight_loss_words"
+   ],
+   "levels": {
+    "policy.before_after": "block"
+   }
+  }
+ ]
+}
