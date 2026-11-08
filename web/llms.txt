@@ -61,7 +61,11 @@ Campaignify doesn't post ads, buy media or read results from ad platforms. It gu
 {% for k, f in plans.FEATURES.items() if f.shipped %}
 - {{ f.name }} ({{ 'every account' if f.plan == 'free' else plans.PLANS[f.plan].name ~ ' and up' }}): {{ f.blurb }}{% endfor %}
 
-## Contact
+{% if mcp_on %}## Claude and MCP
+
+- Campaignify has a remote MCP server at {{ site.SITE_URL }}/mcp (Streamable HTTP; sign in with OAuth or use an API key from Settings). Tools list brands, products and what was made, write ad copy, plan campaigns, run competitor snapshots, and price image ads and AI presenter videos before making them with the quoted credit total. Setup: {{ site.SITE_URL }}/docs/mcp
+
+{% endif %}## Contact
 
 - Email: hello@campaignify.ai
 - Sign up: {{ site.SITE_URL }}/signup

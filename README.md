@@ -242,6 +242,18 @@ Any finished output can get a private share link (`/s/<token>`, `share_routes.py
 noindex page with just the file, the product's name and a "Made with Campaignify" link; the file is served through
 the token so it works logged out. Stop sharing (or deleting the ad) makes the link 404; sharing again makes a new token.
 
+## MCP server for Claude (`mcpserver.py`, `mcp_tools.py`, `/docs/mcp`)
+
+`MCP_SERVER=on` (default off) opens a remote MCP server at `/mcp` (Streamable HTTP, one JSON answer per POST,
+no sessions). Auth: personal API keys made on `/app/mcp` (Settings > API and Claude; SHA-256 at rest, shown
+once, read or read+write, revocable) or OAuth 2.1 (discovery under `/.well-known/`, dynamic client
+registration, PKCE S256, rotating refresh tokens) so a Claude.ai custom connector can sign in. Tools call the
+app's own routes (`ToolContext.call` runs the route in a fresh request context as the token's user), so plan
+features, credits, compliance and the email-confirmation rule are the web app's. Images and videos: `quote_ad_batch`
+first; `generate_*` needs `confirm_total_credits` equal to that quote (Create's own 409 check). Tables:
+`mcp_tokens`, `mcp_clients`, `mcp_grants`, `mcp_codes`. `mcpserver.py` is the same file in Crowdcut.
+Tests: `tests/test_mcp.py`.
+
 ## Tests
 
     python tests/test_app.py        # generation API and Stripe faked; also runs test_products, test_outreach, test_public_site, test_pixels, test_site_events, test_google_auth, ...

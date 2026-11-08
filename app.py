@@ -46,6 +46,7 @@ import public_site
 import site_events
 import verify
 import worker
+import core  # noqa: E402
 from core import admin_required, brand, feature_required, is_owner, login_required, owner_required, picked_product  # noqa: F401
 from core import queue_job as _queue_job  # noqa: E402
 from core import verify_block as core_verify_block  # noqa: E402
@@ -153,6 +154,7 @@ NAV_GROUPS = [
         ("team", "Team", "team", None, ("team",)),
         ("billing_page", "Billing", "billing", None, ("billing_page",)),
         ("messaging.sending", "Sending", "send", "flows", ("messaging.sending",)),
+        ("mcp.settings", "API and Claude", "api", None, ("mcp.settings",)),   # shown while MCP_SERVER=on
     ]),
 ]
 NAV = [item for _, items in NAV_GROUPS for item in items]
@@ -250,7 +252,9 @@ def _verify_banner():
 
 CSRF_EXEMPT = {"static", "stripe_webhook", "site_event", "forms.public", "messaging.resend_webhook", "messaging.unsubscribe",
                "sms.inbound", "sms.status",
-               "cpools.partner_asset_url", "cpools.partner_event"}  # Crowdcut's server calls, HMAC-signed (creator_pools.py)  # public forms carry their own signed token
+               "cpools.partner_asset_url", "cpools.partner_event",  # Crowdcut's server calls, HMAC-signed (creator_pools.py)  # public forms carry their own signed token
+               # MCP clients (mcpserver.py): Bearer tokens or OAuth client credentials, never cookies
+               "mcp.mcp_endpoint", "mcp.register", "mcp.token", "mcp.revoke"}
 
 
 @app.before_request
@@ -273,14 +277,7 @@ def load_user():
                         ws_id, g.viewing = other["id"], other
                     else:
                         session.pop("view_ws", None)
-                g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
-                if g.ws and compcodes.due(g.ws):
-                    # a free-month code's next credits, or its end (back to free), right on time
-                    compcodes.settle(conn, ws_id)
-                    g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
-                if g.ws:
-                    g.brand_row, g.product_row = products.load_active(conn, g.ws)
-                    g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+                core.load_workspace(conn, ws_id)
     if request.method == "POST" and request.endpoint not in CSRF_EXEMPT:
         sent = request.form.get("csrf") or request.headers.get("X-CSRF")
         if not sent or not secrets.compare_digest(sent, session.get("csrf", "")):
@@ -615,7 +612,8 @@ def sitemap_xml():
 
 
 def _llms_text() -> str:
-    return render_template("llms.txt", feature_details=FEATURE_DETAILS, journey=JOURNEY, site=public_site,
+    import mcpserver
+    return render_template("llms.txt", mcp_on=mcpserver.enabled(), feature_details=FEATURE_DETAILS, journey=JOURNEY, site=public_site,
                            tools_full=catalog.TOOLS, rc=catalog.rates(),
                            solutions=[public_site.solution(x) for x in public_site.SOLUTION_ORDER],
                            guides=[public_site.guide(x) for x in public_site.GUIDE_ORDER])
@@ -648,6 +646,17 @@ app.add_url_rule(f"/{public_site.INDEXNOW_KEY}.txt", "indexnow_key", indexnow_ke
 def llm_info():
     """The same text as /llms.txt as an HTML page (headings, lists and links), for people and crawlers that read HTML."""
     return render_template("llm_info.html", blocks=public_site.text_blocks(_llms_text()))
+
+
+@app.route("/docs/mcp")
+def mcp_docs():
+    """How to connect Claude and other MCP clients (mcp_tools.py)."""
+    import mcp_tools
+    import mcpserver
+    return render_template("mcp_docs.html", on=mcpserver.enabled(), url=request.host_url.rstrip("/") + "/mcp",
+                           settings_path=mcp_tools.CampaignifyAdapter.settings_path,
+                           tools=[{"name": t.name, "description": t.description, "annotations": t.annotations}
+                                  for t in mcp_tools.TOOLS])
 
 
 @app.route("/privacy")
@@ -2449,9 +2458,14 @@ def _has_endpoint(name) -> bool:
             with db.connect() as conn:
                 g.cpools_visible = creator_pools.visible(conn, g.ws, g.user)
         return g.cpools_visible
+    if name == "mcp.settings":          # the MCP key page shows while MCP_SERVER=on
+        return mcpserver.enabled()
     return True
 
 
+import mcpserver  # noqa: E402
+import mcp_tools  # noqa: E402  the MCP server (/mcp, OAuth, API keys); MCP_SERVER=on switches it on
+mcp_tools.init(app)
 app.jinja_env.globals["has_endpoint"] = _has_endpoint
 app.jinja_env.globals.update(faq_answer=public_site.answer_html, solution_links=lambda: public_site.SOLUTION_ORDER,
                              solution_nav=lambda slug: public_site.SOLUTIONS[slug]["nav"], basket=public_site.basket,
