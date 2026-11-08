@@ -3,7 +3,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certi
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /srv/rs
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# requirements.txt is the locked, hashed list (compiled from requirements.in): pip installs
+# exactly those files or the build fails (SEC-3).
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 COPY . .
 RUN mkdir -p data
 ENV PYTHONUNBUFFERED=1 RS_DATA=/srv/rs/data
