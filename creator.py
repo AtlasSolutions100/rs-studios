@@ -12,6 +12,7 @@ import catalog
 
 ANGLE_TOKENS = (1800, 1200)
 SCRIPT_TOKENS = (1800, 1500)
+TIGHTEN_TOKENS = (1400, 900)    # one retry when a spoken script comes back too long
 CUSTOMER_VOICE = "AI presenters can't speak as customers or claim results."
 
 SYSTEM = ("You are a direct-response creative strategist who writes short-form video and image ads for small brands, "
@@ -40,10 +41,80 @@ def estimate_angles() -> int:
     return llm.estimate_credits(*ANGLE_TOKENS, model_id=llm.fast_model())
 
 
-def estimate_script(with_photo: bool = True) -> int:
-    """Most a script costs; a product photo for the writer adds its tokens."""
-    return llm.estimate_credits(SCRIPT_TOKENS[0] + (PHOTO_TOKENS if with_photo else 0), SCRIPT_TOKENS[1],
-                                model_id=llm.fast_model())
+def estimate_script(with_photo: bool = True, spoken: bool = False) -> int:
+    """Most a script costs: the writing call (a product photo for the writer adds
+    its tokens; spoken scripts never send one) plus, for a spoken script, the one
+    tightening call it may need when it comes back too long."""
+    tin, tout = SCRIPT_TOKENS
+    if with_photo:
+        tin += PHOTO_TOKENS
+    if spoken:
+        tin, tout = tin + TIGHTEN_TOKENS[0], tout + TIGHTEN_TOKENS[1]
+    return llm.estimate_credits(tin, tout, model_id=llm.fast_model())
+
+
+def estimate_shorten() -> int:
+    """Most "Shorten to fit" costs (one call)."""
+    return llm.estimate_credits(*TIGHTEN_TOKENS, model_id=llm.fast_model())
+
+
+def budget_text(duration: int) -> str:
+    """The exact length rules the writer gets for a spoken script."""
+    b = catalog.word_budget(duration)
+    return (f"Length limits (hard; the video is exactly {duration} seconds and speech is about "
+            f"{catalog.WORDS_PER_SECOND:g} words per second): each hook at most {b['hook']} words; the body at most "
+            f"{b['body']} words; any hook + the body together at most {b['total']} words. Count every word, numbers "
+            "included. Shorter is fine; longer gets cut off.")
+
+
+def over_budget(hooks: list, body: str, duration: int) -> list[str]:
+    """What breaks the word budget, in words the writer can act on ([] when it fits)."""
+    b, out = catalog.word_budget(duration), []
+    for i, h in enumerate(hooks):
+        if catalog.words(h) > b["hook"]:
+            out.append(f"hook {i + 1} is {catalog.words(h)} words (max {b['hook']})")
+    longest = max([catalog.words(h) for h in hooks] or [0])
+    if longest + catalog.words(body) > b["total"]:
+        out.append(f"the longest hook + body is {longest + catalog.words(body)} words (max {b['total']}, so "
+                   f"{longest + catalog.words(body) - b['total']} too many)")
+    return out
+
+
+TIGHTEN_SCHEMA = {"type": "object", "properties": {
+    "hooks": {"type": "array", "items": {"type": "string"}, "description": "The hooks, tightened, same order"},
+    "body": {"type": "string", "description": "The body, tightened"}}, "required": ["hooks", "body"]}
+
+
+def tighten(b: dict, ad_type: str, hooks: list, body: str, duration: int, usage: llm.Usage | None = None,
+            problems: list | None = None, keep_all: bool = False) -> tuple[list[str], str]:
+    """Ask the writer once to cut a spoken script to the budget, then make sure
+    it fits: whatever is still over is trimmed at sentence boundaries
+    (catalog.fit_spoken). Lines that break a rule are dropped. Raises llm.LLMError
+    only if the call itself fails and nothing usable is left."""
+    problems = problems if problems is not None else over_budget(hooks, body, duration)
+    who = "a narrator over product shots" if ad_type == "voiceover" else "an on-camera presenter, selfie-style"
+    prompt = (product_text(b) + f"\n\nThis {duration}-second spoken script for {who} is too long: "
+              + "; ".join(problems) + ".\n" + budget_text(duration) + "\nCut it to fit. Keep the idea, the hook "
+              "style and the call to action at the end; cut filler, not facts. Don't add claims. Same number of "
+              "hooks, same order.\n\nHooks:\n" + "\n".join(f"{i + 1}. {h}" for i, h in enumerate(hooks))
+              + f"\n\nBody:\n{body}")
+    clean = (lambda x: " ".join(str(x or "").split()))
+    try:
+        out = llm.structured(system=SYSTEM, prompt=prompt, schema=TIGHTEN_SCHEMA, name="submit_tightened",
+                             max_tokens=TIGHTEN_TOKENS[1], usage=usage, temperature=0.4, model_id=llm.fast_model())
+        new_hooks = [clean(h)[:200] for h in out.get("hooks") or []]
+        new_body = clean(out.get("body"))[:1200]
+        if keep_all:
+            # one tightened hook per hook typed, in order; a missing or rule-breaking one stays as typed (then cut)
+            hooks = [nh if nh and ok(nh, True) else h for h, nh in zip(hooks, new_hooks + [""] * len(hooks))]
+        elif new_hooks:
+            hooks = [h for h in new_hooks if h and ok(h, True)] or hooks
+        if new_body and ok(new_body, True):
+            body = new_body
+    except llm.LLMError:
+        if not hooks and not body:
+            raise
+    return catalog.fit_spoken(hooks, body, duration, keep_all=keep_all)
 
 
 def compliance_claims(b: dict) -> list:
@@ -147,12 +218,13 @@ def script(b: dict, ad_type: str, angle: dict, duration: int = 10, n: int = 3,
                               f"For: {angle.get('audience') or b.get('audience') or 'the product audience'}\n"
                               f"Starting hook idea: {angle.get('hook') or ''}\n")
     if kind == "spoken":
-        words = catalog.max_words(duration)
+        bud = catalog.word_budget(duration)
         who = "a narrator over product shots" if ad_type == "voiceover" else "an on-camera presenter, selfie-style"
-        prompt = (head + f"\nWrite a {duration}-second spoken script for {who}. Give {n} alternative hooks (each under 12 "
-                  f"words) and one body that follows any of them. Hook + body together must be at most {words} words, "
-                  "said out loud at a natural pace. End with a simple call to action. Plain spoken English, no stage "
-                  "directions, no emojis, no hashtags. Also give 2-3 short on-screen captions.")
+        prompt = (head + f"\nWrite a {duration}-second spoken script for {who}. Give {n} alternative hooks and one "
+                  f"body that follows any of them. Hook + body together must be at most {bud['total']} words, said "
+                  "out loud at a natural pace.\n" + budget_text(duration) + "\nEnd with a simple call to action. "
+                  "Plain spoken English, no stage directions, no emojis, no hashtags. Also give 2-3 short on-screen "
+                  "captions.")
     elif kind == "image":
         prompt = (head + f"\nWrite {n} alternative headlines (each under 8 words) for an image ad, and one concrete "
                   "image concept: the scene, the light, where the product sits, with the product exactly as in the "
@@ -176,5 +248,27 @@ def script(b: dict, ad_type: str, angle: dict, duration: int = 10, n: int = 3,
     if body and not ok(body, spoken):
         body = ""
     items = [i for i in items if i and ok(i, spoken)][:max(1, n)]
+    if spoken and (items or body) and over_budget(items, body, duration):
+        # Too long for the length: one tightening call with the overage, then a
+        # sentence-boundary trim, so a written script never trips the length check.
+        items, body = tighten(b, ad_type, items, body, duration, usage)
+    elif spoken:
+        items, body = catalog.fit_spoken(items, body, duration)
     on_screen = [clean(t)[:80] for t in out.get("on_screen") or [] if ok(clean(t))][:4]
     return {"items": items, "body": body, "on_screen": on_screen}
+
+
+def shorten(b: dict, ad_type: str, hooks: list, body: str, duration: int, usage: llm.Usage | None = None) -> dict:
+    """"Shorten to fit" for a script the member typed: {items, body, changed}.
+    Hooks that already fit with the body are kept as they are when only the
+    body needs cutting; every line that comes back fits `duration`."""
+    hooks = [" ".join(str(h).split())[:200] for h in hooks if str(h).strip()]
+    body = " ".join(str(body or "").split())[:2000]
+    bud = catalog.word_budget(duration)
+    problems = []
+    if any(catalog.words(h + " " + body) > bud["total"] for h in hooks) or (not hooks and catalog.words(body) > bud["total"]):
+        problems = over_budget(hooks, body, duration) or [f"it is {catalog.words(body)} words (max {bud['total']})"]
+    if not problems:
+        return {"items": hooks, "body": body, "changed": False}
+    new_hooks, new_body = tighten(b, ad_type, hooks, body, duration, usage, problems, keep_all=True)
+    return {"items": new_hooks, "body": new_body, "changed": True}
