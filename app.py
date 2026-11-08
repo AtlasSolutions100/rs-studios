@@ -40,6 +40,7 @@ import creator
 import db
 import gads
 import hf
+import imagesafe  # noqa: F401  sets Pillow's MAX_IMAGE_PIXELS once at startup (H-1)
 import login_security
 import nudges
 import opslog
@@ -280,7 +281,9 @@ CSRF_EXEMPT = {"static", "stripe_webhook", "site_event", "forms.public", "messag
                "sms.inbound", "sms.status",
                "cpools.partner_asset_url", "cpools.partner_event",  # Crowdcut's server calls, HMAC-signed (creator_pools.py)  # public forms carry their own signed token
                # MCP clients (mcpserver.py): Bearer tokens or OAuth client credentials, never cookies
-               "mcp.mcp_endpoint", "mcp.register", "mcp.token", "mcp.revoke"}
+               "mcp.mcp_endpoint", "mcp.register", "mcp.token", "mcp.revoke",
+               # Meta's server calls, verified with the app secret (signed_request, adconnect_routes.py)
+               "adconnect.meta_deauthorize", "adconnect.meta_data_deletion"}
 
 
 @app.before_request
@@ -2820,7 +2823,14 @@ def _has_endpoint(name) -> bool:
     if name == "mcp.settings":          # the MCP key page shows while MCP_SERVER=on
         return mcpserver.enabled()
     if name.startswith("adconnect."):   # connected ad accounts: AD_LAUNCH (adplatforms.enabled)
-        return adplatforms.enabled(g.get("ws"), g.get("user"))
+        if adplatforms.enabled(g.get("ws"), g.get("user")):
+            return True
+        if g.get("ws") is None:
+            return False
+        if "adconn_stored" not in g:     # flag off but connections still stored: keep the way to Disconnect (M-3)
+            with db.connect() as conn:
+                g.adconn_stored = adplatforms.has_stored(conn, g.ws["id"])
+        return g.adconn_stored
     return True
 
 

@@ -81,6 +81,42 @@ def redirect_uri() -> str:
     return verify.public_url() + "/connect/meta/callback"
 
 
+class BadSignedRequest(ValueError):
+    """A signed_request that isn't Meta's (bad format, wrong algorithm, bad signature, no user id)."""
+
+
+def _b64url(part: str) -> bytes:
+    import base64
+    return base64.urlsafe_b64decode(part + "=" * (-len(part) % 4))
+
+
+def parse_signed_request(signed_request: str) -> dict:
+    """The payload of a Meta signed_request (deauthorize and data deletion callbacks), verified the way Meta
+    specifies: "<base64url signature>.<base64url JSON payload>", the signature being HMAC-SHA256 of the encoded
+    payload with the app secret, and the payload's algorithm HMAC-SHA256. Raises BadSignedRequest."""
+    import json
+    secret = app_secret()
+    if not secret:
+        raise BadSignedRequest("the app secret isn't set")
+    sr = (signed_request or "").strip()
+    if sr.count(".") != 1 or len(sr) > 8192:
+        raise BadSignedRequest("not a signed request")
+    sig_part, payload_part = sr.split(".", 1)
+    try:
+        sig = _b64url(sig_part)
+        payload = json.loads(_b64url(payload_part))
+    except (ValueError, TypeError):
+        raise BadSignedRequest("not a signed request") from None
+    want = hmac.new(secret.encode(), payload_part.encode(), hashlib.sha256).digest()
+    if not hmac.compare_digest(sig, want):
+        raise BadSignedRequest("bad signature")
+    if not isinstance(payload, dict) or str(payload.get("algorithm") or "").upper() != "HMAC-SHA256":
+        raise BadSignedRequest("wrong algorithm")
+    if not str(payload.get("user_id") or "").strip():
+        raise BadSignedRequest("no user id")
+    return payload
+
+
 def checklist():
     """[(title, text, link)] for people who have no ad account yet (no API account creation, D1)."""
     import adhub

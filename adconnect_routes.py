@@ -6,10 +6,20 @@
     GET/POST /app/settings/ad-accounts/<id>/pick   pick the ad account and Page (Instagram comes with the Page)
     GET/POST /app/settings/ad-accounts/<id>/pixel  pick the pixel (skipped when there are 0 or 1)
     POST /app/settings/ad-accounts/<id>/disconnect remove the connection and its token; revoke at Meta
+    POST /connect/meta/deauthorize                 Meta's Deauthorize Callback (signed_request)
+    POST /connect/meta/data-deletion               Meta's Data Deletion Request Callback (signed_request)
+    GET  /connect/meta/deletion?code=...           the status page that callback links to
 
-All of it is behind AD_LAUNCH (adplatforms.enabled): off = 404 everywhere. Connecting is free
+Connecting sits behind AD_LAUNCH (adplatforms.enabled): off = 404. Removing never does (M-3): the
+Settings list and Disconnect stay open for a workspace that still holds connections, and Meta's two
+callbacks work whatever the flag says, so stored tokens can always be removed. Connecting is free
 (no plan gate, design doc 4.1). Owners and admins connect and disconnect; members see the list.
 Another workspace's connection id answers 404.
+
+The two callback URLs to enter in the Meta app (App settings > Basic > Data deletion, and
+Facebook Login for Business > Settings > Deauthorize callback URL):
+    https://campaignify.ai/connect/meta/deauthorize
+    https://campaignify.ai/connect/meta/data-deletion
 
 The OAuth state is single use, tied to this session, this workspace and this person, and lives
 10 minutes; PKCE (S256) guards the code. Tokens go straight into a token box (secretsbox.py)
@@ -44,6 +54,16 @@ def _on():
         abort(404)
 
 
+def _on_or_stored():
+    """Removing what's stored works even with AD_LAUNCH off (M-3); there's just nothing to see without it."""
+    if adplatforms.enabled(g.get("ws"), g.get("user")):
+        return True
+    with db.connect() as conn:
+        if g.get("ws") is None or not adplatforms.has_stored(conn, g.ws["id"]):
+            abort(404)
+    return False
+
+
 def _owner():
     if not is_owner():
         abort(403, "Only the workspace owner or an admin can connect or remove ad accounts.")
@@ -68,14 +88,14 @@ def _data(row) -> dict:
 @bp.route("/app/settings/ad-accounts")
 @login_required
 def settings():
-    _on()
+    live = _on_or_stored()
     with db.connect() as conn:
         rows = adplatforms.listed(conn, g.ws["id"])
         px = {}
         for p in conn.execute("SELECT * FROM pixels WHERE workspace_id=? ORDER BY id", (g.ws["id"],)).fetchall():
             px.setdefault(p["connection_id"], []).append(p)
     return render_template("ad_connections.html", rows=rows, pixels=px, owner=is_owner() and not g.get("viewing"),
-                           meta_ready=meta.ADAPTER.configured(), checklist=meta.checklist())
+                           meta_ready=live and meta.ADAPTER.configured(), checklist=meta.checklist(), paused=not live)
 
 
 @bp.route("/connect/meta", methods=["POST"])
@@ -150,6 +170,10 @@ def pick(cid):
     with db.connect() as conn:
         row = _pending(conn, cid)
         if row["status"] != "pending":
+            return redirect(url_for("adconnect.settings"))
+        if adplatforms.pending_expired(row):      # an unfinished connect keeps its token an hour at most (L-13)
+            adplatforms.sweep_pending(conn, g.ws["id"])
+            flash("That connect attempt expired. Start it again.")
             return redirect(url_for("adconnect.settings"))
         d = _data(row)
         accounts = {a["id"]: a for a in d.get("accounts") or []}
@@ -244,7 +268,7 @@ def pixel(cid):
 @bp.route("/app/settings/ad-accounts/<int:cid>/disconnect", methods=["POST"])
 @login_required
 def disconnect(cid):
-    _on()
+    _on_or_stored()          # works with AD_LAUNCH off too: tokens can always be removed (M-3)
     _owner()
     with db.connect() as conn:
         row = _pending(conn, cid)
@@ -254,7 +278,7 @@ def disconnect(cid):
             "SELECT 1 FROM ad_connections WHERE platform=? AND external_user_id=? AND id!=? AND token_enc IS NOT NULL "
             "AND status IN ('active','expired','error','pending')", (row["platform"], row["external_user_id"], cid)).fetchone()
         revoked = False
-        if not shared and row["token_enc"]:
+        if not shared and row["token_enc"] and meta.ADAPTER.configured():
             try:
                 revoked = meta.ADAPTER.revoke(adplatforms.open_token(row))
             except (adhttp.AdHttpError, secretsbox.BoxError) as e:
@@ -271,3 +295,54 @@ def disconnect(cid):
     else:
         flash(f"Disconnected {name}. To be sure, remove Campaignify under Business integrations in your Facebook settings.")
     return redirect(url_for("adconnect.settings"))
+
+
+# ---------------------------------------------------------------- Meta's callbacks (M-3), whatever AD_LAUNCH says
+
+def _signed(kind: str):
+    """Verify the POSTed signed_request; on success drop the person's tokens and record the request."""
+    try:
+        payload = meta.parse_signed_request(request.form.get("signed_request") or "")
+    except meta.BadSignedRequest as e:
+        log.warning("meta %s callback refused: %s", kind, e)
+        return None, None
+    uid = str(payload["user_id"])
+    with db.connect() as conn:
+        n = adplatforms.forget_platform_user(conn, "meta", uid, delete=(kind == "deletion"))
+        code = secrets.token_hex(8)
+        conn.execute("INSERT INTO meta_data_requests (code, kind, user_hash, connections, status, created_at, done_at) "
+                     "VALUES (?,?,?,?,?,?,?)", (code, kind, hashlib.sha256(("meta:" + uid).encode()).hexdigest(), n,
+                                                "done", db.now(), db.now()))
+        conn.commit()
+    log.info("meta %s callback: %s connection(s) cleared", kind, n)
+    return code, n
+
+
+@bp.route("/connect/meta/deauthorize", methods=["POST"])
+def meta_deauthorize():
+    """Deauthorize Callback: the person removed the app on Facebook. Their tokens go now (rows kept as revoked)."""
+    code, _ = _signed("deauthorize")
+    if code is None:
+        return {"error": "invalid signed_request"}, 400
+    return {"ok": True}
+
+
+@bp.route("/connect/meta/data-deletion", methods=["POST"])
+def meta_data_deletion():
+    """Data Deletion Request Callback: delete what we hold for this Meta user (connections, their tokens, the
+    account, Page and pixel names) and answer with a status URL and a confirmation code, as Meta specifies."""
+    code, _ = _signed("deletion")
+    if code is None:
+        return {"error": "invalid signed_request"}, 400
+    import verify
+    return {"url": f"{verify.public_url()}/connect/meta/deletion?code={code}", "confirmation_code": code}
+
+
+@bp.route("/connect/meta/deletion")
+def meta_deletion_status():
+    code = (request.args.get("code") or "").strip()[:32]
+    row = None
+    if code:
+        with db.connect() as conn:
+            row = conn.execute("SELECT * FROM meta_data_requests WHERE code=?", (code,)).fetchone()
+    return render_template("meta_deletion.html", row=row, code=code), (200 if row else 404)

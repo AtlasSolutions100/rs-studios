@@ -9,18 +9,18 @@ here: they land in products.claims_pending and the member approves them one
 by one. Photos are only candidates until the member picks them, and only the
 candidates found on the page can be downloaded (no arbitrary URLs).
 """
-import io
 import json
 import re
 from urllib.parse import urljoin, urlsplit
 
 import compliance
 import fetcher
+import imagesafe
 import llm
 import seo
 
 MAX_IMAGES = 16
-MAX_IMAGE_BYTES = 15 * 1024 * 1024
+MAX_IMAGE_BYTES = imagesafe.MAX_BYTES
 TOKENS_IN, TOKENS_OUT = 6000, 900
 SKIP_IMG = re.compile(r"(sprite|logo|icon|favicon|pixel|spacer|badge|payment|flag|avatar|rating|star|loader|"
                       r"placeholder|blank|tracking|1x1|award|winner|certif|trustpilot|trust[-_]?badge|guarantee|"
@@ -490,16 +490,10 @@ def download_image(url: str) -> tuple[bytes, str]:
     if r["status"] >= 400:
         raise fetcher.FetchError(f"The image answered {r['status']}.")
     data = r["data"]
-    try:
-        from PIL import Image
-        im = Image.open(io.BytesIO(data))
-        fmt = (im.format or "").upper()
-        w, h = im.size
-    except Exception:  # noqa: BLE001
-        raise fetcher.FetchError("That isn't an image we can use.") from None
-    ctype = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}.get(fmt)
-    if not ctype:
-        raise fetcher.FetchError("Only JPEG, PNG or WebP images.")
+    try:   # header only: type and size, no pixels decoded; refuses decompression bombs (H-1)
+        ctype, w, h = imagesafe.probe(data, max_pixels=imagesafe.FETCH_MAX_PIXELS, max_bytes=MAX_IMAGE_BYTES)
+    except imagesafe.BadImage as e:
+        raise fetcher.FetchError(str(e)) from None
     if min(w, h) < 200:
         raise fetcher.FetchError("That image is too small to use in an ad.")
     return data, ctype

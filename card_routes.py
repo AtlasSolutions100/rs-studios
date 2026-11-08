@@ -6,10 +6,12 @@ import uuid
 
 from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
 
+import accounts
 import billing
 import card_on_file
 import catalog
 import db
+import verify
 from core import is_owner, login_required
 
 log = logging.getLogger("campaignify")
@@ -90,11 +92,24 @@ def start():
     with db.connect() as conn:
         if not card_on_file.needs_card(conn, g.ws, g.user):
             return redirect(url_for("studio"))
-    key = f"card:{g.ws['id']}"
-    if db.throttled(key, card_on_file.TRIES_PER_HOUR, 3600):
+    # Card-testing guard (M-2): per workspace, per network and app-wide, in the shared throttle table.
+    ip = request.remote_addr or "unknown"
+    key, ip_key = f"card:{g.ws['id']}", f"card-ip:{ip}"
+    if db.throttled(key, card_on_file.TRIES_PER_HOUR, 3600) \
+            or db.throttled(ip_key, card_on_file.TRIES_PER_IP_HOUR, 3600):
         flash("Too many tries in the last hour. Wait a little and try again.")
         return redirect(url_for("card.page"))
-    db.hit(key)
+    if db.throttled("card-all", card_on_file.tries_per_hour_all(), 3600):
+        log.warning("card step: the app-wide limit of %s checkouts an hour was reached", card_on_file.tries_per_hour_all())
+        flash("The card step is busy right now. Try again in a few minutes. Nothing was charged.")
+        return redirect(url_for("card.page"))
+    if not verify.is_verified(g.user) and accounts.signup_throttled(ip):
+        # many new accounts from this network: the card step waits for a confirmed email
+        flash("Confirm your email first, then add the card. Open the link we sent you, or ask for a new one from "
+              "the banner. Nothing was charged.")
+        return redirect(url_for("card.page"))
+    for k in (key, ip_key, "card-all"):
+        db.hit(k)
     meta = {"app": billing.APP_TAG, "kind": "card", "workspace_id": g.ws["id"]}
     base = request.host_url.rstrip("/")
     try:

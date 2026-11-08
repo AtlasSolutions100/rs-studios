@@ -22,7 +22,9 @@
         </div>{% endif %}
       </li>{% endfor %}</ul>
       {% else %}<p class="muted">No ad account connected yet.</p>{% endif %}
-      {% if owner %}
+      {% if paused %}
+        <p class="small muted" style="margin-top:16px" data-connect-paused>Connecting ad accounts is paused right now. You can still disconnect the ones above, which deletes Campaignify's access.</p>
+      {% elif owner %}
         {% if meta_ready %}
         <form method="post" action="{{ url_for('adconnect.meta_start') }}" style="margin-top:16px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn">Connect Meta</button></form>
         <p class="small muted">You sign in on Facebook and choose what to share. Meta then sends you back here to pick the ad account and Page.</p>

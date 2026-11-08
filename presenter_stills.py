@@ -115,9 +115,12 @@ def collect(conn, fetch=None) -> int:
             if not outs:
                 job["status"] = "failed"
                 continue
-            from PIL import Image
-            img = Image.open(io.BytesIO(fetch(outs[0]["url"]))).convert("RGB")
-            img.thumbnail((600, 800))
+            import imagesafe
+            try:   # pixel cap, draft decode and shrink before the convert (H-1)
+                img = imagesafe.thumbnail(fetch(outs[0]["url"]), (600, 800), mode="RGB")
+            except imagesafe.BadImage:
+                job["status"] = "failed"
+                continue
             os.makedirs(DATA_DIR, exist_ok=True)
             img.save(os.path.join(DATA_DIR, f"{pid}.jpg"), "JPEG", quality=86)
             job["status"] = "done"

@@ -30,7 +30,12 @@ Google and Snapchat ad policies as of 2026-10/11) and are a guard rail, not lega
     policy.pharmacy                  prescriptions, telehealth, GLP-1 names: LegitScript needed
     policy.political                 elections and social issues need authorization: warn
     policy.snapchat_supplements      Snapchat pre-approves supplement ads: warn
+    policy.hidden_characters         invisible characters (zero-width, bidi controls, soft hyphen) in launch text
     house.<id>                       compliance.py's rules (what generation already refuses), same level
+
+Every text is matched in compliance.normalize's form (NFKC, no format characters, look-alike
+letters as Latin, M-4), so "cu<zero-width>res" and a Cyrillic "е" don't slip past a rule; drug
+names are also matched with digits read as letters and spaces removed ("0zempic", "sema glutide").
 
 compliance.py stays the source of the house rules; this file adds the platform rules on top.
 """
@@ -57,6 +62,8 @@ WEIGHT = re.compile(r"\b(weight|pounds|lbs?|kilos?|kg|belly fat|body fat|fat los
 
 RULES = {
     "policy.personal_attributes": [
+        r"(^|[.!?:]\s*|\n)(still\s+|feeling\s+)?(" + CONDITIONS + r"|fat|depressed|anxious|diabetic|bald|"
+        r"in debt|broke|unemployed|over (40|50|60))\s*\?",
         r"\b(are you|you're|you are|if you're|if you are)\s+(still\s+|really\s+|too\s+)?(overweight|obese|fat|depressed|"
         r"anxious|diabetic|pregnant|bald|balding|single|divorced|gay|lesbian|in debt|broke|bankrupt|unemployed|disabled|"
         r"over (40|50|60)|a (christian|muslim|jew|veteran|smoker|senior))\b",
@@ -79,10 +86,15 @@ RULES = {
         r"\b\d+(\.\d+)?\s*(lbs?|pounds?|kg|kilos?|inches|sizes?)\s+(down\s+)?(in|within|after)\s+(just\s+)?\d+\s*(days?|weeks?|months?)\b",
         r"\b(lower(ed|s)?|reduce[ds]?|cut|drop(ped|s)?)\s+(your\s+|my\s+)?(blood sugar|blood pressure|cholesterol|a1c|bmi)\s+"
         r"(by\s+)?\d+",
+        r"\b(down|lost|dropped|minus)\s+(\d+(\.\d+)?|one|two|three|four|five|six|ten)\s*(lbs?|pounds?|kg|kilos?|inches|"
+        r"(dress |jean |pant |clothing )?sizes?)\b",
+        r"\b(melts?|melted|melting|burns?|burning|torch(es)?|blasts?|dissolves?)\s+(away\s+)?(stubborn\s+)?(belly|body|"
+        r"tummy|stomach|thigh|arm)?\s*fat\b",
         r"\b\d+(\.\d+)?\s*%\s+(less|fewer|lower|reduction in|drop in)\s+(pain|anxiety|stress|body fat|fat|wrinkles|acne|bloating|"
         r"cravings|joint pain|inflammation)\b",
     ],
-    "policy.before_after": [r"\bbefore\s*-?\s*(and|&|/|vs\.?|to)\s*-?\s*after\b", r"\bbefore\s*\+\s*after\b"],
+    "policy.before_after": [r"\bbefore\s*-?\s*(and|&|/|vs\.?|to|->|=>|>|\u2192|\u27f6|\u279c|\u27a1|\u21d2|\u00bb)\s*-?\s*after\b",
+                            r"\bbefore\s*\+\s*after\b"],
     "policy.implied_transformation": [
         r"\bday\s*1\s*(vs\.?|to|->|→)\s*day\s*\d+\b", r"\bweek\s*1\s*(vs\.?|to|->|→)\s*week\s*\d+\b",
         r"\b(my|your|her|his|the)\s+transformation\b", r"\bresults? after\s+(just\s+)?\d+\s*(days?|weeks?|months?)\b",
@@ -95,7 +107,7 @@ RULES = {
         r"weight|stomach)\b",
     ],
     "policy.guaranteed_returns": [
-        r"\bguarantee(d|s)?\s+(\w+\s+){0,2}?(returns?|profits?|income|gains|yields?|interest|payouts?)\b",
+        r"\bguarantee(d|s)?\s+([\w$%.,+-]+\s+){0,3}?(returns?|profits?|income|gains|yields?|interest|payouts?)\b",
         r"\brisk[- ]free\s+(\w+\s+){0,1}?(investment|returns?|profits?|trading|income|gains)\b",
         r"\b(can'?t|cannot|won'?t|never) lose (money|a (dime|cent))\b|\bdouble your (money|investment|crypto)\b",
         r"\bno risk\b[^.!?\n]{0,30}?\b(invest\w*|trading|returns?|profits?)\b",
@@ -106,13 +118,16 @@ RULES = {
     "policy.results_claim": [
         r"\b\d+(\.\d+)?\s*(%|x|times)\s+(more|less|faster|better|fewer|higher|lower|stronger|longer)\b",
         r"\b(clinically|scientifically|lab|dermatologist)[- ](proven|tested|shown)\b|\b(studies|research|science) (shows?|proves?)\b",
-        r"(^|\s)#1\b|\bnumber one\b|\b(doctor|dermatologist)[- ]recommended\b",
+        r"(^|\s)#\s?1\b|\bnumber\s*(one|1)\b|\bno\.\s?1\b|\b(doctor|dermatologist)[- ]recommended\b",
         r"\b\d+\s*% of (users|customers|people|women|men|participants|moms)\b",
     ],
     "policy.ai_testimonial": [
         r"\b(i|we)\s+(\w+\s+){0,2}?(bought|tried|ordered|purchased|started (using|taking)|have been (using|taking)|"
         r"switched to|was using)\b[^.!?\n]{0,80}?\b(and|now|since|it|this|my)\b",
         r"\bi('ve| have)? (lost|dropped|gained)\b",
+        r"\b(best|only|favorite|first)\s+(\w+\s+){0,2}?i('ve| have)\s+(ever\s+)?(used|tried|bought|owned|had)\b",
+        r"\bmy (face|skin|hair|energy|sleep|pain|weight|acne|joints|body|wrinkles|complexion|pores|gut|bloating)\s*"
+        r"[?!:.,-]+\s*(glowing|glows|clear|cleared|gone|better|perfect|smooth|flawless|amazing|transformed|fixed|healed)\b",
         r"\bmy (skin|hair|energy|sleep|pain|weight|results?|acne|joints|anxiety|digestion|life|body|wrinkles|confidence)\s+"
         r"(is|are|was|were|has|have|feels?|cleared|improved|changed|got|went)\b",
         r"\b(best (purchase|thing|product) i('ve)? (ever )?(made|bought|tried))\b",
@@ -134,6 +149,8 @@ RULES = {
     "policy.pharmacy": [
         r"\b(prescription|rx|online pharmacy|telehealth|telemedicine|semaglutide|tirzepatide|ozempic|wegovy|mounjaro|"
         r"zepbound|glp-?1)\b",
+        r"\b(tirz|sema|compounded\s+(sema\w*|tirz\w*|glp\w*|weight[- ]loss (shots?|meds?|medications?)|meds?|"
+        r"medications?|drugs?|injections?|shots?))\b",
     ],
     "policy.political": [
         r"\b(vote|voting|voters?|elections?|ballots?|candidates?|senators?|congress(man|woman)?|governor|referendum|"
@@ -141,6 +158,13 @@ RULES = {
     ],
 }
 _RX = {k: [re.compile(p, _I) for p in v] for k, v in RULES.items()}
+# Drug names written to dodge the rule: digits for letters ("0zempic") or spaced out ("sema glutide").
+DRUGS = re.compile(r"(semaglutide|tirzepatide|ozempic|wegovy|mounjaro|zepbound|rybelsus|saxenda|liraglutide)", _I)
+LEET = str.maketrans({"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s", "!": "i", "|": "i"})
+
+
+def _drug_dodged(text: str) -> bool:
+    return bool(DRUGS.search(re.sub(r"[^a-z]", "", text.lower().translate(LEET))))
 
 MESSAGES = {
     "policy.personal_attributes": ("This line suggests you know something personal about the viewer (a condition, money "
@@ -180,6 +204,8 @@ MESSAGES = {
     "policy.political": ("Ads about elections, politics or social issues need the platform's authorization and a "
                          "\"Paid for by\" label.", "Remove it, or get authorized first."),
     "policy.snapchat_supplements": ("Snapchat reviews supplement ads before they run.", "Expect a review delay."),
+    "policy.hidden_characters": ("This text has invisible characters (zero-width spaces, direction marks or soft "
+                                 "hyphens). They can hide words from ad review.", "Retype the text without them."),
 }
 
 # level per rule, then per-platform overrides
@@ -194,7 +220,7 @@ LEVELS = {
                                                                                          "snapchat": "warn"}),
     "policy.special_category_maybe": ("warn", {}), "policy.special_category_targeting": ("block", {}),
     "policy.supplement_disclaimer": ("warn", {}), "policy.pharmacy": ("block", {}), "policy.political": ("warn", {}),
-    "policy.snapchat_supplements": ("warn", {}),
+    "policy.snapchat_supplements": ("warn", {}), "policy.hidden_characters": ("block", {}),
 }
 
 
@@ -223,15 +249,18 @@ def _before_after(text):
 def lint_text(text: str, *, platform: str = "meta", vertical: str = "general", ai: bool = False,
               claims_substantiated: bool = False, where: str = "", house: bool = True) -> list:
     """The policy findings for one piece of ad text."""
-    text = text or ""
+    raw = text or ""
+    text = compliance.normalize(raw)          # NFKC, no invisible characters, look-alikes as Latin (M-4)
     if not text.strip():
         return []
     out = []
+    if compliance.hidden_chars(raw):
+        out.append(_issue("policy.hidden_characters", platform, where))
     weighty = bool(WEIGHT.search(text)) or vertical == "weight_loss"
     healthy = vertical in HEALTHY or weighty
     for rid in ("policy.personal_attributes", "policy.cure_claim", "policy.health_outcome_numeric",
                 "policy.appearance_inferiority", "policy.guaranteed_returns", "policy.pharmacy", "policy.political"):
-        if _any(rid, text):
+        if _any(rid, text) or rid == "policy.pharmacy" and _drug_dodged(text):
             out.append(_issue(rid, platform, where))
     if _before_after(text):
         lvl = "block" if healthy or platform == "snapchat" and weighty else "warn"

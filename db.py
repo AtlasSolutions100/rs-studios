@@ -559,6 +559,11 @@ CREATE TABLE IF NOT EXISTS ad_connections (
     created_by INTEGER, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
     UNIQUE (workspace_id, platform, external_account_id));
 CREATE INDEX IF NOT EXISTS idx_adconn_user ON ad_connections(platform, external_user_id);
+-- Meta's deauthorize and data deletion callbacks (adconnect_routes.py, M-3): one row per request, so the
+-- status page can answer "done" for a confirmation code. The Meta user id is kept only as a hash.
+CREATE TABLE IF NOT EXISTS meta_data_requests (
+    code TEXT PRIMARY KEY, kind TEXT NOT NULL, user_hash TEXT NOT NULL, connections INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL, created_at TEXT NOT NULL, done_at TEXT);
 CREATE TABLE IF NOT EXISTS pixels (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workspace_id INTEGER NOT NULL,
@@ -690,6 +695,10 @@ COLUMNS = [
     ("credit_reversals", "full", "INTEGER NOT NULL DEFAULT 1"),   # 0: a partial refund (voids its share, no hold)
     # a run still in progress keeps its credit hold (credits.keepalive, N13)
     ("credit_holds", "alive_at", "TEXT"),
+    # the free plan is counted per person (plan_paywall.py, M-1): the card and the email, and failed tries (L-7)
+    ("free_plans", "fingerprint", "TEXT"),
+    ("free_plans", "email_norm", "TEXT"),
+    ("free_plans", "status", "TEXT"),          # running | ready | failed (NULL: made before this column)
 ]
 
 
@@ -735,6 +744,8 @@ def init():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_p ON photos(product_id, id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_p ON jobs(workspace_id, product_id, id)")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_outputs_share ON outputs(share_token)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_free_plans_fp ON free_plans(fingerprint, created_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_free_plans_email ON free_plans(email_norm, created_at)")
         conn.commit()
         if not conn.execute("SELECT 1 FROM meta WHERE key='owner_admin_v1'").fetchone():
             # Koby signed up through the normal form (user 1, workspace 1, the Scale

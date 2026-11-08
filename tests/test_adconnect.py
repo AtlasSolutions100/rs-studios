@@ -160,8 +160,14 @@ check(secretsbox.open_box(b1, "ad_connections:1") == "EAAsecret", "after a key c
 check(secretsbox.needs_rotation(b1), "an old box needs rotation")
 b3 = secretsbox.rotate(b1, "ad_connections:1")
 check(not secretsbox.needs_rotation(b3) and b3.split(":")[1] != b1.split(":")[1], "rotate re-seals under the new key")
+os.environ["TOKEN_KEYS_OLD"] = "none"
+check(secretsbox.configured() and secretsbox.open_box(b3, "ad_connections:1") == "EAAsecret",
+      "TOKEN_KEYS_OLD=none (rotation finished, L-15) reads as no old key")
 os.environ.pop("TOKEN_KEYS_OLD")
 check(secretsbox.open_box(b3, "ad_connections:1") == "EAAsecret", "the rotated box opens without the old key")
+_dy = open(os.path.join(os.path.dirname(HERE), ".github", "workflows", "deploy.yml")).read()
+check("TOKEN_KEYS_OLD: ${{ secrets.TOKEN_KEYS_OLD }}" in _dy and '"TOKEN_KEYS_OLD"' in _dy and "secretsbox.py rotate" in _dy,
+      "deploy.yml forwards TOKEN_KEYS_OLD and writes down the rotate steps (L-15)")
 try:
     secretsbox.open_box(b1, "ad_connections:1")
     check(False, "an old box without the old key must not open")
@@ -574,6 +580,131 @@ with db.connect() as conn:
 r = a.post(f"/app/settings/ad-accounts/{cid}/disconnect", data={"csrf": csrf(a)}, follow_redirects=True)
 check(q("SELECT status FROM ad_connections WHERE id=?", cid)[0][0] == "revoked" and "Business integrations" in html(r),
       "if Meta refuses the revoke, it's still disconnected here and the page says where to remove it on Facebook")
+
+# ================================================================ 8b. M2 re-audit: unfinished connects, Meta's callbacks, flag off
+print("unfinished connects (L-13)")
+import hmac as _hmac  # noqa: E402
+import worker  # noqa: E402,F401  (the worker loop calls adplatforms.maybe_sweep)
+fake = FakeTransport()
+adhttp.TRANSPORT = fake
+meta_routes(fake)
+OLD = "2026-01-01T00:00:00+00:00"
+
+
+def pending_row(ws_id, user_id, created=OLD, token=LONG):
+    with db.connect() as conn:
+        rid = conn.execute("INSERT INTO ad_connections (workspace_id, platform, external_account_id, external_user_id, "
+                           "token_enc, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)",
+                           (ws_id, "meta", "pending:" + os.urandom(4).hex(), user_id, adplatforms.seal_token(ws_id, token),
+                            "pending", created, created)).lastrowid
+        conn.commit()
+    return rid
+
+
+old_p = pending_row(wsa["id"], "10200000000000077")
+new_p = pending_row(wsa["id"], "10200000000000078", created=db.now())
+shared_p = pending_row(wsb["id"], "10200000000000079")
+with db.connect() as conn:      # the same Meta person still backs an active connection elsewhere
+    conn.execute("INSERT INTO ad_connections (workspace_id, platform, external_account_id, external_user_id, token_enc, "
+                 "status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)",
+                 (wsc["id"], "meta", "555", "10200000000000079", adplatforms.seal_token(wsc["id"], SHORT), "active",
+                  db.now(), db.now()))
+    conn.commit()
+fake.calls.clear()
+adplatforms._last_sweep[0] = 0
+os.environ.pop("AD_LAUNCH", None)                 # the sweep runs whatever AD_LAUNCH says
+adplatforms.maybe_sweep()
+check(not q("SELECT 1 FROM ad_connections WHERE id IN (?,?)", old_p, shared_p),
+      "the worker sweep drops connects left unfinished for over an hour, in every workspace, with AD_LAUNCH off")
+check(q("SELECT 1 FROM ad_connections WHERE id=?", new_p), "a connect started a minute ago is kept")
+dl = fake.find("DELETE", "/me/permissions")
+check(len(dl) == 1 and dl[0]["headers"]["Authorization"] == f"Bearer {LONG}",
+      "the abandoned grant is revoked at Meta, except where that person still backs another connection")
+os.environ["AD_LAUNCH"] = "on"
+with db.connect() as conn:
+    conn.execute("UPDATE ad_connections SET created_at=? WHERE id=?", (OLD, new_p))
+    conn.commit()
+r = a.get(f"/app/settings/ad-accounts/{new_p}/pick", follow_redirects=True)
+check("expired" in html(r) and not q("SELECT 1 FROM ad_connections WHERE id=?", new_p),
+      "the pick page refuses a connect older than an hour and drops its token")
+
+print("Meta deauthorize and data deletion callbacks (M-3)")
+
+
+def signed(payload, secret=APP_SECRET):
+    body = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
+    sig = base64.urlsafe_b64encode(_hmac.new(secret.encode(), body.encode(), hashlib.sha256).digest()).decode().rstrip("=")
+    return f"{sig}.{body}"
+
+
+def connection(ws_id, user_id, acct):
+    with db.connect() as conn:
+        rid = conn.execute("INSERT INTO ad_connections (workspace_id, platform, external_account_id, account_name, "
+                           "external_user_id, token_enc, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                           (ws_id, "meta", acct, f"Acct {acct}", user_id, adplatforms.seal_token(ws_id, LONG), "active",
+                            db.now(), db.now())).lastrowid
+        conn.execute("INSERT INTO pixels (workspace_id, platform, connection_id, external_pixel_id, name, created_at) "
+                     "VALUES (?,?,?,?,?,?)", (ws_id, "meta", rid, "px" + acct, "Pixel", db.now()))
+        conn.commit()
+    return rid
+
+
+GONE_USER, DEL_USER = "10200000000000101", "10200000000000102"
+d1, d2 = connection(wsa["id"], GONE_USER, "601"), connection(wsb["id"], GONE_USER, "602")
+x1 = connection(wsa["id"], DEL_USER, "603")
+keep = connection(wsb["id"], "10200000000000103", "604")
+os.environ.pop("AD_LAUNCH")                       # both callbacks work with AD_LAUNCH off
+anon = client()
+for bad, why in ((signed({"algorithm": "HMAC-SHA256", "user_id": GONE_USER}, secret="wrong-secret"), "a wrong signature"),
+                 (signed({"algorithm": "HMAC-SHA1", "user_id": GONE_USER}), "another algorithm"),
+                 (signed({"algorithm": "HMAC-SHA256"}), "no user id"), ("not-a-signed-request", "garbage"), ("", "nothing")):
+    r = anon.post("/connect/meta/deauthorize", data={"signed_request": bad})
+    check(r.status_code == 400 and q("SELECT token_enc FROM ad_connections WHERE id=?", d1)[0][0],
+          f"deauthorize refuses {why} and changes nothing")
+r = anon.post("/connect/meta/deauthorize", data={"signed_request": signed(
+    {"algorithm": "HMAC-SHA256", "user_id": GONE_USER, "issued_at": int(time.time())})})
+rows = q("SELECT * FROM ad_connections WHERE id IN (?,?)", d1, d2)
+check(r.status_code == 200 and all(x["status"] == "revoked" and x["token_enc"] is None for x in rows)
+      and not q("SELECT 1 FROM pixels WHERE connection_id IN (?,?)", d1, d2),
+      "deauthorize (no login, no CSRF, AD_LAUNCH off): that person's tokens and pixels go in every workspace")
+check(q("SELECT token_enc FROM ad_connections WHERE id=?", keep)[0][0] and q("SELECT token_enc FROM ad_connections "
+      "WHERE id=?", x1)[0][0], "other people's connections are untouched")
+r = anon.post("/connect/meta/data-deletion", data={"signed_request": signed({"algorithm": "HMAC-SHA256", "user_id": DEL_USER})})
+body = r.get_json()
+check(r.status_code == 200 and set(body) == {"url", "confirmation_code"}
+      and body["url"] == f"https://campaignify.test/connect/meta/deletion?code={body['confirmation_code']}",
+      "data deletion answers Meta's JSON: a status URL and a confirmation code")
+check(not q("SELECT 1 FROM ad_connections WHERE id=?", x1) and not q("SELECT 1 FROM pixels WHERE connection_id=?", x1),
+      "data deletion removes the connection rows and their pixels")
+req = q("SELECT * FROM meta_data_requests WHERE code=?", body["confirmation_code"])[0]
+check(req["kind"] == "deletion" and req["connections"] == 1 and req["status"] == "done" and DEL_USER not in req["user_hash"],
+      "the request is recorded (done, 1 connection), with the Meta user id hashed")
+st_page = anon.get(f"/connect/meta/deletion?code={body['confirmation_code']}")
+check(st_page.status_code == 200 and body["confirmation_code"] in html(st_page) and 'data-deletion-status="done"' in html(st_page)
+      and "1 connected ad account," in html(st_page), "the status page (no login) shows the code and that it's done")
+check(anon.get("/connect/meta/deletion?code=nope").status_code == 404, "an unknown code is a 404")
+check(r.get_data(as_text=True).count(DEL_USER) == 0, "the answer doesn't echo the Meta user id")
+os.environ.pop("META_APP_SECRET")
+r = anon.post("/connect/meta/deauthorize", data={"signed_request": signed({"algorithm": "HMAC-SHA256", "user_id": "1"})})
+check(r.status_code == 400, "without the app secret nothing can be verified, so nothing is accepted")
+os.environ["META_APP_SECRET"] = APP_SECRET
+
+print("disconnect with AD_LAUNCH off (M-3)")
+fake.calls.clear()
+check("AD_LAUNCH" not in os.environ and b.get("/app/settings/ad-accounts").status_code == 200,
+      "AD_LAUNCH off: a workspace that still holds a connection can open the list")
+page = html(b.get("/app/settings/ad-accounts"))
+check("Acct 604" in page and "Disconnect</button>" in page and "Connect Meta</button>" not in page and "data-connect-paused" in page,
+      "...with Disconnect and no Connect (connecting is paused)")
+check(">Connections<" in html(b.get("/app/team")), "...and the menu keeps the way there")
+r = b.post(f"/app/settings/ad-accounts/{keep}/disconnect", data={"csrf": csrf(b)})
+row = q("SELECT * FROM ad_connections WHERE id=?", keep)[0]
+check(r.status_code == 302 and row["status"] == "revoked" and row["token_enc"] is None and len(fake.find("DELETE")) == 1,
+      "Disconnect works with AD_LAUNCH off: token deleted here and revoked at Meta")
+check(b.get("/app/settings/ad-accounts").status_code == 404 and ">Connections<" not in html(b.get("/app/team")),
+      "with nothing left stored, the page and menu item are gone again (404)")
+check(b.post("/connect/meta", data={"csrf": csrf(b)}).status_code == 404, "connecting stays off with AD_LAUNCH off")
+os.environ["AD_LAUNCH"] = "on"
 
 # ================================================================ 9. no secrets anywhere
 print("secrets")
