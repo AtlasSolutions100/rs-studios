@@ -1265,3 +1265,57 @@ a.sol-link h3{margin-top:0}
 .gd-table td{color:var(--muted)}
 .gd-links{columns:2;max-width:760px;padding-left:20px}
 @media (max-width:560px){.gd-links{columns:1}}
+
+/* ---------------------------------------------------------------- clarity pass (Nov 2026) */
+/* Sidebar: the nav scrolls on its own, so help, credits, plan and log out stay in view at any window height. */
+.side{overflow:hidden}
+.side>*{flex:none}
+.side .navs{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;margin:6px -6px 0;padding:0 6px 18px;-webkit-mask-image:linear-gradient(#000 calc(100% - 22px),transparent);mask-image:linear-gradient(#000 calc(100% - 22px),transparent)}
+.side .grow,.side .grow[class]{flex:none;height:1px;min-height:0;background:var(--line);margin:4px 2px 8px}
+/* Phones: the balance sits in the top bar, next to the product switcher. */
+.mtop-cr{display:none}
+@media (max-width:760px){
+  .mtop-cr{display:inline-flex;align-items:center;gap:7px;flex:none;height:40px;padding:0 12px;border-radius:12px;border:1px solid rgba(var(--accent-rgb),.55);background:rgba(var(--accent-rgb),.08);color:var(--gold2);font:700 13px var(--body);font-variant-numeric:tabular-nums;text-decoration:none}
+  .mtop-cr i{width:11px;height:11px;border-radius:50%;background:var(--gold);box-shadow:inset 0 0 0 3px rgba(0,0,0,.18)}
+  .mtop-logo + .mtop-cr{margin-left:auto}
+  .mtop .sw-btn b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
+@media (max-width:480px){
+  .mtop:has(.sw-btn) .mtop-logo{display:none}
+  .mtop .sw-btn{margin-left:0;flex:1 1 auto;min-width:0;max-width:none}
+}
+/* Side panels (past runs, your campaigns, recent copy) move under the main column instead of disappearing. */
+@media (max-width:1180px){
+  .rail{display:block}
+  .rail .panel{position:static}
+  .rail-home{display:none}
+}
+/* Home on narrow screens: the latest ads as a strip, since the Recent rail is hidden there.
+   Grid children may shrink below their content, so the strip scrolls instead of widening the page. */
+.page>*{min-width:0}
+.recent-strip{display:none}
+@media (max-width:1180px){.recent-strip{display:block}}
+.rs-row{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(118px,148px);gap:12px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x proximity}
+.rs-item{display:flex;flex-direction:column;gap:6px;min-width:0;color:var(--ink);text-decoration:none;scroll-snap-align:start}
+.rs-thumb{display:block;aspect-ratio:4/5;border-radius:12px;overflow:hidden;background:var(--thumb-bg);border:1px solid var(--line)}
+.rs-thumb img{display:block;width:100%;height:100%;object-fit:cover}
+.rs-thumb .rs-wait{opacity:.3;filter:blur(2px)}
+.rs-item b{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rs-item .status{align-self:flex-start}
+.rs-item:hover b{color:var(--gold2)}
+/* Create: each ad type shows its starting price. */
+.cf-type .cf-from{display:block;margin-top:6px}
+/* Billing: what things cost, as a short list instead of one long sentence. */
+.costlist{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 24px}
+.costlist div{display:flex;align-items:baseline;gap:8px;padding:7px 14px;border:1px solid var(--line);border-radius:12px;background:var(--chipbg)}
+.costlist dt{font-size:13px;color:var(--muted)}
+.costlist dd{margin:0;font:700 13px var(--body);color:var(--ink);font-variant-numeric:tabular-nums}
+/* Page editor: the AI draft sits above the blocks it rewrites. */
+.aidraft{margin:0 0 20px}
+.aidraft>summary{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;cursor:pointer;list-style:none}
+.aidraft>summary::-webkit-details-marker{display:none}
+.aidraft>summary::before{content:"";width:7px;height:7px;border-right:2px solid var(--gold2);border-bottom:2px solid var(--gold2);transform:rotate(-45deg);align-self:center;transition:transform .15s}
+.aidraft[open]>summary::before{transform:rotate(45deg)}
+.aidraft[open]>summary{margin-bottom:12px}
+.aidraft>summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:6px}
+@media (prefers-reduced-motion:reduce){.aidraft>summary::before{transition:none}}

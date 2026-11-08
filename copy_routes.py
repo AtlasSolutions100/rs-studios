@@ -87,8 +87,13 @@ def run(rid):
         r = conn.execute("SELECT * FROM copy_runs WHERE id=? AND workspace_id=?", (rid, g.ws["id"])).fetchone()
     if not r or r["kind"] == "optimize":
         abort(404)
-    return render_template("copy_run.html", r=r, inp=json.loads(r["input_json"] or "{}"),
-                           out=json.loads(r["output_json"] or "{}"))
+    inp = json.loads(r["input_json"] or "{}")
+    try:
+        n = int(inp.get("n") or 3)
+    except (TypeError, ValueError):
+        n = 3
+    return render_template("copy_run.html", r=r, inp=inp, out=json.loads(r["output_json"] or "{}"),
+                           again_quote=copywriter.estimate(n, r["kind"]))
 
 
 @bp.route("/app/optimize", methods=["GET", "POST"])

@@ -132,6 +132,7 @@ def index():
               "motion_copy": {r["id"]: catalog.price_credits("motion_copy", ref_seconds=r["seconds"] or 15) for r in refs}}
     boot = {"product": st, "prefill": prefill, "types": catalog.ad_types(), "caps": catalog.capabilities(),
             "presenters": presenter_stills.with_photos(url_for), "voices": catalog.VOICES, "prices": prices,
+            "from_price": catalog.from_prices(),
             "templates": [{"id": t["id"], "name": t["name"], "line": t["line"], "tool": t["tool"],
                            "preview": url_for("static", filename="previews/" + t["preview"] + ".jpg")} for t in catalog.TEMPLATES],
             "refs": [{"id": r["id"], "title": r["title"], "seconds": r["seconds"], "url": url_for("ref_video", rid=r["id"])}

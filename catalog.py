@@ -190,6 +190,14 @@ def ad_types() -> list[dict]:
     return [a for a in AD_TYPES if not a.get("talking") or caps["talking"]]
 
 
+def from_prices() -> dict:
+    """The cheapest version of each tool, for "from N credits" labels (Home and Create)."""
+    return {"ugc_video": price_credits("ugc_video", duration=TOOLS["ugc_video"]["durations"][0]),
+            "ad_image": price_credits("ad_image", batch=1),
+            "photo_to_video": price_credits("photo_to_video", duration=5),
+            "motion_copy": price_credits("motion_copy", ref_seconds=5)}
+
+
 # AI presenters: described, never real people. Each video draws its presenter
 # from the description, so two videos with the same presenter look alike but
 # not identical.

@@ -906,10 +906,7 @@ def _studio_page(form=None, status=200):
                                "WHERE b.workspace_id=? ORDER BY b.id DESC LIMIT 5", (g.ws["id"],)).fetchall()
         nprod = conn.execute("SELECT COUNT(*) FROM products WHERE workspace_id=? AND archived=0", (g.ws["id"],)).fetchone()[0]
         pphotos = conn.execute("SELECT COUNT(*) FROM photos WHERE product_id=?", (pid or 0,)).fetchone()[0]
-    from_price = {"ugc_video": catalog.price_credits("ugc_video", duration=catalog.TOOLS["ugc_video"]["durations"][0]),
-                  "ad_image": catalog.price_credits("ad_image", batch=1),
-                  "photo_to_video": catalog.price_credits("photo_to_video", duration=5),
-                  "motion_copy": catalog.price_credits("motion_copy", ref_seconds=5)}
+    from_price = catalog.from_prices()
     bal = db.balance(g.ws)
     types = sorted(catalog.ad_types(), key=lambda t: from_price[t["tool"]] > bal)  # what they can afford first
     first, pv_ok, made = None, False, None
@@ -1593,12 +1590,15 @@ def billing_page():
     with db.connect() as conn:
         purchases = conn.execute("SELECT * FROM purchases WHERE workspace_id=? AND status IN ('paid','open') "
                                  "ORDER BY id DESC LIMIT 50", (g.ws["id"],)).fetchall()
-        ledger = conn.execute("SELECT * FROM ledger WHERE workspace_id=? ORDER BY id DESC LIMIT 30",
-                              (g.ws["id"],)).fetchall()
+        # The job's tool and template, so "generation" rows can say what was made.
+        ledger = conn.execute("SELECT l.*, j.tool job_tool, j.template_id job_template FROM ledger l "
+                              "LEFT JOIN jobs j ON j.id=l.job_id AND j.workspace_id=l.workspace_id "
+                              "WHERE l.workspace_id=? ORDER BY l.id DESC LIMIT 30", (g.ws["id"],)).fetchall()
         invoices = conn.execute("SELECT * FROM plan_invoices WHERE workspace_id=? ORDER BY created_at DESC LIMIT 24",
                                 (g.ws["id"],)).fetchall()
         used_code = compcodes.used_code(conn, g.ws["id"])
-    return render_template("billing.html", purchases=purchases, ledger=ledger, packs_by=catalog.PACK_BY_CODE,
+    return render_template("billing.html", templates_by_id=catalog.TEMPLATE_BY_ID,
+                           purchases=purchases, ledger=ledger, packs_by=catalog.PACK_BY_CODE,
                            invoices=invoices, current=plans.plan(g.ws), subscribed=_subscribed(g.ws),
                            owner=is_owner(), comp_on=compcodes.active(g.ws), used_code=used_code,
                            promo=session.get("promo"))
