@@ -8,6 +8,7 @@ from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template
 import billing
 import creator_pools as cp
 import db
+import storage
 from core import UPLOADS, PHOTO_TYPES, VIDEO_TYPES, MAX_PHOTO_MB, MAX_VIDEO_MB, admin_required, is_owner, \
     login_required, save_upload
 
@@ -54,18 +55,18 @@ def index():
             for f in files:
                 is_vid = (f.mimetype or "").startswith("video/")
                 path, ctype = save_upload(f, folder, VIDEO_TYPES if is_vid else PHOTO_TYPES,
-                                          MAX_VIDEO_MB if is_vid else MAX_PHOTO_MB)
+                                          MAX_VIDEO_MB if is_vid else MAX_PHOTO_MB, ws=g.ws)
                 saved.append((path, f.filename, ctype))
             with db.connect() as conn:
                 pid = cp.create_draft(conn, g.ws["id"], g.user["id"], g.ws["brand_id"], data, saved)
-        except (ValueError, cp.Refused) as e:
+        except (ValueError, cp.Refused, storage.StorageFull) as e:
             for path, _, _ in saved:
                 try:
                     os.remove(path)
                 except OSError:
                     pass
             flash(str(e))
-            return render_index(form=request.form), 400
+            return render_index(form=request.form), (507 if isinstance(e, storage.StorageFull) else 400)
         return _start_checkout(pid)
     return render_index()
 

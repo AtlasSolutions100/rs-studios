@@ -192,16 +192,25 @@ def _save_outputs(conn, job, result):
         return _save_preview(conn, job, outs)
     folder = os.path.join(MEDIA, str(job["workspace_id"]), str(job["id"]))
     os.makedirs(folder, exist_ok=True)
+    import storage
+    ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (job["workspace_id"],)).fetchone()
+    used = storage.used_bytes(job["workspace_id"], conn)
     for i, o in enumerate(outs, start=1):
         ext = ".mp4" if o["kind"] == "video" else ".png"
         if "." in o["url"].rsplit("/", 1)[-1].split("?")[0]:
             ext = "." + o["url"].rsplit("/", 1)[-1].split("?")[0].rsplit(".", 1)[-1][:5]
         path = os.path.join(folder, f"campaignify-{job['id']}-{i}{ext}")
         try:
+            storage.guard(ws, 0, used)      # disk under 5 GB or quota already used: keep only the vendor's link
             r = requests.get(o["url"], timeout=300)
             r.raise_for_status()
+            storage.guard(ws, len(r.content), used)
             with open(path, "wb") as f:
                 f.write(r.content)
+            used += len(r.content)
+        except storage.StorageFull as e:
+            log.warning("job %s output %s kept as a link only: %s", job["id"], i, type(e).__name__)
+            path = None
         except Exception:  # noqa: BLE001 — keep the remote URL if the copy fails
             path = None
         if path and o["kind"] == "video":
@@ -218,6 +227,11 @@ def _save_preview(conn, job, outs):
     o = next((x for x in outs if x["kind"] == "video"), None)
     if not o:
         raise hf.GenError("finished with no video")
+    import storage
+    try:
+        storage.disk_guard()
+    except storage.DiskFull as e:
+        raise hf.GenError("The preview couldn't be saved: our server is short on space. Try again later.") from e
     folder = os.path.join(MEDIA, str(job["workspace_id"]), str(job["id"]))
     os.makedirs(folder, exist_ok=True)
     path = os.path.join(folder, f"campaignify-{job['id']}-preview.mp4")
@@ -389,6 +403,8 @@ def start():
             except Exception:  # noqa: BLE001
                 traceback.print_exc()
             alerts.maybe_sweep()   # operator alerts: stuck jobs, vendor errors, disk, backups (never raises)
+            import storage
+            storage.maybe_purge()  # once a day: temp leftovers and expired exports (never raises)
             time.sleep(POLL_SECONDS)
 
     _thread = threading.Thread(target=loop, name="rs-worker", daemon=True)

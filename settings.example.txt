@@ -108,3 +108,11 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # RS_HEALTH_WORKER_MAX_AGE=30
 # JSON logs with request and workspace ids (RS_LOG_JSON=0 for plain logs; RS_ACCESS_LOG=0 drops request lines).
 # RS_LOG_JSON=1
+# ---- Storage (storage.py): per-plan quotas (Free 200 MB, Starter 2 GB, Growth 10 GB, Scale 50 GB), body limits
+# per route, and the disk guard (new files refused under RS_DISK_MIN_GB free, with an alert).
+# RS_STORAGE_QUOTAS=1
+# RS_DISK_MIN_GB=5
+# RS_EXPORT_KEEP_DAYS=7
+# Daily purge of the files of ads deleted over RS_PURGE_DELETED_DAYS days ago (off unless 1):
+# RS_STORAGE_PURGE_DELETED=0
+# RS_PURGE_DELETED_DAYS=30
