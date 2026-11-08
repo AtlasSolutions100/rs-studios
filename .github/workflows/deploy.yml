@@ -105,6 +105,8 @@ name: Deploy Campaignify (campaignify.ai)
 #   RS_SIGNUP_CONFIRM      a form sign-up logs in first from its emailed link (login_security.py), default off; set 1 to turn on
 #   RS_STORAGE_QUOTAS      storage quotas per plan (storage.py), default on
 #   RS_JOB_CANCEL          the member Cancel button on queued ads (jobs_routes.py), default off
+#   RS_CARD_REQUIRED       card on file at sign-up, never charged (card_on_file.py), default off; set 1 to turn on
+#   RS_PLAN_PAYWALL        out-of-credits free plan and lock (plan_paywall.py), default off; set 1 to turn on
 #   RS_STORAGE_PURGE_DELETED  remove files of ads deleted over 30 days ago (storage.py), default off
 #   RS_SERVICE_PATH        the service-business first run, website import, keyword list and lead steps (service_path.py), default off
 #   OPS_ALERTS             operator alert emails (alerts.py), default on
@@ -241,6 +243,8 @@ jobs:
           RS_SIGNUP_CONFIRM: ${{ vars.RS_SIGNUP_CONFIRM }}
           RS_STORAGE_QUOTAS: ${{ vars.RS_STORAGE_QUOTAS }}
           RS_JOB_CANCEL: ${{ vars.RS_JOB_CANCEL }}
+          RS_CARD_REQUIRED: ${{ vars.RS_CARD_REQUIRED }}
+          RS_PLAN_PAYWALL: ${{ vars.RS_PLAN_PAYWALL }}
           RS_STORAGE_PURGE_DELETED: ${{ vars.RS_STORAGE_PURGE_DELETED }}
           RS_SERVICE_PATH: ${{ vars.RS_SERVICE_PATH }}
           OPS_ALERTS: ${{ vars.OPS_ALERTS }}
@@ -279,6 +283,7 @@ jobs:
                                              "BILLING_HOLD", "CREDIT_HOLDS", "PLAN_PENDING", "RENEWAL_PAUSE", "HF_RETRY",
                                              "RS_LOGIN_HARDENING", "RS_SIGNUP_CONFIRM", "RS_STORAGE_QUOTAS",
                                              "RS_JOB_CANCEL", "RS_STORAGE_PURGE_DELETED", "RS_SERVICE_PATH", "OPS_ALERTS", "BACKUPS",
+                                             "RS_CARD_REQUIRED", "RS_PLAN_PAYWALL",
                                              "BACKUP_MEDIA", "RS_DISK_MIN_GB", "RS_HEALTH_WORKER_MAX_AGE",
                                              "RS_HEALTH_BUSY_MAX_S")
                       if os.environ.get(k)}

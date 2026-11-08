@@ -29,6 +29,7 @@ import admin_funnel
 import alerts
 import billing
 import billing_holds
+import card_on_file
 import catalog
 import compcodes
 import conversions
@@ -1912,7 +1913,7 @@ def subscribe():
             price_id=p["price_id"],
             success_url=f"{base}{url_for('billing_page')}?plan=success&session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{base}{url_for('billing_page')}?checkout=cancel",
-            email=g.user["email"], customer=g.ws["stripe_customer_id"],
+            email=g.user["email"], customer=g.ws["stripe_customer_id"] or g.ws["card_customer_id"],
             client_reference_id=f"cfy-ws-{g.ws['id']}",
             metadata={"app": billing.APP_TAG, "kind": "plan", "workspace_id": g.ws["id"], "plan": p["code"],
                       "user_id": g.user["id"]},
@@ -2052,6 +2053,9 @@ def _stripe_event(typ, obj):
     if typ in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
         if obj.get("mode") == "subscription":
             return _plan_checkout_completed(obj)
+        if obj.get("mode") == "setup":     # a card saved at sign-up (card_on_file.py); nothing is charged
+            out = card_on_file.webhook(obj)
+            return jsonify(out), (503 if out.get("pending") else 200)
         meta = obj.get("metadata") or {}
         if meta.get("app") == billing.APP_TAG and meta.get("kind") == "creator_pool":
             with db.connect() as conn:
@@ -2793,6 +2797,11 @@ app.register_blueprint(forms_routes.bp)
 app.register_blueprint(community_routes.bp)
 app.register_blueprint(share_routes.bp)
 app.register_blueprint(creator_pool_routes.bp)
+# Card on file at sign-up (RS_CARD_REQUIRED) and the out-of-credits paywall (RS_PLAN_PAYWALL), both default off.
+import card_routes  # noqa: E402
+import paywall_routes  # noqa: E402
+app.register_blueprint(card_routes.bp)
+app.register_blueprint(paywall_routes.bp)
 
 
 def _has_endpoint(name) -> bool:

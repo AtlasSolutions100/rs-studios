@@ -150,14 +150,14 @@ def _copy(step: int, grant: bool, link: str) -> tuple[str, str, str]:
     opener = "You signed up for Campaignify, and your free ads are still waiting." if step == 1 else \
         "A day on, your free ads are still waiting in Campaignify."
     text = (f"Hi,\n\n{opener} {what}\n\n{do}\n\nOpen Campaignify (this link logs you in{once}, and works for "
-            f"{hours} hours):\n\n{link}\n\nNo card, nothing to cancel. If you didn't sign up, ignore this email.\n\nCampaignify")
+            f"{hours} hours):\n\n{link}\n\nNothing is charged and nothing renews. If you didn't sign up, ignore this email.\n\nCampaignify")
     html = ('<div style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.5;color:#111">'
             f"<p>Hi,</p><p>{opener} {what}</p><p>{do}</p>"
             f'<p><a href="{link}" style="display:inline-block;background:#111;color:#fff;padding:12px 20px;'
-            'border-radius:8px;text-decoration:none;font-weight:600">Make my free ads</a></p>'
+            'border-radius:8px;text-decoration:none;font-weight:600">Make ads with your free credits</a></p>'
             f'<p style="font-size:13px;color:#555">The link logs you in{once} and works for {hours} hours. '
             f"Or paste it into your browser:<br>{link}</p>"
-            '<p style="font-size:13px;color:#555">No card, nothing to cancel. If you didn\'t sign up for Campaignify, '
+            '<p style="font-size:13px;color:#555">Nothing is charged and nothing renews. If you didn\'t sign up for Campaignify, '
             "ignore this email.</p></div>")
     return subject, text, html
 

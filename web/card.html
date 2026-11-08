@@ -1,0 +1,39 @@
+{% extends "base.html" %}{% block title %}Add a card · Campaignify{% endblock %}
+{# The card step (card_routes.py, RS_CARD_REQUIRED): new sign-ups get their free credits once it's saved;
+   free accounts made before it add one before making anything new. Nothing is charged. #}
+{% block body %}
+<div class="page full">
+  <div class="panel upgrade" data-card-step>
+    <p class="eyebrow">{% if new %}Last step{% else %}One quick step{% endif %}</p>
+    <h1>{% if new %}Add a card to get your free credits{% else %}Add a card to keep making ads{% endif %}</h1>
+    {% if new %}
+    <p class="muted lede">Your {{ '{:,}'.format(credits) }} free credits ({{ images }} image ad{{ '' if images == 1 else 's' }}) land as soon as your card is saved. Nothing is charged.</p>
+    {% else %}
+    <p class="muted lede">Your ads, products and credits are all still here. To make anything new, save a card first. Nothing is charged.</p>
+    {% endif %}
+    {% if declined %}<p class="small bad" role="alert" data-card-declined>Your card wasn't saved, so nothing was charged. Try again or use another card.</p>
+    {% elif canceled %}<p class="small muted" role="status" data-card-canceled>No card was saved. Nothing was charged.</p>{% endif %}
+    {% if owner %}
+    <form method="post" action="{{ url_for('card.start') }}" style="margin:20px 0 6px">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button class="btn" data-card-add>Add a card</button>
+    </form>
+    <p class="small muted" style="margin:0">You add it on Stripe's secure page and come straight back here.</p>
+    {% else %}
+    <p style="margin-top:18px">Ask your workspace owner to add a card. Nothing is charged, and you can keep making ads as soon as it's saved.</p>
+    {% endif %}
+
+    <h2 style="font-size:18px;margin:28px 0 8px">Why we ask</h2>
+    <ul style="margin:0;padding-left:20px;line-height:1.6" data-card-why>
+      <li><b>No charge.</b> Saving a card charges nothing, and no plan starts until you pick one on Billing.</li>
+      <li><b>It stops abuse.</b> Free credits cost us real money to run. A card keeps one person from opening many free accounts.</li>
+      <li><b>Cancel anytime.</b> A saved card starts nothing. If you pick a plan later, you can cancel it from Billing at any time.</li>
+    </ul>
+
+    <div class="row" style="margin-top:24px;gap:10px;flex-wrap:wrap">
+      {% if not new %}<a class="btn dark" href="{{ url_for('library') }}">Go to your library</a>{% endif %}
+      <a class="btn dark" href="{{ url_for('billing_page') }}#plans">See plans and packs</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

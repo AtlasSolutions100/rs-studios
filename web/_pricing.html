@@ -5,7 +5,7 @@
     <h3>Free</h3>
     <div class="lp-amt">$0</div>
     <p class="lp-cr">{{ '{:,}'.format(sc) }} starter credits</p>
-    <p class="muted small">{{ sc // r.image }} image ads to try the studio on your own product{{ ', or your first video ad' if sc >= r.video5 }}. No card needed.</p>
+    <p class="muted small">{{ sc // r.image }} image ads to try the studio on your own product{{ ', or your first video ad' if sc >= r.video5 }}. Nothing is charged{{ ': a card is saved at sign-up to stop abuse' if card_required() }}.</p>
     <p class="small plan-out">Only want ads? Buy a pack. Credits never expire.</p>
     <ul class="plan-feats">{% for k, f in plans.FEATURES.items() if f.plan == 'free' and f.shipped %}<li>{{ f.name }}</li>{% endfor %}<li>Credit packs whenever you need more</li></ul>
     <a class="btn dark" href="{{ url_for('signup') }}" data-cta="pricing-free">Start free</a>
@@ -27,7 +27,7 @@
   </div>
   {% endfor %}
 </div>
-<p class="small dim" style="margin:14px 0 30px">No trial that bills you. No card. Plan credits reset monthly, pack credits never. Monthly plans, cancel anytime; failed generations are refunded automatically.</p>
+<p class="small dim" style="margin:14px 0 30px">No trial that bills you: nothing is charged until you pick a plan or buy a pack. Plan credits reset monthly, pack credits never. Monthly plans, cancel anytime; failed generations are refunded automatically.</p>
 <h3 class="lp-h3">Credit packs <span class="muted small">one-time top-ups, on any plan or none</span></h3>
 <div class="lp-packs">
   {% for p in packs %}

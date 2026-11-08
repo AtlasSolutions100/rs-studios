@@ -6,7 +6,8 @@ against a local server with every provider faked, timed per step.
     python tests/golden_path.py --json out.json --markdown out.md --headed
     python tests/golden_path.py --service-path     # with RS_SERVICE_PATH=1 (the service entrance, roadmap M5.2)
 
-Product path (store owner): sign up, confirm the email, paste the product page, make the 2 free ads, pick a plan,
+Product path (store owner): sign up, save a card (nothing charged), confirm the email, paste the product page, make
+the 2 ads with the free credits, pick a plan,
 plan the campaign, make the creative batch, write the copy, publish a landing page, export the ads. Service path
 (local HVAC): sign up, confirm, paste the website, make the first ads, pick a plan, plan for leads (Google Search and
 Meta), write Google Search copy, make a quote form, publish a landing page with the form, add a follow-up flow, and
@@ -34,7 +35,9 @@ Fakes: the generation API, result downloads, email, page fetches and the Anthrop
 way tests/test_app.py does it (hf.submit/status/upload, worker.requests.get, mailer.requests.post, fetcher.fetch,
 llm._anthropic). The worker thread runs as in production with a short poll and a fake render time
 (--render-seconds). Stripe is not configured: the plan is picked with a free-month code on Billing, which stands in
-for Stripe Checkout (a known handoff that is not exercised locally). Needs Playwright for Python with Chromium
+for Stripe Checkout (a known handoff that is not exercised locally). The card step after sign-up (RS_CARD_REQUIRED=1,
+card_on_file.py) runs against a fake Stripe in process (F.stripe): its setup-mode Checkout "page" sends the browser
+straight back to the success URL with a saved test card, so nothing leaves 127.0.0.1 and Stripe is never called. Needs Playwright for Python with Chromium
 (preinstalled in CI images and dev containers; set PLAYWRIGHT_BROWSERS_PATH if yours lives elsewhere).
 """
 import argparse
@@ -104,7 +107,7 @@ def boot(render_seconds):
     os.environ.update(
         RS_DATA=tmp, RS_WORKER="0", HF_KEY="test:secret", RS_MARKUP="2.0", RS_PLAN_SYNC="0", RS_NUDGE_LOOP="0",
         RS_POLL_SECONDS="1", RS_DISK_MIN_GB="0.2", ANTHROPIC_API_KEY="sk-ant-test", RESEND_API_KEY="re_test",
-        RS_MAIL_DOMAIN="mail.campaignify.test", RS_PUBLIC_URL=f"http://127.0.0.1:{port}",
+        RS_MAIL_DOMAIN="mail.campaignify.test", RS_PUBLIC_URL=f"http://127.0.0.1:{port}", RS_CARD_REQUIRED="1",
         RS_OWNER_INVITES="nobody@example.com:" + hashlib.sha256(b"unused").hexdigest())
     for k in ("STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "GOOGLE_OAUTH_CLIENT_SECRET", "SIGNUP_CREDITS_ADS",
               "FIRST_RUN_NUDGES", "GROQ_API_KEY"):
@@ -119,6 +122,7 @@ def boot(render_seconds):
 
     appmod._maybe_reconcile = lambda ws_id, force=False: 0
     F.install(hf, worker, mailer, fetcher, llm, render_seconds)
+    F.stripe()
     os.environ["RS_WORKER"] = "1"   # the planner and research run in threads, as in production
     worker.start()
 
@@ -210,6 +214,39 @@ class F:
         b = io.BytesIO()
         img.save(b, "PNG")
         return b.getvalue()
+
+    cards = 0
+
+    @classmethod
+    def stripe(cls):
+        """The card step's Stripe calls, faked (billing.py's setup-mode Checkout). Stripe keys stay unset, so the
+        card step is switched on by hand (card_on_file.active) and everything else still sees Stripe as off."""
+        import billing
+        import card_on_file
+
+        def no_stripe(*a, **kw):
+            raise AssertionError("the golden path never calls Stripe")
+
+        billing._get = billing._post = no_stripe
+        card_on_file.active = card_on_file.required
+        sessions = {}
+
+        def customer(*, email, metadata, idempotency_key):
+            return f"cus_golden_{metadata['workspace_id']}"
+
+        def setup_session(*, customer, success_url, cancel_url, metadata, client_reference_id, idempotency_key):
+            cls.cards += 1
+            sid = f"cs_golden_card_{cls.cards}"
+            sessions[sid] = {"id": sid, "mode": "setup", "status": "complete", "customer": customer,
+                             "metadata": {k: str(v) for k, v in metadata.items()},
+                             "setup_intent": {"id": f"seti_{sid}", "status": "succeeded", "payment_method": {
+                                 "id": f"pm_{sid}", "card": {"fingerprint": f"fp_golden_{cls.cards}", "brand": "visa",
+                                                             "last4": "4242"}}}}
+            # Stripe's page, done: straight back to the success URL, as after a saved card
+            return {"id": sid, "url": success_url.replace("{CHECKOUT_SESSION_ID}", sid)}
+
+        billing.create_customer, billing.create_setup_session = customer, setup_session
+        billing.get_setup_session = lambda sid: json.loads(json.dumps(sessions[sid]))
 
     @classmethod
     def install(cls, hf, worker, mailer, fetcher, llm, render_seconds):
@@ -653,17 +690,34 @@ class Run:
         self.fill("input[name=email]", email)
         self.fill("input[name=password]", PW)
         self.click("form button:has-text('Create account')")
-        self.wait_until(lambda: re.search(r"/app(\?|$)", self.page.url) or self.page.locator("[data-signup-sent]").count(),
-                        "the page after Create account", 20)
+        self.wait_until(lambda: re.search(r"/app(/card)?(\?|$)", self.page.url)
+                        or self.page.locator("[data-signup-sent]").count(), "the page after Create account", 20)
         if self.page.locator("[data-signup-sent]").count():
             # Sign-up waits for its emailed link (login_security.confirm_first): open it, as the person would.
             self.wait_until(lambda: self.email_link(email), "the sign-up email", 10)
             self.goto(self.email_link(email))
-        self.page.wait_for_url(re.compile(r"/app(\?|$)"))
+        self.page.wait_for_url(re.compile(r"/app(/card)?(\?|$)"))
         u = self.q("SELECT * FROM users WHERE email=?", email)
         if not u:
             raise StepFailed("no account was made")
         self.ws_id = u[0]["workspace_id"]
+
+    def s_card(self, st):
+        """The card step after sign-up (RS_CARD_REQUIRED): nothing charged, the starter credits land after it."""
+        if "/app/card" not in self.page.url:
+            st.notes.append("no card step (RS_CARD_REQUIRED off)")
+            return
+        before = self.q("SELECT credits FROM workspaces WHERE id=?", self.ws_id)[0][0]
+        if "Why we ask" not in self.text():
+            raise StepFailed("the card page doesn't say why we ask")
+        self.click("[data-card-add]")
+        self.page.wait_for_url(re.compile(r"/app(\?|$)"))
+        ws = self.q("SELECT * FROM workspaces WHERE id=?", self.ws_id)[0]
+        if not ws["card_saved_at"]:
+            raise StepFailed("the card wasn't saved")
+        if ws["credits"] <= before:
+            raise StepFailed("the starter credits didn't land after the card")
+        st.notes.append(f"card saved with a fake Stripe; {ws['credits'] - before} starter credits landed, 0 charged")
 
     def email_link(self, email):
         """The /verify link (path and query) of the newest email to this address."""
@@ -935,9 +989,10 @@ def comp_code():
 def product_path(r):
     email = "owner@hearth.example"
     r.step("signup", "Sign up", lambda st: r.s_signup(st, email))
+    r.step("card", "Save a card (nothing charged)", r.s_card)
     r.step("verify", "Confirm the email (code)", lambda st: r.s_verify(st, email))
     r.step("brand_kit", "Paste the product page (brand kit)", lambda st: r.s_brand_kit(st, F.PRODUCT_URL, "Ember Candle"))
-    r.step("first_ads", "First ads (2 free image ads)", r.s_first_ads)
+    r.step("first_ads", "First ads (2 image ads with the free credits)", r.s_first_ads)
     code = comp_code()
     r.step("plan_pick", "Pick a plan", lambda st: r.s_pick_plan(st, code))
     r.step("planner", "Plan the campaign (Sales; Meta, Google)",
@@ -951,6 +1006,7 @@ def product_path(r):
 def service_path(r):
     email = "owner@northside-hvac.example"
     r.step("signup", "Sign up", lambda st: r.s_signup(st, email))
+    r.step("card", "Save a card (nothing charged)", r.s_card)
     r.step("verify", "Confirm the email (code)", lambda st: r.s_verify(st, email))
     r.step("brand_kit", "Paste the website (brand kit)",
            lambda st: r.s_brand_kit(st, F.SERVICE_URL, "Northside", sells="service"))

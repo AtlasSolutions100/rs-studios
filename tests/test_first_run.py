@@ -131,7 +131,8 @@ print("== Home: the form first, image ads first")
 home = c.get("/app").get_data(as_text=True)
 check('data-first-run' in home and 'value="image" checked' in home and 'value="preview" checked' not in home
       and 'value="video"' not in home, "a plain sign-up starts on image ads (no video kind: the grant isn't theirs)")
-check("Make my 2 free ads" in home and "Make your 2 free ads" in home, "the button says 'Make my 2 free ads'")
+check("Make 2 ads with your free credits" in home and "Your free credits cover 2 ads" in home,
+      "the button says 'Make 2 ads with your free credits'")
 check("after you confirm your email" in home and 'value="preview"' in home,
       "the free talking-video preview stays, labelled 'after you confirm your email'")
 check(home.index('action="/app/start"') < home.index("data-verify-banner") and "data-vinline" in home,

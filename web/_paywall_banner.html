@@ -1,0 +1,9 @@
+{# Out of credits with no subscription (plan_paywall.py, RS_PLAN_PAYWALL). Needs paywall_banner in scope. #}
+<div class="vbanner" role="status" data-paywall-banner>
+  {% include "_lock_icon.svg" %}
+  <p>You're out of credits. {{ paywall_banner.message }}{% if paywall_banner.free_plan %}, or make your free campaign plan for this month{% endif %}.</p>
+  <span class="row" style="gap:8px;flex-wrap:wrap">
+    {% if paywall_banner.free_plan %}<a class="btn sm" href="{{ paywall_banner.free_plan }}">Make my free plan</a>{% endif %}
+    <a class="btn sm dark" href="{{ paywall_banner.plans }}">See plans</a>
+  </span>
+</div>
