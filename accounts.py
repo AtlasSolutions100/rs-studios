@@ -32,6 +32,10 @@ class SignupRefused(Exception):
         self.status = status
 
 
+class EmailTaken(SignupRefused):
+    """The email already has an account (the sign-up form mails that inbox instead of saying so, login_security.py)."""
+
+
 def signup_throttled(ip: str) -> bool:
     """Too many new accounts from this network (per hour or per day)."""
     return db.throttled(f"signup:{ip}", SIGNUPS_PER_HOUR, 3600) or db.throttled(f"signup:{ip}", SIGNUPS_PER_DAY, 86400)
@@ -47,7 +51,7 @@ def create_self_serve_account(conn, email: str, name: str, pw_hash: str, req, ip
     Returns {"uid", "ws_id", "ad_credits", "joins", "invited"}. Raises SignupRefused."""
     email = email.strip().lower()
     if conn.execute("SELECT 1 FROM users WHERE email=?", (email,)).fetchone():
-        raise SignupRefused("That email already has an account. Log in instead.")
+        raise EmailTaken("That email already has an account. Log in instead.")
     inv = None
     ad_credits = 0
     if invite_code:

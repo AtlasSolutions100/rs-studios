@@ -1,0 +1,11 @@
+{% extends "auth_base.html" %}{% block title %}Set a new password · Campaignify{% endblock %}
+{% block auth %}
+  <h2>Set a new password</h2>
+  <p class="muted">For {{ email }}. After this you're logged in.</p>
+  <form method="post" action="{{ url_for('logins.reset') }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <input type="email" name="username" value="{{ email }}" autocomplete="username" hidden>
+    <label for="pw">New password (8+ characters)</label><input id="pw" type="password" name="password" required minlength="8" maxlength="200" autocomplete="new-password">
+    <p style="margin-top:22px"><button class="btn" style="width:100%">Save password</button></p>
+  </form>
+{% endblock %}

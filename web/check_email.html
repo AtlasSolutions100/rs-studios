@@ -1,0 +1,11 @@
+{% extends "auth_base.html" %}{% block title %}Check your email · Campaignify{% endblock %}
+{% block auth %}
+  <h2>Check your email</h2>
+  {% if what == 'reset' %}
+  <p class="muted" data-reset-sent>If an account uses {{ email }}, we sent it a link to reset the password. The link works for {{ minutes }} minutes. Check spam too.</p>
+  <p class="small muted">Nothing after a few minutes? <a href="{{ url_for('logins.forgot') }}">Send it again</a>.</p>
+  {% else %}
+  <p class="muted" data-signup-sent>We sent an email to {{ email }}. Open it to carry on. Check spam too.</p>
+  {% endif %}
+  <p class="small muted"><a href="{{ url_for('login') }}">Back to log in</a></p>
+{% endblock %}

@@ -292,6 +292,12 @@ with db.connect() as conn:
 # the magic link logs in, confirms the email and opens Home
 m = client()
 r = m.get(link.group(0).replace("https://campaignify.test", ""))
+check(r.status_code == 302 and r.headers["Location"].endswith("/m") and not user("plain@example.com")["email_verified_at"],
+      "opening the link moves its token off the address bar and changes nothing yet")
+r = m.get("/m")
+check(r.status_code == 200 and "plain@example.com" in r.get_data(as_text=True) and "works once" in r.get_data(as_text=True)
+      and not user("plain@example.com")["email_verified_at"], "it asks to press Log in (a mail scanner's fetch spends nothing)")
+r = m.post("/m", data={"csrf": csrf(m)})
 u = user("plain@example.com")
 check(r.status_code == 302 and r.headers["Location"].endswith("/app") and u["email_verified_at"]
       and m.get("/app").status_code == 200 and "data-first-run" in m.get("/app").get_data(as_text=True),
