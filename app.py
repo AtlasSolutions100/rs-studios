@@ -163,6 +163,8 @@ NAV_GROUPS = [
         ("billing_page", "Billing", "billing", None, ("billing_page",)),
         ("messaging.sending", "Sending", "send", "flows", ("messaging.sending",)),
         ("mcp.settings", "API and Claude", "api", None, ("mcp.settings",)),   # shown while MCP_SERVER=on
+        # Connected ad accounts (adconnect_routes.py): shown only where adplatforms.enabled() (AD_LAUNCH)
+        ("adconnect.settings", "Connections", "plug", None, ("adconnect.settings", "adconnect.pick", "adconnect.pixel")),
     ]),
 ]
 NAV = [item for _, items in NAV_GROUPS for item in items]
@@ -2633,9 +2635,12 @@ import share_routes  # noqa: E402
 import creator_pool_routes  # noqa: E402
 import creator_pools  # noqa: E402
 import google_auth  # noqa: E402
+import adconnect_routes  # noqa: E402  connected ad accounts (AD_LAUNCH)
+import adplatforms  # noqa: E402
 
 app.register_blueprint(product_routes.bp)
 app.register_blueprint(google_auth.bp)
+app.register_blueprint(adconnect_routes.bp)   # /app/settings/ad-accounts, /connect/meta (AD_LAUNCH, default off)
 app.register_blueprint(login_security.bp)   # /forgot, /reset, /m (login hardening)
 app.jinja_env.globals["google_signin"] = google_auth.configured   # the Continue with Google button
 app.register_blueprint(create_routes.bp)
@@ -2671,6 +2676,8 @@ def _has_endpoint(name) -> bool:
         return g.cpools_visible
     if name == "mcp.settings":          # the MCP key page shows while MCP_SERVER=on
         return mcpserver.enabled()
+    if name.startswith("adconnect."):   # connected ad accounts: AD_LAUNCH (adplatforms.enabled)
+        return adplatforms.enabled(g.get("ws"), g.get("user"))
     return True
 
 

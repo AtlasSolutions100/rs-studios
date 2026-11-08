@@ -1,0 +1,41 @@
+{% extends "base.html" %}{% block title %}Connect Meta · Campaignify{% endblock %}
+{% block body %}
+<div class="page">
+  <p class="eyebrow">Settings · Connect Meta</p>
+  {% if step == 'account' %}
+  <h1>Pick the ad account</h1>
+  {% if d.user_name %}<p class="muted">Signed in on Facebook as {{ d.user_name }}.</p>{% endif %}
+  {% if d.missing %}<div class="flash warn">Meta didn't grant: {{ d.missing|join(', ') }}. You can connect now, but launching later needs them. To add them, choose Reconnect and keep every option on.</div>{% endif %}
+  {% if d.accounts %}
+  <form method="post" class="panel"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <fieldset style="border:0;padding:0;margin:0"><legend><h2>Ad account</h2></legend>
+    {% for a in d.accounts %}<p><label><input type="radio" name="account" value="{{ a.id }}" {{ 'checked' if (pre == a.id) or (not pre and loop.first and a.usable) }} {{ '' if a.usable else 'disabled' }} required>
+      <b>{{ a.name }}</b> <span class="small muted">{{ a.id }}{% if a.currency %} · {{ a.currency }}{% endif %}{% if a.business_name %} · {{ a.business_name }}{% endif %}{% if a.status != 'Active' %} · {{ a.status }}{% endif %}</span></label></p>{% endfor %}
+    </fieldset>
+    <label for="page"><h2>Facebook Page</h2></label>
+    <p class="small muted">Meta ads run from a Page. If the Page has an Instagram professional account linked, ads can run there too.</p>
+    <select id="page" name="page">
+      {% for p in d.pages %}<option value="{{ p.id }}">{{ p.name }}{% if p.ig_username %} (Instagram @{{ p.ig_username }}){% endif %}</option>{% endfor %}
+      <option value="">No Page for now</option>
+    </select>
+    <p style="margin-top:16px"><button class="btn">Connect this account</button></p>
+  </form>
+  {% else %}
+  <div class="panel">
+    <h2>No ad account on this Facebook login</h2>
+    <p class="muted">Meta shared no ad account with Campaignify. Create one, or ask the account's admin to add you, then connect again.</p>
+    <ol class="checks">{% for t, dd, link in checklist %}<li><b>{{ t }}</b><br><span class="small muted">{{ dd }}</span>{% if link %}<br><a class="small" href="{{ link }}" target="_blank" rel="noopener">Open on Meta</a>{% endif %}</li>{% endfor %}</ol>
+    <a class="btn sm" href="{{ url_for('adconnect.settings') }}">Back to connections</a>
+  </div>
+  {% endif %}
+  {% else %}
+  <h1>Pick the pixel</h1>
+  <p class="muted">{{ row.account_name }} has more than one pixel. Pick the one on your site.</p>
+  <form method="post" class="panel"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    {% for p in pixels %}<p><label><input type="radio" name="pixel" value="{{ p.id }}" {{ 'checked' if loop.first }}> <b>{{ p.name }}</b> <span class="small muted">{{ p.id }}</span></label></p>{% endfor %}
+    <p><label><input type="radio" name="pixel" value="skip"> Skip for now</label></p>
+    <button class="btn">Save</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

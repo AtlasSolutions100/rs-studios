@@ -1,0 +1,18 @@
+{
+ "data": [
+  {
+   "id": "500000001",
+   "name": "Glow Co"
+  },
+  {
+   "id": "500000002",
+   "name": "Glow Co Outlet"
+  }
+ ],
+ "paging": {
+  "cursors": {
+   "before": "a",
+   "after": "b"
+  }
+ }
+}
