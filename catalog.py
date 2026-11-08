@@ -425,7 +425,7 @@ NO_EXTRA_TEXT = ("No other text of any kind anywhere in the image: no extra slog
 
 
 def image_ad_prompt(scene: str, headline: str = "", subline: str = "", cta: str = "", brand: str = "",
-                    product: str = "", forbid=()) -> str:
+                    product: str = "", forbid=(), service: bool = False) -> str:
     """The prompt the image model gets for one image ad. It names every word
     allowed on the image (headline, optional subline and button, brand name)
     and forbids all others; product claims in `forbid` (the product's approved
@@ -437,9 +437,13 @@ def image_ad_prompt(scene: str, headline: str = "", subline: str = "", cta: str 
     product = " ".join(str(product or "").split())[:80] or "product"
     allowed = [x for x in (headline, subline, cta, brand) if x]
     scene = scene_only(scene, allowed, forbid) or f"Clean, premium product shot of the {product}."
-    lines = [f"Advertising image. Scene: {scene}",
-             f"The product is the {product} exactly as in the reference photos: same shape, packaging, label, printed "
-             "text and colors. Don't redraw, change or add to its label."]
+    if service:   # a service business (service_path.py): the references are its logo or site photos, not packaging
+        import service_path
+        lines = [f"Advertising image. Scene: {scene}"] + service_path.image_lines(product)
+    else:
+        lines = [f"Advertising image. Scene: {scene}",
+                 f"The product is the {product} exactly as in the reference photos: same shape, packaging, label, printed "
+                 "text and colors. Don't redraw, change or add to its label."]
     lines.append("Text on the image: only the words listed here, each shown once and spelled exactly as written.")
     if headline:
         lines.append(f'- Headline (the main text, large and easy to read): "{headline}"')
@@ -451,7 +455,8 @@ def image_ad_prompt(scene: str, headline: str = "", subline: str = "", cta: str 
         lines.append(f'- Brand name (optional, small): "{brand}"')
     if not (headline or subline or cta):
         lines.append("- No headline: add no words at all.")
-    lines.append("The only other text allowed is what is already printed on the product's own packaging in the photos.")
+    lines.append("The only other text allowed is what is already in the logo." if service else
+                 "The only other text allowed is what is already printed on the product's own packaging in the photos.")
     lines.append(NO_EXTRA_TEXT + (" Exactly one button, with the text above, and no other call to action." if cta else
                                   " No buttons and no call to action."))
     return "\n".join(lines)

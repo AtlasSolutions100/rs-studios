@@ -19,6 +19,7 @@ import logging
 import catalog
 import db
 import hf
+import service_path
 
 log = logging.getLogger("campaignify")
 # A talking video is refused (and refunded) if the vendor's estimate says it now
@@ -88,7 +89,8 @@ def image_prompt(conn, job, p: dict | None = None) -> str:
     return catalog.image_ad_prompt(parts["scene"], p.get("headline") or parts["headline"],
                                    p.get("subline") or parts["subline"], p.get("cta") or parts["cta"],
                                    brand=(brand["brand_name"] if brand else "") or "",
-                                   product=p.get("product") or (prod["name"] if prod is not None else ""), forbid=forbid)
+                                   product=p.get("product") or (prod["name"] if prod is not None else ""), forbid=forbid,
+                                   service=bool(p.get("service")) or service_path.is_service(prod))
 
 
 def build_inputs(conn, job) -> dict:

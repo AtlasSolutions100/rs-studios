@@ -31,6 +31,7 @@ import platforms
 import plans
 import products
 import seo
+import service_path
 
 MAX_TURNS = 14
 TURN_TOKENS = 3000
@@ -212,6 +213,13 @@ def brief_prompt(c, brand, brief, notes_from_before=None):
              f"Budget: {brief.get('budget') or 'not given (assume a small first test)'}"]
     if brief.get("dates"):
         lines.append(f"Timing: {brief['dates']}")
+    if service_path.on():   # M5.2: the service area, and what a service business's leads plan looks like
+        if brief.get("area"):
+            lines.append(f"Service area: {brief['area']}")
+        if brief.get("business") == "service":
+            lines.append(service_path.SERVICE_PROMPT)
+        elif "google" in (brief.get("platforms") or []):
+            lines.append(service_path.KEYWORDS_PROMPT)
     if notes_from_before:
         lines.append("This is a revision. The member's notes on the previous plan: " + notes_from_before)
     return "\n".join(lines)
@@ -403,8 +411,21 @@ def dispatch(name, inp, ctx):
                       "checklist": [{"title": str(i.get("title") or "")[:160], "detail": str(i.get("detail") or "")[:500],
                                      "platform": str(i.get("platform") or "all")[:20]}
                                     for i in (inp.get("checklist") or []) if isinstance(i, dict)][:24]}
-        if (ctx.get("brief") or {}).get("goal") == "leads":
+        brief = ctx.get("brief") or {}
+        if brief.get("goal") == "leads":
             plan.final["checklist"] = leads_items(plan.final["checklist"])
+            if service_path.on():   # UX-14: publish the page, add the form, turn on the follow-up, each linked
+                plan.final["checklist"] = service_path.lead_steps(plan.final["checklist"],
+                                                                  brief.get("business") == "service")
+        if service_path.on() and "google" in (brief.get("platforms") or []):
+            # UX-15: a Google Search keyword list: the model's, else a starter list from the services and area.
+            kws = service_path.clean_keywords(inp.get("search_keywords"))
+            source = "planner"
+            if len(kws) < 5:
+                kws = service_path.starter_keywords(ctx["brand"], brief, ctx.get("services"),
+                                                    None if brief.get("area") else ctx.get("area"))
+                source = "starter"
+            plan.final["keywords"] = {"items": kws, "source": source, "negatives": service_path.NEGATIVES}
         _step(steps, "done", "Finished the plan", f"{len(plan.final['checklist'])} launch steps")
         return {"ok": True}
     return {"error": f"unknown tool {name}"}
@@ -461,6 +482,12 @@ def run(cid: int, notes: str | None = None, hold=None):
            "usage": usage, "photos": _photos(c["workspace_id"], c["product_id"]), "refs": _refs(), "counts": {"ads": 0, "copy": 0},
            "seo": has_seo}
     tools = TOOLS[:-1] + [SEO_TOOL, TOOLS[-1]] if has_seo else TOOLS
+    if service_path.on() and "google" in (brief.get("platforms") or []):
+        fin = json.loads(json.dumps(tools[-1]))
+        fin["input_schema"]["properties"]["search_keywords"] = service_path.KEYWORDS_SCHEMA
+        tools = tools[:-1] + [fin]
+        site = service_path.site_info(p) if p is not None else {}
+        ctx["services"], ctx["area"] = site.get("services") or [], site.get("area") or []
     prompt = brief_prompt(c, brand, brief, notes)
     if previous and previous.final:
         prompt += "\n\nThe previous plan's summary: " + previous.final.get("summary", "")

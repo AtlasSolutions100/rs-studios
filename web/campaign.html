@@ -89,6 +89,19 @@
   </section>
   {% endif %}
 
+  {% if final and final.keywords and final.keywords['items'] %}{% set kw = final.keywords %}
+  <section class="camp-sec" id="keywords">
+    <div class="section-h" style="margin-top:0"><h2>Search keywords for Google</h2><button type="button" class="btn dark sm" data-copy="kwcopy">Copy</button></div>
+    <pre id="kwcopy" class="sr">{% for k in kw['items'] %}{{ '[' ~ k.term ~ ']' if k.match == 'exact' else ('"' ~ k.term ~ '"' if k.match == 'phrase' else k.term) }}
+{% endfor %}</pre>
+    <p class="small muted">{{ kw['items']|length }} terms {{ 'from the planner' if kw.source == 'planner' else 'built from your services and service area' }}. Paste them into a Google Search ad group (brackets mean exact match, quotes mean phrase match). Check the search volume in Google's Keyword Planner before you set bids.</p>
+    <div class="panel"><table class="kwlist"><thead><tr><th>Keyword</th><th>Match</th></tr></thead><tbody>
+      {% for k in kw['items'] %}<tr><td>{{ k.term }}</td><td>{{ k.match|first_upper }}</td></tr>{% endfor %}
+    </tbody></table>
+    {% if kw.negatives %}<p class="small muted" style="margin:12px 0 0">Add as negative keywords so job seekers and do-it-yourselfers don't use the budget: {{ kw.negatives|join(', ') }}.</p>{% endif %}</div>
+  </section>
+  {% endif %}
+
   {% if plan.get('copy') %}
   <section class="camp-sec">
     <h2>Copy for each platform</h2>
@@ -105,7 +118,8 @@
     <ul class="checklist" data-key="camp-{{ c.id }}">
       {% for i in final.checklist %}
       <li><label><input type="checkbox" data-i="{{ loop.index }}"><span><b>{{ i.title }}</b>{% if i.platform in PLATFORMS %} <span class="small muted">· {{ PLATFORMS[i.platform].short }}</span>{% endif %}{% if i.detail %}<span class="small muted d">{{ i.detail }}</span>{% endif %}</span></label>
-        {% if i.platform in adhub_links %}<a class="small" href="{{ adhub_links[i.platform] }}">Setup guide →</a>{% endif %}</li>
+        {% if i.link in ('pages', 'forms', 'flows') %}<a class="small" href="{{ url_for(i.link ~ '.index') }}">Open {{ i.link|first_upper }} →</a>
+        {% elif i.platform in adhub_links %}<a class="small" href="{{ adhub_links[i.platform] }}">Setup guide →</a>{% endif %}</li>
       {% endfor %}
       <li><label><input type="checkbox" data-i="lib"><span><b>Download the finished ads</b><span class="small muted d">Full quality from your <a href="{{ url_for('library') }}">library</a>.</span></span></label></li>
       <li><label><input type="checkbox" data-i="disc"><span><b>Disclose and label</b><span class="small muted d">#ad first in captions where it's a paid partnership, and the platform's AI label on for AI-made media.</span></span></label></li>
