@@ -1,0 +1,167 @@
+{
+ "cases": [
+  {
+   "id": "f01",
+   "text": "Guaranteed returns of 12% a year.",
+   "platform": "meta",
+   "vertical": "finance",
+   "ai": false,
+   "expect": [
+    "policy.finance_rates",
+    "policy.guaranteed_returns"
+   ],
+   "house": [
+    "promise_words"
+   ]
+  },
+  {
+   "id": "f02",
+   "text": "Risk-free investment with daily payouts.",
+   "platform": "meta",
+   "vertical": "crypto",
+   "ai": false,
+   "expect": [
+    "policy.guaranteed_returns"
+   ],
+   "house": []
+  },
+  {
+   "id": "f03",
+   "text": "You can't lose money with our trading bot.",
+   "platform": "meta",
+   "vertical": "crypto",
+   "ai": false,
+   "expect": [
+    "policy.guaranteed_returns"
+   ],
+   "house": []
+  },
+  {
+   "id": "f04",
+   "text": "Double your money in 30 days.",
+   "platform": "meta",
+   "vertical": "crypto",
+   "ai": false,
+   "expect": [
+    "policy.guaranteed_returns"
+   ],
+   "house": []
+  },
+  {
+   "id": "f05",
+   "text": "Earn 4.5% APY on your savings.",
+   "platform": "meta",
+   "vertical": "finance",
+   "ai": false,
+   "expect": [
+    "policy.finance_rates"
+   ],
+   "house": []
+  },
+  {
+   "id": "f06",
+   "text": "Bad credit ok. Personal loans in 24 hours.",
+   "platform": "meta",
+   "vertical": "credit",
+   "ai": false,
+   "expect": [
+    "policy.special_category_maybe"
+   ],
+   "house": []
+  },
+  {
+   "id": "f07",
+   "text": "Is your credit score holding you back?",
+   "platform": "meta",
+   "vertical": "credit",
+   "ai": false,
+   "expect": [
+    "policy.personal_attributes"
+   ],
+   "house": []
+  },
+  {
+   "id": "f08",
+   "text": "Now hiring drivers in Dallas. Apply today.",
+   "platform": "meta",
+   "vertical": "employment",
+   "ai": false,
+   "expect": [
+    "policy.special_category_maybe"
+   ],
+   "house": []
+  },
+  {
+   "id": "f09",
+   "text": "Homes for sale near downtown, tour this weekend.",
+   "platform": "meta",
+   "vertical": "housing",
+   "ai": false,
+   "expect": [
+    "policy.special_category_maybe"
+   ],
+   "house": []
+  },
+  {
+   "id": "f10",
+   "text": "Simple budgeting app. See where your money goes.",
+   "platform": "meta",
+   "vertical": "finance",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "f11",
+   "text": "Plan your retirement with a licensed advisor.",
+   "platform": "meta",
+   "vertical": "finance",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "f12",
+   "text": "Our invoice tool saves small shops time every week.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "f13",
+   "text": "Join my team and earn $500 a week from home.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": [
+    "income_claim",
+    "recruiting"
+   ]
+  },
+  {
+   "id": "f14",
+   "text": "Vote yes on Prop 5 this November.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.political"
+   ],
+   "house": []
+  },
+  {
+   "id": "f15",
+   "text": "20% off your first box with code SAVE20.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": [
+    "discounts"
+   ]
+  }
+ ]
+}

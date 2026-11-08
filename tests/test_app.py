@@ -3218,5 +3218,7 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_backup.py")], check=True)
     # Connected ad accounts (adplatforms/, adconnect_routes.py, secretsbox.py, adhttp.py): AD_LAUNCH, Meta OAuth faked.
     subprocess.run([sys.executable, os.path.join(HERE, "test_adconnect.py")], check=True)
+    # The campaign spec, its validator and the ad policy linter (adspec.py, adpolicy.py): 60+ copy fixtures.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_adpolicy.py")], check=True)
     # Migrations stay additive (N3): no column dropped, renamed or retyped; an old database upgrades in place.
     subprocess.run([sys.executable, os.path.join(HERE, "test_migrations.py")], check=True)
