@@ -3213,3 +3213,5 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_plan_pending.py")], check=True)
     # The pip-audit gate (tools/audit_gate.py): severity from OSV, fail only on High or Critical (OSV faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_audit_gate.py")], check=True)
+    # Off-site backups and the restore drill (backup.py, tools/restore.sh): rclone faked by tests/fake_rclone.sh.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_backup.py")], check=True)
