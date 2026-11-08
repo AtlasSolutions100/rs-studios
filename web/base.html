@@ -115,7 +115,8 @@
     {% set vb = verify_banner if verify_banner is defined else None %}
     {% if vb %}{% set hot = flashes|selectattr(0, 'in', ['verify', 'verify-cap'])|list %}
     {# On the first-run page the banner sits under the form (web/_first_ad.html): the first screen is the form. #}
-    {% if not (verify_banner_below is defined and verify_banner_below) %}{% include "_verify_banner.html" %}{% endif %}
+    {# A page that shows its own confirm box (Home after the first ads, RS_NEXT_STEPS) skips the banner unless a flash needs it (COPY-2). #}
+    {% if not (verify_banner_below is defined and verify_banner_below) and not (verify_banner_hide is defined and verify_banner_hide and not hot) %}{% include "_verify_banner.html" %}{% endif %}
     <script>window.CFY_VERIFY = {{ dict(vb.box, auto=(('cap' if hot[0][0] == 'verify-cap' else 'video') if hot else ''), inline=(verify_banner_below is defined and verify_banner_below))|tojson }};</script>{% endif %}
     {% for cat, m in flashes %}{% if not (vb and cat in ('verify', 'verify-cap')) %}<div class="flash flash-top" role="status" data-cat="{{ cat }}"><span>{{ m }}</span></div>{% endif %}{% endfor %}
     {% block body %}{% endblock %}

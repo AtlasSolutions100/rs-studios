@@ -2802,6 +2802,8 @@ import card_routes  # noqa: E402
 import paywall_routes  # noqa: E402
 app.register_blueprint(card_routes.bp)
 app.register_blueprint(paywall_routes.bp)
+import next_steps  # noqa: E402  the "Your campaign" strip on Home (RS_NEXT_STEPS, default off)
+next_steps.init(app)
 
 
 def _has_endpoint(name) -> bool:

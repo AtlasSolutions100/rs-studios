@@ -1,0 +1,19 @@
+{# "Your campaign": the next-step thread on Home (next_steps.py, RS_NEXT_STEPS). Needs ns = next_steps_home(). One primary button. #}
+{% if ns %}
+<section class="panel nsteps" data-next-steps data-current="{{ ns.current or 'all' }}" aria-labelledby="ns-h">
+  <div class="ns-head"><h2 id="ns-h">Your campaign</h2><span class="small muted">{{ ns.done }} of 4 done</span></div>
+  <ol class="ns-list">
+    {% for s in ns.steps %}
+    <li class="ns-step {{ 'done' if s.done }}{{ ' cur' if s.key == ns.current }}" {{ 'aria-current=step' if s.key == ns.current }}>
+      <span class="ns-num" aria-hidden="true">{{ '✓' if s.done else loop.index }}</span>
+      <span class="ns-txt"><b>{{ s.name }}</b><span class="sr">{{ ': done' if s.done else (': next' if s.key == ns.current else ': to do') }}</span>
+        {% if s.done and s.href %}<a class="small" href="{{ s.href }}">{{ s.line }}</a>{% else %}<span class="small muted">{{ s.line }}</span>{% endif %}</span>
+    </li>
+    {% endfor %}
+  </ol>
+  <div class="ns-go">
+    <a class="btn" href="{{ ns.primary[1] }}" data-ns-primary>{{ ns.primary[0] }}</a>
+    {% if ns.current == 'plan' and ns.locked %}{% set need = plans.required('planner') %}<span class="small muted">Comes with {{ need.name }}, ${{ need.usd }} a month</span>{% endif %}
+  </div>
+</section>
+{% endif %}
