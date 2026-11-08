@@ -13,6 +13,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 TMP = tempfile.mkdtemp(prefix="rs_pending_")
+os.environ.setdefault("RS_SIGNUP_CONFIRM", "0")  # sign-ups here go straight in; test_login.py checks the emailed-link step
 os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret", RS_PLAN_SYNC="0",
                   RS_EMAIL_VERIFY="0", STRIPE_SECRET_KEY="sk_test_x", STRIPE_WEBHOOK_SECRET="whsec_x")
 
@@ -37,7 +38,22 @@ def no_http(*a, **kw):
     raise AssertionError("no Stripe calls in these tests")
 
 
-billing.requests.get = billing.requests.post = no_http
+class _Empty:
+    status_code = 200
+
+    def json(self):
+        return {"object": "list", "data": []}
+
+
+def only_invoice_payments(url, params=None, **kw):
+    # invoice.paid without a PaymentIntent reads it from /v1/invoice_payments (N1): none here
+    if url.endswith("/invoice_payments"):
+        return _Empty()
+    return no_http()
+
+
+billing.requests.post = no_http
+billing.requests.get = only_invoice_payments
 appmod._maybe_reconcile = lambda ws_id, force=False: 0
 _ip = [0]
 
@@ -192,6 +208,34 @@ check(billing_holds.RENEWAL_MESSAGE.replace("'", "&#39;") in html and "Growth pl
       "banner and billing say what happened and what to do")
 sub_event(F, "sub_f", "unpaid", end=MONTH_AHEAD)
 check(ws(F)["plan_credits"] == 6000 and plans.renewal_paused(ws(F)), "unpaid: still paused, credits still kept")
+
+print("== N5: a paused renewal is fixed in the portal, never with a second checkout")
+portals, checkouts = [], []
+_portal, _subsess = billing.create_portal_session, billing.create_subscription_session
+billing.create_portal_session = lambda **kw: portals.append(kw) or "https://billing.stripe.example/p/session"
+billing.create_subscription_session = lambda **kw: checkouts.append(kw) or {"id": "cs_x", "url": "https://checkout.example"}
+with db.connect() as conn:
+    conn.execute("UPDATE workspaces SET stripe_customer_id='cus_sub_f' WHERE id=?", (F,))
+    conn.commit()
+html = f.get("/app/billing").get_data(as_text=True)
+check("Get Growth" not in html and "Get Starter" not in html and "Update your card" in html
+      and "Update your card first" in html, "Billing offers no plan checkout, only Update your card")
+r = f.post("/app/billing/subscribe", data={"csrf": csrf(f), "plan": "scale"})
+check(r.status_code == 303 and r.headers["Location"].startswith("https://billing.stripe.example/") and portals
+      and not checkouts, "Subscribe sends a paused workspace to the Stripe billing portal, not to a checkout")
+alerts_mod = __import__("alerts")
+alerts_mod.ASYNC = False
+r = checkout(F, "sub_f_second")       # a checkout opened before the pause finishes anyway
+w = ws(F)
+with db.connect() as conn:
+    second = conn.execute("SELECT 1 FROM meta WHERE key=?", (alerts_mod.ALERT_META + f"second_subscription:{F}",)).fetchone()
+check(r.status_code == 200 and w["plan_status"] == "unpaid" and w["stripe_subscription_id"] == "sub_f"
+      and w["plan_pending"] is None and plans.renewal_paused(w) and second,
+      "a checkout that completes anyway: no pending, the pause stays, the operator is told about the second subscription")
+r = f.post("/app/generate", data={"csrf": csrf(f), "tool": "ad_image", "brief": "Serum on a vanity", "batch": "1"},
+           headers={"Accept": "application/json"})
+check(r.status_code == 402 and r.get_json()["reason"] == "renewal", "and generation is still refused")
+billing.create_portal_session, billing.create_subscription_session = _portal, _subsess
 invoice(F, "sub_f", "in_f2", reason="subscription_cycle")
 w = ws(F)
 check(w["plan_status"] == "active" and not plans.renewal_paused(w) and w["plan_credits"] == 6000

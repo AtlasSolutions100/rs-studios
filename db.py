@@ -515,7 +515,7 @@ CREATE TABLE IF NOT EXISTS credit_reversals (
     source_id TEXT,                          -- purchases.id or plan_invoices.invoice_id
     amount_cents INTEGER NOT NULL DEFAULT 0, -- refunded or disputed so far
     credits INTEGER NOT NULL DEFAULT 0,      -- credits voided by this reversal
-    status TEXT NOT NULL,                    -- unmatched | applied | won | lost | cleared
+    status TEXT NOT NULL,                    -- unmatched | applied | voided | won | lost | cleared | restored
     reason TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
     UNIQUE (kind, stripe_id));
 CREATE INDEX IF NOT EXISTS idx_reversals_pi ON credit_reversals(payment_intent);
@@ -603,6 +603,11 @@ COLUMNS = [
     ("users", "first_touch", "TEXT"),            # JSON: UTM tags / click ids of the visit that brought them
     ("ad_conversions", "ctx_json", "TEXT"),      # browser context for the server-side purchase (conversions.py)
     ("users", "auth_provider", "TEXT"),          # "google" for accounts made with Continue with Google (google_auth.py)
+    # login hardening (login_security.py): sessions carry this number; a password reset bumps it,
+    # which ends every other session (N8). A form sign-up waits for its emailed link before
+    # its first login (signup_pending=1 until the email is confirmed, SEC-8).
+    ("users", "session_version", "INTEGER NOT NULL DEFAULT 0"),
+    ("users", "signup_pending", "INTEGER NOT NULL DEFAULT 0"),
     # free-month codes (compcodes.py): the plan, when it ends, when the next month's credits land
     ("workspaces", "comp_plan", "TEXT"),
     ("workspaces", "comp_until", "TEXT"),
@@ -616,6 +621,14 @@ COLUMNS = [
     ("workspaces", "plan_paid_through", "TEXT"),
     ("workspaces", "plan_pending", "TEXT"),
     ("workspaces", "plan_pending_at", "TEXT"),
+    # parked reversals (billing_holds.retry_parked, N1): whose charge it was, retries, the last error
+    ("credit_reversals", "customer", "TEXT"),
+    ("credit_reversals", "ours", "INTEGER NOT NULL DEFAULT 0"),
+    ("credit_reversals", "attempts", "INTEGER NOT NULL DEFAULT 0"),
+    ("credit_reversals", "last_error", "TEXT"),
+    ("credit_reversals", "full", "INTEGER NOT NULL DEFAULT 1"),   # 0: a partial refund (voids its share, no hold)
+    # a run still in progress keeps its credit hold (credits.keepalive, N13)
+    ("credit_holds", "alive_at", "TEXT"),
 ]
 
 
@@ -633,6 +646,12 @@ def connect():
 
 
 def init():
+    """Create and upgrade the schema in place. Runs on every boot, and the deploy hook's
+    side container runs it against the live database before the switch (N3): a rollback
+    puts back the old image, never the old schema. So migrations are additive only: new
+    tables, new columns (COLUMNS) and backfills of new columns. Never drop, rename or
+    retype a column, or drop a table; old code must keep working on the new schema.
+    tests/test_migrations.py fails on a migration that would."""
     with connect() as conn:
         _backup_before_schema_change(conn)
         conn.executescript(SCHEMA)
@@ -764,10 +783,12 @@ def adjust_credits(conn, workspace_id: int, delta: int, reason: str, job_id=None
         need = -delta
         from_plan = min(max(row["plan_credits"], 0), need)
         from_pack = need - from_plan
+        # Pack credits below zero (a reversed payment, billing_holds.py) block only
+        # spends that need pack credits; plan credits can still be spent (N4).
         cur = conn.execute("UPDATE workspaces SET plan_credits = plan_credits - ?, credits = credits - ? "
-                           "WHERE id=? AND plan_credits >= ? AND credits >= ?"
+                           "WHERE id=? AND plan_credits >= ? AND (? = 0 OR credits >= ?)"
                            + ("" if hold_ok else " AND COALESCE(billing_hold, 0) = 0"),
-                           (from_plan, from_pack, workspace_id, from_plan, from_pack))
+                           (from_plan, from_pack, workspace_id, from_plan, from_pack, from_pack))
         plan_delta = -from_plan
     elif bucket == "plan":
         cur = conn.execute("UPDATE workspaces SET plan_credits = plan_credits + ? WHERE id=?", (delta, workspace_id))
@@ -810,9 +831,21 @@ def void_credits(conn, workspace_id: int, amount: int, reason: str, prefer: str 
 
 
 def balance(ws) -> int:
-    """Everything a workspace can spend right now (plan + pack credits)."""
+    """Everything a workspace can spend right now (plan + pack credits). A
+    bucket below zero (credits voided after they were spent, billing_holds.py)
+    counts as 0 here: it can't be spent, and it doesn't block the other bucket
+    (adjust_credits). What it owes is owed(ws)."""
     keys = ws.keys()
-    return int(ws["credits"] or 0) + int((ws["plan_credits"] if "plan_credits" in keys else 0) or 0)
+    plan = int((ws["plan_credits"] if "plan_credits" in keys else 0) or 0)
+    return max(0, int(ws["credits"] or 0)) + max(0, plan)
+
+
+def owed(ws) -> int:
+    """Credits a workspace owes: voided after they were spent (the pack bucket
+    below zero). The next pack it buys pays them back first."""
+    keys = ws.keys()
+    plan = int((ws["plan_credits"] if "plan_credits" in keys else 0) or 0)
+    return max(0, -int(ws["credits"] or 0)) + max(0, -plan)
 
 
 def refund_job(conn, job, reason: str) -> int:

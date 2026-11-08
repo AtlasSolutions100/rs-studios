@@ -16,6 +16,7 @@ from urllib.parse import parse_qs, urlsplit
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 TMP = tempfile.mkdtemp(prefix="rs_google_")
+os.environ.setdefault("RS_SIGNUP_CONFIRM", "0")  # sign-ups here go straight in; test_login.py checks the emailed-link step
 os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret", RS_PLAN_SYNC="0", RS_NUDGE_LOOP="0",
                   RS_PUBLIC_URL="https://campaignify.test")
 os.environ.pop("GOOGLE_OAUTH_CLIENT_SECRET", None)
@@ -285,5 +286,24 @@ for _ in range(appmod.SIGNUPS_PER_HOUR):
 r = sign_in(c, "sixth@example.com")
 check(r.headers["Location"].endswith("/login") and user("sixth@example.com") is None
       and "Too many" in c.get("/login").get_data(as_text=True), "the per-network sign-up limit applies to Google too")
+
+print("== a form sign-up still waiting for its emailed link (SEC-8)")
+os.environ["RS_SIGNUP_CONFIRM"] = "1"
+try:
+    c = client()
+    c.get("/login")
+    r = c.post("/signup", data={"csrf": csrf(c), "email": "waiting@example.com", "password": "someone-elses"})
+    check(r.status_code == 200 and user("waiting@example.com")["signup_pending"] == 1, "(a sign-up that waits for its link)")
+    c = client()
+    r = sign_in(c, "waiting@example.com")
+    w = user("waiting@example.com")
+    check(r.headers["Location"].endswith("/app") and c.get("/app").status_code == 200 and w["signup_pending"] == 0
+          and w["email_verified_at"] and w["auth_provider"] == "google", "Google signs in to it and confirms the email")
+    c = client()
+    c.get("/login")
+    r = c.post("/login", data={"csrf": csrf(c), "email": "waiting@example.com", "password": "someone-elses"})
+    check(r.status_code == 200, "the password typed at sign-up (inbox never proved) stops working")
+finally:
+    os.environ["RS_SIGNUP_CONFIRM"] = "0"
 
 print(f"\nall {passed} Google sign-in checks passed ({TMP})")

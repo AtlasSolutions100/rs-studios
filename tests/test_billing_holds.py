@@ -12,6 +12,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 TMP = tempfile.mkdtemp(prefix="rs_holds_")
+os.environ.setdefault("RS_SIGNUP_CONFIRM", "0")  # sign-ups here go straight in; test_login.py checks the emailed-link step
 os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret", RS_PLAN_SYNC="0",
                   RS_EMAIL_VERIFY="0", STRIPE_SECRET_KEY="sk_test_x", STRIPE_WEBHOOK_SECRET="whsec_x")
 
@@ -42,6 +43,7 @@ class Resp:
 
 
 INVOICE_PAYMENTS = {}   # payment intent -> invoice id (Stripe's /v1/invoice_payments)
+LOOKUP = {"fail": False}
 gets = []
 
 
@@ -49,7 +51,15 @@ def fake_get(url, params=None, auth=None, timeout=0):
     path = url.split("/v1", 1)[1]
     gets.append((path, params))
     if path == "/invoice_payments":
-        pi = dict(params).get("payment[payment_intent]")
+        if LOOKUP["fail"]:
+            return Resp({"error": {"message": "Stripe is having a moment"}}, 500)
+        q = dict(params)
+        if q.get("invoice"):     # invoice.paid without a PaymentIntent (N1)
+            pis = [k for k, v in INVOICE_PAYMENTS.items() if v == q["invoice"]]
+            return Resp({"object": "list", "data": [{"object": "invoice_payment", "invoice": q["invoice"], "status": "paid",
+                                                     "payment": {"type": "payment_intent", "payment_intent": pis[0]}}]
+                         if pis else []})
+        pi = q.get("payment[payment_intent]")
         inv = INVOICE_PAYMENTS.get(pi)
         return Resp({"object": "list", "data": [{"object": "invoice_payment", "invoice": inv}] if inv else []})
     raise AssertionError(f"unexpected Stripe GET {path}")
@@ -204,18 +214,31 @@ check(r.status_code == 302 and w["billing_hold"] == 0 and w["credits"] == 5000, 
 check("A payment was reversed" not in a.get("/app/library").get_data(as_text=True), "the banner is gone")
 check(spend(A["id"], 10), "spending works again")
 
-print("== partial refunds, in any order")
+print("== partial refunds, in any order (N4: the Crowdcut rule)")
 signup("bo@example.com")
 B = ws_of("bo@example.com")
 b0 = B["credits"]
 buy_pack(B["id"], "pi_b")
 r = deliver("charge.refunded", charge("pi_b", 1450))
-check(r.get_json()["voided"] == 1450 and ws(B["id"])["credits"] == b0 + 1450 and ws(B["id"])["billing_hold"] == 1,
-      "half refunded: half the credits voided, on hold")
+check(r.get_json()["voided"] == 1450 and ws(B["id"])["credits"] == b0 + 1450 and ws(B["id"])["billing_hold"] == 0
+      and r.get_json()["hold"] is False, "half refunded: half the credits voided, no hold")
+check(spend(B["id"], 10), "a partial refund pauses nothing: spending still works")
+with db.connect() as conn:
+    led = conn.execute("SELECT reason FROM ledger WHERE workspace_id=? AND delta=-1450", (B["id"],)).fetchone()
+check(led and led["reason"] == "Payment refunded (part of it): Starter pack credits removed", "the ledger says it was part")
+deliver("charge.refunded", charge("pi_b", 1450))
+check(ws(B["id"])["credits"] == b0 + 1440, "the same partial refund again voids nothing more")
 deliver("charge.refunded", charge("pi_b", 2900))
-check(ws(B["id"])["credits"] == b0, "then the rest: the rest voided")
+check(ws(B["id"])["credits"] == b0 - 10 and ws(B["id"])["billing_hold"] == 1, "then the rest (refunded in full): the rest voided, on hold")
 r = deliver("charge.refunded", charge("pi_b", 1450))
-check(r.get_json()["voided"] == 0 and ws(B["id"])["credits"] == b0, "an older event arriving late changes nothing")
+check(r.get_json()["voided"] == 0 and ws(B["id"])["credits"] == b0 - 10 and ws(B["id"])["billing_hold"] == 1,
+      "an older partial event arriving late changes nothing and doesn't lift the hold")
+signup("bp@example.com")
+BP = ws_of("bp@example.com")
+buy_pack(BP["id"], "pi_bp")
+deliver("charge.dispute.created", dispute("pi_bp", "dp_bp", amount=500))
+check(ws(BP["id"])["billing_hold"] == 1 and ws(BP["id"])["credits"] == BP["credits"] + 2900 - 500,
+      "a dispute holds even for part of the payment, and voids that share")
 
 print("== disputes")
 signup("cy@example.com")
@@ -322,5 +345,181 @@ r = deliver("customer.subscription.updated", dict(sub, metadata={"app": "other"}
 with db.connect() as conn:
     check(conn.execute("SELECT 1 FROM stripe_events WHERE id='evt_ign'").fetchone() is None,
           "ignored events aren't recorded (a later delivery still runs)")
+
+print("== N4: lifting a hold, with or without the voided credits")
+signup("ka@example.com")
+K = ws_of("ka@example.com")
+k0 = K["credits"]
+buy_pack(K["id"], "pi_k")
+check(spend(K["id"], k0 + 2900), "the member spends everything")
+deliver("charge.refunded", charge("pi_k", 2900))
+with db.connect() as conn:
+    conn.execute("UPDATE workspaces SET plan_credits=6000 WHERE id=?", (K["id"],))   # a renewed plan's credits
+    conn.commit()
+k = signup_client = client()
+k.post("/login", data={"csrf": csrf(k), "email": "ka@example.com", "password": "longpassword"})
+html = adm.get("/admin").get_data(as_text=True)
+check("Restore voided credits (2,900)" in html, "admin's Lift hold offers restoring the voided credits")
+adm.post(f"/admin/workspaces/{K['id']}/lift-hold", data={"csrf": csrf(adm)})
+w = ws(K["id"])
+check(w["billing_hold"] == 0 and w["credits"] == -2900 and db.balance(w) == 6000 and db.owed(w) == 2900,
+      "lifted without restore: the pack stays 2,900 below zero; the spendable balance is the 6,000 plan credits")
+check(spend(K["id"], 100) and ws(K["id"])["plan_credits"] == 5900, "and those plan credits can be spent")
+check(not spend(K["id"], 6000), "but nothing past them: the pack owes")
+html = k.get("/app/billing").get_data(as_text=True)
+check(">5,900<" in html and "2,900 pack credits owed." in html and "The next pack you buy pays them back first." in html,
+      "Billing shows the true spendable balance and what's owed")
+buy_pack(K["id"], "pi_k2")
+check(ws(K["id"])["credits"] == 0, "the next pack pays the 2,900 back first")
+signup("la@example.com")
+L = ws_of("la@example.com")
+l0 = L["credits"]
+buy_pack(L["id"], "pi_l")
+check(spend(L["id"], l0 + 2000), "spent most of it")
+deliver("charge.refunded", charge("pi_l", 2900))
+r = adm.post(f"/admin/workspaces/{L['id']}/lift-hold", data={"csrf": csrf(adm), "restore": "1"})
+w = ws(L["id"])
+with db.connect() as conn:
+    st = conn.execute("SELECT status FROM credit_reversals WHERE stripe_id='ch_pi_l'").fetchone()[0]
+check(w["billing_hold"] == 0 and w["credits"] == 900 and st == "restored", "lift and restore: the 2,900 come back")
+deliver("charge.refunded", charge("pi_l", 2900))
+check(ws(L["id"])["credits"] == 900 and ws(L["id"])["billing_hold"] == 0, "a later copy of that refund changes nothing")
+
+print("== N1: plan invoices on newer API versions")
+import alerts  # noqa: E402
+alerts.ASYNC = False
+
+
+def alerted(key):
+    with db.connect() as conn:
+        return conn.execute("SELECT 1 FROM meta WHERE key=?", (alerts.ALERT_META + key,)).fetchone() is not None
+
+
+signup("ma@example.com")
+M = ws_of("ma@example.com")
+INVOICE_PAYMENTS["pi_m"] = "in_m"
+deliver("invoice.paid", invoice("in_m", M["id"], "sub_m"))
+with db.connect() as conn:
+    pi_m = conn.execute("SELECT payment_intent FROM plan_invoices WHERE invoice_id='in_m'").fetchone()[0]
+check(pi_m == "pi_m", "invoice.paid without a PaymentIntent reads it from Stripe and stores it")
+gets.clear()
+r = deliver("charge.refunded", charge("pi_m", 3900, amount=3900))
+check(r.get_json()["voided"] == 2000 and ws(M["id"])["billing_hold"] == 1 and not gets,
+      "the refund then matches locally: no Stripe call inside the webhook")
+
+signup("na@example.com")
+N = ws_of("na@example.com")
+deliver("invoice.paid", dict(invoice("in_n", N["id"], "sub_n"), customer="cus_n"))
+with db.connect() as conn:
+    conn.execute("UPDATE workspaces SET stripe_customer_id='cus_n' WHERE id=?", (N["id"],))
+    conn.commit()
+INVOICE_PAYMENTS["pi_n"] = "in_n"
+LOOKUP["fail"] = True
+c_n = dict(charge("pi_n", 3900, amount=3900), customer="cus_n")
+r = deliver("charge.refunded", c_n, eid="evt_refund_n")
+with db.connect() as conn:
+    row = conn.execute("SELECT * FROM credit_reversals WHERE stripe_id='ch_pi_n'").fetchone()
+    kept = conn.execute("SELECT 1 FROM stripe_events WHERE id='evt_refund_n'").fetchone()
+check(r.status_code == 503 and row["status"] == "unmatched" and row["ours"] == 1 and row["last_error"]
+      and ws(N["id"])["billing_hold"] == 0 and kept is None,
+      "Stripe lookup fails: parked durably, answered 503 so Stripe retries (the event id isn't kept)")
+check(alerted("payment_reversed:unapplied:refund:ch_pi_n"), "and payment_reversed fires for our customer")
+check("ch_pi_n" in adm.get("/admin").get_data(as_text=True), "admin lists it under Not matched yet")
+out = billing_holds.retry_parked()
+check(out["applied"] == 0 and ws(N["id"])["billing_hold"] == 0, "the hourly retry while Stripe is still down: still parked")
+LOOKUP["fail"] = False
+out = billing_holds.retry_parked()
+w = ws(N["id"])
+check(out["applied"] == 1 and w["billing_hold"] == 1 and w["plan_credits"] == 0, "Stripe back: the hourly retry applies it")
+r = deliver("charge.refunded", c_n, eid="evt_refund_n")
+check(r.status_code == 200 and r.get_json()["voided"] == 0, "Stripe's own retry then voids nothing more")
+import inspect  # noqa: E402
+check("billing_holds.retry_parked()" in inspect.getsource(appmod._reconcile_all), "the hourly plan sync runs the retry")
+
+signup("oa@example.com")
+O = ws_of("oa@example.com")
+with db.connect() as conn:
+    conn.execute("UPDATE workspaces SET stripe_customer_id='cus_o' WHERE id=?", (O["id"],))
+    conn.commit()
+r = deliver("charge.refunded", dict(charge("pi_o", 3900, amount=3900), customer="cus_o"))
+check(r.status_code == 200 and r.get_json().get("parked") and r.get_json().get("ok")
+      and alerted("payment_reversed:unapplied:refund:ch_pi_o"),
+      "our customer's refund that matches no credited payment yet: parked, 200, alert")
+INVOICE_PAYMENTS["pi_o"] = "in_o"
+deliver("invoice.paid", invoice("in_o", O["id"], "sub_o"))
+check(ws(O["id"])["billing_hold"] == 1, "the invoice credited later applies it at once (apply_parked)")
+
+gets.clear()
+r = deliver("charge.refunded", dict(charge("pi_cc", 900, amount=900), customer="cus_crowdcut"))
+check(r.get_json().get("ignored") and len(gets) == 1, "another app's refund: one lookup, parked as not ours")
+gets.clear()
+billing_holds.retry_parked()
+check(not [g for g in gets if dict(g[1] or []).get("payment[payment_intent]") == "pi_cc"],
+      "the hourly retry doesn't call Stripe again for another app's refund")
+check(not alerted("payment_reversed:unapplied:refund:ch_pi_cc"), "and doesn't alert on it")
+
+print("== N6: flow emails and texts don't spend while held or renewal paused")
+import messaging  # noqa: E402
+import sms  # noqa: E402
+
+
+def flow_setup(wid, email):
+    t = db.now()
+    with db.connect() as conn:
+        fid = conn.execute("INSERT INTO flows (workspace_id, name, status, created_at, updated_at) VALUES (?,?,?,?,?)",
+                           (wid, "Welcome", "on", t, t)).lastrowid
+        cid = conn.execute("INSERT INTO contacts (workspace_id, email, email_consent, sms_consent, phone_e164, first_seen, "
+                           "last_seen) VALUES (?,?,?,?,?,?,?)", (wid, email, "form", "form", "+15555550100", t, t)).lastrowid
+        mid = conn.execute("INSERT INTO messages (workspace_id, contact_id, run_id, flow_id, node_id, channel, to_addr, "
+                           "subject, body_text, status, token, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                           (wid, cid, None, fid, "n1", "email", email, "Hello", "Thanks for signing up.", "queued",
+                            f"tok-{wid}-e", t)).lastrowid
+        sid = conn.execute("INSERT INTO messages (workspace_id, contact_id, run_id, flow_id, node_id, channel, to_addr, "
+                           "body_text, status, token, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                           (wid, cid, None, fid, "n2", "sms", "+15555550100", "Thanks for signing up.", "queued",
+                            f"tok-{wid}-s", t)).lastrowid
+        conn.commit()
+    return fid, mid, sid
+
+
+def flow_state(fid, mid, sid):
+    with db.connect() as conn:
+        f = conn.execute("SELECT status FROM flows WHERE id=?", (fid,)).fetchone()[0]
+        ms = [conn.execute("SELECT status FROM messages WHERE id=?", (x,)).fetchone()[0] for x in (mid, sid)]
+        t = conn.execute("SELECT title FROM tasks WHERE flow_id=? ORDER BY id DESC", (fid,)).fetchall()
+    return f, ms, (t[0][0] if t else ""), len(t)
+
+
+signup("pa@example.com")
+P = ws_of("pa@example.com")
+with db.connect() as conn:     # a comp plan keeps flows_email/flows_sms on, so only the pause can stop the spend
+    conn.execute("UPDATE workspaces SET plan='scale', plan_override='scale', plan_status='unpaid', plan_credits=5000, "
+                 "stripe_subscription_id='sub_p', plan_paid_through='2020-01-01T00:00:00+00:00' WHERE id=?", (P["id"],))
+    conn.commit()
+check(plans.renewal_paused(ws(P["id"])), "the workspace is renewal paused")
+fid, mid, sid = flow_setup(P["id"], "lead@example.com")
+before = (ws(P["id"])["credits"], ws(P["id"])["plan_credits"])
+messaging.send_queued()
+f, ms, title, ntasks = flow_state(fid, mid, sid)
+check(f == "paused" and ms[0] == "queued" and "renewal payment didn't go through" in title
+      and "out of credits" not in title, "renewal paused: the email isn't sent, the flow pauses with the real reason")
+with db.connect() as conn:
+    conn.execute("UPDATE flows SET status='on' WHERE id=?", (fid,))
+    conn.commit()
+sms.send_queued()
+f, ms, title, ntasks = flow_state(fid, mid, sid)
+check(f == "paused" and ms[1] == "queued" and "renewal payment didn't go through" in title and ntasks == 2,
+      "the text too")
+check((ws(P["id"])["credits"], ws(P["id"])["plan_credits"]) == before, "nothing was spent")
+signup("qa@example.com")
+Q = ws_of("qa@example.com")
+fid, mid, sid = flow_setup(Q["id"], "lead2@example.com")
+with db.connect() as conn:
+    billing_holds.set_hold(conn, Q["id"], "test")
+    conn.commit()
+messaging.send_queued()
+f, ms, title, ntasks = flow_state(fid, mid, sid)
+check(f == "paused" and ms[0] == "queued" and "a payment on this workspace was reversed" in title,
+      "on a refund hold: paused as a reversal, not \"ran out of credits\"")
 
 print(f"\nall {passed} checks passed ({TMP})")

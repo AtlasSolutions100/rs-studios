@@ -23,6 +23,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 TMP = tempfile.mkdtemp(prefix="rs_storage_")
+os.environ.setdefault("RS_SIGNUP_CONFIRM", "0")  # sign-ups here go straight in; test_login.py checks the emailed-link step
 os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret", RS_PLAN_SYNC="0", RS_EMAIL_VERIFY="0",
                   STRIPE_SECRET_KEY="sk_test_x", STRIPE_WEBHOOK_SECRET="whsec_x", RS_ACCESS_LOG="0")
 for k in ("RS_STORAGE_QUOTAS", "RS_DISK_MIN_GB", "RS_STORAGE_PURGE_DELETED", "OPS_ALERT_EMAIL"):
@@ -40,6 +41,20 @@ from PIL import Image  # noqa: E402
 passed = 0
 MB = storage.MB
 
+# The guard is checked at its default (5 GB) against a faked free-disk figure, so this file
+# passes on a small CI disk whatever RS_DISK_MIN_GB the runner has (N14). The real
+# reading is only checked to work; the disk-full section below fakes 4 GB.
+_real_free = storage.disk_free_bytes
+_real_free_now = _real_free()
+PLENTY = 50 * 1024 * MB
+
+
+def _plenty():
+    return PLENTY
+
+
+storage.disk_free_bytes = _plenty
+
 
 def check(cond, msg):
     global passed
@@ -48,6 +63,8 @@ def check(cond, msg):
     passed += 1
     print("  ok ", msg)
 
+
+check(isinstance(_real_free_now, int), "the real free-disk reading works (the checks below fake 50 GB free)")
 
 _ip = [0]
 
@@ -211,7 +228,6 @@ print("== disk guard (disk-full simulation)")
 fired = []
 _real_fire = alerts.fire
 alerts.fire = lambda key, title, detail="": fired.append(key) or True
-_real_free = storage.disk_free_bytes
 storage.disk_free_bytes = lambda: 4 * 1024 * MB
 try:
     r = upload(c, png())
@@ -246,7 +262,7 @@ try:
     r = client().get("/pricing")
     check(r.status_code == 200, "pages that write nothing still work")
 finally:
-    storage.disk_free_bytes = _real_free
+    storage.disk_free_bytes = _plenty
     alerts.fire = _real_fire
     worker.requests.get, hf.outputs = _real_get, _real_outputs
 

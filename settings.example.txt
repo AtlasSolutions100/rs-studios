@@ -38,6 +38,9 @@ RS_MAIL_DOMAIN=mail.campaignify.ai
 # replies go to hello@ the From's domain.
 # RS_OUTREACH_FROM="Koby Stull" <hello@campaignify.ai>
 # RS_EMAIL_VERIFY=1
+# A form sign-up logs in first from its emailed link, so sign-up says nothing about which emails
+# have accounts (login_security.py). 0 logs a new sign-up straight in again.
+# RS_SIGNUP_CONFIRM=0   (1 = a form sign-up logs in first from its emailed link; off by default)
 # ---- Continue with Google (google_auth.py). The button shows on Log in and Start free only once the client
 # secret is set. The client id is public; unset, the app uses the default in google_auth.py. In Google Cloud the
 # authorized redirect URI must be RS_PUBLIC_URL + /auth/google/callback (https://campaignify.ai/auth/google/callback).
@@ -104,8 +107,9 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # OPS_ALERT_EMAIL=
 # OPS_ALERT_DEDUPE_MIN=60   OPS_WORKER_DOWN_MIN=5   OPS_JOB_STUCK_MIN=20   OPS_WEBHOOK_SIG_PER_HOUR=10
 # OPS_VENDOR_ERROR_PCT=20   OPS_VENDOR_MIN_JOBS=5   OPS_ALERT_DISK_GB=10   OPS_BACKUP_MAX_HOURS=26
-# /health answers 503 when the worker loop's last pass is older than this many seconds:
-# RS_HEALTH_WORKER_MAX_AGE=30
+# /health answers 503 when the worker loop's last beat is older than this many seconds (keep it over 120,
+# the deploy hook's wait after the switch). Long vendor calls beat every 10 s for up to RS_HEALTH_BUSY_MAX_S.
+# RS_HEALTH_WORKER_MAX_AGE=180   RS_HEALTH_BUSY_MAX_S=900
 # JSON logs with request and workspace ids (RS_LOG_JSON=0 for plain logs; RS_ACCESS_LOG=0 drops request lines).
 # RS_LOG_JSON=1
 # ---- Off-site backups (backup.py, tools/restore.sh). Nightly: rs.db snapshot + media folders to one Cloudflare

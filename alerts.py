@@ -24,9 +24,23 @@ What fires an alert:
 
 `sweep()` runs from the worker loop about once a minute; the worker-down check
 runs in `/health` (the container healthcheck calls it every 30 s), because a
-dead worker can't report itself. Alert text carries ids only: no emails, names
+dead worker can't report itself.
+
+The worker heartbeat (N2): the loop beats each pass and between jobs, and while
+one long call runs (a vendor submit with its retries, a status poll, a 300 s
+upload, a download) `busy()` keeps beating from a side thread every
+BUSY_TICK_S, for up to RS_HEALTH_BUSY_MAX_S (900 s, longer than any one call
+with its retries). /health fails on the heartbeat only when it is older than
+RS_HEALTH_WORKER_MAX_AGE (180 s), which is more than any single vendor call
+(60 s, or 300 s for an upload, which beats from busy()). A process with its own
+worker thread judges only its own beats, so a new container can't fail on the
+old one's last beat, and it reports "starting" until its first one: in the
+first RS_HEALTH_WORKER_MAX_AGE seconds after a start, /health can fail only on a
+dead worker thread or the database, so the deploy hook (which waits up to 120 s
+after the switch) never rolls back a release for a slow vendor. Alert text carries ids only: no emails, names
 or tokens.
 """
+import contextlib
 import json
 import logging
 import os
@@ -156,28 +170,95 @@ def beat():
             log.warning("couldn't record the worker heartbeat")
 
 
-def worker_state(conn) -> dict:
-    """{"ok", "status", "age_s"} for the worker loop. A process that doesn't run
-    the worker (RS_WORKER=0) and has never seen a heartbeat reports "off" and passes."""
+BUSY_TICK_S = 10
+_busy = {"depth": 0, "since": 0.0, "what": None}
+_ticker = [None]
+
+
+def _in_worker() -> bool:
     import worker
+    return worker._thread is not None and threading.current_thread() is worker._thread
+
+
+@contextlib.contextmanager
+def busy(what: str):
+    """Around one long call in the worker loop: the heartbeat keeps going from a
+    side thread while it runs, up to RS_HEALTH_BUSY_MAX_S (a call stuck longer
+    than that stops the beats, so a hung loop still shows as late). Does nothing
+    outside the worker thread (a web request's call says nothing about the worker)."""
+    if not _in_worker():
+        yield
+        return
+    if _busy["depth"] == 0:
+        _busy.update(since=time.time(), what=what)
+    _busy["depth"] += 1
+    _start_ticker()
     try:
-        row = conn.execute("SELECT value FROM meta WHERE key=?", (HEARTBEAT_META,)).fetchone()
-        saved = float(row["value"]) if row and row["value"] else 0.0
-    except (ValueError, TypeError):
-        saved = 0.0
-    last = max(_beat["at"], saved)
-    max_age = _num("RS_HEALTH_WORKER_MAX_AGE", 30)
+        yield
+    finally:
+        _busy["depth"] -= 1
+        if _busy["depth"] <= 0:
+            _busy.update(depth=0, since=0.0, what=None)
+        beat()
+
+
+def busy_tick() -> bool:
+    """One tick of the side thread: beat if a call is in progress and not past the cap."""
+    since = _busy["since"]
+    if since and time.time() - since <= _num("RS_HEALTH_BUSY_MAX_S", 900):
+        beat()
+        return True
+    return False
+
+
+def _start_ticker():
+    if _ticker[0] is not None and _ticker[0].is_alive():
+        return
+
+    def run():
+        while True:
+            time.sleep(BUSY_TICK_S)
+            try:
+                busy_tick()
+            except Exception:  # noqa: BLE001
+                log.warning("worker heartbeat tick failed")
+
+    _ticker[0] = threading.Thread(target=run, name="rs-worker-beat", daemon=True)
+    _ticker[0].start()
+
+
+def worker_state(conn) -> dict:
+    """{"ok", "status", "age_s"} for the worker loop (plus "busy" and "busy_s" while
+    a long call runs). A process that doesn't run the worker (RS_WORKER=0) reads the
+    heartbeat the worker's process saved, and with none reports "off" and passes.
+    A process with its own worker thread goes by its own beats only."""
+    import worker
+    max_age = _num("RS_HEALTH_WORKER_MAX_AGE", 180)
     th = worker._thread
-    expected = th is not None or os.environ.get("RS_WORKER", "1") == "1"
-    if th is not None and not th.is_alive():
-        return {"ok": False, "status": "stopped", "age_s": round(time.time() - last) if last else None}
-    if not last:
-        if not expected:
-            return {"ok": True, "status": "off", "age_s": None}
-        starting = time.time() - STARTED < 60
-        return {"ok": starting, "status": "starting" if starting else "no heartbeat", "age_s": None}
+    if th is not None:
+        last = _beat["at"]
+        if not th.is_alive():
+            return {"ok": False, "status": "stopped", "age_s": round(time.time() - last) if last else None}
+        if not last:
+            starting = time.time() - STARTED < max(60.0, max_age)
+            return {"ok": starting, "status": "starting" if starting else "no heartbeat", "age_s": None}
+    else:
+        try:
+            row = conn.execute("SELECT value FROM meta WHERE key=?", (HEARTBEAT_META,)).fetchone()
+            saved = float(row["value"]) if row and row["value"] else 0.0
+        except (ValueError, TypeError):
+            saved = 0.0
+        last = max(_beat["at"], saved)
+        if not last:
+            if os.environ.get("RS_WORKER", "1") != "1":
+                return {"ok": True, "status": "off", "age_s": None}
+            starting = time.time() - STARTED < 60
+            return {"ok": starting, "status": "starting" if starting else "no heartbeat", "age_s": None}
     age = time.time() - last
-    return {"ok": age <= max_age, "status": "ok" if age <= max_age else "late", "age_s": round(age)}
+    out = {"ok": age <= max_age, "status": "ok" if age <= max_age else "late", "age_s": round(age)}
+    if _busy["since"]:
+        out.update(busy=_busy["what"], busy_s=round(time.time() - _busy["since"]))
+    return out
 
 
 # ---------------------------------------------------------------- /health
@@ -343,6 +424,22 @@ def _our_payment(conn, obj: dict):
         row = conn.execute("SELECT workspace_id FROM purchases WHERE stripe_payment_intent=? LIMIT 1", (pi,)).fetchone()
         if row:
             return True, row["workspace_id"]
+        # a plan invoice's payment (stored at invoice.paid, N1)
+        row = conn.execute("SELECT workspace_id FROM plan_invoices WHERE payment_intent=? LIMIT 1", (pi,)).fetchone()
+        if row:
+            return True, row["workspace_id"]
+    if obj.get("id"):
+        # billing_holds matched it, or parked it as one of our customers' (N1)
+        row = conn.execute("SELECT workspace_id, ours FROM credit_reversals WHERE stripe_id=? LIMIT 1",
+                           (obj["id"],)).fetchone()
+        if row and (row["workspace_id"] or row["ours"]):
+            return True, row["workspace_id"]
+    cus = obj.get("customer")
+    cus = cus.get("id") if isinstance(cus, dict) else cus
+    if cus:
+        row = conn.execute("SELECT id FROM workspaces WHERE stripe_customer_id=? LIMIT 1", (cus,)).fetchone()
+        if row:
+            return True, row["id"]
     inv = obj.get("invoice")
     inv = inv.get("id") if isinstance(inv, dict) else inv
     if inv:
@@ -376,6 +473,9 @@ def watch_response(request, resp):
             obj = (ev.get("data") or {}).get("object") or {}
             if not kind or not obj.get("id"):
                 return
+            out = resp.get_json(silent=True) or {}
+            if out.get("parked") and out.get("ok"):
+                return      # ours but not matched yet: billing_holds sent its own "not applied yet" alert (N1)
             with db.connect() as conn:
                 ours, ws = _our_payment(conn, obj)
             if not ours:

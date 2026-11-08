@@ -286,6 +286,11 @@ def load_user():
     if uid:
         with db.connect() as conn:
             u = conn.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+            if u and not login_security.session_current(u):
+                # A password reset since this browser logged in ends its session (N8).
+                for k in ("uid", "sv", "view_ws"):
+                    session.pop(k, None)
+                u = None
             if u:
                 g.user = u
                 ws_id = u["workspace_id"]
@@ -707,17 +712,27 @@ def login():
     if request.method == "POST":
         email = (request.form.get("email") or "").strip().lower()
         ip = client_ip()
-        if login_security.login_blocked(ip, email):   # per network + email, per network, per account
-            flash(login_security.BLOCKED_MSG)
+        # per network + email and per network: 15 minutes; per account: a slowdown for new browsers (N9)
+        wait = login_security.login_wait(ip, email, login_security.known_browser(request, email))
+        if wait:
+            flash(wait)
             return render_template("login.html"), 429
         with db.connect() as conn:
             u = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
         if u and check_password_hash(u["pw_hash"], request.form.get("password") or ""):
-            session.clear()
-            session["uid"] = u["id"]
-            csrf_token()
+            if login_security.awaiting_confirm(u):
+                # The right password for a sign-up whose emailed link hasn't been opened (SEC-8).
+                if not db.throttled(f"verify:{u['id']}", 1, verify.RESEND_GAP_S) \
+                        and not db.throttled(f"verify:{u['id']}", verify.RESEND_PER_HOUR, 3600):
+                    db.hit(f"verify:{u['id']}")
+                    login_security.later(accounts._send_first_link, u["id"], app.secret_key)
+                flash(f"Confirm your email first: open the link we sent to {u['email']}. "
+                      "We sent it again just now. Check spam too.")
+                return render_template("login.html")
+            login_security.start_session(u)
             nxt = request.args.get("next") or ""
-            return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else url_for("studio"))
+            return login_security.remember_browser(
+                redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else url_for("studio")), request, email)
         login_security.login_failed(ip, email)
         flash(login_security.failed_message(u))   # the same words for every email (SEC-8)
     return render_template("login.html")
@@ -757,12 +772,16 @@ def signup():
         if not owner and comp and not login_security.code_attempt(f"code-ip:{ip}"):
             return again(login_security.CODES_MSG, 429)
         if not owner:
+            pw_hash = generate_password_hash(pw)
             try:
-                return accounts.self_serve_signup(email, name, generate_password_hash(pw), request, ip, app.secret_key,
-                                                  invite_code=code, comp_code=comp)
+                # With confirm_first a new email gets the same "Check your email" page as a
+                # taken one, and logs in from the emailed link (SEC-8).
+                return accounts.self_serve_signup(email, name, pw_hash, request, ip, app.secret_key,
+                                                  invite_code=code, comp_code=comp,
+                                                  confirm_first=login_security.confirm_first())
             except accounts.EmailTaken as e:
                 if login_security.enabled():   # mail that inbox instead of saying so here (SEC-8)
-                    return login_security.signup_email_taken(email, ip)
+                    return login_security.signup_email_taken(email, ip, pw_hash, app.secret_key)
                 return again(str(e), e.status)
             except accounts.SignupRefused as e:
                 return again(str(e), e.status)
@@ -784,9 +803,7 @@ def signup():
                                 "member" if joins else "owner", db.now(), None,
                                 gads.first_touch_json(request.cookies.get(gads.COOKIE))))
             conn.commit()
-            session.clear()
-            session["uid"] = cur.lastrowid
-            csrf_token()
+            login_security.start_session(conn.execute("SELECT * FROM users WHERE id=?", (cur.lastrowid,)).fetchone())
         resp = redirect(url_for("brand_kit"))
         if request.cookies.get(gads.COOKIE):
             resp.delete_cookie(gads.COOKIE)   # it's on the account now
@@ -797,10 +814,14 @@ def signup():
 @app.route("/verify")
 def verify_email():
     """The link in the confirmation email. Works once, for 48 hours; it confirms
-    the address but doesn't log anyone in."""
+    the address but doesn't log anyone in, except a form sign-up that was waiting
+    for this link (login_security.confirm_first): opening it is that account's
+    first login."""
     with db.connect() as conn:
         outcome, u = verify.confirm(conn, app.secret_key, request.args.get("t") or "")
         conn.commit()
+        if outcome == "ok" and u is not None and u["signup_pending"]:
+            return accounts.first_login(conn, u, request)
     mine = bool(g.user and u is not None and g.user["id"] == u["id"])
     if outcome == "ok":
         flash("Email confirmed. Video ads are unlocked." if mine else
@@ -1624,6 +1645,7 @@ def billing_page():
     return render_template("billing.html", templates_by_id=catalog.TEMPLATE_BY_ID,
                            purchases=purchases, ledger=ledger, packs_by=catalog.PACK_BY_CODE,
                            invoices=invoices, current=plans.plan(g.ws), subscribed=_subscribed(g.ws),
+                           renewal_failed=_renewal_failed(g.ws), owed=db.owed(g.ws),
                            owner=is_owner(), comp_on=compcodes.active(g.ws), used_code=used_code,
                            promo=session.get("promo"))
 
@@ -1701,8 +1723,19 @@ def _report_purchase(sid: str, plan: bool):
 
 
 def _subscribed(ws) -> bool:
-    """A live Stripe subscription (not just a comp plan)."""
-    return bool(ws["stripe_subscription_id"]) and ws["plan_status"] in plans.LIVE_STATUSES
+    """A live Stripe subscription (not just a comp plan). A subscription whose
+    renewal failed (unpaid, paused) still counts while RENEWAL_PAUSE is on: it's
+    fixed in the Stripe portal (update the card), never with a second checkout (N5)."""
+    if not ws["stripe_subscription_id"]:
+        return False
+    return ws["plan_status"] in plans.LIVE_STATUSES or _renewal_failed(ws)
+
+
+def _renewal_failed(ws) -> bool:
+    """The workspace's subscription is still in Stripe but its renewal payment
+    failed (past_due, unpaid, paused). RENEWAL_PAUSE=off: as before."""
+    return (plans.renewal_pause_on() and bool(ws["stripe_subscription_id"])
+            and ws["plan_status"] in plans.RENEWAL_FAILED)
 
 
 @app.route("/app/billing/subscribe", methods=["POST"])
@@ -1717,6 +1750,9 @@ def subscribe():
     if not billing.configured():
         flash("Plans open soon. Your credits and credit packs work in the meantime.")
         return redirect(url_for("billing_page"))
+    if _renewal_failed(g.ws):
+        return _portal_redirect("Your renewal payment didn't go through. Update your card here and pay the open "
+                                "invoice; your plan comes back as soon as it's paid.")
     if _subscribed(g.ws):
         return _portal_redirect("Change your plan here. Upgrades apply right away; downgrades at your next renewal.")
     if g.ws["plan_status"] == "pending":
@@ -1872,12 +1908,13 @@ def _release_stripe_event(eid):
 
 
 def _stripe_event(typ, obj):
-    if typ == "charge.refunded":
-        return jsonify(billing_holds.charge_refunded(obj))
-    if typ == "charge.dispute.created":
-        return jsonify(billing_holds.dispute_created(obj))
-    if typ == "charge.dispute.closed":
-        return jsonify(billing_holds.dispute_closed(obj))
+    if typ in ("charge.refunded", "charge.dispute.created", "charge.dispute.closed"):
+        handler = {"charge.refunded": billing_holds.charge_refunded, "charge.dispute.created": billing_holds.dispute_created,
+                   "charge.dispute.closed": billing_holds.dispute_closed}[typ]
+        out = handler(obj)
+        # N1: never a 200 for a reversal that is neither applied nor parked; a failed Stripe
+        # lookup is parked and answered 503 so Stripe sends it again.
+        return jsonify(out), (503 if out.get("retry") else 200)
     if typ in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
         if obj.get("mode") == "subscription":
             return _plan_checkout_completed(obj)
@@ -1963,6 +2000,23 @@ def _plan_checkout_completed(sess):
             return jsonify({"ignored": "not a campaignify plan"})
         code = meta.get("plan") if meta.get("plan") in plans.PLANS else ws["plan"]
         customer = sess.get("customer") if isinstance(sess.get("customer"), str) else (sess.get("customer") or {}).get("id")
+        if _renewal_failed(ws) and sub_id and sub_id != ws["stripe_subscription_id"]:
+            # N5: a checkout finished while the old subscription's renewal is unpaid (one
+            # started before the pause). "pending" must not lift the pause: the workspace
+            # keeps its paused subscription until the new one's invoice is paid (invoice.paid
+            # switches to it then). Two subscriptions now exist: tell the operator.
+            log.warning("stripe webhook: workspace %s finished a plan checkout (%s) while %s is %s",
+                        ws["id"], sub_id, ws["stripe_subscription_id"], ws["plan_status"])
+            try:
+                alerts.fire(f"second_subscription:{ws['id']}", f"Workspace {ws['id']} has a second plan subscription",
+                            f"Subscription {sub_id} was started while {ws['stripe_subscription_id']} is "
+                            f"{ws['plan_status']}. Cancel the old one in Stripe so the customer isn't billed twice.")
+            except Exception:  # noqa: BLE001
+                log.exception("second subscription alert failed")
+            conn.execute("UPDATE workspaces SET stripe_customer_id=COALESCE(stripe_customer_id, ?) WHERE id=?",
+                         (customer, ws["id"]))
+            conn.commit()
+            return jsonify({"ok": True, "workspace": ws["id"], "paused": True})
         if plans.pending_on():
             # BILL-3: the plan switches on when its first invoice is paid (invoice.paid,
             # or the subscription turning active), never at checkout. Until then the
@@ -2021,6 +2075,13 @@ def _plan_invoice_paid(inv):
         period_end = max([ln["period_end"] or 0 for ln in lines] or [0]) or None
         customer = inv.get("customer") if isinstance(inv.get("customer"), str) else (inv.get("customer") or {}).get("id")
         pi = billing.invoice_payment_intent(inv)
+        if not pi and billing_holds.enabled() and int(inv.get("amount_paid") or 0) > 0:
+            # Newer API versions send invoice.payments only when expanded: ask Stripe (read only),
+            # so a refund or dispute of this invoice matches it later (N1). Never fails the event.
+            try:
+                pi = billing.payment_intent_for_invoice(inv.get("id"))
+            except Exception as e:  # noqa: BLE001 — the reversal path looks it up again (billing_holds)
+                log.warning("stripe webhook: couldn't read the payment of invoice %s: %s", inv.get("id"), e)
         conn.execute("INSERT INTO plan_invoices (invoice_id, workspace_id, plan, credits, amount_cents, billing_reason, "
                      "created_at, payment_intent) VALUES (?,?,?,?,?,?,?,?)",
                      (inv.get("id"), ws["id"], p["code"], grant, int(inv.get("amount_paid") or 0), reason, db.now(), pi))
@@ -2163,6 +2224,11 @@ def _reconcile_all():
         except Exception:  # noqa: BLE001
             log.exception("plan sync failed for workspace %s", ws_id)
     _settle_plans()
+    try:
+        # refunds and disputes that couldn't be matched to a payment yet (N1)
+        billing_holds.retry_parked()
+    except Exception:  # noqa: BLE001
+        log.exception("parked reversal retry failed")
 
 
 def _settle_plans():
@@ -2230,13 +2296,14 @@ def admin():
         sys_health = admin_funnel.health(conn)
         funnel = admin_funnel.signups(conn, 30)["totals"]
         holds = billing_holds.holds(conn)
+        parked = billing_holds.parked(conn)
     vendor = json.loads(row["value"]) if row else None
     return render_template("admin.html", wss=wss, invites=invites, refs=refs, jobs=jobs, purchases=purchases,
                            billing_on=billing.configured(), vendor=vendor,
                            markup=catalog.MARKUP, hd_markup=catalog.HD_MARKUP, configured=hf.configured(),
                            base=request.host_url, stills=stills, presenters=presenter_stills.with_photos(url_for),
                            stills_cap=presenter_stills.CAP_USD,
-                           ai_status=llm.status(), health=sys_health, funnel=funnel, holds=holds,
+                           ai_status=llm.status(), health=sys_health, funnel=funnel, holds=holds, parked=parked,
                            holds_on=billing_holds.enabled())
 
 
@@ -2384,12 +2451,14 @@ def admin_plan():
 @app.route("/admin/workspaces/<int:wid>/lift-hold", methods=["POST"])
 @admin_required
 def admin_lift_hold(wid):
-    """Lift a refund or dispute hold by hand. Voided credits stay voided (top up
-    below if they should come back)."""
+    """Lift a refund or dispute hold by hand. Voided credits stay voided unless
+    the admin picks "restore voided credits" (restore=1)."""
+    restore = request.form.get("restore") == "1"
     with db.connect() as conn:
-        billing_holds.lift(conn, wid)
+        back = billing_holds.lift(conn, wid, restore=restore)
         conn.commit()
-    flash(f"Hold lifted for workspace #{wid}.", "ok")
+    flash(f"Hold lifted for workspace #{wid}." + (f" {back:,} voided credits restored." if restore else
+                                                    " Voided credits stay voided."), "ok")
     return redirect(url_for("admin"))
 
 

@@ -27,6 +27,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 TMP = tempfile.mkdtemp(prefix="rs_retry_")
+os.environ.setdefault("RS_SIGNUP_CONFIRM", "0")  # sign-ups here go straight in; test_login.py checks the emailed-link step
 os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret", RS_PLAN_SYNC="0", RS_EMAIL_VERIFY="0",
                   RS_ACCESS_LOG="0", RS_JOB_RETRY_SECONDS="30")
 for k in ("HF_RETRY", "RS_JOB_CANCEL", "OPS_ALERT_EMAIL"):
@@ -487,6 +488,58 @@ with db.connect() as conn:       # only the 3 cancels ended in the last 15 minut
 os.environ.pop("OPS_VENDOR_MIN_JOBS")
 check("vendor_errors" not in fired and "vendor_errors" in control,
       "members' cancels don't count as vendor errors in the operator alert (a real failure still does)")
+
+print("== a cancel that lands while the worker is finishing the job (N11)")
+with db.connect() as conn:       # only the job under test in the poll loop
+    conn.execute("UPDATE jobs SET status='done' WHERE status IN ('pending','running')")
+    conn.commit()
+jn = queue(ws=AWS)
+reset()
+worker.tick()
+rn = job(jn)["request_id"]
+check(job(jn)["status"] == "running" and rn, "submitted: running")
+V["status"][rn] = {"status": "completed"}
+V["cancel"][rn] = 404               # the vendor no longer knows it: the member's cancel refunds it
+_save = worker._save_outputs
+
+
+def save_then_cancel(conn, j, res):
+    with db.connect() as c2:
+        ok, _ = worker.cancel_job(c2, job(j["id"]))
+    conn.execute("INSERT INTO outputs (job_id, kind, url, path) VALUES (?,?,?,?)", (j["id"], "video", "https://x/v.mp4", None))
+    conn.commit()
+    V["n11_cancel"] = ok
+
+
+worker._save_outputs = save_then_cancel
+ba = bal(AWS)
+worker.tick()
+worker._save_outputs = _save
+with db.connect() as conn:
+    outs = conn.execute("SELECT COUNT(*) FROM outputs WHERE job_id=?", (jn,)).fetchone()[0]
+check(V["n11_cancel"] and job(jn)["status"] == "failed" and refunds(jn) == 1 and bal(AWS) == ba + job(jn)["credits"]
+      and outs == 0, "the cancel wins: the job stays failed and refunded once, its outputs are dropped")
+jm = queue(ws=AWS)
+reset()
+worker.tick()
+rm = job(jm)["request_id"]
+_status = hf.status
+
+
+def cancel_then_completed(rid):
+    # the member cancels after the worker read the job as running, before the result is in
+    with db.connect() as c2:
+        worker._fail(c2, job(jm), worker.CANCELED)
+    return {"status": "completed"}
+
+
+called = []
+worker._save_outputs = lambda conn, j, res: called.append(j["id"])
+hf.status = cancel_then_completed
+worker.tick()
+hf.status, worker._save_outputs = _status, _save
+check(job(jm)["status"] == "failed" and not called and refunds(jm) == 1,
+      "a job already canceled isn't saved or marked done by a later completion")
 
 os.environ.pop("RS_JOB_CANCEL")
 print(f"\nall {passed} checks passed ({TMP})")
