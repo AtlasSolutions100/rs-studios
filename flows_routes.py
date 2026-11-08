@@ -6,12 +6,13 @@ import secrets
 from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
 
 import copywriter
+import credits as credit_holds
 import db
 import flows
 import flows_engine
 import llm
 import plans
-from core import brand, can_afford, charge_ai, feature_required, login_required
+from core import brand, can_afford, feature_required, login_required, reserve_ai
 
 bp = Blueprint("flows", __name__)
 TIMEZONES = ["America/New_York", "America/Chicago", "America/Denver", "America/Phoenix", "America/Los_Angeles",
@@ -149,7 +150,8 @@ def draft():
         flash("AI drafting isn't switched on yet. Start from a template instead.")
         return redirect(url_for("flows.index"))
     quote = llm.estimate_credits(*flows.DRAFT_TOKENS)
-    if not can_afford(quote):
+    hold = reserve_ai(quote, "AI flow draft") if can_afford(quote) else None    # held before the call (credits.py)
+    if hold is None:
         flash(f"Drafting needs about {quote} credits and you have {db.balance(g.ws):,}.")
         return redirect(url_for("flows.index"))
     with db.connect() as conn:
@@ -174,7 +176,10 @@ def draft():
             err = None if tree["steps"] else "The draft came back empty. Try describing it differently."
         except llm.LLMError as e:
             tree, err, out = None, f"The writer didn't finish ({e}). Nothing was saved.", {}
-        taken = charge_ai(conn, usage.credits, "AI flow draft") if usage.calls else 0
+        except Exception:
+            credit_holds.release(hold, "the writer crashed")
+            raise
+        taken = credit_holds.settle(hold, usage.credits if usage.calls else 0)
         conn.commit()
         if err:
             flash(err)

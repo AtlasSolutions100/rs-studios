@@ -258,6 +258,20 @@ Tests: `tests/test_mcp.py`.
 
     python tests/test_app.py        # generation API and Stripe faked; also runs test_products, test_outreach, test_public_site, test_pixels, test_site_events, test_google_auth, ...
 
+Golden-path eval (separate, slower, about 40 seconds; needs Playwright for Python with Chromium):
+
+    python tests/golden_path.py                  # both paths; --path product|service, --json/--markdown out, --shots dir, --headed
+
+It runs the north star's two paths in a real browser against a local server with every provider faked (as
+test_app.py fakes them): the product path (sign up, confirm the email, paste the product page, 2 free ads, pick a
+plan, plan the campaign, creative batch, copy, landing page, export) and the service path (website, leads plan,
+Google Search copy, quote form, page with the form, follow-up flow, a visitor's lead in Contacts). Per step it records
+wall clock and user actions (clicks, fields typed, addresses typed), asserts that every button that spends credits
+shows its price before it's pressed and never charges more, and that no step leaves the app except the known handoffs
+(Stripe, the ad platforms' payment pages). `KNOWN_GAPS` holds failures the roadmap already tracks (today UX-13: the
+service path can't make its first ads without a product photo); they print as "known gap" and don't fail the run, so
+the output is the baseline. Connect and launch print "not built" until M2/M3. Exit code 1 on any other failure.
+
 ## Deploy
 
 Push to main. The workflow runs the tests, then sends the commit and the
@@ -267,6 +281,89 @@ GitHub OIDC token (no SSH key). The hook writes `/opt/rs-studios`, keeps
 `data/` and `settings.txt`, and runs `docker compose -p rs-studios up -d --build`.
 Crowdcut's Caddy serves campaignify.ai (studio.rectorandstull.com redirects there) and proxies to
 `rs-studios-app:8080`. Data (SQLite + media) lives in `/opt/rs-studios/data`.
+
+## Health and alerts (`alerts.py`, `opslog.py`)
+
+`/health` reads and writes the database and checks the worker loop's heartbeat (last pass under
+`RS_HEALTH_WORKER_MAX_AGE`, 30 s); either failing answers 503. Disk (under 10 GB is "low") and the vendor's last
+probe (refreshed every 5 minutes by the worker, never fetched by `/health` itself unless `?deep=1`) are reported but
+don't fail it. Operator alerts go by email through Resend to `OPS_ALERT_EMAIL`, at most once per alert per hour:
+worker down 5 minutes, a job pending or running over 20 minutes, over 10 webhook signature failures in an hour,
+over 20% of jobs failing in 15 minutes (or the vendor key rejected / out of credit), disk under 10 GB, the last
+backup over 26 hours old (meta `backup_last_ok_at`, quiet until the backup job writes it; `alerts.backup_ok`), and a
+refund or dispute on one of our Stripe payments (watched from the webhook's request and response, so the handler
+is unchanged; billing code may also call `alerts.payment_reversed`). Thresholds are settings (`settings.example.txt`).
+Logs from the `campaignify` logger are JSON lines with `request_id` and `ws`, plus one line per request with the
+route pattern (never the real path or query), status and time; every response carries `X-Request-Id`.
+Tests: `tests/test_alerts.py`.
+
+## Backups and the restore drill (`backup.py`, `tools/restore.sh`)
+
+Every night (after `BACKUP_HOUR_UTC`, default 8, which is 2 or 3 am Central) the worker loop starts a backup in its
+own thread:
+
+1. A consistent snapshot of `rs.db` with SQLite's online backup API (what `sqlite3 rs.db ".backup FILE"` does),
+   gzipped to `data/backups/rs-<utc>.db.gz`. The newest 3 stay on the server (`BACKUP_KEEP_LOCAL`).
+2. The snapshot is uploaded to Cloudflare R2 through rclone's crypt remote, so file contents and names are
+   encrypted on the server before they leave it. Snapshots older than 30 days are deleted from the bucket
+   (`BACKUP_KEEP_DAYS`; the newest is never deleted).
+3. `data/uploads`, `data/media`, `data/presenters` and the session key are synced. A file deleted on the server is
+   moved to `media-trash/<date>/` in the bucket and kept 30 days.
+4. A good run calls `alerts.backup_ok`; the `backup_late` alert fires when the last good one is over 26 hours old,
+   and `backup_failed` fires when a run fails. Admin > System > Backups shows the last good backup's time and size,
+   the snapshot count and the last error.
+
+Settings (GitHub secrets, synced by deploy.yml): `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
+`R2_BUCKET`, `BACKUP_CRYPT_PASSWORD`, `BACKUP_CRYPT_SALT`. Without all six nothing changes: nothing is uploaded, the
+app logs one warning and the System card says backups are off. Keep a copy of the two crypt values outside GitHub
+(a password manager): without them the backups can't be decrypted. Layout in the bucket:
+`<R2_BUCKET>/campaignify/{db,media,media-trash,keys}` (names encrypted). Kill switch: `BACKUPS=off`; database only:
+`BACKUP_MEDIA=off`. By hand, in the container: `python backup.py` (or `--status`).
+
+**Restore drill (quarterly: first week of January, April, July and October).** On the server or a dev box with
+rclone and the app's requirements (the app image has both):
+
+    docker exec rs-studios-app tools/restore.sh --media /tmp/restore-drill
+    # or on a dev box: export the six settings, then
+    tools/restore.sh --media /path/to/scratch
+
+It downloads the newest snapshot (or `--snapshot NAME`), unpacks it to `<scratch>/data/rs.db`, restores the session
+key and, with `--media`, the media folders, then runs `tools/restore_smoke.py`: `PRAGMA integrity_check`, the core
+tables and their row counts, the app booting on the restored folder with no keys and no worker and answering
+`/health` and `/login` with 200, and how many of the newest ad files are present. It never touches the live data
+folder and refuses a scratch folder that isn't empty. To run the app on the restored copy:
+`RS_DATA=<scratch>/data RS_WORKER=0 python app.py` (or mount it as `data/` in a scratch container). Write the date,
+the snapshot name, how long it took and the smoke output in the ops log, then delete the scratch folder (it holds
+customer data). A real restore is the same steps, then stop the app, move `data/` aside and put the restored folder
+in its place.
+
+Tests: `tests/test_backup.py` (rclone replaced by `tests/fake_rclone.sh`, no network).
+
+## Storage quotas, body limits and the disk guard (`storage.py`)
+
+Each workspace keeps up to its plan's storage on our disk: Free 200 MB, Starter 2 GB, Growth 10 GB, Scale 50 GB
+(its product photos, Creator Pool files and finished ads; ads it deleted don't count). Uploads are checked before
+anything is saved (against the whole request's size, so a 20-photo upload that doesn't fit keeps none) and again
+with the real size; over quota answers 507 "Your storage is full: X of Y used on the Z plan" with what to do. A
+finished ad that would go over keeps only the vendor's link instead of a local copy. `RS_STORAGE_QUOTAS=0` turns
+quotas off. Body limits per route, from Content-Length before any parsing and on the stream: upload routes 155 MB,
+the contacts CSV 5 MB, webhooks 256 KB, everything else 1 MB (413). Under `RS_DISK_MIN_GB` (5) GB free, uploads,
+saved ads and exports are refused with 507 and the operator is alerted (`alerts.py`). Once a day (about 09:00 UTC)
+the worker removes temp leftovers (`*.part.mp4`, `*.wm.mp4` over an hour old) and platform exports not used for
+`RS_EXPORT_KEEP_DAYS` (7) days (they're made again on the next download); with `RS_STORAGE_PURGE_DELETED=1` (off
+by default) it also removes the files of ads deleted over 30 days ago. Tests: `tests/test_storage.py`.
+
+## Credit holds for AI runs (`credits.py`)
+
+Every AI run takes the most it can cost out of the balance before the provider is called: the planner its cap,
+competitor research its quote, copy, optimizer, landing page copy, flow drafts, SEO suggestions, product import and
+Create's angles, scripts and shorten their quotes, a paid setup guide reply its estimate. Too little left: refused
+(402 for the JSON endpoints, a message on the forms) and nothing is called. When the run ends it keeps what it used
+(never more than the hold) and gives the rest back, pack credits first. Two runs at once can't spend the same
+credits. The ledger shows each step: "held up to N", "used X, Y back", "nothing used, N back" (`ledger.hold_id`
+ties them to the `credit_holds` row). A run whose thread dies gives its hold back when it's marked failed; any hold
+older than 30 minutes is given back by the worker. Generation jobs already take their exact price when queued and
+are refunded on failure. `CREDIT_HOLDS=off` goes back to charging after the run. Tests: `tests/test_credit_holds.py`.
 
 ## Pieces
 

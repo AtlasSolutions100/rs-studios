@@ -59,4 +59,6 @@ def export(src: str, kind: str, platform: str, fmt: str, tw: int, th: int) -> st
     dst = target_path(src, platform, fmt)
     if os.path.exists(dst) and os.path.getmtime(dst) >= os.path.getmtime(src):
         return dst
+    import storage
+    storage.disk_guard()      # under 5 GB free: 507, nothing written (exports are purged after 7 days)
     return export_video(src, dst, tw, th) if kind == "video" else export_image(src, dst, tw, th)

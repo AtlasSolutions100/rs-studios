@@ -15,12 +15,13 @@ from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template
 import assistant
 import catalog
 import compliance
+import credits as credit_holds
 import db
 import fetcher
 import llm
 import product_import
 import products
-from core import charge_ai, login_required, queue_job, verify_block
+from core import charge_ai, hold_check, login_required, queue_job, reserve_ai, verify_block
 
 bp = Blueprint("assistant", __name__)
 PER_HOUR = 80          # member messages per workspace per hour
@@ -184,21 +185,33 @@ def ok_paid():
 
 def _turn(conn, t, data, screen, job_started=False):
     """Run the assistant on the conversation as it stands; charge for it."""
+    hold_check(conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone())
     free_left = _free_left(conn)
     est = assistant.estimate()
     if free_left <= 0 and not data.get("paid_ok"):
         return None, {"need_ok": True}
-    if free_left <= 0 and db.balance(conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone()) < est:
-        return None, {"error": f"Replies cost about {est} credits now and you have {db.balance(g.ws):,}. Top up on Billing."}
+    # A paid reply's estimate is held before the guide runs (credits.py); anything past it is charged after.
+    hold = reserve_ai(est, "AI setup guide", conn=conn) if free_left <= 0 else None
+    if free_left <= 0 and hold is None:
+        have = db.balance(conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone())
+        return None, {"error": f"Replies cost about {est} credits now and you have {have:,}. Top up on Billing."}
     usage = llm.Usage()
     err = None
     try:
         shown = assistant.run(conn, g.ws, data, screen, usage, job_started=job_started)
     except llm.LLMError as e:
         shown, err = [], f"The guide didn't answer ({e}). Try again in a moment."
+    except Exception:
+        credit_holds.release(hold, "the guide crashed")
+        raise
     credits = usage.credits if usage.calls else 0
     free = min(credits, free_left)
-    paid = charge_ai(conn, credits - free, "AI setup guide") if credits - free > 0 else 0
+    if hold is not None:
+        paid = credit_holds.settle(hold, credits)
+        if credits > hold.amount:
+            paid += charge_ai(conn, credits - hold.amount, "AI setup guide")
+    else:
+        paid = charge_ai(conn, credits - free, "AI setup guide") if credits - free > 0 else 0
     if free:
         conn.execute("UPDATE workspaces SET assistant_free_used=assistant_free_used+? WHERE id=?", (free, g.ws["id"]))
     _save(conn, t, data, paid, free, usage.usd)
@@ -351,6 +364,7 @@ def _do_import(conn, card):
     import product_routes
     quote = product_import.estimate() if llm.anthropic_ready() else 0
     ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone()
+    hold_check(ws)
     if quote and db.balance(ws) < quote:
         return None, {"error": f"Reading the page needs about {quote} credits and you have {db.balance(ws):,}."}
     try:

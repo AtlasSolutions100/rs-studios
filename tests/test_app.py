@@ -86,7 +86,7 @@ calls = {"submit": [], "upload": 0}
 results = {}
 
 
-def fake_submit(model, inputs, webhook_url=None):
+def fake_submit(model, inputs, webhook_url=None, idempotency_key=None):
     rid = f"req{len(calls['submit']) + 1}"
     calls["submit"].append((model, inputs))
     results[rid] = {"status": "in_progress"}
@@ -111,6 +111,7 @@ class FakeResp:
 
 
 hf.submit, hf.status, hf.upload = fake_submit, fake_status, fake_upload
+hf.cancel = lambda rid: (calls.setdefault("cancel", []).append(rid), hf.STARTED)[1]   # timeouts ask the vendor first
 worker.requests.get = lambda url, timeout=0: FakeResp()
 
 print("== compliance")
@@ -1005,8 +1006,15 @@ r = deliver({"id": "evt_d", "type": "customer.subscription.deleted", "data": {"o
     "id": "sub_1", "object": "subscription", "status": "canceled", "customer": "cus_1",
     "metadata": {"app": "campaignify", "workspace_id": str(nws["id"])}}}})
 w = wsrow(nws["id"])
-check(r.status_code == 200 and plans.plan_code(w) == "free" and w["plan_credits"] == 0 and w["credits"] == before["credits"],
-      "subscription ended: back to free, plan credits gone, pack credits kept")
+check(r.status_code == 200 and plans.plan_code(w) == "scale" and w["plan_credits"] == 18000,
+      "subscription ended early: the period paid for runs to its end, plan and credits kept (paid usage)")
+with db.connect() as conn:   # ...until that period is over
+    conn.execute("UPDATE workspaces SET plan_paid_through='2020-01-01T00:00:00+00:00' WHERE id=?", (nws["id"],))
+    conn.commit()
+n.get("/app/library")
+w = wsrow(nws["id"])
+check(plans.plan_code(w) == "free" and w["plan"] == "free" and w["plan_credits"] == 0 and w["credits"] == before["credits"],
+      "subscription ended: at the end of the paid period, back to free, plan credits gone, pack credits kept")
 check(n.get("/app/billing").status_code == 200 and b"Get Growth" in n.get("/app/billing").data,
       "after cancel the plans can be bought again")
 
@@ -2992,6 +3000,7 @@ hf.status = _real_status
 j = sjob(stuck["id"])
 check(j["status"] == "failed" and j["error"].endswith("Credits refunded.") and sbal() == b0,
       "a job whose status can never be read still times out, and the credits come back")
+check(calls.get("cancel", [])[-1:] == [j["request_id"]], "and the timed-out request is canceled at the vendor first")
 
 retry_price = jobs_routes.price_now(None, j)[0]
 _real_price = jobs_routes.price_now
@@ -3056,8 +3065,17 @@ deliver({"id": "evt_late_del", "type": "customer.subscription.deleted", "data": 
     "id": "sub_late", "status": "canceled", "metadata": {"app": "campaignify", "workspace_id": str(saws)}, "items": {"data": []}}}})
 r = deliver(plan_invoice("in_late_1", saws, "starter", reason="subscription_cycle", sub="sub_late"))
 w = wsrow(saws)
-check(r.get_json().get("ignored") and w["plan"] == "free" and w["plan_credits"] == 0,
+with db.connect() as conn:
+    late = conn.execute("SELECT 1 FROM plan_invoices WHERE invoice_id='in_late_1'").fetchone()
+check(r.get_json().get("ignored") and w["plan_status"] == "canceled" and not late,
       "a late invoice.paid for a canceled subscription doesn't switch the plan and its credits back on")
+with db.connect() as conn:   # the period it paid for ends: free, credits gone, the late invoice changed nothing
+    conn.execute("UPDATE workspaces SET plan_paid_through='2020-01-01T00:00:00+00:00' WHERE id=?", (saws,))
+    conn.commit()
+    core_mod = __import__("core")
+    core_mod.settle_plan_lapse(conn, saws)
+w = wsrow(saws)
+check(w["plan"] == "free" and w["plan_credits"] == 0, "and when its paid period ends, back to free with no plan credits")
 r = deliver(plan_invoice("in_new_1", saws, "growth", sub="sub_new"))
 check(wsrow(saws)["plan"] == "growth" and r.get_json().get("credited") == 6000, "subscribing again (a new subscription) still works")
 
@@ -3175,7 +3193,25 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_promo_codes.py")], check=True)
     # Competitor Snapshot (competitors.py, /app/competitors): web research, cite-check, credits, scoping (API faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_competitors.py")], check=True)
+    # Credit holds (credits.py): AI runs reserve first, parallel runs can't overspend, stale holds go back.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_credit_holds.py")], check=True)
     # Creator Pools (creator_pools.py, /app/creator-pools): the flag, Checkout, the webhook, Crowdcut sync, refunds (faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_creator_pools.py")], check=True)
     # The MCP server (mcpserver.py, mcp_tools.py): API keys, OAuth, the handshake, quote-then-generate.
     subprocess.run([sys.executable, os.path.join(HERE, "test_mcp.py")], check=True)
+    # Operator alerts and the real /health (alerts.py, opslog.py): each condition, dedupe, JSON logs (mail faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_alerts.py")], check=True)
+    # Storage quotas, body limits, the disk guard and the daily purge (storage.py; big files are sparse).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_storage.py")], check=True)
+    # Login hardening (login_security.py): throttles, one login message, password reset, single-use /m links, code limits.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_login.py")], check=True)
+    # Vendor retry, idempotent resubmits, timeouts canceled at the vendor, the Cancel button (hf.py, worker.py; HTTP faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_vendor_retry.py")], check=True)
+    # Refunds and disputes (billing_holds.py): credits voided, downloads-only hold, dispute won, event-id dedupe.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_billing_holds.py")], check=True)
+    # Plans on only when paid (pending), a paid period kept to its end, a failed renewal paused with credits kept.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_plan_pending.py")], check=True)
+    # The pip-audit gate (tools/audit_gate.py): severity from OSV, fail only on High or Critical (OSV faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_audit_gate.py")], check=True)
+    # Off-site backups and the restore drill (backup.py, tools/restore.sh): rclone faked by tests/fake_rclone.sh.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_backup.py")], check=True)

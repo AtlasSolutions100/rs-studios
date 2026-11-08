@@ -1,0 +1,11 @@
+# The dependency ranges Campaignify accepts. Not installed directly: requirements.txt is
+# the lock compiled from this file (exact versions + sha256 hashes) that the image and
+# CI install. After editing this file:
+#
+#    pip-compile --generate-hashes --allow-unsafe --strip-extras requirements.in
+#
+# then commit both files. CI (tests + pip-audit) runs on the new lock.
+flask>=3.0
+requests>=2.31
+gunicorn>=22.0
+pillow>=10.0

@@ -149,4 +149,12 @@ def health(conn) -> dict:
                         + (" · purchase label" if google["purchase"] else " · no purchase label") if google["tag"] else ""),
                        ("Meta", bool(px["meta"]), px["meta"]), ("TikTok", bool(px["tiktok"]), px["tiktok"]),
                        ("Reddit", bool(px["reddit"]), px["reddit"]), ("X", bool(px["x"]), px["x"])],
-            "server_side": server, "warn": warn, "imports": imports(conn)}
+            "server_side": server, "warn": warn, "imports": imports(conn), "backup": _backup_status()}
+
+
+def _backup_status() -> dict:
+    try:
+        import backup
+        return backup.status()
+    except Exception:  # noqa: BLE001 — the card must render even if this breaks
+        return {"configured": False, "missing": [], "last": None, "good": None, "error": "status unreadable"}

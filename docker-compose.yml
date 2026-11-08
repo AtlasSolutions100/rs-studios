@@ -3,12 +3,19 @@
 # joins Crowdcut's network so Caddy reaches it as rs-studios-app:8080.
 #
 # Deploys: every push to main (see .github/workflows/deploy.yml) sends this
-# repo and the settings from GitHub secrets to the server's deploy hook, which
-# writes /opt/rs-studios and runs `docker compose -p rs-studios up -d --build`.
+# repo and the settings from GitHub secrets to the server's deploy hook
+# (clipforgd deploy/deployer/deployer.py). The hook builds rs-studios-app:next,
+# starts it as a side container and waits for /health, and only then keeps the
+# running image as rs-studios-app:prev, tags the new one :latest, writes
+# /opt/rs-studios and runs `docker compose -p rs-studios up -d --no-build`.
+# A release that is unhealthy after the switch goes back to :prev on its own;
+# the "Roll back Campaignify" workflow (rollback.yml) does it by hand.
 # Settings live in settings.txt next to this file (never committed).
 services:
   app:
     build: .
+    # the tag the deploy hook manages (:latest runs, :prev is the one before)
+    image: rs-studios-app:latest
     container_name: rs-studios-app
     restart: unless-stopped
     env_file: [settings.txt]

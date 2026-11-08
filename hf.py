@@ -10,11 +10,21 @@ that knows it. API shape (from the vendor's official SDKs):
     POST {BASE}/files/generate-upload-url  {content_type}
          -> {public_url, upload_url, upload_headers?}; then PUT the bytes
 
+    POST {BASE}/requests/{id}/cancel        202 canceled | 400 already started | 404 unknown
+
 Auth header: "Key <api_key>:<api_secret>" (one HF_KEY or HF_API_KEY + HF_API_SECRET).
 Failed and nsfw results are not charged by the vendor.
+
+Submits carry an Idempotency-Key: sending the same key again returns the first
+request_id and is not charged twice (vendor docs, concepts/idempotency), so a
+submit is retried on 408/425/429/5xx, timeouts and dropped connections with the
+same key. HF_RETRY=0 turns the retries off (one try, as before).
 """
 import os
+import random
 import re
+import time
+import uuid
 
 import requests
 
@@ -26,6 +36,67 @@ FINAL = {"completed", "failed", "nsfw", "canceled", "cancelled"}
 
 class GenError(RuntimeError):
     pass
+
+
+class Transient(GenError):
+    """The vendor was busy or briefly unreachable on every try (429, 5xx, a timeout).
+    Nothing is known to have been created: the same submit may be sent again later
+    with the same idempotency key."""
+
+    def __init__(self, msg, retry_after=None):
+        super().__init__(msg)
+        self.retry_after = retry_after
+
+
+RETRY_STATUSES = {408, 425, 429, 500, 502, 503, 504}
+TRIES = 3
+BACKOFF_SECONDS = float(os.environ.get("HF_RETRY_BASE_SECONDS", "1"))
+RETRY_AFTER_MAX = 10.0      # a longer Retry-After is left to the worker's own (job-level) backoff
+_sleep = time.sleep         # the tests swap this out
+
+
+def retries_on() -> bool:
+    return os.environ.get("HF_RETRY", "1") != "0"
+
+
+def _backoff(i: int) -> float:
+    """Exponential with jitter: about 1, 2, 4 s times 0.5 to 1."""
+    return BACKOFF_SECONDS * (2 ** i) * (0.5 + random.random() / 2)
+
+
+def _retry_after(r) -> float | None:
+    try:
+        v = float((getattr(r, "headers", None) or {}).get("Retry-After"))
+        return max(0.0, v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _busy_text(code: int) -> str:
+    if code == 429:
+        return "429: The generation service is busy right now. Try again in a few minutes."
+    return f"{code}: The generation service had a problem on its side. Try again in a few minutes."
+
+
+def _send(method: str, url: str, tries: int = TRIES, check: bool = True, **kw):
+    """One vendor call, tried up to `tries` times on 408/425/429/5xx, timeouts and
+    dropped connections, waiting with backoff (or Retry-After, up to RETRY_AFTER_MAX)
+    in between. Returns the response (through _check unless check=False); raises
+    Transient when every try was a transient failure."""
+    last, wait = "The generation service didn't answer.", None
+    for i in range(max(1, tries)):
+        try:
+            r = getattr(requests, method)(url, **kw)
+        except (requests.ConnectionError, requests.Timeout) as e:
+            last, wait = f"The generation service didn't answer ({type(e).__name__}). Try again in a few minutes.", None
+        else:
+            if r.status_code not in RETRY_STATUSES:
+                return _check(r) if check else r
+            last, wait = _busy_text(r.status_code), _retry_after(r)
+        if i + 1 >= tries or (wait is not None and wait > RETRY_AFTER_MAX):
+            break
+        _sleep(wait if wait is not None else _backoff(i))
+    raise Transient(last, retry_after=wait)
 
 
 def credential() -> str | None:
@@ -99,10 +170,22 @@ def _check(r):
     return r
 
 
-def submit(model_id: str, inputs: dict, webhook_url: str | None = None) -> str:
+def new_key() -> str:
+    return uuid.uuid4().hex
+
+
+def submit(model_id: str, inputs: dict, webhook_url: str | None = None, idempotency_key: str | None = None) -> str:
+    """Start a generation; returns the vendor's request id. Pass the same
+    `idempotency_key` (stored with the job before calling) when a submit is
+    resumed, so the vendor hands back the first request instead of a second one.
+    Raises Transient (try again later, same key) or GenError (final)."""
     url = f"{BASE}/{model_id.strip('/')}"
     params = {"hf_webhook": webhook_url} if webhook_url else None
-    r = _check(requests.post(url, json=inputs, params=params, headers=_headers(), timeout=TIMEOUT))
+    headers = dict(_headers(), **{"Idempotency-Key": idempotency_key or new_key()})
+    if retries_on():
+        r = _send("post", url, json=inputs, params=params, headers=headers, timeout=TIMEOUT)
+    else:
+        r = _check(requests.post(url, json=inputs, params=params, headers=headers, timeout=TIMEOUT))
     data = r.json()
     rid = data.get("request_id")
     if not rid:
@@ -132,8 +215,11 @@ def outputs(result: dict) -> list[dict]:
 
 def upload(data: bytes, content_type: str) -> str:
     """Upload bytes; returns a public URL the models can read."""
-    r = _check(requests.post(f"{BASE}/files/generate-upload-url", json={"content_type": content_type},
-                             headers=_headers(), timeout=TIMEOUT))
+    url, body = f"{BASE}/files/generate-upload-url", {"content_type": content_type}
+    if retries_on():
+        r = _send("post", url, json=body, headers=_headers(), timeout=TIMEOUT)
+    else:
+        r = _check(requests.post(url, json=body, headers=_headers(), timeout=TIMEOUT))
     j = r.json()
     headers = j.get("upload_headers") or {"Content-Type": content_type}
     put = requests.put(j["upload_url"], data=data, headers=headers, timeout=300)
@@ -339,6 +425,25 @@ def estimate(model_id: str, inputs: dict) -> float | None:
     return estimate_detail(model_id, inputs)[0]
 
 
-def cancel(request_id: str) -> bool:
-    r = requests.post(f"{BASE}/requests/{request_id}/cancel", headers=_headers(), timeout=TIMEOUT)
-    return r.status_code == 202
+CANCELED, STARTED, GONE = "canceled", "started", "gone"
+
+
+def cancel(request_id: str) -> str:
+    """Ask the vendor to drop a request. The vendor only cancels one that hasn't
+    started. Returns "canceled" (202: dropped, never billed), "started" (400: it's
+    being made and will finish and bill), "gone" (404: the vendor has no such
+    request) or "error: ..." (anything else, after the usual retries). Never raises."""
+    try:
+        r = _send("post", f"{BASE}/requests/{request_id}/cancel", tries=TRIES if retries_on() else 1, check=False,
+                  headers=_headers(), timeout=TIMEOUT)
+    except GenError as e:
+        return f"error: {str(e)[:120]}"
+    except requests.RequestException as e:
+        return f"error: {type(e).__name__}"
+    if r.status_code == 202:
+        return CANCELED
+    if r.status_code == 400:
+        return STARTED
+    if r.status_code == 404:
+        return GONE
+    return f"error: {r.status_code}"

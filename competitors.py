@@ -24,8 +24,9 @@ cite-check), kept to a few minutes:
               "unverified" list (shown as such), never kept silently.
 
 `quote()` is the most a run can cost (worst case from the caps below); the
-member is charged what it actually cost, at most the quote, and only when the
-run produces a report. A run that fails charges nothing. `run(rid)` does one
+route holds it before the run starts (credits.py), and the member is charged
+what it actually cost, at most the quote, and only when the run produces a
+report. A run that fails charges nothing and its hold goes back. `run(rid)` does one
 run; `start(rid)` runs it in a background thread (inline when RS_WORKER=0,
 which the tests use), like the campaign planner.
 """
@@ -39,6 +40,7 @@ from urllib.parse import quote_plus, urlsplit, urlunsplit
 
 import catalog
 import compliance
+import credits as credit_holds
 import db
 import llm
 import products
@@ -446,7 +448,8 @@ def brand_info(conn, ws_id: int, brand_id) -> tuple[dict, list]:
 
 
 def run(rid: int) -> str:
-    """One research run for report `rid`. Charges once at the end, only when it made a report."""
+    """One research run for report `rid`. Settles its hold once at the end: what it used when it
+    made a report, nothing when it didn't."""
     with db.connect() as conn:
         r = conn.execute("SELECT * FROM competitor_reports WHERE id=?", (rid,)).fetchone()
         brief, prods = brand_info(conn, r["workspace_id"], r["brand_id"])
@@ -505,15 +508,21 @@ def run(rid: int) -> str:
         _step(steps, "error", "The research stopped", error or "")
         _save(rid, steps, status="failed", error=f"The research didn't finish ({error}). Nothing was charged."[:500],
               usd_cost=round(usage.usd, 5), credits=0, sources_json=json.dumps(sources.to_list()))
+        credit_holds.release(credit_holds.load(inputs.get("hold")), "the research didn't finish")
         return "failed"
     credits = min(usage.credits, cap_credits) if cap_credits else usage.credits
+    hold = credit_holds.load(inputs.get("hold"))
     taken = 0
-    with db.connect() as conn:
-        if credits:
+    if hold is not None:
+        taken = credit_holds.settle(hold, credits)    # held up front by the route: keep what it used
+    elif credits:                                       # a run started without a hold (CREDIT_HOLDS=off)
+        with db.connect() as conn:
             have = db.balance(conn.execute("SELECT * FROM workspaces WHERE id=?", (r["workspace_id"],)).fetchone())
             taken = min(credits, have)
             if taken:
                 db.adjust_credits(conn, r["workspace_id"], -taken, "Competitor research")
+            conn.commit()
+    with db.connect() as conn:
         conn.execute("UPDATE competitor_reports SET status='ready', report_json=?, sources_json=?, usd_cost=?, credits=?, "
                      "steps_json=?, error=NULL, updated_at=? WHERE id=?",
                      (json.dumps(report), json.dumps(sources.to_list()), round(usage.usd, 5), taken, json.dumps(steps),
@@ -538,6 +547,7 @@ def _safe_run(rid):
             conn.execute("UPDATE competitor_reports SET status='failed', error='The research crashed. Nothing was "
                          "charged.', updated_at=? WHERE id=? AND status='running'", (db.now(), rid))
             conn.commit()
+        credit_holds.release_ref(f"competitor:{rid}", "the research crashed")
 
 
 def current(conn, ws_id: int, brand_id) -> dict | None:

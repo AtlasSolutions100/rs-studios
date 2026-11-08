@@ -9,6 +9,9 @@ import uuid
 
 from flask import abort, flash, g, redirect, render_template, request, session, url_for
 
+from werkzeug.exceptions import HTTPException
+
+import billing_holds
 import db
 import plans
 import products
@@ -30,6 +33,9 @@ def load_workspace(conn, ws_id):
     if g.ws and compcodes.due(g.ws):
         # a free-month code's next credits, or its end (back to free), right on time
         compcodes.settle(conn, ws_id)
+        g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+    if g.ws and plans.lapse_due(g.ws) and settle_plan_lapse(conn, ws_id):
+        # the period a canceled plan paid for just ended: back to free, right on time
         g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
     if g.ws:
         g.brand_row, g.product_row = products.load_active(conn, g.ws)
@@ -67,7 +73,16 @@ def _check_photo(path: str):
     return _PIL_TYPES[fmt]
 
 
-def save_upload(fs, folder, allowed, max_mb):
+def save_upload(fs, folder, allowed, max_mb, ws=None):
+    """Save one uploaded file after checking its type and size. `ws`: the
+    workspace whose storage quota it counts against (storage.py); without one
+    (admin files) only the disk guard applies. Raises ValueError, or
+    storage.StorageFull (507) when there's no room."""
+    import storage
+    if ws is not None:
+        storage.check_upload(ws)
+    else:
+        storage.disk_guard()
     ctype = fs.mimetype or mimetypes.guess_type(fs.filename or "")[0] or ""
     name = (fs.filename or "").lower()
     if ctype not in allowed:
@@ -92,6 +107,7 @@ def save_upload(fs, folder, allowed, max_mb):
             fixed = os.path.splitext(path)[0] + real_ext
             os.replace(path, fixed)
             path, ctype = fixed, real
+    storage.check_saved(ws, path)
     return path, ctype
 
 
@@ -174,8 +190,19 @@ def picked_product():
     return p["id"]
 
 
+def reserve_ai(quote: int, label: str, ref=None, conn=None):
+    """Hold the most an AI call can cost before it runs (credits.py). Raises
+    BillingHold (402) on a billing hold; None when the balance can't cover it,
+    so the provider is never called. Settle with credits.settle(hold, used)."""
+    import credits
+    hold_check()
+    return credits.reserve(g.ws["id"], quote, label, ref=ref, conn=conn)
+
+
 def charge_ai(conn, credits: int, reason: str) -> int:
-    """Take what an AI call actually cost (at most what's left). Returns credits taken."""
+    """Take what an AI call actually cost (at most what's left). Returns credits taken.
+    Only for calls with no quote to hold (the setup guide past its free replies);
+    everything else reserves first (reserve_ai)."""
     if credits <= 0:
         return 0
     have = db.balance(conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone())
@@ -185,7 +212,57 @@ def charge_ai(conn, credits: int, reason: str) -> int:
     return take
 
 
+class BillingHold(HTTPException):
+    """A payment on this workspace was refunded or disputed (billing_holds.py),
+    or its plan's renewal payment failed (plans.renewal_paused): nothing that
+    spends credits runs. app.py answers it with the banner's words (JSON
+    {"error", "billing_hold": true, "reason"} or a page), status 402."""
+    code = 402
+    description = billing_holds.HOLD_MESSAGE
+    reason = "reversal"
+
+    def __init__(self, reason="reversal"):
+        super().__init__()
+        self.reason = reason
+        self.description = billing_holds.RENEWAL_MESSAGE if reason == "renewal" else billing_holds.HOLD_MESSAGE
+
+
+def hold_reason(ws):
+    """"reversal" (a refund or dispute), "renewal" (the plan's renewal payment
+    failed) or None when the workspace may spend."""
+    if billing_holds.on_hold(ws):
+        return "reversal"
+    if plans.renewal_paused(ws):
+        return "renewal"
+    return None
+
+
+def hold_check(ws=None):
+    """Raise BillingHold when the workspace is on a billing hold."""
+    ws = ws if ws is not None else g.get("ws")
+    why = hold_reason(ws)
+    if why:
+        raise BillingHold(why)
+
+
+def settle_plan_lapse(conn, ws_id) -> bool:
+    """A subscription that ended keeps its plan to the end of the period it paid
+    for (plans.GRACE_STATUSES); after that the plan drops to free and its unused
+    plan credits expire. True when it did."""
+    ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+    if not plans.lapse_due(ws):
+        return False
+    import compcodes
+    if not compcodes.active(ws):     # a free-month code's credits share the plan bucket; they stay
+        db.set_plan_credits(conn, ws_id, 0, "plan ended")
+    conn.execute("UPDATE workspaces SET plan='free', plan_granted=0, plan_cancel_at_period_end=0, plan_period_end=NULL "
+                 "WHERE id=?", (ws_id,))
+    conn.commit()
+    return True
+
+
 def can_afford(credits: int) -> bool:
+    hold_check()
     return db.balance(g.ws) >= credits
 
 
@@ -219,7 +296,8 @@ def queue_job(conn, tool, tpl_id, brief, params, usd, credits, quiet=False, prod
     confirmed its email and this is a video (or past its unconfirmed allowance;
     then g.verify_blocked holds the message and nothing uncommitted on `conn` is
     kept). The job is tagged with its product (default: the active one) and that
-    product's brand."""
+    product's brand. A workspace on a billing hold gets BillingHold (402)."""
+    hold_check(conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone())
     msg = verify_block(conn, tool, credits)
     if msg:
         conn.rollback()

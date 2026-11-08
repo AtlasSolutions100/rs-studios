@@ -1,9 +1,12 @@
 FROM python:3.12-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates curl \
-    && rm -rf /var/lib/apt/lists/*
+# rclone: the nightly off-site backup to Cloudflare R2 through rclone crypt (backup.py, tools/restore.sh).
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates curl rclone \
+    && rm -rf /var/lib/apt/lists/* && rclone version
 WORKDIR /srv/rs
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# requirements.txt is the locked, hashed list (compiled from requirements.in): pip installs
+# exactly those files or the build fails (SEC-3).
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 COPY . .
 RUN mkdir -p data
 ENV PYTHONUNBUFFERED=1 RS_DATA=/srv/rs/data

@@ -98,3 +98,34 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # MCP_SERVER=on
 # Browser origins allowed to call /mcp besides claude.ai, claude.com and localhost (comma separated):
 # MCP_ALLOWED_ORIGINS=
+# ---- Operator alerts and /health (alerts.py, opslog.py). Alerts are emailed through Resend (RESEND_API_KEY,
+# RS_MAIL_DOMAIN) to OPS_ALERT_EMAIL (comma separated for several); without it they are only logged.
+# One email per alert per hour. OPS_ALERTS=0 switches them off.
+# OPS_ALERT_EMAIL=
+# OPS_ALERT_DEDUPE_MIN=60   OPS_WORKER_DOWN_MIN=5   OPS_JOB_STUCK_MIN=20   OPS_WEBHOOK_SIG_PER_HOUR=10
+# OPS_VENDOR_ERROR_PCT=20   OPS_VENDOR_MIN_JOBS=5   OPS_ALERT_DISK_GB=10   OPS_BACKUP_MAX_HOURS=26
+# /health answers 503 when the worker loop's last pass is older than this many seconds:
+# RS_HEALTH_WORKER_MAX_AGE=30
+# JSON logs with request and workspace ids (RS_LOG_JSON=0 for plain logs; RS_ACCESS_LOG=0 drops request lines).
+# RS_LOG_JSON=1
+# ---- Off-site backups (backup.py, tools/restore.sh). Nightly: rs.db snapshot + media folders to one Cloudflare
+# R2 bucket through rclone crypt (encrypted before upload). Set by deploy.yml from GitHub secrets; all six or
+# nothing is uploaded (one warning in the log, nothing else changes).
+# R2_ACCOUNT_ID=          R2_ACCESS_KEY_ID=          R2_SECRET_ACCESS_KEY=          R2_BUCKET=
+# BACKUP_CRYPT_PASSWORD=  BACKUP_CRYPT_SALT=
+# Folder in the bucket, days kept in R2, snapshots kept here, the nightly hour (UTC), media on/off, a bandwidth cap:
+# BACKUP_PREFIX=campaignify   BACKUP_KEEP_DAYS=30   BACKUP_KEEP_LOCAL=3   BACKUP_HOUR_UTC=8   BACKUP_MEDIA=on
+# BACKUP_BWLIMIT=20M
+# BACKUPS=off stops the nightly run (the kill switch).
+# BACKUPS=on
+# ---- Storage (storage.py): per-plan quotas (Free 200 MB, Starter 2 GB, Growth 10 GB, Scale 50 GB), body limits
+# per route, and the disk guard (new files refused under RS_DISK_MIN_GB free, with an alert).
+# RS_STORAGE_QUOTAS=1
+# RS_DISK_MIN_GB=5
+# RS_EXPORT_KEEP_DAYS=7
+# Daily purge of the files of ads deleted over RS_PURGE_DELETED_DAYS days ago (off unless 1):
+# RS_STORAGE_PURGE_DELETED=0
+# RS_PURGE_DELETED_DAYS=30
+# ---- Credit holds (credits.py): AI runs reserve their quote before calling the provider and settle after.
+# off charges after the run instead (at most what's left), as before.
+# CREDIT_HOLDS=on

@@ -292,17 +292,23 @@ with db.connect() as conn:
 # the magic link logs in, confirms the email and opens Home
 m = client()
 r = m.get(link.group(0).replace("https://campaignify.test", ""))
+check(r.status_code == 302 and r.headers["Location"].endswith("/m") and not user("plain@example.com")["email_verified_at"],
+      "opening the link moves its token off the address bar and changes nothing yet")
+r = m.get("/m")
+check(r.status_code == 200 and "plain@example.com" in r.get_data(as_text=True) and "works once" in r.get_data(as_text=True)
+      and not user("plain@example.com")["email_verified_at"], "it asks to press Log in (a mail scanner's fetch spends nothing)")
+r = m.post("/m", data={"csrf": csrf(m)})
 u = user("plain@example.com")
 check(r.status_code == 302 and r.headers["Location"].endswith("/app") and u["email_verified_at"]
       and m.get("/app").status_code == 200 and "data-first-run" in m.get("/app").get_data(as_text=True),
       "the magic link logs in, confirms the address (it reached that inbox) and opens the first-ad form")
 check(("verify_completed", None) in events(u["workspace_id"]), "and writes verify_completed")
-r = client().get("/m?t=not-a-token")
-check(r.status_code == 302 and r.headers["Location"].endswith("/login"), "a bad link just goes to Log in")
+r = client().get("/m?t=not-a-token", follow_redirects=True)
+check(r.request.path == "/login", "a bad link just goes to Log in")
 with appmod.app.test_request_context():
     from itsdangerous import URLSafeTimedSerializer
     stale = URLSafeTimedSerializer(secret, salt=nudges.SALT).dumps({"u": u["id"], "e": "someone-else@example.com"})
-check(client().get(f"/m?t={stale}").headers["Location"].endswith("/login"), "a link for a changed email doesn't log in")
+check(client().get(f"/m?t={stale}", follow_redirects=True).request.path == "/login", "a link for a changed email doesn't log in")
 check(verify.is_verified(user("plain@example.com")) and site_events.CLIENT_EVENTS[:3] == ("lp_view", "cta_click", "signup_view"),
       "the old client events keep their place (HQ's contract)")
 

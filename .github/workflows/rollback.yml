@@ -1,0 +1,59 @@
+name: Roll back Campaignify
+
+# By hand only (Actions > Roll back Campaignify > Run workflow, branch main).
+# Asks the server's deploy hook (POST https://campaignify.ai/_deploy/rollback, the
+# same GitHub OIDC token check as deploy.yml) to put rs-studios-app back on the image
+# that ran before the last deploy (kept as rs-studios-app:prev) and checks /health.
+# Running it again rolls forward. Settings are not rolled back. The code folder on
+# the server keeps the newer commit, so the next push to main deploys normally:
+# revert the bad commit on main to make the rollback stick.
+# Needs the deploy hook from clipforgd PR "deploy with health check and rollback" (M1.11).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-rs-studios
+  cancel-in-progress: false
+
+env:
+  HOOK: https://campaignify.ai/_deploy
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Ask the deploy hook to roll back
+        run: |
+          token=$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+                    "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=rs-deploy" | jq -r .value)
+          code=$(curl -sS -o /tmp/resp.json -w '%{http_code}' --max-time 60 -X POST "$HOOK/rollback" \
+                   -H "Authorization: Bearer $token") || code=000
+          echo "HTTP $code"; cat /tmp/resp.json; echo
+          [ "$code" = "202" ] || exit 1
+          echo "JOB=$(jq -r .job /tmp/resp.json)" >> "$GITHUB_ENV"
+
+      - name: Wait for it
+        run: |
+          for i in $(seq 1 60); do
+            s=$(curl -fsS --max-time 20 "$HOOK/$JOB" || echo '{"status":"unknown"}')
+            st=$(echo "$s" | jq -r .status)
+            if [ "$st" = "done" ] || [ "$st" = "failed" ]; then
+              echo "$s" | jq -r '.log'; echo "status: $st"
+              [ "$st" = "done" ] && exit 0 || exit 1
+            fi
+            sleep 5
+          done
+          echo "the rollback did not finish in 5 minutes"; exit 1
+
+      - name: Health check
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS --max-time 20 "https://campaignify.ai/health"; then echo; exit 0; fi
+            sleep 6
+          done
+          exit 1

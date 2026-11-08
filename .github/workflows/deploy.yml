@@ -1,10 +1,15 @@
 name: Deploy Campaignify (campaignify.ai)
 
-# Every push to main: run the tests, then hand this commit and the settings
-# below to the server's deploy hook (https://campaignify.ai/_deploy).
+# Every push to main: run the tests and pip-audit, then hand this commit and the
+# settings below to the server's deploy hook (https://campaignify.ai/_deploy).
 # No SSH key is involved: the hook accepts a request only with a GitHub-signed
 # token proving it comes from this repo's main branch (OIDC, audience
 # "rs-deploy"), and it rebuilds only this app.
+# The hook (clipforgd deploy/deployer/deployer.py) builds the new image, starts it
+# beside the live one and waits for /health before switching; a build that fails
+# that check leaves the live container serving and fails this run. After the
+# switch it checks /health again and goes back to the previous image on its own.
+# To roll back by hand: Actions > "Roll back Campaignify" (rollback.yml).
 #
 # Settings: add or change a repo secret, then push (or re-run this workflow).
 #   HIGGSFIELD_API_KEY     the generation API key ("key:secret")
@@ -71,6 +76,14 @@ name: Deploy Campaignify (campaignify.ai)
 #   CREATOR_POOL_MIN_USD   optional variable: the smallest pool (default 200)
 #   CREATOR_POOL_MAX_USD   optional variable: the largest pool (default 10000)
 #   CROWDCUT_URL           optional variable, default https://crowdcut.studio
+#   Off-site backups (backup.py; README "Backups and the restore drill"). Nightly, encrypted with
+#   rclone crypt, to one Cloudflare R2 bucket under campaignify/. All six or nothing is uploaded:
+#   R2_ACCOUNT_ID          the Cloudflare account id (R2 > Overview, right side)
+#   R2_ACCESS_KEY_ID       the R2 API token's Access Key ID (token scoped to that one bucket)
+#   R2_SECRET_ACCESS_KEY   that token's Secret Access Key
+#   R2_BUCKET              the bucket name
+#   BACKUP_CRYPT_PASSWORD  the encryption password: a long random string. Keep a copy outside GitHub:
+#   BACKUP_CRYPT_SALT      a second long random string. Without both, the backups can't be read.
 # A secret or variable that isn't set is simply not sent, so the server keeps
 # whatever it already has.
 on:
@@ -92,14 +105,22 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r requirements.txt
-      - run: python tests/test_app.py
+      - run: pip install --require-hashes -r requirements.txt
+      - name: pip-audit (fails on High or Critical only)
+        run: |
+          pip install --quiet pip-audit==2.10.1
+          pip-audit -r requirements.txt --disable-pip --require-hashes --format json -o audit.json --progress-spinner off || true
+          python tools/audit_gate.py audit.json
+      - name: python tests/test_app.py
+        env:
+          RS_DISK_MIN_GB: "0.2"
+        run: python tests/test_app.py
 
   deploy:
     needs: test
@@ -165,6 +186,15 @@ jobs:
           # MCP server for Claude and other MCP clients (mcpserver.py): on | off (default off).
           MCP_SERVER: ${{ vars.MCP_SERVER }}
           MCP_ALLOWED_ORIGINS: ${{ vars.MCP_ALLOWED_ORIGINS }}
+          # Operator alerts (alerts.py): where they're emailed. Set as a repo variable or secret.
+          OPS_ALERT_EMAIL: ${{ secrets.OPS_ALERT_EMAIL || vars.OPS_ALERT_EMAIL }}
+          # Off-site backups (backup.py): Cloudflare R2 through rclone crypt. All six, or backups stay off.
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          BACKUP_CRYPT_PASSWORD: ${{ secrets.BACKUP_CRYPT_PASSWORD }}
+          BACKUP_CRYPT_SALT: ${{ secrets.BACKUP_CRYPT_SALT }}
         run: |
           git archive --format=tar.gz -o /tmp/app.tgz HEAD
           python3 - <<'PY'
@@ -186,7 +216,9 @@ jobs:
                                              "META_TEST_EVENT_CODE", "TIKTOK_TEST_EVENT_CODE",
                                              "POOLS_PARTNER_SECRET", "CREATOR_POOLS", "CREATOR_POOL_FEE_USD",
                                              "CREATOR_POOL_MIN_USD", "CREATOR_POOL_MAX_USD", "CROWDCUT_URL",
-                                             "MCP_SERVER", "MCP_ALLOWED_ORIGINS")
+                                             "MCP_SERVER", "MCP_ALLOWED_ORIGINS", "OPS_ALERT_EMAIL",
+                                             "R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET",
+                                             "BACKUP_CRYPT_PASSWORD", "BACKUP_CRYPT_SALT")
                       if os.environ.get(k)}
           print("settings sent:", ", ".join(settings) or "none")
           body = {"commit": os.environ["GITHUB_SHA"], "settings": settings,
@@ -211,6 +243,10 @@ jobs:
           [ "$code" = "202" ] || exit 1
           echo "JOB=$(jq -r .job /tmp/resp.json)" >> "$GITHUB_ENV"
 
+      # The job log shows the build, the health check of the new image beside the live
+      # one ("health check before the switch"), the image kept as :prev, the switch
+      # and the check after it. "failed" with "were not touched" = the old release
+      # is still serving; "rolled back to ..." = it switched, was unhealthy, and went back.
       - name: Wait for the build
         run: |
           for i in $(seq 1 120); do

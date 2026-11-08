@@ -28,8 +28,12 @@
       {% if comp_on and current.code == g.ws.comp_plan and not subscribed %}
         <p class="small" style="margin:0" id="comp-status"><b>{{ current.name }}, free until {{ comp_until_text(g.ws.comp_until) }}.</b> {% if g.ws.stripe_customer_id %}Nothing will be charged, won't renew.{% else %}No card on file, won't renew.{% endif %}</p>
         <p class="muted small" style="margin:4px 0 0">{{ '{:,}'.format(current.credits) }} credits a month. After that you're back on Free, with your pack credits kept. To stay on a plan, pick one below.</p>
+      {% elif g.ws.plan_status == 'pending' and current.code == 'free' %}
+        <p class="small" style="margin:0" id="plan-pending"><b>Confirming payment{% if g.ws.plan_pending in plans.PLANS %} for {{ plans.PLANS[g.ws.plan_pending].name }}{% endif %}.</b> Your plan and its monthly credits switch on as soon as Stripe confirms the payment, usually within a minute. Refresh to check.</p>
+      {% elif plans.renewal_paused(g.ws) %}
+        <p class="small" style="margin:0" id="plan-paused"><b class="bad">{{ plans.PLANS.get(g.ws.plan, current).name }} plan paused.</b> The renewal payment didn't go through. Update your card with Manage plan; your plan comes back as soon as it's paid. Your credits are kept.</p>
       {% elif current.code != 'free' %}
-        <p class="muted small" style="margin:0">{{ '{:,}'.format(current.credits) }} credits a month{% if g.ws.plan_override and not subscribed %} · complimentary{% endif %}{% if g.ws.plan_status == 'past_due' %} · <span class="bad">payment past due</span>{% endif %}{% if g.ws.plan_cancel_at_period_end %} · cancels {{ (g.ws.plan_period_end or '')[:10] }}{% elif g.ws.plan_period_end and subscribed %} · renews {{ g.ws.plan_period_end|localtime('date') }}{% endif %}</p>
+        <p class="muted small" style="margin:0">{{ '{:,}'.format(current.credits) }} credits a month{% if g.ws.plan_override and not subscribed %} · complimentary{% endif %}{% if g.ws.plan_status == 'past_due' %} · <span class="bad">payment past due</span>{% endif %}{% if g.ws.plan_status in plans.GRACE_STATUSES and g.ws.plan_paid_through and not g.ws.plan_override %} · ends {{ g.ws.plan_paid_through|localtime('date') }}{% elif g.ws.plan_cancel_at_period_end %} · cancels {{ (g.ws.plan_period_end or '')[:10] }}{% elif g.ws.plan_period_end and subscribed %} · renews {{ g.ws.plan_period_end|localtime('date') }}{% endif %}</p>
       {% else %}
         <p class="muted small" style="margin:0">Starter credits and credit packs. Pick a plan for monthly credits, more brands and seats.</p>
       {% endif %}

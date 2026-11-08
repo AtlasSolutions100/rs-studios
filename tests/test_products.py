@@ -154,7 +154,7 @@ calls = {"submit": [], "upload": 0}
 results = {}
 
 
-def fake_submit(model, inputs, webhook_url=None):
+def fake_submit(model, inputs, webhook_url=None, idempotency_key=None):
     rid = f"req{len(calls['submit']) + 1}"
     calls["submit"].append((model, inputs))
     results[rid] = {"status": "in_progress"}
