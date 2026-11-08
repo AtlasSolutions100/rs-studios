@@ -10,7 +10,10 @@ One adapter per platform implements AdPlatform (adplatforms/meta.py first). Toke
 only as token boxes (secretsbox.py, sealed to the workspace) and opened only inside an
 adapter call; they are never logged, flashed or put in a page.
 """
+import logging
 import os
+import time
+from datetime import datetime, timedelta, timezone
 from typing import Protocol
 
 import db
@@ -19,6 +22,9 @@ import secretsbox
 PLATFORMS = ("meta", "google", "tiktok", "snapchat")
 STATUSES = ("pending", "active", "expired", "revoked", "error")
 PENDING_TTL_S = 3600          # an unpicked connection (token fetched, no account chosen) is dropped after this
+SWEEP_SECONDS = 60
+_last_sweep = [0.0]
+log = logging.getLogger("campaignify.adconnect")
 
 
 def mode() -> str:
@@ -99,16 +105,93 @@ def listed(conn, workspace_id: int):
 
 
 def expire_due(conn, workspace_id: int):
-    """Tokens past their expiry read as expired; unpicked connections older than an hour go."""
+    """Tokens past their expiry read as expired; unpicked connections older than an hour go (sweep_pending)."""
     now = db.now()
     conn.execute("UPDATE ad_connections SET status='expired', last_error='The access expired.', updated_at=? "
                  "WHERE workspace_id=? AND status='active' AND token_expires_at IS NOT NULL AND token_expires_at < ?",
                  (now, int(workspace_id), now))
-    from datetime import datetime, timedelta, timezone
-    cutoff = (datetime.now(timezone.utc) - timedelta(seconds=PENDING_TTL_S)).replace(microsecond=0).isoformat()
-    conn.execute("DELETE FROM ad_connections WHERE workspace_id=? AND status='pending' AND created_at < ?",
-                 (int(workspace_id), cutoff))
     conn.commit()
+    sweep_pending(conn, workspace_id)
+
+
+def _pending_cutoff() -> str:
+    return (datetime.now(timezone.utc) - timedelta(seconds=PENDING_TTL_S)).replace(microsecond=0).isoformat()
+
+
+def pending_expired(row) -> bool:
+    """A connect that was never finished (no account picked) and is past PENDING_TTL_S."""
+    return row is not None and row["status"] == "pending" and row["created_at"] < _pending_cutoff()
+
+
+def has_stored(conn, workspace_id: int) -> bool:
+    """The workspace still holds connections (with or without a token): Disconnect stays reachable whatever
+    AD_LAUNCH says, so tokens can always be removed (M-3)."""
+    return conn.execute("SELECT 1 FROM ad_connections WHERE workspace_id=? AND status IN ('active','expired','error') "
+                        "LIMIT 1", (int(workspace_id),)).fetchone() is not None
+
+
+def _others_hold(conn, row) -> bool:
+    """Another connection still uses this platform user's grant (so it must not be revoked at Meta)."""
+    return bool(row["external_user_id"]) and conn.execute(
+        "SELECT 1 FROM ad_connections WHERE platform=? AND external_user_id=? AND id!=? AND token_enc IS NOT NULL "
+        "AND status IN ('active','expired','error') LIMIT 1",
+        (row["platform"], row["external_user_id"], row["id"])).fetchone() is not None
+
+
+def sweep_pending(conn, workspace_id: int = None) -> int:
+    """Drop connects that never finished (L-13): pending rows older than PENDING_TTL_S lose their token and go.
+    The grant is also revoked at the platform when that person has no other connection here (best effort).
+    Runs from the worker every minute (maybe_sweep) and when Settings lists connections. Returns rows dropped."""
+    sql = "SELECT * FROM ad_connections WHERE status='pending' AND created_at < ?"
+    args = [_pending_cutoff()]
+    if workspace_id is not None:
+        sql += " AND workspace_id=?"
+        args.append(int(workspace_id))
+    n = 0
+    for row in conn.execute(sql, args).fetchall():
+        if row["token_enc"] and not _others_hold(conn, row):
+            try:
+                ad = adapter(row["platform"])
+                if ad.configured():
+                    ad.revoke(open_token(row))
+            except Exception as e:  # noqa: BLE001  best effort: the token is deleted here either way
+                log.warning("pending connect %s: revoke failed: %s", row["id"], type(e).__name__)
+        conn.execute("DELETE FROM ad_connections WHERE id=? AND status='pending'", (row["id"],))
+        n += 1
+    conn.commit()
+    if n:
+        log.info("dropped %s unfinished ad account connect(s)", n)
+    return n
+
+
+def maybe_sweep():
+    """The worker loop's call: at most once a minute, never raises, whatever AD_LAUNCH says."""
+    if time.time() - _last_sweep[0] < SWEEP_SECONDS:
+        return
+    _last_sweep[0] = time.time()
+    try:
+        with db.connect() as conn:
+            sweep_pending(conn)
+    except Exception:  # noqa: BLE001
+        log.exception("pending ad connection sweep failed")
+
+
+def forget_platform_user(conn, platform: str, external_user_id: str, delete: bool = False) -> int:
+    """Meta told us a person removed the app (deauthorize) or asked for their data to be deleted: drop every
+    token their grant gave us, in every workspace. delete=True also removes the connection rows and their
+    pixels (what we read from Meta: account, Page and pixel names); otherwise the rows stay as "revoked" (with no
+    token) as a record, and Settings no longer lists them. Commits. Returns how many connections were affected."""
+    rows = conn.execute("SELECT id, workspace_id FROM ad_connections WHERE platform=? AND external_user_id=?",
+                        (platform, str(external_user_id))).fetchall()
+    for r in rows:
+        conn.execute("DELETE FROM pixels WHERE connection_id=? AND workspace_id=?", (r["id"], r["workspace_id"]))
+        if delete:
+            conn.execute("DELETE FROM ad_connections WHERE id=?", (r["id"],))
+        else:
+            conn.execute("UPDATE ad_connections SET status='revoked', token_enc=NULL, refresh_token_enc=NULL, "
+                         "pending_json=NULL, last_error='Removed on Meta.', updated_at=? WHERE id=?", (db.now(), r["id"]))
+    conn.commit()
+    return len(rows)
 
 
 def mark(conn, conn_id: int, status: str, error: str = None):

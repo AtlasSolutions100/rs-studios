@@ -1,0 +1,297 @@
+{
+ "_note": "M2 re-audit M-4 and L-16: invisible characters, look-alike letters and the 10 phrasing gaps. Every e01 to e16 must block; e17 to e20 stay clean.",
+ "cases": [
+  {
+   "id": "e01",
+   "text": "Guaranteed 20% monthly returns",
+   "platform": "meta",
+   "vertical": "finance",
+   "ai": false,
+   "expect": [
+    "policy.finance_rates",
+    "policy.guaranteed_returns"
+   ],
+   "house": [
+    "promise_words"
+   ],
+   "levels": {
+    "policy.finance_rates": "warn",
+    "policy.guaranteed_returns": "block"
+   }
+  },
+  {
+   "id": "e02",
+   "text": "Best serum I've used. My face? Glowing.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial"
+   ],
+   "house": [],
+   "levels": {
+    "policy.ai_testimonial": "block"
+   }
+  },
+  {
+   "id": "e03",
+   "text": "Before \u2192 After: 30 days",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.before_after"
+   ],
+   "house": [
+    "before_after"
+   ],
+   "levels": {
+    "policy.before_after": "block"
+   }
+  },
+  {
+   "id": "e04",
+   "text": "Overweight? Try this.",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.personal_attributes"
+   ],
+   "house": [],
+   "levels": {
+    "policy.personal_attributes": "block"
+   }
+  },
+  {
+   "id": "e05",
+   "text": "Number 1 in America",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.results_claim"
+   ],
+   "house": [],
+   "levels": {
+    "policy.results_claim": "block"
+   }
+  },
+  {
+   "id": "e06",
+   "text": "Ask about 0zempic today.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.pharmacy"
+   ],
+   "house": [],
+   "levels": {
+    "policy.pharmacy": "block"
+   }
+  },
+  {
+   "id": "e07",
+   "text": "Now offering sema glutide.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.pharmacy"
+   ],
+   "house": [],
+   "levels": {
+    "policy.pharmacy": "block"
+   }
+  },
+  {
+   "id": "e08",
+   "text": "Compounded tirz, shipped to you.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.pharmacy"
+   ],
+   "house": [],
+   "levels": {
+    "policy.pharmacy": "block"
+   }
+  },
+  {
+   "id": "e09",
+   "text": "Melts belly fat while you sleep",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric"
+   ],
+   "house": [
+    "weight_loss_phrase"
+   ],
+   "levels": {
+    "policy.health_outcome_numeric": "block"
+   }
+  },
+  {
+   "id": "e10",
+   "text": "Down 3 dress sizes!",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric"
+   ],
+   "house": [],
+   "levels": {
+    "policy.health_outcome_numeric": "block"
+   }
+  },
+  {
+   "id": "e11",
+   "text": "This tea cu\u200bres diab\u200betes",
+   "platform": "meta",
+   "vertical": "health",
+   "ai": false,
+   "expect": [
+    "policy.cure_claim",
+    "policy.hidden_characters"
+   ],
+   "house": [
+    "disease_words",
+    "health_claim_words"
+   ],
+   "levels": {
+    "policy.cure_claim": "block",
+    "policy.hidden_characters": "block"
+   }
+  },
+  {
+   "id": "e12",
+   "text": "L\u200bose 10 lb\u200bs in 2 weeks",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric",
+    "policy.hidden_characters"
+   ],
+   "house": [
+    "weight_loss_phrase"
+   ],
+   "levels": {
+    "policy.health_outcome_numeric": "block",
+    "policy.hidden_characters": "block"
+   }
+  },
+  {
+   "id": "e13",
+   "text": "This tea cures diab\u0435tes",
+   "platform": "meta",
+   "vertical": "health",
+   "ai": false,
+   "expect": [
+    "policy.cure_claim"
+   ],
+   "house": [
+    "disease_words",
+    "health_claim_words"
+   ],
+   "levels": {
+    "policy.cure_claim": "block"
+   }
+  },
+  {
+   "id": "e14",
+   "text": "\u2067Lose 10 pounds\u2069 in 2 weeks",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric",
+    "policy.hidden_characters"
+   ],
+   "house": [
+    "weight_loss_phrase"
+   ],
+   "levels": {
+    "policy.health_outcome_numeric": "block",
+    "policy.hidden_characters": "block"
+   }
+  },
+  {
+   "id": "e15",
+   "text": "\uff2c\uff4f\uff53\uff45 10 pounds by Friday",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric"
+   ],
+   "house": [
+    "weight_loss_phrase"
+   ],
+   "levels": {
+    "policy.health_outcome_numeric": "block"
+   }
+  },
+  {
+   "id": "e16",
+   "text": "Gu\u00adaranteed 12% returns, risk\u2060-free",
+   "platform": "meta",
+   "vertical": "finance",
+   "ai": false,
+   "expect": [
+    "policy.finance_rates",
+    "policy.guaranteed_returns",
+    "policy.hidden_characters"
+   ],
+   "house": [
+    "promise_words"
+   ],
+   "levels": {
+    "policy.finance_rates": "warn",
+    "policy.guaranteed_returns": "block",
+    "policy.hidden_characters": "block"
+   }
+  },
+  {
+   "id": "e17",
+   "text": "Family night \ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67 with the Ember candle",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "e18",
+   "text": "Caf\u00e9 cr\u00e8me candles, poured in small batches.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "e19",
+   "text": "Ships in 2 days. Number of wicks: 3.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "e20",
+   "text": "No. 10 envelope sized, fits any desk.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  }
+ ]
+}

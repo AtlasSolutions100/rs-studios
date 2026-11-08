@@ -87,6 +87,14 @@ for s in samples:
         old["warnings"] == list(dict.fromkeys(m for lvl, _, m in f if lvl == "warn"))
     check(same, f"compliance.findings matches check() for {s!r}")
 check(len(compliance.IDS) == len(compliance.RULES) == len(set(compliance.IDS)), "every house rule has one unique id")
+# M-4: generation's own guard (compliance.check) matches the normalized text too
+for probe in ("This tea cu\u200bres diab\u200betes", "L\u200bose 10 lb\u200bs in 2 weeks", "This tea cures diab\u0435tes",
+              "\uff2c\uff4f\uff53\uff45 10 pounds", "\u2067Lose 10 pounds\u2069", "Before \u2192 After",
+              "Melts belly fat while you sleep", "c\u0443res \u0430nxiety"):
+    check(not compliance.check(probe)["ok"], f"compliance.check blocks the evasion {probe!r}")
+check(compliance.normalize("caf\u00e9 \uff21\u200b\u0412") == "cafe AB" and compliance.hidden_chars("a\u200bb\u00adc") == ["\u200b", "\u00ad"]
+      and compliance.hidden_chars("\U0001F468\u200d\U0001F469") == [],
+      "normalize: NFKC, no format characters, no accents, look-alikes as Latin; an emoji's joiner isn't hidden text")
 
 # ================================================================ the spec
 print("spec")

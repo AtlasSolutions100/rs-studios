@@ -7,6 +7,8 @@ stored only as boxes made here. The key never touches the database or the logs:
                      python3 -c "import base64,os; print(base64.b64encode(os.urandom(32)).decode())"
     TOKEN_KEYS_OLD   optional: earlier TOKEN_KEY values, comma separated, still accepted for
                      reading while `python3 secretsbox.py rotate` re-seals every box with TOKEN_KEY.
+                     "none" (or unset) means no old key. deploy.yml forwards it (L-15); the rotate
+                     steps are written there.
 
 A box is text: "cfy1:<key id>:<base64url(nonce + ciphertext + tag)>". The key id is the first
 8 hex digits of sha256(key), so a box says which key opens it without saying anything about
@@ -56,7 +58,7 @@ def _keys():
     current = _decode_key(os.environ.get("TOKEN_KEY", ""))
     keys = {key_id(current): current}
     for raw in (os.environ.get("TOKEN_KEYS_OLD") or "").split(","):
-        if raw.strip():
+        if raw.strip() and raw.strip().lower() not in ("none", "off", "0"):   # "none": rotation finished
             k = _decode_key(raw)
             keys.setdefault(key_id(k), k)
     return current, keys
