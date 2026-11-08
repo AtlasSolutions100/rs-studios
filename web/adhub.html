@@ -5,9 +5,9 @@
   <h1>Get every ad account <span class="gold">ready to run</span></h1>
   <p class="muted">Step-by-step setup for each platform, the tracking to install, and your finished ads exported at each platform's sizes. Every link goes to the platform's own site. Ticks are shared with your team.</p>
   <div class="hubgrid">
-    {% for k in hub.ORDER %}{% set p = hub.PLATFORMS[k] %}{% set n = (done.get(k) or [])|length %}
+    {% for k in (order if order is defined else hub.ORDER) %}{% set p = hub.PLATFORMS[k] %}{% set n = (done.get(k) or [])|length %}
     <a class="panel hubcard" href="{{ url_for('adhub.platform', platform=k) }}">
-      <h3>{{ p.name }}</h3>
+      <h3>{{ p.name }}</h3>{% if in_plan is defined and k in in_plan %}<span class="tag ok">In your plan</span>{% endif %}
       <p class="small muted">{{ p.steps|length }} steps · {{ p.pixel[0] }}</p>
       <div class="bar"><i style="--v:{{ (100 * n / p.steps|length)|round|int }}%"></i></div>
       <span class="small {{ 'gold' if n == p.steps|length else 'muted' }}">{{ 'Ready' if n == p.steps|length else n ~ ' of ' ~ p.steps|length ~ ' done' }}</span>

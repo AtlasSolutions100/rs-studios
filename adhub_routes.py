@@ -23,7 +23,12 @@ def _done():
 @bp.route("/app/ad-accounts")
 @feature_required("adhub")
 def index():
-    return render_template("adhub.html", hub=adhub, done=_done())
+    order, in_plan = adhub.ORDER, set()
+    import launch_kit
+    if launch_kit.enabled():   # the latest finished plan's platforms first (roadmap M5.3)
+        with db.connect() as conn:
+            order, in_plan = launch_kit.hub_order(conn, g.ws["id"])
+    return render_template("adhub.html", hub=adhub, done=_done(), order=order, in_plan=in_plan)
 
 
 @bp.route("/app/ad-accounts/<platform>")

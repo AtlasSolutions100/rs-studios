@@ -219,6 +219,13 @@ CREATE TABLE IF NOT EXISTS adhub_progress (
     done_by INTEGER,
     done_at TEXT NOT NULL,
     PRIMARY KEY (workspace_id, platform, step));
+CREATE TABLE IF NOT EXISTS launch_ticks (       -- launch_kit.py: a plan's own launch items ticked (hub steps stay in adhub_progress)
+    workspace_id INTEGER NOT NULL,
+    campaign_id INTEGER NOT NULL,
+    item TEXT NOT NULL,                       -- c<n> (the plan's checklist item n), disc:<platform>, lib
+    done_by INTEGER,
+    done_at TEXT NOT NULL,
+    PRIMARY KEY (workspace_id, campaign_id, item));
 CREATE TABLE IF NOT EXISTS pages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workspace_id INTEGER NOT NULL,

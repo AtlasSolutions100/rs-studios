@@ -25,6 +25,11 @@ a product photo (UX-13, roadmap M5.2). The steps after a known gap still run and
 numbers are in the baseline too, but the path counts as blocked. A known gap that starts passing is reported, so the
 entry can be removed.
 
+With RS_LAUNCH_KIT=1 (the launch kit on the plan page, roadmap M5.3) the product path gets one more step before
+"Connect Meta and launch": open the plan, check one block per planned platform with the ads' export links and the
+copy's Copy buttons, download one export, tick 2 items, and read the ticks back from a second browser (another
+device) logged in to the same account.
+
 Exit code: 0 when every step passed or is a known gap or not built; 1 on any other failure.
 
 Fakes: the generation API, result downloads, email, page fetches and the Anthropic API are replaced in process the
@@ -169,7 +174,7 @@ class F:
 
     # ---- generation API
     @classmethod
-    def submit(cls, model, inputs, webhook_url=None):
+    def submit(cls, model, inputs, webhook_url=None, idempotency_key=None):   # worker passes the key (M1.9)
         rid = f"req{len(cls.results) + 1}"
         cls.results[rid] = {"at": time.time(), "model": model, "inputs": inputs}
         return rid
@@ -814,6 +819,52 @@ class Run:
             raise StepFailed("the download is empty")
         st.notes.append(f"downloaded {f.suggested_filename} ({size // 1024} KB)")
 
+    def s_launch_kit(self, st, email, platforms):
+        """RS_LAUNCH_KIT: one screen holds the launch; ticks persist across devices."""
+        self.nav("/app/campaigns")
+        self.click(self.page.locator("a.runrow").first)
+        self.page.wait_for_url(re.compile(r"/app/campaigns/\d+"))
+        kit = self.page.locator("[data-launch-kit]")
+        if not kit.count():
+            raise StepFailed("the plan page has no launch kit")
+        missing = [p for p in platforms if not self.page.locator(f"#kit-{p}").count()]
+        if missing:
+            raise StepFailed("no launch-kit block for " + ", ".join(missing))
+        exports = self.page.locator("#kit-meta .lk-ex a[download]")
+        copies = self.page.locator("[data-launch-kit] [data-copy]").count()
+        if not exports.count():
+            raise StepFailed("the Meta block has no export links")
+        with self.page.expect_download(timeout=30000) as d:
+            self.click(exports.first)
+        size = os.path.getsize(d.value.path()) if d.value.path() else 0
+        if size < 100:
+            raise StepFailed("the export is empty")
+        boxes = self.page.locator("[data-launch-kit] .lk-item:not(.done) .lk-box")
+        keys = []
+        for i in range(2):
+            b = boxes.first
+            keys.append(b.locator("xpath=ancestor::li[1]").get_attribute("id"))
+            with self.page.expect_response(lambda r: "/launch" in r.url and r.request.method == "POST"):
+                self.click(b)
+        other = self.ctx.browser.new_context()
+        try:   # another device: a fresh browser, logged in to the same account (not counted as user actions)
+            o = other.new_page()
+            other.route("**/*", lambda rt: rt.continue_() if rt.request.url.startswith(self.base) else rt.abort())
+            o.goto(f"{self.base}/login")
+            o.fill("input[name=email]", email)
+            o.fill("input[name=password]", PW)
+            o.click("form button.btn")
+            o.wait_for_load_state()
+            o.goto(self.page.url.split("#")[0])
+            seen = [k for k in keys if o.locator(f"li#{k}.done").count()]
+        finally:
+            other.close()
+        if len(seen) != len(keys):
+            raise StepFailed(f"ticks didn't persist to a second browser ({len(seen)} of {len(keys)})")
+        st.notes.append(f"{self.page.locator('[data-launch-kit] .lk-block').count()} platform blocks, "
+                        f"{exports.count()} Meta export links, {copies} Copy buttons; export {size // 1024} KB; "
+                        f"{len(keys)} ticks seen from a second browser")
+
     # ---------------------------------------------------------------- service-only steps
     def s_form(self, st, name):
         self.nav("/app/forms")
@@ -899,6 +950,9 @@ def product_path(r):
     r.step("copy", "Copy for Google Search", lambda st: r.s_copy(st, "google"))
     r.step("landing", "Landing page, published", lambda st: r.s_page(st, "Ember Candle"))
     r.step("export", "Export an ad (download)", r.s_export)
+    if os.environ.get("RS_LAUNCH_KIT", "").strip().lower() in ("1", "on", "true", "yes"):
+        r.step("launch_kit", "Launch kit on the plan page (ticks on a second device)",
+               lambda st: r.s_launch_kit(st, email, ["meta", "google"]))
 
 
 def service_path(r):

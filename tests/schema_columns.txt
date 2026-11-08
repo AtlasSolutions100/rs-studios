@@ -463,6 +463,11 @@ jobs.tool TEXT
 jobs.updated_at TEXT
 jobs.user_id INTEGER
 jobs.workspace_id INTEGER
+launch_ticks.campaign_id INTEGER
+launch_ticks.done_at TEXT
+launch_ticks.done_by INTEGER
+launch_ticks.item TEXT
+launch_ticks.workspace_id INTEGER
 ledger.created_at TEXT
 ledger.delta INTEGER
 ledger.hold_id INTEGER

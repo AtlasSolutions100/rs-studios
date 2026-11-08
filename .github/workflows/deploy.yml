@@ -97,6 +97,7 @@ name: Deploy Campaignify (campaignify.ai)
 #   RS_STORAGE_QUOTAS      storage quotas per plan (storage.py), default on
 #   RS_JOB_CANCEL          the member Cancel button on queued ads (jobs_routes.py), default off
 #   RS_STORAGE_PURGE_DELETED  remove files of ads deleted over 30 days ago (storage.py), default off
+#   RS_LAUNCH_KIT          the launch kit on the plan page, ticks saved to the workspace (launch_kit.py), default off
 #   OPS_ALERTS             operator alert emails (alerts.py), default on
 #   BACKUPS / BACKUP_MEDIA the nightly off-site backup, and its media folders (backup.py), default on
 #   RS_DISK_MIN_GB         uploads and new files are refused below this much free disk (storage.py), default 5
@@ -224,6 +225,7 @@ jobs:
           RS_STORAGE_QUOTAS: ${{ vars.RS_STORAGE_QUOTAS }}
           RS_JOB_CANCEL: ${{ vars.RS_JOB_CANCEL }}
           RS_STORAGE_PURGE_DELETED: ${{ vars.RS_STORAGE_PURGE_DELETED }}
+          RS_LAUNCH_KIT: ${{ vars.RS_LAUNCH_KIT }}
           OPS_ALERTS: ${{ vars.OPS_ALERTS }}
           BACKUPS: ${{ vars.BACKUPS }}
           BACKUP_MEDIA: ${{ vars.BACKUP_MEDIA }}
@@ -258,7 +260,7 @@ jobs:
                                              "BILLING_HOLD", "CREDIT_HOLDS", "PLAN_PENDING", "RENEWAL_PAUSE", "HF_RETRY",
                                              "RS_LOGIN_HARDENING", "RS_SIGNUP_CONFIRM", "RS_STORAGE_QUOTAS",
                                              "RS_JOB_CANCEL", "RS_STORAGE_PURGE_DELETED", "OPS_ALERTS", "BACKUPS",
-                                             "BACKUP_MEDIA", "RS_DISK_MIN_GB", "RS_HEALTH_WORKER_MAX_AGE",
+                                             "BACKUP_MEDIA", "RS_DISK_MIN_GB", "RS_HEALTH_WORKER_MAX_AGE", "RS_LAUNCH_KIT",
                                              "RS_HEALTH_BUSY_MAX_S")
                       if os.environ.get(k)}
           print("settings sent:", ", ".join(settings) or "none")
