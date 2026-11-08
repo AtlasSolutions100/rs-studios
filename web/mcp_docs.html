@@ -1,0 +1,65 @@
+{% extends "public_base.html" %}
+{% block title %}Campaignify for Claude and MCP{% endblock %}
+{% block pubhead %}<meta name="description" content="Connect Campaignify to Claude and other MCP clients: price and make image ads and AI presenter videos, ad copy and campaign plans from a chat.">
+<link rel="canonical" href="https://campaignify.ai/docs/mcp">{% endblock %}
+{% block robots %}<meta name="robots" content="{{ 'index, follow' if on else 'noindex' }}">{% endblock %}
+{% block main %}
+<article class="lp-wrap lp-doc">
+  <h1>Campaignify for Claude and MCP</h1>
+  {% if not on %}<p class="muted"><b>Not switched on yet.</b> The MCP server isn't open on this site yet. This page shows how it will work.</p>{% endif %}
+  <p>Campaignify has a remote MCP server, so you can use your workspace from Claude and other apps that speak the Model Context Protocol. Ask for ad copy, a campaign plan or a competitor snapshot, price a batch of image ads or AI presenter videos, and make them once you agree to the price, all from a chat.</p>
+  <p>Server address: <code>{{ url }}</code></p>
+
+  <h2>Connect Claude.ai (web, desktop and mobile)</h2>
+  <ol>
+    <li>In Claude, open <b>Customize</b>, then <b>Connectors</b>, then <b>Add custom connector</b>. On a Team or Enterprise plan an owner adds it under Organization settings, Connectors.</li>
+    <li>Name it Campaignify and paste <code>{{ url }}</code> as the server URL. Leave the OAuth fields empty.</li>
+    <li>Click <b>Connect</b>. Log in to Campaignify if asked and choose whether Claude may spend credits.</li>
+  </ol>
+  <p class="small muted">Disconnect it any time in Campaignify under Settings, API and Claude.</p>
+
+  <h2>Claude Code</h2>
+  <p>Sign in with your browser:</p>
+  <pre><code>claude mcp add --transport http campaignify {{ url }}</code></pre>
+  <p>Then run <code>/mcp</code> in Claude Code and pick Campaignify to sign in. Or use an API key:</p>
+  <pre><code>claude mcp add --transport http campaignify {{ url }} \
+  --header "Authorization: Bearer YOUR_CAMPAIGNIFY_KEY"</code></pre>
+
+  <h2>Claude Desktop config file and other clients</h2>
+  <p>Most clients can add a remote server by URL and sign in. If yours only runs local servers, the <code>mcp-remote</code> bridge works with an API key. In <code>claude_desktop_config.json</code>:</p>
+  <pre><code>{
+  "mcpServers": {
+    "campaignify": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "{{ url }}",
+               "--header", "Authorization: Bearer ${CAMPAIGNIFY_KEY}"],
+      "env": {"CAMPAIGNIFY_KEY": "YOUR_CAMPAIGNIFY_KEY"}
+    }
+  }
+}</code></pre>
+
+  <h2>Make an API key</h2>
+  <ol>
+    <li>In the app, open <a href="{{ settings_path }}">Settings, API and Claude</a>.</li>
+    <li>Name the key and pick <b>Read only</b> or <b>Read and write</b>.</li>
+    <li>Copy the key. It is shown once. We store only a fingerprint of it.</li>
+  </ol>
+  <p>A key works in your workspace as you until you revoke it. Send it as <code>Authorization: Bearer &lt;key&gt;</code>.</p>
+
+  <h2>What it can do</h2>
+  <table>
+    <tr><th>Tool</th><th>What it does</th></tr>
+    {% for t in tools %}<tr><td><code>{{ t.name }}</code>{% if not t.annotations.readOnlyHint %}<br><span class="small muted">spends credits</span>{% endif %}</td><td>{{ t.description }}</td></tr>{% endfor %}
+  </table>
+
+  <h2>Rules it follows</h2>
+  <ul>
+    <li>Costs are in credits and shown before anything is made. Image ads and videos are made only with the exact total from the quote.</li>
+    <li>It uses your plan's tools and your credits, with the same compliance checks as the app.</li>
+    <li>Videos need a confirmed email, as in the app.</li>
+    <li>AI presenters are AI-generated people, never real ones.</li>
+    <li>Campaignify makes the creative. It does not post or run ads.</li>
+    <li>Limits: 120 requests a minute and 30 changes a minute per key or connection. Download links last 1 hour.</li>
+  </ul>
+</article>
+{% endblock %}

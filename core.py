@@ -21,6 +21,21 @@ MAX_PHOTO_MB = 25
 MAX_VIDEO_MB = 150
 
 
+def load_workspace(conn, ws_id):
+    """g.ws, g.brand_row and g.product_row for a member's workspace, with a
+    free-month code settled on time. Used by app.load_user (login cookie) and
+    the MCP server (mcp_tools.CampaignifyAdapter.enter, API key or OAuth)."""
+    import compcodes
+    g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+    if g.ws and compcodes.due(g.ws):
+        # a free-month code's next credits, or its end (back to free), right on time
+        compcodes.settle(conn, ws_id)
+        g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+    if g.ws:
+        g.brand_row, g.product_row = products.load_active(conn, g.ws)
+        g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+
+
 def csrf_token():
     """The session's form token (every POST carries it; app.load_user checks it)."""
     if "csrf" not in session:

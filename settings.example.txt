@@ -93,3 +93,8 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # CREATOR_POOL_FEE_USD=99
 # CREATOR_POOL_MIN_USD=200
 # CROWDCUT_URL=https://crowdcut.studio
+# ---- MCP server for Claude and other MCP clients (mcpserver.py, mcp_tools.py, docs at /docs/mcp).
+# Off until set: /mcp, the OAuth endpoints and the API key page answer 404.
+# MCP_SERVER=on
+# Browser origins allowed to call /mcp besides claude.ai, claude.com and localhost (comma separated):
+# MCP_ALLOWED_ORIGINS=

@@ -162,6 +162,9 @@ jobs:
           CREATOR_POOL_MIN_USD: ${{ vars.CREATOR_POOL_MIN_USD }}
           CREATOR_POOL_MAX_USD: ${{ vars.CREATOR_POOL_MAX_USD }}
           CROWDCUT_URL: ${{ vars.CROWDCUT_URL }}
+          # MCP server for Claude and other MCP clients (mcpserver.py): on | off (default off).
+          MCP_SERVER: ${{ vars.MCP_SERVER }}
+          MCP_ALLOWED_ORIGINS: ${{ vars.MCP_ALLOWED_ORIGINS }}
         run: |
           git archive --format=tar.gz -o /tmp/app.tgz HEAD
           python3 - <<'PY'
@@ -182,7 +185,8 @@ jobs:
                                              "META_CAPI_TOKEN", "TIKTOK_EVENTS_TOKEN", "REDDIT_CAPI_TOKEN",
                                              "META_TEST_EVENT_CODE", "TIKTOK_TEST_EVENT_CODE",
                                              "POOLS_PARTNER_SECRET", "CREATOR_POOLS", "CREATOR_POOL_FEE_USD",
-                                             "CREATOR_POOL_MIN_USD", "CREATOR_POOL_MAX_USD", "CROWDCUT_URL")
+                                             "CREATOR_POOL_MIN_USD", "CREATOR_POOL_MAX_USD", "CROWDCUT_URL",
+                                             "MCP_SERVER", "MCP_ALLOWED_ORIGINS")
                       if os.environ.get(k)}
           print("settings sent:", ", ".join(settings) or "none")
           body = {"commit": os.environ["GITHUB_SHA"], "settings": settings,

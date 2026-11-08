@@ -1,0 +1,41 @@
+{% extends "base.html" %}{% block title %}API and Claude · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <p class="eyebrow">Settings</p>
+  <h1>API and Claude</h1>
+  <p class="muted">Use Campaignify from Claude and other MCP clients. Server address: <code>{{ mcp_url }}</code>. Setup steps: <a href="{{ docs_path }}">how to connect</a>.</p>
+  {% if error %}<div class="flash">{{ error }}</div>{% endif %}
+  {% if new_key %}
+  <div class="panel" style="margin:16px 0">
+    <h2>Your new key</h2>
+    <p>Copy it now. It is shown only once; we keep only a fingerprint of it.</p>
+    <p><code style="word-break:break-all;user-select:all;font-size:15px">{{ new_key }}</code></p>
+    <p class="small muted">Send it as <code>Authorization: Bearer {{ new_key[:12] }}...</code>. Anyone with it can use {{ account.name }} as you, including its credits, so keep it out of shared files.</p>
+  </div>
+  {% endif %}
+  <div class="grid2">
+    <div class="panel">
+      <h2>Make a key</h2>
+      <p class="small muted">A key works in <b>{{ account.name }}</b> as you. Up to {{ max_keys }} keys each.</p>
+      <form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="create">
+        <label for="kname">Name</label><input id="kname" type="text" name="name" maxlength="60" placeholder="Claude Code on my laptop">
+        <p><label class="small"><input type="radio" name="scope" value="read" checked> Read only: see brands, products, what you've made and your credits</label></p>
+        <p><label class="small"><input type="radio" name="scope" value="write"> Read and write: also spend credits on copy, plans, snapshots, image ads and videos</label></p>
+        <button class="btn sm">Make key</button></form>
+    </div>
+    <div class="panel scrollx">
+      <h2>Keys</h2>
+      {% if keys %}<table><tr><th>Name</th><th>Starts with</th><th>Access</th><th>Last used</th><th></th></tr>
+      {% for k in keys %}<tr><td>{{ k.name }}{% if owner and k.user_id != user.id %}<br><span class="small muted">{{ k.email }}</span>{% endif %}</td><td><code>{{ k.prefix }}</code></td><td>{{ 'Read and write' if 'write' in k.scope else 'Read only' }}</td><td class="small">{{ (k.last_used_at or 'Never')[:16].replace('T', ' ') }}</td>
+        <td><form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="revoke_key"><input type="hidden" name="id" value="{{ k.id }}"><button class="btn dark sm">Revoke</button></form></td></tr>{% endfor %}</table>
+      {% else %}<p class="muted">No keys yet.</p>{% endif %}
+      <h2 style="margin-top:22px">Connected apps</h2>
+      <p class="small muted">Apps you connected by signing in, for example a Claude.ai custom connector.</p>
+      {% if grants %}<table><tr><th>App</th><th>Access</th><th>Connected</th><th></th></tr>
+      {% for c in grants %}<tr><td>{{ c.client_name or 'MCP client' }}{% if owner and c.user_id != user.id %}<br><span class="small muted">{{ c.email }}</span>{% endif %}</td><td>{{ 'Read and write' if 'write' in c.scope else 'Read only' }}</td><td class="small">{{ c.created_at[:10] }}</td>
+        <td><form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="revoke_grant"><input type="hidden" name="id" value="{{ c.id }}"><button class="btn dark sm">Disconnect</button></form></td></tr>{% endfor %}</table>
+      {% else %}<p class="muted">None connected.</p>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
