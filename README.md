@@ -283,6 +283,20 @@ Logs from the `campaignify` logger are JSON lines with `request_id` and `ws`, pl
 route pattern (never the real path or query), status and time; every response carries `X-Request-Id`.
 Tests: `tests/test_alerts.py`.
 
+## Storage quotas, body limits and the disk guard (`storage.py`)
+
+Each workspace keeps up to its plan's storage on our disk: Free 200 MB, Starter 2 GB, Growth 10 GB, Scale 50 GB
+(its product photos, Creator Pool files and finished ads; ads it deleted don't count). Uploads are checked before
+anything is saved (against the whole request's size, so a 20-photo upload that doesn't fit keeps none) and again
+with the real size; over quota answers 507 "Your storage is full: X of Y used on the Z plan" with what to do. A
+finished ad that would go over keeps only the vendor's link instead of a local copy. `RS_STORAGE_QUOTAS=0` turns
+quotas off. Body limits per route, from Content-Length before any parsing and on the stream: upload routes 155 MB,
+the contacts CSV 5 MB, webhooks 256 KB, everything else 1 MB (413). Under `RS_DISK_MIN_GB` (5) GB free, uploads,
+saved ads and exports are refused with 507 and the operator is alerted (`alerts.py`). Once a day (about 09:00 UTC)
+the worker removes temp leftovers (`*.part.mp4`, `*.wm.mp4` over an hour old) and platform exports not used for
+`RS_EXPORT_KEEP_DAYS` (7) days (they're made again on the next download); with `RS_STORAGE_PURGE_DELETED=1` (off
+by default) it also removes the files of ads deleted over 30 days ago. Tests: `tests/test_storage.py`.
+
 ## Pieces
 
 - `app.py` routes and pages (`web/`: `landing.html`, `privacy.html`, `terms.html` for the public site), `static/style.css`

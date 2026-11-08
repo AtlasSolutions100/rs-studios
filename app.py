@@ -46,6 +46,7 @@ import preview
 import products
 import public_site
 import site_events
+import storage
 import verify
 import worker
 import core  # noqa: E402
@@ -95,6 +96,7 @@ app.config.update(MAX_CONTENT_LENGTH=(MAX_VIDEO_MB + 5) * 1024 * 1024,
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 opslog.install(app)   # JSON logs with request and workspace ids, X-Request-Id
 alerts.install(app)   # operator alerts from webhook responses (signature failures, refunds, disputes)
+storage.install(app)  # body limits per route (uploads 155 MB, webhooks 256 KB, else 1 MB); 413 and 507 pages
 
 db.init()
 worker.start()
@@ -1206,7 +1208,7 @@ def start():
                          "plans on Billing.")
     if fs and fs.filename:
         try:
-            path, ctype = _save_upload(fs, os.path.join(UPLOADS, str(g.ws["id"])), PHOTO_TYPES, MAX_PHOTO_MB)
+            path, ctype = _save_upload(fs, os.path.join(UPLOADS, str(g.ws["id"])), PHOTO_TYPES, MAX_PHOTO_MB, ws=g.ws)
         except ValueError as e:
             return again(f"{fs.filename}: {e}")
     else:
@@ -1555,7 +1557,8 @@ def upload_photos():
             if not fs or not fs.filename:
                 continue
             try:
-                path, ctype = _save_upload(fs, os.path.join(UPLOADS, str(g.ws["id"])), PHOTO_TYPES, MAX_PHOTO_MB)
+                path, ctype = _save_upload(fs, os.path.join(UPLOADS, str(g.ws["id"])), PHOTO_TYPES, MAX_PHOTO_MB,
+                                           ws=g.ws)
             except ValueError as e:
                 flash(f"{fs.filename}: {e}")
                 continue

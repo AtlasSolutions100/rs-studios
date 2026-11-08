@@ -67,7 +67,16 @@ def _check_photo(path: str):
     return _PIL_TYPES[fmt]
 
 
-def save_upload(fs, folder, allowed, max_mb):
+def save_upload(fs, folder, allowed, max_mb, ws=None):
+    """Save one uploaded file after checking its type and size. `ws`: the
+    workspace whose storage quota it counts against (storage.py); without one
+    (admin files) only the disk guard applies. Raises ValueError, or
+    storage.StorageFull (507) when there's no room."""
+    import storage
+    if ws is not None:
+        storage.check_upload(ws)
+    else:
+        storage.disk_guard()
     ctype = fs.mimetype or mimetypes.guess_type(fs.filename or "")[0] or ""
     name = (fs.filename or "").lower()
     if ctype not in allowed:
@@ -92,6 +101,7 @@ def save_upload(fs, folder, allowed, max_mb):
             fixed = os.path.splitext(path)[0] + real_ext
             os.replace(path, fixed)
             path, ctype = fixed, real
+    storage.check_saved(ws, path)
     return path, ctype
 
 
