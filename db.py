@@ -591,6 +591,10 @@ COLUMNS = [
     ("workspaces", "billing_hold_reason", "TEXT"),
     ("workspaces", "billing_hold_at", "TEXT"),
     ("plan_invoices", "payment_intent", "TEXT"),
+    # plans switch on only when paid (BILL-3); a paid period is kept to its end (plans.GRACE_STATUSES)
+    ("workspaces", "plan_paid_through", "TEXT"),
+    ("workspaces", "plan_pending", "TEXT"),
+    ("workspaces", "plan_pending_at", "TEXT"),
 ]
 
 
@@ -619,6 +623,10 @@ def init():
                     # The first person in each existing workspace owns it.
                     conn.execute("UPDATE users SET role='owner' WHERE id IN "
                                  "(SELECT MIN(id) FROM users GROUP BY workspace_id)")
+                if (table, col) == ("workspaces", "plan_paid_through"):
+                    # Until now each paid invoice set plan_period_end; that's what was paid for.
+                    conn.execute("UPDATE workspaces SET plan_paid_through=plan_period_end "
+                                 "WHERE plan_status IN ('active','trialing','past_due')")
                 if (table, col) == ("users", "email_verified_at"):
                     # Everyone who signed up before verification existed counts as verified.
                     conn.execute("UPDATE users SET email_verified_at=COALESCE(created_at, ?)", (now(),))

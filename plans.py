@@ -45,9 +45,56 @@ for _code, _p in PLANS.items():
 PAID = [PLANS[c] for c in ORDER if c != "free"]
 BY_PRICE = {p["price_id"]: p for p in PAID}
 
-# Subscription states that keep a plan switched on. past_due keeps access
-# while Stripe retries the card; anything else drops to free.
+# Subscription states Stripe still bills. They keep the plan on, except that
+# past_due (the renewal payment failed, Stripe is retrying) pauses the
+# workspace once the period paid for is over (renewal_paused).
 LIVE_STATUSES = {"active", "trialing", "past_due"}
+# The renewal failed and Stripe keeps the subscription: plan credits are kept
+# but nothing can be spent until it's paid (RENEWAL_PAUSE, core.hold_check).
+RENEWAL_FAILED = {"past_due", "unpaid", "paused"}
+# Not billed (any more, or yet): the plan stays on only while a period that was
+# paid for runs (plan_paid_through, set by each paid invoice). A paid period is
+# paid usage; nothing is taken back early.
+GRACE_STATUSES = {"canceled", "unpaid", "paused", "incomplete", "incomplete_expired", "pending"}
+
+
+def _on(name: str) -> bool:
+    return (os.environ.get(name) or "on").strip().lower() not in ("0", "off", "false", "no")
+
+
+def pending_on() -> bool:
+    """PLAN_PENDING (default on): a plan checkout waits for its invoice to be paid
+    (plan_status='pending', "Confirming payment") before the plan switches on."""
+    return _on("PLAN_PENDING")
+
+
+def renewal_pause_on() -> bool:
+    """RENEWAL_PAUSE (default on): a failed renewal stops generation at once."""
+    return _on("RENEWAL_PAUSE")
+
+
+def _key(ws, k):
+    return ws[k] if k in ws.keys() else None
+
+
+def paid_period_left(ws) -> bool:
+    """True while the last period a paid invoice covered hasn't ended."""
+    t = _key(ws, "plan_paid_through")
+    return bool(t) and str(t) > _now_iso()
+
+
+def renewal_paused(ws) -> bool:
+    """The subscription's renewal payment failed and the paid period is over:
+    downloads only until it's paid (plan credits are kept, not spent)."""
+    return (renewal_pause_on() and ws is not None and bool(_key(ws, "stripe_subscription_id"))
+            and _key(ws, "plan_status") in RENEWAL_FAILED and not paid_period_left(ws))
+
+
+def lapse_due(ws) -> bool:
+    """The subscription ended and the period it paid for is over, but the
+    workspace still carries the plan: time to drop it (core.settle_plan_lapse)."""
+    return (ws is not None and _key(ws, "plan_status") in ("canceled", "incomplete_expired")
+            and _key(ws, "plan") not in (None, "free") and not paid_period_left(ws))
 
 # feature -> {min plan, name, blurb, shipped}. `shipped` features are the only
 # ones listed on pricing and features pages; flip it when a module lands.
@@ -103,7 +150,16 @@ def plan_code(ws) -> str:
     override = ws["plan_override"] if "plan_override" in keys else None
     sub = ws["plan"] if "plan" in keys else None
     status = ws["plan_status"] if "plan_status" in keys else None
-    code = sub if sub in PLANS and status in LIVE_STATUSES else "free"
+    if sub not in PLANS:
+        code = "free"
+    elif status in ("active", "trialing"):
+        code = sub
+    elif status == "past_due":
+        code = "free" if renewal_paused(ws) else sub
+    elif status in GRACE_STATUSES and paid_period_left(ws):
+        code = sub
+    else:
+        code = "free"
     if override in PLANS and rank(override) > rank(code):
         code = override
     comp = ws["comp_plan"] if "comp_plan" in keys else None

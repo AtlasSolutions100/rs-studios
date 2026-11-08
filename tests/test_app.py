@@ -1005,8 +1005,15 @@ r = deliver({"id": "evt_d", "type": "customer.subscription.deleted", "data": {"o
     "id": "sub_1", "object": "subscription", "status": "canceled", "customer": "cus_1",
     "metadata": {"app": "campaignify", "workspace_id": str(nws["id"])}}}})
 w = wsrow(nws["id"])
-check(r.status_code == 200 and plans.plan_code(w) == "free" and w["plan_credits"] == 0 and w["credits"] == before["credits"],
-      "subscription ended: back to free, plan credits gone, pack credits kept")
+check(r.status_code == 200 and plans.plan_code(w) == "scale" and w["plan_credits"] == 18000,
+      "subscription ended early: the period paid for runs to its end, plan and credits kept (paid usage)")
+with db.connect() as conn:   # ...until that period is over
+    conn.execute("UPDATE workspaces SET plan_paid_through='2020-01-01T00:00:00+00:00' WHERE id=?", (nws["id"],))
+    conn.commit()
+n.get("/app/library")
+w = wsrow(nws["id"])
+check(plans.plan_code(w) == "free" and w["plan"] == "free" and w["plan_credits"] == 0 and w["credits"] == before["credits"],
+      "subscription ended: at the end of the paid period, back to free, plan credits gone, pack credits kept")
 check(n.get("/app/billing").status_code == 200 and b"Get Growth" in n.get("/app/billing").data,
       "after cancel the plans can be bought again")
 
@@ -3056,8 +3063,17 @@ deliver({"id": "evt_late_del", "type": "customer.subscription.deleted", "data": 
     "id": "sub_late", "status": "canceled", "metadata": {"app": "campaignify", "workspace_id": str(saws)}, "items": {"data": []}}}})
 r = deliver(plan_invoice("in_late_1", saws, "starter", reason="subscription_cycle", sub="sub_late"))
 w = wsrow(saws)
-check(r.get_json().get("ignored") and w["plan"] == "free" and w["plan_credits"] == 0,
+with db.connect() as conn:
+    late = conn.execute("SELECT 1 FROM plan_invoices WHERE invoice_id='in_late_1'").fetchone()
+check(r.get_json().get("ignored") and w["plan_status"] == "canceled" and not late,
       "a late invoice.paid for a canceled subscription doesn't switch the plan and its credits back on")
+with db.connect() as conn:   # the period it paid for ends: free, credits gone, the late invoice changed nothing
+    conn.execute("UPDATE workspaces SET plan_paid_through='2020-01-01T00:00:00+00:00' WHERE id=?", (saws,))
+    conn.commit()
+    core_mod = __import__("core")
+    core_mod.settle_plan_lapse(conn, saws)
+w = wsrow(saws)
+check(w["plan"] == "free" and w["plan_credits"] == 0, "and when its paid period ends, back to free with no plan credits")
 r = deliver(plan_invoice("in_new_1", saws, "growth", sub="sub_new"))
 check(wsrow(saws)["plan"] == "growth" and r.get_json().get("credited") == 6000, "subscribing again (a new subscription) still works")
 
@@ -3185,3 +3201,5 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_storage.py")], check=True)
     # Refunds and disputes (billing_holds.py): credits voided, downloads-only hold, dispute won, event-id dedupe.
     subprocess.run([sys.executable, os.path.join(HERE, "test_billing_holds.py")], check=True)
+    # Plans on only when paid (pending), a paid period kept to its end, a failed renewal paused with credits kept.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_plan_pending.py")], check=True)

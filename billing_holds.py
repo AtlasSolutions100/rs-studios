@@ -34,6 +34,8 @@ log = logging.getLogger("campaignify")
 
 CONTACT = "hello@campaignify.ai"
 HOLD_MESSAGE = "A payment was reversed. Email us to restore access."
+# a plan's renewal payment failed (plans.renewal_paused): the same downloads-only pause
+RENEWAL_MESSAGE = "Your plan's renewal payment didn't go through. Update your card on Billing to keep making ads."
 # reversals that keep a workspace on hold
 HOLDING = ("applied", "lost")
 
