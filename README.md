@@ -258,6 +258,20 @@ Tests: `tests/test_mcp.py`.
 
     python tests/test_app.py        # generation API and Stripe faked; also runs test_products, test_outreach, test_public_site, test_pixels, test_site_events, test_google_auth, ...
 
+Golden-path eval (separate, slower, about 40 seconds; needs Playwright for Python with Chromium):
+
+    python tests/golden_path.py                  # both paths; --path product|service, --json/--markdown out, --shots dir, --headed
+
+It runs the north star's two paths in a real browser against a local server with every provider faked (as
+test_app.py fakes them): the product path (sign up, confirm the email, paste the product page, 2 free ads, pick a
+plan, plan the campaign, creative batch, copy, landing page, export) and the service path (website, leads plan,
+Google Search copy, quote form, page with the form, follow-up flow, a visitor's lead in Contacts). Per step it records
+wall clock and user actions (clicks, fields typed, addresses typed), asserts that every button that spends credits
+shows its price before it's pressed and never charges more, and that no step leaves the app except the known handoffs
+(Stripe, the ad platforms' payment pages). `KNOWN_GAPS` holds failures the roadmap already tracks (today UX-13: the
+service path can't make its first ads without a product photo); they print as "known gap" and don't fail the run, so
+the output is the baseline. Connect and launch print "not built" until M2/M3. Exit code 1 on any other failure.
+
 ## Deploy
 
 Push to main. The workflow runs the tests, then sends the commit and the
