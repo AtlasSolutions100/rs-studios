@@ -15,7 +15,7 @@
 set -u
 
 say() { [ -n "${FAKE_RCLONE_LOG:-}" ] && printf '%s\n' "$*" >> "$FAKE_RCLONE_LOG"; return 0; }
-die() { echo "fake rclone: $*" >&2; exit "${2:-1}"; }
+die() { echo "fake rclone: $1" >&2; exit "${2:-1}"; }
 
 pos=(); excludes=(); backup_dir=""; only=""
 while [ $# -gt 0 ]; do
