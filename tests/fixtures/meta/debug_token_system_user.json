@@ -1,0 +1,17 @@
+{
+ "data": {
+  "app_id": "1000000000000001",
+  "type": "SYSTEM_USER",
+  "application": "Rector & Stull",
+  "data_access_expires_at": 0,
+  "expires_at": 0,
+  "is_valid": true,
+  "scopes": [
+   "ads_read",
+   "ads_management",
+   "pages_show_list",
+   "business_management"
+  ],
+  "user_id": "10200000000000009"
+ }
+}

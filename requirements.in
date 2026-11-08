@@ -9,3 +9,5 @@ flask>=3.0
 requests>=2.31
 gunicorn>=22.0
 pillow>=10.0
+# AES-GCM for the token box (secretsbox.py): ad-platform tokens are stored encrypted.
+cryptography>=44.0
