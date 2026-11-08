@@ -249,8 +249,11 @@ def _ad_schema(kinds, generating):
         "voices": {"type": "array", "maxItems": 4, "items": {"type": "string", "enum": list(catalog.VOICE_BY_ID)},
                    "description": "voiceover: narrator voices."},
         "voice": {"type": "string", "enum": list(catalog.VOICE_BY_ID), "description": "ugc: override the presenter's voice."},
-        "duration": {"type": "integer", "enum": [5, 8, 10, 15], "description": "Seconds: ugc and voiceover 8, 10 or 15; "
-                                                                           "product_video 5 or 10."},
+        "duration": {"type": "integer",
+                     "enum": sorted(set(catalog.TOOLS["ugc_video"]["durations"]) | set(catalog.TOOLS["photo_to_video"]["durations"])),
+                     "description": "Seconds. ugc and voiceover: " + ", ".join(map(str, catalog.TOOLS["ugc_video"]["durations"]))
+                                    + "; product_video: " + " or ".join(map(str, catalog.TOOLS["photo_to_video"]["durations"]))
+                                    + "."},
         "aspects": {"type": "array", "maxItems": 3, "items": {"type": "string", "enum": ["9:16", "1:1", "4:5", "16:9"]}},
         "resolution": {"type": "string", "enum": ["720p", "1080p"], "description": "Videos only."},
         "versions": {"type": "integer", "minimum": 1, "maximum": 4, "description": "Image: versions per headline."},
