@@ -9,7 +9,8 @@ launch checklist.
 Nothing it proposes spends credits: `propose_ad` only records a proposal. The
 member reviews the plan and confirms the ads they want; only then are jobs
 queued (campaign_routes.generate). The planning run itself costs what the AI
-calls actually cost, capped at `cap_credits()`, charged once when it ends.
+calls actually cost, capped at `cap_credits()`: the route holds the cap before
+the run starts (credits.py) and the run settles it once when it ends.
 
 `run(cid)` does one planning run; `start(cid)` runs it in a background thread
 (inline when RS_WORKER=0, which the tests use).
@@ -23,6 +24,7 @@ from datetime import date
 import catalog
 import compliance
 import copywriter
+import credits as credit_holds
 import db
 import llm
 import platforms
@@ -433,8 +435,9 @@ def _save(cid, plan, steps, status=None, **kw):
         conn.commit()
 
 
-def run(cid: int, notes: str | None = None):
-    """One planning run for campaign `cid`. Charges the workspace once at the end."""
+def run(cid: int, notes: str | None = None, hold=None):
+    """One planning run for campaign `cid`. Settles `hold` (credits.reserve) once at the end;
+    without one it charges after the fact, at most what's left (CREDIT_HOLDS=off)."""
     with db.connect() as conn:
         c = conn.execute("SELECT * FROM campaigns WHERE id=?", (cid,)).fetchone()
         b = conn.execute("SELECT * FROM brands WHERE id=?", (c["brand_id"],)).fetchone() if c["brand_id"] else None
@@ -510,7 +513,9 @@ def run(cid: int, notes: str | None = None):
         _step(steps, "error", "The planner stopped early", error)
     credits = min(usage.credits, cap)
     taken = 0
-    if credits:
+    if hold is not None:
+        taken = credit_holds.settle(hold, credits)
+    elif credits:
         with db.connect() as conn:
             have = db.balance(conn.execute("SELECT * FROM workspaces WHERE id=?", (c["workspace_id"],)).fetchone())
             taken = min(credits, have)
@@ -528,19 +533,20 @@ def run(cid: int, notes: str | None = None):
     return status
 
 
-def start(cid: int, notes: str | None = None):
+def start(cid: int, notes: str | None = None, hold=None):
     if os.environ.get("RS_WORKER", "1") != "1":
-        return run(cid, notes)
-    threading.Thread(target=_safe_run, args=(cid, notes), name=f"planner-{cid}", daemon=True).start()
+        return run(cid, notes, hold)
+    threading.Thread(target=_safe_run, args=(cid, notes, hold), name=f"planner-{cid}", daemon=True).start()
     return "planning"
 
 
-def _safe_run(cid, notes):
+def _safe_run(cid, notes, hold=None):
     try:
-        run(cid, notes)
+        run(cid, notes, hold)
     except Exception:  # noqa: BLE001
         traceback.print_exc()
         with db.connect() as conn:
             conn.execute("UPDATE campaigns SET status='failed', error='planner crashed', updated_at=? WHERE id=?",
                          (db.now(), cid))
             conn.commit()
+        credit_holds.release(hold, "the planner crashed")

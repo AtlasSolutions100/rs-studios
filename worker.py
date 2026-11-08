@@ -411,6 +411,8 @@ def start():
             alerts.maybe_sweep()   # operator alerts: stuck jobs, vendor errors, disk, backups (never raises)
             import storage
             storage.maybe_purge()  # once a day: temp leftovers and expired exports (never raises)
+            import credits
+            credits.maybe_release_stale()  # holds left by a crashed AI run go back after 30 min (never raises)
             time.sleep(POLL_SECONDS)
 
     _thread = threading.Thread(target=loop, name="rs-worker", daemon=True)

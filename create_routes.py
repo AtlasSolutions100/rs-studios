@@ -13,12 +13,13 @@ from flask import Blueprint, abort, g, jsonify, redirect, render_template, reque
 import catalog
 import compliance
 import creator
+import credits as credit_holds
 import db
 import llm
 import platforms
 import presenter_stills
 import products
-from core import brand, can_afford, charge_ai, hold_check, login_required, queue_job, verify_block, verify_json
+from core import brand, hold_check, login_required, queue_job, reserve_ai, verify_block, verify_json
 
 bp = Blueprint("create", __name__)
 MAX_BATCH = 12
@@ -222,12 +223,24 @@ def product_state():
     return jsonify(st)
 
 
-def _ai_ready(quote):
+def _ai_hold(quote, label):
+    """(hold, None) with the most the call can cost held (credits.py), or (None, the 503/402 answer)."""
     if not llm.anthropic_ready():
-        return jsonify({"error": "AI writing isn't switched on yet. Write your own below; nothing was charged."}), 503
-    if not can_afford(quote):
-        return jsonify({"error": f"That needs about {quote} credits and you have {db.balance(g.ws):,}."}), 402
-    return None
+        return None, (jsonify({"error": "AI writing isn't switched on yet. Write your own below; nothing was charged."}),
+                      503)
+    hold = reserve_ai(quote, label)
+    if hold is None:
+        return None, (jsonify({"error": f"That needs about {quote} credits and you have {_bal():,}."}), 402)
+    return hold, None
+
+
+def _settle(hold, usage):
+    try:
+        return credit_holds.settle(hold, usage.credits if usage.calls else 0)
+    except Exception:  # noqa: BLE001 — never lose the answer over the bookkeeping; the sweep returns the hold
+        import logging
+        logging.getLogger("campaignify").exception("settling credit hold %s failed", hold)
+        return 0
 
 
 @bp.route("/app/create/angles", methods=["POST"])
@@ -238,7 +251,7 @@ def angles():
         p = _product_row(conn, d.get("product"))
         if p is None:
             abort(404)
-        busy = _ai_ready(creator.estimate_angles())
+        hold, busy = _ai_hold(creator.estimate_angles(), "AI angle ideas")
         if busy:
             return busy
         usage = llm.Usage()
@@ -248,7 +261,7 @@ def angles():
             err = None
         except llm.LLMError as e:
             out, err = [], f"The writer didn't finish ({e}). Try again."
-        taken = charge_ai(conn, usage.credits, "AI angle ideas") if usage.calls else 0
+        taken = _settle(hold, usage)
         conn.commit()
     return jsonify({"angles": out, "charged": taken, "balance": _bal(), **({"error": err} if err else {})})
 
@@ -274,7 +287,7 @@ def script():
         if p is None:
             abort(404)
         spoken = catalog.AD_TYPE_BY_ID[typ]["script"] == "spoken"
-        busy = _ai_ready(creator.estimate_script(not spoken, spoken))
+        hold, busy = _ai_hold(creator.estimate_script(not spoken, spoken), "AI script")
         if busy:
             return busy
         usage = llm.Usage()
@@ -287,7 +300,7 @@ def script():
                                       usage, photo=photo), None
         except llm.LLMError as e:
             out, err = {"items": [], "body": "", "on_screen": []}, f"The writer didn't finish ({e}). Try again."
-        taken = charge_ai(conn, usage.credits, "AI script") if usage.calls else 0
+        taken = _settle(hold, usage)
         conn.commit()
     return jsonify(dict(out, charged=taken, balance=_bal(), **({"error": err} if err else {})))
 
@@ -324,7 +337,7 @@ def shorten():
         b = catalog.word_budget(dur)
         if all(catalog.words(i + " " + body) <= b["total"] for i in items) and (items or catalog.words(body) <= b["total"]):
             return jsonify({"items": items, "body": body, "changed": False, "charged": 0, "balance": _bal()})
-        busy = _ai_ready(creator.estimate_shorten())
+        hold, busy = _ai_hold(creator.estimate_shorten(), "AI shorten script")
         if busy:
             return busy
         usage = llm.Usage()
@@ -332,7 +345,7 @@ def shorten():
             out, err = creator.shorten(brand(p["id"]), typ, items, body, dur, usage), None
         except llm.LLMError as e:
             out, err = None, f"The writer didn't finish ({e}). Try again; nothing was changed."
-        taken = charge_ai(conn, usage.credits, "AI shorten script") if usage.calls else 0
+        taken = _settle(hold, usage)
         conn.commit()
     if out is None:
         return jsonify({"error": err, "charged": taken, "balance": _bal()}), 502

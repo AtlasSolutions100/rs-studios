@@ -116,3 +116,6 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # Daily purge of the files of ads deleted over RS_PURGE_DELETED_DAYS days ago (off unless 1):
 # RS_STORAGE_PURGE_DELETED=0
 # RS_PURGE_DELETED_DAYS=30
+# ---- Credit holds (credits.py): AI runs reserve their quote before calling the provider and settle after.
+# off charges after the run instead (at most what's left), as before.
+# CREDIT_HOLDS=on

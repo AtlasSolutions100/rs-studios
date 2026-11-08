@@ -12,11 +12,12 @@ from flask import (Blueprint, abort, flash, g, make_response, redirect, render_t
 
 import compliance
 import copywriter
+import credits as credit_holds
 import db
 import llm
 import pages
 import plans
-from core import brand, can_afford, charge_ai, feature_required, not_enough, picked_product
+from core import brand, can_afford, feature_required, not_enough, picked_product, reserve_ai
 
 bp = Blueprint("pages", __name__)
 MAX_DRAFTS = 50
@@ -215,16 +216,20 @@ def ai_draft(pid):
     if not compliance.check(brief["offer"], brief["notes"])["ok"]:
         flash("That brief breaks the content rules.")
         return redirect(url_for("pages.edit", pid=pid))
+    hold = reserve_ai(quote, "AI landing page copy")    # held before the writer runs (credits.py)
+    if hold is None:
+        not_enough(quote)
+        return redirect(url_for("pages.edit", pid=pid))
     usage = llm.Usage()
     try:
         v = copywriter.write(brand(picked_product()), "landing", "landing", brief, 1, usage)
     except llm.LLMError as e:
         flash(f"The writer didn't finish ({e}).")
         v = []
-    with db.connect() as conn:
-        if usage.calls:
-            charge_ai(conn, usage.credits, "AI landing page copy")
-            conn.commit()
+    except Exception:
+        credit_holds.release(hold, "the writer crashed")
+        raise
+    credit_holds.settle(hold, usage.credits if usage.calls else 0)
     if not v:
         return redirect(url_for("pages.edit", pid=pid))
     fields = {f["name"].lower(): f["text"] for f in v[0]["fields"]}

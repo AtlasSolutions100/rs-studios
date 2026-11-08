@@ -4,10 +4,11 @@ import json
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
 
 import copywriter
+import credits as credit_holds
 import db
 import llm
 import platforms
-from core import brand, can_afford, charge_ai, feature_required, not_enough, picked_product
+from core import brand, can_afford, feature_required, not_enough, picked_product, reserve_ai
 
 bp = Blueprint("copy", __name__)
 
@@ -19,10 +20,14 @@ def _runs(kinds, limit=20):
                             (g.ws["id"], *kinds, limit)).fetchall()
 
 
-def save_run(conn, kind, platform, inp, out, usage, product_id=None):
+def _label(kind):
+    return f"AI {platforms.KINDS.get(kind, {}).get('name', kind).lower()}"
+
+
+def save_run(conn, kind, platform, inp, out, usage, product_id=None, hold=None):
+    """Save the run and settle its hold (what the AI used, the rest back)."""
     cost = usage.usd if usage else 0.0
-    credits = charge_ai(conn, usage.credits, f"AI {platforms.KINDS.get(kind, {}).get('name', kind).lower()}") \
-        if usage and usage.calls else 0
+    credits = credit_holds.settle(hold, usage.credits if usage and usage.calls else 0)
     pid = product_id or g.ws["product_id"]
     prow = conn.execute("SELECT brand_id FROM products WHERE id=? AND workspace_id=?", (pid or 0, g.ws["id"])).fetchone()
     rid = conn.execute("INSERT INTO copy_runs (workspace_id, user_id, brand_id, kind, platform, input_json, output_json, "
@@ -62,17 +67,23 @@ def studio():
             for m in check["blocks"]:
                 flash(m)
             return redirect(url_for("copy.studio", kind=kind, platform=platform))
+        hold = reserve_ai(quote, _label(kind))      # the most it can cost, held before the writer runs
+        if hold is None:
+            not_enough(quote)
+            return redirect(url_for("copy.studio", kind=kind, platform=platform))
         usage = llm.Usage()
         try:
             variants = copywriter.write(b, kind, platform, brief, n, usage)
         except llm.LLMError as e:
-            with db.connect() as conn:
-                charge_ai(conn, usage.credits, "AI copy (failed run)") if usage.calls else None
-                conn.commit()
+            credit_holds.settle(hold, usage.credits if usage.calls else 0)    # a failed run pays what it used
             flash(f"The writer didn't finish ({e}). Try again in a minute.")
             return redirect(url_for("copy.studio", kind=kind, platform=platform))
+        except Exception:
+            credit_holds.release(hold, "the writer crashed")
+            raise
         with db.connect() as conn:
-            rid = save_run(conn, kind, platform, dict(brief, n=n), {"variants": variants}, usage, product_id=pid)
+            rid = save_run(conn, kind, platform, dict(brief, n=n), {"variants": variants}, usage, product_id=pid,
+                           hold=hold)
         return redirect(url_for("copy.run", rid=rid))
     etype = copywriter.email_type({"email_type": request.args.get("type")})
     return render_template("copy.html", b=b, pid=pid, kind=kind, platform=platform, runs=_runs(list(platforms.KINDS)),
@@ -113,14 +124,21 @@ def optimize():
         if use_ai and not can_afford(quote):
             not_enough(quote)
             return redirect(url_for("copy.optimize"))
+        hold = reserve_ai(quote, _label("optimize")) if use_ai else None
+        if use_ai and hold is None:
+            not_enough(quote)
+            return redirect(url_for("copy.optimize"))
         usage = llm.Usage()
         try:
             res = copywriter.optimize(text, platform, goal, brand(), use_ai=use_ai, usage=usage)
         except llm.LLMError as e:
             res = copywriter.optimize(text, platform, goal, brand(), use_ai=False)
             flash(f"The AI review didn't finish ({e}); here are the quick checks.")
+        except Exception:
+            credit_holds.release(hold, "the review crashed")
+            raise
         with db.connect() as conn:
-            rid = save_run(conn, "optimize", platform, {"text": text, "goal": goal}, res, usage)
+            rid = save_run(conn, "optimize", platform, {"text": text, "goal": goal}, res, usage, hold=hold)
         return redirect(url_for("copy.optimized", rid=rid))
     return render_template("optimize.html", runs=_runs(["optimize"]), ai_on=llm.configured(),
                            quote=copywriter.optimize_estimate(), text=request.args.get("text", "")[:8000],

@@ -6,24 +6,28 @@ from datetime import datetime, timedelta, timezone
 from flask import Blueprint, Response, abort, flash, g, jsonify, redirect, render_template, request, url_for
 
 import competitors
+import credits as credit_holds
 import db
 import llm
-from core import can_afford, feature_required
+from core import can_afford, feature_required, reserve_ai
 
 bp = Blueprint("competitors", __name__)
 
 
 def _unstale(r):
-    """A run whose thread died (deploy, restart) shows as failed; it was never charged."""
+    """A run whose thread died (deploy, restart) shows as failed; it was never charged
+    and the credits held for it go back."""
     if r is None or r["status"] != "running":
         return r
     cutoff = (datetime.now(timezone.utc) - timedelta(minutes=competitors.STALE_MINUTES)).replace(microsecond=0).isoformat()
     if r["updated_at"] < cutoff:
         with db.connect() as conn:
-            conn.execute("UPDATE competitor_reports SET status='failed', error='The research was interrupted. Nothing was "
-                         "charged. Run it again.' WHERE id=? AND status='running'", (r["id"],))
+            gone = conn.execute("UPDATE competitor_reports SET status='failed', error='The research was interrupted. "
+                                "Nothing was charged. Run it again.' WHERE id=? AND status='running'", (r["id"],)).rowcount
             conn.commit()
             r = conn.execute("SELECT * FROM competitor_reports WHERE id=?", (r["id"],)).fetchone()
+        if gone:
+            credit_holds.release_ref(f"competitor:{r['id']}", "the research was interrupted")
     return r
 
 
@@ -59,11 +63,20 @@ def index():
             if any(r["status"] == "running" for r in busy):
                 flash("A competitor run is already going. Give it a few minutes.")
                 return redirect(url_for("competitors.index"))
+            # The most it can cost leaves the balance now (credits.py), so nothing else can spend it meanwhile.
+            hold = reserve_ai(need, "Competitor research", conn=conn)
+            if hold is None:
+                flash(f"This run can use up to {need:,} credits (you pay what it actually uses) and you have "
+                      f"{db.balance(conn.execute('SELECT * FROM workspaces WHERE id=?', (g.ws['id'],)).fetchone()):,}. "
+                      "Top up on the Billing page.")
+                return redirect(url_for("competitors.index"))
             rid = conn.execute("INSERT INTO competitor_reports (workspace_id, brand_id, user_id, status, inputs_json, "
                                "steps_json, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)",
                                (g.ws["id"], bid, g.user["id"], "running",
-                                json.dumps({"competitors": comps, "quote": need}), "[]", db.now(), db.now())).lastrowid
+                                json.dumps({"competitors": comps, "quote": need, "hold": hold.id}), "[]", db.now(),
+                                db.now())).lastrowid
             conn.commit()
+        credit_holds.link(hold, f"competitor:{rid}")
         competitors.start(rid)
         return redirect(url_for("competitors.show", rid=rid))
     with db.connect() as conn:
