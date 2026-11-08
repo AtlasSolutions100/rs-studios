@@ -1586,10 +1586,10 @@ def billing_page():
         invoices = conn.execute("SELECT * FROM plan_invoices WHERE workspace_id=? ORDER BY created_at DESC LIMIT 24",
                                 (g.ws["id"],)).fetchall()
         used_code = compcodes.used_code(conn, g.ws["id"])
-    return render_template("billing.html", purchases=purchases, ledger=ledger, packs_by=catalog.PACK_BY_CODE,
+    return render_template("billing.html", templates_by_id=catalog.TEMPLATE_BY_ID,
+                           purchases=purchases, ledger=ledger, packs_by=catalog.PACK_BY_CODE,
                            invoices=invoices, current=plans.plan(g.ws), subscribed=_subscribed(g.ws),
-                           owner=is_owner(), comp_on=compcodes.active(g.ws), used_code=used_code,
-                           templates_by_id=catalog.TEMPLATE_BY_ID)
+                           owner=is_owner(), comp_on=compcodes.active(g.ws), used_code=used_code)
 
 
 @app.route("/app/billing/code", methods=["POST"])
