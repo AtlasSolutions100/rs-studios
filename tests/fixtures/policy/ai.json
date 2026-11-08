@@ -1,0 +1,164 @@
+{
+ "cases": [
+  {
+   "id": "a01",
+   "text": "I bought this serum last month and now my skin is glowing.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial"
+   ],
+   "house": []
+  },
+  {
+   "id": "a02",
+   "text": "I tried it for a week and it fixed my back pain.",
+   "platform": "meta",
+   "vertical": "health",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial"
+   ],
+   "house": []
+  },
+  {
+   "id": "a03",
+   "text": "I've lost 12 pounds since I started taking these.",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial",
+    "policy.health_outcome_numeric"
+   ],
+   "house": [
+    "weight_loss_phrase"
+   ]
+  },
+  {
+   "id": "a04",
+   "text": "Best purchase I've ever made, honestly.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial"
+   ],
+   "house": []
+  },
+  {
+   "id": "a05",
+   "text": "I was skeptical at first, but wow.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial"
+   ],
+   "house": []
+  },
+  {
+   "id": "a06",
+   "text": "As a real customer, I can say this works.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial"
+   ],
+   "house": []
+  },
+  {
+   "id": "a07",
+   "text": "My sleep has improved so much.",
+   "platform": "meta",
+   "vertical": "supplements",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial"
+   ],
+   "house": []
+  },
+  {
+   "id": "a08",
+   "text": "This changed my mornings: it saved my routine.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial"
+   ],
+   "house": []
+  },
+  {
+   "id": "a09",
+   "text": "I love how light this moisturizer feels.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": true,
+   "expect": [
+    "policy.ai_first_person"
+   ],
+   "house": []
+  },
+  {
+   "id": "a10",
+   "text": "This is my go-to bag for weekend trips.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": true,
+   "expect": [
+    "policy.ai_first_person"
+   ],
+   "house": []
+  },
+  {
+   "id": "a11",
+   "text": "Meet the Ember candle: soy wax, 40 hours, cedar and smoke.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": true,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "a12",
+   "text": "This serum is made for dry skin. Two drops at night.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": true,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "a13",
+   "text": "Here's what's inside: oats, honey and nothing else.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": true,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "a14",
+   "text": "I bought this serum last month and now my skin is glowing.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "a15",
+   "text": "We started using recycled glass this year, and it shows.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial"
+   ],
+   "house": []
+  }
+ ]
+}
