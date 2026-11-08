@@ -7,6 +7,7 @@ daemon thread inside the web process (one process is plenty at this scale).
 import json
 import mimetypes
 import os
+import sqlite3
 import threading
 import time
 import traceback
@@ -32,6 +33,15 @@ MEDIA = os.path.join(db.DATA, "media")
 POLL_SECONDS = float(os.environ.get("RS_POLL_SECONDS", "5"))
 MAX_ATTEMPTS = 3
 STUCK_MINUTES = 30
+# A submit in flight holds a claim on its job (jobs.claimed_at) so no second pass or
+# process sends it too. A claim older than this belongs to a worker that died mid-call:
+# the job is picked up again and resent with the same idempotency key (jobs.submit_key),
+# which the vendor answers with the first request id instead of a second, paid one.
+SUBMIT_LEASE_MINUTES = 10
+# A job whose submit failed for a passing reason (vendor busy, 5xx, network) waits
+# this long times 2^(tries-1) before its next try: 30 s, then 60 s.
+RETRY_BASE_SECONDS = float(os.environ.get("RS_JOB_RETRY_SECONDS", "30"))
+CANCELED = "You canceled it."
 
 
 def _set(conn, jid, **kw):
@@ -142,12 +152,23 @@ def failure_text(msg: str) -> str:
     return (msg + " " + REFUNDED).strip()
 
 
-def _fail(conn, job, msg):
+def _fail(conn, job, msg, extra_where: str = "", extra_args: tuple = ()) -> bool:
+    """Mark the job failed and refund it, in one transaction. Only the first to move
+    the job out of the status it was read with refunds (a member's cancel and the
+    worker can't both refund one job). False when someone else got there first."""
+    t = db.now()
+    cur = conn.execute("UPDATE jobs SET status='failed', error=?, finished_at=?, updated_at=?, claimed_at=NULL "
+                       f"WHERE id=? AND status=?{extra_where}",
+                       (failure_text(msg)[:500], t, t, job["id"], job["status"], *extra_args))
+    if cur.rowcount != 1:
+        conn.rollback()
+        return False
     _refund(conn, job, msg[:60])
     if _is_preview(job):
         import preview
         preview.release(conn, job["id"])
-    _set(conn, job["id"], status="failed", error=failure_text(msg)[:500], finished_at=db.now())
+    conn.commit()
+    return True
 
 
 def _is_preview(job) -> bool:
@@ -317,11 +338,113 @@ def _beat():
         alerts.beat()
 
 
+def _lease_cutoff() -> str:
+    return _minutes_ago(SUBMIT_LEASE_MINUTES)
+
+
+def _due(job) -> bool:
+    """A job that already had a try waits out its backoff before the next."""
+    if not job["attempts"]:
+        return True
+    wait = RETRY_BASE_SECONDS * 2 ** (job["attempts"] - 1)
+    return job["updated_at"] <= _minutes_ago(wait / 60)
+
+
+def _claim(conn, job) -> sqlite3.Row | None:
+    """Take a pending job for one submit try, writing its idempotency key first
+    (kept across tries). None if another pass holds a live claim on it."""
+    t = db.now()
+    cur = conn.execute("UPDATE jobs SET claimed_at=?, submit_key=COALESCE(submit_key, ?), attempts=attempts+1, "
+                       "updated_at=? WHERE id=? AND status='pending' AND (claimed_at IS NULL OR claimed_at < ?)",
+                       (t, hf.new_key(), t, job["id"], _lease_cutoff()))
+    conn.commit()
+    if cur.rowcount != 1:
+        return None
+    return conn.execute("SELECT * FROM jobs WHERE id=?", (job["id"],)).fetchone()
+
+
+def _try_later(conn, job, msg: str) -> bool:
+    """A passing failure: back in the queue with its key, or failed (and refunded)
+    after MAX_ATTEMPTS tries."""
+    if job["attempts"] >= MAX_ATTEMPTS:
+        return _fail(conn, job, msg)
+    cur = conn.execute("UPDATE jobs SET claimed_at=NULL, error=?, updated_at=? WHERE id=? AND status='pending'",
+                       (msg[:300], db.now(), job["id"]))
+    conn.commit()
+    return cur.rowcount == 1
+
+
+def _submit_one(conn, job):
+    job = _claim(conn, job)
+    if job is None:
+        return False
+    try:
+        inputs = build_inputs(conn, job)
+        model = catalog.TOOLS[job["tool"]]["model"]
+        if job["tool"] == "ugc_video" and not price_ok(conn, job, model, inputs):
+            raise hf.GenError("This format's price changed and it couldn't start. We've been told.")
+        # uploads and the price check can take a while: renew the claim right before the call
+        _set(conn, job["id"], claimed_at=db.now())
+        rid = hf.submit(model, inputs, idempotency_key=job["submit_key"])
+        _set(conn, job["id"], status="running", request_id=rid, claimed_at=None, error=None)
+    except hf.Transient as e:
+        if hf.retries_on():
+            _try_later(conn, job, str(e))
+        else:
+            _fail(conn, job, str(e))
+    except hf.GenError as e:
+        _fail(conn, job, str(e))
+    except Exception as e:  # noqa: BLE001
+        _try_later(conn, job, f"Couldn't start: {e}")
+    return True
+
+
+def _timed_out(conn, job) -> bool:
+    """Past the deadline: ask the vendor to drop the request first (BILL-5), so a
+    job we refund is never also billed to us later. The vendor only drops one that
+    hasn't started; one already being made can't be stopped, so it's logged with
+    its request id to match against the vendor's bill. The member is refunded
+    either way."""
+    outcome = "no request"
+    if job["request_id"]:
+        outcome = hf.cancel(job["request_id"])
+    if outcome != hf.CANCELED:
+        log.warning("job %s timed out; vendor cancel: %s (request %s)", job["id"], outcome, job["request_id"])
+    return _fail(conn, job, "Timed out.")
+
+
+def cancel_job(conn, job) -> tuple[bool, str]:
+    """A member cancels a queued ad. A job we haven't sent is dropped here; one
+    the vendor has but hasn't started is canceled there. Either way the credits
+    come back. One the vendor is already making can't be stopped."""
+    if job["status"] == "pending":
+        if job["claimed_at"] and job["claimed_at"] >= _lease_cutoff():
+            return False, "It's starting right now. Try again in a moment."
+        if _fail(conn, job, CANCELED, " AND (claimed_at IS NULL OR claimed_at < ?)", (_lease_cutoff(),)):
+            return True, failure_text(CANCELED)
+        return False, "It's starting right now. Try again in a moment."
+    if job["status"] != "running":
+        return False, "It has already finished."
+    outcome = hf.cancel(job["request_id"]) if job["request_id"] else hf.GONE
+    if outcome in (hf.CANCELED, hf.GONE):
+        if _fail(conn, job, CANCELED):
+            return True, failure_text(CANCELED)
+        return False, "It has already finished."
+    if outcome == hf.STARTED:
+        return False, "It's already being made and can't be stopped now."
+    log.warning("job %s: member cancel failed at the vendor: %s", job["id"], outcome)
+    return False, "It couldn't be canceled right now. Try again in a moment."
+
+
 def tick() -> int:
     """One pass over pending and running jobs. Returns how many changed."""
     changed = 0
     with db.connect() as conn:
-        for job in conn.execute("SELECT * FROM jobs WHERE status='pending' ORDER BY priority DESC, id LIMIT 5").fetchall():
+        tried = 0
+        for job in conn.execute("SELECT * FROM jobs WHERE status='pending' AND (claimed_at IS NULL OR claimed_at < ?) "
+                                "ORDER BY priority DESC, id LIMIT 100", (_lease_cutoff(),)).fetchall():
+            if tried >= 5:
+                break
             _beat()
             if conn.execute("SELECT 1 FROM workspaces WHERE id=? AND COALESCE(billing_hold, 0)=1",
                             (job["workspace_id"],)).fetchone():
@@ -329,21 +452,11 @@ def tick() -> int:
                 _fail(conn, job, "Paused: a payment on this workspace was reversed.")
                 changed += 1
                 continue
-            try:
-                inputs = build_inputs(conn, job)
-                model = catalog.TOOLS[job["tool"]]["model"]
-                if job["tool"] == "ugc_video" and not price_ok(conn, job, model, inputs):
-                    raise hf.GenError("This format's price changed and it couldn't start. We've been told.")
-                rid = hf.submit(model, inputs)
-                _set(conn, job["id"], status="running", request_id=rid, attempts=job["attempts"] + 1)
-            except hf.GenError as e:
-                _fail(conn, job, str(e))
-            except Exception as e:  # noqa: BLE001
-                if job["attempts"] + 1 >= MAX_ATTEMPTS:
-                    _fail(conn, job, f"Couldn't start: {e}")
-                else:
-                    _set(conn, job["id"], attempts=job["attempts"] + 1, error=str(e)[:300])
-            changed += 1
+            if not _due(job):       # waiting out a backoff: let the jobs behind it go first
+                continue
+            tried += 1
+            if _submit_one(conn, job):
+                changed += 1
         for job in conn.execute("SELECT * FROM jobs WHERE status='running' ORDER BY id LIMIT 20").fetchall():
             _beat()
             try:
@@ -352,7 +465,7 @@ def tick() -> int:
                 # A request the vendor no longer knows (404) or a status call that
                 # keeps failing must still end: same deadline as a job that never finishes.
                 if job["updated_at"] < _minutes_ago(STUCK_MINUTES * 4):
-                    _fail(conn, job, "Timed out.")
+                    _timed_out(conn, job)
                     changed += 1
                 continue
             st = (res.get("status") or "").lower()
@@ -372,7 +485,7 @@ def tick() -> int:
                 _fail(conn, job, "The generation failed.")
                 changed += 1
             elif job["updated_at"] < _minutes_ago(STUCK_MINUTES * 4):
-                _fail(conn, job, "Timed out.")
+                _timed_out(conn, job)
                 changed += 1
     return changed
 

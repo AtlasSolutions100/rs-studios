@@ -86,7 +86,7 @@ calls = {"submit": [], "upload": 0}
 results = {}
 
 
-def fake_submit(model, inputs, webhook_url=None):
+def fake_submit(model, inputs, webhook_url=None, idempotency_key=None):
     rid = f"req{len(calls['submit']) + 1}"
     calls["submit"].append((model, inputs))
     results[rid] = {"status": "in_progress"}
@@ -111,6 +111,7 @@ class FakeResp:
 
 
 hf.submit, hf.status, hf.upload = fake_submit, fake_status, fake_upload
+hf.cancel = lambda rid: (calls.setdefault("cancel", []).append(rid), hf.STARTED)[1]   # timeouts ask the vendor first
 worker.requests.get = lambda url, timeout=0: FakeResp()
 
 print("== compliance")
@@ -2999,6 +3000,7 @@ hf.status = _real_status
 j = sjob(stuck["id"])
 check(j["status"] == "failed" and j["error"].endswith("Credits refunded.") and sbal() == b0,
       "a job whose status can never be read still times out, and the credits come back")
+check(calls.get("cancel", [])[-1:] == [j["request_id"]], "and the timed-out request is canceled at the vendor first")
 
 retry_price = jobs_routes.price_now(None, j)[0]
 _real_price = jobs_routes.price_now
@@ -3203,6 +3205,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_storage.py")], check=True)
     # Login hardening (login_security.py): throttles, one login message, password reset, single-use /m links, code limits.
     subprocess.run([sys.executable, os.path.join(HERE, "test_login.py")], check=True)
+    # Vendor retry, idempotent resubmits, timeouts canceled at the vendor, the Cancel button (hf.py, worker.py; HTTP faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_vendor_retry.py")], check=True)
     # Refunds and disputes (billing_holds.py): credits voided, downloads-only hold, dispute won, event-id dedupe.
     subprocess.run([sys.executable, os.path.join(HERE, "test_billing_holds.py")], check=True)
     # Plans on only when paid (pending), a paid period kept to its end, a failed renewal paused with credits kept.

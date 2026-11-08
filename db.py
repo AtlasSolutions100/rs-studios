@@ -559,6 +559,9 @@ COLUMNS = [
     ("jobs", "finished_at", "TEXT"),
     ("jobs", "parent_job_id", "INTEGER"),
     ("jobs", "deleted_at", "TEXT"),
+    # vendor submits (worker.py): the idempotency key, stored before the call, and the worker's claim on it
+    ("jobs", "submit_key", "TEXT"),
+    ("jobs", "claimed_at", "TEXT"),
     # IA cleanup (phase 4): what kind of product, so templates fit
     ("products", "category", "TEXT"),
     # flows (phase 6): contact stage and consent, workspace sending details

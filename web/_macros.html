@@ -60,7 +60,9 @@
     </div>
     {% endif %}
   {% else %}
-    <div class="row cardacts"><button type="button" class="btn dark sm" data-detail-open>Details</button></div>
+    <div class="row cardacts"><button type="button" class="btn dark sm" data-detail-open>Details</button>
+      {% if j.status in ('pending', 'running') and job_cancel_on() %}<form method="post" action="{{ url_for('jobs.cancel', jid=j.id) }}" data-confirm="Cancel this ad?" data-confirm-detail="If it hasn't started yet, it stops{{ ' and your ' ~ '{:,}'.format(j.credits) ~ ' credits come back' if j.credits }}. One that's already being made can't be stopped." data-confirm-ok="Cancel it"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ back }}"><button class="btn dark sm">Cancel</button></form>{% endif %}
+    </div>
   {% endif %}
   <template data-detail>
     <h2 class="jd-t">{{ label }}</h2>
