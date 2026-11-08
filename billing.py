@@ -23,6 +23,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import time
 
 import requests
@@ -121,20 +122,25 @@ def create_refund(payment_intent: str, amount_cents: int, idempotency_key: str, 
 
 def create_subscription_session(*, price_id: str, success_url: str, cancel_url: str, email: str | None,
                                 customer: str | None, metadata: dict, client_reference_id: str,
-                                idempotency_key: str) -> dict:
+                                idempotency_key: str, promotion_code: str | None = None) -> dict:
     """Start a subscription Checkout Session for one plan. The metadata goes on
     both the session and the subscription, so every invoice and subscription
-    event carries it. Returns {"id", "url"}."""
+    event carries it. `promotion_code` (a promo_... id from find_promotion_code)
+    is applied up front; without one, Checkout shows its own "Add promotion code"
+    field (Stripe allows one or the other, never both). Returns {"id", "url"}."""
     if not secret_key():
         raise BillingError("Stripe is not configured.")
     form = [("mode", "subscription"),
             ("line_items[0][price]", price_id), ("line_items[0][quantity]", "1"),
             ("success_url", success_url), ("cancel_url", cancel_url),
             ("client_reference_id", client_reference_id),
-            # Promotion codes (e.g. an owner's 100%-off code) are accepted; with a
-            # fully discounted plan Stripe skips asking for a card.
-            ("allow_promotion_codes", "true"),
             ("payment_method_collection", "if_required")]
+    if promotion_code:
+        form.append(("discounts[0][promotion_code]", promotion_code))
+    else:
+        # Promotion codes (e.g. an owner's 100%-off code) are accepted; with a
+        # fully discounted plan Stripe skips asking for a card.
+        form.append(("allow_promotion_codes", "true"))
     if customer:
         form.append(("customer", customer))
     elif email:
@@ -144,6 +150,58 @@ def create_subscription_session(*, price_id: str, success_url: str, cancel_url: 
         form.append((f"subscription_data[metadata][{k}]", str(v)))
     j = _post("/checkout/sessions", form, idempotency_key)
     return {"id": j["id"], "url": j["url"]}
+
+
+# ---------------------------------------------------------------- promotion codes
+# A discount code from our email (e.g. TRIAL30): a Stripe promotion code tagged
+# metadata app=campaignify, on a coupon limited to the plan products. The
+# account is shared, so codes without our tag are never applied from a link.
+
+PROMO_CODE = re.compile(r"^[A-Z0-9][A-Z0-9-]{2,39}$")
+
+
+def normalize_promo(code) -> str:
+    s = (code or "").strip().upper()
+    return s if PROMO_CODE.match(s) else ""
+
+
+def find_promotion_code(code) -> dict | None:
+    """Our active, unexpired promotion code for what someone typed or clicked:
+    {"id", "code", "label"}, or None. Raises BillingError when Stripe can't be read."""
+    code = normalize_promo(code)
+    if not code or not secret_key():
+        return None
+    now = time.time()
+    for p in _get("/promotion_codes", [("code", code), ("active", "true"), ("limit", "10")]).get("data") or []:
+        if (p.get("metadata") or {}).get("app") != APP_TAG or not p.get("active"):
+            continue
+        if (p.get("code") or "").upper() != code or (p.get("expires_at") and p["expires_at"] <= now):
+            continue
+        coupon = p.get("coupon") or (p.get("promotion") or {}).get("coupon")
+        if isinstance(coupon, str):
+            coupon = _get(f"/coupons/{coupon}")
+        if not isinstance(coupon, dict) or coupon.get("valid") is False:
+            continue
+        return {"id": p["id"], "code": p.get("code") or code, "label": discount_label(coupon),
+                "expires_at": p.get("expires_at")}
+    return None
+
+
+def discount_label(coupon: dict) -> str:
+    """"30% off your first paid month", from a coupon."""
+    if coupon.get("percent_off"):
+        amt = f"{coupon['percent_off']:g}% off"
+    elif coupon.get("amount_off"):
+        amt = f"${coupon['amount_off'] / 100:,.2f}".replace(".00", "") + " off"
+    else:
+        return "a discount"
+    dur = coupon.get("duration")
+    if dur == "once":
+        return f"{amt} your first paid month"
+    if dur == "repeating" and coupon.get("duration_in_months"):
+        n = coupon["duration_in_months"]
+        return f"{amt} your first {n} paid month{'' if n == 1 else 's'}"
+    return f"{amt} every month"
 
 
 def create_portal_session(*, customer: str, return_url: str) -> str:

@@ -81,11 +81,18 @@ def save_upload(fs, folder, allowed, max_mb):
 
 
 
+def _here() -> str:
+    """Where to come back to after logging in: this path, with its query on a GET
+    (so a link like /app/billing?code=TRIAL30 survives the login)."""
+    qs = request.query_string.decode("utf-8", "replace") if request.method == "GET" else ""
+    return f"{request.path}?{qs}" if qs else request.path
+
+
 def login_required(fn):
     @functools.wraps(fn)
     def wrap(*a, **kw):
         if not g.user:
-            return redirect(url_for("login", next=request.path))
+            return redirect(url_for("login", next=_here()))
         return fn(*a, **kw)
     return wrap
 
@@ -94,7 +101,7 @@ def admin_required(fn):
     @functools.wraps(fn)
     def wrap(*a, **kw):
         if not g.user:
-            return redirect(url_for("login", next=request.path))
+            return redirect(url_for("login", next=_here()))
         if not g.user["is_admin"]:
             abort(403)
         return fn(*a, **kw)
@@ -107,7 +114,7 @@ def feature_required(feature):
         @functools.wraps(fn)
         def wrap(*a, **kw):
             if not g.user:
-                return redirect(url_for("login", next=request.path))
+                return redirect(url_for("login", next=_here()))
             if not plans.has(g.ws, feature):
                 return render_template("upgrade.html", feature=plans.FEATURES[feature],
                                        need=plans.required(feature)), 402
@@ -124,7 +131,7 @@ def owner_required(fn):
     @functools.wraps(fn)
     def wrap(*a, **kw):
         if not g.user:
-            return redirect(url_for("login", next=request.path))
+            return redirect(url_for("login", next=_here()))
         if not is_owner():
             abort(403, "Only the workspace owner can do that.")
         return fn(*a, **kw)

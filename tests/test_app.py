@@ -3156,6 +3156,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_google_auth.py")], check=True)
     # Free-month codes (compcodes.py, /admin/codes): make, redeem without Stripe, single use, expiry, the end of the month.
     subprocess.run([sys.executable, os.path.join(HERE, "test_compcodes.py")], check=True)
+    # Discount codes from our email (Stripe promotion codes, e.g. TRIAL30): ?code= links, checkout (Stripe faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_promo_codes.py")], check=True)
     # Competitor Snapshot (competitors.py, /app/competitors): web research, cite-check, credits, scoping (API faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_competitors.py")], check=True)
     # Creator Pools (creator_pools.py, /app/creator-pools): the flag, Checkout, the webhook, Crowdcut sync, refunds (faked).

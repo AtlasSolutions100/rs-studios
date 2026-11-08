@@ -1580,6 +1580,10 @@ def billing_page():
               "refresh if they haven't yet.")
     if "success" in (request.args.get("checkout"), request.args.get("plan")):
         _report_purchase((request.args.get("session_id") or "").strip()[:200], request.args.get("plan") == "success")
+    if request.args.get("plan") == "success":
+        session.pop("promo", None)
+    if request.args.get("code") and is_owner() and not _subscribed(g.ws):
+        _save_promo(request.args.get("code"), from_link=True)
     try:
         if _maybe_reconcile(g.ws["id"], force=request.args.get("plan") == "success"):
             with db.connect() as conn:
@@ -1596,13 +1600,42 @@ def billing_page():
         used_code = compcodes.used_code(conn, g.ws["id"])
     return render_template("billing.html", purchases=purchases, ledger=ledger, packs_by=catalog.PACK_BY_CODE,
                            invoices=invoices, current=plans.plan(g.ws), subscribed=_subscribed(g.ws),
-                           owner=is_owner(), comp_on=compcodes.active(g.ws), used_code=used_code)
+                           owner=is_owner(), comp_on=compcodes.active(g.ws), used_code=used_code,
+                           promo=session.get("promo"))
+
+
+def _save_promo(raw, from_link=False) -> bool:
+    """Remember a discount code from our email (billing.find_promotion_code) for this
+    browser's next plan checkout. Says what it gives, or why it can't be used."""
+    code = billing.normalize_promo(raw)
+    if not code:
+        if from_link:
+            flash("That code doesn't look right. You can still enter a code at checkout.")
+        return False
+    try:
+        promo = billing.find_promotion_code(code)
+    except billing.BillingError as e:
+        log.warning("promotion code lookup failed: %s", e)
+        flash(f"We couldn't check {code} just now. Pick a plan below and enter it at checkout.")
+        return True
+    if not promo:
+        if from_link:
+            flash(f"{code} isn't valid or has expired. You can still pick a plan below.")
+        return False
+    session["promo"] = {"id": promo["id"], "code": promo["code"], "label": promo["label"]}
+    flash(f"{promo['code']} saved: {promo['label']}. It comes off at checkout when you pick a plan below.", "ok")
+    return True
 
 
 @app.route("/app/billing/code", methods=["POST"])
 @owner_required
 def billing_code():
-    """"Have a code?" on Billing: a free-month code (compcodes.py). No Stripe involved."""
+    """"Have a code?" on Billing: a free-month code (compcodes.py, no Stripe involved),
+    or a discount code from our email (a Stripe promotion code, kept for checkout)."""
+    raw = request.form.get("code") or ""
+    if not compcodes.normalize(raw) and not _subscribed(g.ws) and billing.normalize_promo(raw) \
+            and _save_promo(raw):
+        return redirect(url_for("billing_page") + "#plans")
     with db.connect() as conn:
         try:
             row = compcodes.redeem(conn, g.ws["id"], g.user["id"], request.form.get("code") or "")
@@ -1660,8 +1693,22 @@ def subscribe():
     if _subscribed(g.ws):
         return _portal_redirect("Change your plan here. Upgrades apply right away; downgrades at your next renewal.")
     base = request.host_url.rstrip("/")
+    promo_id = None
+    if session.get("promo"):
+        # checked again: the code may have expired or been used up since it was saved
+        try:
+            fresh = billing.find_promotion_code(session["promo"].get("code"))
+        except billing.BillingError as e:
+            log.warning("promotion code re-check failed: %s", e)
+            fresh = None
+        if fresh:
+            promo_id = fresh["id"]
+        else:
+            flash(f"{session['promo'].get('code')} couldn't be applied. You can enter a code on the checkout page.")
+            session.pop("promo", None)
     try:
         sess = billing.create_subscription_session(
+            promotion_code=promo_id,
             price_id=p["price_id"],
             success_url=f"{base}{url_for('billing_page')}?plan=success&session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{base}{url_for('billing_page')}?checkout=cancel",

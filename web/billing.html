@@ -33,10 +33,16 @@
     </div>
   </div>
 
+  {% if owner and promo and not subscribed %}
+  <div class="panel" id="promo" style="margin-bottom:24px">
+    <h2 style="margin:0 0 4px">Code {{ promo.code }} saved</h2>
+    <p class="muted small" style="margin:0">{{ promo.label[:1]|upper }}{{ promo.label[1:] }}. It comes off at checkout when you pick a plan below. After the discount, the plan renews at its normal price until you cancel.</p>
+  </div>
+  {% endif %}
   {% if owner and not subscribed and not used_code and not comp_on %}
   <div class="panel" id="code" style="margin-bottom:24px">
     <h2 style="margin:0 0 4px">Have a code?</h2>
-    <p class="muted small" style="margin:0 0 10px">Enter the code from our email for your free month. No card needed, and it doesn't renew.</p>
+    <p class="muted small" style="margin:0 0 10px">Enter the code from our email. A free-month code needs no card and doesn't renew; a discount code comes off your first plan payment.</p>
     <form method="post" action="{{ url_for('billing_code') }}" class="row" style="gap:8px;flex-wrap:wrap">
       <input type="hidden" name="csrf" value="{{ csrf_token() }}">
       <input id="comp-code" type="text" name="code" aria-label="Code" maxlength="40" placeholder="CFY-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" style="width:220px" required>
