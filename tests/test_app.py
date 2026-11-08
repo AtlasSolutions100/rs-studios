@@ -3179,3 +3179,5 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_creator_pools.py")], check=True)
     # The MCP server (mcpserver.py, mcp_tools.py): API keys, OAuth, the handshake, quote-then-generate.
     subprocess.run([sys.executable, os.path.join(HERE, "test_mcp.py")], check=True)
+    # Operator alerts and the real /health (alerts.py, opslog.py): each condition, dedupe, JSON logs (mail faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_alerts.py")], check=True)

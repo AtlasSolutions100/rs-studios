@@ -165,6 +165,8 @@ jobs:
           # MCP server for Claude and other MCP clients (mcpserver.py): on | off (default off).
           MCP_SERVER: ${{ vars.MCP_SERVER }}
           MCP_ALLOWED_ORIGINS: ${{ vars.MCP_ALLOWED_ORIGINS }}
+          # Operator alerts (alerts.py): where they're emailed. Set as a repo variable or secret.
+          OPS_ALERT_EMAIL: ${{ secrets.OPS_ALERT_EMAIL || vars.OPS_ALERT_EMAIL }}
         run: |
           git archive --format=tar.gz -o /tmp/app.tgz HEAD
           python3 - <<'PY'
@@ -186,7 +188,7 @@ jobs:
                                              "META_TEST_EVENT_CODE", "TIKTOK_TEST_EVENT_CODE",
                                              "POOLS_PARTNER_SECRET", "CREATOR_POOLS", "CREATOR_POOL_FEE_USD",
                                              "CREATOR_POOL_MIN_USD", "CREATOR_POOL_MAX_USD", "CROWDCUT_URL",
-                                             "MCP_SERVER", "MCP_ALLOWED_ORIGINS")
+                                             "MCP_SERVER", "MCP_ALLOWED_ORIGINS", "OPS_ALERT_EMAIL")
                       if os.environ.get(k)}
           print("settings sent:", ", ".join(settings) or "none")
           body = {"commit": os.environ["GITHUB_SHA"], "settings": settings,

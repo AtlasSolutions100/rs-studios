@@ -98,3 +98,13 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # MCP_SERVER=on
 # Browser origins allowed to call /mcp besides claude.ai, claude.com and localhost (comma separated):
 # MCP_ALLOWED_ORIGINS=
+# ---- Operator alerts and /health (alerts.py, opslog.py). Alerts are emailed through Resend (RESEND_API_KEY,
+# RS_MAIL_DOMAIN) to OPS_ALERT_EMAIL (comma separated for several); without it they are only logged.
+# One email per alert per hour. OPS_ALERTS=0 switches them off.
+# OPS_ALERT_EMAIL=
+# OPS_ALERT_DEDUPE_MIN=60   OPS_WORKER_DOWN_MIN=5   OPS_JOB_STUCK_MIN=20   OPS_WEBHOOK_SIG_PER_HOUR=10
+# OPS_VENDOR_ERROR_PCT=20   OPS_VENDOR_MIN_JOBS=5   OPS_ALERT_DISK_GB=10   OPS_BACKUP_MAX_HOURS=26
+# /health answers 503 when the worker loop's last pass is older than this many seconds:
+# RS_HEALTH_WORKER_MAX_AGE=30
+# JSON logs with request and workspace ids (RS_LOG_JSON=0 for plain logs; RS_ACCESS_LOG=0 drops request lines).
+# RS_LOG_JSON=1
