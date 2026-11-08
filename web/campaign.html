@@ -112,7 +112,8 @@
   </section>
   {% endif %}
 
-  {% if final and final.checklist %}
+  {% if kit %}{% include "_launch_kit.html" %}{# RS_LAUNCH_KIT: replaces the browser-only checklist below #}
+  {% elif final and final.checklist %}
   <section class="camp-sec">
     <h2>Launch checklist</h2>
     <ul class="checklist" data-key="camp-{{ c.id }}">
