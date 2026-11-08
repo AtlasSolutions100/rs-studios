@@ -6,6 +6,7 @@ it runs, and refused if it changed); the old one stays, linked by
 parent_job_id. Deleting is soft (jobs.deleted_at): the ledger keeps its rows.
 """
 import json
+import os
 import statistics
 
 from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template_string, request, url_for
@@ -16,6 +17,12 @@ from core import login_required, queue_job, verify_json
 
 bp = Blueprint("jobs", __name__)
 VERDICTS = ("approved", "rejected")
+
+
+@bp.app_template_global("job_cancel_on")
+def cancel_on() -> bool:
+    """The Cancel button on queued ads (RS_JOB_CANCEL=on; off by default)."""
+    return os.environ.get("RS_JOB_CANCEL", "off").lower() in ("1", "on", "true", "yes")
 
 
 def _job(conn, jid):
@@ -174,6 +181,24 @@ def review(jid):
         v = verdicts(conn, [jid]).get(jid)
     if _wants_json():
         return jsonify({"ok": True, "verdict": v})
+    return _back(url_for("library"))
+
+
+@bp.route("/app/jobs/<int:jid>/cancel", methods=["POST"])
+@login_required
+def cancel(jid):
+    """Cancel a queued ad: credits back if it hadn't started (worker.cancel_job)."""
+    if not cancel_on():
+        abort(404)
+    import worker
+    with db.connect() as conn:
+        ok, msg = worker.cancel_job(conn, _job(conn, jid))
+    if _wants_json():
+        return jsonify({"ok": True, "message": msg} if ok else {"error": msg}), (200 if ok else 409)
+    if ok:
+        flash(msg, "ok")
+    else:
+        flash(msg)
     return _back(url_for("library"))
 
 

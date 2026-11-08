@@ -273,7 +273,8 @@ def _conditions(conn, probe: bool):
                "They time out and refund at 120 minutes; check the vendor and the worker.")
 
     ended = conn.execute("SELECT COALESCE(SUM(status='failed'),0) f, COUNT(*) n FROM jobs "
-                         "WHERE status IN ('done','failed') AND COALESCE(finished_at, updated_at) >= ?",
+                         "WHERE status IN ('done','failed') AND COALESCE(finished_at, updated_at) >= ? "
+                         "AND COALESCE(error, '') NOT LIKE 'You canceled it.%'",   # a member's cancel isn't a vendor error
                          (_ago(15),)).fetchone()
     n, f = int(ended["n"] or 0), int(ended["f"] or 0)
     if n >= _num("OPS_VENDOR_MIN_JOBS", 5) and f * 100 > n * _num("OPS_VENDOR_ERROR_PCT", 20):
