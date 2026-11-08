@@ -3131,6 +3131,21 @@ r = a.post("/admin/view/exit", data={"csrf": csrf(a)})
 check(r.status_code == 302 and "Viewing" not in a.get("/app/library").get_data(as_text=True),
       "Back to my workspace ends the view")
 
+print("== clarity pass: prices and names shown before acting")
+html = a.get("/app/billing").get_data(as_text=True)
+check('class="costlist"' in html and "Image ad" in html and ">Generation<" not in html,
+      "billing lists what things cost and names what each generation made")
+html = a.get("/app/create").get_data(as_text=True)
+check('class="small dim cf-from">from ' in html, "Create shows each ad type's starting price")
+with db.connect() as conn:
+    _run = conn.execute("SELECT id FROM copy_runs WHERE workspace_id=? AND kind!='optimize' ORDER BY id DESC LIMIT 1",
+                        (xws["id"],)).fetchone()
+if _run:
+    html = x.get(f"/app/copy/{_run['id']}").get_data(as_text=True)
+    check(re.search(r"Write \d+ new variants · up to [\d,]+ credit", html), "re-running copy shows its price on the button")
+html = a.get("/app/library").get_data(as_text=True)
+check(">Save</a>" not in html and 'class="mtop-cr"' in html, "library cards say Download; phones see the balance in the top bar")
+
 print(f"\nall {passed} checks passed ({TMP})")
 
 if __name__ == "__main__":

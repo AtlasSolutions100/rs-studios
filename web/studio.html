@@ -64,6 +64,22 @@
       {% endfor %}
     </div>
 
+    {% if recent %}
+    {# Narrow screens hide the Recent rail, so the latest ads show here instead (CSS: .recent-strip). #}
+    <div class="recent-strip">
+      <div class="section-h"><h2>Your latest ads</h2><a class="small" href="{{ url_for('library') }}">Library</a></div>
+      <div class="rs-row">
+        {% for j in recent[:6] %}{% set o = (outs.get(j.id) or [None])[0] %}
+        <a class="rs-item" href="{{ url_for('library') }}">
+          <span class="rs-thumb">{% if o and o.kind == 'video' %}<img src="{{ url_for('media', oid=o.id, poster=1) }}" alt="" loading="lazy">{% elif o %}<img src="{{ url_for('media', oid=o.id) }}" alt="" loading="lazy">{% else %}<img class="rs-wait" src="{{ url_for('static', filename='previews/' ~ (templates_by_id[j.template_id].preview if j.template_id in templates_by_id else tools[j.tool].preview) ~ '.jpg') }}" alt="" loading="lazy">{% endif %}</span>
+          <b>{{ templates_by_id[j.template_id].name if j.template_id in templates_by_id else tools[j.tool].name }}</b>
+          {{ status(j) }}
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
     {% if angles %}
     <div class="section-h"><h2>Angles you saved</h2><a class="small" href="{{ url_for('create.index', type='ugc') }}">Get new ideas →</a></div>
     <div class="anglechips">{% for a in angles %}<a class="anglechip" href="{{ url_for('create.index', angle=a.id) }}"><b>{{ a.title }}</b>{% if a.hook %}<span class="small muted">“{{ a.hook[:70] }}”</span>{% endif %}</a>{% endfor %}</div>
@@ -86,7 +102,7 @@
         <div class="thumb">
           <video src="{{ url_for('static', filename='previews/' ~ t.preview ~ '.mp4') }}" poster="{{ url_for('static', filename='previews/' ~ t.preview ~ '.jpg') }}" muted loop playsinline preload="none"></video>
           <span class="play"><svg viewBox="0 0 10 10"><path d="M2 1l7 4-7 4z"/></svg></span>
-          <span class="dur">{{ '0:%02d'|format(t.duration) if t.duration else ('Image' if tool.kind == 'image' else '0:15') }}</span>
+          {% if tool.kind != 'image' %}<span class="dur">{{ '0:%02d'|format(t.duration) if t.duration else '0:15' }}</span>{% endif %}
           <span class="chip {{ 'motion' if t.tool=='motion_copy' else tool.kind }}">{{ tool.name }}</span>
         </div>
         <div class="t">{{ t.name }}</div><div class="s">{{ t.line }}</div>
@@ -95,7 +111,7 @@
     </div>
   </section>
 
-  <aside class="rail">
+  <aside class="rail rail-home">
     <div class="panel">
       <h2>Recent</h2><p class="muted small" style="margin:0 0 6px">Your latest ads</p>
       {% for j in recent[:4] %}

@@ -10,7 +10,7 @@
       <input type="hidden" name="csrf" value="{{ csrf_token() }}">
       <input type="hidden" name="quote" id="quote" value="{{ quotes[0] }}">
       <label>Competitors <span class="dim">(optional, up to {{ max_n }}: a name, a website, or both)</span></label>
-      {% for i in range(max_n) %}<input type="text" name="competitor" maxlength="200" class="comp-in" aria-label="Competitor {{ i + 1 }}" placeholder="{{ 'e.g. Brand name, brand.com' if i == 0 else '' }}" style="margin-top:8px">{% endfor %}
+      {% for i in range(max_n) %}<input type="text" name="competitor" maxlength="200" class="comp-in" aria-label="Competitor {{ i + 1 }}" placeholder="{{ 'e.g. Brand name, brand.com' if i == 0 else 'Competitor ' ~ (i + 1) ~ ' (optional)' }}" style="margin-top:8px">{% endfor %}
       <p class="small muted" style="margin-top:10px">Leave them empty and we find your 3 to 5 closest competitors first. Each competitor gets up to {{ caps.searches }} web searches and {{ caps.fetches }} page reads. Ads: we link you to each one's Meta Ad Library and TikTok pages, since those can't be read automatically; we never make up ads.</p>
       {% if not ai_on %}<p class="small muted">Competitor research isn't switched on yet.</p>{% endif %}
       <div class="go"><span class="muted small">Up to <b id="qshow">{{ quotes[0] }}</b> credits · you pay what it actually uses · nothing if it fails · you have {{ '{:,}'.format(balance()) }} credits</span><button class="btn" {{ 'disabled' if not ai_on }}>Run research</button></div>

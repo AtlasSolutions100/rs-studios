@@ -5,7 +5,13 @@
 <div class="page full">
   <p class="eyebrow">Billing</p>
   <h1>Your plan and <span class="gold">credits</span></h1>
-  <p class="muted">Talking videos from {{ r.talk8|credits }} · 10-second talking video {{ '{:,}'.format(r.talk10) }} ({{ '{:,}'.format(r.talk10_1080) }} in 1080p) · 5-second product video {{ r.video5 }} · image ad {{ r.image }}. Failed generations are refunded automatically.</p>
+  <p class="muted">Everything you make is paid for in credits. You see the price before anything runs, and failed generations are refunded automatically.</p>
+  <dl class="costlist" aria-label="What things cost">
+    <div><dt>Image ad</dt><dd>{{ r.image|credits }}</dd></div>
+    <div><dt>Product video, 5 seconds</dt><dd>{{ r.video5|credits }}</dd></div>
+    <div><dt>Talking presenter video</dt><dd>from {{ r.talk8|credits }}</dd></div>
+    <div><dt>Talking presenter video, 10 seconds</dt><dd>{{ r.talk10|credits }} <span class="dim">({{ '{:,}'.format(r.talk10_1080) }} in 1080p)</span></dd></div>
+  </dl>
 
   <div class="bill-top">
     <div class="panel bal">
@@ -103,7 +109,7 @@
       <h2>Credit activity</h2>
       {% if ledger %}
       <table><tr><th>Date</th><th>What</th><th style="text-align:right">Credits</th></tr>
-      {% for l in ledger %}<tr><td>{{ l.created_at|localtime('date') }}</td><td>{{ (l.reason or '')|first_upper }}</td><td style="text-align:right" class="{{ 'gold' if l.delta > 0 }}">{{ '%+d'|format(l.delta) }}</td></tr>{% endfor %}
+      {% for l in ledger %}<tr><td>{{ l.created_at|localtime('date') }}</td><td>{% if l.reason == 'generation' and l.job_tool in tools %}{{ tools[l.job_tool].name }}{% if l.job_template in templates_by_id %} <span class="dim">· {{ templates_by_id[l.job_template].name }}</span>{% endif %}{% else %}{{ (l.reason or '')|first_upper }}{% endif %}</td><td style="text-align:right" class="{{ 'gold' if l.delta > 0 }}">{{ '%+d'|format(l.delta) }}</td></tr>{% endfor %}
       </table>
       {% else %}<div class="empty">Nothing yet.</div>{% endif %}
     </div>
