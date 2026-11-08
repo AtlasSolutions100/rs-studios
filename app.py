@@ -29,6 +29,7 @@ import admin_funnel
 import alerts
 import billing
 import billing_holds
+import card_on_file
 import catalog
 import compcodes
 import conversions
@@ -47,6 +48,7 @@ import presenter_stills
 import preview
 import products
 import public_site
+import service_path
 import site_events
 import storage
 import verify
@@ -163,6 +165,8 @@ NAV_GROUPS = [
         ("billing_page", "Billing", "billing", None, ("billing_page",)),
         ("messaging.sending", "Sending", "send", "flows", ("messaging.sending",)),
         ("mcp.settings", "API and Claude", "api", None, ("mcp.settings",)),   # shown while MCP_SERVER=on
+        # Connected ad accounts (adconnect_routes.py): shown only where adplatforms.enabled() (AD_LAUNCH)
+        ("adconnect.settings", "Connections", "plug", None, ("adconnect.settings", "adconnect.pick", "adconnect.pixel")),
     ]),
 ]
 NAV = [item for _, items in NAV_GROUPS for item in items]
@@ -1031,7 +1035,25 @@ def _first_ad_context(conn, form):
             "line": form.get("line") or "", "default_line": preview.DEFAULT_LINE, "pick": form.get("template") or
             tpls[0]["id"], "seconds": preview.SECONDS, "scene": FIRST_VIDEO_SCENE,
             "max_words": int(catalog.max_words(preview.SECONDS) * 1.2), "verify_email": g.user["email"],
-            "import_quote": 0}
+            "import_quote": 0, **_service_context(conn, form)}
+
+
+def _service_context(conn, form):
+    """The first run's "What do you sell?" (RS_SERVICE_PATH): whether to ask, the answer so far, and the service
+    templates filled from the active service's website (headline, colours, area)."""
+    if not service_path.on():
+        return {"service_on": False, "sells": "product"}
+    p = products.get_product(conn, g.ws["id"], g.ws["product_id"]) if g.ws["product_id"] else None
+    svc = service_path.is_service(p)
+    sells = form.get("sells") if form.get("sells") in ("product", "service") else ("service" if svc else "product")
+    site = service_path.site_info(p) if svc else {}
+    tpls = service_path.templates(p["name"] if svc else "", site)
+    pick = form.get("svc_template") if form.get("svc_template") in service_path.TEMPLATE_BY_ID else \
+        ("svc-photo" if svc and conn.execute("SELECT 1 FROM photos WHERE product_id=? AND id IS NOT ?",
+                                             (p["id"], site.get("logo_photo_id"))).fetchone() else "svc-logo")
+    logo = site.get("logo_photo_id")
+    return {"service_on": True, "sells": sells, "svc_tpls": tpls, "svc_pick": pick, "site": site,
+            "logo_url": url_for("photo", pid=logo) if logo else ""}
 
 
 FIRST_VIDEO_SCENE = ("A slow, smooth turn of {product} on a clean surface in soft daylight, the label readable, "
@@ -1058,6 +1080,8 @@ def start_import():
     if db.throttled(key, product_routes.IMPORTS_PER_HOUR, 3600):
         return jsonify({"error": "That's a lot of imports this hour. Add the name and a photo by hand."}), 429
     db.hit(key)
+    if service_path.on() and str((request.get_json(silent=True) or {}).get("sells") or "") == "service":
+        return _start_import_site(url)
     with db.connect() as conn:
         try:
             pid, facts, _ = product_routes.import_url(conn, url, g.ws["brand_id"], use_ai=False)
@@ -1072,17 +1096,103 @@ def start_import():
             return jsonify({"error": str(e), "manual": True}), 422
         p = products.get_product(conn, g.ws["id"], pid)
         imp = products.import_info(p)
-        photo = None
+        photo, more = None, []
+        # RS_SERVICE_PATH also fills the product first run fuller: up to 3 of the page's own photos (not 1) and up
+        # to 5 claims suggested from the page's words (approved by the member on the product, never used before).
+        n = 3 if service_path.on() else 1
+        if service_path.on() and not products.pending(p):
+            products.set_pending(conn, pid, service_path.page_claims(facts, p["name"]))
         if imp.get("images"):
-            product_routes.add_candidate_photos(conn, g.ws["id"], p, imp["images"][:1])
-            row = conn.execute("SELECT id, filename FROM photos WHERE product_id=? ORDER BY id DESC LIMIT 1",
-                               (pid,)).fetchone()
-            if row:
-                photo = {"id": row["id"], "url": url_for("photo", pid=row["id"]), "name": row["filename"] or ""}
+            product_routes.add_candidate_photos(conn, g.ws["id"], p, (imp.get("own") or imp["images"])[:n]
+                                                if n > 1 else imp["images"][:1])
+            rows = conn.execute("SELECT id, filename FROM photos WHERE product_id=? ORDER BY id DESC LIMIT ?",
+                                (pid, n)).fetchall()
+            more = [{"id": r["id"], "url": url_for("photo", pid=r["id"]), "name": r["filename"] or ""} for r in rows]
+            photo = more[0] if more else None
         b = products.get_brand(conn, g.ws["id"], p["brand_id"])
+        claims = len(products.pending(products.get_product(conn, g.ws["id"], pid)))
     return jsonify({"ok": True, "product_id": pid, "name": p["name"] or "", "brand": (b["brand_name"] if b else "") or "",
                     "description": (p["description"] or "")[:300] if "description" in p.keys() else "",
-                    "photo": photo, "photos": len(imp.get("images") or [])})
+                    "photo": photo, "photos": len(imp.get("images") or []),
+                    **({"more": more[1:], "claims": claims} if service_path.on() else {})})
+
+
+def _start_import_site(url):
+    """The first run's "A service" import (RS_SERVICE_PATH): read the business website (service_path.read_site, no
+    AI, nothing charged), make the service as a product marked {"sells": "service"}, name the brand, download up to
+    3 photos from the site and the logo, and answer with what the form fills: name, brand, logo, colours, photos,
+    the template to start on and how many claims were suggested."""
+    import fetcher
+    import product_import
+    import product_routes
+    bid = g.ws["brand_id"]
+    with db.connect() as conn:
+        try:
+            facts = service_path.read_site(url)
+        except product_import.Blocked as e:
+            product_import.log_attempt(conn, g.ws["id"], url, e.method, "blocked", e.status)
+            return jsonify({"error": "That site doesn't let apps read its pages. Type your business name instead; "
+                                     "a photo is optional.", "manual": True}), 422
+        except fetcher.FetchError as e:
+            product_import.log_attempt(conn, g.ws["id"], url, "page", "failed", detail=str(e))
+            return jsonify({"error": f"Couldn't read that page: {e} Type your business name instead.",
+                            "manual": True}), 422
+        site = {k: facts[k] for k in ("logo", "colors", "area", "phone", "headline", "services")}
+        form = {"name": facts["name"] or "My business", "description": facts["description"][:600]
+                if compliance.check(facts["description"])["ok"] else "", "url": url[:500], "category": "app_service",
+                "tags": "service"}
+        try:
+            product_routes._name_brand(conn, bid, facts["brand"])
+            pid = products.create_product(conn, g.ws, bid, form, pending_claims=facts["claims"],
+                                          import_json={"url": url, "images": facts["images"], "own": facts["own"],
+                                                       "taken": [], "sells": "service", "site": site})
+            products.activate(conn, g.ws, product_id=pid)
+        except products.ProductError as e:
+            product_import.log_attempt(conn, g.ws["id"], url, "site", "failed", detail=str(e))
+            return jsonify({"error": str(e), "manual": True}), 422
+        product_import.log_attempt(conn, g.ws["id"], url, "site", "ok")
+        p = products.get_product(conn, g.ws["id"], pid)
+        if facts["images"]:
+            product_routes.add_candidate_photos(conn, g.ws["id"], p, facts["images"][:3])
+        rows = conn.execute("SELECT id, filename FROM photos WHERE product_id=? ORDER BY id", (pid,)).fetchall()
+        photos = [{"id": r["id"], "url": url_for("photo", pid=r["id"]), "name": r["filename"] or ""} for r in rows]
+        logo = _save_site_logo(conn, pid, facts["logo"]) if facts["logo"] else None
+        if logo and not site["colors"]:
+            site["colors"] = logo.pop("colors", [])
+        site["logo_photo_id"] = logo["id"] if logo else None
+        p = products.get_product(conn, g.ws["id"], pid)
+        imp = products.import_info(p)
+        imp["site"] = site
+        conn.execute("UPDATE products SET import_json=? WHERE id=?", (json.dumps(imp), pid))
+        conn.commit()
+        b = products.get_brand(conn, g.ws["id"], p["brand_id"])
+    v = service_path.template_vars(p["name"], site)
+    return jsonify({"ok": True, "product_id": pid, "name": p["name"], "brand": (b["brand_name"] if b else "") or "",
+                    "photo": photos[0] if photos else None, "more": photos[1:], "photos": len(facts["images"]),
+                    "logo": {"id": logo["id"], "url": logo["url"]} if logo else None, "colors": site["colors"],
+                    "area": site["area"], "headline": v["headline"], "claims": len(facts["claims"]),
+                    "pick": "svc-photo" if photos else "svc-logo",
+                    "briefs": {t["id"]: t["brief"] for t in service_path.templates(p["name"], site)}})
+
+
+def _save_site_logo(conn, pid, url):
+    """Download the site's logo onto the service (a photo row named logo.*), with its main colours. None on failure."""
+    import fetcher
+    try:
+        data, ctype = service_path.download_logo(url)
+        storage.guard(g.ws, len(data))
+    except (fetcher.FetchError, storage.StorageFull):
+        return None
+    folder = os.path.join(UPLOADS, str(g.ws["id"]))
+    os.makedirs(folder, exist_ok=True)
+    ext = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[ctype]
+    path = os.path.join(folder, f"{uuid.uuid4().hex}{ext}")
+    with open(path, "wb") as fh:
+        fh.write(data)
+    phid = conn.execute("INSERT INTO photos (workspace_id, product_id, path, filename, content_type, created_at) "
+                        "VALUES (?,?,?,?,?,?)", (g.ws["id"], pid, path, "logo" + ext, ctype, db.now())).lastrowid
+    conn.commit()
+    return {"id": phid, "url": url_for("photo", pid=phid), "colors": service_path.image_colors(data)}
 
 
 def _outputs(conn, job_ids):
@@ -1170,12 +1280,16 @@ def start():
     if request.method == "GET":
         return redirect(url_for("studio"))
     f = request.form
-    kind = f.get("kind") if f.get("kind") in ("image", "video", "preview") else "image"
+    service = service_path.on() and f.get("sells") == "service"   # "A service": no product photo needed (M5.2)
+    kind = "image" if service else f.get("kind") if f.get("kind") in ("image", "video", "preview") else "image"
     product = (f.get("product_name") or "").strip()[:80]
     brand_name = (f.get("brand_name") or "").strip()[:80]
     audience = (f.get("audience") or "").strip()[:200]
-    tpl = catalog.TEMPLATE_BY_ID.get(f.get("template") or "")
-    tpl = tpl if tpl and tpl["tool"] == "ad_image" else None
+    if service:
+        tpl = service_path.TEMPLATE_BY_ID.get(f.get("svc_template") or "")
+    else:
+        tpl = catalog.TEMPLATE_BY_ID.get(f.get("template") or "")
+        tpl = tpl if tpl and tpl["tool"] == "ad_image" else None
 
     def again(msg):
         flash(msg)
@@ -1194,8 +1308,13 @@ def start():
         flash(blocked, "verify-cap" if g.get("verify_reason") == "cap" else "verify")
         return _studio_page(f, 403)
     if not product:
-        return again("Add your product's name.")
+        return again("Add your business name." if service else "Add your product's name.")
     b = {"name": brand_name or g.ws["brand_name"] or "", "product": product}
+    if service and tpl:
+        with db.connect() as conn:
+            act = products.get_product(conn, g.ws["id"], g.ws["product_id"]) if g.ws["product_id"] else None
+        site = service_path.site_info(act) if service_path.is_service(act) else {}
+        tpl = next(t for t in service_path.templates(product, site) if t["id"] == tpl["id"])
     if kind == "preview":
         presenter = f.get("presenter") if f.get("presenter") in preview.PRESENTERS else preview.PRESENTERS[0]
         line = " ".join((f.get("line") or "").split())[:300] or preview.line_for(product)
@@ -1238,6 +1357,10 @@ def start():
         chosen = f.get("photo_id", type=int)
         if chosen and chosen in mine:
             photo_id = chosen
+        elif service and not tpl.get("photo"):
+            photo_id = None     # a template that needs no photo: the logo if the site had one, else none at all
+        elif service:
+            return again("This template uses a photo. Add one, or pick Logo and headline.")
         else:
             return again("Add one photo of your product.")
     with db.connect() as conn:
@@ -1246,9 +1369,18 @@ def start():
                                     first_ad=True)
         except products.ProductError as e:
             return again(str(e))
+        if service and pid:
+            prow = products.get_product(conn, g.ws["id"], pid)
+            imp = products.import_info(prow)
+            if imp.get("sells") != "service":
+                imp["sells"] = "service"
+                conn.execute("UPDATE products SET import_json=? WHERE id=?", (json.dumps(imp), pid))
+                conn.commit()
+            if photo_id is None and not path and (imp.get("site") or {}).get("logo_photo_id") in mine:
+                photo_id = imp["site"]["logo_photo_id"]
         if path:
             photo_id = products.add_photo(conn, g.ws["id"], pid, path, fs.filename, ctype)
-        elif pid:
+        elif pid and photo_id:
             conn.execute("UPDATE photos SET product_id=COALESCE(product_id, ?) WHERE id=?", (pid, photo_id))
             conn.execute("UPDATE products SET primary_photo_id=COALESCE(primary_photo_id, ?) WHERE id=?", (photo_id, pid))
             conn.commit()
@@ -1262,7 +1394,8 @@ def start():
             title = "Your free video ad"
         else:
             cfg = {"type": "image", "product": pid, "angle": {"title": tpl["name"]}, "items": [], "body": brief,
-                   "aspects": [tpl.get("aspect") or "9:16"], "versions": n_images, "photos": [photo_id]}
+                   "aspects": [tpl.get("aspect") or "9:16"], "versions": n_images,
+                   "photos": [photo_id] if photo_id else []}
             title = "Your first ads" if n_images > 1 else "Your first ad"
         bid = conn.execute("INSERT INTO batches (workspace_id, user_id, product_id, ad_type, title, config_json, credits, "
                            "created_at) VALUES (?,?,?,?,?,?,?,?)",
@@ -1290,9 +1423,11 @@ def start():
                 conn.execute("UPDATE batches SET credits=? WHERE id=?", (ctx["video_price"], bid))
                 conn.commit()
         else:
-            params = {"photo_ids": [photo_id], "batch": n_images, "aspect": tpl.get("aspect") or "9:16",
-                      "audience": audience or tpl.get("audience") or "", "niche": "", "label": tpl["name"]}
-            jid = _queue_job(conn, "ad_image", tpl["id"], brief, params, catalog.cost_usd("ad_image", batch=n_images),
+            params = {"photo_ids": [photo_id] if photo_id else [], "batch": n_images,
+                      "aspect": tpl.get("aspect") or "9:16",
+                      "audience": audience or tpl.get("audience") or "", "niche": "", "label": tpl["name"],
+                      **({"service": True} if service else {})}
+            jid = _queue_job(conn, "ad_image", None if service else tpl["id"], brief, params, catalog.cost_usd("ad_image", batch=n_images),
                              img_price, product_id=pid, batch_id=bid)
             if jid:
                 conn.execute("UPDATE batches SET credits=? WHERE id=?", (img_price, bid))
@@ -1778,7 +1913,7 @@ def subscribe():
             price_id=p["price_id"],
             success_url=f"{base}{url_for('billing_page')}?plan=success&session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{base}{url_for('billing_page')}?checkout=cancel",
-            email=g.user["email"], customer=g.ws["stripe_customer_id"],
+            email=g.user["email"], customer=g.ws["stripe_customer_id"] or g.ws["card_customer_id"],
             client_reference_id=f"cfy-ws-{g.ws['id']}",
             metadata={"app": billing.APP_TAG, "kind": "plan", "workspace_id": g.ws["id"], "plan": p["code"],
                       "user_id": g.user["id"]},
@@ -1918,6 +2053,9 @@ def _stripe_event(typ, obj):
     if typ in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
         if obj.get("mode") == "subscription":
             return _plan_checkout_completed(obj)
+        if obj.get("mode") == "setup":     # a card saved at sign-up (card_on_file.py); nothing is charged
+            out = card_on_file.webhook(obj)
+            return jsonify(out), (503 if out.get("pending") else 200)
         meta = obj.get("metadata") or {}
         if meta.get("app") == billing.APP_TAG and meta.get("kind") == "creator_pool":
             with db.connect() as conn:
@@ -2633,9 +2771,12 @@ import share_routes  # noqa: E402
 import creator_pool_routes  # noqa: E402
 import creator_pools  # noqa: E402
 import google_auth  # noqa: E402
+import adconnect_routes  # noqa: E402  connected ad accounts (AD_LAUNCH)
+import adplatforms  # noqa: E402
 
 app.register_blueprint(product_routes.bp)
 app.register_blueprint(google_auth.bp)
+app.register_blueprint(adconnect_routes.bp)   # /app/settings/ad-accounts, /connect/meta (AD_LAUNCH, default off)
 app.register_blueprint(login_security.bp)   # /forgot, /reset, /m (login hardening)
 app.jinja_env.globals["google_signin"] = google_auth.configured   # the Continue with Google button
 app.register_blueprint(create_routes.bp)
@@ -2656,6 +2797,13 @@ app.register_blueprint(forms_routes.bp)
 app.register_blueprint(community_routes.bp)
 app.register_blueprint(share_routes.bp)
 app.register_blueprint(creator_pool_routes.bp)
+# Card on file at sign-up (RS_CARD_REQUIRED) and the out-of-credits paywall (RS_PLAN_PAYWALL), both default off.
+import card_routes  # noqa: E402
+import paywall_routes  # noqa: E402
+app.register_blueprint(card_routes.bp)
+app.register_blueprint(paywall_routes.bp)
+import next_steps  # noqa: E402  the "Your campaign" strip on Home (RS_NEXT_STEPS, default off)
+next_steps.init(app)
 
 
 def _has_endpoint(name) -> bool:
@@ -2671,6 +2819,8 @@ def _has_endpoint(name) -> bool:
         return g.cpools_visible
     if name == "mcp.settings":          # the MCP key page shows while MCP_SERVER=on
         return mcpserver.enabled()
+    if name.startswith("adconnect."):   # connected ad accounts: AD_LAUNCH (adplatforms.enabled)
+        return adplatforms.enabled(g.get("ws"), g.get("user"))
     return True
 
 

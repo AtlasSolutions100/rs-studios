@@ -8,7 +8,7 @@
     <li><b>Pick a template.</b> The brief is written for you; edit it if you like.</li>
     <li><b>Your ad is ready in about a minute.</b> Every price is shown in credits before you press the button.</li>
   </ol>
-  <p class="small muted" style="margin:14px 0 0">No card. Nothing to cancel. Costs are in credits only; the free credits never expire.</p>
+  <p class="small muted" style="margin:14px 0 0" data-signup-card-note>{% if card_required() %}Next, you save a card. Nothing is charged, and no plan starts until you pick one. It stops abuse of the free credits.{% else %}Nothing is charged and nothing renews.{% endif %} Costs are in credits only; the free credits never expire.</p>
 </aside>{% endif %}{% endblock %}
 {% block auth %}
   {% set r = rates() %}{% set so = signup_offer() %}{% set sc = so.credits %}

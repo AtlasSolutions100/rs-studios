@@ -44,6 +44,12 @@ RULES = [
      "AI presenters can't speak as customers or claim results."),
 ]
 
+# A stable id per rule, in RULES order (adpolicy.py reports them as "house.<id>" in the launch
+# pre-flight, so a launch never lets through what generation refuses).
+IDS = ["weight_loss_phrase", "weight_loss_words", "before_after", "health_claim_words", "disease_words", "discounts",
+       "income_claim", "income_words", "income_rate", "recruiting", "promise_words", "ai_customer_voice"]
+assert len(IDS) == len(RULES)
+
 _COMPILED = [(r[0], re.compile(r[1], re.I), r[2], "negatable" in r[3:]) for r in RULES]
 
 # A rule marked "negatable" doesn't fire on a phrase that rules the thing out
@@ -75,3 +81,15 @@ def check(*texts: str) -> dict:
             (blocks if lvl == "block" else warns).append(msg)
     dedupe = lambda xs: list(dict.fromkeys(xs))
     return {"ok": not blocks, "blocks": dedupe(blocks), "warnings": dedupe(warns)}
+
+
+def findings(*texts: str) -> list:
+    """[(level, rule id, message)] for every rule the combined text breaks, in RULES order.
+    The same rules and wording as check(); used where a caller needs to know which rule hit."""
+    text = " ".join(t for t in texts if t)
+    return [(lvl, IDS[i], msg) for i, (lvl, rx, msg, negatable) in enumerate(_COMPILED) if _hits(rx, text, negatable)]
+
+
+def negated(text: str, start: int) -> bool:
+    """Is the match at `start` ruled out by a negation just before it ("no before/after")?"""
+    return _negated(text, start)

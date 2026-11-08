@@ -44,6 +44,7 @@
   'community': '<path d="M4 5h16v10H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
   'creators': '<circle cx="8" cy="8" r="3"/><path d="M2.5 19c.6-3 2.7-4.5 5.5-4.5"/><rect x="13" y="10" width="8" height="11" rx="2"/><path d="M16 14l3 1.8-3 1.8z" fill="currentColor"/>',
   'api': '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l2 2"/>',
+  'plug': '<path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 01-12 0z"/><path d="M12 17v4"/>',
 } %}
 {% set GROUPS = nav_groups if nav_groups is defined else [(None, [
   ('studio', 'Create', 'create', None, ('studio','new','start')),
@@ -110,10 +111,12 @@
     {% if g.viewing %}<form method="post" action="{{ url_for('admin_view_exit') }}" class="flash warn flash-top viewbar" role="status" style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><span>Viewing <b>#{{ g.viewing.id }} {{ g.viewing.name }}</b> as admin · read-only</span><span class="row" style="gap:8px"><a class="btn sm" href="{{ url_for('admin') }}">All workspaces</a><button class="btn dark sm">Back to my workspace</button></span></form>{% endif %}
     {% set flashes = get_flashed_messages(with_categories=true) %}
     {% if hold_banner is defined and hold_banner %}{% set hb = hold_banner %}{% include "_hold_banner.html" %}{% endif %}
+    {% if paywall_banner is defined and paywall_banner %}{% include "_paywall_banner.html" %}{% endif %}
     {% set vb = verify_banner if verify_banner is defined else None %}
     {% if vb %}{% set hot = flashes|selectattr(0, 'in', ['verify', 'verify-cap'])|list %}
     {# On the first-run page the banner sits under the form (web/_first_ad.html): the first screen is the form. #}
-    {% if not (verify_banner_below is defined and verify_banner_below) %}{% include "_verify_banner.html" %}{% endif %}
+    {# A page that shows its own confirm box (Home after the first ads, RS_NEXT_STEPS) skips the banner unless a flash needs it (COPY-2). #}
+    {% if not (verify_banner_below is defined and verify_banner_below) and not (verify_banner_hide is defined and verify_banner_hide and not hot) %}{% include "_verify_banner.html" %}{% endif %}
     <script>window.CFY_VERIFY = {{ dict(vb.box, auto=(('cap' if hot[0][0] == 'verify-cap' else 'video') if hot else ''), inline=(verify_banner_below is defined and verify_banner_below))|tojson }};</script>{% endif %}
     {% for cat, m in flashes %}{% if not (vb and cat in ('verify', 'verify-cap')) %}<div class="flash flash-top" role="status" data-cat="{{ cat }}"><span>{{ m }}</span></div>{% endif %}{% endfor %}
     {% block body %}{% endblock %}

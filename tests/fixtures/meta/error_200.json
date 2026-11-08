@@ -1,0 +1,8 @@
+{
+ "error": {
+  "message": "(#200) Requires business_management permission to manage the object",
+  "type": "OAuthException",
+  "code": 200,
+  "fbtrace_id": "AFAKEtrace200"
+ }
+}

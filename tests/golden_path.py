@@ -4,8 +4,10 @@ against a local server with every provider faked, timed per step.
     python tests/golden_path.py                    # both paths, prints the results table
     python tests/golden_path.py --path service     # one path
     python tests/golden_path.py --json out.json --markdown out.md --headed
+    python tests/golden_path.py --service-path     # with RS_SERVICE_PATH=1 (the service entrance, roadmap M5.2)
 
-Product path (store owner): sign up, confirm the email, paste the product page, make the 2 free ads, pick a plan,
+Product path (store owner): sign up, save a card (nothing charged), confirm the email, paste the product page, make
+the 2 ads with the free credits, pick a plan,
 plan the campaign, make the creative batch, write the copy, publish a landing page, export the ads. Service path
 (local HVAC): sign up, confirm, paste the website, make the first ads, pick a plan, plan for leads (Google Search and
 Meta), write Google Search copy, make a quote form, publish a landing page with the form, add a follow-up flow, and
@@ -20,10 +22,22 @@ picked, keys pressed, pages typed into the address bar). It asserts:
   * no step navigates the browser away from the app, except the known handoffs (KNOWN_HANDOFFS).
 
 Known gaps (KNOWN_GAPS) are failures the roadmap already tracks. They are reported as "known gap" and do not fail the
-run, so this output is the baseline. Today: the service path stops at the first-ads step because the first run needs
-a product photo (UX-13, roadmap M5.2). The steps after a known gap still run and are timed ("after the gap"), so their
-numbers are in the baseline too, but the path counts as blocked. A known gap that starts passing is reported, so the
-entry can be removed.
+run, so this output is the baseline. With RS_SERVICE_PATH off (the default): the service path stops at the first-ads
+step because the first run needs a product photo (UX-13). With RS_SERVICE_PATH=1 (or --service-path) the first run
+asks "What do you sell?", the service path picks "A service", imports the website and makes its 2 free ads without a
+photo, so that gap is not expected and a failure there fails the run. The steps after a known gap still run and are
+timed ("after the gap"), so their numbers are in the baseline too, but the path counts as blocked. A known gap that
+starts passing is reported, so the entry can be removed.
+
+With RS_NEXT_STEPS=1 in the environment (the Home step strip, roadmap M5.1) the run also checks the thread: after
+every step Home's "Your campaign" strip must show exactly one primary button (read with a request, not counted as a
+user action, and noted on the step), and "Pick a plan" follows the strip's button and the upgrade wall's button
+instead of the sidebar, so a dead end after the free ads fails the step.
+
+With RS_LAUNCH_KIT=1 (the launch kit on the plan page, roadmap M5.3) the product path gets one more step before
+"Connect Meta and launch": open the plan, check one block per planned platform with the ads' export links and the
+copy's Copy buttons, download one export, tick 2 items, and read the ticks back from a second browser (another
+device) logged in to the same account.
 
 Exit code: 0 when every step passed or is a known gap or not built; 1 on any other failure.
 
@@ -31,7 +45,9 @@ Fakes: the generation API, result downloads, email, page fetches and the Anthrop
 way tests/test_app.py does it (hf.submit/status/upload, worker.requests.get, mailer.requests.post, fetcher.fetch,
 llm._anthropic). The worker thread runs as in production with a short poll and a fake render time
 (--render-seconds). Stripe is not configured: the plan is picked with a free-month code on Billing, which stands in
-for Stripe Checkout (a known handoff that is not exercised locally). Needs Playwright for Python with Chromium
+for Stripe Checkout (a known handoff that is not exercised locally). The card step after sign-up (RS_CARD_REQUIRED=1,
+card_on_file.py) runs against a fake Stripe in process (F.stripe): its setup-mode Checkout "page" sends the browser
+straight back to the success URL with a saved test card, so nothing leaves 127.0.0.1 and Stripe is never called. Needs Playwright for Python with Chromium
 (preinstalled in CI images and dev containers; set PLAYWRIGHT_BROWSERS_PATH if yours lives elsewhere).
 """
 import argparse
@@ -52,12 +68,22 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
-KNOWN_GAPS = {
-    # (path, step): (finding id, what the step's error must contain, why)
-    ("service", "first_ads"): ("UX-13", "Add one photo of your product",
-                               "The first run needs a product photo; a service business has none "
-                               "(roadmap M5.2, 'I sell a service')."),
-}
+def service_path_on():
+    return os.environ.get("RS_SERVICE_PATH", "0").strip().lower() in ("1", "on", "true", "yes")
+
+
+def known_gaps():
+    gaps = {}   # (path, step): (finding id, a regex the step's error must match, why)
+    if not service_path_on():
+        # RS_SERVICE_PATH=1 (roadmap M5.2) closes this one: the service path then has to pass first_ads.
+        gaps[("service", "first_ads")] = ("UX-13", r"Add one photo of your product|made as product ads",
+                                          "The first run is product-only: it needs a product photo (or takes a "
+                                          "site photo as one) and writes a product ad; a service business has no "
+                                          "product (roadmap M5.2, RS_SERVICE_PATH=1 turns the service entrance on).")
+    return gaps
+
+
+KNOWN_GAPS = known_gaps()
 # Places the browser may leave the app for: the platforms' own pages that an app can't (or mustn't) do for the user.
 KNOWN_HANDOFFS = [
     (r"^https://checkout\.stripe\.com/", "Stripe Checkout (plan or pack payment)"),
@@ -70,6 +96,10 @@ NOT_BUILT = {
     "service": [("connect_launch", "Connect Google Ads and launch (paused)", "M3.1, M3.2")],
 }
 PW = "golden-path-pw-1"
+
+
+def next_steps_on():
+    return os.environ.get("RS_NEXT_STEPS", "").strip().lower() in ("1", "on", "true", "yes")
 
 
 def free_port():
@@ -91,7 +121,7 @@ def boot(render_seconds):
     os.environ.update(
         RS_DATA=tmp, RS_WORKER="0", HF_KEY="test:secret", RS_MARKUP="2.0", RS_PLAN_SYNC="0", RS_NUDGE_LOOP="0",
         RS_POLL_SECONDS="1", RS_DISK_MIN_GB="0.2", ANTHROPIC_API_KEY="sk-ant-test", RESEND_API_KEY="re_test",
-        RS_MAIL_DOMAIN="mail.campaignify.test", RS_PUBLIC_URL=f"http://127.0.0.1:{port}",
+        RS_MAIL_DOMAIN="mail.campaignify.test", RS_PUBLIC_URL=f"http://127.0.0.1:{port}", RS_CARD_REQUIRED="1",
         RS_OWNER_INVITES="nobody@example.com:" + hashlib.sha256(b"unused").hexdigest())
     for k in ("STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "GOOGLE_OAUTH_CLIENT_SECRET", "SIGNUP_CREDITS_ADS",
               "FIRST_RUN_NUDGES", "GROQ_API_KEY"):
@@ -106,6 +136,7 @@ def boot(render_seconds):
 
     appmod._maybe_reconcile = lambda ws_id, force=False: 0
     F.install(hf, worker, mailer, fetcher, llm, render_seconds)
+    F.stripe()
     os.environ["RS_WORKER"] = "1"   # the planner and research run in threads, as in production
     worker.start()
 
@@ -139,12 +170,15 @@ class F:
     SERVICE_URL = "https://northside-hvac.example/"
     SERVICE_PAGE = """<!doctype html><html><head><title>Northside Heating & Air | AC repair and furnace service in Plano, TX</title>
 <meta name="description" content="Same-day AC repair, furnace tune-ups and new system installs in Plano and Allen. Free quotes.">
-<meta property="og:image" content="https://northside-hvac.example/img/logo.png">
+<meta property="og:image" content="https://northside-hvac.example/img/logo.png"><meta name="theme-color" content="#1f4e79">
+<style>.btn{background:#f2a900;color:#1f4e79}</style>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"HVACBusiness","name":"Northside Heating & Air",
 "description":"AC repair, furnace tune-ups and new system installs in Plano and Allen, Texas.",
 "logo":"https://northside-hvac.example/img/logo.png","telephone":"+1-972-555-0142",
 "address":{"@type":"PostalAddress","addressLocality":"Plano","addressRegion":"TX"},"areaServed":["Plano","Allen","Frisco"]}</script>
 </head><body><img src="/img/logo.png" alt="Northside Heating & Air logo"><h1>AC repair in Plano, same day</h1>
+<img src="/img/tech-at-work.jpg" alt="A technician checking an outdoor unit"><img src="/img/service-van.jpg" alt="Our van">
+<img src="/img/new-install.jpg" alt="A new furnace install">
 <p>Licensed technicians. Upfront prices. Free quotes on new systems.</p><a href="/quote">Get a free quote</a></body></html>"""
 
     BIZ = {
@@ -169,7 +203,7 @@ class F:
 
     # ---- generation API
     @classmethod
-    def submit(cls, model, inputs, webhook_url=None):
+    def submit(cls, model, inputs, webhook_url=None, **kw):   # kw: idempotency_key (hf.py, M1.9)
         rid = f"req{len(cls.results) + 1}"
         cls.results[rid] = {"at": time.time(), "model": model, "inputs": inputs}
         return rid
@@ -194,6 +228,39 @@ class F:
         b = io.BytesIO()
         img.save(b, "PNG")
         return b.getvalue()
+
+    cards = 0
+
+    @classmethod
+    def stripe(cls):
+        """The card step's Stripe calls, faked (billing.py's setup-mode Checkout). Stripe keys stay unset, so the
+        card step is switched on by hand (card_on_file.active) and everything else still sees Stripe as off."""
+        import billing
+        import card_on_file
+
+        def no_stripe(*a, **kw):
+            raise AssertionError("the golden path never calls Stripe")
+
+        billing._get = billing._post = no_stripe
+        card_on_file.active = card_on_file.required
+        sessions = {}
+
+        def customer(*, email, metadata, idempotency_key):
+            return f"cus_golden_{metadata['workspace_id']}"
+
+        def setup_session(*, customer, success_url, cancel_url, metadata, client_reference_id, idempotency_key):
+            cls.cards += 1
+            sid = f"cs_golden_card_{cls.cards}"
+            sessions[sid] = {"id": sid, "mode": "setup", "status": "complete", "customer": customer,
+                             "metadata": {k: str(v) for k, v in metadata.items()},
+                             "setup_intent": {"id": f"seti_{sid}", "status": "succeeded", "payment_method": {
+                                 "id": f"pm_{sid}", "card": {"fingerprint": f"fp_golden_{cls.cards}", "brand": "visa",
+                                                             "last4": "4242"}}}}
+            # Stripe's page, done: straight back to the success URL, as after a saved card
+            return {"id": sid, "url": success_url.replace("{CHECKOUT_SESSION_ID}", sid)}
+
+        billing.create_customer, billing.create_setup_session = customer, setup_session
+        billing.get_setup_session = lambda sid: json.loads(json.dumps(sessions[sid]))
 
     @classmethod
     def install(cls, hf, worker, mailer, fetcher, llm, render_seconds):
@@ -358,7 +425,15 @@ class F:
         if step == 5 and service:
             return cls._reply("write_copy", {"platform": "meta", "kind": "ad", "angle": "all", "variants": 2})
         plats = ["google", "meta"] if service else ["meta", "google"]
-        return cls._reply("finish", {
+        extra = {}
+        if "search_keywords" in tools["finish"]["input_schema"]["properties"] and service:
+            # the model fills the keyword list when the schema asks for it (RS_SERVICE_PATH with Google picked)
+            extra["search_keywords"] = [{"term": t, "match": m} for t, m in (
+                ("ac repair plano", "exact"), ("ac repair allen", "exact"), ("ac repair near me", "phrase"),
+                ("furnace tune up plano", "exact"), ("furnace tune up near me", "phrase"), ("hvac company plano", "phrase"),
+                ("new ac unit cost", "phrase"), ("ac installation plano", "exact"), ("heating and air plano", "phrase"),
+                ("air conditioner not cooling", "broad"), ("northside heating and air", "exact"))]
+        return cls._reply("finish", {**extra,
             "summary": ("Leads first: Google Search for people already looking, Meta lead ads in the service area."
                         if service else "Image ads on Meta first, then the talking video once a hook wins."),
             "offer": "Free quote on a new system, same-day repair." if service else "Ember Candle, $34, 50 hour burn.",
@@ -548,14 +623,15 @@ class Run:
 
     def wait_jobs(self, since_id, n_min=1, timeout=120):
         def done():
-            rows = self.q("SELECT status FROM jobs WHERE workspace_id=? AND id>?", self.ws_id, since_id)
+            rows = self.q("SELECT status, error FROM jobs WHERE workspace_id=? AND id>?", self.ws_id, since_id)
             if len(rows) < n_min or any(r["status"] in ("pending", "running") for r in rows):
                 return None
             return rows
         rows = self.wait_until(done, "renders", timeout)
-        bad = [r["status"] for r in rows if r["status"] != "done"]
+        bad = [r for r in rows if r["status"] != "done"]
         if bad:
-            raise StepFailed(f"{len(bad)} of {len(rows)} renders ended {bad[0]}")
+            raise StepFailed(f"{len(bad)} of {len(rows)} renders ended {bad[0]['status']}"
+                             + (f" ({' '.join((bad[0]['error'] or '').split())[:160]})" if bad[0]["error"] else ""))
         return rows
 
     def last_job_id(self):
@@ -585,6 +661,11 @@ class Run:
                 except Exception:  # noqa: BLE001
                     pass
         st.seconds = time.monotonic() - t0
+        if next_steps_on() and st.status == "pass" and self.ws_id:
+            try:
+                self.strip_check(st)
+            except StepFailed as e:
+                st.status, st.error = "fail", str(e)
         st.charged = self.spent_since(mark)
         if st.status == "pass":
             shown = sum(p[1] for p in st.paid)
@@ -598,7 +679,7 @@ class Run:
             if bad:
                 st.status, st.error = "fail", f"left the app: {bad[0]}"
         gap = KNOWN_GAPS.get((self.path, key))
-        if gap and st.status == "fail" and gap[1] in st.error:
+        if gap and st.status == "fail" and re.search(gap[1], st.error):
             st.status, st.gap = "known_gap", gap[0]
             st.notes.append(gap[2])
             self.gap_hit = self.gap_hit or key
@@ -610,6 +691,21 @@ class Run:
         except Exception:  # noqa: BLE001
             pass
         return st
+
+    def strip_check(self, st):
+        """Home's "Your campaign" strip (RS_NEXT_STEPS): one primary button, whatever step the account is on."""
+        r = self.ctx.request.get(f"{self.base}/app")
+        html = r.text()
+        m = re.search(r'<section class="panel nsteps"[^>]*data-current="(\w+)".*?</section>', html, re.S)
+        if not m:
+            if "data-first-run" in html:
+                return   # before the first ad Home is the first-ad form only
+            raise StepFailed("Home has no 'Your campaign' strip")
+        prim = [x for x in re.findall(r'class="btn( [^"]*)?"', m.group(0)) if "dark" not in (x or "")]
+        label = re.search(r"data-ns-primary>([^<]+)<", m.group(0))
+        st.notes.append(f"Home next step: {m.group(1)} ('{label.group(1) if label else ''}', {len(prim)} primary)")
+        if len(prim) != 1:
+            raise StepFailed(f"Home's strip shows {len(prim)} primary buttons, not 1")
 
     # ---------------------------------------------------------------- shared steps
     def email_code(self, email):
@@ -628,17 +724,34 @@ class Run:
         self.fill("input[name=email]", email)
         self.fill("input[name=password]", PW)
         self.click("form button:has-text('Create account')")
-        self.wait_until(lambda: re.search(r"/app(\?|$)", self.page.url) or self.page.locator("[data-signup-sent]").count(),
-                        "the page after Create account", 20)
+        self.wait_until(lambda: re.search(r"/app(/card)?(\?|$)", self.page.url)
+                        or self.page.locator("[data-signup-sent]").count(), "the page after Create account", 20)
         if self.page.locator("[data-signup-sent]").count():
             # Sign-up waits for its emailed link (login_security.confirm_first): open it, as the person would.
             self.wait_until(lambda: self.email_link(email), "the sign-up email", 10)
             self.goto(self.email_link(email))
-        self.page.wait_for_url(re.compile(r"/app(\?|$)"))
+        self.page.wait_for_url(re.compile(r"/app(/card)?(\?|$)"))
         u = self.q("SELECT * FROM users WHERE email=?", email)
         if not u:
             raise StepFailed("no account was made")
         self.ws_id = u[0]["workspace_id"]
+
+    def s_card(self, st):
+        """The card step after sign-up (RS_CARD_REQUIRED): nothing charged, the starter credits land after it."""
+        if "/app/card" not in self.page.url:
+            st.notes.append("no card step (RS_CARD_REQUIRED off)")
+            return
+        before = self.q("SELECT credits FROM workspaces WHERE id=?", self.ws_id)[0][0]
+        if "Why we ask" not in self.text():
+            raise StepFailed("the card page doesn't say why we ask")
+        self.click("[data-card-add]")
+        self.page.wait_for_url(re.compile(r"/app(\?|$)"))
+        ws = self.q("SELECT * FROM workspaces WHERE id=?", self.ws_id)[0]
+        if not ws["card_saved_at"]:
+            raise StepFailed("the card wasn't saved")
+        if ws["credits"] <= before:
+            raise StepFailed("the starter credits didn't land after the card")
+        st.notes.append(f"card saved with a fake Stripe; {ws['credits'] - before} starter credits landed, 0 charged")
 
     def email_link(self, email):
         """The /verify link (path and query) of the newest email to this address."""
@@ -667,7 +780,11 @@ class Run:
             raise StepFailed("the code was refused: " + self.page.locator("dialog [data-verr]").inner_text())
         self.page.wait_for_selector("[data-verify-banner]", state="detached", timeout=5000)
 
-    def s_brand_kit(self, st, url, want_name):
+    def s_brand_kit(self, st, url, want_name, sells=None):
+        if sells and self.page.locator(f"input[name=sells][value={sells}]").count():
+            self.check(f"input[name=sells][value={sells}]", True)   # "What do you sell?" (RS_SERVICE_PATH)
+        elif sells == "service" and service_path_on():
+            raise StepFailed("RS_SERVICE_PATH is on but the first run doesn't ask 'What do you sell?'")
         self.fill("#purl", url)
         self.click("[data-import]")
         self.page.wait_for_function("() => (document.querySelector('#pn')||{}).value", timeout=15000)
@@ -675,13 +792,16 @@ class Run:
         brand_name = self.page.input_value("#bn")
         photos = self.page.locator("[data-photos] input[name=photo_id]").count()
         prod = self.q("SELECT * FROM products WHERE workspace_id=? ORDER BY id DESC", self.ws_id)
-        claims = 0
+        claims, logo, colors = 0, False, 0
         if prod:
-            try:
-                claims = len(json.loads(prod[0]["import_json"] or "{}").get("claims") or [])
+            try:   # suggested claims wait for approval in claims_pending (the importer never approves them)
+                claims = len(json.loads(prod[0]["claims_pending"] or "[]"))
+                site = json.loads(prod[0]["import_json"] or "{}").get("site") or {}
+                logo, colors = bool(site.get("logo_photo_id")), len(site.get("colors") or [])
             except Exception:  # noqa: BLE001
-                claims = 0
-        st.notes.append(f"filled: name '{name}', brand '{brand_name}', {photos} photo(s), {claims} suggested claim(s)"
+                pass
+        kit = f", logo {'yes' if logo else 'no'}, {colors} color(s)" if sells == "service" else ""
+        st.notes.append(f"filled: name '{name}', brand '{brand_name}'{kit}, {photos} photo(s), {claims} suggested claim(s)"
                         f" (target: name, colors, logo, 3 photos, 5 claims)")
         if want_name not in name:
             raise StepFailed(f"the importer filled '{name}', expected '{want_name}'")
@@ -696,13 +816,37 @@ class Run:
             raise StepFailed("the first ads didn't start: " + (" ".join(flash) or main[:120]).strip())
         self.wait_jobs(before, 1)
         self.page.wait_for_selector("text=/ready/i", timeout=20000)
+        if self.path == "service":
+            # A service's first ads must be made as a service ad: a site photo (a van, a technician) passed off as
+            # the "product" makes an ad told to keep the product's packaging exactly as photographed.
+            import db
+            import worker
+            with db.connect() as conn:
+                job = conn.execute("SELECT * FROM jobs WHERE workspace_id=? AND id>? ORDER BY id LIMIT 1",
+                                   (self.ws_id, before)).fetchone()
+                prompt = worker.image_prompt(conn, job) if job["tool"] == "ad_image" else ""
+            if "a service business" not in prompt:
+                raise StepFailed("the first ads were made as product ads (a site photo used as the product photo)")
+            st.notes.append(f"made as a service ad, {len(json.loads(job['params_json']).get('photo_ids') or [])} "
+                            "reference image(s)")
 
     def s_pick_plan(self, st, code):
-        self.nav("/app/campaigns")
-        if "See plans" not in self.text():
+        nxt = self.page.locator("[data-next-steps] [data-ns-primary]")
+        made = self.q("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", self.ws_id)[0][0]
+        if next_steps_on() and made:
+            # The thread: Home's one primary button after the free ads, then the wall's button (no dead end).
+            if not nxt.count() or "/app/campaigns" not in (nxt.first.get_attribute("href") or ""):
+                raise StepFailed("after the free ads Home's primary button doesn't lead to the plan")
+            st.notes.append(f"followed Home's '{nxt.first.inner_text().strip()}'")
+            self.click(nxt.first)
+            self.page.wait_for_load_state()
+        else:
+            self.nav("/app/campaigns")
+        wall = self.page.locator("[data-wall] a.btn:not(.dark)") if next_steps_on() else self.page.locator("a:has-text('See plans')")
+        if not wall.count():
             st.notes.append("no upgrade wall (already on a plan)")
             return
-        self.click("a:has-text('See plans')")
+        self.click(wall.first)
         self.page.wait_for_url("**/app/billing**")
         st.notes.append("free-month code on Billing stands in for Stripe Checkout (a known handoff, not run locally)")
         self.fill("#comp-code", code)
@@ -735,10 +879,12 @@ class Run:
         note = (f"plan: {self.page.locator('#ads .adrow').count()} ads proposed, budget split {yn['Budget split' in main]}, "
                 f"copy {yn['Copy for each platform' in main]}")
         if "google" in platforms_on:
-            note += f", search keyword list {yn['keyword' in main.lower()]}"
+            kw = self.page.locator("#keywords table.kwlist tbody tr").count()
+            note += f", search keyword list {yn[bool(kw)]}" + (f" ({kw} terms)" if kw else "")
         if goal == "leads":
             lead_items = bool(re.search(r"(?i)\bform\b", checklist) and re.search(r"(?i)\bflow\b", checklist))
-            note += f", lead page/form/follow-up in the checklist {yn[lead_items]}"
+            links = sec.locator("a[href='/app/pages'], a[href='/app/forms'], a[href='/app/flows']").count() if sec.count() else 0
+            note += f", lead page/form/follow-up in the checklist {yn[lead_items]}" + (f" ({links} linked)" if links else "")
         st.notes.append(note)
         return main
 
@@ -814,6 +960,52 @@ class Run:
             raise StepFailed("the download is empty")
         st.notes.append(f"downloaded {f.suggested_filename} ({size // 1024} KB)")
 
+    def s_launch_kit(self, st, email, platforms):
+        """RS_LAUNCH_KIT: one screen holds the launch; ticks persist across devices."""
+        self.nav("/app/campaigns")
+        self.click(self.page.locator("a.runrow").first)
+        self.page.wait_for_url(re.compile(r"/app/campaigns/\d+"))
+        kit = self.page.locator("[data-launch-kit]")
+        if not kit.count():
+            raise StepFailed("the plan page has no launch kit")
+        missing = [p for p in platforms if not self.page.locator(f"#kit-{p}").count()]
+        if missing:
+            raise StepFailed("no launch-kit block for " + ", ".join(missing))
+        exports = self.page.locator("#kit-meta .lk-ex a[download]")
+        copies = self.page.locator("[data-launch-kit] [data-copy]").count()
+        if not exports.count():
+            raise StepFailed("the Meta block has no export links")
+        with self.page.expect_download(timeout=30000) as d:
+            self.click(exports.first)
+        size = os.path.getsize(d.value.path()) if d.value.path() else 0
+        if size < 100:
+            raise StepFailed("the export is empty")
+        boxes = self.page.locator("[data-launch-kit] .lk-item:not(.done) .lk-box")
+        keys = []
+        for i in range(2):
+            b = boxes.first
+            keys.append(b.locator("xpath=ancestor::li[1]").get_attribute("id"))
+            with self.page.expect_response(lambda r: "/launch" in r.url and r.request.method == "POST"):
+                self.click(b)
+        other = self.ctx.browser.new_context()
+        try:   # another device: a fresh browser, logged in to the same account (not counted as user actions)
+            o = other.new_page()
+            other.route("**/*", lambda rt: rt.continue_() if rt.request.url.startswith(self.base) else rt.abort())
+            o.goto(f"{self.base}/login")
+            o.fill("input[name=email]", email)
+            o.fill("input[name=password]", PW)
+            o.click("form button.btn")
+            o.wait_for_load_state()
+            o.goto(self.page.url.split("#")[0])
+            seen = [k for k in keys if o.locator(f"li#{k}.done").count()]
+        finally:
+            other.close()
+        if len(seen) != len(keys):
+            raise StepFailed(f"ticks didn't persist to a second browser ({len(seen)} of {len(keys)})")
+        st.notes.append(f"{self.page.locator('[data-launch-kit] .lk-block').count()} platform blocks, "
+                        f"{exports.count()} Meta export links, {copies} Copy buttons; export {size // 1024} KB; "
+                        f"{len(keys)} ticks seen from a second browser")
+
     # ---------------------------------------------------------------- service-only steps
     def s_form(self, st, name):
         self.nav("/app/forms")
@@ -888,9 +1080,10 @@ def comp_code():
 def product_path(r):
     email = "owner@hearth.example"
     r.step("signup", "Sign up", lambda st: r.s_signup(st, email))
+    r.step("card", "Save a card (nothing charged)", r.s_card)
     r.step("verify", "Confirm the email (code)", lambda st: r.s_verify(st, email))
     r.step("brand_kit", "Paste the product page (brand kit)", lambda st: r.s_brand_kit(st, F.PRODUCT_URL, "Ember Candle"))
-    r.step("first_ads", "First ads (2 free image ads)", r.s_first_ads)
+    r.step("first_ads", "First ads (2 image ads with the free credits)", r.s_first_ads)
     code = comp_code()
     r.step("plan_pick", "Pick a plan", lambda st: r.s_pick_plan(st, code))
     r.step("planner", "Plan the campaign (Sales; Meta, Google)",
@@ -899,15 +1092,20 @@ def product_path(r):
     r.step("copy", "Copy for Google Search", lambda st: r.s_copy(st, "google"))
     r.step("landing", "Landing page, published", lambda st: r.s_page(st, "Ember Candle"))
     r.step("export", "Export an ad (download)", r.s_export)
+    if os.environ.get("RS_LAUNCH_KIT", "").strip().lower() in ("1", "on", "true", "yes"):
+        r.step("launch_kit", "Launch kit on the plan page (ticks on a second device)",
+               lambda st: r.s_launch_kit(st, email, ["meta", "google"]))
 
 
 def service_path(r):
     email = "owner@northside-hvac.example"
     r.step("signup", "Sign up", lambda st: r.s_signup(st, email))
+    r.step("card", "Save a card (nothing charged)", r.s_card)
     r.step("verify", "Confirm the email (code)", lambda st: r.s_verify(st, email))
     r.step("brand_kit", "Paste the website (brand kit)",
-           lambda st: r.s_brand_kit(st, F.SERVICE_URL, "Northside"))
-    r.step("first_ads", "First ads (needs a product photo)", r.s_first_ads)
+           lambda st: r.s_brand_kit(st, F.SERVICE_URL, "Northside", sells="service"))
+    r.step("first_ads", "First ads (from the website, no product photo)" if service_path_on()
+           else "First ads (the first run is product-only)", r.s_first_ads)
     code = comp_code()
     r.step("plan_pick", "Pick a plan", lambda st: r.s_pick_plan(st, code))
     r.step("planner", "Plan the campaign (Leads; Google, Meta)",
@@ -980,7 +1178,12 @@ def main():
     ap.add_argument("--json", help="write the results as JSON here")
     ap.add_argument("--markdown", help="write the results table (Markdown) here")
     ap.add_argument("--shots", help="save a full-page screenshot of every failed or known-gap step here")
+    ap.add_argument("--service-path", action="store_true", help="run with RS_SERVICE_PATH=1 (roadmap M5.2)")
     args = ap.parse_args()
+    global KNOWN_GAPS
+    if args.service_path:
+        os.environ["RS_SERVICE_PATH"] = "1"
+    KNOWN_GAPS = known_gaps()
 
     try:
         from playwright.sync_api import sync_playwright
@@ -988,7 +1191,7 @@ def main():
         raise SystemExit("Playwright for Python is required (pip install playwright; Chromium must be installed).")
 
     base, srv = boot(args.render_seconds)
-    print(f"== golden path against {base} (providers faked)")
+    print(f"== golden path against {base} (providers faked; RS_SERVICE_PATH {'on' if service_path_on() else 'off'})")
     steps = []
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=not args.headed, args=["--disable-dev-shm-usage"])

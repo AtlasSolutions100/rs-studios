@@ -39,6 +39,14 @@ def _get(rid):
     return _unstale(r)
 
 
+def _free_lock(r):
+    """Research made for a free campaign plan (plan_paywall.py) opens in full with a subscription."""
+    import plan_paywall
+    with db.connect() as conn:
+        if plan_paywall.report_locked(conn, r, g.ws):
+            raise plan_paywall.PaywallLocked()
+
+
 @bp.route("/app/competitors", methods=["GET", "POST"])
 @feature_required("competitors")
 def index():
@@ -54,6 +62,8 @@ def index():
             flash(f"The most this run can cost is now {need:,} credits. Check it and run it again.")
             return redirect(url_for("competitors.index"))
         if not can_afford(need):
+            import plan_paywall   # out of credits with no subscription: the lock (RS_PLAN_PAYWALL)
+            plan_paywall.check(g.ws)
             flash(f"This run can use up to {need:,} credits (you pay what it actually uses) and you have "
                   f"{db.balance(g.ws):,}. Top up on the Billing page.")
             return redirect(url_for("competitors.index"))
@@ -93,6 +103,7 @@ def index():
 @feature_required("competitors")
 def show(rid):
     r = _get(rid)
+    _free_lock(r)
     rep = json.loads(r["report_json"] or "{}") if r["status"] == "ready" else {}
     return render_template("competitor_report.html", r=r, rep=rep, inputs=json.loads(r["inputs_json"] or "{}"),
                            steps=json.loads(r["steps_json"] or "[]"), sources=json.loads(r["sources_json"] or "[]"),
@@ -111,6 +122,7 @@ def status(rid):
 @feature_required("competitors")
 def markdown(rid):
     r = _get(rid)
+    _free_lock(r)
     if r["status"] != "ready":
         abort(404)
     return Response(competitors.to_markdown(r), mimetype="text/markdown",

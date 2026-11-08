@@ -1,0 +1,124 @@
+{
+ "cases": [
+  {
+   "id": "g01",
+   "text": "Handmade leather wallets, built to last.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "g02",
+   "text": "Fresh flowers delivered in Austin by 5 pm.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "g03",
+   "text": "The #1 rated dog bed on our site.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.results_claim"
+   ],
+   "house": []
+  },
+  {
+   "id": "g04",
+   "text": "3x faster checkout for your store.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.results_claim"
+   ],
+   "house": []
+  },
+  {
+   "id": "g05",
+   "text": "Studies show 9 in 10 cats prefer it.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.results_claim"
+   ],
+   "house": []
+  },
+  {
+   "id": "g06",
+   "text": "Your new favorite running socks.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "g07",
+   "text": "Single? Meet singles near you tonight.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "g08",
+   "text": "Are you single? Meet people near you.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.personal_attributes"
+   ],
+   "house": []
+  },
+  {
+   "id": "g09",
+   "text": "Book a cleaning in 2 taps. Same-week slots.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "g10",
+   "text": "Coffee that tastes like the cafe, at home.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "g11",
+   "text": "Rooms for rent in Brooklyn, no broker fee.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.special_category_maybe"
+   ],
+   "house": []
+  },
+  {
+   "id": "g12",
+   "text": "Doctor-recommended mattress for back sleepers.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.results_claim"
+   ],
+   "house": []
+  }
+ ]
+}

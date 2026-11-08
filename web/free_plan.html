@@ -1,0 +1,49 @@
+{% extends "base.html" %}{% block title %}{{ c.name }} · Campaignify{% endblock %}
+{# A free campaign plan seen without a subscription (plan_paywall.partial): part shown, the rest locked. #}
+{% block head %}{% if c.status == 'planning' %}<meta http-equiv="refresh" content="6">{% endif %}{% endblock %}
+{% block body %}
+{% set unlock %}<a class="btn sm" href="{{ url_for('billing_page') }}#plans" data-unlock>Get an active subscription to unlock</a>{% endset %}
+<div class="page full camp" data-free-plan>
+  <p class="eyebrow">Free campaign plan · {{ (brief.goal or 'sales')|first_upper }}{% for p in brief.platforms or [] %}{{ ' · ' if loop.first else ', ' }}{{ PLATFORMS[p].short if p in PLATFORMS else p }}{% endfor %}</p>
+  <h1>{{ c.name }}</h1>
+  {% if c.status == 'planning' %}
+  <div class="panel planning" id="planning" data-steps="{{ steps|length }}">
+    <div class="row"><div class="spinner" style="margin:0"></div><b>Researching competitors and planning…</b><span class="muted small">This takes a few minutes. You can leave this page; it keeps going.</span></div>
+    <ol class="steplist">{% for s in steps[-4:] %}<li class="{{ s.kind }}"><b>{{ s.title }}</b></li>{% endfor %}</ol>
+  </div>
+  {% elif c.status == 'failed' %}
+  <div class="flash bad">The planner couldn't make this plan{% if c.error %} ({{ c.error }}){% endif %}. Nothing was charged, and your free plan for this month is still there to use.</div>
+  <p><a class="btn" href="{{ url_for('paywall.new') }}">Try again</a></p>
+  {% else %}
+  <section class="camp-sec">
+    <h2>The plan</h2>
+    {% if part.summary %}<p class="lede" data-part-summary>{{ part.summary }}</p>{% else %}<p class="muted">The plan stopped before its summary.</p>{% endif %}
+    <div class="grid2">
+      <div class="panel" data-part-channel>
+        <h3>First channel</h3>
+        {% if part.channel %}
+        <p style="margin:0"><b>{{ platform_name(part.channel.platform) }}</b>{% if part.channel.share is not none %} · {{ part.channel.share }}% of the first test budget{% endif %}</p>
+        {% if part.channel.note %}<p class="muted" style="margin:6px 0 0">{{ part.channel.note }}</p>{% endif %}
+        {% else %}<p class="muted">No channel in this plan.</p>{% endif %}
+      </div>
+      <div class="panel" data-part-insights>
+        <h3>Top competitor insights</h3>
+        {% if part.insights %}<ol class="rules" style="padding-left:18px">{% for it in part.insights %}<li>{{ it.text }}{% for u in it.sources %} <a class="small" href="{{ u }}" rel="nofollow noopener" target="_blank">[{{ loop.index }}]</a>{% endfor %}</li>{% endfor %}</ol>
+        {% else %}<p class="muted">The competitor research didn't find anything with a source this time.</p>{% endif %}
+      </div>
+    </div>
+  </section>
+  <section class="camp-sec" data-locked>
+    <h2 style="display:flex;align-items:center;gap:8px">{% include "_lock_icon.svg" %} The rest of your plan</h2>
+    <div class="panel">
+      <ul class="rules" style="list-style:none;padding:0;margin:0 0 14px">
+        {% for label, n in part.held %}<li style="display:flex;align-items:center;gap:8px;padding:6px 0">{% include "_lock_icon.svg" %}<span>{{ label }}</span><span class="small dim">{{ n }}</span></li>{% endfor %}
+      </ul>
+      <p style="margin:0 0 12px">{% include "_lock_icon.svg" %} <b>Get an active subscription to unlock</b> the whole plan, the ads it proposes and the full competitor report. Everything here stays saved.</p>
+      {{ unlock }}
+    </div>
+  </section>
+  {% endif %}
+  {% if next_on %}<p class="small muted">Your next free plan opens on {{ next_on }}.</p>{% endif %}
+</div>
+{% endblock %}

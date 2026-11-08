@@ -34,7 +34,10 @@
 {% set back = url_for('create.batch', bid=j.batch_id) if ctx == 'batch' and j.batch_id else url_for('library') %}
 {% set os_ = outs.get(j.id) or [] %}
 <article class="litem {{ 'hl' if hl }}{{ ' v-' ~ verdict if verdict }}" data-job="{{ j.id }}" data-status="{{ j.status }}" tabindex="0" aria-label="{{ label }}, {{ {'done':'ready','pending':'queued','running':'rendering','failed':'failed'}[j.status] }}{{ ', ' ~ verdict if verdict }}">
-  {{ job_thumb(j, outs, templates, tools, eta=eta) }}
+  {% if ctx == 'batch' and os_|length > 1 and next_steps_on is defined and next_steps_on() %}
+  {# UX-2: a job with 2 versions shows 2 thumbnails, so the 2 free ads read as 2 ads (RS_NEXT_STEPS). #}
+  <div class="thumbs2" data-hoverplay>{% for o in os_[:4] %}<div class="thumb">{% if o.kind == 'video' %}<video src="{{ url_for('media', oid=o.id) }}" poster="{{ url_for('media', oid=o.id, poster=1) }}" muted loop playsinline preload="none"></video>{% else %}<img src="{{ url_for('media', oid=o.id) }}" alt="Generated ad, version {{ loop.index }}">{% endif %}</div>{% endfor %}</div>
+  {% else %}{{ job_thumb(j, outs, templates, tools, eta=eta) }}{% endif %}
   <div class="meta"><b>{{ label }}</b>{{ status(j) }}</div>
   {% if verdict in ('approved', 'rejected', 'mixed') %}<span class="vtag {{ verdict }}">{{ {'approved': 'Approved', 'rejected': 'Rejected', 'mixed': 'Mixed reviews'}[verdict] }}</span>{% endif %}
   {% if pr.hook %}<p class="brief">“{{ pr.hook[:120] }}”</p>{% else %}<p class="brief">{{ (j.brief or '')[:110] }}{{ '…' if (j.brief or '')|length > 110 }}</p>{% endif %}

@@ -4,36 +4,53 @@
 {% set F = first.form %}
 {% set pv_on = first.preview.ok or first.preview.why == 'verify' %}
 {% set kinds = (['video'] if first.video_on else []) + ['image'] + (['preview'] if pv_on else []) %}
-{% set go_text = {'image': ('Make my 2 free ads' if first.free_images else 'Make my ' ~ first.n_images ~ ' image ad' ~ ('s' if first.n_images > 1 else '') ~ ' · ' ~ first.images_price ~ ' credits'),
+{% set go_text = {'image': ('Make 2 ads with your free credits' if first.free_images else 'Make my ' ~ first.n_images ~ ' image ad' ~ ('s' if first.n_images > 1 else '') ~ ' · ' ~ first.images_price ~ ' credits'),
                   'video': 'Make my free video ad', 'preview': 'Make my free preview'} %}
 {% set go_note = {'image': 'Failed generations are refunded automatically.', 'video': 'Included in your free credits. Failed generations are refunded automatically.', 'preview': 'Free. Nothing is charged.'} %}
-<form method="post" action="{{ url_for('start') }}" enctype="multipart/form-data" class="fa panel" id="fa" data-kind="{{ first.kind }}" data-verify-preview="{{ first.needs.preview or '' }}" data-verify-image="{{ first.needs.image or '' }}" data-verify-video="{{ first.needs.video or '' }}" data-go-text='{{ go_text|tojson|forceescape }}' data-go-note='{{ go_note|tojson|forceescape }}' data-import-url="{{ url_for('start_import') }}" data-first-run>
+<form method="post" action="{{ url_for('start') }}" enctype="multipart/form-data" class="fa panel" id="fa" data-kind="{{ first.kind }}" data-verify-preview="{{ first.needs.preview or '' }}" data-verify-image="{{ first.needs.image or '' }}" data-verify-video="{{ first.needs.video or '' }}" data-go-text='{{ go_text|tojson|forceescape }}' data-go-note='{{ go_note|tojson|forceescape }}' data-import-url="{{ url_for('start_import') }}" data-first-run{% if first.service_on %} data-sells="{{ first.sells }}"{% endif %}>
   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
   <p class="eyebrow" style="margin:0 0 6px">Your first ad</p>
-  <h2 class="fa-title">{% if first.video_on %}Your free video ad is ready to make{% elif first.free_images %}Make your 2 free ads{% else %}See your product in an ad in a few minutes{% endif %}</h2>
-  <p class="muted" style="margin:0 0 18px">Paste your product's page and we read the name, brand and photo. Or type the name and add one photo. Your product is saved under Products as you go.</p>
+  <h2 class="fa-title">{% if first.video_on %}Your free video ad is ready to make{% elif first.free_images %}Your free credits cover 2 ads{% else %}See your product in an ad in a few minutes{% endif %}</h2>
+  <p class="muted" style="margin:0 0 18px" {% if first.service_on %}data-svc data-product="Paste your product's page and we read the name, brand and photo. Or type the name and add one photo. Your product is saved under Products as you go." data-service="Paste your website and we read your business name, logo, colors and photos. No photo needed: we can build the ads from your logo and a headline."{% endif %}>Paste your product's page and we read the name, brand and photo. Or type the name and add one photo. Your product is saved under Products as you go.</p>
+  {% if first.service_on %}
+  <fieldset class="fa-sells">
+    <legend>What do you sell?</legend>
+    <div class="choices" role="radiogroup">
+      <label class="choice"><input type="radio" name="sells" value="product" {{ 'checked' if first.sells != 'service' }}>A product</label>
+      <label class="choice"><input type="radio" name="sells" value="service" {{ 'checked' if first.sells == 'service' }}>A service</label>
+    </div>
+    <p class="small muted" data-svc data-product="Things you ship or sell in a store." data-service="Appointments, visits, quotes or projects: a plumber, a dentist, an agency." style="margin:6px 0 0">Things you ship or sell in a store.</p>
+  </fieldset>
+  {% endif %}
 
   <div class="fa-import">
-    <label for="purl">Paste your product page</label>
+    <label for="purl" {% if first.service_on %}data-svc data-product="Paste your product page" data-service="Paste your website"{% endif %}>Paste your product page</label>
     <div class="row fa-import-row">
-      <input id="purl" type="url" name="product_url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://yourstore.com/products/sunrise-blend" value="{{ F.get('product_url') or '' }}">
+      <input id="purl" type="url" name="product_url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://yourstore.com/products/sunrise-blend" {% if first.service_on %}data-ph-product="https://yourstore.com/products/sunrise-blend" data-ph-service="https://yourbusiness.com"{% endif %} value="{{ F.get('product_url') or '' }}">
       <button type="button" class="btn dark" data-import>Read it</button>
     </div>
-    <p class="small muted" data-import-status style="margin:6px 0 0">Free. Works with Shopify, WooCommerce and most store pages. No page? Type the name below.</p>
+    <p class="small muted" data-import-status {% if first.service_on %}data-svc data-product="Free. Works with Shopify, WooCommerce and most store pages. No page? Type the name below." data-service="Free. We read the home page you paste. No website? Type your business name below."{% endif %} style="margin:6px 0 0">Free. Works with Shopify, WooCommerce and most store pages. No page? Type the name below.</p>
+    {% if first.service_on %}
+    <div class="fa-site" data-site {{ '' if first.sells == 'service' and (first.logo_url or first.site.colors) else 'hidden' }}>
+      <img data-site-logo alt="Your logo" src="{{ first.logo_url }}" {{ '' if first.logo_url else 'hidden' }}>
+      <span class="fa-swatches" data-site-colors>{% for c in first.site.colors or [] %}<i style="background:{{ c }}" title="{{ c }}"></i>{% endfor %}</span>
+      <span class="small muted" data-site-note>{% if first.site.colors %}Your logo and colors go into the ads.{% endif %}</span>
+    </div>
+    {% endif %}
   </div>
 
   <div class="fa-grid">
     <div>
-      <label for="pn">Product name</label>
-      <input id="pn" type="text" name="product_name" required maxlength="80" value="{{ F.get('product_name') or brand.product }}" placeholder="e.g. Sunrise Blend">
+      <label for="pn" {% if first.service_on %}data-svc data-product="Product name" data-service="Business name"{% endif %}>Product name</label>
+      <input id="pn" type="text" name="product_name" required maxlength="80" value="{{ F.get('product_name') or brand.product }}" placeholder="e.g. Sunrise Blend" {% if first.service_on %}data-ph-product="e.g. Sunrise Blend" data-ph-service="e.g. Northside Plumbing"{% endif %}>
       <label for="bn">Brand <span class="dim">(optional, shown in your ads' copy)</span></label>
       <input id="bn" type="text" name="brand_name" maxlength="80" value="{{ F.get('brand_name') or g.ws.brand_name or '' }}" placeholder="e.g. Sunrise Coffee Co.">
     </div>
     <div>
-      <label for="photo">Product photo</label>
+      <label for="photo" {% if first.service_on %}data-svc data-product="Product photo" data-service="A photo of your work (optional)"{% endif %}>Product photo</label>
       <label class="drop fa-drop" for="photo" id="drop">
         <img id="dropimg" alt="" hidden>
-        <span id="droptxt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg><b>Upload a photo</b><span class="small dim">The real product, label unedited. JPG, PNG or WebP.</span></span>
+        <span id="droptxt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg><b>Upload a photo</b><span class="small dim" {% if first.service_on %}data-svc data-product="The real product, label unedited. JPG, PNG or WebP." data-service="Your team, van or a finished job. JPG, PNG or WebP. No photo? Pick Logo and headline."{% endif %}>The real product, label unedited. JPG, PNG or WebP.</span></span>
       </label>
       <input id="photo" class="sr" type="file" name="photo" accept="image/jpeg,image/png,image/webp">
       <p class="small muted" data-photos-note style="margin:10px 0 6px" {{ '' if first.photos else 'hidden' }}>Or use one you've added:</p>
@@ -45,15 +62,15 @@
     <legend>What to make</legend>
     {% for k in kinds %}
     {% if k == 'video' %}
-    <label class="fa-kind"><input type="radio" name="kind" value="video" {{ 'checked' if first.kind == 'video' }}>
+    <label class="fa-kind" data-kind-label="video"><input type="radio" name="kind" value="video" {{ 'checked' if first.kind == 'video' }}>
       <span class="thumb"><img src="{{ url_for('static', filename='previews/photo_to_video.jpg') }}" alt="" loading="lazy"><span class="chip video">Video</span></span>
       <span><b>Your free video ad <em class="tag ok">included</em></b><span class="small muted">A 5-second product video from your photo, 720p. {{ first.video_price }} of your {{ '{:,}'.format(first.bal) }} free credits.</span></span></label>
     {% elif k == 'image' %}
     <label class="fa-kind"><input type="radio" name="kind" value="image" {{ 'checked' if first.kind == 'image' }}>
-      <span class="thumb"><img src="{{ url_for('static', filename='previews/ad_image.jpg') }}" alt="" loading="lazy"></span>
+      <span class="thumb"><img src="{{ url_for('static', filename='previews/ad_image.jpg') }}" alt="" loading="lazy"{% if first.service_on %} data-src-product="{{ url_for('static', filename='previews/ad_image.jpg') }}" data-src-service="{{ url_for('static', filename='previews/svc-logo.jpg') }}"{% endif %}></span>
       <span><b>{{ '2 image ads' if first.n_images > 1 else 'Image ad' }} <em class="tag {{ 'ok' if first.free_images }}">{{ 'free' if first.free_images else first.images_price ~ ' credits' }}</em></b><span class="small muted">{{ 'Two finished ad images' if first.n_images > 1 else 'A finished ad image' }} with a headline, from a template. Ready in about a minute. You have {{ '{:,}'.format(first.bal) }} credits.</span></span></label>
     {% else %}
-    <label class="fa-kind"><input type="radio" name="kind" value="preview" {{ 'checked' if first.kind == 'preview' }}>
+    <label class="fa-kind" data-kind-label="preview"><input type="radio" name="kind" value="preview" {{ 'checked' if first.kind == 'preview' }}>
       <span class="thumb"><img src="{{ url_for('static', filename='site/ugc-coffee.jpg') }}" alt="" loading="lazy"><span class="chip motion">Speaks</span></span>
       <span><b>Talking video preview <em class="tag {{ 'ok' if not first.needs.preview }}">{{ 'after you confirm your email' if first.needs.preview else 'Free, once' }}</em></b><span class="small muted">A presenter holds your product and says one line. {{ first.seconds }} seconds, 480p, with a PREVIEW watermark, so you can see it before you pay.</span></span></label>
     {% endif %}
@@ -82,7 +99,7 @@
   {% endif %}
   <div class="fa-opt" data-for="image">
     <label>Template</label>
-    <div class="fr-tpls">
+    <div class="fr-tpls" {% if first.service_on %}data-for-sells="product" {{ 'hidden' if first.sells == 'service' }}{% endif %}>
       {% for t in first.tpls %}
       <label class="fr-tpl">
         <input type="radio" name="template" value="{{ t.id }}" {{ 'checked' if t.id == first.pick }} data-brief="{{ t.brief }}">
@@ -91,6 +108,17 @@
       </label>
       {% endfor %}
     </div>
+    {% if first.service_on %}
+    <div class="fr-tpls" data-for-sells="service" {{ 'hidden' if first.sells != 'service' }}>
+      {% for t in first.svc_tpls %}
+      <label class="fr-tpl">
+        <input type="radio" name="svc_template" value="{{ t.id }}" {{ 'checked' if t.id == first.svc_pick }} data-brief="{{ t.brief }}" data-photo="{{ '1' if t.photo else '' }}">
+        <div class="thumb"><img src="{{ url_for('static', filename='previews/' ~ t.preview ~ '.jpg') }}" alt="" loading="lazy"></div>
+        <div class="t">{{ t.name }}</div><div class="s">{{ t.line }}</div>
+      </label>
+      {% endfor %}
+    </div>
+    {% endif %}
     <details class="fa-more"><summary>Edit the brief</summary>
       <label for="brief" class="sr">Brief</label><textarea id="brief" name="brief">{{ F.get('brief') or '' }}</textarea>
       <label for="aud">Who it's for <span class="dim">(optional)</span></label>
@@ -130,8 +158,23 @@
   var edited = brief.value.trim() !== '';
   brief.addEventListener('input', function(){ edited = true; });
   function name(){ return pn.value.trim(); }
+  // ---- the product-or-service switch (RS_SERVICE_PATH): a service swaps the labels, templates and kinds; no photo needed
+  function sells(){ var r = form.querySelector('input[name=sells]:checked'); return r ? r.value : 'product'; }
+  function applySells(){
+    var s = sells(); if(!form.querySelector('input[name=sells]')) return;
+    form.dataset.sells = s;
+    form.querySelectorAll('[data-svc]').forEach(function(e){ var t = e.dataset[s]; if(t != null) e.textContent = t; });
+    form.querySelectorAll('[data-ph-' + s + ']').forEach(function(e){ e.placeholder = e.getAttribute('data-ph-' + s); });
+    form.querySelectorAll('[data-src-' + s + ']').forEach(function(e){ e.src = e.getAttribute('data-src-' + s); });
+    form.querySelectorAll('.fr-tpls[data-for-sells]').forEach(function(e){ e.hidden = e.dataset.forSells !== s; });
+    form.querySelectorAll('[data-kind-label]').forEach(function(l){ l.hidden = s === 'service'; });
+    if(s === 'service'){ var im = form.querySelector('input[name=kind][value=image]'); if(im && !im.checked){ im.checked = true; kind(); } }
+    var site = form.querySelector('[data-site]'); if(site && s !== 'service') site.hidden = true;
+    edited = false; fill();
+  }
+  function tplName(){ return sells() === 'service' ? 'svc_template' : 'template'; }
   function fill(){
-    if(!edited){ var t = form.querySelector('input[name=template]:checked');
+    if(!edited){ var t = form.querySelector('input[name=' + tplName() + ']:checked');
       if(t) brief.value = t.dataset.brief.replace(/\b([Tt]he|[Yy]our) \{product\}/g, function(m, w){ return w + ' ' + (name() || 'product'); }).split('{product}').join(name() || 'your product').split('{brand}').join(bn.value.trim()); }
     if(scene) scene.placeholder = scene.dataset.default.split('{product}').join(name() || 'your product');
     if(line){ var said = line.value.trim() || line.dataset.default.split('{product}').join(name() || 'your product');
@@ -207,23 +250,38 @@
   function doImport(){
     var u = purl.value.trim(); if(!u){ purl.focus(); return; }
     imp.disabled = true; imp.textContent = 'Reading…'; istat.textContent = 'Reading the page. This takes a few seconds.'; istat.classList.remove('warnc');
-    fetch(form.dataset.importUrl, {method: 'POST', headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF': form.querySelector('input[name=csrf]').value}, body: JSON.stringify({url: u})})
+    var svc = sells() === 'service';
+    fetch(form.dataset.importUrl, {method: 'POST', headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF': form.querySelector('input[name=csrf]').value}, body: JSON.stringify({url: u, sells: sells()})})
       .then(function(r){ return r.json().catch(function(){ return {error: 'Something went wrong. Type the name and upload a photo instead.'}; }); })
       .then(function(r){
         imp.disabled = false; imp.textContent = 'Read it';
         if(!r.ok){ istat.textContent = r.error || 'Couldn\'t read that page. Type the name and upload a photo instead.'; istat.classList.add('warnc'); pn.focus(); return; }
         if(r.name && !pn.value.trim()) pn.value = r.name; else if(r.name) pn.value = r.name;
         if(r.brand && !bn.value.trim()) bn.value = r.brand;
+        (r.more || []).slice().reverse().forEach(addPhoto);
         if(r.photo) addPhoto(r.photo);
+        if(svc) siteKit(r);
         edited = false; fill();
-        istat.textContent = 'Got it: ' + (r.name || 'the product') + (r.photo ? ', with its photo.' : '. No usable photo on the page: upload one.') + ' Check the name, then press the button.';
+        var nph = (r.photo ? 1 : 0) + (r.more || []).length, cl = r.claims ? ' ' + r.claims + ' claim' + (r.claims > 1 ? 's' : '') + ' to check on Products.' : '';
+        istat.textContent = svc ? 'Got it: ' + (r.name || 'your business') + (nph ? ', ' + nph + ' photo' + (nph > 1 ? 's' : '') + ' from your site' : '') + (r.logo ? ', your logo' : '') + '.' + cl + ' Check the name, then press the button.'
+          : 'Got it: ' + (r.name || 'the product') + (nph > 1 ? ', with ' + nph + ' photos.' : r.photo ? ', with its photo.' : '. No usable photo on the page: upload one.') + cl + ' Check the name, then press the button.';
         ev('first_run_imported', r.photo ? 'photo' : 'nophoto');
       }).catch(function(){ imp.disabled = false; imp.textContent = 'Read it'; istat.textContent = 'Couldn\'t reach the page. Type the name and upload a photo instead.'; istat.classList.add('warnc'); });
+  }
+  function siteKit(r){
+    var box = form.querySelector('[data-site]'); if(!box) return;
+    var lg = box.querySelector('[data-site-logo]'), sw = box.querySelector('[data-site-colors]');
+    if(r.logo){ lg.src = r.logo.url; lg.hidden = false; } else lg.hidden = true;
+    sw.innerHTML = ''; (r.colors || []).forEach(function(c){ var i = document.createElement('i'); i.style.background = c; i.title = c; sw.appendChild(i); });
+    box.querySelector('[data-site-note]').textContent = (r.logo || (r.colors || []).length) ? 'Your logo and colors go into the ads.' : '';
+    box.hidden = !(r.logo || (r.colors || []).length);
+    Object.keys(r.briefs || {}).forEach(function(id){ var i = form.querySelector('input[name=svc_template][value="' + id + '"]'); if(i) i.dataset.brief = r.briefs[id]; });
+    var pk = r.pick && form.querySelector('input[name=svc_template][value="' + r.pick + '"]'); if(pk) pk.checked = true;
   }
   imp.addEventListener('click', doImport);
   purl.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); doImport(); } });
   // ---- the rest of the form
-  form.addEventListener('change', function(e){ if(e.target.name === 'kind'){ kind(); ev('first_run_kind_chosen', e.target.value); } if(e.target.name === 'template'){ edited = false; fill(); } });
+  form.addEventListener('change', function(e){ if(e.target.name === 'kind'){ kind(); ev('first_run_kind_chosen', e.target.value); } if(e.target.name === 'template' || e.target.name === 'svc_template'){ edited = false; fill(); } if(e.target.name === 'sells'){ applySells(); ev('first_run_sells', sells()); } });
   pn.addEventListener('input', fill); bn.addEventListener('input', fill); if(line) line.addEventListener('input', fill);
   var f = document.getElementById('photo'), img = document.getElementById('dropimg'), txt = document.getElementById('droptxt');
   function hasPhoto(){ return !!(f.files && f.files[0]) || !!form.querySelector('input[name=photo_id]:checked'); }
@@ -234,6 +292,6 @@
     if(needs()){ e.preventDefault(); vbox.hidden = false; vinp.focus(); vsay('Paste the code from the email first; your ' + (kindNow() === 'image' ? 'ads' : 'video') + ' start' + (kindNow() === 'image' ? '' : 's') + ' right after.', true); return; }
     var b = form.querySelector('[data-go]'); setTimeout(function(){ b.disabled = true; b.textContent = 'Starting…'; }, 0);
   });
-  kind(); fill(); ev('first_run_viewed', kindNow());
+  kind(); applySells(); fill(); ev('first_run_viewed', kindNow());
 })();
 </script>

@@ -196,7 +196,11 @@ def reserve_ai(quote: int, label: str, ref=None, conn=None):
     so the provider is never called. Settle with credits.settle(hold, used)."""
     import credits
     hold_check()
-    return credits.reserve(g.ws["id"], quote, label, ref=ref, conn=conn)
+    hold = credits.reserve(g.ws["id"], quote, label, ref=ref, conn=conn)
+    if hold is None:
+        import plan_paywall   # out of credits with no subscription: the lock (RS_PLAN_PAYWALL)
+        plan_paywall.check(g.ws)
+    return hold
 
 
 def charge_ai(conn, credits: int, reason: str) -> int:
@@ -239,6 +243,11 @@ def hold_check(ws=None):
     why = hold_reason(ws)
     if why:
         raise BillingHold(why)
+    import card_on_file   # a free workspace without a saved card makes nothing new (RS_CARD_REQUIRED)
+    if ws is not None and card_on_file.active():
+        with db.connect() as conn:
+            if card_on_file.needs_card(conn, ws, g.get("user")):
+                raise card_on_file.CardRequired()
 
 
 def settle_plan_lapse(conn, ws_id) -> bool:
@@ -263,6 +272,8 @@ def can_afford(credits: int) -> bool:
 
 
 def not_enough(credits: int):
+    import plan_paywall   # out of credits with no subscription: the lock (RS_PLAN_PAYWALL)
+    plan_paywall.check(g.ws)
     flash(f"That needs about {credits:,} credits and you have {db.balance(g.ws):,}. Top up on the Billing page.")
 
 
@@ -314,11 +325,15 @@ def queue_job(conn, tool, tpl_id, brief, params, usd, credits, quiet=False, prod
     jid = cur.lastrowid
     if not db.adjust_credits(conn, g.ws["id"], -credits, "generation", jid):
         conn.rollback()
+        if not quiet or not g.get("queued_any"):
+            import plan_paywall   # out of credits with no subscription: the lock (RS_PLAN_PAYWALL)
+            plan_paywall.check(g.ws)
         if not quiet:
             flash(f"That needs {credits:,} credits and you have {db.balance(g.ws):,}. Buy a credit pack or pick a plan "
                   "on the Billing page.")
         return None
     conn.commit()
+    g.queued_any = True
     import site_events   # the funnel's first_ad step (once per workspace); never raises
     site_events.on_job_queued(conn, g.ws["id"], jid, tool, request)
     return jid

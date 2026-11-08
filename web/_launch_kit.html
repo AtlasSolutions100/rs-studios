@@ -1,0 +1,82 @@
+{# Launch kit (launch_kit.py, RS_LAUNCH_KIT; roadmap M5.3): everything to launch by hand, one block per platform in the plan.
+   Needs kit, c. Ticks are stored on the server: the hub's steps in adhub_progress (shared with the hub page),
+   the plan's own items in launch_ticks. Roadmap M2.3's "Create paused campaign" button goes in each block's head. #}
+{% macro tick(it) -%}
+<li class="lk-item {{ 'done' if it.done }}" id="lk-{{ it.key|replace(':', '-') }}">
+  <form method="post" action="{{ url_for('campaigns.launch_tick', cid=c.id) }}" data-lk-tick>
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="item" value="{{ it.key }}">
+    <button class="lk-box" aria-pressed="{{ 'true' if it.done else 'false' }}" aria-label="{{ 'Mark not done' if it.done else 'Mark done' }}: {{ it.title }}">{{ '✓' if it.done }}</button>
+  </form>
+  <div class="lk-it"><span><b>{{ it.title }}</b>{% if it.shared %} <span class="small dim">· shared with the setup guide</span>{% endif %}</span>
+    {% if it.detail %}<span class="small muted">{{ it.detail }}</span>{% endif %}
+    {% if it.link %}<a class="small" href="{{ it.link[1] }}">{{ it.link[0] }} →</a>{% endif %}</div>
+</li>
+{%- endmacro %}
+<section class="camp-sec lkit" id="launch" data-launch-kit>
+  <div class="section-h" style="margin-top:0"><h2>Launch kit</h2><span class="small muted" data-lk-count>{{ kit.done }} of {{ kit.total }} done</span></div>
+  <p class="muted" style="margin:0 0 14px">Everything to set up each campaign by hand in the platform's ads manager: the files at its sizes, the copy, the budget and the steps. Ticks are saved to your workspace, so they show on any device and for your team.</p>
+
+  <ul class="lk-list">{% for it in kit.general %}{{ tick(it) }}{% endfor %}</ul>
+
+  {% for b in kit.blocks %}
+  <article class="panel lk-block" id="kit-{{ b.key }}">
+    <header class="lk-head">
+      <div><h3>{{ b.name }}</h3><span class="small muted">{{ b.done }} of {{ b.total }} done{% if b.guide %} · account setup {{ b.setup_done }} of {{ b.setup_total }} in the <a href="{{ b.guide }}">setup guide</a>{% endif %}</span></div>
+      {% if b.manager %}<a class="btn dark sm" href="{{ b.manager[1] }}" target="_blank" rel="noopener noreferrer">Open {{ b.manager[0] }} ↗</a>{% endif %}
+    </header>
+    <dl class="lk-lines">
+      <dt>Goal</dt><dd>{{ b.goal }}. Pick the objective in {{ b.manager[0] if b.manager else 'the ads manager' }} that matches it.</dd>
+      <dt>Budget</dt><dd>{{ b.budget }}</dd>
+      <dt>Audience</dt><dd>{{ b.audience }}</dd>
+    </dl>
+
+    <h4 id="kit-{{ b.key }}-ads">The ads</h4>
+    {% if b.ads %}
+    <div class="lk-ads">
+      {% for o in b.ads %}
+      <div class="lk-ad">
+        <a class="lk-thumb" href="{{ o.download }}">{% if o.kind == 'video' %}<img src="{{ url_for('media', oid=o.id, poster=1) }}" alt="Video ad: {{ o.angle }}" loading="lazy">{% else %}<img src="{{ url_for('media', oid=o.id) }}" alt="Image ad: {{ o.angle }}" loading="lazy">{% endif %}</a>
+        <div class="lk-ex"><span class="small muted">{{ o.angle }}</span>
+          {% for label, size, href in o.exports %}<a class="small" href="{{ href }}" download>{{ label }} <span class="dim">{{ size }}</span></a>{% endfor %}
+          <a class="small" href="{{ o.download }}">Original</a></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}<p class="small muted">No finished ads for {{ b.short }} yet.{% if b.waiting %} {{ b.waiting }} rendering.{% endif %}{% if b.proposed %} <a href="#ads">Pick them in Ads to make</a>.{% endif %} Any ad in your <a href="{{ url_for('library') }}">library</a> can be exported too.</p>{% endif %}
+
+    <h4 id="kit-{{ b.key }}-copy">The copy</h4>
+    {% if b.copies %}
+    {% for cp in b.copies %}{% set outer = loop.index %}
+    <div class="lk-copy"><span class="small muted">{{ cp.kind }}{% if cp.angle %} · {{ cp.angle }}{% endif %}{% if not cp.ok %} · <span class="warnc">check it before you use it</span>{% endif %}</span>
+      {% for f in cp.fields %}
+      <div class="vfield"><div class="vfield-h"><span class="small muted">{{ f.name }}</span></div>
+        <p class="vtext" id="lk-{{ b.key }}-{{ outer }}-{{ loop.index }}">{{ f.text }}</p>
+        <button type="button" class="linkbtn copybtn" data-copy="lk-{{ b.key }}-{{ outer }}-{{ loop.index }}">Copy</button></div>
+      {% endfor %}
+      {% if cp.more %}<p class="small dim" style="margin:6px 0 0">{{ cp.more }} more variant{{ 's' if cp.more != 1 }} under Copy for each platform.</p>{% endif %}
+    </div>
+    {% endfor %}
+    {% else %}<p class="small muted">The plan has no {{ b.short }} copy. {% if has_feature('copy') %}<a href="{{ url_for('copy.studio', platform=b.key, kind='ad') }}">Write it in the copy studio</a>.{% endif %}</p>{% endif %}
+
+    <h4>Steps</h4>
+    <ul class="lk-list">{% for it in b.ticks %}{{ tick(it) }}{% endfor %}</ul>
+  </article>
+  {% endfor %}
+</section>
+<script>
+(function(){
+  var kit = document.querySelector('[data-launch-kit]'); if(!kit) return;
+  kit.addEventListener('submit', function(e){
+    var f = e.target; if(!f.matches('[data-lk-tick]') || !window.fetch) return;
+    e.preventDefault();
+    var li = f.closest('.lk-item'), b = f.querySelector('button');
+    fetch(f.action, {method: 'POST', body: new FormData(f), headers: {'Accept': 'application/json', 'X-Requested-With': 'fetch'}})
+      .then(function(r){ if(!r.ok) throw r; return r.json(); }).then(function(d){
+        li.classList.toggle('done', d.done); b.setAttribute('aria-pressed', d.done ? 'true' : 'false'); b.textContent = d.done ? '✓' : '';
+        b.setAttribute('aria-label', (d.done ? 'Mark not done' : 'Mark done') + ': ' + li.querySelector('b').textContent);
+        var all = kit.querySelectorAll('.lk-item').length, done = kit.querySelectorAll('.lk-item.done').length, n = kit.querySelector('[data-lk-count]');
+        if(n) n.textContent = done + ' of ' + all + ' done';
+      }).catch(function(){ f.submit(); });
+  });
+})();
+</script>

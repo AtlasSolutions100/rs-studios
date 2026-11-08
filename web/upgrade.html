@@ -1,6 +1,20 @@
 {% extends "base.html" %}{% block title %}{{ feature.name }} · Campaignify{% endblock %}
 {% block body %}
 <div class="page full">
+  {% if next_steps_on() %}{% set w = next_steps_wall(feature, need) %}
+  {# RS_NEXT_STEPS: the wall opens with what the plan would do for this product (UX-1; copy from 03b section 5). #}
+  <div class="panel upgrade" data-wall>
+    <p class="eyebrow">{{ w.eyebrow }}</p>
+    <h1>{{ w.h1 }}</h1>
+    <p class="muted lede">{{ w.lede }}</p>
+    <p>{{ w.plan_line }}</p>
+    <div class="row" style="margin-top:20px">
+      <a class="btn" href="{{ url_for('billing_page') }}#plans">{{ w.cta }}</a>
+      <a class="btn dark" href="{{ url_for('studio') }}">Back to Home</a>
+    </div>
+    <p class="small dim" style="margin:14px 0 0">{{ w.small }}</p>
+  </div>
+  {% else %}
   <div class="panel upgrade">
     <p class="eyebrow">Included in {{ need.name }}</p>
     <h1>{{ feature.name }}</h1>
@@ -11,5 +25,6 @@
       <a class="btn dark" href="{{ url_for('studio') }}">Back to the studio</a>
     </div>
   </div>
+  {% endif %}
 </div>
 {% endblock %}

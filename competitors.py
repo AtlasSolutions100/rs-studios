@@ -515,7 +515,8 @@ def run(rid: int) -> str:
     taken = 0
     if hold is not None:
         taken = credit_holds.settle(hold, credits)    # held up front by the route: keep what it used
-    elif credits:                                       # a run started without a hold (CREDIT_HOLDS=off)
+    elif credits and not inputs.get("free"):            # a run started without a hold (CREDIT_HOLDS=off);
+        # a free plan's research (inputs.free, plan_paywall.py) is never charged
         with db.connect() as conn:
             have = db.balance(conn.execute("SELECT * FROM workspaces WHERE id=?", (r["workspace_id"],)).fetchone())
             taken = min(credits, have)

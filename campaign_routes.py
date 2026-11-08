@@ -8,9 +8,12 @@ import catalog
 import compliance
 import credits as credit_holds
 import db
+import launch_kit
 import llm
 import planner
 import platforms
+import products
+import service_path
 from core import brand, can_afford, feature_required, picked_product, queue_job, reserve_ai
 
 bp = Blueprint("campaigns", __name__)
@@ -78,10 +81,15 @@ def index():
                  (("offer", 300), ("audience", 200), ("goal", 20), ("budget", 80), ("dates", 120), ("tone", 40),
                   ("link", 300), ("notes", 1500))}
         brief["platforms"] = [p for p in f.getlist("platforms") if p in platforms.PLATFORMS][:6]
+        if service_path.on():   # M5.2: the service area (UX-16), and whether this is a service business
+            brief["area"] = (f.get("area") or "").strip()[:120]
+            with db.connect() as conn:
+                if service_path.is_service(products.get_product(conn, g.ws["id"], pid) if pid else None):
+                    brief["business"] = "service"
         if not brief["offer"]:
             flash("Say what you're promoting.")
             return redirect(url_for("campaigns.index"))
-        chk = compliance.check(brief["offer"], brief["audience"], brief["notes"])
+        chk = compliance.check(brief["offer"], brief["audience"], brief["notes"], brief.get("area") or "")
         if not chk["ok"]:
             for m in chk["blocks"]:
                 flash(m)
@@ -105,8 +113,11 @@ def index():
         return redirect(url_for("campaigns.show", cid=cid))
     with db.connect() as conn:
         rows = conn.execute("SELECT * FROM campaigns WHERE workspace_id=? ORDER BY id DESC LIMIT 50", (g.ws["id"],)).fetchall()
+        svc = service_path.on() and service_path.is_service(products.get_product(conn, g.ws["id"], pid) if pid else None)
+        site = service_path.site_info(products.get_product(conn, g.ws["id"], pid)) if svc else {}
     return render_template("campaigns.html", campaigns=[_unstale(c) for c in rows], b=brand(pid), pid=pid,
-                           cap=planner.cap_credits(), ai_on=llm.anthropic_ready())
+                           cap=planner.cap_credits(), ai_on=llm.anthropic_ready(), service_on=service_path.on(),
+                           svc=svc, area=", ".join(site.get("area") or []))
 
 
 def _ads(cid):
@@ -132,10 +143,41 @@ def _ads(cid):
 def show(cid):
     c = _get(cid)
     ads, jobs, outs, photos = _ads(cid)
-    return render_template("campaign.html", c=c, brief=json.loads(c["brief_json"] or "{}"),
-                           plan=json.loads(c["plan_json"] or "{}"), steps=json.loads(c["steps_json"] or "[]"),
+    brief, plan = json.loads(c["brief_json"] or "{}"), json.loads(c["plan_json"] or "{}")
+    return render_template("campaign.html", c=c, brief=brief,
+                           plan=plan, steps=json.loads(c["steps_json"] or "[]"),
                            ads=ads, jobs=jobs, outs=outs, photos=photos, templates=catalog.TEMPLATE_BY_ID,
-                           ai_on=llm.anthropic_ready(), cap=planner.cap_credits())
+                           ai_on=llm.anthropic_ready(), cap=planner.cap_credits(),
+                           kit=_kit(c, brief, plan, ads, jobs, outs))
+
+
+def _kit(c, brief, plan, ads, jobs, outs):
+    """The launch kit (launch_kit.py, RS_LAUNCH_KIT): None when off or before the plan is finished."""
+    if not launch_kit.enabled() or not (plan.get("final") or {}):
+        return None
+    with db.connect() as conn:
+        done, ticks = launch_kit.hub_done(conn, g.ws["id"]), launch_kit.plan_ticks(conn, g.ws["id"], c["id"])
+    return launch_kit.build(c, brief, plan, ads, jobs, outs, done, ticks)
+
+
+@bp.route("/app/campaigns/<int:cid>/launch", methods=["POST"])
+@feature_required("planner")
+def launch_tick(cid):
+    """Tick or untick one launch-kit item (form field item). Stored on the server, so every device and teammate
+    sees it. Answers JSON to the page's fetch, or goes back to the item."""
+    c = _get(cid)
+    if not launch_kit.enabled():
+        abort(404)
+    item = (request.form.get("item") or "")[:40]
+    ads, jobs, outs, _ = _ads(cid)
+    kit = _kit(c, json.loads(c["brief_json"] or "{}"), json.loads(c["plan_json"] or "{}"), ads, jobs, outs)
+    if not kit or item not in kit["keys"]:
+        abort(404)
+    with db.connect() as conn:
+        done = launch_kit.toggle(conn, g.ws["id"], g.user["id"], cid, item)
+    if request.accept_mimetypes.best == "application/json" or request.headers.get("X-Requested-With") == "fetch":
+        return jsonify({"ok": True, "item": item, "done": done})
+    return redirect(url_for("campaigns.show", cid=cid) + "#launch")
 
 
 @bp.route("/app/campaigns/<int:cid>/status")
@@ -248,6 +290,7 @@ def delete(cid):
     _get(cid)
     with db.connect() as conn:
         conn.execute("DELETE FROM campaign_ads WHERE campaign_id=? AND workspace_id=?", (cid, g.ws["id"]))
+        conn.execute("DELETE FROM launch_ticks WHERE campaign_id=? AND workspace_id=?", (cid, g.ws["id"]))
         conn.execute("DELETE FROM campaigns WHERE id=? AND workspace_id=?", (cid, g.ws["id"]))
         conn.commit()
     flash("Campaign deleted. Ads you generated stay in your library.")

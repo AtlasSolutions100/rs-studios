@@ -1,0 +1,18 @@
+{
+ "data": [
+  {
+   "account_id": "333000333",
+   "id": "act_333000333",
+   "name": "Old shop",
+   "currency": "EUR",
+   "timezone_name": "Europe/Berlin",
+   "account_status": 2
+  }
+ ],
+ "paging": {
+  "cursors": {
+   "before": "QVFIUjNk",
+   "after": "QVFIUjZz"
+  }
+ }
+}

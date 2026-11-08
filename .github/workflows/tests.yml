@@ -8,7 +8,7 @@ name: Tests (pull requests)
 # secrets: deploying stays in deploy.yml, which runs only on push to main (and by hand).
 on:
   pull_request:
-    branches: [main, m1-integration, m1b-integration]
+    branches: [main, "m*-integration"]
   schedule:
     - cron: "41 8 * * *"   # 02:41 Central
   workflow_dispatch:

@@ -122,8 +122,8 @@ def offer(n_credits: int | None = None) -> dict:
     if video:
         cta = f"Your first video ad is on us: {n:,} credits"
         body = (f"Free sign-up includes {n:,} credits: enough for a 5-second product video, or {ads}. "
-                f"Talking presenter videos from {r['talk8']:,} credits. No card needed.")
+                f"Talking presenter videos from {r['talk8']:,} credits. Nothing is charged.")
     else:
         cta = f"Try {ads} free"
-        body = f"Free sign-up includes {ads} ({n:,} credits). No card needed."
+        body = f"Free sign-up includes {ads} ({n:,} credits). Nothing is charged."
     return {"credits": n, "images": images, "video": video, "ad": n > base, "cta": cta, "body": body}

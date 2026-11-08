@@ -1,4 +1,7 @@
 {% extends "base.html" %}{% from "_macros.html" import status, job_thumb, card with context %}
+{# RS_NEXT_STEPS (next_steps.py): the "Your campaign" strip, ads counted not jobs, one confirm-email message (COPY-2). #}
+{% set nsteps_on = next_steps_on() and not (first_run and first) %}
+{% set verify_banner_hide = nsteps_on and made and made.video_unlock %}
 {% block title %}Home · Campaignify{% endblock %}
 {% block body %}
 {% if first_run and first %}
@@ -14,19 +17,25 @@
     <p class="eyebrow">Home · {{ brand.name or 'Your brand' }}</p>
     <h1>{% if brand.product %}Make ads for <span class="gold">{{ brand.product }}</span>{% else %}Make this <span class="gold">week's ads</span>{% endif %}</h1>
     <p class="muted">Pick a format, choose an angle, get the script written, and see the price before anything runs. Every line is checked against the rules and your approved claims.</p>
+    {% if nsteps_on %}{% set ns = next_steps_home() %}{% include "_next_steps.html" %}{% endif %}
     {% if made %}
     {# The first ads, rendering (or just finished): live cards, then what to do while they render. #}
     <section class="panel made" data-made>
       {% set mj = made.jobs %}
-      <div class="flash" role="status" aria-live="polite" data-live-flash {{ 'hidden' if not made.running }}><span class="spinner sm"></span> <span data-live-text>Making {{ made.running|length }} of {{ mj|length }}.</span> {% if made.is_video %}{% if made.eta.get(mj[0].tool) %}Videos usually take about {{ made.eta[mj[0].tool] }} min.{% else %}Videos take a few minutes.{% endif %}{% else %}Image ads are usually ready in about a minute.{% endif %} This page updates by itself, and you can leave it: your ads wait in the Library.</div>
-      {% if not made.running %}<p class="small ok" style="margin:0 0 10px"><b>{{ 'Your free video ad is ready.' if made.is_video else ('Your ' ~ mj|length ~ ' ads are ready.' if mj|length > 1 else 'Your first ad is ready.') }}</b> Download it, or make more below.</p>{% endif %}
+      {% set mc = next_steps_counts(made) if nsteps_on else none %}
+      <div class="flash" role="status" aria-live="polite" data-live-flash {{ 'hidden' if not made.running }}><span class="spinner sm"></span> {% if mc %}<span>Making your {{ mc.planned }} ad{{ 's' if mc.planned != 1 }}.</span>{% else %}<span data-live-text>Making {{ made.running|length }} of {{ mj|length }}.</span>{% endif %} {% if made.is_video %}{% if made.eta.get(mj[0].tool) %}Videos usually take about {{ made.eta[mj[0].tool] }} min.{% else %}Videos take a few minutes.{% endif %}{% else %}Image ads are usually ready in about a minute.{% endif %} This page updates by itself, and you can leave it: your ads wait in the Library.</div>
+      {% if mc %}
+      {# UX-2: count the ads (outputs), not the jobs; shown by app.js too when the last card finishes without a reload. #}
+      {% set nready = mc.ready if not made.running else mc.planned %}
+      <p class="small ok" style="margin:0 0 10px" data-live-done {{ 'hidden' if made.running }}><b>{{ 'Your free video ad is ready.' if made.is_video and nready == 1 else ('Your ' ~ nready ~ ' ads are ready.' if nready > 1 else 'Your first ad is ready.') }}</b> {{ 'Download them' if nready > 1 else 'Download it' }}, or make more below.</p>
+      {% elif not made.running %}<p class="small ok" style="margin:0 0 10px"><b>{{ 'Your free video ad is ready.' if made.is_video else ('Your ' ~ mj|length ~ ' ads are ready.' if mj|length > 1 else 'Your first ad is ready.') }}</b> Download it, or make more below.</p>{% endif %}
       <div class="lgrid bgrid" data-live-cards="batch" data-first-output="{{ '1' if made.done else '' }}">
         {% for j in mj %}{{ card(j, made.outs, templates_by_id, tools, ctx='batch', verdict=made.verdicts.get(j.id), names={}, eta=made.eta) }}{% endfor %}
       </div>
       {% if made.video_unlock %}
       <div class="fa-unlock" data-verify-unlock>
         <div><b>Confirm your email to unlock video ads</b><span class="small muted">We sent a 6-digit code to {{ g.user.email }}. Video ads (a product video from {{ from_price['photo_to_video']|credits }}, talking presenters from {{ from_price['ugc_video']|credits }}) need it; image ads don't.</span></div>
-        <button type="button" class="btn sm" data-verify-open>Enter code</button>
+        <button type="button" class="btn sm{{ ' dark' if nsteps_on }}" data-verify-open>Enter code</button>
       </div>
       {% elif made.full_price %}<div class="panel fa-upsell"><div><b>This is your free preview</b><span class="small muted">480p with a PREVIEW watermark. The real thing is 720p, no watermark, and you can pick the presenter, length and shapes.</span></div><a class="btn" href="{{ url_for('create.index', batch=made.batch.id) }}">Make it for real · {{ made.full_price|credits }}</a></div>{% endif %}
       {% if made.first_batch %}
@@ -35,7 +44,11 @@
         <ul class="nextlist">
           <li><a href="{{ url_for('products.edit', pid=made.batch.product_id) if made.batch.product_id else url_for('products.new') }}#photos"><b>Add another photo</b><span class="small muted">Two or three angles of the real product: videos look more like it.</span></a></li>
           <li><a href="{{ url_for('products.edit', pid=made.batch.product_id) if made.batch.product_id else url_for('products.new') }}#claims"><b>Approve what's on the label</b><span class="small muted">Scripts only use claims you've approved.</span></a></li>
+          {% if nsteps_on %}
+          <li><a href="{{ url_for('campaigns.index') }}"><b>Plan the campaign for {{ brand.product or 'your product' }}</b><span class="small muted">Platforms, a budget split and a 2-week test, then the ads, copy and page to match.</span></a></li>
+          {% else %}
           <li><a href="{{ url_for('create.index', batch=made.batch.id) }}"><b>Make more like this</b><span class="small muted">Same product, new angles and shapes, priced before you press Generate.</span></a></li>
+          {% endif %}
         </ul>
       </div>
       {% endif %}
@@ -43,7 +56,7 @@
     <script>(function(){ var b = document.querySelector('[data-first-output]'); if(b && b.dataset.firstOutput && window.cfyEvent && !sessionStorage.getItem('cfy_fov')){ try{ sessionStorage.setItem('cfy_fov','1'); }catch(e){} window.cfyEvent('first_output_viewed', 'load'); }
       if(b && !b.dataset.firstOutput){ var seen = false, t = setInterval(function(){ if(seen) return clearInterval(t); if(b.querySelector('[data-job][data-status="done"]')){ seen = true; clearInterval(t); try{ sessionStorage.setItem('cfy_fov','1'); }catch(e){} if(window.cfyEvent) window.cfyEvent('first_output_viewed', 'live'); } }, 3000); } })();</script>
     {% endif %}
-    {% if preview_ok %}<a class="firstrun" href="{{ url_for('studio', preview=1) }}"><span class="lp-num">✦</span><div><b>Your free talking-video preview is waiting</b><span class="muted small">A presenter says one line about your product: {{ preview_seconds }} seconds, watermarked, free once.</span></div><span class="btn sm">Make it</span></a>{% endif %}
+    {% if preview_ok %}<a class="firstrun" href="{{ url_for('studio', preview=1) }}"><span class="lp-num">✦</span><div><b>Your free talking-video preview is waiting</b><span class="muted small">A presenter says one line about your product: {{ preview_seconds }} seconds, watermarked, free once.</span></div><span class="btn sm{{ ' dark' if nsteps_on }}">Make it</span></a>{% endif %}
     {% if not configured %}<div class="flash">Generation isn't switched on yet. Set up your products now; making ads starts once the admin connects the service.</div>{% endif %}
     {% if nprod == 0 %}
     <div class="panel empty-cta">

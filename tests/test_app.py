@@ -202,7 +202,7 @@ check(sws["credits"] == STARTER and len(sled) == 1 and sled[0]["reason"] == "sta
       "new workspace gets the starter credits")
 r = x.get("/")
 check(r.status_code == 302 and r.headers["Location"].endswith("/app"), "logged in: / goes to the studio")
-check(x.get("/app").status_code == 200 and b"Make your 2 free ads" in x.get("/app").data and b"Paste your product page" in x.get("/app").data
+check(x.get("/app").status_code == 200 and b"Your free credits cover 2 ads" in x.get("/app").data and b"Paste your product page" in x.get("/app").data
       and b"Start a new ad" not in x.get("/app").data and b'name="name"' not in x.get("/signup").data,
       "Home is just the first-ad form for a new account (paste a page, or name + photo); signup has no name field")
 r = x.post("/signup", data={"csrf": csrf(x), "email": "stranger@example.com", "password": "longpassword"})
@@ -634,7 +634,7 @@ confirm_email("rep@example.com")
 r = n.get("/app/start")
 check(r.status_code == 302 and r.headers["Location"].endswith("/app"), "the old first-ad URL opens Home")
 r = n.get("/app")
-check(r.status_code == 200 and b"Product hero" in r.data and b"Make my 2 free ads" in r.data and b"data-import" in r.data,
+check(r.status_code == 200 and b"Product hero" in r.data and b"Make 2 ads with your free credits" in r.data and b"data-import" in r.data,
       "first-ad form renders on Home: templates, the 2 free ads button, the page importer")
 r = n.post("/app/start", data={"csrf": csrf(n), "product_name": "GlowSerum", "template": "hero",
                                "brief": "Make $500 a week with GlowSerum", "photo": (png(), "serum.png")},
@@ -1082,7 +1082,7 @@ a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": 
 check(plans.plan_code(wsrow(xws["id"])) == "free", "comp cleared")
 html = client().get("/").get_data(as_text=True)
 for bit in ("$39", "$99", "$249", "2,000 credits every month", "6,000 credits every month", "18,000 credits every month",
-            "Credit packs", "Plan credits reset monthly, pack credits never", "No trial that bills you. No card.",
+            "Credit packs", "Plan credits reset monthly, pack credits never", "No trial that bills you: nothing is charged until you pick a plan or buy a pack.",
             "Only want ads? Buy a pack. Credits never expire.", appmod.public_site.basket(2000)["line"] + " a month (2,000 credits)",
             'class="plan-more" open'):
     check(bit in html, f"landing pricing shows {bit!r}")
@@ -3186,6 +3186,10 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_import.py")], check=True)
     # The first run: sign-up to first ad (page import, 2 free ads, the free video ad, events, nudge emails).
     subprocess.run([sys.executable, os.path.join(HERE, "test_first_run.py")], check=True)
+    # The service-business entrance (service_path.py, RS_SERVICE_PATH): website import, photo-free first ads, planner.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_service_path.py")], check=True)
+    # The next-step thread on Home (next_steps.py, RS_NEXT_STEPS): ads counted, one primary button, the upgrade wall.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_next_steps.py")], check=True)
     # Continue with Google (google_auth.py): the button, the round trip, new and existing accounts (Google faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_google_auth.py")], check=True)
     # Free-month codes (compcodes.py, /admin/codes): make, redeem without Stripe, single use, expiry, the end of the month.
@@ -3194,6 +3198,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_promo_codes.py")], check=True)
     # Competitor Snapshot (competitors.py, /app/competitors): web research, cite-check, credits, scoping (API faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_competitors.py")], check=True)
+    # The launch kit on the plan page (launch_kit.py, RS_LAUNCH_KIT): blocks per platform, exports, server-side ticks.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_launch_kit.py")], check=True)
     # Credit holds (credits.py): AI runs reserve first, parallel runs can't overspend, stale holds go back.
     subprocess.run([sys.executable, os.path.join(HERE, "test_credit_holds.py")], check=True)
     # Creator Pools (creator_pools.py, /app/creator-pools): the flag, Checkout, the webhook, Crowdcut sync, refunds (faked).
@@ -3212,9 +3218,15 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_billing_holds.py")], check=True)
     # Plans on only when paid (pending), a paid period kept to its end, a failed renewal paused with credits kept.
     subprocess.run([sys.executable, os.path.join(HERE, "test_plan_pending.py")], check=True)
+    # Card on file at sign-up and the out-of-credits paywall (RS_CARD_REQUIRED, RS_PLAN_PAYWALL; Stripe and AI faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_card_paywall.py")], check=True)
     # The pip-audit gate (tools/audit_gate.py): severity from OSV, fail only on High or Critical (OSV faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_audit_gate.py")], check=True)
     # Off-site backups and the restore drill (backup.py, tools/restore.sh): rclone faked by tests/fake_rclone.sh.
     subprocess.run([sys.executable, os.path.join(HERE, "test_backup.py")], check=True)
+    # Connected ad accounts (adplatforms/, adconnect_routes.py, secretsbox.py, adhttp.py): AD_LAUNCH, Meta OAuth faked.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_adconnect.py")], check=True)
+    # The campaign spec, its validator and the ad policy linter (adspec.py, adpolicy.py): 60+ copy fixtures.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_adpolicy.py")], check=True)
     # Migrations stay additive (N3): no column dropped, renamed or retyped; an old database upgrades in place.
     subprocess.run([sys.executable, os.path.join(HERE, "test_migrations.py")], check=True)

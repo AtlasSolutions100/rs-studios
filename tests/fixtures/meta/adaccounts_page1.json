@@ -1,0 +1,31 @@
+{
+ "data": [
+  {
+   "account_id": "111000111",
+   "id": "act_111000111",
+   "name": "Glow Co main",
+   "currency": "USD",
+   "timezone_name": "America/Chicago",
+   "account_status": 1,
+   "business": {
+    "id": "900000001",
+    "name": "Glow Co LLC"
+   }
+  },
+  {
+   "account_id": "222000222",
+   "id": "act_222000222",
+   "name": "Glow Co tests",
+   "currency": "USD",
+   "timezone_name": "America/Chicago",
+   "account_status": 3
+  }
+ ],
+ "paging": {
+  "cursors": {
+   "before": "QVFIUmFr",
+   "after": "QVFIUjNk"
+  },
+  "next": "https://graph.facebook.com/v26.0/10200000000000001/adaccounts?after=QVFIUjNk&limit=100"
+ }
+}

@@ -219,6 +219,13 @@ CREATE TABLE IF NOT EXISTS adhub_progress (
     done_by INTEGER,
     done_at TEXT NOT NULL,
     PRIMARY KEY (workspace_id, platform, step));
+CREATE TABLE IF NOT EXISTS launch_ticks (       -- launch_kit.py: a plan's own launch items ticked (hub steps stay in adhub_progress)
+    workspace_id INTEGER NOT NULL,
+    campaign_id INTEGER NOT NULL,
+    item TEXT NOT NULL,                       -- c<n> (the plan's checklist item n), disc:<platform>, lib
+    done_by INTEGER,
+    done_at TEXT NOT NULL,
+    PRIMARY KEY (workspace_id, campaign_id, item));
 CREATE TABLE IF NOT EXISTS pages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workspace_id INTEGER NOT NULL,
@@ -414,6 +421,18 @@ CREATE TABLE IF NOT EXISTS ad_signup_grants (
     id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL UNIQUE, email_norm TEXT NOT NULL UNIQUE,
     ip_hash TEXT, credits INTEGER NOT NULL, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_ad_grants_ip ON ad_signup_grants(ip_hash, created_at);
+-- Card on file (card_on_file.py, RS_CARD_REQUIRED): one row per card saved. `trial` = 1 when that
+-- workspace got (or already had) the starter credits; a card or email with a trial row gets none again.
+CREATE TABLE IF NOT EXISTS card_trials (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, fingerprint TEXT, email_norm TEXT,
+    trial INTEGER NOT NULL DEFAULT 0, credits INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_card_trials_fp ON card_trials(fingerprint);
+CREATE INDEX IF NOT EXISTS idx_card_trials_email ON card_trials(email_norm);
+-- The free campaign plan of an out-of-credits workspace (plan_paywall.py, RS_PLAN_PAYWALL): 1 per 30 days.
+CREATE TABLE IF NOT EXISTS free_plans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, campaign_id INTEGER, report_id INTEGER,
+    created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_free_plans_ws ON free_plans(workspace_id, created_at);
 -- "Your free ads are waiting" emails to sign-ups with no job yet (nudges.py): one row per step sent.
 CREATE TABLE IF NOT EXISTS first_run_nudges (
     user_id INTEGER NOT NULL, step INTEGER NOT NULL, sent_at TEXT NOT NULL, PRIMARY KEY (user_id, step));
@@ -520,6 +539,40 @@ CREATE TABLE IF NOT EXISTS credit_reversals (
     UNIQUE (kind, stripe_id));
 CREATE INDEX IF NOT EXISTS idx_reversals_pi ON credit_reversals(payment_intent);
 CREATE INDEX IF NOT EXISTS idx_reversals_ws ON credit_reversals(workspace_id, status);
+-- Ad platforms (adplatforms/, roadmap M2.1): a workspace's own connected ad accounts. Tokens are
+-- kept only as token boxes (secretsbox.py, AES-GCM sealed to "<table>:<workspace_id>").
+CREATE TABLE IF NOT EXISTS ad_connections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    platform TEXT NOT NULL,                  -- meta | google | tiktok | snapchat
+    external_account_id TEXT NOT NULL,       -- Meta: the ad account id without act_; "pending:<hex>" until picked
+    account_name TEXT, currency TEXT, timezone TEXT,
+    business_id TEXT,
+    page_id TEXT, page_name TEXT,
+    instagram_actor_id TEXT, instagram_username TEXT,   -- the Page's Instagram account (instagram_user_id on creatives)
+    external_user_id TEXT,                   -- the platform user who granted access (revoke only when nobody else uses it)
+    token_enc BLOB, token_expires_at TEXT, refresh_token_enc BLOB,
+    scopes TEXT,                             -- granted, space separated
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending | active | expired | revoked | error
+    last_error TEXT,
+    pending_json TEXT,                       -- what can still be picked (ids and names only, never a token)
+    created_by INTEGER, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+    UNIQUE (workspace_id, platform, external_account_id));
+CREATE INDEX IF NOT EXISTS idx_adconn_user ON ad_connections(platform, external_user_id);
+CREATE TABLE IF NOT EXISTS pixels (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    platform TEXT NOT NULL,
+    connection_id INTEGER,                   -- the ad_connections row it was picked from
+    external_pixel_id TEXT NOT NULL, name TEXT,
+    capi_token_enc BLOB,                     -- token box, from M4 (conversions)
+    created_at TEXT NOT NULL,
+    UNIQUE (workspace_id, platform, external_pixel_id));
+-- adhttp.py: per (platform, ad account) point budget, and per-object edit locks ("edit:<id>").
+CREATE TABLE IF NOT EXISTS api_budget (
+    platform TEXT NOT NULL, account TEXT NOT NULL,
+    points REAL NOT NULL DEFAULT 0, at REAL NOT NULL DEFAULT 0, blocked_until REAL NOT NULL DEFAULT 0,
+    PRIMARY KEY (platform, account));
 """
 
 # Columns added after the first release: (table, column, definition).
@@ -616,6 +669,14 @@ COLUMNS = [
     ("workspaces", "billing_hold", "INTEGER NOT NULL DEFAULT 0"),
     ("workspaces", "billing_hold_reason", "TEXT"),
     ("workspaces", "billing_hold_at", "TEXT"),
+    # card on file at sign-up (card_on_file.py): the saved card, and the starter credits waiting for it
+    ("workspaces", "card_saved_at", "TEXT"),
+    ("workspaces", "card_customer_id", "TEXT"),
+    ("workspaces", "card_pm_id", "TEXT"),
+    ("workspaces", "card_label", "TEXT"),
+    ("workspaces", "card_pending_credits", "INTEGER NOT NULL DEFAULT 0"),
+    ("workspaces", "card_pending_reason", "TEXT"),
+    ("campaigns", "free_plan", "INTEGER NOT NULL DEFAULT 0"),   # made free while out of credits (plan_paywall.py)
     ("plan_invoices", "payment_intent", "TEXT"),
     # plans switch on only when paid (BILL-3); a paid period is kept to its end (plans.GRACE_STATUSES)
     ("workspaces", "plan_paid_through", "TEXT"),

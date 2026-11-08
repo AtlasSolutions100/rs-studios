@@ -224,12 +224,12 @@ SOLUTIONS = {
         "nav": "Arcads alternative",
         "title": "Arcads Alternative for AI UGC Video Ads · Campaignify",
         "description": "Comparing Arcads alternatives? Campaignify makes UGC-style video and image ads from your "
-                       "product page, no card, price shown first. Try {sc_images} image ads free.",
+                       "product page, nothing charged, price first. Try {sc_images} image ads free.",
         "eyebrow": "Comparing tools",
         "h1": "Campaignify is an Arcads alternative for AI UGC video ads, priced before you generate",
         "answer": "Campaignify is an AI ad studio that makes UGC-style video ads and image ads from your product page, "
                   "and keeps the copy, landing page and launch checklist in the same workspace. Free sign-up includes "
-                  "{sc_images} image ads with no card, and you see the price of every ad before it's made. The table "
+                  "{sc_images} image ads with nothing charged, and you see the price of every ad before it's made. The table "
                   "below puts the two side by side; every Arcads fact is quoted from Arcads' own help center, with the "
                   "date it was read.",
         "steps": [
@@ -252,7 +252,7 @@ SOLUTIONS = {
                 ("Trying it",
                  "A 72-hour trial of every feature with 1,000 credits. \"A card is required at sign-up but isn't charged "
                  "during the trial.\" \"After 72 hours, the Starter monthly plan starts automatically.\"",
-                 "No card. Free sign-up includes {sc} credits ({sc_images} image ads). Nothing starts by itself: you "
+                 "Nothing charged at sign-up. Free sign-up includes {sc} credits ({sc_images} image ads). Nothing starts by itself: you "
                  "buy a pack or pick a plan when you want more."),
                 ("Prices on the public site",
                  "Not listed on the public site (as of 2026-11-03): \"Current prices are on the pricing page in the "
@@ -299,7 +299,7 @@ SOLUTIONS = {
              "owner. The Arcads facts on this page are quoted from Arcads' own help center with the date they were "
              "read; check their site for today's terms."),
             ("Can I try Campaignify before I pay?",
-             "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, with no card. Buy a credit "
+             "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, with nothing charged. Buy a credit "
              "pack or pick a plan when you want to make more."),
             ("How long can a talking video be?",
              "{talk_lengths} seconds, in {talk_shapes}. Make a batch of variants to test different hooks and "
@@ -439,7 +439,7 @@ SOLUTIONS = {
                   "write the ad copy, publish a landing page with a form, share smart links and draft the email "
                   "follow-ups, without hiring an agency. You download the ads and launch them yourself in each "
                   "platform's ads manager. Plans start at ${starter_usd} a month, and free sign-up includes "
-                  "{sc_images} image ads with no card.",
+                  "{sc_images} image ads, with nothing charged.",
         "clips": ["ugc-bakery", "product-video", "ugc-app"],
         "price_line": "Plans from ${starter_usd} a month. Image ad: {image} credits. 8-second talking video: {talk8} "
                       "credits. Shown before you press Generate.",
@@ -483,7 +483,7 @@ SOLUTIONS = {
              "ads manager, where your ad spend and results stay. Campaignify's own analytics cover the pages, smart "
              "links and forms you run on it."),
             ("How much does it cost for a small business?",
-             "Free sign-up includes {sc} credits, enough for {sc_images} image ads, with no card. Plans are "
+             "Free sign-up includes {sc} credits, enough for {sc_images} image ads, with nothing charged. Plans are "
              "${starter_usd}, ${growth_usd} and ${scale_usd} a month. Each ad has a price in credits shown before you "
              "generate: an image ad is {image} credits, a 5-second product video {video5} and an 8-second talking "
              "video {talk8}. Your ad spend is paid to the ad platforms, not to Campaignify."),
@@ -507,12 +507,12 @@ SOLUTIONS = {
         "nav": "Creatify alternative",
         "title": "Creatify Alternative: Price Shown First · Campaignify",
         "description": "Comparing Creatify alternatives? Campaignify shows each ad's price in credits before you "
-                       "generate, no card, pack credits never expire. {sc_images} ads free.",
+                       "generate, nothing charged, pack credits never expire. {sc_images} ads free.",
         "eyebrow": "Comparing tools",
         "h1": "Campaignify is a Creatify alternative with a fixed credit price per ad, shown before you generate",
         "answer": "Campaignify makes UGC-style video ads, product videos and image ads from your product page. Every "
                   "ad has a fixed price in credits that you see before you press Generate, failed generations are "
-                  "refunded, and pack credits never expire. Free sign-up includes {sc_images} image ads with no card. "
+                  "refunded, and pack credits never expire. Free sign-up includes {sc_images} image ads, with nothing charged. "
                   "The Creatify facts below are quoted from Creatify's pricing page, with the date it was read.",
         "steps": [
             ("Paste a product page",
@@ -534,7 +534,7 @@ SOLUTIONS = {
                 ("Trying it",
                  "A free plan with 10 credits a month, \"up to 2 video ads or 20 image ads\", exports with a watermark. "
                  "Whether a card is needed: not listed on creatify.ai/pricing (as of 2026-11-03).",
-                 "No card. Free sign-up includes {sc} credits ({sc_images} image ads), no watermark on image ads."),
+                 "Nothing charged at sign-up. Free sign-up includes {sc} credits ({sc_images} image ads), no watermark on image ads."),
                 ("What an ad costs",
                  "\"Credit usage varies by the model, feature, and type of output\"; the cost is shown before you "
                  "confirm a generation. Plans listed from $10 a month (Standard, 55 credits) to $136 a month "
@@ -575,7 +575,7 @@ SOLUTIONS = {
              "owner. The Creatify facts on this page are quoted from Creatify's pricing page with the date it was "
              "read; check their site for today's terms."),
             ("Can I try Campaignify before I pay?",
-             "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, with no card and nothing "
+             "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, with nothing charged and nothing "
              "that starts billing by itself."),
             ("What does a credit buy?",
              "An image ad is {image} credits, a 5-second product video {video5}, an 8-second talking video {talk8} "
@@ -591,12 +591,12 @@ SOLUTIONS = {
         "query": "MakeUGC alternative",
         "nav": "MakeUGC alternative",
         "title": "MakeUGC Alternative: No Trial That Bills You · Campaignify",
-        "description": "Comparing MakeUGC alternatives? Campaignify starts free with no card, no trial that renews, "
+        "description": "Comparing MakeUGC alternatives? Campaignify charges nothing to start, has no trial that renews, "
                        "and each ad's price shown first. Try {sc_images} image ads free.",
         "eyebrow": "Comparing tools",
-        "h1": "Campaignify is a MakeUGC alternative with no card, no trial that renews, and the price shown first",
+        "h1": "Campaignify is a MakeUGC alternative with nothing charged at sign-up, no trial that renews, and the price shown first",
         "answer": "Campaignify makes UGC-style video ads, product videos and image ads from your product page. There's "
-                  "no card at sign-up and no trial that turns into a plan: you start with {sc_images} free image ads, "
+                  "nothing charged at sign-up and no trial that turns into a plan: you start with {sc_images} free image ads, "
                   "see every ad's price in credits before you generate, and buy a pack or a plan only when you want to. "
                   "The MakeUGC facts below are quoted from MakeUGC's pricing page, with the date it was read.",
         "steps": [
@@ -620,7 +620,7 @@ SOLUTIONS = {
                  "\"Try any plan for $1.\" It \"renews at the plan price unless you cancel from your account\"; the "
                  "trial's length is shown at checkout. A free plan: not listed on makeugc.ai/pricing (as of "
                  "2026-11-03).",
-                 "Free sign-up with no card: {sc} credits ({sc_images} image ads). Nothing renews unless you pick a "
+                 "Free sign-up, nothing charged: {sc} credits ({sc_images} image ads). Nothing renews unless you pick a "
                  "plan."),
                 ("What an ad costs",
                  "\"Each generation costs credits based on its model, duration and resolution\"; a per-video price is "
@@ -638,7 +638,7 @@ SOLUTIONS = {
                "faq": "MakeUGC alternative questions"},
         "compare": [
             ("Is there a trial that turns into a subscription?",
-             "No. Free sign-up has no card and no end date. A plan starts only when you choose one, and you can cancel "
+             "No. Nothing is charged at sign-up and the free credits have no end date. A plan starts only when you choose one, and you can cancel "
              "it anytime."),
             ("Do I see the price before I generate?",
              "Yes, in credits, on the button, and failed generations are refunded automatically."),
@@ -663,7 +663,7 @@ SOLUTIONS = {
              "owner. The MakeUGC facts on this page are quoted from MakeUGC's pricing page with the date it was "
              "read; check their site for today's terms."),
             ("Can I try Campaignify before I pay?",
-             "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, with no card and no trial "
+             "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, with nothing charged and no trial "
              "that renews."),
             ("What does a credit buy?",
              "An image ad is {image} credits, a 5-second product video {video5}, an 8-second talking video {talk8} "
@@ -679,12 +679,12 @@ SOLUTIONS = {
         "query": "AdCreative.ai alternative",
         "nav": "AdCreative.ai alternative",
         "title": "AdCreative.ai Alternative, Priced First · Campaignify",
-        "description": "Comparing AdCreative.ai alternatives? Image and video ads from your product page, no card, "
-                       "no auto-billing trial, price shown first. Try {sc_images} image ads free.",
+        "description": "Comparing AdCreative.ai alternatives? Image and video ads from a product page, nothing charged, "
+                       "no auto-billing trial, price first. Try {sc_images} image ads free.",
         "eyebrow": "Comparing tools",
-        "h1": "Campaignify is an AdCreative.ai alternative with no card, no auto-billing trial, and every ad priced first",
+        "h1": "Campaignify is an AdCreative.ai alternative with nothing charged at sign-up, no auto-billing trial, and every ad priced first",
         "answer": "Campaignify makes image ads, product videos and UGC-style talking videos from your product page, "
-                  "then writes the copy for each platform. There's no card at sign-up and no trial that turns into a "
+                  "then writes the copy for each platform. Nothing is charged at sign-up and there's no trial that turns into a "
                   "plan: you start with {sc_images} free image ads, see every ad's price in credits before you "
                   "generate, and buy a pack or a plan only when you want to. The AdCreative.ai facts below are quoted "
                   "from AdCreative.ai's site, with the date it was read.",
@@ -709,7 +709,7 @@ SOLUTIONS = {
                  "\"7 day free trial. Cancel anytime.\" with 20 credits. Whether a card is needed, and whether the "
                  "trial turns into a paid plan by itself: not stated on adcreative.ai (as of 2026-11-03); the page "
                  "says \"We'll remind you before trial ends\".",
-                 "Free sign-up with no card and no end date: {sc} credits ({sc_images} image ads). Nothing starts "
+                 "Free sign-up, nothing charged and no end date: {sc} credits ({sc_images} image ads). Nothing starts "
                  "billing by itself."),
                 ("What a plan costs",
                  "Monthly plans listed at $39 (Starter, 20 credits, 1 brand), $249 (Professional, 300 credits) and "
@@ -726,7 +726,7 @@ SOLUTIONS = {
                "faq": "AdCreative.ai alternative questions"},
         "compare": [
             ("Is there a trial that turns into a subscription?",
-             "No. Free sign-up has no card and no end date. A plan starts only when you choose one, and you can cancel "
+             "No. Nothing is charged at sign-up and the free credits have no end date. A plan starts only when you choose one, and you can cancel "
              "it anytime."),
             ("Do I see the price before I generate?",
              "Yes, in credits, on the button, and failed generations are refunded automatically."),
@@ -750,7 +750,7 @@ SOLUTIONS = {
              "its owner. The AdCreative.ai facts on this page are quoted from AdCreative.ai's site with the date it "
              "was read; check their site for today's terms."),
             ("Can I try Campaignify before I pay?",
-             "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, with no card and no trial "
+             "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, with nothing charged and no trial "
              "that renews."),
             ("What does a credit buy?",
              "An image ad is {image} credits, a 5-second product video {video5}, an 8-second talking video {talk8} "
@@ -871,12 +871,12 @@ def related_cards(endpoint: str) -> list[dict]:
 PAGES = {  # endpoint -> (path, title, description)
     "index": ("/", "Campaignify: AI UGC Ads and Your Whole Campaign",
               "UGC-style video and image ads from a product page, then the copy, landing page and launch checklist. "
-              "Free sign-up includes {sc_images} image ads, no card."),
+              "Free sign-up includes {sc_images} image ads, nothing charged."),
     "features": ("/features", "Features: Every Campaignify Tool, Step by Step",
                  "Every Campaignify tool in the order a campaign runs: plan, make the ads, write the copy, get found, "
                  "launch, capture leads, grow and measure."),
     "pricing": ("/pricing", "Pricing: Plans From ${starter} a Month · Campaignify",
-                "Free sign-up includes {sc_images} image ads, no card. Plans at ${starter}, ${growth} and ${scale} a month, or "
+                "Free sign-up includes {sc_images} image ads, nothing charged. Plans at ${starter}, ${growth} and ${scale} a month, or "
                 "one-time credit packs. See every price before you generate."),
     "for_reps": ("/for-reps", "For Independent Reps: Compliance Checks · Campaignify",
                  "Selling as an independent rep? Campaignify blocks income, recruiting, health and discount claims in "

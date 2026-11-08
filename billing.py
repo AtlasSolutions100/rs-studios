@@ -204,6 +204,40 @@ def discount_label(coupon: dict) -> str:
     return f"{amt} every month"
 
 
+# ---------------------------------------------------------------- card on file (card_on_file.py)
+# Checkout in setup mode: Stripe's page saves a card on a customer of ours and
+# charges nothing (Radar and 3D Secure run as Stripe decides). No subscription,
+# no invoice and no payment come from it; a plan starts only from a plan checkout.
+
+def create_customer(*, email: str, metadata: dict, idempotency_key: str) -> str:
+    """A Stripe customer for the workspace's card (tagged app=campaignify). Returns its id."""
+    if not secret_key():
+        raise BillingError("Stripe is not configured.")
+    form = [("email", email)] + [(f"metadata[{k}]", str(v)) for k, v in metadata.items()]
+    return _post("/customers", form, idempotency_key)["id"]
+
+
+def create_setup_session(*, customer: str, success_url: str, cancel_url: str, metadata: dict,
+                         client_reference_id: str, idempotency_key: str) -> dict:
+    """A Checkout Session in setup mode for one card. Returns {"id", "url"}."""
+    if not secret_key():
+        raise BillingError("Stripe is not configured.")
+    form = [("mode", "setup"), ("customer", customer), ("payment_method_types[0]", "card"),
+            ("success_url", success_url), ("cancel_url", cancel_url),
+            ("client_reference_id", client_reference_id),
+            ("setup_intent_data[description]", "Campaignify card on file (not charged)")]
+    for k, v in metadata.items():
+        form.append((f"metadata[{k}]", str(v)))
+        form.append((f"setup_intent_data[metadata][{k}]", str(v)))
+    j = _post("/checkout/sessions", form, idempotency_key)
+    return {"id": j["id"], "url": j["url"]}
+
+
+def get_setup_session(session_id: str) -> dict:
+    """A setup-mode Checkout Session with its SetupIntent and card expanded."""
+    return _get(f"/checkout/sessions/{session_id}", [("expand[]", "setup_intent.payment_method")])
+
+
 def create_portal_session(*, customer: str, return_url: str) -> str:
     """A Customer Portal link for managing or canceling a plan. Returns its URL."""
     if not secret_key():

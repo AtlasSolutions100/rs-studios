@@ -1,6 +1,29 @@
 # Every table.column (declared type) of a fresh database. tests/test_migrations.py fails if one
 # disappears or changes type: migrations are additive only (db.init). Refresh after adding a
 # column with: python tests/test_migrations.py --update
+ad_connections.account_name TEXT
+ad_connections.business_id TEXT
+ad_connections.created_at TEXT
+ad_connections.created_by INTEGER
+ad_connections.currency TEXT
+ad_connections.external_account_id TEXT
+ad_connections.external_user_id TEXT
+ad_connections.id INTEGER
+ad_connections.instagram_actor_id TEXT
+ad_connections.instagram_username TEXT
+ad_connections.last_error TEXT
+ad_connections.page_id TEXT
+ad_connections.page_name TEXT
+ad_connections.pending_json TEXT
+ad_connections.platform TEXT
+ad_connections.refresh_token_enc BLOB
+ad_connections.scopes TEXT
+ad_connections.status TEXT
+ad_connections.timezone TEXT
+ad_connections.token_enc BLOB
+ad_connections.token_expires_at TEXT
+ad_connections.updated_at TEXT
+ad_connections.workspace_id INTEGER
 ad_conversions.created_at TEXT
 ad_conversions.ctx_json TEXT
 ad_conversions.currency TEXT
@@ -31,6 +54,11 @@ angles.product_id INTEGER
 angles.source TEXT
 angles.title TEXT
 angles.workspace_id INTEGER
+api_budget.account TEXT
+api_budget.at REAL
+api_budget.blocked_until REAL
+api_budget.platform TEXT
+api_budget.points REAL
 assistant_threads.cost_usd REAL
 assistant_threads.created_at TEXT
 assistant_threads.credits INTEGER
@@ -463,6 +491,11 @@ jobs.tool TEXT
 jobs.updated_at TEXT
 jobs.user_id INTEGER
 jobs.workspace_id INTEGER
+launch_ticks.campaign_id INTEGER
+launch_ticks.done_at TEXT
+launch_ticks.done_by INTEGER
+launch_ticks.item TEXT
+launch_ticks.workspace_id INTEGER
 ledger.created_at TEXT
 ledger.delta INTEGER
 ledger.hold_id INTEGER
@@ -576,6 +609,14 @@ photos.path TEXT
 photos.product_id INTEGER
 photos.remote_url TEXT
 photos.workspace_id INTEGER
+pixels.capi_token_enc BLOB
+pixels.connection_id INTEGER
+pixels.created_at TEXT
+pixels.external_pixel_id TEXT
+pixels.id INTEGER
+pixels.name TEXT
+pixels.platform TEXT
+pixels.workspace_id INTEGER
 plan_invoices.amount_cents INTEGER
 plan_invoices.billing_reason TEXT
 plan_invoices.created_at TEXT

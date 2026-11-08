@@ -84,6 +84,15 @@ name: Deploy Campaignify (campaignify.ai)
 #   R2_BUCKET              the bucket name
 #   BACKUP_CRYPT_PASSWORD  the encryption password: a long random string. Keep a copy outside GitHub:
 #   BACKUP_CRYPT_SALT      a second long random string. Without both, the backups can't be read.
+#   Connected ad accounts (adconnect_routes.py, adplatforms/, roadmap M2). Nothing shows until AD_LAUNCH is set:
+#   AD_LAUNCH              optional variable: off (default) | beta | on
+#   AD_LAUNCH_WORKSPACES   optional variable: workspace ids that see it while AD_LAUNCH=beta, comma separated
+#   AD_RATE_TIER           optional variable: limited (default) | full, once Meta grants Full access
+#   META_APP_ID            the Meta app id (secret or variable)
+#   META_APP_SECRET        the Meta app secret
+#   META_LOGIN_CONFIG_ID   the Facebook Login for Business configuration id (secret or variable)
+#   TOKEN_KEY              the token box key: 32 random bytes, base64 (secretsbox.py). Keep a copy outside
+#                          GitHub: without it no stored ad-account token can be read
 #   Kill switches and opt-ins (repo variables, N15). "0" turns one off and "1" turns it on, for each of them;
 #   unset, the app's default applies. To undo one, set it back ("1" or "0"): deleting the variable stops
 #   sending it, and the server keeps the last value it was sent.
@@ -94,9 +103,14 @@ name: Deploy Campaignify (campaignify.ai)
 #   HF_RETRY               retry the generation vendor on timeouts, 429 and 5xx (hf.py), default on
 #   RS_LOGIN_HARDENING     login, sign-up and reset hardening (login_security.py), default on
 #   RS_SIGNUP_CONFIRM      a form sign-up logs in first from its emailed link (login_security.py), default off; set 1 to turn on
+#   RS_NEXT_STEPS          the "Your campaign" step strip on Home and the new upgrade-wall copy (next_steps.py), default off
 #   RS_STORAGE_QUOTAS      storage quotas per plan (storage.py), default on
 #   RS_JOB_CANCEL          the member Cancel button on queued ads (jobs_routes.py), default off
+#   RS_CARD_REQUIRED       card on file at sign-up, never charged (card_on_file.py), default off; set 1 to turn on
+#   RS_PLAN_PAYWALL        out-of-credits free plan and lock (plan_paywall.py), default off; set 1 to turn on
 #   RS_STORAGE_PURGE_DELETED  remove files of ads deleted over 30 days ago (storage.py), default off
+#   RS_SERVICE_PATH        the service-business first run, website import, keyword list and lead steps (service_path.py), default off
+#   RS_LAUNCH_KIT          the launch kit on the plan page, ticks saved to the workspace (launch_kit.py), default off
 #   OPS_ALERTS             operator alert emails (alerts.py), default on
 #   BACKUPS / BACKUP_MEDIA the nightly off-site backup, and its media folders (backup.py), default on
 #   RS_DISK_MIN_GB         uploads and new files are refused below this much free disk (storage.py), default 5
@@ -213,6 +227,14 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
           BACKUP_CRYPT_PASSWORD: ${{ secrets.BACKUP_CRYPT_PASSWORD }}
           BACKUP_CRYPT_SALT: ${{ secrets.BACKUP_CRYPT_SALT }}
+          # Connected ad accounts (adplatforms/): off until AD_LAUNCH is set.
+          AD_LAUNCH: ${{ vars.AD_LAUNCH }}
+          AD_LAUNCH_WORKSPACES: ${{ vars.AD_LAUNCH_WORKSPACES }}
+          AD_RATE_TIER: ${{ vars.AD_RATE_TIER }}
+          META_APP_ID: ${{ secrets.META_APP_ID || vars.META_APP_ID }}
+          META_APP_SECRET: ${{ secrets.META_APP_SECRET }}
+          META_LOGIN_CONFIG_ID: ${{ secrets.META_LOGIN_CONFIG_ID || vars.META_LOGIN_CONFIG_ID }}
+          TOKEN_KEY: ${{ secrets.TOKEN_KEY }}
           # Kill switches and opt-ins (repo variables; see the list at the top). Unset = not sent.
           BILLING_HOLD: ${{ vars.BILLING_HOLD }}
           CREDIT_HOLDS: ${{ vars.CREDIT_HOLDS }}
@@ -221,9 +243,14 @@ jobs:
           HF_RETRY: ${{ vars.HF_RETRY }}
           RS_LOGIN_HARDENING: ${{ vars.RS_LOGIN_HARDENING }}
           RS_SIGNUP_CONFIRM: ${{ vars.RS_SIGNUP_CONFIRM }}
+          RS_NEXT_STEPS: ${{ vars.RS_NEXT_STEPS }}
           RS_STORAGE_QUOTAS: ${{ vars.RS_STORAGE_QUOTAS }}
           RS_JOB_CANCEL: ${{ vars.RS_JOB_CANCEL }}
+          RS_CARD_REQUIRED: ${{ vars.RS_CARD_REQUIRED }}
+          RS_PLAN_PAYWALL: ${{ vars.RS_PLAN_PAYWALL }}
           RS_STORAGE_PURGE_DELETED: ${{ vars.RS_STORAGE_PURGE_DELETED }}
+          RS_SERVICE_PATH: ${{ vars.RS_SERVICE_PATH }}
+          RS_LAUNCH_KIT: ${{ vars.RS_LAUNCH_KIT }}
           OPS_ALERTS: ${{ vars.OPS_ALERTS }}
           BACKUPS: ${{ vars.BACKUPS }}
           BACKUP_MEDIA: ${{ vars.BACKUP_MEDIA }}
@@ -254,11 +281,14 @@ jobs:
                                              "MCP_SERVER", "MCP_ALLOWED_ORIGINS", "OPS_ALERT_EMAIL",
                                              "R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET",
                                              "BACKUP_CRYPT_PASSWORD", "BACKUP_CRYPT_SALT",
+                                             "AD_LAUNCH", "AD_LAUNCH_WORKSPACES", "AD_RATE_TIER", "META_APP_ID",
+                                             "META_APP_SECRET", "META_LOGIN_CONFIG_ID", "TOKEN_KEY",
                                              # kill switches and opt-ins (N15)
                                              "BILLING_HOLD", "CREDIT_HOLDS", "PLAN_PENDING", "RENEWAL_PAUSE", "HF_RETRY",
-                                             "RS_LOGIN_HARDENING", "RS_SIGNUP_CONFIRM", "RS_STORAGE_QUOTAS",
-                                             "RS_JOB_CANCEL", "RS_STORAGE_PURGE_DELETED", "OPS_ALERTS", "BACKUPS",
-                                             "BACKUP_MEDIA", "RS_DISK_MIN_GB", "RS_HEALTH_WORKER_MAX_AGE",
+                                             "RS_LOGIN_HARDENING", "RS_SIGNUP_CONFIRM", "RS_NEXT_STEPS", "RS_STORAGE_QUOTAS",
+                                             "RS_JOB_CANCEL", "RS_STORAGE_PURGE_DELETED", "RS_SERVICE_PATH", "OPS_ALERTS", "BACKUPS",
+                                             "RS_CARD_REQUIRED", "RS_PLAN_PAYWALL",
+                                             "BACKUP_MEDIA", "RS_DISK_MIN_GB", "RS_HEALTH_WORKER_MAX_AGE", "RS_LAUNCH_KIT",
                                              "RS_HEALTH_BUSY_MAX_S")
                       if os.environ.get(k)}
           print("settings sent:", ", ".join(settings) or "none")
