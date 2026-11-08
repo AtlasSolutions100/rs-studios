@@ -193,12 +193,10 @@ def photo_for_writer(path: str) -> tuple[bytes, str] | None:
     writer's vision input; None if it can't be read."""
     try:
         import io
-        from PIL import Image
-        with Image.open(path) as im:
-            im = im.convert("RGB")
-            im.thumbnail((768, 768))
-            out = io.BytesIO()
-            im.save(out, "JPEG", quality=85)
+        import imagesafe
+        im = imagesafe.thumbnail(path, (768, 768), mode="RGB")   # draft decode, shrink, then convert (H-1)
+        out = io.BytesIO()
+        im.save(out, "JPEG", quality=85)
         return out.getvalue(), "image/jpeg"
     except Exception:  # noqa: BLE001 — no photo is fine; the writer is told it can't see the product
         return None

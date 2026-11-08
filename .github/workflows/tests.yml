@@ -37,6 +37,28 @@ jobs:
           RS_DISK_MIN_GB: "0.2"
         run: python tests/test_app.py
 
+  # The golden path in a real browser with every M2 flag on (tests/golden_path.py, L-12): nightly and by hand
+  # only, so pull requests stay fast. Providers and Stripe are faked; nothing leaves the runner.
+  golden-path:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --require-hashes -r requirements.txt
+      - run: pip install playwright==1.56.0 && python -m playwright install --with-deps chromium
+      - name: golden path, all M2 flags on
+        env:
+          RS_DISK_MIN_GB: "0.2"
+          RS_NEXT_STEPS: "1"
+          RS_LAUNCH_KIT: "1"
+          RS_SERVICE_PATH: "1"
+          RS_PLAN_PAYWALL: "1"
+        run: python tests/golden_path.py
+
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 10

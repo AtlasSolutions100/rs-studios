@@ -13,6 +13,7 @@ from werkzeug.exceptions import HTTPException
 
 import billing_holds
 import db
+import imagesafe
 import plans
 import products
 
@@ -49,7 +50,8 @@ def csrf_token():
     return session["csrf"]
 
 
-MAX_PHOTO_PIXELS = 50_000_000      # ~8K x 6K; anything bigger is a decompression bomb, not a product photo
+MAX_PHOTO_PIXELS = imagesafe.MAX_PIXELS   # ~8K x 6K; anything bigger is a decompression bomb, not a product photo
+# (checked from the header below before im.load(); imagesafe also sets Pillow's own MAX_IMAGE_PIXELS guard)
 _PIL_TYPES = {"JPEG": ("image/jpeg", ".jpg"), "PNG": ("image/png", ".png"), "WEBP": ("image/webp", ".webp")}
 
 

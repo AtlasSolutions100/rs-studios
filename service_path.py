@@ -22,6 +22,7 @@ from urllib.parse import urljoin, urlsplit
 
 import compliance
 import fetcher
+import imagesafe
 import product_import
 import seo
 
@@ -181,10 +182,9 @@ def css_colors(html: str, meta: dict) -> list:
 def image_colors(data: bytes) -> list:
     """The 2 or 3 main vivid colours of a logo image (PIL), as hex."""
     try:
-        import io
         from PIL import Image
-        im = Image.open(io.BytesIO(data)).convert("RGBA")
-        im.thumbnail((96, 96))
+        # Pixel cap first, then draft-mode decode and shrink before any convert (H-1: a few KB can be 100 MP).
+        im = imagesafe.thumbnail(data, (96, 96), mode="RGBA", max_pixels=imagesafe.LOGO_MAX_PIXELS)
         bg = Image.new("RGBA", im.size, (255, 255, 255, 255))
         im = Image.alpha_composite(bg, im).convert("RGB").quantize(colors=6)
         pal = im.getpalette() or []
@@ -348,15 +348,12 @@ def download_logo(url: str):
     r = fetcher.fetch_bytes(url, product_import.MAX_IMAGE_BYTES)
     if r["status"] >= 400:
         raise fetcher.FetchError(f"The logo answered {r['status']}.")
-    try:
-        import io
-        from PIL import Image
-        im = Image.open(io.BytesIO(r["data"]))
-        fmt, (w, h) = (im.format or "").upper(), im.size
-    except Exception:  # noqa: BLE001
+    try:   # header only: the size and type, no pixels decoded (H-1)
+        ctype, w, h = imagesafe.probe(r["data"], max_pixels=imagesafe.LOGO_MAX_PIXELS,
+                                      max_bytes=product_import.MAX_IMAGE_BYTES)
+    except imagesafe.BadImage:
         raise fetcher.FetchError("That logo isn't an image we can use.") from None
-    ctype = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}.get(fmt)
-    if not ctype or min(w, h) < 48:
+    if min(w, h) < 48:
         raise fetcher.FetchError("That logo isn't an image we can use.")
     return r["data"], ctype
 

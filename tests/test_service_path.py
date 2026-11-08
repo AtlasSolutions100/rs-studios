@@ -153,6 +153,50 @@ try:
     check(service_path.image_colors(png(100, (31, 78, 121))) == ["#1f4e79"] and service_path.color_name("#1f4e79")
           == "deep blue" and service_path.color_name("#f2a900") == "amber", "logo colours and their plain names")
 
+    print("== decode limits (H-1): a tiny file with huge dimensions is never decoded")
+    import io as _io
+    import resource
+    import imagesafe
+    import product_import
+    from PIL import Image as _Image
+    _b = _io.BytesIO()
+    _Image.new("1", (10000, 10000), 0).save(_b, "PNG", optimize=True)
+    BOMB = _b.getvalue()                       # about 12 KB on the wire, 100 megapixels decoded
+    check(len(BOMB) < 64 * 1024 and _Image.MAX_IMAGE_PIXELS == imagesafe.MAX_PIXELS,
+          f"the bomb is {len(BOMB) // 1024} KB; Pillow's own pixel guard is set at startup")
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    check(service_path.image_colors(BOMB) == [], "image_colors refuses it from the header (no colours, no decode)")
+    _real_fetch_bytes = fetcher.fetch_bytes
+    fetcher.fetch_bytes = lambda url, max_bytes=0, accept=None: {"url": url, "status": 200,
+                                                                 "content_type": "image/png", "data": BOMB}
+    try:
+        try:
+            service_path.download_logo("https://northside-hvac.example/img/logo.png")
+            ok = False
+        except fetcher.FetchError:
+            ok = True
+        check(ok, "download_logo refuses a logo over 4096 x 4096 pixels")
+        try:
+            product_import.download_image("https://cdn.hearth.example/1.jpg")
+            ok = False
+        except fetcher.FetchError as e:
+            ok = "too large in pixels" in str(e)
+        check(ok, "product_import.download_image refuses it too (any import path)")
+    finally:
+        fetcher.fetch_bytes = _real_fetch_bytes
+    grew = (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss - peak) // 1024
+    check(grew < 50, f"peak memory grew {grew} MB for 3 refusals (a full decode is about 700 MB)")
+    try:
+        imagesafe.probe(b"x" * (imagesafe.MAX_BYTES + 1))
+        ok = False
+    except imagesafe.BadImage:
+        ok = True
+    check(ok, "a byte cap applies on top of the pixel cap")
+    _b = _io.BytesIO()
+    _Image.new("RGB", (4000, 3000), (31, 78, 121)).save(_b, "JPEG")
+    th = imagesafe.thumbnail(_b.getvalue(), (96, 96), mode="RGBA")
+    check(th.size == (96, 72) and th.mode == "RGBA", "a big JPEG thumbnails in draft mode, then converts")
+
     print("== flag off: nothing changes")
     a = client("off@example.com")
     home = a.get("/app").get_data(as_text=True)

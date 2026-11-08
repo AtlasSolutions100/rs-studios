@@ -16,7 +16,14 @@ when the member picks one on Billing; a pack only when they buy one.
     credits, and add a card on their next visit before making anything new
     (card_routes.gate: a full-page step; core.hold_check covers the API).
   * Never asked: workspaces on a paid plan, an admin comp or a free-month code,
-    workspaces that have paid through Stripe (a plan or a pack), and site admins.
+    workspaces that have paid real money (a paid pack, or a paid plan invoice
+    above $0), and site admins. A Stripe customer id alone isn't enough (L-1):
+    it is set by any subscription checkout, even one with no card collected (a
+    100% promotion code) or whose first invoice never paid.
+  * Card-testing guard (M-2): starting a card checkout is throttled per
+    workspace, per network and across the whole app (the shared throttle
+    table), and needs a confirmed email when the network is past the sign-up
+    limit (accounts.signup_throttled).
 
 Switching the flag off releases any credits still waiting for a card.
 """
@@ -34,6 +41,16 @@ log = logging.getLogger("campaignify")
 
 STARTER_REASON = "starter credits"
 TRIES_PER_HOUR = 10          # card checkouts a workspace may start per hour
+TRIES_PER_IP_HOUR = 15       # ... a network (one office or household may hold a few accounts)
+DEFAULT_TRIES_PER_HOUR_ALL = 300   # ... the whole app (RS_CARD_STARTS_PER_HOUR); a card-testing run hits this
+
+
+def tries_per_hour_all() -> int:
+    """RS_CARD_STARTS_PER_HOUR: card checkouts the whole app may start per hour (default 300)."""
+    try:
+        return max(1, int(os.environ.get("RS_CARD_STARTS_PER_HOUR") or DEFAULT_TRIES_PER_HOUR_ALL))
+    except ValueError:
+        return DEFAULT_TRIES_PER_HOUR_ALL
 
 
 class CardRequired(HTTPException):
@@ -66,9 +83,11 @@ def exempt(conn, ws, user=None) -> bool:
         return True
     if plans.plan_code(ws) != "free":          # a paid plan, an admin comp, a free-month code
         return True
-    if _key(ws, "stripe_customer_id"):          # paid for a plan through Stripe before
+    # Paid real money before: a pack, or a plan invoice above $0 (not just a Stripe customer id, L-1).
+    if conn.execute("SELECT 1 FROM purchases WHERE workspace_id=? AND status='paid' AND amount_cents>0 LIMIT 1",
+                    (ws["id"],)).fetchone() is not None:
         return True
-    return conn.execute("SELECT 1 FROM purchases WHERE workspace_id=? AND status='paid' LIMIT 1",
+    return conn.execute("SELECT 1 FROM plan_invoices WHERE workspace_id=? AND amount_cents>0 LIMIT 1",
                         (ws["id"],)).fetchone() is not None
 
 

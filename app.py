@@ -40,6 +40,7 @@ import creator
 import db
 import gads
 import hf
+import imagesafe  # noqa: F401  sets Pillow's MAX_IMAGE_PIXELS once at startup (H-1)
 import login_security
 import nudges
 import opslog

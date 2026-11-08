@@ -39,6 +39,18 @@ With RS_LAUNCH_KIT=1 (the launch kit on the plan page, roadmap M5.3) the product
 copy's Copy buttons, download one export, tick 2 items, and read the ticks back from a second browser (another
 device) logged in to the same account.
 
+With RS_PLAN_PAYWALL=1 (the out-of-credits paywall) both paths get one more step after the first ads: the free ads
+leave the account out of credits, so Home's "Plan the campaign" opens the free campaign plan. The run makes it
+(nothing charged), checks the part-locked page (the summary shown, the rest behind the lock) and then "Pick a plan"
+follows that page's "Get an active subscription to unlock" button to Billing, where the free-month code stands in
+for Stripe Checkout; the plan then has to unlock the free plan's full page.
+
+The card step (RS_CARD_REQUIRED, always on here) comes right after sign-up, so Home redirects to /app/card until the
+card is saved: the strip check skips that one step (noted), and every step after the card step is checked.
+
+Every M2 flag at once (the combination the release runs):
+    RS_NEXT_STEPS=1 RS_LAUNCH_KIT=1 RS_SERVICE_PATH=1 RS_PLAN_PAYWALL=1 python tests/golden_path.py
+
 Exit code: 0 when every step passed or is a known gap or not built; 1 on any other failure.
 
 Fakes: the generation API, result downloads, email, page fetches and the Anthropic API are replaced in process the
@@ -100,6 +112,10 @@ PW = "golden-path-pw-1"
 
 def next_steps_on():
     return os.environ.get("RS_NEXT_STEPS", "").strip().lower() in ("1", "on", "true", "yes")
+
+
+def paywall_on():
+    return os.environ.get("RS_PLAN_PAYWALL", "").strip().lower() in ("1", "on", "true", "yes")
 
 
 def free_port():
@@ -695,6 +711,10 @@ class Run:
     def strip_check(self, st):
         """Home's "Your campaign" strip (RS_NEXT_STEPS): one primary button, whatever step the account is on."""
         r = self.ctx.request.get(f"{self.base}/app")
+        if re.search(r"/app/card(\?|$)", r.url):
+            # the card step comes right after sign-up (RS_CARD_REQUIRED): Home is the card page until it's saved
+            st.notes.append("Home is the card step until the card is saved (strip checked from the next step)")
+            return
         html = r.text()
         m = re.search(r'<section class="panel nsteps"[^>]*data-current="(\w+)".*?</section>', html, re.S)
         if not m:
@@ -830,9 +850,58 @@ class Run:
             st.notes.append(f"made as a service ad, {len(json.loads(job['params_json']).get('photo_ids') or [])} "
                             "reference image(s)")
 
+    def s_free_plan(self, st):
+        """RS_PLAN_PAYWALL: out of credits after the free ads, the planner's door opens on the free campaign plan."""
+        nxt = self.page.locator("[data-next-steps] [data-ns-primary]")
+        if next_steps_on():
+            if not nxt.count() or "/app/campaigns" not in (nxt.first.get_attribute("href") or ""):
+                raise StepFailed("after the free ads Home's primary button doesn't lead to the plan")
+            st.notes.append(f"followed Home's '{nxt.first.inner_text().strip()}'")
+            self.click(nxt.first)
+            self.page.wait_for_load_state()
+        else:
+            self.nav("/app/campaigns")
+        if "/app/free-plan" not in self.page.url:
+            raise StepFailed("out of credits with the paywall on, the planner didn't open the free plan "
+                             f"({self.page.url})")
+        form = self.page.locator("form[data-free-plan-form]")
+        if not form.count():
+            raise StepFailed("the free plan page has no form: " + self.text()[:160])
+        if not self.page.input_value("#offer"):
+            self.fill("#offer", "Our main offer")
+        self.click("form[data-free-plan-form] button:has-text('Make my free plan')")
+        self.page.wait_for_url(re.compile(r"/app/free-plan/\d+"))
+        cid = int(re.search(r"/app/free-plan/(\d+)", self.page.url).group(1))
+        row = self.wait_until(lambda: (lambda r: r if r and r[0]["status"] != "planning" else None)(
+            self.q("SELECT status, error FROM campaigns WHERE id=?", cid)), "the free plan", 60)[0]
+        if row["status"] != "ready":
+            raise StepFailed(f"the free plan ended '{row['status']}' ({row['error']})")
+        self.page.goto(self.page.url)
+        self.page.wait_for_selector("[data-locked]", timeout=15000)
+        held = self.page.locator("[data-locked] li").count()
+        if not self.page.locator("[data-part-summary]").count() or not self.page.locator("[data-unlock]").count():
+            raise StepFailed("the free plan page doesn't show its summary and the unlock button")
+        self.free_plan_url = self.page.url
+        st.notes.append(f"free plan made (nothing charged): summary shown, {held} part(s) behind the lock")
+
     def s_pick_plan(self, st, code):
         nxt = self.page.locator("[data-next-steps] [data-ns-primary]")
         made = self.q("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", self.ws_id)[0][0]
+        free_url = getattr(self, "free_plan_url", None)
+        if paywall_on() and free_url:
+            # the paywall's own way to the plans: the free plan page's "Get an active subscription to unlock"
+            if not self.page.url.startswith(free_url):
+                self.page.goto(free_url)
+            wall = self.page.locator("[data-unlock]")
+            st.notes.append("followed the free plan's 'Get an active subscription to unlock'")
+            self.click(wall.first)
+            self.page.wait_for_url("**/app/billing**")
+            self._apply_code(st, code)
+            self.page.goto(free_url)
+            if "/app/campaigns/" not in self.page.url:
+                raise StepFailed("the plan didn't unlock the free plan's full page")
+            st.notes.append("the plan unlocked the free plan's full page")
+            return
         if next_steps_on() and made:
             # The thread: Home's one primary button after the free ads, then the wall's button (no dead end).
             if not nxt.count() or "/app/campaigns" not in (nxt.first.get_attribute("href") or ""):
@@ -848,6 +917,9 @@ class Run:
             return
         self.click(wall.first)
         self.page.wait_for_url("**/app/billing**")
+        self._apply_code(st, code)
+
+    def _apply_code(self, st, code):
         st.notes.append("free-month code on Billing stands in for Stripe Checkout (a known handoff, not run locally)")
         self.fill("#comp-code", code)
         self.click("#code button:has-text('Apply code')")
@@ -1084,6 +1156,8 @@ def product_path(r):
     r.step("verify", "Confirm the email (code)", lambda st: r.s_verify(st, email))
     r.step("brand_kit", "Paste the product page (brand kit)", lambda st: r.s_brand_kit(st, F.PRODUCT_URL, "Ember Candle"))
     r.step("first_ads", "First ads (2 image ads with the free credits)", r.s_first_ads)
+    if paywall_on():
+        r.step("free_plan", "Free campaign plan when out of credits (paywall)", r.s_free_plan)
     code = comp_code()
     r.step("plan_pick", "Pick a plan", lambda st: r.s_pick_plan(st, code))
     r.step("planner", "Plan the campaign (Sales; Meta, Google)",
@@ -1106,6 +1180,8 @@ def service_path(r):
            lambda st: r.s_brand_kit(st, F.SERVICE_URL, "Northside", sells="service"))
     r.step("first_ads", "First ads (from the website, no product photo)" if service_path_on()
            else "First ads (the first run is product-only)", r.s_first_ads)
+    if paywall_on():
+        r.step("free_plan", "Free campaign plan when out of credits (paywall)", r.s_free_plan)
     code = comp_code()
     r.step("plan_pick", "Pick a plan", lambda st: r.s_pick_plan(st, code))
     r.step("planner", "Plan the campaign (Leads; Google, Meta)",
@@ -1191,7 +1267,11 @@ def main():
         raise SystemExit("Playwright for Python is required (pip install playwright; Chromium must be installed).")
 
     base, srv = boot(args.render_seconds)
-    print(f"== golden path against {base} (providers faked; RS_SERVICE_PATH {'on' if service_path_on() else 'off'})")
+    flags = " ".join(f"{k}={'on' if on else 'off'}" for k, on in (
+        ("RS_SERVICE_PATH", service_path_on()), ("RS_NEXT_STEPS", next_steps_on()), ("RS_PLAN_PAYWALL", paywall_on()),
+        ("RS_LAUNCH_KIT", os.environ.get("RS_LAUNCH_KIT", "").strip().lower() in ("1", "on", "true", "yes")),
+        ("RS_CARD_REQUIRED", True)))
+    print(f"== golden path against {base} (providers faked; {flags})")
     steps = []
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=not args.headed, args=["--disable-dev-shm-usage"])

@@ -377,12 +377,27 @@ check(c4.get("/app").status_code == 200, "and Home opens again")
 for email, sql in (("comp@example.com", "UPDATE workspaces SET plan_override='growth' WHERE id=?"),
                    ("pack@example.com", "INSERT INTO purchases (workspace_id, pack, credits, amount_cents, currency, "
                                         "status, created_at) VALUES (?, 'small', 500, 900, 'usd', 'paid', '2026-11-01')"),
-                   ("sub@example.com", "UPDATE workspaces SET stripe_customer_id='cus_old_sub' WHERE id=?")):
+                   ("sub@example.com", "INSERT INTO plan_invoices (invoice_id, workspace_id, plan, credits, "
+                                       "amount_cents, created_at) VALUES ('in_paid_1', ?, 'starter', 0, 2900, "
+                                       "'2026-10-01')")):
     os.environ.pop("RS_CARD_REQUIRED")
     cx = signup(email)
     run_sql(sql, ws_of(email)["id"])
     os.environ["RS_CARD_REQUIRED"] = "1"
     check(cx.get("/app").status_code == 200, f"{email.split('@')[0]}: no card step")
+# L-1: a Stripe customer id alone (a 100% promotion code, a first invoice that never paid) is not an exemption,
+# and neither is a $0 plan invoice
+for email, sql in (("custonly@example.com", "UPDATE workspaces SET stripe_customer_id='cus_old_sub' WHERE id=?"),
+                   ("zeroinv@example.com", "INSERT INTO plan_invoices (invoice_id, workspace_id, plan, credits, "
+                                           "amount_cents, created_at) VALUES ('in_zero_1', ?, 'starter', 0, 0, "
+                                           "'2026-10-01')")):
+    os.environ.pop("RS_CARD_REQUIRED")
+    cx = signup(email)
+    run_sql(sql, ws_of(email)["id"])
+    os.environ["RS_CARD_REQUIRED"] = "1"
+    r = cx.get("/app")
+    check(r.status_code == 302 and r.headers["Location"].endswith("/app/card"),
+          f"{email.split('@')[0]}: back on Free with no real payment, the card step is asked (L-1)")
 os.environ.pop("RS_CARD_REQUIRED")
 cad = signup("admin@example.com")
 run_sql("UPDATE users SET is_admin=1 WHERE email='admin@example.com'")
@@ -409,10 +424,10 @@ run_sql("UPDATE workspaces SET credits=?, plan_credits=0 WHERE id=?", plan_paywa
 check(plan_paywall.applies(ws_of("plan@example.com")), "less than one image ad left: out of credits")
 home = page(cp1, "/app")
 check("data-paywall-banner" in home and "Get an active subscription to unlock" in home and "lock-ic" in home
-      and "/app/billing#plans" in home and "Make my free plan" in home,
-      "every app page: the lock, 'Get an active subscription to unlock', See plans, and the free plan")
+      and "/app/billing#plans" in home and "Make my free plan" not in home,
+      "every app page: the lock, 'Get an active subscription to unlock', See plans (no free plan: email unconfirmed)")
 r = cp1.get("/app/campaigns")
-check(r.status_code == 302 and r.headers["Location"].endswith("/app/free-plan"), "the planner opens on the free plan")
+check(r.status_code == 402, "unconfirmed: the planner opens on its upgrade page")
 # everything else that costs credits shows the same lock
 r = cp1.post("/app/generate", data={"csrf": csrf(cp1), "tool": "ad_image", "template": "t", "brief": "a mug on a desk"})
 body = r.get_data(as_text=True)
@@ -423,6 +438,18 @@ r = cp1.post("/app/competitors", data={"csrf": csrf(cp1), "competitor": ["rival.
              headers={"X-Requested-With": "fetch"})
 check(r.status_code == 402 and r.get_json() == {"error": "Get an active subscription to unlock", "paywall": True,
                                                  "plans": "/app/billing#plans"}, "competitor research: the same lock (JSON)")
+# L-5: an unconfirmed email (and no card that earned the trial) gets no free plan
+fp = page(cp1, "/app/free-plan")
+check("data-free-plan-refused" in fp and "Confirm your email" in fp and "data-free-plan-form" not in fp,
+      "unconfirmed email, no card: the free plan page asks for a confirmed email first")
+r = cp1.post("/app/free-plan", data={"csrf": csrf(cp1), "offer": "Brew Co coffee", "goal": "sales"})
+check(r.status_code == 302 and not q("SELECT * FROM campaigns WHERE workspace_id=?", wp["id"])
+      and not q("SELECT * FROM free_plans WHERE workspace_id=?", wp["id"]), "and a POST makes nothing")
+check(cp1.get("/app/campaigns").status_code == 402, "the planner's door is the upgrade page, not the free plan")
+run_sql("UPDATE users SET email_verified_at=? WHERE email='plan@example.com'", db.now())
+r = cp1.get("/app/campaigns")
+check(r.status_code == 302 and r.headers["Location"].endswith("/app/free-plan"), "confirmed: the planner opens on the free plan")
+check("Make my free plan" in page(cp1, "/app"), "and the banner offers the free plan")
 # the free plan
 spent_before = q("SELECT COUNT(*) FROM ledger WHERE workspace_id=?", wp["id"])[0][0]
 bal_before = bal("plan@example.com")
@@ -438,7 +465,9 @@ check(camp["credits"] == 0 and camp["cost_usd"] > 0, "the planning cost us real 
 check(bal("plan@example.com") == bal_before and q("SELECT COUNT(*) FROM ledger WHERE workspace_id=?", wp["id"])[0][0]
       == spent_before, "the balance and the ledger are untouched")
 fr = q("SELECT * FROM free_plans WHERE workspace_id=?", wp["id"])
-check(len(fr) == 1 and fr[0]["campaign_id"] == camp["id"] and fr[0]["report_id"] == rep["id"], "the free plan is recorded")
+check(len(fr) == 1 and fr[0]["campaign_id"] == camp["id"] and fr[0]["report_id"] == rep["id"]
+      and fr[0]["status"] == "ready" and fr[0]["email_norm"] == "plan@example.com",
+      "the free plan is recorded, with the member's email")
 # the part-locked plan page
 show = page(cp1, f"/app/free-plan/{camp['id']}")
 check("VISIBLESUMMARY" in show and "VISIBLECHANNEL" in show and "Meta" in show and "60%" in show,
@@ -467,7 +496,8 @@ check("Make my free plan" not in page(cp1, "/app") and "data-paywall-banner" in 
       "the banner keeps the lock, without the free plan button")
 check(cp1.get("/app/campaigns").status_code == 402, "the planner's door is the upgrade page again")
 with db.connect() as conn:
-    check(plan_paywall.claim(conn, wp["id"]) is None, "claim() refuses inside the window (atomic insert)")
+    check(plan_paywall.claim(conn, plan_paywall.who(conn, ws_of("plan@example.com"), q(
+        "SELECT * FROM users WHERE email='plan@example.com'")[0])) is None, "claim() refuses inside the window (atomic insert)")
     conn.rollback()
 old = (datetime.now(timezone.utc) - timedelta(days=31)).replace(microsecond=0).isoformat()
 run_sql("UPDATE free_plans SET created_at=? WHERE workspace_id=?", old, wp["id"])
@@ -478,9 +508,33 @@ cp1.post("/app/free-plan", data={"csrf": csrf(cp1), "offer": "Brew Co decaf", "g
 plan_mode["fail"] = False
 failed = q("SELECT * FROM campaigns WHERE workspace_id=? ORDER BY id DESC", wp["id"])[0]
 check(failed["status"] == "failed" and failed["free_plan"] == 1
-      and q("SELECT COUNT(*) FROM free_plans WHERE workspace_id=? AND created_at>?", wp["id"], old)[0][0] == 0,
-      "a failed free plan is given back")
+      and q("SELECT COUNT(*) FROM free_plans WHERE workspace_id=? AND created_at>? AND status!='failed'",
+            wp["id"], old)[0][0] == 0, "a failed free plan is given back")
 check("data-free-plan-form" in page(cp1, "/app/free-plan"), "so the member can try again")
+check("Try again" in page(cp1, f"/app/free-plan/{failed['id']}"), "the failed plan's page offers to try again")
+# L-7: at most 2 retries per 30 days (3 failed tries), then it waits like a made plan
+plan_mode["fail"] = True
+cp1.post("/app/free-plan", data={"csrf": csrf(cp1), "offer": "Brew Co decaf 2", "goal": "sales"})
+check("data-free-plan-form" in page(cp1, "/app/free-plan"), "a second failure: 1 retry left")
+cp1.post("/app/free-plan", data={"csrf": csrf(cp1), "offer": "Brew Co decaf 3", "goal": "sales"})
+plan_mode["fail"] = False
+fails = q("SELECT * FROM free_plans WHERE workspace_id=? AND status='failed' AND created_at>?", wp["id"], old)
+check(len(fails) == 3, "3 failed tries recorded")
+fp = page(cp1, "/app/free-plan")
+check("data-free-plan-form" not in fp and "used this month's tries" in fp
+      and ((datetime.fromisoformat(fails[0]["created_at"]) + timedelta(days=30)).date().isoformat()) in fp,
+      "after 3 failed tries the form is gone and the page says when the next try opens")
+last_failed = q("SELECT * FROM campaigns WHERE workspace_id=? ORDER BY id DESC", wp["id"])[0]
+lp = page(cp1, f"/app/free-plan/{last_failed['id']}")
+check("data-free-plan-tries-used" in lp and "Try again" not in lp, "the failed plan's page no longer offers a retry")
+n_camps = len(q("SELECT * FROM campaigns WHERE workspace_id=?", wp["id"]))
+cp1.post("/app/free-plan", data={"csrf": csrf(cp1), "offer": "Brew Co decaf 4", "goal": "sales"})
+check(len(q("SELECT * FROM campaigns WHERE workspace_id=?", wp["id"])) == n_camps, "a 4th try is refused")
+with db.connect() as conn:
+    check(plan_paywall.claim(conn, plan_paywall.who(conn, ws_of("plan@example.com"),
+                                                   q("SELECT * FROM users WHERE email='plan@example.com'")[0])) is None,
+          "claim() refuses after 3 failed tries (atomic)")
+    conn.rollback()
 # subscribed workspaces never see the paywall
 cs = signup("subscribed@example.com")
 run_sql("UPDATE workspaces SET plan_override='starter', credits=0, plan_credits=0 WHERE id=?", ws_of("subscribed@example.com")["id"])
@@ -498,6 +552,122 @@ check("SECRETANGLE Morning ritual" in full and "SECRETKPI" in full and "SECRETCH
 r = cp1.get(f"/app/competitors/{rep['id']}")
 check(r.status_code == 200 and "SECRETOFFERS" in r.get_data(as_text=True), "and the full competitor report")
 check("data-paywall-banner" not in page(cp1, "/app"), "no lock banner once subscribed")
+os.environ.pop("RS_PLAN_PAYWALL")
+
+# ================================================================ M2 re-audit: the free plan with the card step on
+print("== free plan per person (card step and paywall on)")
+os.environ["RS_PLAN_PAYWALL"] = "1"
+os.environ["RS_CARD_REQUIRED"] = "1"
+CARDS["visa6"] = {"fingerprint": "fp_visa_6", "brand": "visa", "last4": "6006"}
+CARDS["visa7"] = {"fingerprint": "fp_visa_7", "brand": "visa", "last4": "7007"}
+
+
+def out_of_credits(email):
+    run_sql("UPDATE workspaces SET credits=?, plan_credits=0 WHERE id=?", plan_paywall.min_price() - 1, ws_of(email)["id"])
+
+
+# M-1: a reused card (saved, 0 credits) is out of credits at once, but gets no free plan
+cf = signup("farm1@example.com")
+add_card(cf, "visa1")                        # the card new1@ already had its trial on
+check(bal("farm1@example.com") == 0 and plan_paywall.applies(ws_of("farm1@example.com")),
+      "a reused card: saved with 0 credits, so out of credits at once")
+run_sql("UPDATE users SET email_verified_at=? WHERE email='farm1@example.com'", db.now())   # even confirmed
+fp = page(cf, "/app/free-plan")
+check("data-free-plan-refused" in fp and "already had a free trial on another account" in fp
+      and "data-free-plan-form" not in fp, "the free plan page says this card or email already had a trial (M-1)")
+r = cf.post("/app/free-plan", data={"csrf": csrf(cf), "offer": "Farmed plan", "goal": "sales"})
+check(r.status_code == 302 and not q("SELECT * FROM free_plans WHERE workspace_id=?", ws_of("farm1@example.com")["id"]),
+      "and a POST claims nothing")
+check(cf.get("/app/campaigns").status_code == 402 and "Make my free plan" not in page(cf, "/app"),
+      "the planner door and the banner don't offer it either")
+# a card that earned the trial: the free plan works without a confirmed email
+cg = signup("good1@example.com")
+add_card(cg, "visa6")
+check(bal("good1@example.com") == STARTER, "a new card earns the starter credits")
+out_of_credits("good1@example.com")
+check("data-free-plan-form" in page(cg, "/app/free-plan"), "its card earned the trial: the free plan form shows")
+r = cg.post("/app/free-plan", data={"csrf": csrf(cg), "offer": "Good plan", "goal": "sales"})
+row = q("SELECT * FROM free_plans WHERE workspace_id=?", ws_of("good1@example.com")["id"])
+check(len(row) == 1 and row[0]["fingerprint"] == "fp_visa_6" and row[0]["status"] == "ready",
+      "the free plan is made and recorded with the card's fingerprint")
+# the same card on an account that already had its starter credits (trial=1 by the old grant): one plan per card
+os.environ.pop("RS_CARD_REQUIRED")
+ch = signup("had@example.com")             # made before the card step: starter credits at sign-up
+os.environ["RS_CARD_REQUIRED"] = "1"
+add_card(ch, "visa6")
+check(q("SELECT trial FROM card_trials WHERE workspace_id=?", ws_of("had@example.com")["id"])[0][0] == 1,
+      "that account's card row counts as a trial (it had the credits already)")
+out_of_credits("had@example.com")
+fp = page(ch, "/app/free-plan")
+check("data-free-plan-form" not in fp and "The next one opens on" in fp,
+      "the card's free plan was used on another account in the last 30 days: none here (per fingerprint)")
+with db.connect() as conn:
+    k = plan_paywall.who(conn, ws_of("had@example.com"), q("SELECT * FROM users WHERE email='had@example.com'")[0])
+    check(k["fingerprint"] == "fp_visa_6" and plan_paywall.claim(conn, k) is None, "claim() refuses on the fingerprint")
+    conn.rollback()
+
+# L-6: spend in flight counts back: a pack holder can't dip under one image ad and claim
+cl = signup("dip@example.com")
+add_card(cl, "visa7")
+wd = ws_of("dip@example.com")
+run_sql("UPDATE workspaces SET credits=5, plan_credits=0 WHERE id=?", wd["id"])
+run_sql("INSERT INTO jobs (workspace_id, user_id, tool, brief, params_json, status, credits, cost_usd, created_at, "
+        "updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)", wd["id"], q("SELECT id FROM users WHERE email='dip@example.com'")[0][0],
+        "ugc_video", "an expensive video", "{}", "pending", 400, 1.0, db.now(), db.now())
+check(plan_paywall.applies(ws_of("dip@example.com")), "5 credits left with a 400-credit video queued: the lock applies")
+fp = page(cl, "/app/free-plan")
+check("data-free-plan-busy" in fp and "data-free-plan-form" not in fp, "but the free plan waits for the video (L-6)")
+cl.post("/app/free-plan", data={"csrf": csrf(cl), "offer": "Dipped", "goal": "sales"})
+check(not q("SELECT * FROM free_plans WHERE workspace_id=?", wd["id"]), "a POST claims nothing while it runs")
+run_sql("UPDATE jobs SET status='failed' WHERE workspace_id=?", wd["id"])
+run_sql("INSERT INTO credit_holds (workspace_id, amount, label, ref, status, created_at, updated_at) "
+        "VALUES (?, 300, 'Competitor research', 'competitor:1', 'held', ?, ?)", wd["id"], db.now(), db.now())
+check("data-free-plan-busy" in page(cl, "/app/free-plan"), "an open credit hold counts back the same way")
+run_sql("UPDATE credit_holds SET status='released' WHERE workspace_id=?", wd["id"])
+check("data-free-plan-form" in page(cl, "/app/free-plan"), "once nothing is in flight, the free plan opens")
+
+# L-8: while a free plan is being made, the step list shows no angle names or the model's words
+cid = q("SELECT campaign_id FROM free_plans WHERE workspace_id=?", ws_of("good1@example.com")["id"])[0][0]
+run_sql("UPDATE campaigns SET status='planning', updated_at=?, steps_json=? WHERE id=?", db.now(), json.dumps([
+    {"kind": "angles", "title": "Proposed 2 angles", "detail": "SECRETANGLE A · SECRETANGLE B"},
+    {"kind": "creative", "title": "Wrote hooks and a script for \u201cSECRETANGLE A\u201d"},
+    {"kind": "ad", "title": "Lined up an image ad for \u201cSECRETANGLE B\u201d"},
+    {"kind": "note", "title": "SECRETNOTE I will lead with the morning angle"}]), cid)
+pl = page(cg, f"/app/free-plan/{cid}")
+check("SECRETANGLE" not in pl and "SECRETNOTE" not in pl and "Wrote hooks and scripts" in pl
+      and "Lined up the ads" in pl and "Planning the campaign" in pl, "planning steps are generic labels (L-8)")
+run_sql("UPDATE campaigns SET status='ready' WHERE id=?", cid)
+
+# M-2: the card step's checkout start: per network, app-wide, and a confirmed email past the sign-up limit
+import time as _time  # noqa: E402
+cm = signup("cardtest@example.com")
+ipm = cm.environ_base["REMOTE_ADDR"]
+for _ in range(card_on_file.TRIES_PER_IP_HOUR):
+    run_sql("INSERT INTO throttle (key, at) VALUES (?, ?)", f"card-ip:{ipm}", _time.time())
+n0 = len(stripe["sessions"])
+r = cm.post("/app/card/start", data={"csrf": csrf(cm)})
+check(r.status_code == 302 and r.headers["Location"].endswith("/app/card") and len(stripe["sessions"]) == n0
+      and any("Too many tries" in m for m in flashes(cm)), "card start: refused past the per-network limit (M-2)")
+run_sql("DELETE FROM throttle WHERE key=?", f"card-ip:{ipm}")
+os.environ["RS_CARD_STARTS_PER_HOUR"] = "1"
+run_sql("DELETE FROM throttle WHERE key='card-all'")
+run_sql("INSERT INTO throttle (key, at) VALUES ('card-all', ?)", _time.time())
+r = cm.post("/app/card/start", data={"csrf": csrf(cm)})
+check(r.status_code == 302 and len(stripe["sessions"]) == n0 and any("busy" in m for m in flashes(cm)),
+      "card start: refused past the app-wide limit (RS_CARD_STARTS_PER_HOUR)")
+os.environ.pop("RS_CARD_STARTS_PER_HOUR")
+for _ in range(accounts.SIGNUPS_PER_HOUR):
+    run_sql("INSERT INTO throttle (key, at) VALUES (?, ?)", f"signup:{ipm}", _time.time())
+r = cm.post("/app/card/start", data={"csrf": csrf(cm)})
+check(r.status_code == 302 and len(stripe["sessions"]) == n0 and any("Confirm your email first" in m for m in flashes(cm)),
+      "card start: a network past the sign-up limit needs a confirmed email first")
+run_sql("UPDATE users SET email_verified_at=? WHERE email='cardtest@example.com'", db.now())
+next_card.update(card="visa7", ok=True)
+r = cm.post("/app/card/start", data={"csrf": csrf(cm)})
+check(r.status_code == 303 and len(stripe["sessions"]) == n0 + 1, "confirmed: the card checkout opens")
+check(q("SELECT COUNT(*) FROM throttle WHERE key=?", f"card-ip:{ipm}")[0][0] == 1
+      and q("SELECT COUNT(*) FROM throttle WHERE key='card-all'")[0][0] >= 1, "each start counts per network and app-wide")
+os.environ.pop("RS_CARD_REQUIRED")
 os.environ.pop("RS_PLAN_PAYWALL")
 
 # ================================================================ copy

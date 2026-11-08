@@ -7,6 +7,8 @@ import subprocess
 
 from PIL import Image
 
+import imagesafe
+
 
 class ExportError(RuntimeError):
     pass
@@ -29,7 +31,13 @@ def _crop_box(w, h, tw, th):
 
 
 def export_image(src: str, dst: str, tw: int, th: int) -> str:
+    try:
+        imagesafe.probe(src, max_pixels=imagesafe.MAX_PIXELS, max_bytes=None)   # header only (H-1)
+    except imagesafe.BadImage as e:
+        raise ExportError(str(e)) from None
     with Image.open(src) as im:
+        if (im.format or "").upper() == "JPEG":
+            im.draft("RGB", (tw, th))     # decode at a reduced scale that still covers the export size
         im = im.convert("RGB") if im.mode not in ("RGB", "RGBA") else im
         im = im.crop(_crop_box(im.width, im.height, tw, th)).resize((tw, th), Image.LANCZOS)
         if dst.lower().endswith((".jpg", ".jpeg")) and im.mode == "RGBA":
