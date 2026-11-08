@@ -230,11 +230,7 @@ class BillingHold(HTTPException):
 def hold_reason(ws):
     """"reversal" (a refund or dispute), "renewal" (the plan's renewal payment
     failed) or None when the workspace may spend."""
-    if billing_holds.on_hold(ws):
-        return "reversal"
-    if plans.renewal_paused(ws):
-        return "renewal"
-    return None
+    return billing_holds.reason(ws)
 
 
 def hold_check(ws=None):

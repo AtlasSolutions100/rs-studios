@@ -18,6 +18,7 @@ import os
 import re
 from datetime import datetime, timedelta
 
+import billing_holds
 import compliance
 import db
 import flows
@@ -202,6 +203,9 @@ def _monthly_fees(conn, now):
     label = now.strftime("%B")
     for p in conn.execute("SELECT * FROM sms_profiles WHERE phone_number IS NOT NULL AND status NOT IN ('rejected','closed') "
                           "AND COALESCE(number_fee_month,'')<>?", (month,)).fetchall():
+        ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (p["workspace_id"],)).fetchone()
+        if billing_holds.reason(ws):
+            continue    # held or renewal paused (N6): charged on the first tick after it's back
         f = fees(p["path"], int(json.loads(p["fields_json"] or "{}").get("volume") or 0))
         ok = db.adjust_credits(conn, p["workspace_id"], -f["per_month"], f"SMS number · {label}")
         conn.execute("UPDATE sms_profiles SET number_fee_month=?, notes=? WHERE workspace_id=?",
@@ -273,6 +277,10 @@ def send_queued(now=None, limit=100) -> int:
                 messaging._finish(conn, m, "skipped", now, "Not sent: no text consent or phone number on record.")
             elif not compliance.check(m["body_text"])["ok"]:
                 messaging._finish(conn, m, "failed", now, "Not sent: the text breaks the content rules.")
+            elif billing_holds.reason(ws):
+                # A refund/dispute hold or a failed renewal (N6): the text stays queued, the flow
+                # pauses with the real reason.
+                messaging._pause(conn, f["id"], billing_holds.FLOW_REASON[billing_holds.reason(ws)], now)
             elif sms_ready(ws):
                 continue
             elif next_allowed(now, _tz(conn, c, ws)):

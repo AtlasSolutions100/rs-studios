@@ -325,6 +325,21 @@ def invoice_for_payment(payment_intent: str) -> str | None:
     return _id(rows[0].get("invoice")) if rows else None
 
 
+def payment_intent_for_invoice(invoice_id: str) -> str | None:
+    """The PaymentIntent that paid an invoice, read from Stripe's invoice
+    payments (newer API versions send invoice.payments only when expanded).
+    None when Stripe isn't set up or nothing paid it by card."""
+    if not invoice_id or not secret_key():
+        return None
+    rows = _get("/invoice_payments", [("invoice", invoice_id), ("limit", "10")]).get("data") or []
+    for row in sorted(rows, key=lambda r: 0 if r.get("status") == "paid" else 1):
+        pay = row.get("payment") or {}
+        pi = _id(pay.get("payment_intent"))
+        if pi:
+            return pi
+    return None
+
+
 def subscription_prices(sub: dict) -> list[str]:
     out = []
     for item in (sub.get("items") or {}).get("data") or []:

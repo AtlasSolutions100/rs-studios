@@ -294,9 +294,28 @@ check(credits.release_stale() == 0, "a fresh hold stays")
 with db.connect() as conn:
     conn.execute("UPDATE credit_holds SET created_at='2020-01-01T00:00:00+00:00' WHERE id=?", (h.id,))
     conn.commit()
-check(credits.release_stale() == 1 and db.balance(ws_row(wb["id"])) == 100, "an old one is released")
+check(h.id in credits._alive and credits.release_stale() == 0 and holds(wb["id"])[-1]["status"] == "held",
+      "N13: a run over 30 minutes that is still going keeps its hold")
+check(credits.keepalive_tick() >= 1 and holds(wb["id"])[-1]["alive_at"], "the keepalive stamps it while it runs")
+credits._alive.pop(h.id)     # the process that ran it died (deploy, crash): no more stamps
+check(credits.release_stale() == 0, "a hold stamped in the last 30 minutes stays even after its process died")
+with db.connect() as conn:
+    conn.execute("UPDATE credit_holds SET alive_at='2020-01-01T00:00:00+00:00' WHERE id=?", (h.id,))
+    conn.commit()
+check(credits.release_stale() == 1 and db.balance(ws_row(wb["id"])) == 100, "no sign of life for 30 minutes: released")
 check(ledger(wb["id"], 1)[0]["reason"] == "AI landing page copy: the run stopped, 60 back", "and says why")
 check(credits.settle(h, 12) == 12 and db.balance(ws_row(wb["id"])) == 88, "a run that finishes after that still pays")
+h2 = credits.reserve(wb["id"], 10, "AI SEO suggestions")
+credits._alive[h2.id] -= credits.MAX_RUN_HOURS * 3600 + 1
+with db.connect() as conn:
+    conn.execute("UPDATE credit_holds SET created_at='2020-01-01T00:00:00+00:00' WHERE id=?", (h2.id,))
+    conn.commit()
+credits.keepalive_tick()
+check(h2.id not in credits._alive and credits.release_stale() == 1,
+      "a hold open longer than MAX_RUN_HOURS isn't kept alive (a leak, not a run)")
+h3 = credits.reserve(wb["id"], 5, "AI SEO suggestions")
+credits.settle(h3, 5)
+check(h3.id not in credits._alive, "settling a hold stops its keepalive")
 credits._last_sweep[0] = 0
 credits.maybe_release_stale()
 check(credits._last_sweep[0] > 0, "the worker's sweep runs (and never raises)")
