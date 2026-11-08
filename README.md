@@ -297,6 +297,48 @@ Logs from the `campaignify` logger are JSON lines with `request_id` and `ws`, pl
 route pattern (never the real path or query), status and time; every response carries `X-Request-Id`.
 Tests: `tests/test_alerts.py`.
 
+## Backups and the restore drill (`backup.py`, `tools/restore.sh`)
+
+Every night (after `BACKUP_HOUR_UTC`, default 8, which is 2 or 3 am Central) the worker loop starts a backup in its
+own thread:
+
+1. A consistent snapshot of `rs.db` with SQLite's online backup API (what `sqlite3 rs.db ".backup FILE"` does),
+   gzipped to `data/backups/rs-<utc>.db.gz`. The newest 3 stay on the server (`BACKUP_KEEP_LOCAL`).
+2. The snapshot is uploaded to Cloudflare R2 through rclone's crypt remote, so file contents and names are
+   encrypted on the server before they leave it. Snapshots older than 30 days are deleted from the bucket
+   (`BACKUP_KEEP_DAYS`; the newest is never deleted).
+3. `data/uploads`, `data/media`, `data/presenters` and the session key are synced. A file deleted on the server is
+   moved to `media-trash/<date>/` in the bucket and kept 30 days.
+4. A good run calls `alerts.backup_ok`; the `backup_late` alert fires when the last good one is over 26 hours old,
+   and `backup_failed` fires when a run fails. Admin > System > Backups shows the last good backup's time and size,
+   the snapshot count and the last error.
+
+Settings (GitHub secrets, synced by deploy.yml): `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
+`R2_BUCKET`, `BACKUP_CRYPT_PASSWORD`, `BACKUP_CRYPT_SALT`. Without all six nothing changes: nothing is uploaded, the
+app logs one warning and the System card says backups are off. Keep a copy of the two crypt values outside GitHub
+(a password manager): without them the backups can't be decrypted. Layout in the bucket:
+`<R2_BUCKET>/campaignify/{db,media,media-trash,keys}` (names encrypted). Kill switch: `BACKUPS=off`; database only:
+`BACKUP_MEDIA=off`. By hand, in the container: `python backup.py` (or `--status`).
+
+**Restore drill (quarterly: first week of January, April, July and October).** On the server or a dev box with
+rclone and the app's requirements (the app image has both):
+
+    docker exec rs-studios-app tools/restore.sh --media /tmp/restore-drill
+    # or on a dev box: export the six settings, then
+    tools/restore.sh --media /path/to/scratch
+
+It downloads the newest snapshot (or `--snapshot NAME`), unpacks it to `<scratch>/data/rs.db`, restores the session
+key and, with `--media`, the media folders, then runs `tools/restore_smoke.py`: `PRAGMA integrity_check`, the core
+tables and their row counts, the app booting on the restored folder with no keys and no worker and answering
+`/health` and `/login` with 200, and how many of the newest ad files are present. It never touches the live data
+folder and refuses a scratch folder that isn't empty. To run the app on the restored copy:
+`RS_DATA=<scratch>/data RS_WORKER=0 python app.py` (or mount it as `data/` in a scratch container). Write the date,
+the snapshot name, how long it took and the smoke output in the ops log, then delete the scratch folder (it holds
+customer data). A real restore is the same steps, then stop the app, move `data/` aside and put the restored folder
+in its place.
+
+Tests: `tests/test_backup.py` (rclone replaced by `tests/fake_rclone.sh`, no network).
+
 ## Storage quotas, body limits and the disk guard (`storage.py`)
 
 Each workspace keeps up to its plan's storage on our disk: Free 200 MB, Starter 2 GB, Growth 10 GB, Scale 50 GB
