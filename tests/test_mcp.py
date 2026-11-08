@@ -22,6 +22,7 @@ from urllib.parse import parse_qs, urlsplit
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 TMP = tempfile.mkdtemp(prefix="rs_mcp_")
+os.environ.setdefault("RS_SIGNUP_CONFIRM", "0")  # sign-ups here go straight in; test_login.py checks the emailed-link step
 for k in ("MCP_SERVER", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "MCP_ALLOWED_ORIGINS"):
     os.environ.pop(k, None)
 os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret")

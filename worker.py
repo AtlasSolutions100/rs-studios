@@ -338,6 +338,12 @@ def _beat():
         alerts.beat()
 
 
+def _busy(what: str):
+    """Keep the heartbeat going while one long call runs (alerts.busy; a no-op off the worker thread)."""
+    import alerts
+    return alerts.busy(what)
+
+
 def _lease_cutoff() -> str:
     return _minutes_ago(SUBMIT_LEASE_MINUTES)
 
@@ -455,12 +461,14 @@ def tick() -> int:
             if not _due(job):       # waiting out a backoff: let the jobs behind it go first
                 continue
             tried += 1
-            if _submit_one(conn, job):
-                changed += 1
+            with _busy("vendor submit"):   # upload + submit with retries: minutes when the vendor is slow (N2)
+                if _submit_one(conn, job):
+                    changed += 1
         for job in conn.execute("SELECT * FROM jobs WHERE status='running' ORDER BY id LIMIT 20").fetchall():
             _beat()
             try:
-                res = hf.status(job["request_id"])
+                with _busy("vendor status"):
+                    res = hf.status(job["request_id"])
             except Exception:  # noqa: BLE001 — try again next tick, but not forever
                 # A request the vendor no longer knows (404) or a status call that
                 # keeps failing must still end: same deadline as a job that never finishes.
@@ -473,7 +481,8 @@ def tick() -> int:
                 if not _still_running(conn, job):
                     continue    # a member's cancel got there first (refunded): don't deliver it (N11)
                 try:
-                    _save_outputs(conn, job, res)
+                    with _busy("saving outputs"):
+                        _save_outputs(conn, job, res)
                     if not _finish_done(conn, job):
                         _drop_outputs(conn, job)
                 except hf.GenError as e:
@@ -540,15 +549,18 @@ def start():
                 traceback.print_exc()
             try:
                 import flows_engine
-                flows_engine.tick()
+                with alerts.busy("flows"):   # email and text sends
+                    flows_engine.tick()
             except Exception:  # noqa: BLE001
                 traceback.print_exc()
             try:
                 import conversions   # retry server-side ad conversions that didn't go out
-                conversions.tick()
+                with alerts.busy("conversions"):
+                    conversions.tick()
             except Exception:  # noqa: BLE001
                 traceback.print_exc()
-            alerts.maybe_sweep()   # operator alerts: stuck jobs, vendor errors, disk, backups (never raises)
+            with alerts.busy("alert sweep"):   # includes the vendor probe
+                alerts.maybe_sweep()   # operator alerts: stuck jobs, vendor errors, disk, backups (never raises)
             import storage
             storage.maybe_purge()  # once a day: temp leftovers and expired exports (never raises)
             import credits

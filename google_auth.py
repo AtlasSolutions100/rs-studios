@@ -23,8 +23,8 @@ from werkzeug.security import generate_password_hash
 
 import accounts
 import db
+import login_security
 import verify
-from core import csrf_token
 
 log = logging.getLogger("rs.google_auth")
 bp = Blueprint("google_auth", __name__)
@@ -172,9 +172,15 @@ def callback():
                              (db.now(), u["id"]))
                 conn.commit()
                 verify.completed(conn, u, "/auth/google/callback")
-            session.clear()
-            session["uid"] = u["id"]
-            csrf_token()
+            if login_security.awaiting_confirm(u):
+                # A form sign-up that never opened its link: whoever typed that password
+                # didn't prove the inbox, Google just did. The password goes; the account
+                # signs in with Google (or a reset) from now on (SEC-8).
+                conn.execute("UPDATE users SET pw_hash=?, signup_pending=0, auth_provider='google' WHERE id=?",
+                             (generate_password_hash(secrets.token_urlsafe(32)), u["id"]))
+                conn.commit()
+            u = conn.execute("SELECT * FROM users WHERE id=?", (u["id"],)).fetchone()
+            login_security.start_session(u)
             return redirect(nxt or url_for("studio"))
     ip = request.remote_addr or "unknown"
     if accounts.signup_throttled(ip):

@@ -628,13 +628,31 @@ class Run:
         self.fill("input[name=email]", email)
         self.fill("input[name=password]", PW)
         self.click("form button:has-text('Create account')")
+        self.wait_until(lambda: re.search(r"/app(\?|$)", self.page.url) or self.page.locator("[data-signup-sent]").count(),
+                        "the page after Create account", 20)
+        if self.page.locator("[data-signup-sent]").count():
+            # Sign-up waits for its emailed link (login_security.confirm_first): open it, as the person would.
+            self.wait_until(lambda: self.email_link(email), "the sign-up email", 10)
+            self.goto(self.email_link(email))
         self.page.wait_for_url(re.compile(r"/app(\?|$)"))
         u = self.q("SELECT * FROM users WHERE email=?", email)
         if not u:
             raise StepFailed("no account was made")
         self.ws_id = u[0]["workspace_id"]
 
+    def email_link(self, email):
+        """The /verify link (path and query) of the newest email to this address."""
+        for m in reversed(F.emails):
+            to = m.get("to")
+            to = to if isinstance(to, list) else [to]
+            mm = re.search(r"https?://[^/\s]+(/verify\?t=[\w\-.]+)", m.get("text") or "")
+            if email in to and mm:
+                return mm.group(1)
+        return None
+
     def s_verify(self, st, email):
+        if self.q("SELECT email_verified_at FROM users WHERE email=?", email)[0][0]:
+            return   # the sign-up link already confirmed it
         self.wait_until(lambda: self.email_code(email), "the confirmation email", 10)
         # Opening the box asks the server to send a code unless the last one still works: read the inbox after that.
         with self.page.expect_response(lambda resp: resp.request.method == "POST" and "/verify" in resp.url):

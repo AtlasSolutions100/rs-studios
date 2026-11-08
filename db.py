@@ -603,6 +603,11 @@ COLUMNS = [
     ("users", "first_touch", "TEXT"),            # JSON: UTM tags / click ids of the visit that brought them
     ("ad_conversions", "ctx_json", "TEXT"),      # browser context for the server-side purchase (conversions.py)
     ("users", "auth_provider", "TEXT"),          # "google" for accounts made with Continue with Google (google_auth.py)
+    # login hardening (login_security.py): sessions carry this number; a password reset bumps it,
+    # which ends every other session (N8). A form sign-up waits for its emailed link before
+    # its first login (signup_pending=1 until the email is confirmed, SEC-8).
+    ("users", "session_version", "INTEGER NOT NULL DEFAULT 0"),
+    ("users", "signup_pending", "INTEGER NOT NULL DEFAULT 0"),
     # free-month codes (compcodes.py): the plan, when it ends, when the next month's credits land
     ("workspaces", "comp_plan", "TEXT"),
     ("workspaces", "comp_until", "TEXT"),
@@ -641,6 +646,12 @@ def connect():
 
 
 def init():
+    """Create and upgrade the schema in place. Runs on every boot, and the deploy hook's
+    side container runs it against the live database before the switch (N3): a rollback
+    puts back the old image, never the old schema. So migrations are additive only: new
+    tables, new columns (COLUMNS) and backfills of new columns. Never drop, rename or
+    retype a column, or drop a table; old code must keep working on the new schema.
+    tests/test_migrations.py fails on a migration that would."""
     with connect() as conn:
         _backup_before_schema_change(conn)
         conn.executescript(SCHEMA)

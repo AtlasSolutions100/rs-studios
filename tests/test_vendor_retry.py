@@ -27,6 +27,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 TMP = tempfile.mkdtemp(prefix="rs_retry_")
+os.environ.setdefault("RS_SIGNUP_CONFIRM", "0")  # sign-ups here go straight in; test_login.py checks the emailed-link step
 os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret", RS_PLAN_SYNC="0", RS_EMAIL_VERIFY="0",
                   RS_ACCESS_LOG="0", RS_JOB_RETRY_SECONDS="30")
 for k in ("HF_RETRY", "RS_JOB_CANCEL", "OPS_ALERT_EMAIL"):

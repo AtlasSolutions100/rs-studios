@@ -15,6 +15,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 TMP = tempfile.mkdtemp(prefix="rs_events_")
+os.environ.setdefault("RS_SIGNUP_CONFIRM", "0")  # sign-ups here go straight in; test_login.py checks the emailed-link step
 os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret", RS_PLAN_SYNC="0", RS_EMAIL_VERIFY="0",
                   STRIPE_SECRET_KEY="sk_test_fake", STRIPE_WEBHOOK_SECRET="whsec_test_only", RS_CAPI_SYNC="1")
 for k in ("META_PIXEL_ID", "TIKTOK_PIXEL_ID", "REDDIT_PIXEL_ID", "X_PIXEL_ID", "META_CAPI_TOKEN", "TIKTOK_EVENTS_TOKEN",

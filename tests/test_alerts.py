@@ -3,7 +3,9 @@ on a throwaway database with the mail API and the vendor faked.
 
 What it pins down:
   * /health reads and writes the database and checks the worker heartbeat: a
-    stale heartbeat, a dead worker thread or a broken database gives 503;
+    heartbeat over 180 s old, a dead worker thread or a broken database gives 503;
+    a long vendor call keeps beating (busy()), and a new process is judged by its
+    own worker thread, not the old container's last beat (N2);
   * each alert condition fires (worker down, stuck jobs, webhook signature
     failures, vendor errors, disk low, backup late, refund and dispute) and only
     then; one email per key per hour, repeats counted into the next one;
@@ -124,10 +126,15 @@ set_beat(5)
 r = c.get("/health")
 check(r.status_code == 200 and r.get_json()["checks"]["worker"]["status"] == "ok", "fresh heartbeat: 200")
 
-set_beat(45)
+set_beat(90)
+r = c.get("/health")
+check(r.status_code == 200 and r.get_json()["checks"]["worker"]["status"] == "ok",
+      "a heartbeat 90 s old (one slow vendor call) is still ok: the limit is 180 s (N2)")
+
+set_beat(200)
 r = c.get("/health")
 check(r.status_code == 503 and r.get_json()["checks"]["worker"]["status"] == "late",
-      "heartbeat older than 30 s: 503 late")
+      "heartbeat older than 180 s: 503 late")
 check(not sent, "a late worker under 5 minutes doesn't email yet")
 
 set_beat(400)
@@ -155,6 +162,68 @@ try:
     check(any("worker isn't running" in s for s in subjects()), "a dead worker thread alerts at once")
 finally:
     worker._thread = None
+
+print("== heartbeat during long calls; a new container isn't judged by the old one's beat (N2)")
+
+
+class LiveThread:
+    def is_alive(self):
+        return True
+
+
+reset()
+set_beat(3000)   # the previous container's last beat, left in the shared database
+_real_beat_at, _real_started = alerts._beat["at"], alerts.STARTED
+alerts._beat["at"] = 0.0
+alerts.STARTED = time.time()
+worker._thread = LiveThread()
+try:
+    r = c.get("/health")
+    check(r.status_code == 200 and r.get_json()["checks"]["worker"]["status"] == "starting",
+          "a just-started process with a live worker thread and a stale beat in the database: 200 starting")
+    alerts.STARTED = time.time() - 170
+    r = c.get("/health")
+    check(r.status_code == 200, "still starting 170 s in (the deploy hook waits 120 s after the switch)")
+    alerts.STARTED = time.time() - 400
+    r = c.get("/health")
+    check(r.status_code == 503 and r.get_json()["checks"]["worker"]["status"] == "no heartbeat",
+          "a live thread that never beat after 400 s: 503")
+    alerts._beat["at"] = time.time() - 200
+    r = c.get("/health")
+    check(r.status_code == 503 and r.get_json()["checks"]["worker"]["status"] == "late",
+          "its own beat 200 s old: late (a hung loop still fails)")
+    alerts._beat["at"] = time.time() - 5
+    set_beat(3000)
+    r = c.get("/health")
+    check(r.status_code == 200, "a process with its own worker goes by its own beats, not the database's")
+finally:
+    worker._thread = None
+    alerts._beat["at"], alerts.STARTED = _real_beat_at, _real_started
+
+import threading  # noqa: E402
+
+reset()
+alerts._beat["at"] = time.time() - 170
+worker._thread = threading.current_thread()   # pretend this thread is the worker loop
+try:
+    with alerts.busy("vendor submit"):
+        check(alerts._busy["what"] == "vendor submit" and alerts._ticker[0] is not None,
+              "busy() marks the call and starts the side ticker")
+        alerts._beat["at"] = time.time() - 170
+        check(alerts.busy_tick() and time.time() - alerts._beat["at"] < 2, "the ticker beats while the call runs")
+        state = alerts.worker_state(db.connect())
+        check(state["ok"] and state["busy"] == "vendor submit" and state["busy_s"] >= 0,
+              "/health says which call is in progress and for how long")
+        alerts._busy["since"] = time.time() - 1000
+        alerts._beat["at"] = time.time() - 300
+        check(not alerts.busy_tick() and time.time() - alerts._beat["at"] > 200,
+              "past RS_HEALTH_BUSY_MAX_S (900 s) the ticker stops, so a stuck call shows as late")
+    check(alerts._busy["depth"] == 0 and not alerts._busy["since"] and time.time() - alerts._beat["at"] < 2,
+          "leaving busy() beats once and clears the mark")
+finally:
+    worker._thread = None
+with alerts.busy("web request"):
+    check(alerts._busy["depth"] == 0, "outside the worker thread busy() does nothing")
 
 reset()
 _real_connect = alerts.db.connect

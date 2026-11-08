@@ -12,6 +12,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 TMP = tempfile.mkdtemp(prefix="rs_test_")
+os.environ.setdefault("RS_SIGNUP_CONFIRM", "0")  # sign-ups here go straight in; test_login.py checks the emailed-link step
 import hashlib  # noqa: E402
 import json  # noqa: E402
 OWNER_CODE, OWNER2_CODE = "owner-code-koby", "owner-code-travis"
@@ -3215,3 +3216,5 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_audit_gate.py")], check=True)
     # Off-site backups and the restore drill (backup.py, tools/restore.sh): rclone faked by tests/fake_rclone.sh.
     subprocess.run([sys.executable, os.path.join(HERE, "test_backup.py")], check=True)
+    # Migrations stay additive (N3): no column dropped, renamed or retyped; an old database upgrades in place.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_migrations.py")], check=True)
