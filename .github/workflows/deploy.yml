@@ -62,6 +62,15 @@ name: Deploy Campaignify (campaignify.ai)
 #   TIKTOK_EVENTS_TOKEN    TikTok Events API access token (pixel > Settings)
 #   REDDIT_CAPI_TOKEN      Reddit Conversions API access token
 #   META_TEST_EVENT_CODE / TIKTOK_TEST_EVENT_CODE   optional variables: send server events to the test tools
+#   Creator Pools (creator_pools.py): brands fund pools that Crowdcut clippers earn from.
+#   POOLS_PARTNER_SECRET   secret shared with the clipforgd repo (same value in both): signs the
+#                          server-to-server calls. Unset: pools can't be paid for or go live
+#   CREATOR_POOLS          optional variable: "on" shows Creator Pools to every workspace; default
+#                          "off" = admins and the operator's own workspaces only
+#   CREATOR_POOL_FEE_USD   optional variable: the flat fee per campaign (default 99)
+#   CREATOR_POOL_MIN_USD   optional variable: the smallest pool (default 200)
+#   CREATOR_POOL_MAX_USD   optional variable: the largest pool (default 10000)
+#   CROWDCUT_URL           optional variable, default https://crowdcut.studio
 # A secret or variable that isn't set is simply not sent, so the server keeps
 # whatever it already has.
 on:
@@ -147,6 +156,12 @@ jobs:
           REDDIT_CAPI_TOKEN: ${{ secrets.REDDIT_CAPI_TOKEN }}
           META_TEST_EVENT_CODE: ${{ vars.META_TEST_EVENT_CODE }}
           TIKTOK_TEST_EVENT_CODE: ${{ vars.TIKTOK_TEST_EVENT_CODE }}
+          POOLS_PARTNER_SECRET: ${{ secrets.POOLS_PARTNER_SECRET }}
+          CREATOR_POOLS: ${{ vars.CREATOR_POOLS || 'off' }}
+          CREATOR_POOL_FEE_USD: ${{ vars.CREATOR_POOL_FEE_USD }}
+          CREATOR_POOL_MIN_USD: ${{ vars.CREATOR_POOL_MIN_USD }}
+          CREATOR_POOL_MAX_USD: ${{ vars.CREATOR_POOL_MAX_USD }}
+          CROWDCUT_URL: ${{ vars.CROWDCUT_URL }}
         run: |
           git archive --format=tar.gz -o /tmp/app.tgz HEAD
           python3 - <<'PY'
@@ -165,7 +180,9 @@ jobs:
                                              "META_PIXEL_ID", "TIKTOK_PIXEL_ID", "REDDIT_PIXEL_ID", "X_PIXEL_ID",
                                              "X_EVENT_SIGNUP", "X_EVENT_PURCHASE", "X_EVENT_VIEWCONTENT",
                                              "META_CAPI_TOKEN", "TIKTOK_EVENTS_TOKEN", "REDDIT_CAPI_TOKEN",
-                                             "META_TEST_EVENT_CODE", "TIKTOK_TEST_EVENT_CODE")
+                                             "META_TEST_EVENT_CODE", "TIKTOK_TEST_EVENT_CODE",
+                                             "POOLS_PARTNER_SECRET", "CREATOR_POOLS", "CREATOR_POOL_FEE_USD",
+                                             "CREATOR_POOL_MIN_USD", "CREATOR_POOL_MAX_USD", "CROWDCUT_URL")
                       if os.environ.get(k)}
           print("settings sent:", ", ".join(settings) or "none")
           body = {"commit": os.environ["GITHUB_SHA"], "settings": settings,

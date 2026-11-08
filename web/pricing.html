@@ -16,6 +16,20 @@
     <p class="small muted">Want the detail behind each plan? See <a href="{{ url_for('features') }}">every feature, step by step</a>.</p>
   </div>
 </section>
+{% if creator_pools %}
+<section class="lp-sec" id="creator-pools">
+  <div class="lp-wrap">
+    <h2 class="lp-h2">Creator Pools</h2>
+    <p class="lp-sub muted">Pay independent creators on Crowdcut for real views. They cut your videos, clip your streams or film their own, and post from their own accounts with #ad. You approve each post, Crowdcut checks the views, and creators are paid from your pool per 1,000 verified views.</p>
+    <ul class="small">
+      <li>{{ creator_pools.fee }} per campaign, plus your pool (from {{ creator_pools.min_pool }}). 100% of the pool goes to creators.</li>
+      <li>You set the rate per 1,000 views, the caps per post and per creator, and how long it runs.</li>
+      <li>What's left when it ends is refunded within {{ creator_pools.refund_days }} days. The fee isn't refunded.</li>
+      <li>Views and sales aren't guaranteed. Creators are independent Crowdcut users.</li>
+    </ul>
+  </div>
+</section>
+{% endif %}
 <section class="lp-sec" id="faq">
   <div class="lp-wrap lp-faq">
     <div>

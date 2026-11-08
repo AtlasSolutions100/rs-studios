@@ -1,0 +1,31 @@
+{% extends "base.html" %}{% block title %}Creator Pools · Admin · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+<p class="eyebrow"><a href="{{ url_for('admin') }}">Admin</a></p><h1>Creator <span class="gold">Pools</span></h1>
+<p class="muted">Brands' paid pools on Crowdcut. Fee {{ fee }} per campaign (CREATOR_POOL_FEE_USD). Link to Crowdcut: <b>{{ 'connected' if connected else 'not connected (POOLS_PARTNER_SECRET is not set)' }}</b> · visible to <b>{{ 'every workspace' if public else 'admins and operator workspaces only (CREATOR_POOLS is not "on")' }}</b>.</p>
+<p class="small muted">Creators are paid by hand from Crowdcut's /admin/pools after the brand approves and you check the views. Unspent pool money is refunded here, only when you press a button: Refund via Stripe sends a partial refund on the pool's payment; Mark refunded records one you sent another way. Refund within {{ refund_days }} days of the end. The fee is kept.</p>
+<div class="panel scrollx">
+<table>
+  <tr><th>Pool</th><th>Workspace</th><th>Status</th><th>Paid</th><th>Spent / left</th><th>Waiting</th><th>Refund</th><th></th></tr>
+  {% for p in pools %}
+  <tr><td><b>{{ p.title }}</b><br><span class="small dim">#{{ p.id }} · {{ p.brand }}</span>{% if p.sync_error %}<br><span class="small" style="color:var(--bad,#e66)">Crowdcut: {{ p.sync_error }}</span>{% endif %}</td>
+    <td class="small">{{ p.ws_name }} (#{{ p.workspace_id }})</td>
+    <td class="small">{{ p.status_text }}{% if p.ended_at %}<br>ended {{ p.ended_at[:10] }}{% endif %}</td>
+    <td class="small">{{ p.total_text if p.paid_at else 'no' }}{% if p.paid_at %}<br>{{ p.paid_at[:10] }}{% endif %}</td>
+    <td class="small">{{ p.spent_text }} / {{ p.left_text }}</td>
+    <td class="small">{{ p.pending }}</td>
+    <td class="small">{% if p.refund %}{{ money(p.refund.amount_cents) }} · {{ p.refund.status }}{% if p.refund.method %} ({{ p.refund.method }}){% endif %}{% endif %}</td>
+    <td><form method="post" style="display:flex;gap:6px;flex-wrap:wrap"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="pool" value="{{ p.id }}">
+      {% if p.status in ('live', 'paused', 'ended') %}<button class="btn dark sm" name="action" value="sync">Sync</button>{% endif %}
+      {% if p.status == 'paid' or p.sync_error %}<button class="btn dark sm" name="action" value="push">Push to Crowdcut</button>{% endif %}
+      {% if p.status in ('live', 'paused') %}<button class="btn dark sm" name="action" value="end" data-confirm="End this pool for the brand?">End</button>{% endif %}
+      {% if p.refund and p.refund.status == 'due' %}
+        <button class="btn sm" name="action" value="refund_stripe" data-confirm="Refund {{ money(p.refund.amount_cents) }} to the brand through Stripe?">Refund {{ money(p.refund.amount_cents) }} via Stripe</button>
+        <input type="text" name="reference" maxlength="120" placeholder="Reference (by hand)" aria-label="Reference" style="width:150px">
+        <button class="btn dark sm" name="action" value="refund_hand">Mark refunded</button>
+      {% endif %}</form></td></tr>
+  {% else %}<tr><td colspan="8" class="dim">No pools yet.</td></tr>{% endfor %}
+</table>
+</div>
+</div>
+{% endblock %}

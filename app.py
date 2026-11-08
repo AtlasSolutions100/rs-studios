@@ -143,6 +143,8 @@ NAV_GROUPS = [
         ("forms.contacts", "Contacts", "contacts", "forms", ("forms.contacts", "forms.contact")),
         ("community.admin", "Community", "community", "community", ("community.admin", "community.course_edit",
                                                                      "community.lesson_edit")),
+        # Creator Pools (creator_pools.py): shown only where creator_pools.visible() (the CREATOR_POOLS flag)
+        ("cpools.index", "Creator Pools", "creators", None, ("cpools.index", "cpools.show")),
     ]),
     ("Launch", [
         ("adhub.index", "Ad accounts", "adhub", "adhub", ("adhub.index", "adhub.platform", "adhub.export_page")),
@@ -247,7 +249,8 @@ def _verify_banner():
 
 
 CSRF_EXEMPT = {"static", "stripe_webhook", "site_event", "forms.public", "messaging.resend_webhook", "messaging.unsubscribe",
-               "sms.inbound", "sms.status"}  # public forms carry their own signed token
+               "sms.inbound", "sms.status",
+               "cpools.partner_asset_url", "cpools.partner_event"}  # Crowdcut's server calls, HMAC-signed (creator_pools.py)  # public forms carry their own signed token
 
 
 @app.before_request
@@ -291,7 +294,7 @@ def load_user():
 # What an admin may still POST while viewing another workspace (everything else
 # is read-only there): leaving the view and signing out. /admin* routes act on
 # explicit workspace ids, so they stay open too.
-VIEW_WRITE_OK = {"admin_view_exit", "logout"}
+VIEW_WRITE_OK = {"admin_view_exit", "logout", "cpools.admin_page"}
 
 
 @app.after_request
@@ -560,7 +563,11 @@ def for_reps():
 
 @app.route("/pricing")
 def pricing():
-    return render_template("pricing.html", faq=public_site.pricing_faq())
+    cpools = None
+    if creator_pools.public() and creator_pools.connected():
+        cpools = {"fee": creator_pools.money(creator_pools.fee_cents()),
+                  "min_pool": creator_pools.money(creator_pools.min_pool_cents()), "refund_days": creator_pools.REFUND_DAYS}
+    return render_template("pricing.html", faq=public_site.pricing_faq(), creator_pools=cpools)
 
 
 def solution(slug):
@@ -1758,6 +1765,11 @@ def stripe_webhook():
     if typ in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
         if obj.get("mode") == "subscription":
             return _plan_checkout_completed(obj)
+        meta = obj.get("metadata") or {}
+        if meta.get("app") == billing.APP_TAG and meta.get("kind") == "creator_pool":
+            with db.connect() as conn:
+                out = creator_pools.paid(conn, obj)
+            return jsonify(out), (400 if out.get("error") else 200)
         return _pack_paid(obj)
     if typ == "invoice.paid":
         return _plan_invoice_paid(obj)
@@ -2352,6 +2364,8 @@ import pages_routes  # noqa: E402
 import forms_routes  # noqa: E402
 import community_routes  # noqa: E402
 import share_routes  # noqa: E402
+import creator_pool_routes  # noqa: E402
+import creator_pools  # noqa: E402
 import google_auth  # noqa: E402
 
 app.register_blueprint(product_routes.bp)
@@ -2374,7 +2388,24 @@ app.register_blueprint(pages_routes.bp)
 app.register_blueprint(forms_routes.bp)
 app.register_blueprint(community_routes.bp)
 app.register_blueprint(share_routes.bp)
-app.jinja_env.globals["has_endpoint"] = lambda name: name in app.view_functions
+app.register_blueprint(creator_pool_routes.bp)
+
+
+def _has_endpoint(name) -> bool:
+    """A nav item shows when its page exists; Creator Pools also needs creator_pools.visible() (the flag)."""
+    if name not in app.view_functions:
+        return False
+    if name.startswith("cpools."):
+        if g.get("ws") is None:
+            return False
+        if "cpools_visible" not in g:
+            with db.connect() as conn:
+                g.cpools_visible = creator_pools.visible(conn, g.ws, g.user)
+        return g.cpools_visible
+    return True
+
+
+app.jinja_env.globals["has_endpoint"] = _has_endpoint
 app.jinja_env.globals.update(faq_answer=public_site.answer_html, solution_links=lambda: public_site.SOLUTION_ORDER,
                              solution_nav=lambda slug: public_site.SOLUTIONS[slug]["nav"], basket=public_site.basket,
                              related_cards=public_site.related_cards, footer_groups=public_site.footer_groups)
