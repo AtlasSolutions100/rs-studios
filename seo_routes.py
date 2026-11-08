@@ -2,11 +2,12 @@
 import json
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
 
+import credits as credit_holds
 import db
 import fetcher
 import llm
 import seo
-from core import brand, can_afford, charge_ai, feature_required, not_enough, picked_product
+from core import brand, can_afford, feature_required, not_enough, picked_product, reserve_ai
 
 bp = Blueprint("seo", __name__)
 FETCHES_PER_HOUR = 30
@@ -41,18 +42,25 @@ def index():
             return redirect(url_for("seo.index"))
         b = brand(picked_product())
         usage = llm.Usage()
-        sug = None
+        sug, hold = None, None
         if use_ai:
+            hold = reserve_ai(seo.suggest_estimate(), "AI SEO suggestions")    # held before the call (credits.py)
+            if hold is None:
+                flash("Not enough credits left for the AI suggestions, so here's the audit on its own.")
+        if hold is not None:
             try:
                 sug = seo.suggest(page, report, b, goal, usage)
             except llm.LLMError as e:
                 flash(f"The AI suggestions didn't finish ({e}); here's the audit.")
+            except Exception:
+                credit_holds.release(hold, "the suggestions crashed")
+                raise
         out = {"page": {k: page[k] for k in ("url", "title", "description", "canonical", "lang", "words", "images",
                                              "images_no_alt", "jsonld_types", "internal_links", "external_links")},
                "headings": page["headings"][:40], "report": report, "extras": extras, "suggest": sug,
                "jsonld": seo.jsonld(page, sug, b), "llms_txt": seo.llms_txt(page, sug, b)}
         with db.connect() as conn:
-            credits = charge_ai(conn, usage.credits, "AI SEO suggestions") if usage.calls else 0
+            credits = credit_holds.settle(hold, usage.credits if usage.calls else 0)
             rid = conn.execute("INSERT INTO copy_runs (workspace_id, user_id, brand_id, kind, platform, input_json, "
                                "output_json, credits, cost_usd, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
                                (g.ws["id"], g.user["id"], g.ws["brand_id"], "seo", None,

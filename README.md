@@ -311,6 +311,18 @@ the worker removes temp leftovers (`*.part.mp4`, `*.wm.mp4` over an hour old) an
 `RS_EXPORT_KEEP_DAYS` (7) days (they're made again on the next download); with `RS_STORAGE_PURGE_DELETED=1` (off
 by default) it also removes the files of ads deleted over 30 days ago. Tests: `tests/test_storage.py`.
 
+## Credit holds for AI runs (`credits.py`)
+
+Every AI run takes the most it can cost out of the balance before the provider is called: the planner its cap,
+competitor research its quote, copy, optimizer, landing page copy, flow drafts, SEO suggestions, product import and
+Create's angles, scripts and shorten their quotes, a paid setup guide reply its estimate. Too little left: refused
+(402 for the JSON endpoints, a message on the forms) and nothing is called. When the run ends it keeps what it used
+(never more than the hold) and gives the rest back, pack credits first. Two runs at once can't spend the same
+credits. The ledger shows each step: "held up to N", "used X, Y back", "nothing used, N back" (`ledger.hold_id`
+ties them to the `credit_holds` row). A run whose thread dies gives its hold back when it's marked failed; any hold
+older than 30 minutes is given back by the worker. Generation jobs already take their exact price when queued and
+are refunded on failure. `CREDIT_HOLDS=off` goes back to charging after the run. Tests: `tests/test_credit_holds.py`.
+
 ## Pieces
 
 - `app.py` routes and pages (`web/`: `landing.html`, `privacy.html`, `terms.html` for the public site), `static/style.css`

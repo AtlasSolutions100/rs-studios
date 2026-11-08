@@ -6,6 +6,7 @@ import uuid
 
 from flask import Blueprint, abort, flash, g, has_request_context, jsonify, redirect, render_template, request, url_for
 
+import credits as credit_holds
 import db
 import fetcher
 import llm
@@ -13,7 +14,7 @@ import plans
 import product_import
 import products
 import storage
-from core import MAX_PHOTO_MB, PHOTO_TYPES, UPLOADS, can_afford, charge_ai, login_required, not_enough, save_upload
+from core import MAX_PHOTO_MB, PHOTO_TYPES, UPLOADS, can_afford, login_required, not_enough, reserve_ai, save_upload
 
 bp = Blueprint("products", __name__)
 IMPORTS_PER_HOUR = 30   # product-page imports per workspace (each one fetches a member-supplied URL)
@@ -313,16 +314,22 @@ def read_store(url):
 
 
 def _ai_read(conn, facts, use_ai):
+    """The AI read of an imported page: its quote is held first (credits.py); with
+    too little left the import goes ahead without it."""
     ai, charged = None, 0
     if use_ai and llm.anthropic_ready():
+        hold = reserve_ai(product_import.estimate(), "AI product import", conn=conn)
+        if hold is None:
+            return None, 0
         usage = llm.Usage()
         try:
             ai = product_import.suggest(facts, usage)
         except llm.LLMError:
             ai = None
-        if usage.calls:
-            charged = charge_ai(conn, usage.credits, "AI product import")
-            conn.commit()
+        except Exception:
+            credit_holds.release(hold, "the read crashed")
+            raise
+        charged = credit_holds.settle(hold, usage.credits if usage.calls else 0)
     return ai, charged
 
 

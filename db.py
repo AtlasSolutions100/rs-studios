@@ -492,6 +492,17 @@ CREATE TABLE IF NOT EXISTS creator_pool_refunds (
     id INTEGER PRIMARY KEY AUTOINCREMENT, pool_id INTEGER NOT NULL UNIQUE, workspace_id INTEGER NOT NULL,
     amount_cents INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'due', method TEXT, stripe_refund_id TEXT,
     reference TEXT, created_at TEXT NOT NULL, updated_at TEXT, done_at TEXT, done_by INTEGER);
+CREATE TABLE IF NOT EXISTS credit_holds (           -- credits.py: an AI run's credits taken before it runs
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    amount INTEGER NOT NULL,                 -- the most the run can cost (its quote or cap)
+    plan_part INTEGER NOT NULL DEFAULT 0,    -- how much of it came from the plan bucket
+    label TEXT, ref TEXT,                    -- ledger wording; the run it pays for ("competitor:12")
+    status TEXT NOT NULL DEFAULT 'held',     -- held | settled | released
+    charged INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_holds_status ON credit_holds(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_holds_ref ON credit_holds(ref);
 CREATE TABLE IF NOT EXISTS stripe_events (
     id TEXT PRIMARY KEY, type TEXT, received_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS credit_reversals (
@@ -528,6 +539,7 @@ COLUMNS = [
     ("invites", "created_by", "INTEGER"),
     ("jobs", "priority", "INTEGER NOT NULL DEFAULT 0"),
     ("ledger", "plan_delta", "INTEGER NOT NULL DEFAULT 0"),
+    ("ledger", "hold_id", "INTEGER"),          # credit_holds row a reserve/settle/release row belongs to (credits.py)
     # brands & products (products_v1)
     ("workspaces", "product_id", "INTEGER"),
     ("brands", "product_id", "INTEGER"),

@@ -258,8 +258,13 @@ check(rep_row["credits"] == expected and expected > 0, f"charged what it cost ({
 check(abs(rep_row["usd_cost"] - round(mirror.usd, 5)) < 1e-6 and mirror.web_searches == 2, "USD cost includes the 2 searches")
 check(db.balance(ws_of("a@example.com")) == 5000 - expected, "workspace balance went down by that")
 with db.connect() as conn:
-    led = conn.execute("SELECT * FROM ledger WHERE workspace_id=? ORDER BY id DESC LIMIT 1", (wa["id"],)).fetchone()
-check(led["delta"] == -expected and led["reason"] == "Competitor research", "ledger row for the charge")
+    led = conn.execute("SELECT * FROM ledger WHERE workspace_id=? ORDER BY id DESC LIMIT 2", (wa["id"],)).fetchall()
+    hold = conn.execute("SELECT * FROM credit_holds WHERE id=?", (led[0]["hold_id"],)).fetchone()
+check(led[1]["delta"] == -q[1] and led[1]["reason"] == f"Competitor research: held up to {q[1]:,}"
+      and led[0]["delta"] == q[1] - expected and led[0]["reason"].startswith(f"Competitor research: used {expected}"),
+      "ledger: the quote held before the run, the unused part back after it")
+check(hold["status"] == "settled" and hold["charged"] == expected and hold["ref"] == f"competitor:{rep_row['id']}"
+      and led[1]["hold_id"] == hold["id"], "the hold is settled at what it cost and tied to the run")
 check(expected <= q[1], "never more than the estimate shown")
 
 print("== the report page")

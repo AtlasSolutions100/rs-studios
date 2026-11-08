@@ -190,8 +190,19 @@ def picked_product():
     return p["id"]
 
 
+def reserve_ai(quote: int, label: str, ref=None, conn=None):
+    """Hold the most an AI call can cost before it runs (credits.py). Raises
+    BillingHold (402) on a billing hold; None when the balance can't cover it,
+    so the provider is never called. Settle with credits.settle(hold, used)."""
+    import credits
+    hold_check()
+    return credits.reserve(g.ws["id"], quote, label, ref=ref, conn=conn)
+
+
 def charge_ai(conn, credits: int, reason: str) -> int:
-    """Take what an AI call actually cost (at most what's left). Returns credits taken."""
+    """Take what an AI call actually cost (at most what's left). Returns credits taken.
+    Only for calls with no quote to hold (the setup guide past its free replies);
+    everything else reserves first (reserve_ai)."""
     if credits <= 0:
         return 0
     have = db.balance(conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone())

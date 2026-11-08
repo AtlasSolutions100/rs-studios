@@ -6,11 +6,12 @@ from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template
 
 import catalog
 import compliance
+import credits as credit_holds
 import db
 import llm
 import planner
 import platforms
-from core import brand, can_afford, feature_required, picked_product, queue_job
+from core import brand, can_afford, feature_required, picked_product, queue_job, reserve_ai
 
 bp = Blueprint("campaigns", __name__)
 MAX_RUNNING = 2   # planning runs at once per workspace
@@ -25,18 +26,29 @@ def _get(cid):
 
 
 def _unstale(c):
-    """A run whose thread died (deploy, restart) shows as failed instead of spinning forever."""
+    """A run whose thread died (deploy, restart) shows as failed instead of spinning forever;
+    the credits held for it go back."""
     if c["status"] != "planning":
         return c
     cutoff = (datetime.now(timezone.utc) - timedelta(minutes=planner.STALE_MINUTES)).replace(microsecond=0).isoformat()
     if c["updated_at"] < cutoff:
         with db.connect() as conn:
-            conn.execute("UPDATE campaigns SET status=?, error='The planning run was interrupted. Revise to run it "
-                         "again.' WHERE id=? AND status='planning'",
-                         ("ready" if json.loads(c["plan_json"] or "{}").get("angles") else "failed", c["id"]))
+            gone = conn.execute("UPDATE campaigns SET status=?, error='The planning run was interrupted. Revise to run "
+                                "it again.' WHERE id=? AND status='planning'",
+                                ("ready" if json.loads(c["plan_json"] or "{}").get("angles") else "failed",
+                                 c["id"])).rowcount
             conn.commit()
             c = conn.execute("SELECT * FROM campaigns WHERE id=?", (c["id"],)).fetchone()
+        if gone:
+            credit_holds.release_ref(f"campaign:{c['id']}", "the planning run was interrupted")
     return c
+
+
+def _no_room():
+    with db.connect() as conn:
+        have = db.balance(conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone())
+    flash(f"Planning can use up to {planner.cap_credits()} credits (you pay what it actually uses) and you have "
+          f"{have:,}. Top up on the Billing page.")
 
 
 def _ready_to_plan():
@@ -44,8 +56,7 @@ def _ready_to_plan():
         flash("The campaign planner isn't switched on yet. Nothing was charged.")
         return False
     if not can_afford(planner.cap_credits()):
-        flash(f"Planning can use up to {planner.cap_credits()} credits (you pay what it actually uses) and you have "
-              f"{db.balance(g.ws):,}. Top up on the Billing page.")
+        _no_room()
         return False
     with db.connect() as conn:
         running = conn.execute("SELECT COUNT(*) FROM campaigns WHERE workspace_id=? AND status='planning' AND updated_at>?",
@@ -77,6 +88,10 @@ def index():
             return redirect(url_for("campaigns.index"))
         if not _ready_to_plan():
             return redirect(url_for("campaigns.index"))
+        hold = reserve_ai(planner.cap_credits(), "AI campaign planning")    # held before the run (credits.py)
+        if hold is None:
+            _no_room()
+            return redirect(url_for("campaigns.index"))
         with db.connect() as conn:
             prow = conn.execute("SELECT * FROM products WHERE id=? AND workspace_id=?", (pid or 0, g.ws["id"])).fetchone()
             cid = conn.execute("INSERT INTO campaigns (workspace_id, user_id, brand_id, name, brief_json, status, plan_json, "
@@ -85,7 +100,8 @@ def index():
                                 brief["offer"][:80], json.dumps(brief), "planning", "{}", "[]", db.now(), db.now(),
                                 prow["id"] if prow else None)).lastrowid
             conn.commit()
-        planner.start(cid)
+        credit_holds.link(hold, f"campaign:{cid}")
+        planner.start(cid, hold=hold)
         return redirect(url_for("campaigns.show", cid=cid))
     with db.connect() as conn:
         rows = conn.execute("SELECT * FROM campaigns WHERE workspace_id=? ORDER BY id DESC LIMIT 50", (g.ws["id"],)).fetchall()
@@ -144,11 +160,21 @@ def revise(cid):
         return redirect(url_for("campaigns.show", cid=cid))
     if not _ready_to_plan():
         return redirect(url_for("campaigns.show", cid=cid))
+    hold = reserve_ai(planner.cap_credits(), "AI campaign planning", ref=f"campaign:{cid}")
+    if hold is None:
+        _no_room()
+        return redirect(url_for("campaigns.show", cid=cid))
     with db.connect() as conn:
+        started = conn.execute("UPDATE campaigns SET status='planning', error=NULL, updated_at=? WHERE id=? "
+                               "AND status!='planning'", (db.now(), cid)).rowcount
+        if not started:     # another revise got there first: one run at a time, this hold goes back
+            conn.commit()
+            credit_holds.release(hold, "already planning")
+            flash("It's still planning. Revise once it's done.")
+            return redirect(url_for("campaigns.show", cid=cid))
         conn.execute("DELETE FROM campaign_ads WHERE campaign_id=? AND status='proposed'", (cid,))
-        conn.execute("UPDATE campaigns SET status='planning', error=NULL, updated_at=? WHERE id=?", (db.now(), cid))
         conn.commit()
-    planner.start(cid, notes or "Make it better.")
+    planner.start(cid, notes or "Make it better.", hold=hold)
     return redirect(url_for("campaigns.show", cid=cid))
 
 
