@@ -93,7 +93,7 @@ name: Deploy Campaignify (campaignify.ai)
 #   RENEWAL_PAUSE          a failed renewal stops generation (plans.py), default on
 #   HF_RETRY               retry the generation vendor on timeouts, 429 and 5xx (hf.py), default on
 #   RS_LOGIN_HARDENING     login, sign-up and reset hardening (login_security.py), default on
-#   RS_SIGNUP_CONFIRM      a form sign-up logs in first from its emailed link (login_security.py), default on
+#   RS_SIGNUP_CONFIRM      a form sign-up logs in first from its emailed link (login_security.py), default off; set 1 to turn on
 #   RS_STORAGE_QUOTAS      storage quotas per plan (storage.py), default on
 #   RS_JOB_CANCEL          the member Cancel button on queued ads (jobs_routes.py), default off
 #   RS_STORAGE_PURGE_DELETED  remove files of ads deleted over 30 days ago (storage.py), default off

@@ -25,6 +25,7 @@ os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret", RS_PLAN_SYNC
                   RESEND_API_KEY="re_test", RS_MAIL_DOMAIN="mail.campaignify.ai", RS_PUBLIC_URL="https://campaignify.test")
 for k in ("RS_LOGIN_HARDENING", "RS_SIGNUP_CONFIRM", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "SIGNUP_CREDITS_ADS"):
     os.environ.pop(k, None)
+os.environ["RS_SIGNUP_CONFIRM"] = "1"  # the confirm-first path is off by default (Koby, Nov 8); this file tests it on
 
 import app as appmod  # noqa: E402
 import db  # noqa: E402
@@ -452,7 +453,7 @@ try:
     _, r = signup("ana@example.com", "anotherpassword")
     check(r.status_code == 200 and "Check your email" in r.get_data(as_text=True), "and a taken email still gets Check your email")
 finally:
-    os.environ.pop("RS_SIGNUP_CONFIRM")
+    os.environ["RS_SIGNUP_CONFIRM"] = "1"
 
 print("== code throttles (BILL-6)")
 o = make("owner@example.com")

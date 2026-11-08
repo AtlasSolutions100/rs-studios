@@ -17,7 +17,8 @@
     email that already has an account gets "You already have an account" instead.
     A second sign-up for an account still waiting replaces its password and sends
     a new link, so the newest sign-up is the one the inbox confirms.
-    RS_SIGNUP_CONFIRM=0 goes back to logging a new sign-up straight in.
+    RS_SIGNUP_CONFIRM=1 turns on confirm-first sign-up (off by default, Koby Nov 8: keeps the
+    paid-ad funnel one step); off, a new sign-up logs straight in.
   * Sessions carry users.session_version; a password reset bumps it, so every
     other browser logged in to that account is logged out (N8).
   * Password reset: /forgot mails a link with a random token (only its SHA-256 is
@@ -84,7 +85,7 @@ def enabled() -> bool:
 
 def confirm_first() -> bool:
     """A form sign-up waits for its emailed link before the first login (SEC-8)."""
-    return enabled() and os.environ.get("RS_SIGNUP_CONFIRM", "1").strip().lower() not in ("0", "off", "false", "no")
+    return enabled() and os.environ.get("RS_SIGNUP_CONFIRM", "0").strip().lower() in ("1", "on", "true", "yes")
 
 
 def awaiting_confirm(user) -> bool:

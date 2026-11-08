@@ -40,7 +40,7 @@ RS_MAIL_DOMAIN=mail.campaignify.ai
 # RS_EMAIL_VERIFY=1
 # A form sign-up logs in first from its emailed link, so sign-up says nothing about which emails
 # have accounts (login_security.py). 0 logs a new sign-up straight in again.
-# RS_SIGNUP_CONFIRM=1
+# RS_SIGNUP_CONFIRM=0   (1 = a form sign-up logs in first from its emailed link; off by default)
 # ---- Continue with Google (google_auth.py). The button shows on Log in and Start free only once the client
 # secret is set. The client id is public; unset, the app uses the default in google_auth.py. In Google Cloud the
 # authorized redirect URI must be RS_PUBLIC_URL + /auth/google/callback (https://campaignify.ai/auth/google/callback).
