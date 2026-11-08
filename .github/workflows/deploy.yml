@@ -93,6 +93,12 @@ name: Deploy Campaignify (campaignify.ai)
 #   META_LOGIN_CONFIG_ID   the Facebook Login for Business configuration id (secret or variable)
 #   TOKEN_KEY              the token box key: 32 random bytes, base64 (secretsbox.py). Keep a copy outside
 #                          GitHub: without it no stored ad-account token can be read
+#   TOKEN_KEYS_OLD         only while rotating TOKEN_KEY: the previous key(s), comma separated, still read.
+#                          To rotate: (1) set TOKEN_KEYS_OLD to the current TOKEN_KEY, (2) set TOKEN_KEY to a new
+#                          key, (3) deploy, (4) on the server run `python3 secretsbox.py rotate` in the app
+#                          container (re-seals every token box under the new key), (5) set TOKEN_KEYS_OLD to
+#                          "none" and deploy again (deleting it only stops sending it; the server keeps the
+#                          last value). Skipping step 1 makes every stored token unreadable (Reconnect).
 #   Kill switches and opt-ins (repo variables, N15). "0" turns one off and "1" turns it on, for each of them;
 #   unset, the app's default applies. To undo one, set it back ("1" or "0"): deleting the variable stops
 #   sending it, and the server keeps the last value it was sent.
@@ -235,6 +241,7 @@ jobs:
           META_APP_SECRET: ${{ secrets.META_APP_SECRET }}
           META_LOGIN_CONFIG_ID: ${{ secrets.META_LOGIN_CONFIG_ID || vars.META_LOGIN_CONFIG_ID }}
           TOKEN_KEY: ${{ secrets.TOKEN_KEY }}
+          TOKEN_KEYS_OLD: ${{ secrets.TOKEN_KEYS_OLD }}
           # Kill switches and opt-ins (repo variables; see the list at the top). Unset = not sent.
           BILLING_HOLD: ${{ vars.BILLING_HOLD }}
           CREDIT_HOLDS: ${{ vars.CREDIT_HOLDS }}
@@ -282,7 +289,7 @@ jobs:
                                              "R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET",
                                              "BACKUP_CRYPT_PASSWORD", "BACKUP_CRYPT_SALT",
                                              "AD_LAUNCH", "AD_LAUNCH_WORKSPACES", "AD_RATE_TIER", "META_APP_ID",
-                                             "META_APP_SECRET", "META_LOGIN_CONFIG_ID", "TOKEN_KEY",
+                                             "META_APP_SECRET", "META_LOGIN_CONFIG_ID", "TOKEN_KEY", "TOKEN_KEYS_OLD",
                                              # kill switches and opt-ins (N15)
                                              "BILLING_HOLD", "CREDIT_HOLDS", "PLAN_PENDING", "RENEWAL_PAUSE", "HF_RETRY",
                                              "RS_LOGIN_HARDENING", "RS_SIGNUP_CONFIRM", "RS_NEXT_STEPS", "RS_STORAGE_QUOTAS",

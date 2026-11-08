@@ -559,6 +559,11 @@ CREATE TABLE IF NOT EXISTS ad_connections (
     created_by INTEGER, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
     UNIQUE (workspace_id, platform, external_account_id));
 CREATE INDEX IF NOT EXISTS idx_adconn_user ON ad_connections(platform, external_user_id);
+-- Meta's deauthorize and data deletion callbacks (adconnect_routes.py, M-3): one row per request, so the
+-- status page can answer "done" for a confirmation code. The Meta user id is kept only as a hash.
+CREATE TABLE IF NOT EXISTS meta_data_requests (
+    code TEXT PRIMARY KEY, kind TEXT NOT NULL, user_hash TEXT NOT NULL, connections INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL, created_at TEXT NOT NULL, done_at TEXT);
 CREATE TABLE IF NOT EXISTS pixels (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workspace_id INTEGER NOT NULL,

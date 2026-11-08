@@ -1,0 +1,16 @@
+{% extends "auth_base.html" %}{% block title %}Data deletion request · Campaignify{% endblock %}
+{# The status page Meta's Data Deletion Request Callback links to (adconnect_routes.meta_deletion_status, M-3). #}
+{% block auth %}
+  <h2>Data deletion request</h2>
+  {% if row %}
+  <p data-deletion-status="{{ row.status }}">Confirmation code <b>{{ row.code }}</b>. Status: done on {{ row.done_at[:10] }} (UTC).</p>
+  {% if row.kind == 'deletion' %}
+  <p class="muted">We deleted what Campaignify kept from your Meta account: {{ row.connections }} connected ad account{{ '' if row.connections == 1 else 's' }}, the access tokens, and the account, Page and pixel names we read. Ads you made in Campaignify belong to the workspace that made them and are not part of this request.</p>
+  {% else %}
+  <p class="muted">You removed Campaignify on Facebook, so we deleted the access tokens for {{ row.connections }} connected ad account{{ '' if row.connections == 1 else 's' }}. Campaignify can no longer read them.</p>
+  {% endif %}
+  {% else %}
+  <p class="muted">We couldn't find a request with that code. Check the link Meta gave you.</p>
+  {% endif %}
+  <p class="small muted"><a href="{{ url_for('index') }}">Campaignify home</a></p>
+{% endblock %}
