@@ -18,7 +18,7 @@ import llm
 import platforms
 import presenter_stills
 import products
-from core import brand, can_afford, charge_ai, login_required, queue_job, verify_block, verify_json
+from core import brand, can_afford, charge_ai, hold_check, login_required, queue_job, verify_block, verify_json
 
 bp = Blueprint("create", __name__)
 MAX_BATCH = 12
@@ -632,6 +632,7 @@ def generate():
         except ConfigError as e:
             return jsonify({"error": str(e), "step": e.step}), 400
         total = sum(j["credits"] for j in jobs)
+        hold_check(conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone())
         blocked = verify_block(conn, meta["tool"], total)
         if blocked:     # video (or past the unconfirmed allowance): the page asks for the code, then sends this again
             return verify_json(blocked)

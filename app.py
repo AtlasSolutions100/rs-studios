@@ -28,6 +28,7 @@ import adoffer
 import admin_funnel
 import alerts
 import billing
+import billing_holds
 import catalog
 import compcodes
 import conversions
@@ -254,6 +255,20 @@ def _verify_banner():
                                           "box": {"email": g.user["email"], "csrf": csrf_token(),
                                                   "send": url_for("verify_code_send"),
                                                   "check": url_for("verify_code_check")}}}
+    return {}
+
+
+@app.context_processor
+def _hold_banner():
+    """A refund or dispute put this workspace on a billing hold (billing_holds.py), or its plan's
+    renewal payment failed (plans.renewal_paused): every page says so."""
+    if g.get("ws") is None or request.endpoint in (None, "static"):
+        return {}
+    why = core.hold_reason(g.ws)
+    if why == "reversal":
+        return {"hold_banner": {"message": billing_holds.HOLD_MESSAGE, "email": billing_holds.CONTACT}}
+    if why == "renewal":
+        return {"hold_banner": {"message": billing_holds.RENEWAL_MESSAGE, "billing": url_for("billing_page")}}
     return {}
 
 
@@ -1704,6 +1719,9 @@ def subscribe():
         return redirect(url_for("billing_page"))
     if _subscribed(g.ws):
         return _portal_redirect("Change your plan here. Upgrades apply right away; downgrades at your next renewal.")
+    if g.ws["plan_status"] == "pending":
+        flash("Your last checkout is still confirming its payment. Give it a minute, then refresh this page.")
+        return redirect(url_for("billing_page"))
     base = request.host_url.rstrip("/")
     promo_id = None
     if session.get("promo"):
@@ -1811,8 +1829,9 @@ def checkout():
 def stripe_webhook():
     """Credit packs (checkout.session.completed, mode=payment) and plans
     (checkout.session.completed mode=subscription, invoice.paid,
-    customer.subscription.updated/deleted). The Stripe account is shared, so
-    anything that isn't ours is ignored."""
+    customer.subscription.updated/deleted), and refunds and disputes
+    (charge.refunded, charge.dispute.created/closed: billing_holds.py). The
+    Stripe account is shared, so anything that isn't ours is ignored."""
     payload = request.get_data()
     try:
         event = billing.verify_event(payload, request.headers.get("Stripe-Signature", ""))
@@ -1821,6 +1840,44 @@ def stripe_webhook():
         return jsonify({"error": "bad signature"}), 400
     typ = event.get("type")
     obj = (event.get("data") or {}).get("object") or {}
+    # Once per Stripe event id: a retry or replay of an event we already acted
+    # on is answered without running it again. The claim is let go when the
+    # event did nothing (ignored, pending) or failed, so Stripe's retry runs it.
+    eid = event.get("id") if isinstance(event.get("id"), str) else None
+    if eid and not _claim_stripe_event(eid, typ):
+        return jsonify({"ok": True, "duplicate": True})
+    keep = False
+    try:
+        resp = app.make_response(_stripe_event(typ, obj))
+        out = resp.get_json(silent=True) or {}
+        keep = resp.status_code < 400 and not out.get("ignored") and not out.get("pending")
+        return resp
+    finally:
+        if eid and not keep:
+            _release_stripe_event(eid)
+
+
+def _claim_stripe_event(eid, typ) -> bool:
+    with db.connect() as conn:
+        cur = conn.execute("INSERT OR IGNORE INTO stripe_events (id, type, received_at) VALUES (?,?,?)",
+                           (eid, typ, db.now()))
+        conn.commit()
+    return cur.rowcount == 1
+
+
+def _release_stripe_event(eid):
+    with db.connect() as conn:
+        conn.execute("DELETE FROM stripe_events WHERE id=?", (eid,))
+        conn.commit()
+
+
+def _stripe_event(typ, obj):
+    if typ == "charge.refunded":
+        return jsonify(billing_holds.charge_refunded(obj))
+    if typ == "charge.dispute.created":
+        return jsonify(billing_holds.dispute_created(obj))
+    if typ == "charge.dispute.closed":
+        return jsonify(billing_holds.dispute_closed(obj))
     if typ in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
         if obj.get("mode") == "subscription":
             return _plan_checkout_completed(obj)
@@ -1862,6 +1919,8 @@ def _pack_paid(sess):
             return jsonify({"ok": True, "duplicate": True})
         db.adjust_credits(conn, p["workspace_id"], p["credits"],
                           f"{catalog.PACK_BY_CODE.get(p['pack'], {}).get('name', p['pack'])} pack")
+        # a refund or dispute that beat this event here (billing_holds.py)
+        billing_holds.apply_parked(conn, sess.get("payment_intent"))
         conn.commit()
         _server_purchase(conn, sess, p["workspace_id"])
         # the funnel's paid step: this purchase only just turned paid, so once per pack
@@ -1904,10 +1963,23 @@ def _plan_checkout_completed(sess):
             return jsonify({"ignored": "not a campaignify plan"})
         code = meta.get("plan") if meta.get("plan") in plans.PLANS else ws["plan"]
         customer = sess.get("customer") if isinstance(sess.get("customer"), str) else (sess.get("customer") or {}).get("id")
-        conn.execute("UPDATE workspaces SET stripe_customer_id=COALESCE(?, stripe_customer_id), "
-                     "stripe_subscription_id=COALESCE(?, stripe_subscription_id), plan=?, "
-                     "plan_status=COALESCE(plan_status, 'active') WHERE id=?",
-                     (customer, sub_id, code, ws["id"]))
+        if plans.pending_on():
+            # BILL-3: the plan switches on when its first invoice is paid (invoice.paid,
+            # or the subscription turning active), never at checkout. Until then the
+            # billing page says "Confirming payment". Already live (invoice.paid came
+            # first): left as it is.
+            conn.execute("UPDATE workspaces SET stripe_customer_id=COALESCE(?, stripe_customer_id), "
+                         "stripe_subscription_id=COALESCE(?, stripe_subscription_id), "
+                         "plan_pending=CASE WHEN plan_status IN ('active','trialing','past_due') THEN NULL ELSE ? END, "
+                         "plan_pending_at=CASE WHEN plan_status IN ('active','trialing','past_due') THEN NULL ELSE ? END, "
+                         "plan_status=CASE WHEN plan_status IN ('active','trialing','past_due') THEN plan_status "
+                         "ELSE 'pending' END WHERE id=?",
+                         (customer, sub_id, code, db.now(), ws["id"]))
+        else:
+            conn.execute("UPDATE workspaces SET stripe_customer_id=COALESCE(?, stripe_customer_id), "
+                         "stripe_subscription_id=COALESCE(?, stripe_subscription_id), plan=?, "
+                         "plan_status=COALESCE(plan_status, 'active') WHERE id=?",
+                         (customer, sub_id, code, ws["id"]))
         conn.commit()
         _server_purchase(conn, sess, ws["id"])
     return jsonify({"ok": True, "workspace": ws["id"]})
@@ -1948,18 +2020,51 @@ def _plan_invoice_paid(inv):
             granted = grant
         period_end = max([ln["period_end"] or 0 for ln in lines] or [0]) or None
         customer = inv.get("customer") if isinstance(inv.get("customer"), str) else (inv.get("customer") or {}).get("id")
+        pi = billing.invoice_payment_intent(inv)
         conn.execute("INSERT INTO plan_invoices (invoice_id, workspace_id, plan, credits, amount_cents, billing_reason, "
-                     "created_at) VALUES (?,?,?,?,?,?,?)",
-                     (inv.get("id"), ws["id"], p["code"], grant, int(inv.get("amount_paid") or 0), reason, db.now()))
+                     "created_at, payment_intent) VALUES (?,?,?,?,?,?,?,?)",
+                     (inv.get("id"), ws["id"], p["code"], grant, int(inv.get("amount_paid") or 0), reason, db.now(), pi))
         conn.execute("UPDATE workspaces SET plan=?, plan_status='active', plan_granted=?, "
-                     "plan_period_end=COALESCE(?, plan_period_end), stripe_subscription_id=COALESCE(?, stripe_subscription_id), "
+                     "plan_period_end=COALESCE(?, plan_period_end), plan_paid_through=COALESCE(?, plan_paid_through), "
+                     "plan_pending=NULL, plan_pending_at=NULL, stripe_subscription_id=COALESCE(?, stripe_subscription_id), "
                      "stripe_customer_id=COALESCE(?, stripe_customer_id) WHERE id=?",
-                     (p["code"], granted, _iso(period_end), sub_id, customer, ws["id"]))
+                     (p["code"], granted, _iso(period_end), _iso(period_end), sub_id, customer, ws["id"]))
+        billing_holds.apply_parked(conn, pi)
         conn.commit()
         if reason == "subscription_create":
             # the funnel's paid step: a plan's first invoice (this invoice id only gets here once)
             site_events.on_workspace_step(conn, "paid", ws["id"], detail=f"plan:{p['code']}", path="")
     return jsonify({"ok": True, "credited": grant, "plan": p["code"]})
+
+
+def _plan_not_billed(conn, ws, status):
+    """unpaid, paused, canceled, incomplete_expired. Nothing paid for is taken
+    back early (observation 8):
+      - a period that was paid for still runs: the plan and its credits stay to
+        its end (plans.GRACE_STATUSES); then settle_plan_lapse drops it;
+      - unpaid / paused after it (the renewal failed, Stripe keeps the
+        subscription): paused at once, plan credits kept but not spendable
+        (plans.renewal_paused), until it's paid or canceled;
+      - canceled / incomplete_expired after it: the plan ends now and its unused
+        plan credits expire (they belonged to the period that's over)."""
+    ws_id = ws["id"]
+    conn.execute("UPDATE workspaces SET plan_status=?, plan_pending=NULL, plan_pending_at=NULL"
+                 + (", plan_cancel_at_period_end=0" if status == "canceled" else "") + " WHERE id=?", (status, ws_id))
+    fresh = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+    if plans.paid_period_left(fresh):
+        conn.commit()
+        return jsonify({"ok": True, "plan": plans.plan_code(fresh), "status": status,
+                        "until": fresh["plan_paid_through"]})
+    if status in plans.RENEWAL_FAILED and plans.renewal_pause_on():
+        conn.commit()
+        return jsonify({"ok": True, "plan": plans.plan_code(fresh), "status": status, "paused": True})
+    if status in plans.RENEWAL_FAILED:      # RENEWAL_PAUSE=off: as before, the plan ends now
+        db.set_plan_credits(conn, ws_id, 0, "plan ended")
+        conn.execute("UPDATE workspaces SET plan='free', plan_granted=0, plan_cancel_at_period_end=0, "
+                     "plan_period_end=NULL WHERE id=?", (ws_id,))
+    conn.commit()
+    core.settle_plan_lapse(conn, ws_id)     # canceled / incomplete_expired (keeps a free-month code's credits)
+    return jsonify({"ok": True, "plan": "free", "status": status})
 
 
 def _plan_subscription_changed(sub, deleted=False):
@@ -1970,24 +2075,22 @@ def _plan_subscription_changed(sub, deleted=False):
         if not ws:
             return jsonify({"ignored": "not a campaignify subscription"})
         if ws["stripe_subscription_id"] and sub_id and ws["stripe_subscription_id"] != sub_id \
-                and ws["plan_status"] in plans.LIVE_STATUSES:
-            # An older subscription of this workspace ending must not cancel the current one.
+                and ws["plan_status"] in plans.LIVE_STATUSES | {"pending"}:
+            # An older subscription of this workspace ending must not cancel the current
+            # one (or the checkout that's being confirmed).
             return jsonify({"ignored": "not the workspace's current subscription"})
         status = "canceled" if deleted else (sub.get("status") or "active")
         if status == "incomplete":
             # First payment still in progress; invoice.paid switches the plan on.
             return jsonify({"ignored": "subscription incomplete"})
         if status not in plans.LIVE_STATUSES:
-            db.set_plan_credits(conn, ws["id"], 0, "plan ended")
-            conn.execute("UPDATE workspaces SET plan='free', plan_status=?, plan_granted=0, plan_cancel_at_period_end=0, "
-                         "plan_period_end=NULL WHERE id=?", (status, ws["id"]))
-            conn.commit()
-            return jsonify({"ok": True, "plan": "free"})
+            return _plan_not_billed(conn, ws, status)
         ours = [plans.BY_PRICE[pid] for pid in billing.subscription_prices(sub) if pid in plans.BY_PRICE]
         code = ours[0]["code"] if ours else ws["plan"]
         customer = sub.get("customer") if isinstance(sub.get("customer"), str) else (sub.get("customer") or {}).get("id")
         conn.execute("UPDATE workspaces SET plan=?, plan_status=?, plan_cancel_at_period_end=?, "
                      "plan_period_end=COALESCE(?, plan_period_end), stripe_subscription_id=?, "
+                     "plan_pending=NULL, plan_pending_at=NULL, "
                      "stripe_customer_id=COALESCE(?, stripe_customer_id) WHERE id=?",
                      (code, status, 1 if (sub.get("cancel_at_period_end") or sub.get("cancel_at")) else 0,
                       _iso(billing.subscription_period_end(sub)), sub_id, customer, ws["id"]))
@@ -2047,6 +2150,9 @@ def _maybe_reconcile(ws_id: int, force: bool = False) -> int:
     return _reconcile_plan(ws_id)
 
 
+PENDING_HOURS = 24
+
+
 def _reconcile_all():
     with db.connect() as conn:
         ids = [r["id"] for r in conn.execute(
@@ -2056,6 +2162,24 @@ def _reconcile_all():
             _reconcile_plan(ws_id)
         except Exception:  # noqa: BLE001
             log.exception("plan sync failed for workspace %s", ws_id)
+    _settle_plans()
+
+
+def _settle_plans():
+    """Plans whose paid period ended after a cancel drop to free, and a checkout
+    still "Confirming payment" after a day (Stripe never confirmed it) goes back
+    to what the workspace had."""
+    from datetime import datetime, timedelta, timezone
+    stale = (datetime.now(timezone.utc) - timedelta(hours=PENDING_HOURS)).replace(microsecond=0).isoformat()
+    with db.connect() as conn:
+        for r in conn.execute("SELECT id FROM workspaces WHERE plan_status IN ('canceled','incomplete_expired') "
+                              "AND plan != 'free'").fetchall():
+            core.settle_plan_lapse(conn, r["id"])
+        n = conn.execute("UPDATE workspaces SET plan_status='incomplete_expired', plan_pending=NULL, plan_pending_at=NULL "
+                         "WHERE plan_status='pending' AND plan_pending_at < ?", (stale,)).rowcount
+        conn.commit()
+    if n:
+        log.warning("plan sync: %s checkout(s) never confirmed after %s h; set back", n, PENDING_HOURS)
 
 
 def _start_plan_sync():
@@ -2105,13 +2229,15 @@ def admin():
             stills = presenter_stills.state(conn)
         sys_health = admin_funnel.health(conn)
         funnel = admin_funnel.signups(conn, 30)["totals"]
+        holds = billing_holds.holds(conn)
     vendor = json.loads(row["value"]) if row else None
     return render_template("admin.html", wss=wss, invites=invites, refs=refs, jobs=jobs, purchases=purchases,
                            billing_on=billing.configured(), vendor=vendor,
                            markup=catalog.MARKUP, hd_markup=catalog.HD_MARKUP, configured=hf.configured(),
                            base=request.host_url, stills=stills, presenters=presenter_stills.with_photos(url_for),
                            stills_cap=presenter_stills.CAP_USD,
-                           ai_status=llm.status(), health=sys_health, funnel=funnel)
+                           ai_status=llm.status(), health=sys_health, funnel=funnel, holds=holds,
+                           holds_on=billing_holds.enabled())
 
 
 @app.route("/admin/workspaces/<int:wid>/view", methods=["POST"])
@@ -2255,6 +2381,18 @@ def admin_plan():
     return redirect(url_for("admin"))
 
 
+@app.route("/admin/workspaces/<int:wid>/lift-hold", methods=["POST"])
+@admin_required
+def admin_lift_hold(wid):
+    """Lift a refund or dispute hold by hand. Voided credits stay voided (top up
+    below if they should come back)."""
+    with db.connect() as conn:
+        billing_holds.lift(conn, wid)
+        conn.commit()
+    flash(f"Hold lifted for workspace #{wid}.", "ok")
+    return redirect(url_for("admin"))
+
+
 @app.route("/admin/credits", methods=["POST"])
 @admin_required
 def admin_credits():
@@ -2263,7 +2401,7 @@ def admin_credits():
     except (KeyError, ValueError):
         abort(400)
     with db.connect() as conn:
-        if not db.adjust_credits(conn, ws_id, amount, (request.form.get("reason") or "admin top-up")[:100]):
+        if not db.adjust_credits(conn, ws_id, amount, (request.form.get("reason") or "admin top-up")[:100], hold_ok=True):
             flash("That would take the balance below zero.")
         conn.commit()
     return redirect(url_for("admin"))
@@ -2474,6 +2612,16 @@ app.jinja_env.globals["has_endpoint"] = _has_endpoint
 app.jinja_env.globals.update(faq_answer=public_site.answer_html, solution_links=lambda: public_site.SOLUTION_ORDER,
                              solution_nav=lambda slug: public_site.SOLUTIONS[slug]["nav"], basket=public_site.basket,
                              related_cards=public_site.related_cards, footer_groups=public_site.footer_groups)
+
+
+@app.errorhandler(core.BillingHold)
+def billing_hold_error(e):
+    """Something that spends credits, on a workspace with a billing hold (402)."""
+    if request.is_json or request.accept_mimetypes.best == "application/json" \
+            or request.headers.get("X-Requested-With") == "fetch":
+        return jsonify({"error": e.description, "billing_hold": True, "reason": e.reason,
+                        "email": billing_holds.CONTACT, "billing": url_for("billing_page")}), 402
+    return render_template("billing_hold.html", hold_email=billing_holds.CONTACT, reason=e.reason), 402
 
 
 @app.errorhandler(400)

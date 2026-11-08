@@ -36,6 +36,15 @@
   <form method="post" action="{{ url_for('admin_presenter_stills') }}" class="row" style="gap:8px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn sm" name="do" value="start">Make missing stills</button><button class="btn dark sm" name="do" value="collect">Check results</button></form>
 </div>
 <div class="panel scrollx">
+  <h2>Billing holds</h2>
+  <p class="small muted">A refund or dispute removes the credits that payment bought and pauses the workspace (downloads only). A dispute closed as won restores both. Automatic holds: <b>{{ 'on' if holds_on else 'off (BILLING_HOLD=off)' }}</b></p>
+  <table><tr><th>Workspace</th><th>Since</th><th>Why</th><th>Credits (plan + pack)</th><th>Reversals</th><th></th></tr>
+  {% for h in holds %}<tr><td>#{{ h.id }} {{ h.name }}</td><td>{{ h.billing_hold_at|localtime }}</td><td>{{ h.billing_hold_reason or '' }}</td><td>{{ h.plan_credits }} + {{ h.credits }}</td>
+  <td class="small">{% for r in h.reversals %}{{ r.kind }} {{ r.status }}: {{ '{:,}'.format(r.credits) }} credits, ${{ '%.2f'|format(r.amount_cents/100) }} <code>{{ r.stripe_id }}</code><br>{% endfor %}</td>
+  <td><form method="post" action="{{ url_for('admin_lift_hold', wid=h.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm" title="Voided credits stay voided; top up below if they should come back">Lift hold</button></form></td></tr>
+  {% else %}<tr><td colspan="6" class="muted">No workspaces on hold.</td></tr>{% endfor %}</table>
+</div>
+<div class="panel scrollx">
   <h2>Workspaces</h2>
   <div style="overflow-x:auto"><table><tr><th>Workspace</th><th>Plan</th><th>Members</th><th>Credits (plan + pack)</th><th>Jobs</th><th>Our cost</th><th>Credits used</th><th>Comp plan</th><th>Top up</th></tr>
   {% for w in wss %}<tr><td>#{{ w.id }} {{ w.name }}<form method="post" action="{{ url_for('admin_view_workspace', wid=w.id) }}" style="display:inline;margin-left:8px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn sm" title="Open this workspace's Library, products and campaigns, read-only">View</button></form></td><td>{{ plans.plan(w).name }}{% if w.plan_status and w.plan != 'free' %} <span class="small muted">({{ w.plan_status }})</span>{% endif %}</td><td>{{ w.members }}</td><td>{{ w.plan_credits }} + {{ w.credits }}</td><td>{{ w.jobs }}</td><td>${{ '%.2f'|format(w.cost) }}</td><td>{{ w.spent }}</td>

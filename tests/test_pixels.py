@@ -5,6 +5,7 @@ personal data reaches an ad platform. Stripe and the ad platforms are faked.
 
     python tests/test_pixels.py      (tests/test_app.py runs it too)
 """
+import hashlib
 import json
 import os
 import re
@@ -303,7 +304,9 @@ check(ctx.get("fbp") and "?" not in ctx["url"], "checkout keeps the browser cont
 
 
 def deliver(obj, typ="checkout.session.completed"):
-    body = json.dumps({"id": "evt_1", "type": typ, "data": {"object": obj}}).encode()
+    # a distinct event per payload (a retry is the same payload, so the same id: stripe_events dedupes it)
+    eid = "evt_" + hashlib.sha256(json.dumps([typ, obj], sort_keys=True).encode()).hexdigest()[:16]
+    body = json.dumps({"id": eid, "type": typ, "data": {"object": obj}}).encode()
     return client().post("/webhooks/stripe", data=body, content_type="application/json",
                          headers={"Stripe-Signature": billing.sign(body, "whsec_test_only")})
 

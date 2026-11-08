@@ -138,7 +138,9 @@ def ws_of(email):
 
 
 def stripe_event(obj, typ="checkout.session.completed"):
-    payload = json.dumps({"id": "evt_1", "type": typ, "data": {"object": obj}}).encode()
+    # a distinct event per payload (a retry is the same payload, so the same id: stripe_events dedupes it)
+    eid = "evt_" + hashlib.sha256(json.dumps([typ, obj], sort_keys=True).encode()).hexdigest()[:16]
+    payload = json.dumps({"id": eid, "type": typ, "data": {"object": obj}}).encode()
     sig = billing.sign(payload, "whsec_x")
     return client().post("/webhooks/stripe", data=payload, headers={"Stripe-Signature": sig},
                          content_type="application/json")

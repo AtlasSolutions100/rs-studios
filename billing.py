@@ -297,6 +297,34 @@ def invoice_lines(inv: dict) -> list[dict]:
     return out
 
 
+def _id(v):
+    """An expandable field's id (Stripe sends either the id or the object)."""
+    return v.get("id") if isinstance(v, dict) else v
+
+
+def invoice_payment_intent(inv: dict) -> str | None:
+    """The PaymentIntent that paid an invoice: invoice.payment_intent on older
+    API versions, invoice.payments[].payment.payment_intent on newer ones (only
+    when Stripe included it)."""
+    if inv.get("payment_intent"):
+        return _id(inv["payment_intent"])
+    for p in (inv.get("payments") or {}).get("data") or []:
+        pi = _id((p.get("payment") or {}).get("payment_intent"))
+        if pi:
+            return pi
+    return None
+
+
+def invoice_for_payment(payment_intent: str) -> str | None:
+    """The invoice a PaymentIntent paid, read from Stripe (newer API versions
+    dropped charge.invoice). None when Stripe isn't set up or it isn't an invoice's."""
+    if not payment_intent or not secret_key():
+        return None
+    rows = _get("/invoice_payments", [("payment[type]", "payment_intent"),
+                                      ("payment[payment_intent]", payment_intent), ("limit", "1")]).get("data") or []
+    return _id(rows[0].get("invoice")) if rows else None
+
+
 def subscription_prices(sub: dict) -> list[str]:
     out = []
     for item in (sub.get("items") or {}).get("data") or []:

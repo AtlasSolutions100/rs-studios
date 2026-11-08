@@ -1,0 +1,24 @@
+{% extends "base.html" %}{% block title %}Workspace paused · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <div class="panel upgrade">
+    <p class="eyebrow">Workspace paused</p>
+    <h1>Downloads only for now</h1>
+    {% if reason == 'renewal' %}
+    <p class="muted lede">Your plan's renewal payment didn't go through, so nothing new can be made until it's paid. Your credits are kept, and everything you already made is still in your library to download.</p>
+    <p>Update your card on Billing. Stripe tries the payment again, and your plan comes back as soon as it's paid.</p>
+    <div class="row" style="margin-top:20px">
+      <a class="btn" href="{{ url_for('billing_page') }}">Go to Billing</a>
+      <a class="btn dark" href="{{ url_for('library') }}">Go to your library</a>
+    </div>
+    {% else %}
+    <p class="muted lede">A payment on this workspace was refunded or disputed, so the credits it bought were removed and nothing new can be made. Everything you already made is still in your library to download.</p>
+    <p>Email us at <a href="mailto:{{ hold_email }}">{{ hold_email }}</a> to restore access.</p>
+    <div class="row" style="margin-top:20px">
+      <a class="btn" href="mailto:{{ hold_email }}">Email us</a>
+      <a class="btn dark" href="{{ url_for('library') }}">Go to your library</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
