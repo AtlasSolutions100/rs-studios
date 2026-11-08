@@ -996,6 +996,12 @@ time[data-local]{white-space:nowrap}
 .fa-kind>span:last-child{display:flex;flex-direction:column;gap:4px;min-width:0}
 .fa-kind b{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .fa-opt{margin-top:18px}
+.fa-sells{border:0;padding:0;margin:0 0 18px}.fa-sells legend{font-weight:600;margin:0 0 8px;padding:0;font-size:14px}
+.fa-site{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:10px 0 0}
+.fa-site img{height:40px;width:auto;max-width:120px;object-fit:contain;border-radius:8px;background:#fff;padding:4px;border:1px solid var(--line)}
+.fa-swatches{display:flex;gap:6px}.fa-swatches i{display:block;width:22px;height:22px;border-radius:50%;border:1px solid var(--line)}
+.kwlist{width:100%;border-collapse:collapse;font-size:14px}.kwlist td,.kwlist th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+.kwlist th{font-weight:600;color:var(--muted)}
 .fa-pres{display:flex;gap:8px;flex-wrap:wrap}
 .fa-more{margin-top:14px}.fa-more summary{cursor:pointer;color:var(--link);font-weight:600}
 .fa-go{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}

@@ -11,6 +11,8 @@ import db
 import llm
 import planner
 import platforms
+import products
+import service_path
 from core import brand, can_afford, feature_required, picked_product, queue_job, reserve_ai
 
 bp = Blueprint("campaigns", __name__)
@@ -78,10 +80,15 @@ def index():
                  (("offer", 300), ("audience", 200), ("goal", 20), ("budget", 80), ("dates", 120), ("tone", 40),
                   ("link", 300), ("notes", 1500))}
         brief["platforms"] = [p for p in f.getlist("platforms") if p in platforms.PLATFORMS][:6]
+        if service_path.on():   # M5.2: the service area (UX-16), and whether this is a service business
+            brief["area"] = (f.get("area") or "").strip()[:120]
+            with db.connect() as conn:
+                if service_path.is_service(products.get_product(conn, g.ws["id"], pid) if pid else None):
+                    brief["business"] = "service"
         if not brief["offer"]:
             flash("Say what you're promoting.")
             return redirect(url_for("campaigns.index"))
-        chk = compliance.check(brief["offer"], brief["audience"], brief["notes"])
+        chk = compliance.check(brief["offer"], brief["audience"], brief["notes"], brief.get("area") or "")
         if not chk["ok"]:
             for m in chk["blocks"]:
                 flash(m)
@@ -105,8 +112,11 @@ def index():
         return redirect(url_for("campaigns.show", cid=cid))
     with db.connect() as conn:
         rows = conn.execute("SELECT * FROM campaigns WHERE workspace_id=? ORDER BY id DESC LIMIT 50", (g.ws["id"],)).fetchall()
+        svc = service_path.on() and service_path.is_service(products.get_product(conn, g.ws["id"], pid) if pid else None)
+        site = service_path.site_info(products.get_product(conn, g.ws["id"], pid)) if svc else {}
     return render_template("campaigns.html", campaigns=[_unstale(c) for c in rows], b=brand(pid), pid=pid,
-                           cap=planner.cap_credits(), ai_on=llm.anthropic_ready())
+                           cap=planner.cap_credits(), ai_on=llm.anthropic_ready(), service_on=service_path.on(),
+                           svc=svc, area=", ".join(site.get("area") or []))
 
 
 def _ads(cid):

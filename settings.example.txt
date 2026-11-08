@@ -130,6 +130,10 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # Daily purge of the files of ads deleted over RS_PURGE_DELETED_DAYS days ago (off unless 1):
 # RS_STORAGE_PURGE_DELETED=0
 # RS_PURGE_DELETED_DAYS=30
+# ---- Service businesses (service_path.py, roadmap M5.2): the first run asks "What do you sell?"; a service imports
+# its website (name, logo, colors, 3 photos, suggested claims), makes the 2 free ads without a product photo, and
+# the planner adds a service area, a Google keyword list and the page, form and follow-up steps. Off unless 1:
+# RS_SERVICE_PATH=0
 # ---- Credit holds (credits.py): AI runs reserve their quote before calling the provider and settle after.
 # off charges after the run instead (at most what's left), as before.
 # CREDIT_HOLDS=on
