@@ -651,6 +651,171 @@ html = u.get("/app/create?type=ugc").get_data(as_text=True)
 check("data-formula" in html and "data-bar" in html and "data-one" in html and "data-many" in html and "confirm(" not in html,
       "Create shows the running total, the phone bar, make 1 first and the big-batch tick")
 
+import creator  # noqa: E402
+print("== talking scripts always fit their length")
+DURS = catalog.TOOLS["ugc_video"]["durations"]
+check(DURS == [8, 10, 15, 20, 25, 30] and catalog.TALKING_MAX_SECONDS == 30 and max(DURS) <= catalog.TALKING_MAX_SECONDS,
+      "talking videos offer 8 to 30 seconds, inside the vendor's 4 to 30")
+for d_ in DURS:
+    b_ = catalog.word_budget(d_)
+    check(b_["total"] == catalog.max_words(d_) and b_["hook"] + b_["body"] == b_["total"] and b_["hard"] >= b_["total"]
+          and b_["hook"] <= catalog.HOOK_MAX_WORDS, f"{d_}s budget: {b_['total']} words, hooks {b_['hook']}, body {b_['body']}")
+long_words = ("Honestly this is the one thing in my bag I reach for every single afternoon when the slump hits hard. "
+              "It mixes in seconds, it tastes like a real cafe coffee, and it costs a fraction of the drive-through. "
+              "I keep a pouch at my desk, one in the car and one at home so I never run out. ") * 3 + "Grab yours today."
+mode = {"tight": "long"}       # what the tightening call answers: still too long, a good fit, or an error
+script_prompts = []
+
+
+def fake_long(body):
+    name = (body.get("tool_choice") or {}).get("name")
+    use = {"model": body["model"], "usage": {"input_tokens": 1500, "output_tokens": 700}}
+    if name == "submit_script":
+        llm_bodies.append(body)
+        script_prompts.append(body["messages"][0]["content"])
+        out = {"hooks": ["I stopped paying seven dollars for my afternoon coffee and here is exactly why I did it.",
+                         "This takes thirty seconds.", "Your desk drawer needs one of these, trust me on that one, friend."],
+               "body": long_words, "on_screen": ["30 seconds"]}
+    elif name == "submit_tightened":
+        llm_bodies.append(body)
+        if mode["tight"] == "error":
+            raise llm.LLMError("busy, try again")
+        if mode["tight"] == "fit":
+            out = {"hooks": ["I quit the seven dollar coffee.", "This takes thirty seconds.", "Keep one in your drawer."],
+                   "body": "One scoop and I'm out the door. Grab yours today."}
+        else:
+            out = {"hooks": ["I stopped paying seven dollars for my afternoon coffee and here is exactly why I did it."],
+                   "body": long_words}
+    else:
+        return fake_llm2(body)
+    return dict(use, content=[{"type": "tool_use", "id": "t", "name": name, "input": out}])
+
+
+llm._anthropic = fake_long
+credits(uws, 50000)
+for tight in ("long", "fit", "error"):
+    mode["tight"] = tight
+    for d_ in DURS:
+        n_calls = len(llm_bodies)
+        r = jpost(u, "/app/create/script", {"product": gp["id"], "type": "ugc", "angle": a["angles"][0], "duration": d_, "n": 3})
+        sc_ = r.get_json()
+        lim_ = catalog.max_words(d_)
+        said_ = [len((h + " " + sc_["body"]).split()) for h in sc_["items"]]
+        ck_ = jpost(u, "/app/create/check", {"type": "ugc", "duration": d_, "items": sc_["items"], "body": sc_["body"]}).get_json()
+        q_ = jpost(u, "/app/create/quote", dict(cfg, items=sc_["items"], body=sc_["body"], duration=d_,
+                                                presenters=["maya"])).get_json()
+        check(r.status_code == 200 and sc_["items"] and all(w <= lim_ for w in said_) and ck_["ok"] and q_["count"] == len(sc_["items"])
+              and len(llm_bodies) == n_calls + 2 and sc_["body"][-1:] in ".!?" and sc_["charged"] > 0,
+              f"{d_}s, tightening answer {tight}: a too-long script is tightened once, then fits ({max(said_)}/{lim_} words)")
+    if tight == "fit":
+        check(sc_["items"][0] == "I quit the seven dollar coffee." and "One scoop" in sc_["body"],
+              "a tightened script that fits is used as the writer wrote it")
+b30 = catalog.word_budget(30)
+check(f"each hook at most {b30['hook']} words; the body at most {b30['body']} words; any hook + the body together at "
+      f"most {b30['total']} words" in script_prompts[-1] and "30-second spoken script" in script_prompts[-1],
+      "the writer gets the exact hook, body and total word limits for the length")
+check("too many" in llm_bodies[-1]["messages"][0]["content"] and "Hooks:" in llm_bodies[-1]["messages"][0]["content"],
+      "the tightening call is told how far over the script is")
+check(creator.estimate_script(False, True) > creator.estimate_script(False)
+      and boot["quote_script"] >= creator.estimate_script(False, True),
+      "the script quote covers the tightening call too")
+check(jpost(u, "/app/create/script", {"product": gp["id"], "type": "ugc", "angle": a["angles"][0], "duration": 12}).status_code == 400,
+      "a length we don't offer is refused before any AI call")
+llm._anthropic = fake_llm2
+n_calls = len(llm_bodies)
+sc_ = jpost(u, "/app/create/script", {"product": gp["id"], "type": "ugc", "angle": a["angles"][0], "duration": 10}).get_json()
+check(len(llm_bodies) == n_calls + 1 and sc_["items"] == ["I stopped paying seven dollars for coffee.", "This takes thirty seconds."],
+      "a script that already fits needs no second call and isn't changed")
+
+print("== long talking videos: 30 seconds, priced before Generate")
+r = u.get("/app/create?type=ugc")
+html = r.get_data(as_text=True)
+boot = json.loads(re.search(r'<script id="cf-boot" type="application/json">(.*?)</script>', html, re.S).group(1))
+check(boot["durations"]["ugc_video"] == DURS and boot["prices"]["ugc_video"]["30"] == catalog.price_credits("ugc_video", duration=30)
+      and boot["prices"]["ugc_video_1080p"]["30"] == catalog.price_credits("ugc_video", duration=30, resolution="1080p")
+      and boot["budget"]["30"] == catalog.word_budget(30) and boot["urls"]["shorten"] and boot["quote_shorten"] > 0,
+      "the page has every length's price, word budget and the shorten link")
+check(catalog.price_credits("ugc_video", duration=30) == 3 * catalog.price_credits("ugc_video", duration=10)
+      and catalog.cost_usd("ugc_video", duration=30) == catalog.TOOLS["ugc_video"]["usd_per_second"] * 30,
+      "a 30-second video is priced per second, the same rate as 10 seconds")
+script30 = "I quit the seven dollar coffee. " + " ".join(["One scoop, hot water, and I'm out the door."] * 8) + " Grab yours today."
+one30 = dict(cfg, items=[script30.split(". ", 1)[0] + "."], body=script30.split(". ", 1)[1], presenters=["maya"], duration=30)
+e = jpost(u, "/app/create/quote", dict(one30, duration=10)).get_json()
+check(e["count"] == 0 and catalog.words(script30) == 81 and "pick 30 seconds" in e["error"] and "Shorten to fit" in e["error"],
+      "too long for 10 seconds: the error offers Shorten to fit and the length it fits")
+q30 = jpost(u, "/app/create/quote", one30).get_json()
+q30hd = jpost(u, "/app/create/quote", dict(one30, resolution="1080p")).get_json()
+check(q30["count"] == 1 and q30["total"] == catalog.price_credits("ugc_video", duration=30)
+      and q30hd["total"] == catalog.price_credits("ugc_video", duration=30, resolution="1080p"),
+      f"the quote shows the 30-second price ({q30['total']} credits; 1080p {q30hd['total']})")
+check(jpost(u, "/app/create/quote", dict(one30, duration=31)).get_json()["step"] == "script", "31 seconds can't be ordered")
+with db.connect() as conn:     # earlier batches' videos aren't the point here: start this one on its own
+    conn.execute("UPDATE jobs SET status='canceled' WHERE status='pending'")
+    conn.commit()
+bal = db.balance(wsrow(uws))
+g30 = jpost(u, "/app/create/generate", dict(one30, total=q30["total"])).get_json()
+n_sub, estimates = len(calls["submit"]), []
+hf.estimate = lambda model, inputs: (estimates.append(inputs) or catalog.cost_usd("ugc_video", duration=inputs["duration"]))
+worker.tick()
+hf.estimate = lambda model, inputs: None
+model30, inputs30 = calls["submit"][-1]
+with db.connect() as conn:
+    j30 = conn.execute("SELECT * FROM jobs WHERE batch_id=?", (g30["batch"],)).fetchone()
+check(g30.get("ok") and db.balance(wsrow(uws)) == bal - q30["total"] and len(calls["submit"]) == n_sub + 1
+      and model30 == "bytedance/seedance-2.5/reference-to-video" and inputs30["duration"] == 30
+      and estimates and estimates[-1]["duration"] == 30 and j30["status"] == "running" and script30.split(". ", 1)[1][:40] in inputs30["prompt"],
+      "a 30-second script is one 30-second generation, charged the quoted price, price-checked at 30 seconds")
+
+print("== typed scripts: live counter and Shorten to fit")
+long_typed = {"product": gp["id"], "type": "ugc", "duration": 8, "items": ["I stopped paying seven dollars for coffee.", "Thirty seconds, then back to work."],
+              "body": "One scoop of Glow Serum in my routine and I'm out the door before the kids even notice I'm gone. "
+                      "It is quick, it is simple and it fits in my bag. Grab yours today."}
+ck_ = jpost(u, "/app/create/check", long_typed).get_json()
+check(not ck_["ok"] and ck_["hard"] == catalog.hard_words(8) and ck_["items"][0]["over"] and ck_["items"][0]["fits"] == 15
+      and ck_["items"][0]["seconds"] == catalog.seconds_for(ck_["items"][0]["words"]),
+      "the step check says how many seconds a typed script takes and the length it fits")
+llm._anthropic = fake_long
+bal = db.balance(wsrow(uws))
+for tight in ("long", "fit", "error"):
+    mode["tight"] = tight
+    r = jpost(u, "/app/create/shorten", long_typed)
+    sh = r.get_json()
+    said_ = [len((h + " " + sh["body"]).split()) for h in sh["items"]]
+    check(r.status_code == 200 and sh["changed"] and len(sh["items"]) == 2 and all(w <= catalog.max_words(8) for w in said_)
+          and jpost(u, "/app/create/check", dict(long_typed, items=sh["items"], body=sh["body"])).get_json()["ok"],
+          f"Shorten to fit (writer answer {tight}): one hook per hook typed, each fits 8 seconds ({max(said_)} words)")
+check(db.balance(wsrow(uws)) < bal and db.balance(wsrow(uws)) >= bal - 3 * creator.estimate_shorten(), "Shorten to fit is charged at cost")
+bal, n_calls = db.balance(wsrow(uws)), len(llm_bodies)
+sh = jpost(u, "/app/create/shorten", dict(long_typed, duration=30)).get_json()
+check(not sh["changed"] and sh["charged"] == 0 and len(llm_bodies) == n_calls and db.balance(wsrow(uws)) == bal,
+      "a script that already fits isn't sent to the AI or charged")
+sh = jpost(u, "/app/create/shorten", dict(long_typed, items=[], body=" ".join(["word"] * 50) + ". Grab yours today.")).get_json()
+check(sh["changed"] and catalog.words(sh["body"]) <= catalog.max_words(8), "a script typed as one block is shortened as one block")
+check(jpost(u, "/app/create/shorten", dict(long_typed, type="image")).status_code == 400
+      and jpost(u, "/app/create/shorten", dict(long_typed, duration=9)).status_code == 400
+      and jpost(other, "/app/create/shorten", long_typed).status_code == 404, "shorten: spoken only, offered lengths only, own products only")
+llm._anthropic = fake_llm2
+cjs = html[html.index("function bud("):html.index("function renderCast(")]
+check('data-shorten' in html and 'data-fit-dur' in html and 'data-fit hidden' in html and 'aria-live="polite"' in html
+      and "bud().hard" in html and "lim * 1.2" not in html and "' left.'" in cjs and "secs(worst)" in cjs
+      and "B.urls.shorten" in html and "Or make it " in cjs,
+      "Create shows a live words and seconds counter, Shorten to fit and a one-click longer length")
+# fuzz: whatever the writer sends back, what reaches the member fits
+import random  # noqa: E402
+rnd = random.Random(7)
+vocab = "coffee scoop morning cup quick simple honest bag desk drawer thirty seconds".split()
+bad_ = 0
+for _ in range(1500):
+    d_ = rnd.choice(DURS)
+    hs = [" ".join(rnd.choice(vocab) for _ in range(rnd.randint(1, 30))) + "." for _ in range(rnd.randint(0, 5))]
+    bd = " ".join(" ".join(rnd.choice(vocab) for _ in range(rnd.randint(1, 25))) + rnd.choice(".!?,") for _ in range(rnd.randint(0, 9)))
+    for keep in (False, True):
+        h2, b2 = catalog.fit_spoken(hs, bd, d_, keep_all=keep)
+        if any(catalog.words(x + " " + b2) > catalog.max_words(d_) for x in h2) or catalog.words(b2) > catalog.max_words(d_) \
+                or (keep and len(h2) != len(hs)) or (hs and not h2):
+            bad_ += 1
+check(bad_ == 0, "3,000 random scripts trimmed by fit_spoken: every hook + body fits its length")
+
 os.environ["RS_TALKING"] = "0"
 check("ugc" not in [t["id"] for t in catalog.ad_types()] and "pick an ad type" in
       jpost(u, "/app/create/quote", cfg).get_json()["error"].lower(), "with talking switched off, the format is hidden and refused")

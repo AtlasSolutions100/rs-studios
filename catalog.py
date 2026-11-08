@@ -16,6 +16,17 @@ HD_MARKUP = float(os.environ.get("RS_HD_MARKUP", "1.4"))
 USD_PER_SECOND_1080P = float(os.environ.get("RS_VIDEO_USD_PER_SECOND_1080P", "1.1372"))
 DEFAULT_RESOLUTION = "720p"
 
+TALKING_MIN_SECONDS, TALKING_MAX_SECONDS = 4, 30     # the vendor's limits for one talking video
+
+
+def _talking_durations() -> list[int]:
+    """The talking-video lengths offered: RS_TALKING_DURATIONS ("8,10,15,20,25,30"),
+    kept inside the vendor's 4 to 30 seconds, sorted; the default if that's empty."""
+    raw = os.environ.get("RS_TALKING_DURATIONS", "8,10,15,20,25,30")
+    out = sorted({int(x) for x in re.findall(r"\d+", raw) if TALKING_MIN_SECONDS <= int(x) <= TALKING_MAX_SECONDS})
+    return out or [8, 10, 15, 20, 25, 30]
+
+
 TOOLS = {
     "ad_image": {
         "preview": "ad_image",
@@ -51,7 +62,12 @@ TOOLS = {
         "model": "bytedance/seedance-2.5/reference-to-video",
         "kind": "video",
         "usd_per_second": float(os.environ.get("RS_TALKING_USD_PER_SECOND", "0.4622")),
-        "durations": [8, 10, 15],
+        # The vendor's Seedance 2.5 takes 4 to 30 whole seconds in one generation
+        # (its model catalog, checked Nov 7 2026), so a longer script is one longer
+        # video, never clips stitched together: each generation draws its presenter
+        # fresh, so stitched clips would cut between different-looking people.
+        # RS_TALKING_DURATIONS narrows the list if the vendor ever lowers its cap.
+        "durations": _talking_durations(),
         "max_photos": 4,
         "aspects": ["9:16", "1:1", "16:9"],
         "resolutions": {"720p": float(os.environ.get("RS_TALKING_USD_PER_SECOND", "0.4622")),
@@ -209,9 +225,110 @@ VOICE_BY_ID = {v["id"]: v for v in VOICES}
 WORDS_PER_SECOND = 2.4
 
 
+# A typed script may run up to 20% over max_words (some people talk fast); past
+# that the video cuts off or rushes, so Create refuses it. Scripts the AI writes
+# aim at max_words itself and are checked before the member sees them.
+HARD_SLACK = 1.2
+HOOK_MAX_WORDS = 12
+
+
 def max_words(duration: int) -> int:
     """Roughly how many spoken words fit a clip (natural pace)."""
     return int(duration * WORDS_PER_SECOND)
+
+
+def hard_words(duration: int) -> int:
+    """The most words a typed script may have at this length before it's refused."""
+    return int(max_words(duration) * HARD_SLACK)
+
+
+def words(text: str) -> int:
+    return len((text or "").split())
+
+
+def seconds_for(n_words: int) -> float:
+    """About how long n words take to say at the natural pace."""
+    return round(n_words / WORDS_PER_SECOND, 1)
+
+
+def fits_duration(n_words: int, durations=None) -> int | None:
+    """The shortest offered length a script of n words fits (as typed), or None."""
+    for d in durations or TOOLS["ugc_video"]["durations"]:
+        if n_words <= hard_words(d):
+            return d
+    return None
+
+
+def word_budget(duration: int) -> dict:
+    """The exact limits the script writer gets for one length: the whole script
+    (hook + body, said out loud), each hook, and the body after the longest hook."""
+    total = max_words(duration)
+    hook = max(4, min(HOOK_MAX_WORDS, round(total * 0.4)))
+    return {"seconds": duration, "total": total, "hook": hook, "body": max(0, total - hook), "hard": hard_words(duration)}
+
+
+_SENT = re.compile(r"[^.!?]+(?:[.!?]+[\"')\]]*|$)")
+
+
+def sentences(text: str) -> list[str]:
+    return [x.strip() for x in _SENT.findall(" ".join((text or "").split())) if x.strip()]
+
+
+def trim_words(text: str, limit: int) -> str:
+    """`text` cut to at most `limit` words, on sentence boundaries where it can:
+    the last sentence (the call to action) is kept and sentences before it are
+    dropped from the end; a single sentence that's still too long is cut at a
+    clause (comma) or, last of all, at a word, and closed with a full stop."""
+    text = " ".join((text or "").split())
+    if limit <= 0:
+        return ""
+    if words(text) <= limit:
+        return text
+    sents = sentences(text)
+    if len(sents) > 1:
+        last, ends, cands = sents[-1], [], []
+        for k in range(len(sents) - 1, -1, -1):
+            for c in (sents[:k] + [last], sents[:k]):
+                n = words(" ".join(c))
+                if c and n <= limit:
+                    (ends if c[-1] is last else cands).append((n, " ".join(c)))
+        # keep the call to action when that still leaves at least half the words
+        if ends and max(ends)[0] >= max(3, limit // 2):
+            return max(ends)[1]
+        if ends or cands:
+            best = max(ends + cands)
+            if best[0] >= max(3, limit // 2) or words(sents[0]) > limit:
+                return best[1]
+    one = sents[0] if sents else text
+    parts = [p.strip() for p in one.split(",") if p.strip()]
+    acc = []
+    for part in parts:
+        if words(", ".join(acc + [part])) > limit:
+            break
+        acc.append(part)
+    cut = ", ".join(acc) if acc and words(", ".join(acc)) >= max(2, limit // 2) else " ".join(one.split()[:limit])
+    cut = cut.rstrip(" ,;:-")
+    return cut + ("" if cut[-1:] in ".!?" else ".") if cut else ""
+
+
+def fit_spoken(hooks: list[str], body: str, duration: int, keep_all: bool = False) -> tuple[list[str], str]:
+    """(hooks, body) where every hook + body is at most max_words(duration) words,
+    with no hook over the hook limit. Hooks that are too long are dropped while
+    another one fits, else cut (with keep_all, each is cut, so the number of
+    hooks, and so of videos, stays the same); the body is cut to what the
+    longest kept hook leaves."""
+    bud = word_budget(duration)
+    hooks = [" ".join(h.split()) for h in hooks if h and h.strip()]
+    if keep_all:
+        # a typed hook may run longer than the writer's hook limit, as long as it leaves room for a body
+        keep = [trim_words(h, max(bud["hook"], int(bud["total"] * 0.6))) for h in hooks]
+    else:
+        keep = [h for h in hooks if words(h) <= bud["hook"]]
+        if not keep and hooks:
+            keep = [trim_words(min(hooks, key=words), bud["hook"])]
+    room = bud["total"] - max([words(h) for h in keep] or [0])
+    body = trim_words(body, room)
+    return [h for h in keep if words(h + " " + body) <= bud["total"]], body
 
 
 def talking_prompt(ad_type: str, product: str, script: str, presenter_id: str = "", voice_id: str = "",

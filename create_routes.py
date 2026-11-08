@@ -140,11 +140,14 @@ def index():
             "aspects": {"ugc_video": catalog.TOOLS["ugc_video"]["aspects"], "ad_image": catalog.TOOLS["ad_image"]["aspects"]},
             "platforms": {k: platforms.PLATFORMS[k]["short"] for k in PLATFORM_ASPECTS if k in platforms.PLATFORMS},
             "platform_aspects": PLATFORM_ASPECTS, "wps": catalog.WORDS_PER_SECOND,
-            "ai": llm.anthropic_ready(), "quote_angles": creator.estimate_angles(), "quote_script": creator.estimate_script(),
+            "budget": {d: catalog.word_budget(d) for d in catalog.TOOLS["ugc_video"]["durations"]},
+            "quote_shorten": creator.estimate_shorten(),
+            "ai": llm.anthropic_ready(), "quote_angles": creator.estimate_angles(), "quote_script": max(creator.estimate_script(), creator.estimate_script(False, True)),
             "max_batch": MAX_BATCH, "max_items": MAX_ITEMS, "max_presenters": MAX_PRESENTERS,
             "warn_videos": WARN_VIDEOS, "confirm_videos": CONFIRM_VIDEOS, "balance": db.balance(g.ws),
             "urls": {"angles": url_for("create.angles"), "script": url_for("create.script"), "save": url_for("create.save"),
                      "quote": url_for("create.quote"), "generate": url_for("create.generate"),
+                     "shorten": url_for("create.shorten"),
                      "check": url_for("create.check_step"), "billing": url_for("billing_page"),
                      "state": url_for("create.product_state"), "new_product": url_for("products.new"),
                      "edit_product": url_for("products.edit", pid=0)}}
@@ -259,12 +262,18 @@ def script():
         return jsonify({"error": "Pick or write an angle first."}), 400
     if not compliance.check(*angle.values())["ok"]:
         return jsonify({"error": "That angle breaks the rules: " + " ".join(compliance.check(*angle.values())["blocks"])}), 400
-    duration = int(d.get("duration") or 10)
+    if catalog.AD_TYPE_BY_ID[typ]["script"] == "spoken":
+        duration = _spoken_duration(d)
+        if duration is None:
+            return jsonify({"error": "Pick a length first."}), 400
+    else:
+        duration = int(d.get("duration") or 10) if str(d.get("duration") or "10").isdigit() else 10
     with db.connect() as conn:
         p = _product_row(conn, d.get("product"))
         if p is None:
             abort(404)
-        busy = _ai_ready(creator.estimate_script())
+        spoken = catalog.AD_TYPE_BY_ID[typ]["script"] == "spoken"
+        busy = _ai_ready(creator.estimate_script(not spoken, spoken))
         if busy:
             return busy
         usage = llm.Usage()
@@ -280,6 +289,53 @@ def script():
         taken = charge_ai(conn, usage.credits, "AI script") if usage.calls else 0
         conn.commit()
     return jsonify(dict(out, charged=taken, balance=_bal(), **({"error": err} if err else {})))
+
+
+def _spoken_duration(d):
+    """The talking-video length asked for, if it's one we offer; else None."""
+    try:
+        dur = int(d.get("duration") or 10)
+    except (TypeError, ValueError):
+        return None
+    return dur if dur in catalog.TOOLS["ugc_video"]["durations"] else None
+
+
+@bp.route("/app/create/shorten", methods=["POST"])
+@login_required
+def shorten():
+    """"Shorten to fit": the AI cuts a typed spoken script to the length picked,
+    keeping one hook per hook typed. Charged at cost; free when it already fits."""
+    d = _json()
+    typ = d.get("type") if d.get("type") in catalog.AD_TYPE_BY_ID else "ugc"
+    if catalog.AD_TYPE_BY_ID[typ]["script"] != "spoken":
+        return jsonify({"error": "Only spoken scripts have a length to fit."}), 400
+    dur = _spoken_duration(d)
+    if dur is None:
+        return jsonify({"error": "Pick a length first."}), 400
+    items = [" ".join(str(x).split())[:200] for x in (d.get("items") or [])[:MAX_ITEMS] if str(x).strip()]
+    body = " ".join(str(d.get("body") or "").split())[:2000]
+    if not items and not body:
+        return jsonify({"error": "Write a script first."}), 400
+    with db.connect() as conn:
+        p = _product_row(conn, d.get("product"))
+        if p is None:
+            abort(404)
+        b = catalog.word_budget(dur)
+        if all(catalog.words(i + " " + body) <= b["total"] for i in items) and (items or catalog.words(body) <= b["total"]):
+            return jsonify({"items": items, "body": body, "changed": False, "charged": 0, "balance": _bal()})
+        busy = _ai_ready(creator.estimate_shorten())
+        if busy:
+            return busy
+        usage = llm.Usage()
+        try:
+            out, err = creator.shorten(brand(p["id"]), typ, items, body, dur, usage), None
+        except llm.LLMError as e:
+            out, err = None, f"The writer didn't finish ({e}). Try again; nothing was changed."
+        taken = charge_ai(conn, usage.credits, "AI shorten script") if usage.calls else 0
+        conn.commit()
+    if out is None:
+        return jsonify({"error": err, "charged": taken, "balance": _bal()}), 502
+    return jsonify(dict(out, charged=taken, balance=_bal()))
 
 
 def _writer_photo(conn, pid, picked):
@@ -402,7 +458,7 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
         dur = int(d.get("duration") or 10)
         if dur not in catalog.TOOLS[tool]["durations"]:
             raise ConfigError("Pick a length.", "script")
-        limit = int(catalog.max_words(dur) * 1.2)
+        limit = catalog.hard_words(dur)
         if typ == "ugc":
             cast = list(dict.fromkeys(x for x in d.get("presenters") or [] if x in catalog.PRESENTER_BY_ID))
             if not cast:
@@ -417,8 +473,10 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
         for i, item in enumerate(items):
             said = (item + " " + body).strip()
             if len(said.split()) > limit:
+                fit = catalog.fits_duration(len(said.split()))
                 raise ConfigError(f"Script {i + 1} is {len(said.split())} words; a {dur}-second video fits about "
-                                  f"{catalog.max_words(dur)}. Shorten it or pick a longer length.", "script")
+                                  f"{catalog.max_words(dur)}. Use Shorten to fit, or pick "
+                                  + (f"{fit} seconds." if fit else "a longer length."), "script")
             chk = compliance.check(said)
             if not chk["ok"] or creator.CUSTOMER_VOICE in chk["warnings"]:
                 raise ConfigError(f"Script {i + 1}: " + " ".join(chk["blocks"] or [creator.CUSTOMER_VOICE]), "script")
@@ -538,7 +596,7 @@ def check_step():
     items = [" ".join(str(x).split())[:900] for x in (d.get("items") or [])[:MAX_ITEMS]]
     body = " ".join(str(d.get("body") or "").split())[:2000]
     dur = int(d.get("duration") or 10) if str(d.get("duration") or "10").isdigit() else 10
-    lim = catalog.max_words(dur)
+    lim, hard = catalog.max_words(dur), catalog.hard_words(dur)
     out = []
     for i, item in enumerate(items):
         # Spoken lines are said with the body, so they're checked together (as
@@ -551,13 +609,15 @@ def check_step():
         if kind == "spoken" and creator.CUSTOMER_VOICE in chk["warnings"]:
             blocks.append(creator.CUSTOMER_VOICE)
         words = len(said.split())
-        out.append({"i": i, "words": words, "over": kind == "spoken" and words > int(lim * 1.2), "blocks": blocks})
+        over = kind == "spoken" and words > hard
+        out.append({"i": i, "words": words, "over": over, "blocks": blocks, "seconds": catalog.seconds_for(words),
+                    "fits": catalog.fits_duration(words) if over else None})
     bchk = compliance.check(body) if body else {"blocks": []}
     text_blocks = []
     if kind == "image":
         subline, cta = image_text(d)
         text_blocks = compliance.check(subline, cta)["blocks"] if (subline or cta) else []
-    return jsonify({"items": out, "limit": lim, "body_blocks": bchk["blocks"], "text_blocks": text_blocks,
+    return jsonify({"items": out, "limit": lim, "hard": hard, "body_blocks": bchk["blocks"], "text_blocks": text_blocks,
                     "ok": not any(x["over"] or x["blocks"] for x in out) and not bchk["blocks"] and not text_blocks})
 
 

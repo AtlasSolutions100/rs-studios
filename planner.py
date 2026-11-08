@@ -280,9 +280,11 @@ def propose(conn, cid, ws_id, inp, photos, refs):
     elif tool == "ugc_video":
         durs = catalog.TOOLS["ugc_video"]["durations"]
         dur = int(inp.get("duration") or 10) if int(inp.get("duration") or 10) in durs else 10
-        if len(brief.split()) > catalog.max_words(dur) * 1.2:
-            return {"error": f"that script is {len(brief.split())} words; a {dur}s video fits about "
-                             f"{catalog.max_words(dur)}. Shorten it or use a longer duration."}
+        if len(brief.split()) > catalog.hard_words(dur):
+            fit = catalog.fits_duration(len(brief.split()))
+            return {"error": f"that script is {len(brief.split())} words; a {dur}s video fits at most "
+                             f"{catalog.max_words(dur)}. Cut it to {catalog.max_words(dur)} words or fewer"
+                             + (f", or set duration {fit}." if fit else ".")}
         if "AI presenters can't speak as customers or claim results." in chk["warnings"]:
             return {"error": "the presenter can't speak as a customer or claim results. Rewrite it."}
         pr = inp.get("presenter") if inp.get("presenter") in catalog.PRESENTER_BY_ID else catalog.PRESENTERS[0]["id"]
