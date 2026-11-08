@@ -269,8 +269,8 @@ arc = public_site.solution("arcads-alternative")["table"]
 check(arc["source"] == "https://help.arcads.ai/en/articles/17595066-how-does-arcads-pricing-work"
       and "72" in arc["rows"][0][1] and "card is required" in arc["rows"][0][1] and "Starter monthly plan starts automatically" in arc["rows"][0][1]
       and "Not listed on the public site" in arc["rows"][1][1] and "800 credits" in arc["rows"][2][1]
-      and "No card" in arc["rows"][0][2] and "740" in arc["rows"][2][2],
-      "Arcads: the 72-hour card trial, unpublished prices and 800 credits per talking video, against no card and 740 credits")
+      and "Nothing charged" in arc["rows"][0][2] and "740" in arc["rows"][2][2],
+      "Arcads: the 72-hour card trial, unpublished prices and 800 credits per talking video, against nothing charged and 740 credits")
 check("Higgsfield" not in "".join(pub.get(p).get_data(as_text=True) for p in paths), "the vendor isn't named on the public site")
 for s in ("ai-ugc-ad-generator", "ai-product-ads-for-shopify", "ai-marketing-platform-for-small-business"):
     body = pub.get(f"/{s}").get_data(as_text=True)
@@ -635,7 +635,7 @@ def sign(c, email):
     return c.post("/signup", data={"csrf": csrf(c), "email": email, "password": "longpassword1"})
 
 
-ORGANIC = ("Try 2 image ads free", "Free sign-up includes 2 image ads (44 credits). No card needed.")
+ORGANIC = ("Try 2 image ads free", "Free sign-up includes 2 image ads (44 credits). Nothing is charged.")
 for path in ("/", "/pricing", "/features", "/signup", "/ai-ugc-ad-generator", "/arcads-alternative",
              "/ai-product-ads-for-shopify", "/llms.txt"):
     html = page(client(), path)

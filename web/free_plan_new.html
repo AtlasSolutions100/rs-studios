@@ -1,0 +1,41 @@
+{% extends "base.html" %}{% block title %}Free campaign plan · Campaignify{% endblock %}
+{# The out-of-credits free plan (paywall_routes.py, RS_PLAN_PAYWALL): 1 per workspace per 30 days, with competitor research. #}
+{% block body %}
+<div class="page">
+  <section>
+    <p class="eyebrow">Free campaign plan · {{ b.name or 'Your brand' }}</p>
+    <h1>Plan your next <span class="gold">campaign</span></h1>
+    <p class="muted">You're out of credits, so this one is on us: 1 campaign plan with competitor research every 30 days. We look up your closest competitors, then plan the angles, copy and channels. You see the summary, the first channel and the top 3 competitor insights. A subscription unlocks the rest.</p>
+    {% if not ai_on %}<div class="flash warn">The campaign planner isn't switched on yet, so it can't run right now. Nothing will be charged.</div>{% endif %}
+    {% if next_on %}
+    <div class="panel" data-free-plan-used>
+      <p style="margin:0 0 10px">{% include "_lock_icon.svg" %} You've made your free plan for this month. The next one opens on <b>{{ next_on }}</b>.</p>
+      <div class="row" style="gap:10px;flex-wrap:wrap">
+        {% if made %}<a class="btn dark" href="{{ url_for('paywall.show', cid=made) }}">Open my free plan</a>{% endif %}
+        <a class="btn" href="{{ url_for('billing_page') }}#plans">Get an active subscription to unlock</a>
+      </div>
+    </div>
+    {% elif not out %}
+    <div class="panel"><p style="margin:0">The free plan is for accounts that are out of credits. You still have {{ '{:,}'.format(balance()) }} credits to make ads with. <a href="{{ url_for('billing_page') }}#plans">See plans</a> to use the planner any time.</p></div>
+    {% else %}
+    <form method="post" class="panel copyform" data-free-plan-form>
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <label for="offer">What are you promoting?</label>
+      <input id="offer" type="text" name="offer" maxlength="300" required value="{{ b.product }}" placeholder="Product, offer or launch">
+      <div class="two-col">
+        <div><label for="audience">Who is it for?</label><input id="audience" type="text" name="audience" maxlength="200" value="{{ b.audience }}" placeholder="Be specific"></div>
+        <div><label for="goal">Goal</label><select id="goal" name="goal"><option value="sales">Sales</option><option value="leads">Leads / sign-ups</option><option value="traffic">Traffic to a page</option><option value="awareness">Awareness</option><option value="engagement">Engagement</option><option value="installs">App installs</option></select></div>
+      </div>
+      <label for="budget">Budget <span class="dim">(optional)</span></label><input id="budget" type="text" name="budget" maxlength="80" placeholder="e.g. $300 for the first two weeks">
+      <label>Platforms</label>
+      <div class="choices">{% for k in ['meta','tiktok','youtube','google','x','linkedin','pinterest','snapchat','reddit'] %}<label class="choice chk"><input type="checkbox" name="platforms" value="{{ k }}" {{ 'checked' if k in ('meta','tiktok') }}>{{ PLATFORMS[k].short }}</label>{% endfor %}</div>
+      <label for="link">Landing page or store link <span class="dim">(optional)</span></label><input id="link" type="text" name="link" maxlength="300" placeholder="https://">
+      <div class="go">
+        <span class="muted small">Free: nothing is charged. 1 per workspace every 30 days.</span>
+        <button class="btn" {{ 'disabled' if not ai_on }}>Make my free plan</button>
+      </div>
+    </form>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

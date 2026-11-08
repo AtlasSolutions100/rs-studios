@@ -238,12 +238,18 @@ def _free_what(conn, user) -> str:
     r = catalog.rates()
     row = conn.execute("SELECT delta FROM ledger WHERE workspace_id=? AND reason LIKE 'starter credits%' "
                        "ORDER BY id LIMIT 1", (user["workspace_id"],)).fetchone()
-    n = row["delta"] if row and row["delta"] > 0 else catalog.starter_credits()
+    n = row["delta"] if row and row["delta"] > 0 else (_card_waiting(conn, user) or catalog.starter_credits())
     images = n // max(r["image"], 1)
     ads = f"{images} image ad{'' if images == 1 else 's'}"
     if n >= r["video5"]:
         ads = f"your first video ad or {ads}"
     return f"your free Campaignify credits ({ads})"
+
+
+def _card_waiting(conn, user) -> int:
+    """Starter credits waiting for this workspace's card (card_on_file.py, RS_CARD_REQUIRED)."""
+    row = conn.execute("SELECT card_pending_credits FROM workspaces WHERE id=?", (user["workspace_id"],)).fetchone()
+    return int(row["card_pending_credits"] or 0) if row else 0
 
 
 def send_link(conn, secret: str, user, first_login: bool = False) -> bool:
@@ -266,7 +272,10 @@ def send_link(conn, secret: str, user, first_login: bool = False) -> bool:
     import preview
     # Say what the free credits buy (2 image ads by default); mention the watermarked preview only when it's on.
     what = _free_what(conn, user)
-    what = what[0].upper() + what[1:] + " are ready: image ads work right away. Video ads need this confirmation"
+    what = what[0].upper() + what[1:] + (" land when you save a card in Campaignify (nothing is charged), and then "
+                                         "image ads work right away. Video ads need this confirmation"
+                                         if _card_waiting(conn, user) else
+                                         " are ready: image ads work right away. Video ads need this confirmation")
     what += (f", and so does your free {preview.SECONDS}-second talking-video preview." if preview.enabled() else ".")
     mins = CODE_TTL_S // 60
     text = (f"Hi,\n\nYour Campaignify code is {code}\n\nType it in the box in Campaignify. It works for {mins} minutes.\n\n"
@@ -295,7 +304,8 @@ def send_link(conn, secret: str, user, first_login: bool = False) -> bool:
 
 def _send_first_login(conn, user, link: str) -> bool:
     what = _free_what(conn, user)
-    what = what[0].upper() + what[1:] + " are waiting in your account."
+    what = what[0].upper() + what[1:] + " are waiting in your account." + (
+        " They land when you save a card. Nothing is charged." if _card_waiting(conn, user) else "")
     text = ("Hi,\n\nOpen this link to confirm your email and log in to Campaignify. "
             f"It works once, for 48 hours:\n\n{link}\n\n{what}\n\n"
             "If you didn't sign up for Campaignify, ignore this email and nothing happens.\n\nCampaignify")

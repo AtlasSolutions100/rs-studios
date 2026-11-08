@@ -1,0 +1,16 @@
+{% extends "base.html" %}{% block title %}Locked · Campaignify{% endblock %}
+{# Something that costs credits, out of credits with no subscription (plan_paywall.PaywallLocked, 402). #}
+{% block body %}
+<div class="page full">
+  <div class="panel upgrade" data-paywall-locked>
+    <p class="eyebrow" style="display:flex;align-items:center;gap:6px">{% include "_lock_icon.svg" %} Locked</p>
+    <h1>Get an active subscription to unlock</h1>
+    <p class="muted lede">You're out of credits. A plan gives you monthly credits and unlocks everything you've already made, including a free campaign plan's locked parts.</p>
+    <div class="row" style="margin-top:20px;gap:10px;flex-wrap:wrap">
+      <a class="btn" href="{{ url_for('billing_page') }}#plans">See plans</a>
+      {% if free_ok %}<a class="btn dark" href="{{ url_for('paywall.new') }}">Make my free campaign plan</a>{% endif %}
+      <a class="btn dark" href="{{ url_for('library') }}">Go to your library</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

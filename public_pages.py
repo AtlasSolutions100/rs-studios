@@ -59,7 +59,7 @@ _NOT_AFFILIATED = ("No. Campaignify is an independent product. {name} is a trade
                    "this page are from the pages listed under the table, as listed on Nov 4, 2026; check their site "
                    "for today's terms.")
 _TRY = ("Can I try Campaignify before I pay?",
-        "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, with no card and no trial that "
+        "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, with nothing charged and no trial that "
         "renews. Buy a credit pack or pick a plan only when you want more.")
 _CANCEL = ("How do I cancel a Campaignify plan?",
            "From Billing in the app: press Manage or cancel plan. The plan stays on until the end of the month you've "
@@ -86,7 +86,7 @@ SOLUTIONS = {
                   "The main difference is video. Campaignify makes UGC-style video ads with AI presenters who hold "
                   "your product and say a script, and AI presenter video was not listed on the Blaze pages read on "
                   "Nov 4, 2026. Blaze lists post publishing and automated ad campaigns; Campaignify doesn't post or run ads. "
-                  "Free sign-up includes {sc_images} image ads with no card.",
+                  "Free sign-up includes {sc_images} image ads, with nothing charged.",
         "steps": [
             ("Paste a product page",
              "Campaignify reads the product's name, description, price and photos from its page. You approve the "
@@ -108,7 +108,7 @@ SOLUTIONS = {
             "rows": [
                 ("Trying it",
                  "A 7-day free trial, \"No credit card required\" (as listed on Nov 4, 2026).",
-                 "No card and no end date: free sign-up includes {sc} credits ({sc_images} image ads). Nothing "
+                 "Nothing charged and no end date: free sign-up includes {sc} credits ({sc_images} image ads). Nothing "
                  "starts billing by itself."),
                 ("Plans",
                  "Starter $79 a month (600 generation credits, 3 posting accounts, automated ad campaigns), Growth "
@@ -169,14 +169,14 @@ SOLUTIONS = {
     "predis-ai-alternative": {
         "query": "Predis.ai alternative",
         "nav": "Predis.ai alternative",
-        "title": "Predis.ai Alternative, No Card to Start · Campaignify",
-        "description": "Comparing Predis.ai alternatives? Campaignify starts free with no card, prices each ad in "
+        "title": "Predis.ai Alternative, Nothing Charged · Campaignify",
+        "description": "Comparing Predis.ai alternatives? Campaignify charges nothing at sign-up, prices each ad in "
                        "credits first and adds pages, forms and follow-up flows.",
         "eyebrow": "Comparing tools",
-        "h1": "Campaignify is a Predis.ai alternative with no card to start and each ad priced before you make it",
+        "h1": "Campaignify is a Predis.ai alternative with nothing charged to start and each ad priced before you make it",
         "answer": "Campaignify makes UGC-style videos with AI presenters, product videos and image ads from your "
                   "product page, then keeps the copy, landing page, forms and follow-up flows in the same workspace. "
-                  "Sign-up needs no card and starts with {sc_images} free image ads. Predis.ai lists a 3-day free "
+                  "Nothing is charged at sign-up, and you start with {sc_images} free image ads. Predis.ai lists a 3-day free "
                   "start with a card taken at sign-up, as listed on Nov 4, 2026.",
         "steps": [
             ("Paste a product page",
@@ -199,7 +199,7 @@ SOLUTIONS = {
                 ("Trying it",
                  "\"Every plan starts with 3 days free\", with a card taken at sign-up; payments after that are "
                  "listed as \"non-refundable\" (Nov 4, 2026).",
-                 "No card and no end date: {sc} free credits ({sc_images} image ads). Nothing starts billing by "
+                 "Nothing charged and no end date: {sc} free credits ({sc_images} image ads). Nothing starts billing by "
                  "itself."),
                 ("Plans",
                  "Core $19 a month (struck from $32, 1,300 credits, 1 brand), Rise $40 a month (struck from $79, "
@@ -221,8 +221,8 @@ SOLUTIONS = {
         "h2": {"how": "How this Predis.ai alternative works", "compare": "Predis.ai and Campaignify, side by side",
                "faq": "Predis.ai alternative questions"},
         "compare": [
-            ("Is there a trial that needs a card?",
-             "No. Free sign-up has no card and no end date. A plan starts only when you choose one."),
+            ("Is there a trial that bills you?",
+             "No. Nothing is charged at sign-up and the free credits have no end date. A plan starts only when you choose one."),
             ("Does it go past the ad?",
              "Yes. On Starter and up: landing pages, smart links and flows. On Growth: forms and contacts, email "
              "sending and the SEO, AEO and GEO optimizer. On Scale: texts in flows and community and courses."),
@@ -283,7 +283,7 @@ SOLUTIONS = {
             "rows": [
                 ("Trying it",
                  "A free plan with 3 watermarked videos a month, 1 minute each, no card (as listed on Nov 4, 2026).",
-                 "No card: {sc} free credits ({sc_images} image ads), no watermark on image ads."),
+                 "Nothing charged: {sc} free credits ({sc_images} image ads), no watermark on image ads."),
                 ("Plans",
                  "Creator $29 a month or $24 billed annually (600 credits), Pro $49 a month (1,000 credits), "
                  "Business $149 a month plus $20 a seat (1,500 credits), Enterprise custom, as listed on Nov 4, 2026.",
@@ -362,7 +362,7 @@ SOLUTIONS = {
             "rows": [
                 ("Trying it",
                  "A free tier with 10 one-time credits and a watermark, as listed on G2 on Nov 4, 2026.",
-                 "No card: {sc} free credits ({sc_images} image ads), no watermark on image ads."),
+                 "Nothing charged: {sc} free credits ({sc_images} image ads), no watermark on image ads."),
                 ("Plans",
                  "Pro $29 a month (80 credits) and Business $75 a month (250 credits), as listed on G2 on Nov 4, 2026. "
                  "G2 shows 2 different update dates for this listing, so confirm on Topview's own site.",
@@ -459,7 +459,7 @@ SOLUTIONS = {
              "No. It writes the copy, makes the ads and walks you through setting up each ad account. You launch the "
              "ads in each platform's ads manager, where your ad spend stays."),
             ("How much does it cost?",
-             "Free sign-up includes {sc} credits ({sc_images} image ads) with no card. Plans are ${starter_usd}, "
+             "Free sign-up includes {sc} credits ({sc_images} image ads), with nothing charged. Plans are ${starter_usd}, "
              "${growth_usd} and ${scale_usd} a month. Each ad's price in credits is shown before you make it."),
             ("Does it manage my reviews or Google Business Profile?",
              "No. Campaignify doesn't manage reviews or a Google Business Profile."),
@@ -474,7 +474,7 @@ SOLUTIONS = {
         "nav": "AI ads for coaches",
         "title": "AI Ads for Coaches and Course Creators · Campaignify",
         "description": "Ads, copy, a sign-up page and follow-up emails for your coaching program, with income and "
-                       "health claims blocked. {sc_images} image ads free, no card.",
+                       "health claims blocked. {sc_images} image ads free, nothing charged.",
         "eyebrow": "For coaches",
         "h1": "AI ads for coaches and course creators",
         "answer": "Campaignify gives a coach the whole path from ad to client: image and video ads for your program, "
@@ -700,7 +700,7 @@ GUIDES = {
             "cols": ["Tool", "Entry paid price", "Free plan or trial", "Built for"],
             "rows": [
                 ("Campaignify", "${starter_usd} a month ({starter_credits} credits); packs from ${pack_min_usd}",
-                 "{sc} free credits, no card", "Ads plus planner, copy, pages, forms and follow-up flows"),
+                 "{sc} free credits, nothing charged", "Ads plus planner, copy, pages, forms and follow-up flows"),
                 ("Arcads", "Not listed on its public site; $110 a month for 10 videos per eesel.ai (Jun 17, 2026)",
                  "72-hour trial, card required", "AI actor UGC video ads"),
                 ("Creatify", "$10 a month (struck from $15), 55 credits", "Free, 10 credits a month, watermark",
@@ -1106,7 +1106,7 @@ GUIDES = {
                 "the AI actually used, with the most a run can cost shown first. Failed generations are refunded "
                 "automatically.",
                 ("ul", [
-                    "Free sign-up: {sc} credits ({sc_images} image ads), no card, no end date.",
+                    "Free sign-up: {sc} credits ({sc_images} image ads), nothing charged, no end date.",
                     "Plans: ${starter_usd}, ${growth_usd} and ${scale_usd} a month, billed monthly. Plan credits "
                     "arrive with each payment and expire at the next renewal; they're spent first.",
                     "Packs: {pack_usd}, one-time. Pack credits never expire.",

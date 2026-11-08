@@ -2,13 +2,16 @@
 "Continue with Google" (google_auth.py). Blueprints import from here, never from app.py.
 
 A new account gets its own workspace and the starter credits (or the ad offer,
-adoffer.py), or joins a team through an invite link. Owner setup links
+adoffer.py), or joins a team through an invite link. While RS_CARD_REQUIRED is on
+the credits wait for the card step (card_on_file.py), which every new workspace
+goes through after sign-up. Owner setup links
 (owners.py) are handled by the sign-up form itself and never come through here."""
 import logging
 
 from flask import redirect, session, url_for
 
 import adoffer
+import card_on_file
 import catalog
 import compcodes
 import conversions
@@ -77,10 +80,11 @@ def create_self_serve_account(conn, email: str, name: str, pw_hash: str, req, ip
         # Ad-sourced sign-ups get SIGNUP_CREDITS_ADS instead, once per person (adoffer.py).
         ad_credits = adoffer.claim(conn, ws_id, email, ip, gads.parse_cookie(req.cookies.get(gads.COOKIE)),
                                    bool(req.cookies.get(adoffer.BROWSER_COOKIE)), db.now())
-        if ad_credits:
-            db.adjust_credits(conn, ws_id, ad_credits, adoffer.REASON)
-        elif catalog.starter_credits():
-            db.adjust_credits(conn, ws_id, catalog.starter_credits(), "starter credits")
+        grant = (ad_credits, adoffer.REASON) if ad_credits else (catalog.starter_credits(), "starter credits")
+        if grant[0] and card_on_file.active():
+            card_on_file.defer(conn, ws_id, *grant)    # they land when the card is saved (card_on_file.py)
+        elif grant[0]:
+            db.adjust_credits(conn, ws_id, *grant)
     joins = bool(inv and inv["workspace_id"])
     # Everyone confirms by email before the free credits work (verify.py), unless the
     # sign-in provider already confirmed the address.

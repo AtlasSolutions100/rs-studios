@@ -456,9 +456,10 @@ def _save(cid, plan, steps, status=None, **kw):
         conn.commit()
 
 
-def run(cid: int, notes: str | None = None, hold=None):
+def run(cid: int, notes: str | None = None, hold=None, free: bool = False):
     """One planning run for campaign `cid`. Settles `hold` (credits.reserve) once at the end;
-    without one it charges after the fact, at most what's left (CREDIT_HOLDS=off)."""
+    without one it charges after the fact, at most what's left (CREDIT_HOLDS=off). `free`:
+    the out-of-credits free plan (plan_paywall.py): nothing is charged, we absorb the cost."""
     with db.connect() as conn:
         c = conn.execute("SELECT * FROM campaigns WHERE id=?", (cid,)).fetchone()
         b = conn.execute("SELECT * FROM brands WHERE id=?", (c["brand_id"],)).fetchone() if c["brand_id"] else None
@@ -542,7 +543,7 @@ def run(cid: int, notes: str | None = None, hold=None):
     taken = 0
     if hold is not None:
         taken = credit_holds.settle(hold, credits)
-    elif credits:
+    elif credits and not free:
         with db.connect() as conn:
             have = db.balance(conn.execute("SELECT * FROM workspaces WHERE id=?", (c["workspace_id"],)).fetchone())
             taken = min(credits, have)

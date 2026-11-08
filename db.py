@@ -414,6 +414,18 @@ CREATE TABLE IF NOT EXISTS ad_signup_grants (
     id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL UNIQUE, email_norm TEXT NOT NULL UNIQUE,
     ip_hash TEXT, credits INTEGER NOT NULL, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_ad_grants_ip ON ad_signup_grants(ip_hash, created_at);
+-- Card on file (card_on_file.py, RS_CARD_REQUIRED): one row per card saved. `trial` = 1 when that
+-- workspace got (or already had) the starter credits; a card or email with a trial row gets none again.
+CREATE TABLE IF NOT EXISTS card_trials (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, fingerprint TEXT, email_norm TEXT,
+    trial INTEGER NOT NULL DEFAULT 0, credits INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_card_trials_fp ON card_trials(fingerprint);
+CREATE INDEX IF NOT EXISTS idx_card_trials_email ON card_trials(email_norm);
+-- The free campaign plan of an out-of-credits workspace (plan_paywall.py, RS_PLAN_PAYWALL): 1 per 30 days.
+CREATE TABLE IF NOT EXISTS free_plans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, campaign_id INTEGER, report_id INTEGER,
+    created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_free_plans_ws ON free_plans(workspace_id, created_at);
 -- "Your free ads are waiting" emails to sign-ups with no job yet (nudges.py): one row per step sent.
 CREATE TABLE IF NOT EXISTS first_run_nudges (
     user_id INTEGER NOT NULL, step INTEGER NOT NULL, sent_at TEXT NOT NULL, PRIMARY KEY (user_id, step));
@@ -650,6 +662,14 @@ COLUMNS = [
     ("workspaces", "billing_hold", "INTEGER NOT NULL DEFAULT 0"),
     ("workspaces", "billing_hold_reason", "TEXT"),
     ("workspaces", "billing_hold_at", "TEXT"),
+    # card on file at sign-up (card_on_file.py): the saved card, and the starter credits waiting for it
+    ("workspaces", "card_saved_at", "TEXT"),
+    ("workspaces", "card_customer_id", "TEXT"),
+    ("workspaces", "card_pm_id", "TEXT"),
+    ("workspaces", "card_label", "TEXT"),
+    ("workspaces", "card_pending_credits", "INTEGER NOT NULL DEFAULT 0"),
+    ("workspaces", "card_pending_reason", "TEXT"),
+    ("campaigns", "free_plan", "INTEGER NOT NULL DEFAULT 0"),   # made free while out of credits (plan_paywall.py)
     ("plan_invoices", "payment_intent", "TEXT"),
     # plans switch on only when paid (BILL-3); a paid period is kept to its end (plans.GRACE_STATUSES)
     ("workspaces", "plan_paid_through", "TEXT"),

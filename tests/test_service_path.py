@@ -172,7 +172,7 @@ try:
     home = s.get("/app").get_data(as_text=True)
     check("What do you sell?" in home and 'name="sells" value="product" checked' in home
           and 'name="sells" value="service"' in home and 'name="svc_template" value="svc-logo"' in home
-          and "Make my 2 free ads" in home, "a product or a service; product first; the button wording unchanged")
+          and "Make 2 ads with your free credits" in home, "a product or a service; product first; the button wording unchanged")
     d = s.post("/app/start/import", json={"url": "northside-hvac.example", "sells": "service"},
                headers={"X-CSRF": csrf(s)}).get_json()
     ws = ws_of("owner@northside.example")
