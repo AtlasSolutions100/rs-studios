@@ -26,6 +26,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 import accounts
 import adoffer
 import admin_funnel
+import alerts
 import billing
 import catalog
 import compcodes
@@ -38,6 +39,7 @@ import db
 import gads
 import hf
 import nudges
+import opslog
 import plans
 import presenter_stills
 import preview
@@ -91,6 +93,8 @@ app.config.update(MAX_CONTENT_LENGTH=(MAX_VIDEO_MB + 5) * 1024 * 1024,
                   SESSION_COOKIE_SECURE=os.environ.get("RS_COOKIE_SECURE", "0") == "1")
 # Behind Crowdcut's Caddy: trust its one hop for the client IP and https.
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+opslog.install(app)   # JSON logs with request and workspace ids, X-Request-Id
+alerts.install(app)   # operator alerts from webhook responses (signature failures, refunds, disputes)
 
 db.init()
 worker.start()
@@ -671,10 +675,13 @@ def terms():
 
 @app.route("/health")
 def health():
-    out = {"ok": True, "generation_configured": hf.configured()}
+    """Database read and write, the worker heartbeat, disk and the vendor's last
+    probe (alerts.py). 503 when the database or the worker is down."""
+    out, code = alerts.health()
+    out["generation_configured"] = hf.configured()
     if request.args.get("deep"):
         out["generation"] = hf.probe()
-    return jsonify(out)
+    return jsonify(out), code
 
 
 @app.route("/login", methods=["GET", "POST"])

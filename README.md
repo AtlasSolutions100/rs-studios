@@ -268,6 +268,21 @@ GitHub OIDC token (no SSH key). The hook writes `/opt/rs-studios`, keeps
 Crowdcut's Caddy serves campaignify.ai (studio.rectorandstull.com redirects there) and proxies to
 `rs-studios-app:8080`. Data (SQLite + media) lives in `/opt/rs-studios/data`.
 
+## Health and alerts (`alerts.py`, `opslog.py`)
+
+`/health` reads and writes the database and checks the worker loop's heartbeat (last pass under
+`RS_HEALTH_WORKER_MAX_AGE`, 30 s); either failing answers 503. Disk (under 10 GB is "low") and the vendor's last
+probe (refreshed every 5 minutes by the worker, never fetched by `/health` itself unless `?deep=1`) are reported but
+don't fail it. Operator alerts go by email through Resend to `OPS_ALERT_EMAIL`, at most once per alert per hour:
+worker down 5 minutes, a job pending or running over 20 minutes, over 10 webhook signature failures in an hour,
+over 20% of jobs failing in 15 minutes (or the vendor key rejected / out of credit), disk under 10 GB, the last
+backup over 26 hours old (meta `backup_last_ok_at`, quiet until the backup job writes it; `alerts.backup_ok`), and a
+refund or dispute on one of our Stripe payments (watched from the webhook's request and response, so the handler
+is unchanged; billing code may also call `alerts.payment_reversed`). Thresholds are settings (`settings.example.txt`).
+Logs from the `campaignify` logger are JSON lines with `request_id` and `ws`, plus one line per request with the
+route pattern (never the real path or query), status and time; every response carries `X-Request-Id`.
+Tests: `tests/test_alerts.py`.
+
 ## Pieces
 
 - `app.py` routes and pages (`web/`: `landing.html`, `privacy.html`, `terms.html` for the public site), `static/style.css`

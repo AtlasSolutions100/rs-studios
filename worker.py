@@ -296,11 +296,19 @@ def price_ok(conn, job, model: str, inputs: dict) -> bool:
     return True
 
 
+def _beat():
+    """Heartbeat for /health, only from the worker thread (tests drive tick() directly)."""
+    if _thread is not None and threading.current_thread() is _thread:
+        import alerts
+        alerts.beat()
+
+
 def tick() -> int:
     """One pass over pending and running jobs. Returns how many changed."""
     changed = 0
     with db.connect() as conn:
         for job in conn.execute("SELECT * FROM jobs WHERE status='pending' ORDER BY priority DESC, id LIMIT 5").fetchall():
+            _beat()
             try:
                 inputs = build_inputs(conn, job)
                 model = catalog.TOOLS[job["tool"]]["model"]
@@ -317,6 +325,7 @@ def tick() -> int:
                     _set(conn, job["id"], attempts=job["attempts"] + 1, error=str(e)[:300])
             changed += 1
         for job in conn.execute("SELECT * FROM jobs WHERE status='running' ORDER BY id LIMIT 20").fetchall():
+            _beat()
             try:
                 res = hf.status(job["request_id"])
             except Exception:  # noqa: BLE001 — try again next tick, but not forever
@@ -362,7 +371,9 @@ def start():
         return
 
     def loop():
+        import alerts
         while True:
+            alerts.beat()
             try:
                 tick()
             except Exception:  # noqa: BLE001
@@ -377,6 +388,7 @@ def start():
                 conversions.tick()
             except Exception:  # noqa: BLE001
                 traceback.print_exc()
+            alerts.maybe_sweep()   # operator alerts: stuck jobs, vendor errors, disk, backups (never raises)
             time.sleep(POLL_SECONDS)
 
     _thread = threading.Thread(target=loop, name="rs-worker", daemon=True)
