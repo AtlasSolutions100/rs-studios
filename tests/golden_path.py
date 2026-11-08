@@ -25,6 +25,11 @@ a product photo (UX-13, roadmap M5.2). The steps after a known gap still run and
 numbers are in the baseline too, but the path counts as blocked. A known gap that starts passing is reported, so the
 entry can be removed.
 
+With RS_NEXT_STEPS=1 in the environment (the Home step strip, roadmap M5.1) the run also checks the thread: after
+every step Home's "Your campaign" strip must show exactly one primary button (read with a request, not counted as a
+user action, and noted on the step), and "Pick a plan" follows the strip's button and the upgrade wall's button
+instead of the sidebar, so a dead end after the free ads fails the step.
+
 Exit code: 0 when every step passed or is a known gap or not built; 1 on any other failure.
 
 Fakes: the generation API, result downloads, email, page fetches and the Anthropic API are replaced in process the
@@ -70,6 +75,10 @@ NOT_BUILT = {
     "service": [("connect_launch", "Connect Google Ads and launch (paused)", "M3.1, M3.2")],
 }
 PW = "golden-path-pw-1"
+
+
+def next_steps_on():
+    return os.environ.get("RS_NEXT_STEPS", "").strip().lower() in ("1", "on", "true", "yes")
 
 
 def free_port():
@@ -169,7 +178,7 @@ class F:
 
     # ---- generation API
     @classmethod
-    def submit(cls, model, inputs, webhook_url=None):
+    def submit(cls, model, inputs, webhook_url=None, idempotency_key=None):   # worker passes the key (M1.9)
         rid = f"req{len(cls.results) + 1}"
         cls.results[rid] = {"at": time.time(), "model": model, "inputs": inputs}
         return rid
@@ -585,6 +594,11 @@ class Run:
                 except Exception:  # noqa: BLE001
                     pass
         st.seconds = time.monotonic() - t0
+        if next_steps_on() and st.status == "pass" and self.ws_id:
+            try:
+                self.strip_check(st)
+            except StepFailed as e:
+                st.status, st.error = "fail", str(e)
         st.charged = self.spent_since(mark)
         if st.status == "pass":
             shown = sum(p[1] for p in st.paid)
@@ -610,6 +624,21 @@ class Run:
         except Exception:  # noqa: BLE001
             pass
         return st
+
+    def strip_check(self, st):
+        """Home's "Your campaign" strip (RS_NEXT_STEPS): one primary button, whatever step the account is on."""
+        r = self.ctx.request.get(f"{self.base}/app")
+        html = r.text()
+        m = re.search(r'<section class="panel nsteps"[^>]*data-current="(\w+)".*?</section>', html, re.S)
+        if not m:
+            if "data-first-run" in html:
+                return   # before the first ad Home is the first-ad form only
+            raise StepFailed("Home has no 'Your campaign' strip")
+        prim = [x for x in re.findall(r'class="btn( [^"]*)?"', m.group(0)) if "dark" not in (x or "")]
+        label = re.search(r"data-ns-primary>([^<]+)<", m.group(0))
+        st.notes.append(f"Home next step: {m.group(1)} ('{label.group(1) if label else ''}', {len(prim)} primary)")
+        if len(prim) != 1:
+            raise StepFailed(f"Home's strip shows {len(prim)} primary buttons, not 1")
 
     # ---------------------------------------------------------------- shared steps
     def email_code(self, email):
@@ -698,11 +727,22 @@ class Run:
         self.page.wait_for_selector("text=/ready/i", timeout=20000)
 
     def s_pick_plan(self, st, code):
-        self.nav("/app/campaigns")
-        if "See plans" not in self.text():
+        nxt = self.page.locator("[data-next-steps] [data-ns-primary]")
+        made = self.q("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", self.ws_id)[0][0]
+        if next_steps_on() and made:
+            # The thread: Home's one primary button after the free ads, then the wall's button (no dead end).
+            if not nxt.count() or "/app/campaigns" not in (nxt.first.get_attribute("href") or ""):
+                raise StepFailed("after the free ads Home's primary button doesn't lead to the plan")
+            st.notes.append(f"followed Home's '{nxt.first.inner_text().strip()}'")
+            self.click(nxt.first)
+            self.page.wait_for_load_state()
+        else:
+            self.nav("/app/campaigns")
+        wall = self.page.locator("[data-wall] a.btn:not(.dark)") if next_steps_on() else self.page.locator("a:has-text('See plans')")
+        if not wall.count():
             st.notes.append("no upgrade wall (already on a plan)")
             return
-        self.click("a:has-text('See plans')")
+        self.click(wall.first)
         self.page.wait_for_url("**/app/billing**")
         st.notes.append("free-month code on Billing stands in for Stripe Checkout (a known handoff, not run locally)")
         self.fill("#comp-code", code)

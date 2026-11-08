@@ -3186,6 +3186,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_import.py")], check=True)
     # The first run: sign-up to first ad (page import, 2 free ads, the free video ad, events, nudge emails).
     subprocess.run([sys.executable, os.path.join(HERE, "test_first_run.py")], check=True)
+    # The next-step thread on Home (next_steps.py, RS_NEXT_STEPS): ads counted, one primary button, the upgrade wall.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_next_steps.py")], check=True)
     # Continue with Google (google_auth.py): the button, the round trip, new and existing accounts (Google faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_google_auth.py")], check=True)
     # Free-month codes (compcodes.py, /admin/codes): make, redeem without Stripe, single use, expiry, the end of the month.

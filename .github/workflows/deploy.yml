@@ -94,6 +94,7 @@ name: Deploy Campaignify (campaignify.ai)
 #   HF_RETRY               retry the generation vendor on timeouts, 429 and 5xx (hf.py), default on
 #   RS_LOGIN_HARDENING     login, sign-up and reset hardening (login_security.py), default on
 #   RS_SIGNUP_CONFIRM      a form sign-up logs in first from its emailed link (login_security.py), default off; set 1 to turn on
+#   RS_NEXT_STEPS          the "Your campaign" step strip on Home and the new upgrade-wall copy (next_steps.py), default off
 #   RS_STORAGE_QUOTAS      storage quotas per plan (storage.py), default on
 #   RS_JOB_CANCEL          the member Cancel button on queued ads (jobs_routes.py), default off
 #   RS_STORAGE_PURGE_DELETED  remove files of ads deleted over 30 days ago (storage.py), default off
@@ -221,6 +222,7 @@ jobs:
           HF_RETRY: ${{ vars.HF_RETRY }}
           RS_LOGIN_HARDENING: ${{ vars.RS_LOGIN_HARDENING }}
           RS_SIGNUP_CONFIRM: ${{ vars.RS_SIGNUP_CONFIRM }}
+          RS_NEXT_STEPS: ${{ vars.RS_NEXT_STEPS }}
           RS_STORAGE_QUOTAS: ${{ vars.RS_STORAGE_QUOTAS }}
           RS_JOB_CANCEL: ${{ vars.RS_JOB_CANCEL }}
           RS_STORAGE_PURGE_DELETED: ${{ vars.RS_STORAGE_PURGE_DELETED }}
@@ -256,7 +258,7 @@ jobs:
                                              "BACKUP_CRYPT_PASSWORD", "BACKUP_CRYPT_SALT",
                                              # kill switches and opt-ins (N15)
                                              "BILLING_HOLD", "CREDIT_HOLDS", "PLAN_PENDING", "RENEWAL_PAUSE", "HF_RETRY",
-                                             "RS_LOGIN_HARDENING", "RS_SIGNUP_CONFIRM", "RS_STORAGE_QUOTAS",
+                                             "RS_LOGIN_HARDENING", "RS_SIGNUP_CONFIRM", "RS_NEXT_STEPS", "RS_STORAGE_QUOTAS",
                                              "RS_JOB_CANCEL", "RS_STORAGE_PURGE_DELETED", "OPS_ALERTS", "BACKUPS",
                                              "BACKUP_MEDIA", "RS_DISK_MIN_GB", "RS_HEALTH_WORKER_MAX_AGE",
                                              "RS_HEALTH_BUSY_MAX_S")

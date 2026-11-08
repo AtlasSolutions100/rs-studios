@@ -211,7 +211,7 @@
     var ctx = box.dataset.liveCards, url = '/app/jobs/cards';
     function pending(){ return [].slice.call(box.querySelectorAll('[data-job]')).filter(function(e){ return /pending|running/.test(e.dataset.status); }).map(function(e){ return e.dataset.job; }); }
     function total(){ return box.querySelectorAll('[data-job]').length; }
-    function flash(){ var f = document.querySelector('[data-live-flash]'), n = pending().length; if(!f) return; f.hidden = !n; var t = f.querySelector('[data-live-text]'); if(t) t.textContent = 'Making ' + n + ' of ' + total() + '.'; }
+    function flash(){ var f = document.querySelector('[data-live-flash]'), n = pending().length; if(!f) return; f.hidden = !n; var t = f.querySelector('[data-live-text]'); if(t) t.textContent = 'Making ' + n + ' of ' + total() + '.'; var dn = document.querySelector('[data-live-done]'); if(dn && !n) dn.hidden = false; }
     function poll(){
       var ids = pending(); if(!ids.length){ flash(); return; }
       fetch(url + '?ctx=' + ctx + '&ids=' + ids.join(','), {headers: {'Accept': 'application/json'}}).then(function(r){ return r.json(); }).then(function(d){

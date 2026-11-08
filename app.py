@@ -2656,6 +2656,8 @@ app.register_blueprint(forms_routes.bp)
 app.register_blueprint(community_routes.bp)
 app.register_blueprint(share_routes.bp)
 app.register_blueprint(creator_pool_routes.bp)
+import next_steps  # noqa: E402  the "Your campaign" strip on Home (RS_NEXT_STEPS, default off)
+next_steps.init(app)
 
 
 def _has_endpoint(name) -> bool:
