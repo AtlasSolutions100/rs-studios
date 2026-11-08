@@ -1,6 +1,6 @@
 name: Tests (pull requests)
 
-# Runs the test suite on every pull request to main and m1-integration so a PR shows
+# Runs the test suite on every pull request to main, m1-integration and m1b-integration so a PR shows
 # a check before it is merged, again every night (so a new advisory or a date-bound
 # test shows up without a push), and by hand. tests/test_app.py chains every test
 # file (about 3 minutes). pip-audit checks the locked requirements and fails only on
@@ -8,7 +8,7 @@ name: Tests (pull requests)
 # secrets: deploying stays in deploy.yml, which runs only on push to main (and by hand).
 on:
   pull_request:
-    branches: [main, m1-integration]
+    branches: [main, m1-integration, m1b-integration]
   schedule:
     - cron: "41 8 * * *"   # 02:41 Central
   workflow_dispatch:

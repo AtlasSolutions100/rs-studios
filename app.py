@@ -286,6 +286,11 @@ def load_user():
     if uid:
         with db.connect() as conn:
             u = conn.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
+            if u and not login_security.session_current(u):
+                # A password reset since this browser logged in ends its session (N8).
+                for k in ("uid", "sv", "view_ws"):
+                    session.pop(k, None)
+                u = None
             if u:
                 g.user = u
                 ws_id = u["workspace_id"]
@@ -707,17 +712,27 @@ def login():
     if request.method == "POST":
         email = (request.form.get("email") or "").strip().lower()
         ip = client_ip()
-        if login_security.login_blocked(ip, email):   # per network + email, per network, per account
-            flash(login_security.BLOCKED_MSG)
+        # per network + email and per network: 15 minutes; per account: a slowdown for new browsers (N9)
+        wait = login_security.login_wait(ip, email, login_security.known_browser(request, email))
+        if wait:
+            flash(wait)
             return render_template("login.html"), 429
         with db.connect() as conn:
             u = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
         if u and check_password_hash(u["pw_hash"], request.form.get("password") or ""):
-            session.clear()
-            session["uid"] = u["id"]
-            csrf_token()
+            if login_security.awaiting_confirm(u):
+                # The right password for a sign-up whose emailed link hasn't been opened (SEC-8).
+                if not db.throttled(f"verify:{u['id']}", 1, verify.RESEND_GAP_S) \
+                        and not db.throttled(f"verify:{u['id']}", verify.RESEND_PER_HOUR, 3600):
+                    db.hit(f"verify:{u['id']}")
+                    login_security.later(accounts._send_first_link, u["id"], app.secret_key)
+                flash(f"Confirm your email first: open the link we sent to {u['email']}. "
+                      "We sent it again just now. Check spam too.")
+                return render_template("login.html")
+            login_security.start_session(u)
             nxt = request.args.get("next") or ""
-            return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else url_for("studio"))
+            return login_security.remember_browser(
+                redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else url_for("studio")), request, email)
         login_security.login_failed(ip, email)
         flash(login_security.failed_message(u))   # the same words for every email (SEC-8)
     return render_template("login.html")
@@ -757,12 +772,16 @@ def signup():
         if not owner and comp and not login_security.code_attempt(f"code-ip:{ip}"):
             return again(login_security.CODES_MSG, 429)
         if not owner:
+            pw_hash = generate_password_hash(pw)
             try:
-                return accounts.self_serve_signup(email, name, generate_password_hash(pw), request, ip, app.secret_key,
-                                                  invite_code=code, comp_code=comp)
+                # With confirm_first a new email gets the same "Check your email" page as a
+                # taken one, and logs in from the emailed link (SEC-8).
+                return accounts.self_serve_signup(email, name, pw_hash, request, ip, app.secret_key,
+                                                  invite_code=code, comp_code=comp,
+                                                  confirm_first=login_security.confirm_first())
             except accounts.EmailTaken as e:
                 if login_security.enabled():   # mail that inbox instead of saying so here (SEC-8)
-                    return login_security.signup_email_taken(email, ip)
+                    return login_security.signup_email_taken(email, ip, pw_hash, app.secret_key)
                 return again(str(e), e.status)
             except accounts.SignupRefused as e:
                 return again(str(e), e.status)
@@ -784,9 +803,7 @@ def signup():
                                 "member" if joins else "owner", db.now(), None,
                                 gads.first_touch_json(request.cookies.get(gads.COOKIE))))
             conn.commit()
-            session.clear()
-            session["uid"] = cur.lastrowid
-            csrf_token()
+            login_security.start_session(conn.execute("SELECT * FROM users WHERE id=?", (cur.lastrowid,)).fetchone())
         resp = redirect(url_for("brand_kit"))
         if request.cookies.get(gads.COOKIE):
             resp.delete_cookie(gads.COOKIE)   # it's on the account now
@@ -797,10 +814,14 @@ def signup():
 @app.route("/verify")
 def verify_email():
     """The link in the confirmation email. Works once, for 48 hours; it confirms
-    the address but doesn't log anyone in."""
+    the address but doesn't log anyone in, except a form sign-up that was waiting
+    for this link (login_security.confirm_first): opening it is that account's
+    first login."""
     with db.connect() as conn:
         outcome, u = verify.confirm(conn, app.secret_key, request.args.get("t") or "")
         conn.commit()
+        if outcome == "ok" and u is not None and u["signup_pending"]:
+            return accounts.first_login(conn, u, request)
     mine = bool(g.user and u is not None and g.user["id"] == u["id"])
     if outcome == "ok":
         flash("Email confirmed. Video ads are unlocked." if mine else

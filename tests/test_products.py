@@ -14,6 +14,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 TMP = tempfile.mkdtemp(prefix="rs_prod_")
+os.environ.setdefault("RS_SIGNUP_CONFIRM", "0")  # sign-ups here go straight in; test_login.py checks the emailed-link step
 os.environ.update(RS_VIDEO_USD_PER_SECOND="0.206", RS_TALKING_USD_PER_SECOND="0.206")  # fixtures use the old round numbers
 os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret", RS_MARKUP="2.0", RS_PLAN_SYNC="0")
 os.environ.pop("ANTHROPIC_API_KEY", None)

@@ -246,15 +246,21 @@ def _free_what(conn, user) -> str:
     return f"your free Campaignify credits ({ads})"
 
 
-def send_link(conn, secret: str, user) -> bool:
+def send_link(conn, secret: str, user, first_login: bool = False) -> bool:
     """Email the confirmation link and a fresh 6-digit code, together (makes a
     nonce if the account has none; commits). False when email isn't connected
-    or the send failed (logged, without the code)."""
+    or the send failed (logged, without the code).
+
+    `first_login`: a form sign-up that can't log in until the link is opened
+    (login_security.confirm_first). That email has the link only: there is no
+    box to type a code into before the first login."""
     if not user["verify_nonce"]:
         conn.execute("UPDATE users SET verify_nonce=? WHERE id=?", (new_nonce(), user["id"]))
         conn.commit()
         user = conn.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone()
     link = public_url() + "/verify?t=" + make_token(secret, user)
+    if first_login:
+        return _send_first_login(conn, user, link)
     code = new_code(conn, secret, user)
     conn.commit()
     import preview
@@ -284,4 +290,27 @@ def send_link(conn, secret: str, user) -> bool:
         return True
     except mailer.MailError as e:
         log.warning("verification email to user %s not sent: %s", user["id"], e)
+        return False
+
+
+def _send_first_login(conn, user, link: str) -> bool:
+    what = _free_what(conn, user)
+    what = what[0].upper() + what[1:] + " are waiting in your account."
+    text = ("Hi,\n\nOpen this link to confirm your email and log in to Campaignify. "
+            f"It works once, for 48 hours:\n\n{link}\n\n{what}\n\n"
+            "If you didn't sign up for Campaignify, ignore this email and nothing happens.\n\nCampaignify")
+    html = ('<div style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.5;color:#111">'
+            "<p>Hi,</p><p>Open this link to confirm your email and log in to Campaignify.</p>"
+            f'<p><a href="{link}" style="display:inline-block;background:#111;color:#fff;padding:12px 20px;'
+            'border-radius:8px;text-decoration:none;font-weight:600">Confirm and log in</a></p>'
+            f'<p style="font-size:13px;color:#555">Or paste this link into your browser:<br>{link}</p>'
+            f"<p>{what}</p>"
+            '<p style="font-size:13px;color:#555">The link works once, for 48 hours. If you didn\'t sign up for '
+            "Campaignify, ignore this email and nothing happens.</p></div>")
+    try:
+        mailer.send(frm=from_address(), to=user["email"], subject="Confirm your email to log in to Campaignify",
+                    html=html, text=text, reply_to=reply_to(), tags={"kind": "verify_signup"})
+        return True
+    except mailer.MailError as e:
+        log.warning("sign-up confirmation email to user %s not sent: %s", user["id"], e)
         return False

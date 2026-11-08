@@ -15,6 +15,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 TMP = tempfile.mkdtemp(prefix="rs_holds_")
+os.environ.setdefault("RS_SIGNUP_CONFIRM", "0")  # sign-ups here go straight in; test_login.py checks the emailed-link step
 os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret", RS_PLAN_SYNC="0", RS_MARKUP="2.0",
                   RS_EMAIL_VERIFY="0", ANTHROPIC_API_KEY="sk-ant-test")
 for k in ("ANTHROPIC_MODEL", "LLM_USD_IN_PER_MTOK", "LLM_USD_OUT_PER_MTOK", "LLM_USD_PER_WEB_SEARCH", "GROQ_API_KEY",
