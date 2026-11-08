@@ -10,7 +10,8 @@ ad is waiting; everyone else their 2 free image ads.
 Rules: one email per step per person (first_run_nudges), only accounts made in
 the last MAX_AGE_DAYS (so a deploy never mails old dead sign-ups), only when
 email is connected, never to admins, invitees or paid workspaces. The magic link
-(/m?t=...) is a signed token for that account, good for LINK_HOURS; opening it
+(/m?t=...) is a signed token for that account, good for link_hours() (24, or
+LINK_HOURS with RS_LOGIN_HARDENING=0) and used once (login_security.py); opening it
 logs the account in and, since the email reached them, counts as confirming the
 address (verify.py) so video ads are unlocked when they land.
 
@@ -91,11 +92,16 @@ def magic_link(secret: str, user) -> str:
     return verify.public_url() + "/m?t=" + magic_token(secret, user)
 
 
-def open_link(conn, secret: str, token: str):
-    """The account a magic link logs in, or None (bad, expired, email changed).
-    Marks the email confirmed: the link only ever reached that inbox."""
+def link_hours() -> int:
+    """LINK_HOURS, or 24 with login hardening on (login_security.py: single use too)."""
+    import login_security
+    return login_security.link_hours()
+
+
+def check_link(conn, secret: str, token: str):
+    """The account a magic link is for, or None (bad, expired, email changed). Changes nothing."""
     try:
-        data = _serializer(secret).loads(token or "", max_age=LINK_HOURS * 3600)
+        data = _serializer(secret).loads(token or "", max_age=link_hours() * 3600)
     except (SignatureExpired, BadSignature):
         return None
     if not isinstance(data, dict):
@@ -103,6 +109,11 @@ def open_link(conn, secret: str, token: str):
     user = conn.execute("SELECT * FROM users WHERE id=?", (data.get("u"),)).fetchone()
     if user is None or user["email"] != data.get("e"):
         return None
+    return user
+
+
+def confirm_inbox(conn, user):
+    """Mark the email confirmed (the link only ever reached that inbox); returns the fresh row."""
     if not verify.is_verified(user):
         conn.execute("UPDATE users SET email_verified_at=?, verify_nonce=NULL, verify_code_hash=NULL, verify_code_exp=NULL, "
                      "verify_code_tries=0 WHERE id=? AND email_verified_at IS NULL", (db.now(), user["id"]))
@@ -112,6 +123,12 @@ def open_link(conn, secret: str, token: str):
     return user
 
 
+def open_link(conn, secret: str, token: str):
+    """check_link, then confirm_inbox (the old reusable link; /m spends it once when hardened)."""
+    user = check_link(conn, secret, token)
+    return None if user is None else confirm_inbox(conn, user)
+
+
 # ---------------------------------------------------------------- the emails
 
 def _copy(step: int, grant: bool, link: str) -> tuple[str, str, str]:
@@ -119,6 +136,9 @@ def _copy(step: int, grant: bool, link: str) -> tuple[str, str, str]:
     import catalog
     r = catalog.rates()
     kind = "video" if grant else "ads"
+    hours = link_hours()
+    import login_security
+    once = " once" if login_security.enabled() else ""
     subject = SUBJECTS[step][kind]
     if grant:
         what = (f"Your free credits cover a 5-second product video of your product ({r['video5']} credits), "
@@ -129,13 +149,13 @@ def _copy(step: int, grant: bool, link: str) -> tuple[str, str, str]:
         do = "Paste your product page or add one photo, pick a template, and your 2 ads are ready in about a minute."
     opener = "You signed up for Campaignify, and your free ads are still waiting." if step == 1 else \
         "A day on, your free ads are still waiting in Campaignify."
-    text = (f"Hi,\n\n{opener} {what}\n\n{do}\n\nOpen Campaignify (this link logs you in, and works for "
-            f"{LINK_HOURS} hours):\n\n{link}\n\nNo card, nothing to cancel. If you didn't sign up, ignore this email.\n\nCampaignify")
+    text = (f"Hi,\n\n{opener} {what}\n\n{do}\n\nOpen Campaignify (this link logs you in{once}, and works for "
+            f"{hours} hours):\n\n{link}\n\nNo card, nothing to cancel. If you didn't sign up, ignore this email.\n\nCampaignify")
     html = ('<div style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.5;color:#111">'
             f"<p>Hi,</p><p>{opener} {what}</p><p>{do}</p>"
             f'<p><a href="{link}" style="display:inline-block;background:#111;color:#fff;padding:12px 20px;'
             'border-radius:8px;text-decoration:none;font-weight:600">Make my free ads</a></p>'
-            f'<p style="font-size:13px;color:#555">The link logs you in and works for {LINK_HOURS} hours. '
+            f'<p style="font-size:13px;color:#555">The link logs you in{once} and works for {hours} hours. '
             f"Or paste it into your browser:<br>{link}</p>"
             '<p style="font-size:13px;color:#555">No card, nothing to cancel. If you didn\'t sign up for Campaignify, '
             "ignore this email.</p></div>")

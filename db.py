@@ -89,6 +89,12 @@ CREATE TABLE IF NOT EXISTS throttle (
     key TEXT NOT NULL,
     at REAL NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_throttle ON throttle(key, at);
+-- Password reset links and spent nudge login links (login_security.py). Only a SHA-256
+-- of each token is kept. kind: reset | magic. expires_at: epoch seconds.
+CREATE TABLE IF NOT EXISTS login_tokens (
+    token_hash TEXT PRIMARY KEY, kind TEXT NOT NULL, user_id INTEGER NOT NULL, email TEXT NOT NULL,
+    expires_at INTEGER NOT NULL, used_at TEXT, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_login_tokens_user ON login_tokens(user_id, kind);
 CREATE TABLE IF NOT EXISTS plan_invoices (
     invoice_id TEXT PRIMARY KEY,
     workspace_id INTEGER NOT NULL,

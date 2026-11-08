@@ -37,6 +37,7 @@ import creator
 import db
 import gads
 import hf
+import login_security
 import nudges
 import plans
 import presenter_stills
@@ -56,7 +57,7 @@ from core import MAX_PHOTO_MB, MAX_VIDEO_MB, PHOTO_TYPES, UPLOADS, VIDEO_TYPES, 
 # Signup abuse limits (per client IP): new accounts per hour and per day.
 SIGNUPS_PER_HOUR, SIGNUPS_PER_DAY = accounts.SIGNUPS_PER_HOUR, accounts.SIGNUPS_PER_DAY
 # Failed logins allowed per IP+email and per IP in 15 minutes.
-LOGIN_FAILS_PER_EMAIL, LOGIN_FAILS_PER_IP = 8, 30
+LOGIN_FAILS_PER_EMAIL, LOGIN_FAILS_PER_IP = login_security.FAILS_PER_IP_EMAIL, login_security.FAILS_PER_IP
 log = logging.getLogger("campaignify")
 
 app = Flask(__name__, template_folder=os.path.join(HERE, "web"), static_folder=os.path.join(HERE, "static"))
@@ -682,9 +683,8 @@ def login():
     if request.method == "POST":
         email = (request.form.get("email") or "").strip().lower()
         ip = client_ip()
-        if db.throttled(f"login:{ip}:{email}", LOGIN_FAILS_PER_EMAIL, 900) or \
-                db.throttled(f"login:{ip}", LOGIN_FAILS_PER_IP, 900):
-            flash("Too many tries. Wait 15 minutes and try again.")
+        if login_security.login_blocked(ip, email):   # per network + email, per network, per account
+            flash(login_security.BLOCKED_MSG)
             return render_template("login.html"), 429
         with db.connect() as conn:
             u = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
@@ -694,12 +694,8 @@ def login():
             csrf_token()
             nxt = request.args.get("next") or ""
             return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else url_for("studio"))
-        db.hit(f"login:{ip}:{email}")
-        db.hit(f"login:{ip}")
-        if u and u["auth_provider"] == "google":
-            flash("This account signs in with Google. Use the Google button.")
-        else:
-            flash("That email and password don't match.")
+        login_security.login_failed(ip, email)
+        flash(login_security.failed_message(u))   # the same words for every email (SEC-8)
     return render_template("login.html")
 
 
@@ -734,10 +730,16 @@ def signup():
             return again("Use a real email and a password of at least 8 characters.")
         if not owner and accounts.signup_throttled(ip):
             return again("Too many new accounts from your network. Try again later.", 429)
+        if not owner and comp and not login_security.code_attempt(f"code-ip:{ip}"):
+            return again(login_security.CODES_MSG, 429)
         if not owner:
             try:
                 return accounts.self_serve_signup(email, name, generate_password_hash(pw), request, ip, app.secret_key,
                                                   invite_code=code, comp_code=comp)
+            except accounts.EmailTaken as e:
+                if login_security.enabled():   # mail that inbox instead of saying so here (SEC-8)
+                    return login_security.signup_email_taken(email, ip)
+                return again(str(e), e.status)
             except accounts.SignupRefused as e:
                 return again(str(e), e.status)
         # An owner setup link: a Rector & Stull admin, confirmed (the link only works for its own address).
@@ -788,21 +790,6 @@ def verify_email():
         flash("That link doesn't work. Use the newest email we sent, or press Resend." if g.user else
               "That link doesn't work. Log in and press Resend for a new one.")
     return redirect(url_for("studio") if g.user else url_for("login"))
-
-
-@app.route("/m")
-def magic_login():
-    """The link in a first-run nudge email (nudges.py): logs that account in and
-    opens Home, the first-ad form. Reaching the inbox confirms the address too."""
-    with db.connect() as conn:
-        u = nudges.open_link(conn, app.secret_key, request.args.get("t") or "")
-    if u is None:
-        flash("That link has expired. Log in with your email and password.")
-        return redirect(url_for("login"))
-    session.clear()
-    session["uid"] = u["id"]
-    csrf_token()
-    return redirect(url_for("studio"))
 
 
 def _resend_wait():
@@ -1589,7 +1576,10 @@ def billing_page():
     if request.args.get("plan") == "success":
         session.pop("promo", None)
     if request.args.get("code") and is_owner() and not _subscribed(g.ws):
-        _save_promo(request.args.get("code"), from_link=True)
+        if login_security.code_attempt(f"code:{g.ws['id']}"):   # each one is a Stripe lookup (BILL-6)
+            _save_promo(request.args.get("code"), from_link=True)
+        else:
+            flash(login_security.CODES_MSG)
     try:
         if _maybe_reconcile(g.ws["id"], force=request.args.get("plan") == "success"):
             with db.connect() as conn:
@@ -1642,6 +1632,9 @@ def billing_code():
     """"Have a code?" on Billing: a free-month code (compcodes.py, no Stripe involved),
     or a discount code from our email (a Stripe promotion code, kept for checkout)."""
     raw = request.form.get("code") or ""
+    if not login_security.code_attempt(f"code:{g.ws['id']}"):   # BILL-6
+        flash(login_security.CODES_MSG)
+        return redirect(url_for("billing_page") + "#code")
     if not compcodes.normalize(raw) and not _subscribed(g.ws) and billing.normalize_promo(raw) \
             and _save_promo(raw):
         return redirect(url_for("billing_page") + "#plans")
@@ -2426,6 +2419,7 @@ import google_auth  # noqa: E402
 
 app.register_blueprint(product_routes.bp)
 app.register_blueprint(google_auth.bp)
+app.register_blueprint(login_security.bp)   # /forgot, /reset, /m (login hardening)
 app.jinja_env.globals["google_signin"] = google_auth.configured   # the Continue with Google button
 app.register_blueprint(create_routes.bp)
 app.register_blueprint(jobs_routes.bp)

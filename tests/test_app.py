@@ -3179,3 +3179,5 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_creator_pools.py")], check=True)
     # The MCP server (mcpserver.py, mcp_tools.py): API keys, OAuth, the handshake, quote-then-generate.
     subprocess.run([sys.executable, os.path.join(HERE, "test_mcp.py")], check=True)
+    # Login hardening (login_security.py): throttles, one login message, password reset, single-use /m links, code limits.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_login.py")], check=True)

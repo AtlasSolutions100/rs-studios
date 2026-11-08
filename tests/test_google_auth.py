@@ -250,11 +250,11 @@ c = client()
 c.get("/login")
 r = c.post("/login", data={"csrf": csrf(c), "email": "pat@example.com", "password": "whatever-this-is"})
 html = r.get_data(as_text=True)
-check(r.status_code == 200 and "This account signs in with Google. Use the Google button." in html,
-      "a password login on a Google account says to use the Google button")
+check(r.status_code == 200 and "signs in with Google" not in html and "If you signed up with Google, use the Google button." in html,
+      "a password login on a Google account gets the same words as anyone (no account enumeration)")
 r = c.post("/login", data={"csrf": csrf(c), "email": "sam@example.com", "password": "wrong-password"})
 check("password don" in r.get_data(as_text=True) and "signs in with Google" not in r.get_data(as_text=True),
-      "a password account keeps the generic message")
+      "a password account gets the generic message")
 r = c.post("/login", data={"csrf": csrf(c), "email": "ghost@example.com", "password": "wrong-password"})
 check("password don" in r.get_data(as_text=True), "and so does an unknown email")
 r = c.post("/login", data={"csrf": csrf(c), "email": "sam@example.com", "password": "longenough1"})
