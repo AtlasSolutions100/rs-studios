@@ -10,6 +10,19 @@ subscription to unlock", linking to the plans. Anything else that costs
 credits shows the same lock and message (core.reserve_ai and core.queue_job
 raise PaywallLocked; every app page shows the lock banner). A subscription
 (any paid plan, a comp or a free-month code) unlocks everything already made.
+
+Who gets the free plan (M2 re-audit M-1, L-5, L-6, L-7):
+  * one per person, not per workspace: the 30 days are counted per workspace,
+    per card fingerprint and per normalized email (free_plans.fingerprint,
+    free_plans.email_norm), so N throwaway accounts on one card get one plan;
+  * the workspace needs a saved card that earned the starter credits
+    (card_trials.trial=1), or else a member with a confirmed email. A card or
+    email that already had a trial on another account gets no free plan either;
+  * credits still in flight (open credit holds, queued or running jobs) count
+    as balance for the claim, so a pack holder can't dip under one image ad by
+    starting something expensive and claim it;
+  * a run that fails gives the plan back, at most MAX_RETRIES times per 30 days
+    (failed rows stay, with status 'failed').
 """
 import json
 import os
@@ -17,11 +30,15 @@ from datetime import datetime, timedelta, timezone
 
 from werkzeug.exceptions import HTTPException
 
+import card_on_file
 import catalog
 import db
 import plans
+import preview
+import verify
 
 FREE_PLAN_DAYS = 30
+MAX_RETRIES = 2           # failed free plans given back per 30 days (L-7): the first try plus 2 more
 FREE_COMPETITORS = 3      # the most competitors a free plan's research covers (it finds them)
 TOP_INSIGHTS = 3
 MESSAGE = "Get an active subscription to unlock"
@@ -54,39 +71,121 @@ def _since(days: int) -> str:
     return (datetime.now(timezone.utc) - timedelta(days=days)).replace(microsecond=0).isoformat()
 
 
-def last_free(conn, ws_id: int):
-    """The free plan this workspace made in the last 30 days, or None."""
-    return conn.execute("SELECT * FROM free_plans WHERE workspace_id=? AND created_at>? ORDER BY id DESC LIMIT 1",
-                        (ws_id, _since(FREE_PLAN_DAYS))).fetchone()
+def in_flight(conn, ws_id: int) -> int:
+    """Credits taken but maybe coming back: open AI holds plus queued and running jobs (L-6)."""
+    held = conn.execute("SELECT COALESCE(SUM(amount), 0) FROM credit_holds WHERE workspace_id=? AND status='held'",
+                        (ws_id,)).fetchone()[0]
+    jobs = conn.execute("SELECT COALESCE(SUM(credits), 0) FROM jobs WHERE workspace_id=? AND status IN "
+                        "('pending', 'running')", (ws_id,)).fetchone()[0]
+    return int(held or 0) + int(jobs or 0)
 
 
-def next_free_on(conn, ws_id: int) -> str | None:
+def claimable(conn, ws) -> bool:
+    """The paywall applies and stays applied with every in-flight spend counted back."""
+    return applies(ws) and db.balance(ws) + in_flight(conn, ws["id"]) < min_price()
+
+
+def card_row(conn, ws_id: int):
+    """The workspace's saved card (card_trials), newest first, or None."""
+    return conn.execute("SELECT * FROM card_trials WHERE workspace_id=? ORDER BY id DESC LIMIT 1", (ws_id,)).fetchone()
+
+
+def who(conn, ws, user) -> dict:
+    """The keys a free plan is counted on: the workspace, its card and the member's normalized email."""
+    card = card_row(conn, ws["id"]) if ws is not None else None
+    email = preview.norm_email(user["email"] if user is not None else "") or None
+    return {"ws_id": ws["id"] if ws is not None else 0, "fingerprint": card["fingerprint"] if card is not None else None,
+            "email_norm": email if email and "@" in email else None}
+
+
+_MATCH = ("(workspace_id=? OR (fingerprint IS NOT NULL AND fingerprint=?) OR (email_norm IS NOT NULL AND email_norm=?))"
+          " AND created_at>?")
+
+
+def _args(k: dict) -> tuple:
+    return (k["ws_id"], k["fingerprint"] or "", k["email_norm"] or "", _since(FREE_PLAN_DAYS))
+
+
+def refusal(conn, ws, user) -> str | None:
+    """Why this member can't have a free plan at all: "reused" (the card or email had a trial on another
+    account) or "confirm" (no card that earned the trial and no confirmed email). None when they can."""
+    if ws is None or user is None:
+        return "confirm"
+    card = card_row(conn, ws["id"])
+    if card is not None:
+        return None if card["trial"] else "reused"
+    if not verify.is_verified(user):
+        return "confirm"
+    if card_on_file.trial_used(conn, ws["id"], None, user["email"]):
+        return "reused"
+    return None
+
+
+def last_free(conn, k: dict):
+    """The free plan (made or running) on any of these keys in the last 30 days, or None."""
+    return conn.execute(f"SELECT * FROM free_plans WHERE {_MATCH} AND COALESCE(status, '') != 'failed' "
+                        "ORDER BY id DESC LIMIT 1", _args(k)).fetchone()
+
+
+def failed(conn, k: dict) -> list:
+    """Failed free plans on any of these keys in the last 30 days, oldest first."""
+    return conn.execute(f"SELECT * FROM free_plans WHERE {_MATCH} AND status='failed' ORDER BY created_at",
+                        _args(k)).fetchall()
+
+
+def next_free_on(conn, k: dict) -> str | None:
     """The date (YYYY-MM-DD) the next free plan can be made, or None when one can be made now."""
-    row = last_free(conn, ws_id)
+    row = last_free(conn, k)
     if row is None:
-        return None
+        bad = failed(conn, k)
+        if len(bad) <= MAX_RETRIES:
+            return None
+        row = bad[len(bad) - MAX_RETRIES - 1]      # once this one is 30 days old, one more try opens
     made = datetime.fromisoformat(row["created_at"])
     return (made + timedelta(days=FREE_PLAN_DAYS)).date().isoformat()
 
 
-def available(conn, ws) -> bool:
-    return applies(ws) and last_free(conn, ws["id"]) is None
+def available(conn, ws, user) -> bool:
+    return claimable(conn, ws) and refusal(conn, ws, user) is None and next_free_on(conn, who(conn, ws, user)) is None
 
 
-def claim(conn, ws_id: int) -> int | None:
-    """Take this workspace's free plan for the next 30 days, atomically (no commit).
-    Returns the free_plans id, or None when one was already made in the window."""
-    cur = conn.execute("INSERT INTO free_plans (workspace_id, created_at) SELECT ?, ? WHERE NOT EXISTS "
-                       "(SELECT 1 FROM free_plans WHERE workspace_id=? AND created_at>?)",
-                       (ws_id, db.now(), ws_id, _since(FREE_PLAN_DAYS)))
+def claim(conn, k: dict) -> int | None:
+    """Take the free plan for these keys for the next 30 days, atomically (no commit). Returns the
+    free_plans id, or None when one was made (or is running) in the window on the workspace, the card or
+    the email, or the failed tries are used up."""
+    a = _args(k)
+    cur = conn.execute("INSERT INTO free_plans (workspace_id, fingerprint, email_norm, status, created_at) "
+                       f"SELECT ?, ?, ?, 'running', ? WHERE NOT EXISTS (SELECT 1 FROM free_plans WHERE {_MATCH} "
+                       "AND COALESCE(status, '') != 'failed') "
+                       f"AND (SELECT COUNT(*) FROM free_plans WHERE {_MATCH} AND status='failed') <= ?",
+                       (k["ws_id"], k["fingerprint"], k["email_norm"], db.now(), *a, *a, MAX_RETRIES))
     return cur.lastrowid if cur.rowcount == 1 else None
 
 
-def give_back(claim_id: int):
-    """The free plan produced nothing: the workspace may try again."""
+def done(claim_id: int):
+    """The free plan was made."""
     with db.connect() as conn:
-        conn.execute("DELETE FROM free_plans WHERE id=?", (claim_id,))
+        conn.execute("UPDATE free_plans SET status='ready' WHERE id=?", (claim_id,))
         conn.commit()
+
+
+def give_back(claim_id: int):
+    """The free plan produced nothing: it no longer counts, but the failure does (MAX_RETRIES)."""
+    with db.connect() as conn:
+        conn.execute("UPDATE free_plans SET status='failed' WHERE id=?", (claim_id,))
+        conn.commit()
+
+
+GENERIC_STEPS = {"read": "Read the product and the template catalog", "angles": "Planned the angles",
+                 "creative": "Wrote hooks and scripts", "ad": "Lined up the ads", "copy": "Wrote the platform copy",
+                 "seo": "Wrote the search keywords", "done": "Finished the plan", "error": "Stopped with an error"}
+
+
+def generic_steps(steps: list) -> list:
+    """The planning steps of a free plan with nothing locked in them (L-8): no angle names, hooks or the
+    model's own words, only what kind of step it was."""
+    return [{"kind": s.get("kind", "note"), "title": GENERIC_STEPS.get(s.get("kind"), "Planning the campaign")}
+            for s in steps or [] if isinstance(s, dict)]
 
 
 def locked(c, ws) -> bool:

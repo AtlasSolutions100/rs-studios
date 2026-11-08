@@ -690,6 +690,10 @@ COLUMNS = [
     ("credit_reversals", "full", "INTEGER NOT NULL DEFAULT 1"),   # 0: a partial refund (voids its share, no hold)
     # a run still in progress keeps its credit hold (credits.keepalive, N13)
     ("credit_holds", "alive_at", "TEXT"),
+    # the free plan is counted per person (plan_paywall.py, M-1): the card and the email, and failed tries (L-7)
+    ("free_plans", "fingerprint", "TEXT"),
+    ("free_plans", "email_norm", "TEXT"),
+    ("free_plans", "status", "TEXT"),          # running | ready | failed (NULL: made before this column)
 ]
 
 
@@ -735,6 +739,8 @@ def init():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_photos_p ON photos(product_id, id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_p ON jobs(workspace_id, product_id, id)")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_outputs_share ON outputs(share_token)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_free_plans_fp ON free_plans(fingerprint, created_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_free_plans_email ON free_plans(email_norm, created_at)")
         conn.commit()
         if not conn.execute("SELECT 1 FROM meta WHERE key='owner_admin_v1'").fetchone():
             # Koby signed up through the normal form (user 1, workspace 1, the Scale

@@ -1,5 +1,5 @@
 {% extends "base.html" %}{% block title %}Free campaign plan · Campaignify{% endblock %}
-{# The out-of-credits free plan (paywall_routes.py, RS_PLAN_PAYWALL): 1 per workspace per 30 days, with competitor research. #}
+{# The out-of-credits free plan (paywall_routes.py, RS_PLAN_PAYWALL): 1 per person (workspace, card, email) per 30 days, with competitor research. #}
 {% block body %}
 <div class="page">
   <section>
@@ -9,7 +9,7 @@
     {% if not ai_on %}<div class="flash warn">The campaign planner isn't switched on yet, so it can't run right now. Nothing will be charged.</div>{% endif %}
     {% if next_on %}
     <div class="panel" data-free-plan-used>
-      <p style="margin:0 0 10px">{% include "_lock_icon.svg" %} You've made your free plan for this month. The next one opens on <b>{{ next_on }}</b>.</p>
+      <p style="margin:0 0 10px">{% include "_lock_icon.svg" %} {% if tries_used %}You've used this month's tries at the free plan.{% else %}You've made your free plan for this month.{% endif %} The next one opens on <b>{{ next_on }}</b>.</p>
       <div class="row" style="gap:10px;flex-wrap:wrap">
         {% if made %}<a class="btn dark" href="{{ url_for('paywall.show', cid=made) }}">Open my free plan</a>{% endif %}
         <a class="btn" href="{{ url_for('billing_page') }}#plans">Get an active subscription to unlock</a>
@@ -17,6 +17,13 @@
     </div>
     {% elif not out %}
     <div class="panel"><p style="margin:0">The free plan is for accounts that are out of credits. You still have {{ '{:,}'.format(balance()) }} credits to make ads with. <a href="{{ url_for('billing_page') }}#plans">See plans</a> to use the planner any time.</p></div>
+    {% elif busy %}
+    <div class="panel" data-free-plan-busy><p style="margin:0">Something you started is still running. When it finishes, check your credits and come back here. <a href="{{ url_for('billing_page') }}#plans">See plans</a></p></div>
+    {% elif refused %}
+    <div class="panel" data-free-plan-refused>
+      <p style="margin:0 0 10px">{% include "_lock_icon.svg" %} {{ refused }}</p>
+      <a class="btn" href="{{ url_for('billing_page') }}#plans">See plans</a>
+    </div>
     {% else %}
     <form method="post" class="panel copyform" data-free-plan-form>
       <input type="hidden" name="csrf" value="{{ csrf_token() }}">
@@ -31,7 +38,7 @@
       <div class="choices">{% for k in ['meta','tiktok','youtube','google','x','linkedin','pinterest','snapchat','reddit'] %}<label class="choice chk"><input type="checkbox" name="platforms" value="{{ k }}" {{ 'checked' if k in ('meta','tiktok') }}>{{ PLATFORMS[k].short }}</label>{% endfor %}</div>
       <label for="link">Landing page or store link <span class="dim">(optional)</span></label><input id="link" type="text" name="link" maxlength="300" placeholder="https://">
       <div class="go">
-        <span class="muted small">Free: nothing is charged. 1 per workspace every 30 days.</span>
+        <span class="muted small">Free: nothing is charged. 1 per person every 30 days.</span>
         <button class="btn" {{ 'disabled' if not ai_on }}>Make my free plan</button>
       </div>
     </form>

@@ -40,7 +40,7 @@ def locked_error(e):
     if _wants_json():
         return jsonify({"error": plan_paywall.MESSAGE, "paywall": True, "plans": _plans_url()}), 402
     with db.connect() as conn:
-        free_ok = g.get("ws") is not None and plan_paywall.available(conn, g.ws)
+        free_ok = g.get("ws") is not None and plan_paywall.available(conn, g.ws, g.get("user"))
     return render_template("paywall_locked.html", free_ok=free_ok), 402
 
 
@@ -54,7 +54,7 @@ def _banner():
     if not plan_paywall.applies(g.ws):
         return {}
     with db.connect() as conn:
-        free_ok = plan_paywall.available(conn, g.ws)
+        free_ok = plan_paywall.available(conn, g.ws, g.user)
     return {"paywall_banner": {"message": plan_paywall.MESSAGE, "plans": _plans_url(),
                                "free_plan": url_for("paywall.new") if free_ok else None}}
 
@@ -67,7 +67,7 @@ def _planner_door():
     if g.get("ws") is None or g.get("viewing") is not None:
         return None
     with db.connect() as conn:
-        if plan_paywall.available(conn, g.ws):
+        if plan_paywall.available(conn, g.ws, g.get("user")):
             return redirect(url_for("paywall.new"))
     return None
 
@@ -100,13 +100,22 @@ def new():
     if plan_paywall.subscribed(g.ws):
         return redirect(url_for("campaigns.index"))
     with db.connect() as conn:
-        next_on = plan_paywall.next_free_on(conn, g.ws["id"])
-        last = plan_paywall.last_free(conn, g.ws["id"])
+        keys = plan_paywall.who(conn, g.ws, g.user)
+        next_on = plan_paywall.next_free_on(conn, keys)
+        last = plan_paywall.last_free(conn, keys)
+        refused = plan_paywall.refusal(conn, g.ws, g.user)
+        busy = plan_paywall.applies(g.ws) and not plan_paywall.claimable(conn, g.ws)
     if request.method == "POST":
         hold_check()
         if not plan_paywall.applies(g.ws):
             flash("The free campaign plan is for accounts that are out of credits. Use your credits first, "
                   "or pick a plan to use the planner any time.")
+            return redirect(url_for("paywall.new"))
+        if busy:
+            flash("Something you started is still running. When it finishes, check your credits and try again.")
+            return redirect(url_for("paywall.new"))
+        if refused:
+            flash(REFUSED[refused])
             return redirect(url_for("paywall.new"))
         if not llm.anthropic_ready():
             flash("The campaign planner isn't switched on yet. Nothing was charged.")
@@ -127,11 +136,11 @@ def new():
                 flash(m)
             return redirect(url_for("paywall.new"))
         with db.connect() as conn:
-            claim = plan_paywall.claim(conn, g.ws["id"])
+            claim = plan_paywall.claim(conn, keys)
             if claim is None:
                 conn.rollback()
                 flash(f"You've made your free plan for this month. The next one opens on "
-                      f"{plan_paywall.next_free_on(conn, g.ws['id'])}.")
+                      f"{plan_paywall.next_free_on(conn, keys)}.")
                 return redirect(url_for("paywall.new"))
             bid = g.ws["brand_id"]
             pid = g.ws["product_id"]
@@ -156,12 +165,20 @@ def new():
             conn.commit()
         start(claim, cid, rid)
         return redirect(url_for("paywall.show", cid=cid))
-    if last is not None and last["campaign_id"]:
+    made = None
+    if last is not None and last["campaign_id"] and last["workspace_id"] == g.ws["id"]:
         made = last["campaign_id"]
-    else:
-        made = None
     return render_template("free_plan_new.html", b=brand(), next_on=next_on, made=made,
-                           out=plan_paywall.out_of_credits(g.ws), ai_on=llm.anthropic_ready())
+                           out=plan_paywall.out_of_credits(g.ws), ai_on=llm.anthropic_ready(),
+                           refused=REFUSED.get(refused or ""), busy=busy, tries_used=bool(next_on) and last is None)
+
+
+REFUSED = {
+    "reused": "This card or email already had a free trial on another account, so the free campaign plan isn't "
+              "available here. Pick a plan to use the planner.",
+    "confirm": "Confirm your email to make your free campaign plan. Open the link we sent you, or ask for a new one "
+               "from the banner.",
+}
 
 
 def run(claim: int, cid: int, rid: int | None) -> str:
@@ -175,6 +192,8 @@ def run(claim: int, cid: int, rid: int | None) -> str:
                 conn.execute("UPDATE campaigns SET updated_at=? WHERE id=?", (db.now(), cid))
                 conn.commit()
         status = planner.run(cid, hold=None, free=True)
+        if status == "ready":
+            plan_paywall.done(claim)
     except Exception:  # noqa: BLE001
         traceback.print_exc()
         with db.connect() as conn:
@@ -202,10 +221,11 @@ def show(cid):
     plan = json.loads(c["plan_json"] or "{}")
     with db.connect() as conn:
         report = plan_paywall.report_for(conn, c)
-        next_on = plan_paywall.next_free_on(conn, g.ws["id"])
+        next_on = plan_paywall.next_free_on(conn, plan_paywall.who(conn, g.ws, g.user))
     part = plan_paywall.partial(plan, report)
+    # generic step labels only: angle names, hooks and the model's own words are part of what's locked (L-8)
     return render_template("free_plan.html", c=c, brief=json.loads(c["brief_json"] or "{}"), part=part,
-                           steps=json.loads(c["steps_json"] or "[]"), next_on=next_on,
+                           steps=plan_paywall.generic_steps(json.loads(c["steps_json"] or "[]")), next_on=next_on,
                            platform_name=lambda k: (platforms.PLATFORMS.get(k) or {}).get("name", k))
 
 

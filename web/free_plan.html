@@ -12,8 +12,13 @@
     <ol class="steplist">{% for s in steps[-4:] %}<li class="{{ s.kind }}"><b>{{ s.title }}</b></li>{% endfor %}</ol>
   </div>
   {% elif c.status == 'failed' %}
+  {% if not next_on %}
   <div class="flash bad">The planner couldn't make this plan{% if c.error %} ({{ c.error }}){% endif %}. Nothing was charged, and your free plan for this month is still there to use.</div>
   <p><a class="btn" href="{{ url_for('paywall.new') }}">Try again</a></p>
+  {% else %}
+  <div class="flash bad" data-free-plan-tries-used>The planner couldn't make this plan{% if c.error %} ({{ c.error }}){% endif %}. Nothing was charged. You've used this month's tries; the next one opens on {{ next_on }}.</div>
+  <p><a class="btn" href="{{ url_for('billing_page') }}#plans">See plans</a></p>
+  {% endif %}
   {% else %}
   <section class="camp-sec">
     <h2>The plan</h2>
