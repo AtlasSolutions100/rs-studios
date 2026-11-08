@@ -20,7 +20,7 @@ import fetcher
 import llm
 import product_import
 import products
-from core import charge_ai, login_required, queue_job, verify_block
+from core import charge_ai, hold_check, login_required, queue_job, verify_block
 
 bp = Blueprint("assistant", __name__)
 PER_HOUR = 80          # member messages per workspace per hour
@@ -184,6 +184,7 @@ def ok_paid():
 
 def _turn(conn, t, data, screen, job_started=False):
     """Run the assistant on the conversation as it stands; charge for it."""
+    hold_check(conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone())
     free_left = _free_left(conn)
     est = assistant.estimate()
     if free_left <= 0 and not data.get("paid_ok"):
@@ -351,6 +352,7 @@ def _do_import(conn, card):
     import product_routes
     quote = product_import.estimate() if llm.anthropic_ready() else 0
     ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone()
+    hold_check(ws)
     if quote and db.balance(ws) < quote:
         return None, {"error": f"Reading the page needs about {quote} credits and you have {db.balance(ws):,}."}
     try:

@@ -9,6 +9,9 @@ import uuid
 
 from flask import abort, flash, g, redirect, render_template, request, session, url_for
 
+from werkzeug.exceptions import HTTPException
+
+import billing_holds
 import db
 import plans
 import products
@@ -195,7 +198,23 @@ def charge_ai(conn, credits: int, reason: str) -> int:
     return take
 
 
+class BillingHold(HTTPException):
+    """A payment on this workspace was refunded or disputed (billing_holds.py):
+    nothing that spends credits runs. app.py answers it with the banner's words
+    (JSON {"error", "billing_hold": true} or a page), status 402."""
+    code = 402
+    description = billing_holds.HOLD_MESSAGE
+
+
+def hold_check(ws=None):
+    """Raise BillingHold when the workspace is on a billing hold."""
+    ws = ws if ws is not None else g.get("ws")
+    if billing_holds.on_hold(ws):
+        raise BillingHold()
+
+
 def can_afford(credits: int) -> bool:
+    hold_check()
     return db.balance(g.ws) >= credits
 
 
@@ -229,7 +248,8 @@ def queue_job(conn, tool, tpl_id, brief, params, usd, credits, quiet=False, prod
     confirmed its email and this is a video (or past its unconfirmed allowance;
     then g.verify_blocked holds the message and nothing uncommitted on `conn` is
     kept). The job is tagged with its product (default: the active one) and that
-    product's brand."""
+    product's brand. A workspace on a billing hold gets BillingHold (402)."""
+    hold_check(conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone())
     msg = verify_block(conn, tool, credits)
     if msg:
         conn.rollback()

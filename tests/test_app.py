@@ -3183,3 +3183,5 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_alerts.py")], check=True)
     # Storage quotas, body limits, the disk guard and the daily purge (storage.py; big files are sparse).
     subprocess.run([sys.executable, os.path.join(HERE, "test_storage.py")], check=True)
+    # Refunds and disputes (billing_holds.py): credits voided, downloads-only hold, dispute won, event-id dedupe.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_billing_holds.py")], check=True)

@@ -486,6 +486,23 @@ CREATE TABLE IF NOT EXISTS creator_pool_refunds (
     id INTEGER PRIMARY KEY AUTOINCREMENT, pool_id INTEGER NOT NULL UNIQUE, workspace_id INTEGER NOT NULL,
     amount_cents INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'due', method TEXT, stripe_refund_id TEXT,
     reference TEXT, created_at TEXT NOT NULL, updated_at TEXT, done_at TEXT, done_by INTEGER);
+CREATE TABLE IF NOT EXISTS stripe_events (
+    id TEXT PRIMARY KEY, type TEXT, received_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS credit_reversals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER,                    -- NULL while unmatched (the payment isn't credited yet)
+    kind TEXT NOT NULL,                      -- refund | dispute
+    stripe_id TEXT NOT NULL,                 -- the charge (refund) or dispute id
+    payment_intent TEXT,
+    source TEXT,                             -- purchase | plan_invoice
+    source_id TEXT,                          -- purchases.id or plan_invoices.invoice_id
+    amount_cents INTEGER NOT NULL DEFAULT 0, -- refunded or disputed so far
+    credits INTEGER NOT NULL DEFAULT 0,      -- credits voided by this reversal
+    status TEXT NOT NULL,                    -- unmatched | applied | won | lost | cleared
+    reason TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+    UNIQUE (kind, stripe_id));
+CREATE INDEX IF NOT EXISTS idx_reversals_pi ON credit_reversals(payment_intent);
+CREATE INDEX IF NOT EXISTS idx_reversals_ws ON credit_reversals(workspace_id, status);
 """
 
 # Columns added after the first release: (table, column, definition).
@@ -569,6 +586,11 @@ COLUMNS = [
     ("workspaces", "comp_plan", "TEXT"),
     ("workspaces", "comp_until", "TEXT"),
     ("workspaces", "comp_next_grant", "TEXT"),
+    # refunds and disputes (billing_holds.py): downloads only until cleared
+    ("workspaces", "billing_hold", "INTEGER NOT NULL DEFAULT 0"),
+    ("workspaces", "billing_hold_reason", "TEXT"),
+    ("workspaces", "billing_hold_at", "TEXT"),
+    ("plan_invoices", "payment_intent", "TEXT"),
 ]
 
 
@@ -697,13 +719,15 @@ def migrate_products(conn):
     conn.commit()
 
 
-def adjust_credits(conn, workspace_id: int, delta: int, reason: str, job_id=None, bucket: str = "pack") -> bool:
+def adjust_credits(conn, workspace_id: int, delta: int, reason: str, job_id=None, bucket: str = "pack",
+                   hold_ok: bool = False) -> bool:
     """Atomically add (delta>0) or spend (delta<0) credits. False if it would go negative.
 
     Spending takes plan credits first (they expire at renewal), then pack
     credits. Adding goes to the pack bucket unless bucket="plan". The ledger's
     plan_delta records the plan-bucket part of each row, so refunds go back
-    where they came from."""
+    where they came from. A workspace on a billing hold (a refund or dispute,
+    billing_holds.py) can't spend at all unless hold_ok (an admin's adjustment)."""
     if delta < 0:
         row = conn.execute("SELECT credits, plan_credits FROM workspaces WHERE id=?", (workspace_id,)).fetchone()
         if not row:
@@ -712,7 +736,8 @@ def adjust_credits(conn, workspace_id: int, delta: int, reason: str, job_id=None
         from_plan = min(max(row["plan_credits"], 0), need)
         from_pack = need - from_plan
         cur = conn.execute("UPDATE workspaces SET plan_credits = plan_credits - ?, credits = credits - ? "
-                           "WHERE id=? AND plan_credits >= ? AND credits >= ?",
+                           "WHERE id=? AND plan_credits >= ? AND credits >= ?"
+                           + ("" if hold_ok else " AND COALESCE(billing_hold, 0) = 0"),
                            (from_plan, from_pack, workspace_id, from_plan, from_pack))
         plan_delta = -from_plan
     elif bucket == "plan":
@@ -726,6 +751,33 @@ def adjust_credits(conn, workspace_id: int, delta: int, reason: str, job_id=None
     conn.execute("INSERT INTO ledger (workspace_id, delta, reason, job_id, created_at, plan_delta) VALUES (?,?,?,?,?,?)",
                  (workspace_id, delta, reason, job_id, now(), plan_delta))
     return True
+
+
+def void_credits(conn, workspace_id: int, amount: int, reason: str, prefer: str = "pack") -> int:
+    """Take back credits a reversed payment bought (billing_holds.py), even when
+    they are already spent: what isn't there leaves the pack bucket negative, so
+    nothing more can be spent until it's paid back. `prefer` is the bucket the
+    payment filled (pack for a credit pack, plan for a plan invoice); that one
+    is emptied first, then the other. Returns the credits voided."""
+    amount = int(amount)
+    if amount <= 0:
+        return 0
+    row = conn.execute("SELECT credits, plan_credits FROM workspaces WHERE id=?", (workspace_id,)).fetchone()
+    if not row:
+        return 0
+    plan_left, pack_left = max(int(row["plan_credits"] or 0), 0), max(int(row["credits"] or 0), 0)
+    if prefer == "plan":
+        from_plan = min(plan_left, amount)
+        from_pack = amount - from_plan
+    else:
+        from_pack_have = min(pack_left, amount)
+        from_plan = min(plan_left, amount - from_pack_have)
+        from_pack = amount - from_plan
+    conn.execute("UPDATE workspaces SET plan_credits = plan_credits - ?, credits = credits - ? WHERE id=?",
+                 (from_plan, from_pack, workspace_id))
+    conn.execute("INSERT INTO ledger (workspace_id, delta, reason, created_at, plan_delta) VALUES (?,?,?,?,?)",
+                 (workspace_id, -amount, reason, now(), -from_plan))
+    return amount
 
 
 def balance(ws) -> int:

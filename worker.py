@@ -323,6 +323,12 @@ def tick() -> int:
     with db.connect() as conn:
         for job in conn.execute("SELECT * FROM jobs WHERE status='pending' ORDER BY priority DESC, id LIMIT 5").fetchall():
             _beat()
+            if conn.execute("SELECT 1 FROM workspaces WHERE id=? AND COALESCE(billing_hold, 0)=1",
+                            (job["workspace_id"],)).fetchone():
+                # A refund or dispute paused the workspace (billing_holds.py): never start it.
+                _fail(conn, job, "Paused: a payment on this workspace was reversed.")
+                changed += 1
+                continue
             try:
                 inputs = build_inputs(conn, job)
                 model = catalog.TOOLS[job["tool"]]["model"]

@@ -28,6 +28,7 @@ import adoffer
 import admin_funnel
 import alerts
 import billing
+import billing_holds
 import catalog
 import compcodes
 import conversions
@@ -253,6 +254,14 @@ def _verify_banner():
                                           "box": {"email": g.user["email"], "csrf": csrf_token(),
                                                   "send": url_for("verify_code_send"),
                                                   "check": url_for("verify_code_check")}}}
+    return {}
+
+
+@app.context_processor
+def _hold_banner():
+    """A refund or dispute put this workspace on a billing hold (billing_holds.py): every page says so."""
+    if g.get("ws") is not None and request.endpoint not in (None, "static") and billing_holds.on_hold(g.ws):
+        return {"hold_banner": {"message": billing_holds.HOLD_MESSAGE, "email": billing_holds.CONTACT}}
     return {}
 
 
@@ -1818,8 +1827,9 @@ def checkout():
 def stripe_webhook():
     """Credit packs (checkout.session.completed, mode=payment) and plans
     (checkout.session.completed mode=subscription, invoice.paid,
-    customer.subscription.updated/deleted). The Stripe account is shared, so
-    anything that isn't ours is ignored."""
+    customer.subscription.updated/deleted), and refunds and disputes
+    (charge.refunded, charge.dispute.created/closed: billing_holds.py). The
+    Stripe account is shared, so anything that isn't ours is ignored."""
     payload = request.get_data()
     try:
         event = billing.verify_event(payload, request.headers.get("Stripe-Signature", ""))
@@ -1828,6 +1838,44 @@ def stripe_webhook():
         return jsonify({"error": "bad signature"}), 400
     typ = event.get("type")
     obj = (event.get("data") or {}).get("object") or {}
+    # Once per Stripe event id: a retry or replay of an event we already acted
+    # on is answered without running it again. The claim is let go when the
+    # event did nothing (ignored, pending) or failed, so Stripe's retry runs it.
+    eid = event.get("id") if isinstance(event.get("id"), str) else None
+    if eid and not _claim_stripe_event(eid, typ):
+        return jsonify({"ok": True, "duplicate": True})
+    keep = False
+    try:
+        resp = app.make_response(_stripe_event(typ, obj))
+        out = resp.get_json(silent=True) or {}
+        keep = resp.status_code < 400 and not out.get("ignored") and not out.get("pending")
+        return resp
+    finally:
+        if eid and not keep:
+            _release_stripe_event(eid)
+
+
+def _claim_stripe_event(eid, typ) -> bool:
+    with db.connect() as conn:
+        cur = conn.execute("INSERT OR IGNORE INTO stripe_events (id, type, received_at) VALUES (?,?,?)",
+                           (eid, typ, db.now()))
+        conn.commit()
+    return cur.rowcount == 1
+
+
+def _release_stripe_event(eid):
+    with db.connect() as conn:
+        conn.execute("DELETE FROM stripe_events WHERE id=?", (eid,))
+        conn.commit()
+
+
+def _stripe_event(typ, obj):
+    if typ == "charge.refunded":
+        return jsonify(billing_holds.charge_refunded(obj))
+    if typ == "charge.dispute.created":
+        return jsonify(billing_holds.dispute_created(obj))
+    if typ == "charge.dispute.closed":
+        return jsonify(billing_holds.dispute_closed(obj))
     if typ in ("checkout.session.completed", "checkout.session.async_payment_succeeded"):
         if obj.get("mode") == "subscription":
             return _plan_checkout_completed(obj)
@@ -1869,6 +1917,8 @@ def _pack_paid(sess):
             return jsonify({"ok": True, "duplicate": True})
         db.adjust_credits(conn, p["workspace_id"], p["credits"],
                           f"{catalog.PACK_BY_CODE.get(p['pack'], {}).get('name', p['pack'])} pack")
+        # a refund or dispute that beat this event here (billing_holds.py)
+        billing_holds.apply_parked(conn, sess.get("payment_intent"))
         conn.commit()
         _server_purchase(conn, sess, p["workspace_id"])
         # the funnel's paid step: this purchase only just turned paid, so once per pack
@@ -1955,13 +2005,15 @@ def _plan_invoice_paid(inv):
             granted = grant
         period_end = max([ln["period_end"] or 0 for ln in lines] or [0]) or None
         customer = inv.get("customer") if isinstance(inv.get("customer"), str) else (inv.get("customer") or {}).get("id")
+        pi = billing.invoice_payment_intent(inv)
         conn.execute("INSERT INTO plan_invoices (invoice_id, workspace_id, plan, credits, amount_cents, billing_reason, "
-                     "created_at) VALUES (?,?,?,?,?,?,?)",
-                     (inv.get("id"), ws["id"], p["code"], grant, int(inv.get("amount_paid") or 0), reason, db.now()))
+                     "created_at, payment_intent) VALUES (?,?,?,?,?,?,?,?)",
+                     (inv.get("id"), ws["id"], p["code"], grant, int(inv.get("amount_paid") or 0), reason, db.now(), pi))
         conn.execute("UPDATE workspaces SET plan=?, plan_status='active', plan_granted=?, "
                      "plan_period_end=COALESCE(?, plan_period_end), stripe_subscription_id=COALESCE(?, stripe_subscription_id), "
                      "stripe_customer_id=COALESCE(?, stripe_customer_id) WHERE id=?",
                      (p["code"], granted, _iso(period_end), sub_id, customer, ws["id"]))
+        billing_holds.apply_parked(conn, pi)
         conn.commit()
         if reason == "subscription_create":
             # the funnel's paid step: a plan's first invoice (this invoice id only gets here once)
@@ -2112,13 +2164,15 @@ def admin():
             stills = presenter_stills.state(conn)
         sys_health = admin_funnel.health(conn)
         funnel = admin_funnel.signups(conn, 30)["totals"]
+        holds = billing_holds.holds(conn)
     vendor = json.loads(row["value"]) if row else None
     return render_template("admin.html", wss=wss, invites=invites, refs=refs, jobs=jobs, purchases=purchases,
                            billing_on=billing.configured(), vendor=vendor,
                            markup=catalog.MARKUP, hd_markup=catalog.HD_MARKUP, configured=hf.configured(),
                            base=request.host_url, stills=stills, presenters=presenter_stills.with_photos(url_for),
                            stills_cap=presenter_stills.CAP_USD,
-                           ai_status=llm.status(), health=sys_health, funnel=funnel)
+                           ai_status=llm.status(), health=sys_health, funnel=funnel, holds=holds,
+                           holds_on=billing_holds.enabled())
 
 
 @app.route("/admin/workspaces/<int:wid>/view", methods=["POST"])
@@ -2262,6 +2316,18 @@ def admin_plan():
     return redirect(url_for("admin"))
 
 
+@app.route("/admin/workspaces/<int:wid>/lift-hold", methods=["POST"])
+@admin_required
+def admin_lift_hold(wid):
+    """Lift a refund or dispute hold by hand. Voided credits stay voided (top up
+    below if they should come back)."""
+    with db.connect() as conn:
+        billing_holds.lift(conn, wid)
+        conn.commit()
+    flash(f"Hold lifted for workspace #{wid}.", "ok")
+    return redirect(url_for("admin"))
+
+
 @app.route("/admin/credits", methods=["POST"])
 @admin_required
 def admin_credits():
@@ -2270,7 +2336,7 @@ def admin_credits():
     except (KeyError, ValueError):
         abort(400)
     with db.connect() as conn:
-        if not db.adjust_credits(conn, ws_id, amount, (request.form.get("reason") or "admin top-up")[:100]):
+        if not db.adjust_credits(conn, ws_id, amount, (request.form.get("reason") or "admin top-up")[:100], hold_ok=True):
             flash("That would take the balance below zero.")
         conn.commit()
     return redirect(url_for("admin"))
@@ -2480,6 +2546,16 @@ app.jinja_env.globals["has_endpoint"] = _has_endpoint
 app.jinja_env.globals.update(faq_answer=public_site.answer_html, solution_links=lambda: public_site.SOLUTION_ORDER,
                              solution_nav=lambda slug: public_site.SOLUTIONS[slug]["nav"], basket=public_site.basket,
                              related_cards=public_site.related_cards, footer_groups=public_site.footer_groups)
+
+
+@app.errorhandler(core.BillingHold)
+def billing_hold_error(e):
+    """Something that spends credits, on a workspace with a billing hold (402)."""
+    if request.is_json or request.accept_mimetypes.best == "application/json" \
+            or request.headers.get("X-Requested-With") == "fetch":
+        return jsonify({"error": billing_holds.HOLD_MESSAGE, "billing_hold": True,
+                        "email": billing_holds.CONTACT, "billing": url_for("billing_page")}), 402
+    return render_template("billing_hold.html", hold_email=billing_holds.CONTACT), 402
 
 
 @app.errorhandler(400)
