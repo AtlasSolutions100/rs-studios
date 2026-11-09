@@ -12,6 +12,7 @@
     "policy.guaranteed_returns"
    ],
    "house": [
+    "income_words",
     "promise_words"
    ],
    "levels": {
@@ -144,7 +145,9 @@
    "expect": [
     "policy.health_outcome_numeric"
    ],
-   "house": [],
+   "house": [
+    "weight_loss_phrase"
+   ],
    "levels": {
     "policy.health_outcome_numeric": "block"
    }
@@ -249,6 +252,7 @@
     "policy.hidden_characters"
    ],
    "house": [
+    "income_words",
     "promise_words"
    ],
    "levels": {
