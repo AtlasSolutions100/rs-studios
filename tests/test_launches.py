@@ -292,6 +292,25 @@ check("<button class=\"btn\">Create paused campaign</button>" in page, "no block
 card_again, _ = card_page(owner)
 check(card_again["id"] == card["id"], "opening the page again reuses the same undecided card (same spec)")
 
+# the product type is prefilled from the product (adpolicy.derive_vertical), so a supplement isn't a vertical mismatch
+with db.connect() as conn:
+    sup = conn.execute("INSERT INTO products (workspace_id, brand_id, name, description, category, created_at, updated_at) "
+                       "VALUES (?,?,?,?,?,?,?)", (WS, 0, "Calm Gummies", "Magnesium gummies", "supplement", db.now(),
+                                                  db.now())).lastrowid
+    conn.commit()
+SUP_PLAN, (SUP_IMG, SUP_VID) = make_plan(WS, u["id"], name="Calm Gummies")
+with db.connect() as conn:
+    conn.execute("UPDATE jobs SET product_id=? WHERE id IN (SELECT job_id FROM outputs WHERE id IN (?,?))", (sup, SUP_IMG, SUP_VID))
+    conn.commit()
+    crow = conn.execute("SELECT * FROM campaigns WHERE id=?", (SUP_PLAN,)).fetchone()
+    srow = conn.execute("SELECT * FROM ad_connections WHERE id=?", (CONN_ID,)).fetchone()
+    sdraft = launches.draft(conn, ws(WS), crow, srow)
+    _, sissues, _, _ = launches.review(conn, ws(WS), sdraft, srow)
+check(sdraft["vertical"] == "supplements" and "policy.vertical_mismatch" not in {i.rule_id for i in sissues},
+      "a supplement product's draft starts as Supplements (derive_vertical), so no vertical mismatch on the first try")
+spage = html(owner.get(f"/app/campaigns/{SUP_PLAN}/launch/meta"))
+check('<option value="supplements" selected>' in spage, "the Launch form shows the prefilled category")
+
 # a member can draft but not approve
 member, mu = signup("launch-member@example.com")
 with db.connect() as conn:

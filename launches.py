@@ -242,7 +242,7 @@ def draft(conn, ws, c, conn_row) -> dict:
                           "description": cp["description"][:255], "cta": CTA_BY_OBJECTIVE[objective],
                           "destination_url": link, "utm": UTM,
                           "aspect": _aspect((a["path"] + ".jpg") if a["kind"] == "video" else a["path"])})
-    return {"objective": objective, "platform": "meta", "name": (c["name"] or "Campaignify campaign")[:120],
+    d = {"objective": objective, "platform": "meta", "name": (c["name"] or "Campaignify campaign")[:120],
             "daily_budget_minor": _daily_from_brief(brief, plan),
             "currency": (conn_row["currency"] if conn_row and conn_row["currency"] else "USD"),
             "start_at": start.isoformat(), "end_at": (start + timedelta(days=days)).isoformat() if days else None,
@@ -253,6 +253,17 @@ def draft(conn, ws, c, conn_row) -> dict:
                            if pxs and objective in ("sales", "leads") else None),
             "creatives": creatives, "special_ad_categories": [], "ai_disclosure": False, "google": None,
             "vertical": "general", "claims_substantiated": False}
+    # Prefill what is advertised from the product and the copy (adpolicy.derive_vertical), so a beauty or supplement
+    # product starts on its own rules instead of hitting policy.vertical_mismatch; the member can still change it.
+    spec, _ = adspec.from_dict(d)
+    if spec is not None and spec.creatives:
+        prov = adpolicy.provenance(conn, ws["id"], [x.asset_id for x in spec.creatives if x.asset_id])
+        vertical, _why = adpolicy.derive_vertical(spec, prov)
+        if vertical in adspec.VERTICALS:
+            d["vertical"] = vertical
+            if vertical in ("housing", "credit", "employment"):
+                d["special_ad_categories"] = [vertical]
+    return d
 
 
 def apply_form(base: dict, form, all_ads: list) -> dict:
