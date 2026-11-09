@@ -1,7 +1,7 @@
 {% extends "auth_base.html" %}{% block title %}Data deletion request · Campaignify{% endblock %}
 {# The status page Meta's Data Deletion Request Callback links to (adconnect_routes.meta_deletion_status, M-3). #}
 {% block auth %}
-  <h2>Data deletion request</h2>
+  <h1 class="auth-h">Data deletion request</h1>
   {% if row %}
   <p data-deletion-status="{{ row.status }}">Confirmation code <b>{{ row.code }}</b>. Status: done on {{ row.done_at[:10] }} (UTC).</p>
   {% if row.kind == 'deletion' %}

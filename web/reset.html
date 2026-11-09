@@ -1,6 +1,6 @@
 {% extends "auth_base.html" %}{% block title %}Set a new password · Campaignify{% endblock %}
 {% block auth %}
-  <h2>Set a new password</h2>
+  <h1 class="auth-h">Set a new password</h1>
   <p class="muted">For {{ email }}. After this you're logged in.</p>
   <form method="post" action="{{ url_for('logins.reset') }}">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">

@@ -14,13 +14,13 @@
 {% block auth %}
   {% set r = rates() %}{% set so = signup_offer() %}{% set sc = so.credits %}
   {% if owner %}
-  <h2>Set up your admin account</h2>
+  <h1 class="auth-h">Set up your admin account</h1>
   <p class="muted">This link is for {{ owner }}. Pick your password and you're in, as an admin of your team's Campaignify workspace.</p>
   {% elif invite %}
-  <h2>Join your team</h2>
+  <h1 class="auth-h">Join your team</h1>
   <p class="muted">Your invite puts you in your team's workspace. Pick a password and you're in.</p>
   {% else %}
-  <h2>Start free</h2>
+  <h1 class="auth-h">Start free</h1>
   <p class="muted">{{ so.body }} The plan, copy, page and launch guide come when you want them.</p>
   {% endif %}
   {% if not owner and google_signin() %}{% with href=url_for('google_auth.start', invite=invite or None) %}{% include "_google_button.html" %}{% endwith %}{% endif %}

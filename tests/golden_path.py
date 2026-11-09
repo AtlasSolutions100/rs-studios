@@ -51,6 +51,12 @@ card is saved: the strip check skips that one step (noted), and every step after
 Every M2 flag at once (the combination the release runs):
     RS_NEXT_STEPS=1 RS_LAUNCH_KIT=1 RS_SERVICE_PATH=1 RS_PLAN_PAYWALL=1 python tests/golden_path.py
 
+Accessibility (roadmap M5.6): axe-core runs on the page every step ends on, in the dark and the light theme, and a
+last step per path ("Accessibility") sweeps the app's other screens (and, on the product path, the public site, sign-up,
+log-in, a 404 and the published landing page). The run fails on any serious or critical axe violation (WCAG 2.1 A and
+AA rules). axe-core is read from RS_AXE_JS (a path to axe.min.js) or fetched once with `npm pack` into TMPDIR, and its
+SHA-256 is checked either way. --no-axe skips it (the step then says so).
+
 Exit code: 0 when every step passed or is a known gap or not built; 1 on any other failure.
 
 Fakes: the generation API, result downloads, email, page fetches and the Anthropic API are replaced in process the
@@ -108,6 +114,47 @@ NOT_BUILT = {
     "service": [("connect_launch", "Connect Google Ads and launch (paused)", "M3.1, M3.2")],
 }
 PW = "golden-path-pw-1"
+
+# axe-core (MPL-2.0, Deque Systems): pinned version and the SHA-256 of its axe.min.js
+AXE_VERSION = "4.10.2"
+AXE_SHA256 = "b511cd9dec01c76f4b2ad1723b66b6db37d4c2eb4ed199076e1829d9ee7b75e3"
+AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]
+AXE_GATE = ("serious", "critical")
+# App screens the paths don't end a step on; the sweep visits each one (404s and redirects are skipped, not failed)
+A11Y_APP_PAGES = ["/app", "/app/library", "/app/create", "/app/products", "/app/products/new", "/app/brand",
+                  "/app/campaigns", "/app/copy", "/app/pages", "/app/forms", "/app/flows", "/app/contacts",
+                  "/app/links", "/app/team", "/app/billing", "/app/ad-accounts", "/app/competitors", "/app/seo",
+                  "/app/community", "/app/creator-pools", "/app/settings/sending", "/app/tasks"]
+A11Y_PUBLIC_PAGES = ["/", "/pricing", "/signup", "/login", "/forgot", "/no-such-page"]
+
+
+def axe_source():
+    """axe.min.js as text: RS_AXE_JS, else a cached `npm pack` in TMPDIR. The SHA-256 must match AXE_SHA256."""
+    path = os.environ.get("RS_AXE_JS", "").strip()
+    if not path:
+        path = os.path.join(tempfile.gettempdir(), f"axe-core-{AXE_VERSION}.min.js")
+        if not os.path.exists(path):
+            import shutil
+            import subprocess
+            import tarfile
+            tmp = tempfile.mkdtemp(prefix="rs_axe_")
+            try:
+                subprocess.run(["npm", "pack", f"axe-core@{AXE_VERSION}", "--silent", "--pack-destination", tmp],
+                               check=True, capture_output=True, timeout=120)
+                tgz = next(os.path.join(tmp, f) for f in os.listdir(tmp) if f.endswith(".tgz"))
+                with tarfile.open(tgz) as tf:
+                    data = tf.extractfile("package/axe.min.js").read()
+                with open(path + ".part", "wb") as fh:
+                    fh.write(data)
+                os.replace(path + ".part", path)
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
+    with open(path, "rb") as fh:
+        data = fh.read()
+    got = hashlib.sha256(data).hexdigest()
+    if got != AXE_SHA256:
+        raise SystemExit(f"axe-core at {path} has SHA-256 {got}, expected {AXE_SHA256} (axe-core {AXE_VERSION})")
+    return data.decode("utf-8")
 
 
 def next_steps_on():
@@ -509,6 +556,10 @@ class Run:
         self.gap_hit = None
         self.ws_id = None
         self.blocked_hosts = set()
+        self.axe = getattr(args, "axe_js", None)
+        self.a11y = []          # serious or critical axe violations: {"url", "theme", "rule", "impact", "help", "nodes"}
+        self.a11y_seen = set()  # (path without query, theme) already audited
+        self.a11y_pages = 0
 
     # ---- hermetic browser: nothing leaves 127.0.0.1 (fonts, analytics); off-app navigations are recorded
     def _route(self, route):
@@ -677,11 +728,16 @@ class Run:
                 except Exception:  # noqa: BLE001
                     pass
         st.seconds = time.monotonic() - t0
+        if key == "a11y":   # checks, not user time: kept out of the path's wall clock
+            st.notes.append(f"{st.seconds:.0f} s of checks, not counted in the path's time")
+            st.seconds = 0.0
         if next_steps_on() and st.status == "pass" and self.ws_id:
             try:
                 self.strip_check(st)
             except StepFailed as e:
                 st.status, st.error = "fail", str(e)
+        if self.axe and st.status == "pass":
+            self.audit(st)
         st.charged = self.spent_since(mark)
         if st.status == "pass":
             shown = sum(p[1] for p in st.paid)
@@ -707,6 +763,87 @@ class Run:
         except Exception:  # noqa: BLE001
             pass
         return st
+
+    # ---- accessibility (axe-core; never a user action, not timed)
+    def audit(self, st=None, page=None, force=False):
+        """Run axe on the page as it stands, in the dark and the light theme. Serious and critical violations are
+        kept in self.a11y; the Accessibility step fails on any of them."""
+        page = page or self.page
+        try:
+            page.wait_for_load_state(timeout=5000)
+        except Exception:  # noqa: BLE001
+            pass
+        url = page.url
+        if not url.startswith(self.base):
+            return
+        where = url[len(self.base):].split("?")[0].split("#")[0] or "/"
+        for theme in ("dark", "light"):
+            if (where, theme) in self.a11y_seen and not force:
+                continue
+            self.a11y_seen.add((where, theme))
+            try:
+                if not page.evaluate("() => typeof window.axe === 'object'"):
+                    page.evaluate(self.axe)
+                res = page.evaluate("""async ([theme, tags]) => {
+                    const r = document.documentElement, was = r.getAttribute('data-theme');
+                    r.setAttribute('data-theme', theme);
+                    await new Promise(ok => requestAnimationFrame(() => requestAnimationFrame(ok)));
+                    try {
+                      const out = await axe.run(document, {runOnly: {type: 'tag', values: tags}, resultTypes: ['violations']});
+                      return out.violations.map(v => ({rule: v.id, impact: v.impact, help: v.help,
+                        nodes: v.nodes.slice(0, 5).map(n => (n.target || []).join(' ') + (n.failureSummary ? ' :: ' + n.failureSummary.split('\\n').slice(1).join(' ').trim().slice(0, 160) : ''))}));
+                    } finally { if (was === null) r.removeAttribute('data-theme'); else r.setAttribute('data-theme', was); }
+                }""", [theme, AXE_TAGS])
+            except Exception as e:  # noqa: BLE001  a page mid-navigation: note it, don't fail the step for it
+                if st is not None:
+                    st.notes.append(f"axe could not run on {where} ({theme}): {str(e).splitlines()[0][:80]}")
+                continue
+            self.a11y_pages += 1
+            for v in res:
+                if v["impact"] in AXE_GATE:
+                    self.a11y.append({"url": where, "theme": theme, **v})
+                    if st is not None:
+                        st.notes.append(f"axe {v['impact']}: {v['rule']} on {where} ({theme})")
+
+    def s_a11y(self, st, public=False):
+        """The sweep: every app screen the path didn't end a step on (and the public pages, logged out), then the
+        gate over everything audited on this path."""
+        if not self.axe:
+            st.notes.append("axe-core skipped (--no-axe)")
+            return
+        for path in A11Y_APP_PAGES:
+            r = self.ctx.request.get(self.base + path, max_redirects=0)
+            if r.status != 200:
+                continue
+            self.page.goto(self.base + path)
+            self.audit(st)
+        if getattr(self, "campaign_url", None):
+            self.page.goto(self.campaign_url)
+            self.audit(st)
+        for slug in [row["slug"] for row in self.q("SELECT slug FROM pages WHERE workspace_id=? AND status='published'",
+                                                    self.ws_id or 0)][:1]:
+            self.page.goto(f"{self.base}/p/{slug}")
+            self.audit(st)
+        if public:
+            other = self.ctx.browser.new_context(viewport={"width": 1280, "height": 900})
+            other.route("**/*", lambda route: route.continue_() if route.request.url.startswith(self.base)
+                        or route.request.url.startswith("data:") else route.abort())
+            pg = other.new_page()
+            try:
+                for path in A11Y_PUBLIC_PAGES:
+                    pg.goto(self.base + path)
+                    self.audit(st, page=pg)
+            finally:
+                other.close()
+        st.notes.append(f"axe-core {AXE_VERSION}: {self.a11y_pages} page-theme audits, WCAG 2.1 A and AA rules")
+        if self.a11y:
+            seen = []
+            for v in self.a11y:
+                k = f"{v['rule']} ({v['impact']}) on {v['url']} {v['theme']}"
+                if k not in seen:
+                    seen.append(k)
+            raise StepFailed(f"{len(seen)} serious or critical accessibility violations: " + "; ".join(seen[:6])
+                             + (" ..." if len(seen) > 6 else ""))
 
     def strip_check(self, st):
         """Home's "Your campaign" strip (RS_NEXT_STEPS): one primary button, whatever step the account is on."""
@@ -1174,6 +1311,7 @@ def product_path(r):
     if os.environ.get("RS_LAUNCH_KIT", "").strip().lower() in ("1", "on", "true", "yes"):
         r.step("launch_kit", "Launch kit on the plan page (ticks on a second device)",
                lambda st: r.s_launch_kit(st, email, ["meta", "google"]))
+    r.step("a11y", "Accessibility (axe-core, no serious violations)", lambda st: r.s_a11y(st, public=True))
 
 
 def service_path(r):
@@ -1197,6 +1335,7 @@ def service_path(r):
            lambda st: r.s_page(st, "Free AC quote", form_name="Free quote"))
     r.step("flow", "Follow-up flow", r.s_flow)
     r.step("lead", "A visitor sends the form; the lead lands in Contacts", r.s_lead)
+    r.step("a11y", "Accessibility (axe-core, no serious violations)", r.s_a11y)
 
 
 PATHS = {"product": product_path, "service": service_path}
@@ -1260,7 +1399,9 @@ def main():
     ap.add_argument("--markdown", help="write the results table (Markdown) here")
     ap.add_argument("--shots", help="save a full-page screenshot of every failed or known-gap step here")
     ap.add_argument("--service-path", action="store_true", help="run with RS_SERVICE_PATH=1 (roadmap M5.2)")
+    ap.add_argument("--no-axe", action="store_true", help="skip the axe-core accessibility checks (roadmap M5.6)")
     args = ap.parse_args()
+    args.axe_js = None if args.no_axe else axe_source()
     global KNOWN_GAPS
     if args.service_path:
         os.environ["RS_SERVICE_PATH"] = "1"
@@ -1278,6 +1419,7 @@ def main():
         ("RS_CARD_REQUIRED", True)))
     print(f"== golden path against {base} (providers faked; {flags})")
     steps = []
+    a11y = []
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=not args.headed, args=["--disable-dev-shm-usage"])
         for path in (["product", "service"] if args.path == "both" else [args.path]):
@@ -1298,6 +1440,7 @@ def main():
                     print("  (outside requests the pages made, blocked to stay offline: "
                           + ", ".join(sorted(r.blocked_hosts)) + ")")
                 steps += r.steps
+                a11y += [{"path": path, **v} for v in r.a11y]
                 r.ctx.close()
         browser.close()
     srv.shutdown()
@@ -1309,8 +1452,8 @@ def main():
     print(table)
     if args.json:
         with open(args.json, "w") as fh:
-            json.dump({"summary": summary, "steps": [s.row() for s in steps], "render_seconds": args.render_seconds},
-                      fh, indent=1)
+            json.dump({"summary": summary, "steps": [s.row() for s in steps], "render_seconds": args.render_seconds,
+                       "a11y": a11y}, fh, indent=1)
     if args.markdown:
         with open(args.markdown, "w") as fh:
             fh.write(table + "\n")
