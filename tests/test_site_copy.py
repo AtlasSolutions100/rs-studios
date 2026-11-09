@@ -110,16 +110,11 @@ check("<h1>Pricing</h1>" in pr and "Every plan is a monthly credit allowance plu
       "/pricing: h1 'Pricing' and the plain lede")
 lines = {}
 for p in plans.PAID:
-    per = p["usd"] / p["credits"]
-    want = (f"Per finished ad: image about {usd(per * r_['image'])}, product video about {usd(per * r_['video5'])}, "
-            f"talking video about {usd(per * r_['talk8'])}.")
     counts = (f"About {p['credits'] // r_['image']:,} image ads, or {p['credits'] // r_['video5']:,} product videos, "
               f"or {p['credits'] // r_['talk8']:,} talking videos, in any mix, each month.")
-    lines[p["code"]] = (counts, want)
-    check(want in prt and counts in prt, f"/pricing {p['name']}: {want}")
-if (r_["image"], r_["video5"], r_["talk8"], STARTER["usd"], STARTER["credits"]) == (22, 463, 740, 39, 2000):
-    check("Per finished ad: image about $0.43, product video about $9, talking video about $14." in prt,
-          "Starter at today's rate card: image about $0.43, product video about $9, talking video about $14 (03b section 2)")
+    lines[p["code"]] = counts
+    check(counts in prt, f"/pricing {p['name']}: {counts}")
+check("Per finished ad" not in prt and "Image ad about" not in prt, "/pricing: counts only, no dollars per ad (Koby, Nov 8)")
 check(f"Start {STARTER['name']}, ${STARTER['usd']}/mo" not in pr and "Not open yet" in pr and "Opens soon" not in pr,
       "no Stripe: plan buttons say 'Not open yet' with a reason, not 'Opens soon'")
 check("Plan checkout isn't switched on yet." in prt, "and say why")
@@ -128,8 +123,9 @@ check("44 credits to start: 2 image ads on your own product. Nothing is charged.
 u = signup("billing-copy@example.com")
 bill = page(u, "/app/billing")
 bt = text(bill)
-for code, (counts, want) in lines.items():
-    check(counts in bt and want in bt, f"Billing {plans.PLANS[code]['name']}: the same lines as /pricing")
+for code, counts in lines.items():
+    check(counts in bt, f"Billing {plans.PLANS[code]['name']}: the same line as /pricing")
+check("Per finished ad" not in bt and "Image ad about" not in bt, "Billing: counts only, no dollars per ad")
 check("≈" not in bt.split("Plans")[1], "Billing plan cards: no separate '≈ N videos' sum")
 check('placeholder="Code from our email"' in bill and "CFY-XXXX-XXXX" not in bill, "code box placeholder: 'Code from our email'")
 r = u.post("/app/billing/code", data={"csrf": csrf(u), "code": "trial30"}, follow_redirects=True)

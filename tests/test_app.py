@@ -46,12 +46,6 @@ def stray_dollars(html):
     import plans
     ok = {"$0"} | {f"${p['usd']}" for p in plans.PAID} | {f"${p['usd']}" for p in catalog.PACKS}
     ok |= {f"{a}.00" for a in ok}
-    # The plan and pack prices broken down per finished ad (public_site.ad_math, COPY-5): the
-    # one dollar sum allowed beside them, computed from those prices, never typed in.
-    import public_site
-    for p in list(plans.PAID) + list(catalog.PACKS):
-        m = public_site.ad_math(p["credits"], p["usd"])
-        ok |= {m["usd_image"], m["usd_video"], m["usd_talk"]}
     return [m for m in re.findall(r"\$\s?\d+(?:,\d{3})*(?:\.\d+)?", html) if m not in ok]
 
 
@@ -1089,7 +1083,7 @@ check(plans.plan_code(wsrow(xws["id"])) == "free", "comp cleared")
 html = client().get("/").get_data(as_text=True)
 for bit in ("$39", "$99", "$249", "2,000 credits every month", "6,000 credits every month", "18,000 credits every month",
             "Credit packs", "Plan credits reset monthly and are spent before pack credits", "No trial that bills you: nothing is charged until you pick a plan or buy a pack.",
-            "Only want ads? Buy a pack. Credits never expire.", appmod.public_site.ad_math(2000, 39)["counts"] + ", each month.", appmod.public_site.ad_math(2000, 39)["per_ad"],
+            "Only want ads? Buy a pack. Credits never expire.", appmod.public_site.ad_math(2000, 39)["counts"] + ", each month.",
             'class="plan-more" open'):
     check(bit in html, f"landing pricing shows {bit!r}")
 fh = client().get("/features")
