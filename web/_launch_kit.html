@@ -1,6 +1,7 @@
 {# Launch kit (launch_kit.py, RS_LAUNCH_KIT; roadmap M5.3): everything to launch by hand, one block per platform in the plan.
    Needs kit, c. Ticks are stored on the server: the hub's steps in adhub_progress (shared with the hub page),
-   the plan's own items in launch_ticks. The Meta and Google blocks' heads have the "Create paused campaign" button (launch_slot; AD_LAUNCH, and GOOGLE_ADS for Google). #}
+   the plan's own items in launch_ticks. The Meta, Google and Snapchat blocks' heads have the "Create paused campaign" button (launch_slot; AD_LAUNCH, and
+   GOOGLE_ADS for Google, SNAPCHAT_ADS for Snapchat). #}
 {% macro tick(it) -%}
 <li class="lk-item {{ 'done' if it.done }}" id="lk-{{ it.key|replace(':', '-') }}">
   <form method="post" action="{{ url_for('campaigns.launch_tick', cid=c.id) }}" data-lk-tick>
@@ -23,7 +24,7 @@
     <header class="lk-head">
       <div><h3>{{ b.name }}</h3><span class="small muted">{{ b.done }} of {{ b.total }} done{% if b.guide %} · account setup {{ b.setup_done }} of {{ b.setup_total }} in the <a href="{{ b.guide }}">setup guide</a>{% endif %}</span></div>
       <div class="row" style="gap:8px;flex-wrap:wrap">
-      {% set slot = launch_slot(c, b.key) if b.key in ('meta', 'google') and launch_slot is defined else None %}
+      {% set slot = launch_slot(c, b.key) if b.key in ('meta', 'google', 'snapchat') and launch_slot is defined else None %}
       {% if slot %}<a class="btn sm" href="{{ slot.url }}" data-launch-create>Create paused campaign</a>{% endif %}
       {% if b.manager %}<a class="btn dark sm" href="{{ b.manager[1] }}" target="_blank" rel="noopener noreferrer">Open {{ b.manager[0] }} ↗</a>{% endif %}
       </div>

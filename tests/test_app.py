@@ -3251,6 +3251,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_google_connect.py")], check=True)
     # Google Ads launch (launch_google.py; M3.2 Search, M3.3 Performance Max): one mutate, saga, errors (Google faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_google_launch.py")], check=True)
+    # Snapchat connect and launch (adplatforms/snapchat.py, launch_video.py, SNAPCHAT_ADS; M6.1): saga, stats (Snap faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_snapchat.py")], check=True)
     # Which ad brought which lead, at what cost (adleads.py, M4.1): tags on forms, matching, cost per lead, flows as before.
     subprocess.run([sys.executable, os.path.join(HERE, "test_lead_attribution.py")], check=True)
     # Conversion tracking on members' pages and forms (conversions.py, M3.4): event ids, pixels, CAPI, Events API, Data Manager.

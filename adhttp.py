@@ -10,6 +10,9 @@ What it does for each call:
     RETRIES attempts;
   * Google Ads errors (a GoogleAdsFailure in error.details) come back with `code` set to
     "<category>.<ENUM>", e.g. "authenticationError.OAUTH_TOKEN_EXPIRED", and the request id as `trace`;
+  * Snapchat Marketing API errors ({"request_status": "ERROR", "error_code", "display_message"}, or an item's
+    "sub_request_error_reason" inside a batch answer) come back with `code` = error_code, the request id as
+    `trace` and Snap's display message as `user_message`; 401 means Reconnect, 403 a missing permission;
   * a per-(platform, ad account) point budget in the api_budget table, so we never pass the
     Meta Limited tier's 60 points (read 1, write 3, decaying over 300 s; research B1). A call
     that would pass it waits up to `max_wait` seconds, then raises RateLimited;
@@ -63,7 +66,9 @@ META_AUTH = {102, 190}
 META_PERMISSION = {10, 200, 294}
 # Google Ads: the per-customer budget here is a safety net under Google's own limits (Basic access is
 # 15,000 operations a day per Cloud project; research B2), not Meta's ad-account score.
-PLATFORM_CAPS = {"google": 600.0}
+PLATFORM_CAPS = {"google": 600.0,
+                 # Snapchat: 20 requests a second per app and 10 per token (research B4); this stays far under it.
+                 "snapchat": 900.0}
 GOOGLE_TRANSIENT = {"internalError.INTERNAL_ERROR", "internalError.TRANSIENT_ERROR", "internalError.DEADLINE_EXCEEDED",
                     "databaseError.CONCURRENT_MODIFICATION", "quotaError.RESOURCE_TEMPORARILY_EXHAUSTED",
                     "quotaError.RESOURCE_EXHAUSTED"}
@@ -250,7 +255,7 @@ def _read_usage(platform, account, headers):
 # ---------------------------------------------------------------- errors
 
 def _word(platform) -> str:
-    return {"meta": "Meta", "google": "Google"}.get(platform, "The ad platform")
+    return {"meta": "Meta", "google": "Google", "snapchat": "Snapchat"}.get(platform, "The ad platform")
 
 
 def _google_failure(body: dict):
@@ -300,6 +305,42 @@ def _classify_google(resp, body, secrets):
     return AdHttpError("google", msg, **kw), False
 
 
+def _snap_reason(body) -> str:
+    """The first item's sub_request_error_reason in a Snapchat batch answer ({"campaigns": [{...}], ...})."""
+    for v in body.values() if isinstance(body, dict) else ():
+        for item in v if isinstance(v, list) else ():
+            if isinstance(item, dict) and str(item.get("sub_request_status") or "").upper() == "ERROR":
+                return str(item.get("sub_request_error_reason") or "")
+    return ""
+
+
+def _classify_snapchat(resp, body, secrets):
+    if isinstance(body.get("error"), str):        # the OAuth endpoint: {"error": "invalid_grant", ...}
+        code = str(body["error"])[:60]
+        msg = scrub(f"snapchat {resp.status}: {code}: {str(body.get('error_description') or '')[:200]}", secrets)
+        if code in ("invalid_grant", "invalid_token", "unauthorized_client"):
+            return TokenInvalid("snapchat", msg, status=resp.status, code=f"oauth.{code}"), False
+        return AdHttpError("snapchat", msg, status=resp.status, code=f"oauth.{code}"), resp.status >= 500
+    failed = str(body.get("request_status") or "").upper() == "ERROR"
+    if resp.status < 400 and not failed:
+        return None, False
+    reason = _snap_reason(body)
+    shown = str(body.get("display_message") or reason or body.get("debug_message") or "")
+    msg = scrub(f"snapchat {resp.status} {body.get('error_code') or ''}: "
+                f"{body.get('debug_message') or reason or resp.text or 'no message'}"[:400], secrets)
+    kw = dict(status=resp.status, code=body.get("error_code"), trace=body.get("request_id"),
+              user_message=scrub(shown, secrets))
+    if resp.status == 401:
+        return TokenInvalid("snapchat", msg, **kw), False
+    if resp.status == 403:
+        return PermissionDenied("snapchat", msg, **kw), False
+    if resp.status == 429:
+        return RateLimited("snapchat", msg, retry_after=60, **kw), True
+    if resp.status >= 500:
+        return AdHttpError("snapchat", msg, **kw), True
+    return AdHttpError("snapchat", msg, **kw), False
+
+
 def _classify(platform, resp, secrets):
     """(error to raise or None, retryable?) for a response."""
     body = resp.body if isinstance(resp.body, dict) else {}
@@ -327,6 +368,8 @@ def _classify(platform, resp, secrets):
         return AdHttpError(platform, scrub(msg, secrets), **kw), False
     if platform == "google":
         return _classify_google(resp, body, secrets)
+    if platform == "snapchat":
+        return _classify_snapchat(resp, body, secrets)
     # TikTok / others: HTTP status first, then their throttle markers.
     if resp.status < 400 and not (platform == "tiktok" and body.get("code") not in (None, 0)):
         return None, False
