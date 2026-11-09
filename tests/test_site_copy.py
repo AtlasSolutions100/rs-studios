@@ -1,7 +1,8 @@
 """Site copy (roadmap M5.8, re-audit L-4): the hero sells the whole flow, one pricing
 sum on /pricing and Billing, the sign-up page, the code box, a real 404, the first
 empty Library, and card-on-file copy that says the card plainly when the card step
-is on. Renders pages on a throwaway database; nothing leaves the machine.
+is on. Then the public pages' metadata (M5.7): og:image on /p/ pages, the font CSP,
+image sizes, the Google Ads tag only where conversions happen, /docs/mcp's head. Renders pages on a throwaway database; nothing leaves the machine.
 
     python tests/test_site_copy.py      (tests/test_app.py runs it too)
 """
@@ -213,6 +214,76 @@ os.environ.pop("RS_CARD_REQUIRED")
 t = text(page(client(), "/arcads-alternative"))
 check("Card needed" not in t and "card is needed" not in t and "One free trial per person" not in t,
       "card step off again: no card copy")
+
+# ================================================================ M5.7: public pages and metadata
+print("== public pages and metadata (M5.7)")
+import json  # noqa: E402
+
+import db  # noqa: E402
+import pages as pagesmod  # noqa: E402
+from PIL import Image  # noqa: E402
+
+with db.connect() as conn:
+    u2 = conn.execute("SELECT * FROM users WHERE email='billing-copy@example.com'").fetchone()
+    ws_id = u2["workspace_id"]
+    now = db.now()
+    jid = conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, status, created_at, updated_at) "
+                       "VALUES (?,?,?,?,?,?)", (ws_id, u2["id"], "ad_image", "done", now, now)).lastrowid
+    img = os.path.join(TMP, "hero.png")
+    Image.new("RGB", (864, 1080), (200, 120, 60)).save(img)
+    vid = os.path.join(TMP, "clip.mp4")
+    open(vid, "wb").write(b"not really a video")
+    Image.new("RGB", (720, 1280), (40, 40, 40)).save(vid + ".jpg")
+    oi = conn.execute("INSERT INTO outputs (job_id, kind, path) VALUES (?,?,?)", (jid, "image", img)).lastrowid
+    ov = conn.execute("INSERT INTO outputs (job_id, kind, path) VALUES (?,?,?)", (jid, "video", vid)).lastrowid
+
+    def mkpage(slug, blocks, description=""):
+        conn.execute("INSERT INTO pages (workspace_id, slug, title, description, status, blocks_json, created_at, updated_at) "
+                     "VALUES (?,?,?,?,?,?,?,?)", (ws_id, slug, "Ember Candle", description, "published", json.dumps(blocks), now, now))
+    mkpage("og-hero", [{"type": "hero", "headline": "Light it once", "subhead": "A soy candle with amber and cedar.", "media": oi}])
+    mkpage("og-video", [{"type": "hero", "headline": "Watch it", "subhead": "", "media": None},
+                        {"type": "media", "media": ov, "caption": ""}], description="Our own words.")
+    mkpage("og-none", [{"type": "hero", "headline": "No media", "subhead": "", "media": None}])
+    conn.commit()
+
+r = client().get("/p/og-hero")
+h = r.get_data(as_text=True)
+check(f'<meta property="og:image" content="http://localhost/p/og-hero/m/{oi}">' in h
+      and '<meta property="og:image:width" content="864">' in h and '<meta property="og:image:height" content="1080">' in h
+      and 'name="twitter:card" content="summary_large_image"' in h, "/p/ page: og:image from the hero image, with its size (SEO-1)")
+check('<meta property="og:description" content="A soy candle with amber and cedar.">' in h,
+      "no description typed: og:description falls back to the hero subheadline")
+check(f'src="/p/og-hero/m/{oi}" alt="" width="864" height="1080"' in h, "the hero image carries its own size (SEO-3)")
+check(client().get(f"/p/og-hero/m/{oi}").status_code == 200, "and the share image is public")
+h = page(client(), "/p/og-video")
+check(f'content="http://localhost/p/og-video/m/{ov}?poster=1"' in h and 'og:image:width" content="720"' in h
+      and 'og:description" content="Our own words."' in h, "a video page shares its poster frame; a typed description wins")
+check("og:image" not in page(client(), "/p/og-none"), "no media: no og:image (never a broken card)")
+csp = client().get("/p/og-hero").headers["Content-Security-Policy"]
+check("font-src 'self'" in csp and "gstatic" not in csp and "googleapis" not in csp,
+      "public and member pages allow the self-hosted fonts (SEO-2)")
+check("font-src 'self'" in pagesmod.CSP, "one CSP for pages, forms and communities")
+
+TAG = "googletagmanager.com/gtag/js"
+os.environ["GADS_TAG_ID"] = "AW-18543041154"
+check(TAG in page(client(), "/") and TAG in page(client(), "/signup"), "the Google Ads tag loads on the public site and sign-up")
+check(TAG in page(u, "/app") and TAG in page(u, "/app/billing"), "and on a free workspace's Home and on Billing (the conversion moments)")
+for path in ("/app/library", "/app/products", "/app/create"):
+    check(TAG not in page(u, path), f"not inside the app: {path} (SEO-4)")
+os.environ.pop("GADS_TAG_ID")
+
+import public_site as ps  # noqa: E402
+os.environ["MCP_SERVER"] = "on"
+check("/docs/mcp" in ps.sitemap_paths() and "/docs/mcp" in page(client(), "/sitemap.xml"), "/docs/mcp is in the sitemap when the MCP server is on (SEO-5)")
+d = page(client(), "/docs/mcp")
+check('content="index, follow, max-image-preview:large"' in d and '<link rel="canonical" href="https://campaignify.ai/docs/mcp">' in d
+      and "application/ld+json" in d and 'property="og:image"' in d, "/docs/mcp has the shared head: directives, canonical, share card, JSON-LD")
+check(d.count('rel="canonical"') == 1 and d.count('name="description"') == 1, "one canonical and one description")
+os.environ.pop("MCP_SERVER")
+check("/docs/mcp" not in ps.sitemap_paths() and 'content="noindex"' in page(client(), "/docs/mcp"),
+      "MCP server off: /docs/mcp stays out of the sitemap and noindex")
+css = open(os.path.join(HERE, "..", "static", "style.css")).read()
+check(".lp-doc pre{white-space:pre-wrap" in css, "/docs/mcp code blocks wrap on a phone")
 
 shutil.rmtree(TMP, ignore_errors=True)
 print(f"\nall {passed} checks passed")

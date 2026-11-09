@@ -388,13 +388,29 @@ app.jinja_env.globals["signup_offer"] = _signup_offer
 def _public_meta():
     """Title, description, canonical, share card and JSON-LD for the public pages
     (public_site.py), plus the Google tag, the ad pixels (pixels.py) and this page's conversion events."""
-    out = {"gads_tag": gads.tag_id(), "gads_consent_regions": gads.CONSENT_REGIONS, "gads_events": _gads_events,
+    out = {"gads_tag": gads.tag_id(), "gads_here": _gads_here, "gads_consent_regions": gads.CONSENT_REGIONS,
+           "gads_events": _gads_events,
            "ad_pixels": lambda: pixels.context(request, _gads_events, request.endpoint),
            "site_beacon": lambda: site_events.beacon(request, g.get("user"))}
     m = public_site.meta(request.endpoint, request.view_args)
     if m:
         out["page_meta"] = m
     return out
+
+
+def _gads_here() -> bool:
+    """Load the Google Ads tag here? On the public site and the sign-up and log-in pages,
+    on the first-run Home of a free workspace, on Billing (where purchases return) and on
+    any app page with a conversion to report; not across the rest of the app (SEO-4)."""
+    path = request.path or "/"
+    if not path.startswith(("/app", "/admin")):
+        return True
+    if path.startswith("/admin"):
+        return False
+    if request.endpoint == "billing_page" or _gads_events():
+        return True
+    ws = g.get("ws")
+    return request.endpoint == "studio" and ws is not None and plans.plan_code(ws) == "free"
 
 
 def _gads_events():
