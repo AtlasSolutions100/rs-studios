@@ -41,14 +41,15 @@ check(V.build({"goal": "leads", "offer": "Free candle guide"})["path"] == "servi
 for s_ in (svc, prod):
     check(all(r["low"] < r["mid"] < r["high"] for r in s_["rows"]) and s_["total"]["mid"] == sum(r["mid"] for r in s_["rows"]),
           f"{s_['path']}: low < suggested < high per platform, and the total adds up")
-# service Google: $5.50 a click / 8% = $68.75 a lead; 15 leads over 14 days = $73.66 a day -> $74 (2 significant figures)
+# service Google: $8.00 a click / 7.5% = $106.67 a lead; 15 leads over 14 days = $114.29 a day -> $110 (2 significant
+# figures); 8 leads -> $60.95 -> $61; 30 leads -> $228.57 -> $230
 g = svc["rows"][0]
-check(g["mid"] == 7400 and g["low"] == 3900 and g["high"] == 15000, "Google Search band from $5.50 a click and 8%: $39, $74, $150")
-check(svc["currency"] == "USD" and V.money(g["mid"], "USD") == "$74", "no connection, no brief currency: US dollars")
+check(g["mid"] == 11000 and g["low"] == 6100 and g["high"] == 23000, "Google Search band from $8.00 a click and 7.5%: $61, $110, $230")
+check(svc["currency"] == "USD" and V.money(g["mid"], "USD") == "$110", "no connection, no brief currency: US dollars")
 small = V.build({"goal": "traffic", "offer": "x"})
 check(all(r["low"] >= 500 for r in small["rows"]), "never under 5 times the platform's daily floor ($5)")
 fin = V.build({"goal": "leads", "offer": "An investing app for beginners"})
-check(fin["vertical"] == "finance" and fin["rows"][0]["cpc_usd"] == 6.0, "the vertical comes from the brief (finance)")
+check(fin["vertical"] == "finance" and fin["rows"][0]["cpc_usd"] == 3.4, "the vertical comes from the brief (finance)")
 check(len(prod["test_plan"]) == 4 and prod["test_plan"][0][0] == "Days 1 to 3" and "search terms" in svc["test_plan"][1][1],
       "a 2-week test plan in 4 steps, per path (Search gets negative keywords)")
 words = " ".join(w for _, w in svc["test_plan"] + prod["test_plan"])
@@ -66,10 +67,10 @@ with db.connect() as conn:
 jp = V.build({"goal": "sales", "offer": "Ember Candle"}, conns=conns, ws=ws)
 check(jp["currency"] == "JPY" and jp["rows"][0]["connected"] and not jp["rows"][1]["connected"],
       "a Meta account in JPY: the product path is in yen, Meta connected, Google not")
-check(jp["rows"][0]["mid"] == V.to_minor(0.9 / 0.025 * 15 / 14, "JPY") and V.money(jp["rows"][0]["mid"], "JPY") == "5,800 JPY",
-      "yen with no decimals: $38.57 a day is 5,800 JPY (D3's 150 a dollar, 2 significant figures)")
+check(jp["rows"][0]["mid"] == V.to_minor(0.7 / 0.02 * 15 / 14, "JPY") and V.money(jp["rows"][0]["mid"], "JPY") == "5,600 JPY",
+      "yen with no decimals: $37.50 a day is 5,600 JPY (D3's 150 a dollar, 2 significant figures)")
 check(V.to_minor(40, "EUR") == 3700 and V.to_minor(40, "USD") == 4000, "EUR: $40 is 37 euros, in cents")
-big = V.build({"goal": "leads", "offer": "An investing app for beginners", "business": "service"}, service=True, conns=conns, ws=ws)
+big = V.build({"goal": "leads", "offer": "Personal loans for bad credit", "business": "service"}, service=True, conns=conns, ws=ws)
 cap = launches.ceiling(ws, "JPY")
 check(big["cap"] == cap and big["total"]["high"] <= cap and big["capped"], "Starter's daily ceiling (D3, in yen) caps the band")
 mine = V.build({"goal": "sales", "offer": "x", "budget_amount": 10, "budget_currency": "USD", "budget_period": "day",
