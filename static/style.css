@@ -413,6 +413,10 @@ code{font-size:12px;color:var(--gold2);word-break:break-all}
 .pack p.muted{margin:0 0 18px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:22px}
 .grid2 .panel{overflow-x:auto}
+/* Team (M5.9): workspace name, open invite links */
+.team-name{margin:14px 0 18px;max-width:620px}.team-name label{margin-top:0}
+.invites{list-style:none;padding:0;margin:0;display:grid;gap:12px}.invite{display:grid;gap:4px}.invite form{margin:0}
+.invite.new input{border-color:rgba(var(--accent-rgb),.7)}
 @media (max-width:1100px){.bill-top{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}}
 @media (max-width:760px){.bill-packs{grid-template-columns:1fr}.pack{margin-top:6px}}
 

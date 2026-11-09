@@ -112,6 +112,21 @@ def visible(conn, ws, user) -> bool:
     return operator_ws(conn, ws["id"])
 
 
+def needs_product(conn, ws, user) -> bool:
+    """UX-20: a Free workspace with no product yet doesn't see Creator Pools in the nav, and its page asks for a
+    product before the form (a dollar checkout two minutes after sign-up, before the first ad). It shows once the
+    workspace has a product or is on a paid plan. Admins always see it."""
+    if user is not None and user["is_admin"]:
+        return False
+    if ws is None:
+        return True
+    import plans
+    import products
+    if plans.plan_code(ws) != "free":
+        return False
+    return not products.products(conn, ws["id"])
+
+
 def crowdcut_url() -> str:
     return (os.environ.get("CROWDCUT_URL") or "https://crowdcut.studio").rstrip("/")
 

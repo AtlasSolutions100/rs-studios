@@ -3209,6 +3209,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_credit_holds.py")], check=True)
     # Creator Pools (creator_pools.py, /app/creator-pools): the flag, Checkout, the webhook, Crowdcut sync, refunds (faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_creator_pools.py")], check=True)
+    # Team and small flows (M5.9): workspace name, the invite link kept on Team, Creator Pools for Free accounts.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_team_flows.py")], check=True)
     # The MCP server (mcpserver.py, mcp_tools.py): API keys, OAuth, the handshake, quote-then-generate.
     subprocess.run([sys.executable, os.path.join(HERE, "test_mcp.py")], check=True)
     # Operator alerts and the real /health (alerts.py, opslog.py): each condition, dedupe, JSON logs (mail faked).

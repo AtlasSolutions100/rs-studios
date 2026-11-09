@@ -14,6 +14,7 @@ from core import UPLOADS, PHOTO_TYPES, VIDEO_TYPES, MAX_PHOTO_MB, MAX_VIDEO_MB, 
 
 bp = Blueprint("cpools", __name__)
 MAX_FILES = 10
+NEED_PRODUCT = "Add a product first. A Creator Pool pays creators to post about a product you sell."
 
 
 def _guard():
@@ -42,6 +43,10 @@ def index():
     if request.method == "POST":
         if not is_owner():
             abort(403, "Only the workspace owner can pay for a Creator Pool.")
+        with db.connect() as conn:
+            if cp.needs_product(conn, g.ws, g.user):
+                flash(NEED_PRODUCT)
+                return redirect(url_for("cpools.index"))
         brand_default = _brand_default()
         try:
             data = cp.clean(request.form, brand_default)
@@ -76,13 +81,14 @@ def render_index(form=None):
         rows = conn.execute("SELECT * FROM creator_pools WHERE workspace_id=? ORDER BY id DESC LIMIT 50",
                             (g.ws["id"],)).fetchall()
         pools = [cp.view(conn, r) for r in rows]
+        need_product = cp.needs_product(conn, g.ws, g.user)
     brand_default = _brand_default()
     return render_template("creator_pools.html", pools=pools, form=form or {}, brand_default=brand_default,
                            fee=cp.money(cp.fee_cents()), min_pool=cp.money(cp.min_pool_cents()),
                            max_pool=cp.money(cp.max_pool_cents()), modes=cp.MODE_LABELS, platforms=cp.PLATFORMS,
                            rate_range=cp.RATE_RANGE, days_range=cp.DAYS_RANGE, refund_days=cp.REFUND_DAYS,
                            connected=cp.connected(), billing_on=billing.configured(), public=cp.public(),
-                           owner=is_owner())
+                           owner=is_owner(), need_product=need_product)
 
 
 def _start_checkout(pid):
