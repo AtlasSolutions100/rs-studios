@@ -67,15 +67,36 @@
     </div>
 
     {% if google_on %}
-    <div class="panel" data-google-actions>
+    <div class="panel" id="google" data-google-actions>
       <h2>Google Ads</h2>
-      {% for a in google_rows %}{% set st = stats.get(('google', a.id), {}) %}
-      <div style="margin-top:10px"><b>{{ a.name }}</b> <span class="small muted">· {{ a.customer_id }}</span>
-        {% if a.kind == 'lead_server' %}<br>{% if has_dm(a) %}<span class="tag ok">Leads sent from the server</span>{% else %}<span class="tag warn">Reconnect Google Ads to send leads from the server</span>{% endif %}{% endif %}
-        {% if st %}<br><span class="small">Last 7 days: {{ st.sent }} sent{% if st.failed %}, {{ st.failed }} failed{% endif %}.</span>{% if st.last_error %}<br><span class="small bad">{{ words('google', st.last_error) }}</span>{% endif %}{% endif %}
+      {% for gc in gconns %}{% set r, su, acts = gc.row, gc.setup, gc.actions %}
+      <div style="margin-top:12px">
+        <b>{{ r.account_name or 'Google Ads account' }}</b> <span class="small muted">· {{ dashed(r.external_account_id) }}{% if su and su.tag_id %} · Google tag {{ su.tag_id }}{% endif %}</span><br>
+        {% if su and su.status == 'managed_elsewhere' %}<span class="tag warn">Managed in manager account {{ dashed(su.managed_by) }}</span>
+        <br><span class="small muted">This account uses its manager's conversion actions. Make a lead action there, and Google counts it for this account too.</span>
+        {% elif su and su.status == 'error' %}<span class="tag bad">Not set up</span><br><span class="small bad">{{ su.error }}</span>
+        {% elif acts %}<span class="tag ok">Conversion actions ready</span>
+        {% else %}<span class="tag warn">No conversion actions yet</span>{% endif %}
+        {% if acts %}<ul class="small" style="margin:8px 0 0;padding-left:18px">
+          {% for k, what in (('lead', 'counts leads on your Campaignify pages (primary)'), ('lead_server', 'the same leads sent from our server, secondary so none count twice'), ('purchase', 'for your own checkout page')) %}{% set a = acts.get(k) %}{% if a %}
+          <li data-action="{{ k }}"><b>{{ a.name }}</b>: {{ what }}{% set st = stats.get(('google', a.id), {}) %}{% if k == 'lead_server' and st %}. Last 7 days: {{ st.sent }} sent{% if st.failed %}, {{ st.failed }} failed{% endif %}{% if st.last_error %}. <span class="bad">{{ words('google', st.last_error) }}</span>{% endif %}{% endif %}{% if k == 'lead_server' and 'https://www.googleapis.com/auth/datamanager' not in (r.scopes or '').split() %}. <span class="bad">Reconnect Google Ads to send leads from the server.</span>{% endif %}</li>
+          {% endif %}{% endfor %}
+        </ul>{% endif %}
+        {% if owner %}<div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap"><form method="post" action="{{ url_for('conversions.google_sync', cid=r.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn sm">{{ 'Check again' if acts else 'Set up conversion actions' }}</button></form>
+          {% if 'https://www.googleapis.com/auth/datamanager' not in (r.scopes or '').split() %}<form method="post" action="{{ url_for('adconnect.google_start') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="reconnect" value="{{ r.id }}"><button class="btn dark sm">Reconnect Google Ads</button></form>{% endif %}</div>{% endif %}
+        <h3 style="margin-top:16px">Enhanced conversions</h3>
+        <p class="small muted">Google can't switch these on for Campaignify. Do the open steps in Google Ads.</p>
+        <ol class="checks" data-ec-checklist>{% for it in gc.checklist %}
+          <li data-step="{{ it.key }}"><b>{{ it.title }}</b> {% if it.state == true %}<span class="tag ok">Done</span>{% elif it.state == false %}<span class="tag warn">To do</span>{% else %}<span class="tag">Check in Google Ads</span>{% endif %}<br><span class="small muted">{{ it.words }}</span>{% if it.link %}<br><a class="small" href="{{ it.link }}" target="_blank" rel="noopener">Open on Google</a>{% endif %}</li>
+        {% endfor %}</ol>
+        {% if su and su.purchase_snippet %}
+        <details class="small" style="margin-top:10px" data-purchase-snippet><summary>Purchase tag for your own checkout page</summary>
+          <p class="muted">Paste it on the page people see after they pay. Fill in the order value, currency and order number.</p>
+          <pre style="white-space:pre-wrap;word-break:break-all;font-size:12px">{{ su.purchase_snippet }}</pre>
+        </details>{% endif %}
       </div>
       {% else %}
-      <p class="muted">No Google Ads conversion actions yet.</p>
+      <p class="muted">No Google Ads account connected. <a href="{{ url_for('adconnect.settings') }}">Connect it</a> and Campaignify sets up the conversion actions.</p>
       {% endfor %}
     </div>
     {% endif %}

@@ -429,6 +429,12 @@ def browser_config(dests: dict) -> dict:
     codes = [r["external_pixel_id"] for r in dests.get("tiktok") or []]
     if codes:
         cfg["tiktok"] = sorted(set(codes))
+    # Google (M3.5): the tag id and the lead action's label from its tag_snippets (conversion_actions.py), never
+    # Google's HTML. One Google connection's tag: the first lead action that has both.
+    lead = next((r for r in dests.get("google") or [] if r["kind"] == "lead" and _GOOGLE_TAG_RE.match(r["tag_id"] or "")
+                 and _GOOGLE_LABEL_RE.match(r["label"] or "")), None)
+    if lead is not None:
+        cfg["google"] = {"tag": lead["tag_id"], "lead": f"{lead['tag_id']}/{lead['label']}"}
     return cfg
 
 
@@ -738,4 +744,13 @@ def add_lead(track: dict, lead) -> dict:
     """The thank-you render: the browser fires Lead with the server's event id (site_events.lead_for_browser)."""
     if track and track.get("browser"):
         track["browser"]["lead"] = lead["event_id"]
+        g = track["browser"].get("google")
+        try:
+            h = (json.loads(lead["hashes_json"] or "{}") or {}).get("google") or {}
+        except (ValueError, TypeError):
+            h = {}
+        user = {k2: h[k1] for k1, k2 in (("email", "sha256_email_address"), ("phone", "sha256_phone_number"))
+                if re.fullmatch(r"[0-9a-f]{64}", str(h.get(k1) or ""))}
+        if g is not None and user:     # enhanced conversions for web, from the Google tag: hashes only
+            g["user"] = user
     return track

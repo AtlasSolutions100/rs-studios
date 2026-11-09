@@ -45,4 +45,17 @@
     ttq.track('ViewContent', {}, {event_id: C.pv});
     if (C.lead) ttq.track('SubmitForm', {}, {event_id: C.lead});
   }
+  // Google tag (M3.5): the lead conversion with transaction_id = the event id (Google keeps one per id), and on the
+  // thank-you page the email and phone as SHA-256 for enhanced conversions. Built here from the tag id and label.
+  if (C.google && C.google.tag) {
+    window.dataLayer = window.dataLayer || [];
+    if (!window.gtag) window.gtag = function () { window.dataLayer.push(arguments); };
+    load('https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(C.google.tag));
+    gtag('js', new Date());
+    gtag('config', C.google.tag, C.google.user ? {allow_enhanced_conversions: true} : {});
+    if (C.lead && C.google.lead) {
+      if (C.google.user) gtag('set', 'user_data', C.google.user);
+      gtag('event', 'conversion', {send_to: C.google.lead, transaction_id: C.lead});
+    }
+  }
 })();
