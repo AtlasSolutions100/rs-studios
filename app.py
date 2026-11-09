@@ -19,7 +19,7 @@ import subprocess
 import uuid
 
 from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file,
-                   session, url_for)
+                   send_from_directory, session, url_for)
 from werkzeug.exceptions import NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -646,6 +646,18 @@ for _slug in public_site.SOLUTION_ORDER:
     app.add_url_rule(f"/{_slug}", "solution", solution, defaults={"slug": _slug})
 for _slug in public_site.GUIDE_ORDER:
     app.add_url_rule(public_site.guide_path(_slug), "guide", guide, defaults={"slug": _slug})
+
+
+# Icons at the paths browsers, link previews and MCP clients (Claude's connector list) ask for without reading the page.
+@app.route("/favicon.ico")
+def favicon_ico():
+    return send_from_directory(app.static_folder, "favicon.ico", mimetype="image/vnd.microsoft.icon", max_age=86400)
+
+
+@app.route("/apple-touch-icon.png")
+@app.route("/apple-touch-icon-precomposed.png")
+def apple_touch_icon():
+    return send_from_directory(app.static_folder, "img/campaignify-icon-180.png", mimetype="image/png", max_age=86400)
 
 
 @app.route("/robots.txt")
