@@ -7,7 +7,8 @@ and the platform's own click id (fbclid, gclid, ttclid). The form on the page ke
 (hidden_fields), and when the form is sent, record() keeps one lead_sources row per submission:
 
     * the tags as they came (utm_source, utm_medium, utm_campaign, utm_content, utm_term) and the click id;
-    * the ad platform: from utm_source, else from the click id's kind;
+    * the ad platform: from utm_source when utm_medium says paid (an organic post tagged utm_source=ig is not an
+      ad), else from the click id's kind;
     * the ad and its launch, matched on the workspace's own launched objects (ad_objects): utm_content is the
       ad id, utm_campaign the campaign id. matched = ad | campaign | platform | none.
 
@@ -34,6 +35,8 @@ CLICK_PLATFORM = {"fbclid": "meta", "gclid": "google", "ttclid": "tiktok"}
 SOURCE_PLATFORM = {"facebook": "meta", "fb": "meta", "meta": "meta", "instagram": "meta", "ig": "meta",
                    "an": "meta", "messenger": "meta", "google": "google", "adwords": "google", "youtube": "google",
                    "tiktok": "tiktok", "snapchat": "snapchat", "snap": "snapchat"}
+PAID_MEDIUMS = {"paid", "cpc", "ppc", "cpm", "paid_social", "paidsocial", "paid_search", "ads", "ad", "display",
+                "social_paid", "sem"}
 PLATFORM_WORDS = {"meta": "Meta", "google": "Google", "tiktok": "TikTok", "snapchat": "Snapchat"}
 _UTM_RE = re.compile(r"[^\w.\-+ :/|]")
 
@@ -71,8 +74,11 @@ def from_form(form, measured: bool = True) -> tuple:
 
 
 def platform_of(utm: dict, clicks: dict) -> str | None:
+    """The ad platform of a visit: from utm_source when the medium says paid (an organic post tagged utm_source=ig
+    is not an ad), else from the click id's kind."""
     src = (utm.get("utm_source") or "").strip().lower()
-    if src in SOURCE_PLATFORM:
+    medium = (utm.get("utm_medium") or "").strip().lower().replace("-", "_")
+    if src in SOURCE_PLATFORM and (medium in PAID_MEDIUMS or any(clicks.values())):
         return SOURCE_PLATFORM[src]
     for k in ("gclid", "fbclid", "ttclid"):
         if clicks.get(k):

@@ -120,7 +120,8 @@ print("matching")
 for email, tags, want in (
         ("cam@example.com", f"utm_source=facebook&utm_campaign={CAMP2}", ("meta", LID2, None, "campaign")),
         ("plat@example.com", "fbclid=IwAR0onlyAClick", ("meta", None, None, "platform")),
-        ("strange@example.com", "utm_source=facebook&utm_content=99999999999", ("meta", None, None, "platform")),
+        ("strange@example.com", "utm_source=facebook&utm_medium=paid&utm_content=99999999999", ("meta", None, None, "platform")),
+        ("organic@example.com", "utm_source=ig&utm_campaign=spring", (None, None, None, "none")),
         ("goog@example.com", "gclid=Cj0KCQiAgoogle123&utm_source=google&utm_content=555", ("google", None, None, "platform")),
         ("news@example.com", "utm_source=newsletter&utm_medium=email", (None, None, None, "none"))):
     cv = S.client()
@@ -134,7 +135,7 @@ check(not q("SELECT 1 FROM lead_sources s JOIN contacts c ON c.id=s.contact_id W
 # someone else's workspace can't claim our ad
 _, ou2 = None, ou
 with db.connect() as conn:
-    res = adleads.resolve(conn, ou["workspace_id"], {"utm_source": "facebook", "utm_content": ADS[0]}, {})
+    res = adleads.resolve(conn, ou["workspace_id"], {"utm_source": "facebook", "utm_medium": "paid", "utm_content": ADS[0]}, {})
 check(res["launch_id"] is None and res["matched"] == "platform", "another workspace's tags never match our launches")
 
 # ================================================================ 3. the Ad campaigns pages: leads and cost per lead
