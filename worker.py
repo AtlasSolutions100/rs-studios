@@ -571,6 +571,8 @@ def start():
             adplatforms.maybe_sweep()      # unfinished ad-account connects lose their token after 1 hour (never raises)
             import launches
             launches.maybe_tick()          # approved launches: the saga that makes the paused campaign (never raises)
+            import admanage
+            admanage.maybe_tick()          # approved on/off and budget changes that wait on Meta (never raises)
             import backup
             backup.maybe_run()     # nightly off-site backup in its own thread, once R2 is set (never raises)
             time.sleep(POLL_SECONDS)

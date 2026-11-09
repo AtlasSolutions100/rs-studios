@@ -162,6 +162,8 @@ NAV_GROUPS = [
     ]),
     ("Launch", [
         ("adhub.index", "Ad accounts", "adhub", "adhub", ("adhub.index", "adhub.platform", "adhub.export_page")),
+        # Launched campaigns (manage_routes.py, M2.4): shown only where adplatforms.enabled() (AD_LAUNCH)
+        ("manage.index", "Ad campaigns", "planner", None, ("manage.index", "manage.show")),
     ]),
     ("Settings", [
         ("team", "Team", "team", None, ("team",)),
@@ -2855,12 +2857,14 @@ import creator_pools  # noqa: E402
 import google_auth  # noqa: E402
 import adconnect_routes  # noqa: E402  connected ad accounts (AD_LAUNCH)
 import launch_routes  # noqa: E402  plan -> paused Meta campaign (AD_LAUNCH, M2.3)
+import manage_routes  # noqa: E402  launched campaigns: on/off, budget, approval cards (AD_LAUNCH, M2.4)
 import adplatforms  # noqa: E402
 
 app.register_blueprint(product_routes.bp)
 app.register_blueprint(google_auth.bp)
 app.register_blueprint(adconnect_routes.bp)   # /app/settings/ad-accounts, /connect/meta (AD_LAUNCH, default off)
 app.register_blueprint(launch_routes.bp)   # /app/campaigns/<id>/launch/meta, /app/launches/<id> (AD_LAUNCH, default off)
+app.register_blueprint(manage_routes.bp)   # /app/ad-campaigns, /app/ad-cards/<id> (AD_LAUNCH, default off)
 app.register_blueprint(login_security.bp)   # /forgot, /reset, /m (login hardening)
 app.jinja_env.globals["google_signin"] = google_auth.configured   # the Continue with Google button
 app.register_blueprint(create_routes.bp)
@@ -2904,6 +2908,8 @@ def _has_endpoint(name) -> bool:
         return g.cpools_visible
     if name == "mcp.settings":          # the MCP key page shows while MCP_SERVER=on
         return mcpserver.enabled()
+    if name.startswith("manage."):      # launched campaigns: AD_LAUNCH (adplatforms.enabled)
+        return adplatforms.enabled(g.get("ws"), g.get("user"))
     if name.startswith("adconnect."):   # connected ad accounts: AD_LAUNCH (adplatforms.enabled)
         if adplatforms.enabled(g.get("ws"), g.get("user")):
             return True

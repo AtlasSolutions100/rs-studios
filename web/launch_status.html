@@ -27,7 +27,7 @@
   {% elif st == 'paused' %}
     <p class="muted">It's on your Meta ad account, PAUSED. Nothing runs and nothing is spent until you turn it on.</p>
     {% if v.card and v.card.ai %}<div class="flash warn">Before you turn it on: {{ v.card.disclosure.split('. Before you turn the campaign on, ')[-1] }}</div>{% endif %}
-    <p>{% if v.manager %}<a class="btn" href="{{ v.manager }}" target="_blank" rel="noopener noreferrer">Open it in Ads Manager ↗</a>{% endif %}</p>
+    <p class="row"><a class="btn" href="{{ url_for('manage.show', lid=L.id) }}">Manage it: turn on, budget</a>{% if v.manager %} <a class="btn dark" href="{{ v.manager }}" target="_blank" rel="noopener noreferrer">Open it in Ads Manager ↗</a>{% endif %}</p>
   {% else %}
     <div class="flash bad">{{ L.error or 'Meta refused part of the campaign.' }}</div>
     {% if st == 'rolled_back' %}<p class="muted">Campaignify removed the ads and creatives it had made. The campaign and ad set, if they were made, stay PAUSED on your account, so trying again reuses them.</p>

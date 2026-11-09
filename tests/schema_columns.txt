@@ -35,6 +35,8 @@ ad_conversions.user_id INTEGER
 ad_conversions.value_cents INTEGER
 ad_conversions.workspace_id INTEGER
 ad_objects.created_at TEXT
+ad_objects.daily_budget_minor INTEGER
+ad_objects.effective_status TEXT
 ad_objects.external_id TEXT
 ad_objects.id INTEGER
 ad_objects.kind TEXT
@@ -43,6 +45,7 @@ ad_objects.name TEXT
 ad_objects.parent_external_id TEXT
 ad_objects.platform TEXT
 ad_objects.status TEXT
+ad_objects.synced_at TEXT
 ad_objects.workspace_id INTEGER
 ad_signup_grants.created_at TEXT
 ad_signup_grants.credits INTEGER
@@ -71,6 +74,8 @@ api_budget.platform TEXT
 api_budget.points REAL
 approval_cards.after_json TEXT
 approval_cards.applied_at TEXT
+approval_cards.apply_state TEXT
+approval_cards.attempts INTEGER
 approval_cards.before_json TEXT
 approval_cards.campaign_id INTEGER
 approval_cards.connection_id INTEGER
@@ -83,6 +88,8 @@ approval_cards.error TEXT
 approval_cards.id INTEGER
 approval_cards.kind TEXT
 approval_cards.launch_id INTEGER
+approval_cards.lease_at TEXT
+approval_cards.next_at TEXT
 approval_cards.spec_hash TEXT
 approval_cards.spec_json TEXT
 approval_cards.workspace_id INTEGER

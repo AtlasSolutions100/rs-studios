@@ -33,7 +33,7 @@
   <p style="margin:0 0 14px"><a href="{{ url_for('campaigns.show', cid=c.id) }}#kit-meta">← Back to the plan</a></p>
   <p class="eyebrow">Launch on Meta · beta</p>
   <h1>Create a paused campaign</h1>
-  <p class="muted">Campaignify makes the campaign on your own Meta ad account, PAUSED. Nothing runs and nothing is spent until you turn it on in Ads Manager. Check the card, then approve it.</p>
+  <p class="muted">Campaignify makes the campaign on your own Meta ad account, PAUSED. Nothing runs and nothing is spent until you turn it on, here on the Ad campaigns page or in Ads Manager. Check the card, then approve it.</p>
   {% if latest %}<p class="small"><a href="{{ url_for('launch.status', lid=latest.id) }}">Last launch of this plan: {{ {'queued': 'waiting to start', 'launching': 'in progress', 'paused': 'created, PAUSED', 'failed': 'stopped', 'rolled_back': 'stopped and undone'}[latest.status] }} →</a></p>{% endif %}
 
   {% if not conn_row %}
