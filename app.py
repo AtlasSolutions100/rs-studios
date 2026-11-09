@@ -715,6 +715,28 @@ def llm_info():
     return render_template("llm_info.html", blocks=public_site.text_blocks(_llms_text()))
 
 
+CLAUDE_PROMPTS = [
+    ("Account", "How many credits do I have, and which tools does my plan include?"),
+    ("Products", "List my brands and products."),
+    ("Price", "Price 3 image ads for my best product in square and vertical, with the headline: <your headline>"),
+    ("Make", "Looks good, make them."),
+    ("Video", "Quote a 15-second UGC video with Maya saying: <your script>"),
+    ("Options", "Which AI presenters and voices can I use?"),
+    ("Copy", "Write 5 Meta ad variants for my product."),
+    ("Plan", "Plan a 2-week test for my product at $30 a day on Meta and TikTok."),
+    ("Competitors", "Run a competitor snapshot on these sites: <site 1>, <site 2>"),
+    ("Files", "Give me download links for everything made this week."),
+]
+
+
+@app.route("/claude")
+def claude_page():
+    """Use Campaignify in Claude: what to ask, a walkthrough and setup (the MCP server, mcp_tools.py)."""
+    import mcpserver
+    return render_template("claude.html", on=mcpserver.enabled(), url=request.host_url.rstrip("/") + "/mcp",
+                           prompts=CLAUDE_PROMPTS)
+
+
 @app.route("/docs/mcp")
 def mcp_docs():
     """How to connect Claude and other MCP clients (mcp_tools.py)."""

@@ -131,8 +131,32 @@ check("API and Claude" not in owner.get("/app/team").get_data(as_text=True), "no
 r = anon.get("/docs/mcp")
 check(r.status_code == 200 and "Not switched on yet" in r.get_data(as_text=True), "docs page says it isn't on yet")
 check("/mcp" not in anon.get("/llms.txt").get_data(as_text=True), "llms.txt leaves MCP out while off")
+r = anon.get("/claude")
+body = r.get_data(as_text=True)
+check(r.status_code == 200 and "Coming soon" in body and 'content="noindex"' in body, "/claude says coming soon, noindex, while off")
+import public_site  # noqa: E402
+check("/claude" not in public_site.sitemap_paths() and "/docs/mcp" not in public_site.sitemap_paths(),
+      "sitemap leaves /claude and /docs/mcp out while off")
 
 os.environ["MCP_SERVER"] = "on"
+print("== the Claude page and docs")
+from markupsafe import escape as _esc  # noqa: E402
+import app as _appmod  # noqa: E402
+r = anon.get("/claude")
+body = r.get_data(as_text=True)
+check(r.status_code == 200 and "Coming soon" not in body and "noindex" not in body, "/claude is live and indexable when on")
+check("/mcp</code>" in body, "/claude shows the server address")
+check(all(str(_esc(t)) in body for _, t in _appmod.CLAUDE_PROMPTS) and body.count('class="cl-prompt"') == len(_appmod.CLAUDE_PROMPTS),
+      "/claude lists every example prompt")
+check("Customize" in body and "Add custom connector" in body and "claude mcp add --transport http campaignify" in body,
+      "/claude has the Claude, Team and Claude Code setup")
+check("isn't made or endorsed by Anthropic" in body and "<title>Use Campaignify in Claude" in body, "/claude title and the Anthropic line")
+main = body.split('id="main"')[1]
+check("—" not in main.split("<footer")[0] and "–" not in main.split("<footer")[0], "/claude copy has no dashes")
+check('href="/claude"' in anon.get("/pricing").get_data(as_text=True), "the site footer links /claude")
+d = anon.get("/docs/mcp").get_data(as_text=True)
+check('href="/claude"' in d and "Turn it on in a chat" in d and "Troubleshooting" in d, "docs link the walkthrough and add chat use and troubleshooting")
+check("/claude" in public_site.sitemap_paths() and "/docs/mcp" in public_site.sitemap_paths(), "sitemap lists /claude and /docs/mcp when on")
 print("== auth and discovery")
 r = rpc("initialize", {})
 check(r.status_code == 401 and "resource_metadata=" in r.headers.get("WWW-Authenticate", ""), "no token: 401")

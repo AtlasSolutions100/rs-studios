@@ -7,13 +7,29 @@
   <p>Campaignify has a remote MCP server, so you can use your workspace from Claude and other apps that speak the Model Context Protocol. Ask for ad copy, a campaign plan or a competitor snapshot, price a batch of image ads or AI presenter videos, and make them once you agree to the price, all from a chat.</p>
   <p>Server address: <code>{{ url }}</code></p>
 
+  <p>New to this? The <a href="{{ url_for('claude_page') }}">Campaignify in Claude page</a> has example prompts and a step-by-step walkthrough.</p>
+
   <h2>Connect Claude.ai (web, desktop and mobile)</h2>
   <ol>
-    <li>In Claude, open <b>Customize</b>, then <b>Connectors</b>, then <b>Add custom connector</b>. On a Team or Enterprise plan an owner adds it under Organization settings, Connectors.</li>
-    <li>Name it Campaignify and paste <code>{{ url }}</code> as the server URL. Leave the OAuth fields empty.</li>
-    <li>Click <b>Connect</b>. Log in to Campaignify if asked and choose whether Claude may spend credits.</li>
+    <li>In Claude, open <b>Customize</b>, then <b>Connectors</b>.</li>
+    <li>Click <b>+ Add</b>, then <b>Add custom connector</b>.</li>
+    <li>Name it Campaignify, paste <code>{{ url }}</code> as the server URL and click <b>Continue</b>.</li>
+    <li>Keep the settings Claude detects (sign in with OAuth, register automatically) and click <b>Add</b>.</li>
+    <li>Log in to Campaignify if asked and choose whether Claude may spend credits.</li>
   </ol>
+  <p>On a Team or Enterprise plan, an owner adds it under <b>Organization settings</b>, <b>Connectors</b> (<b>Add</b>, <b>Custom</b>, <b>Web</b>), then each member clicks <b>Connect</b> under Customize, Connectors and logs in with their own Campaignify account. On Claude's Free plan you can add one custom connector.</p>
   <p class="small muted">Disconnect it any time in Campaignify under Settings, API and Claude.</p>
+
+  <h2>Turn it on in a chat</h2>
+  <p>In a chat, click <b>+</b>, then <b>Connectors</b>, and switch Campaignify on. Then ask in plain words, for example:</p>
+  <ul>
+    <li>"How many credits do I have, and which tools does my plan include?"</li>
+    <li>"Price 3 image ads for my best product in square and vertical, with the headline: &lt;your headline&gt;"</li>
+    <li>"Write 5 Meta ad variants for my product."</li>
+    <li>"Plan a 2-week test for my product at $30 a day on Meta and TikTok."</li>
+    <li>"Give me download links for everything made this week."</li>
+  </ul>
+  <p class="small muted">Claude shows the credit total and asks before it makes anything. To stop a tool entirely, open the connector under Customize, Connectors and set that tool to Blocked.</p>
 
   <h2>Claude Code</h2>
   <p>Sign in with your browser:</p>
@@ -57,6 +73,17 @@
     <li>AI presenters are AI-generated people, never real ones.</li>
     <li>Campaignify makes the creative. It does not post or run ads.</li>
     <li>Limits: 120 requests a minute and 30 changes a minute per key or connection. Download links last 1 hour.</li>
+  </ul>
+
+  <h2>Troubleshooting</h2>
+  <ul>
+    <li><b>It asks me to log in again and again.</b> Log in to campaignify.ai in the same browser first, then connect.</li>
+    <li><b>"This connection is read-only."</b> You connected read only. Remove the connector in Claude and add it again, choosing read and write, or use a read and write key.</li>
+    <li><b>"The price changed, nothing was made."</b> A quote is only good for the exact settings you priced. Ask Claude to quote again, then agree to the new total.</li>
+    <li><b>Not enough credits, or a tool isn't on my plan.</b> Ask Claude for your account status. Credit packs and plans are bought in the app under Billing.</li>
+    <li><b>Videos won't start.</b> Videos need a confirmed email. Confirm it from the email we sent, or resend it in the app.</li>
+    <li><b>The logo or the tool list looks out of date.</b> Claude saves a connector's details when you add it. Remove it and add it again.</li>
+    <li><b>Too many requests.</b> Each key or connection gets 120 requests and 30 changes a minute. Wait a minute and ask again.</li>
   </ul>
 </article>
 {% endblock %}
