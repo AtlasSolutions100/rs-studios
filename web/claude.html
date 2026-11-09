@@ -35,7 +35,7 @@
 {% block main %}
 <section class="lp-hero lp-hero-sm">
   <div class="lp-wrap">
-    <p class="eyebrow">Campaignify in Claude</p>
+    <p class="eyebrow">Campaignify MCP</p>
     <h1>Make your ads from a chat.</h1>
     <p class="lp-lede">Connect Campaignify to Claude and just ask. Price and make image ads and AI presenter videos, write ad copy, plan a campaign or size up your competitors. Claude shows you the credit total first, and nothing is made until you agree.</p>
     {% if not on %}<p class="muted"><b>Coming soon.</b> The Claude connection isn't open on this site yet. This page shows how it will work.</p>{% endif %}
@@ -118,7 +118,7 @@
       <div class="cl-card"><h3>Same checks as the app</h3><p>Your plan's tools, your credits and the same compliance checks on every brief and piece of copy.</p></div>
       <div class="cl-card"><h3>AI people are labeled</h3><p>AI presenters are generated people, never real ones. Videos need a confirmed email, as in the app.</p></div>
       <div class="cl-card"><h3>Read only if you like</h3><p>Connect read only to look around without spending anything, or block single tools in Claude.</p></div>
-      <div class="cl-card"><h3>Turn it off any time</h3><p>Disconnect in Campaignify under Settings, API and Claude, or remove the connector in Claude.</p></div>
+      <div class="cl-card"><h3>Turn it off any time</h3><p>Disconnect in Campaignify under Settings, MCP access, or remove the connector in Claude.</p></div>
     </div>
   </div>
 </section>
@@ -152,7 +152,7 @@
         <h3>Claude Code</h3>
         <p>Add it, then run <code>/mcp</code> and pick Campaignify to log in:</p>
         <pre><code>claude mcp add --transport http campaignify {{ url }}</code></pre>
-        <p>Prefer a key? Make one under Settings, API and Claude, and see the <a href="{{ url_for('mcp_docs') }}">docs</a>.</p>
+        <p>Prefer a key? Make one under Settings, MCP access, and see the <a href="{{ url_for('mcp_docs') }}">docs</a>.</p>
       </div>
     </div>
   </div>

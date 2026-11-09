@@ -169,7 +169,7 @@ NAV_GROUPS = [
         ("team", "Team", "team", None, ("team",)),
         ("billing_page", "Billing", "billing", None, ("billing_page",)),
         ("messaging.sending", "Sending", "send", "flows", ("messaging.sending",)),
-        ("mcp.settings", "API and Claude", "api", None, ("mcp.settings",)),   # shown while MCP_SERVER=on
+        ("mcp.settings", "MCP access", "api", None, ("mcp.settings",)),   # shown while MCP_SERVER=on
         # Connected ad accounts (adconnect_routes.py): shown only where adplatforms.enabled() (AD_LAUNCH)
         ("adconnect.settings", "Connections", "plug", None, ("adconnect.settings", "adconnect.pick", "adconnect.pixel")),
     ]),
@@ -729,12 +729,21 @@ CLAUDE_PROMPTS = [
 ]
 
 
-@app.route("/claude")
-def claude_page():
-    """Use Campaignify in Claude: what to ask, a walkthrough and setup (the MCP server, mcp_tools.py)."""
+def mcp_page():
+    """Campaignify MCP: what to ask Claude, a walkthrough and setup. Served at /mcp to browsers
+    (mcpserver.wants_page); MCP clients get the server at the same address."""
     import mcpserver
     return render_template("claude.html", on=mcpserver.enabled(), url=request.host_url.rstrip("/") + "/mcp",
                            prompts=CLAUDE_PROMPTS)
+
+
+app.view_functions["mcp_page"] = mcp_page
+
+
+@app.route("/claude")
+def claude_page():
+    """The page's first address (Nov 9 2026), kept as a permanent redirect."""
+    return redirect("/mcp", code=301)
 
 
 @app.route("/docs/mcp")

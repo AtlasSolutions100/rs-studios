@@ -127,36 +127,46 @@ print("== switched off (default)")
 check(not mcpserver.enabled(), "MCP_SERVER is off unless set")
 check(rpc("initialize", {}).status_code == 404, "/mcp answers 404 while off")
 check(owner.get("/app/mcp").status_code == 404, "the key page answers 404 while off")
-check("API and Claude" not in owner.get("/app/team").get_data(as_text=True), "no nav entry while off")
+check("MCP access" not in owner.get("/app/team").get_data(as_text=True), "no nav entry while off")
 r = anon.get("/docs/mcp")
 check(r.status_code == 200 and "Not switched on yet" in r.get_data(as_text=True), "docs page says it isn't on yet")
 check("/mcp" not in anon.get("/llms.txt").get_data(as_text=True), "llms.txt leaves MCP out while off")
-r = anon.get("/claude")
+r = anon.get("/mcp", headers={"Accept": "text/html,application/xhtml+xml"})
 body = r.get_data(as_text=True)
-check(r.status_code == 200 and "Coming soon" in body and 'content="noindex"' in body, "/claude says coming soon, noindex, while off")
+check(r.status_code == 200 and "Coming soon" in body and 'content="noindex"' in body, "/mcp in a browser: the page says coming soon, noindex, while off")
+check(anon.get("/mcp").status_code == 404 and anon.get("/mcp", headers={"Accept": "text/event-stream"}).status_code == 404,
+      "/mcp for anything but a browser stays 404 while off")
+r = anon.get("/claude")
+check(r.status_code == 301 and r.headers["Location"].endswith("/mcp"), "/claude redirects to /mcp for good")
 import public_site  # noqa: E402
-check("/claude" not in public_site.sitemap_paths() and "/docs/mcp" not in public_site.sitemap_paths(),
-      "sitemap leaves /claude and /docs/mcp out while off")
+check("/mcp" not in public_site.sitemap_paths() and "/docs/mcp" not in public_site.sitemap_paths(),
+      "sitemap leaves /mcp and /docs/mcp out while off")
 
 os.environ["MCP_SERVER"] = "on"
 print("== the Claude page and docs")
 from markupsafe import escape as _esc  # noqa: E402
 import app as _appmod  # noqa: E402
-r = anon.get("/claude")
+r = anon.get("/mcp", headers={"Accept": "text/html,application/xhtml+xml"})
 body = r.get_data(as_text=True)
-check(r.status_code == 200 and "Coming soon" not in body and "noindex" not in body, "/claude is live and indexable when on")
+check(r.status_code == 200 and "Coming soon" not in body and "noindex" not in body and r.mimetype == "text/html",
+      "/mcp in a browser: the page, live and indexable when on")
+check(anon.get("/mcp", headers={"Accept": "text/event-stream"}).status_code == 405 and anon.get("/mcp").status_code == 405
+      and anon.get("/mcp", headers={"Accept": "text/html, text/event-stream"}).status_code == 405,
+      "MCP clients still get the server at /mcp: GET is 405 (no SSE stream)")
+check('<link rel="canonical" href="https://campaignify.ai/mcp">' in body or 'rel="canonical" href="http://localhost/mcp"' in body,
+      "the page's canonical address is /mcp")
 check("/mcp</code>" in body, "/claude shows the server address")
 check(all(str(_esc(t)) in body for _, t in _appmod.CLAUDE_PROMPTS) and body.count('class="cl-prompt"') == len(_appmod.CLAUDE_PROMPTS),
       "/claude lists every example prompt")
 check("Customize" in body and "Add custom connector" in body and "claude mcp add --transport http campaignify" in body,
       "/claude has the Claude, Team and Claude Code setup")
-check("isn't made or endorsed by Anthropic" in body and "<title>Use Campaignify in Claude" in body, "/claude title and the Anthropic line")
+check("isn't made or endorsed by Anthropic" in body and "<title>Campaignify MCP" in body, "/mcp title and the Anthropic line")
 main = body.split('id="main"')[1]
 check("—" not in main.split("<footer")[0] and "–" not in main.split("<footer")[0], "/claude copy has no dashes")
-check('href="/claude"' in anon.get("/pricing").get_data(as_text=True), "the site footer links /claude")
+check(anon.get("/pricing").get_data(as_text=True).count('href="/mcp"') >= 2, "the navbar and the footer link /mcp")
 d = anon.get("/docs/mcp").get_data(as_text=True)
-check('href="/claude"' in d and "Turn it on in a chat" in d and "Troubleshooting" in d, "docs link the walkthrough and add chat use and troubleshooting")
-check("/claude" in public_site.sitemap_paths() and "/docs/mcp" in public_site.sitemap_paths(), "sitemap lists /claude and /docs/mcp when on")
+check('href="/mcp"' in d and "Turn it on in a chat" in d and "Troubleshooting" in d, "docs link the walkthrough and add chat use and troubleshooting")
+check("/mcp" in public_site.sitemap_paths() and "/docs/mcp" in public_site.sitemap_paths(), "sitemap lists /mcp and /docs/mcp when on")
 print("== auth and discovery")
 r = rpc("initialize", {})
 check(r.status_code == 401 and "resource_metadata=" in r.headers.get("WWW-Authenticate", ""), "no token: 401")
@@ -166,7 +176,7 @@ asm = anon.get("/.well-known/oauth-authorization-server").get_json()
 check(prm["authorization_servers"] == [asm["issuer"]] and asm["code_challenge_methods_supported"] == ["S256"],
       "OAuth discovery")
 check("/docs/mcp" in anon.get("/llms.txt").get_data(as_text=True), "llms.txt mentions the MCP server when on")
-check("API and Claude" in owner.get("/app/team").get_data(as_text=True), "Settings nav shows API and Claude")
+check("MCP access" in owner.get("/app/team").get_data(as_text=True), "Settings nav shows MCP access")
 
 print("== keys")
 rkey, wkey = make_key(owner, "read"), make_key(owner, "write")

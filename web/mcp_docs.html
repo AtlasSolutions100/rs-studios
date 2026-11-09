@@ -7,7 +7,7 @@
   <p>Campaignify has a remote MCP server, so you can use your workspace from Claude and other apps that speak the Model Context Protocol. Ask for ad copy, a campaign plan or a competitor snapshot, price a batch of image ads or AI presenter videos, and make them once you agree to the price, all from a chat.</p>
   <p>Server address: <code>{{ url }}</code></p>
 
-  <p>New to this? The <a href="{{ url_for('claude_page') }}">Campaignify in Claude page</a> has example prompts and a step-by-step walkthrough.</p>
+  <p>New to this? The <a href="/mcp">Campaignify MCP page</a> has example prompts and a step-by-step walkthrough.</p>
 
   <h2>Connect Claude.ai (web, desktop and mobile)</h2>
   <ol>
@@ -18,7 +18,7 @@
     <li>Log in to Campaignify if asked and choose whether Claude may spend credits.</li>
   </ol>
   <p>On a Team or Enterprise plan, an owner adds it under <b>Organization settings</b>, <b>Connectors</b> (<b>Add</b>, <b>Custom</b>, <b>Web</b>), then each member clicks <b>Connect</b> under Customize, Connectors and logs in with their own Campaignify account. On Claude's Free plan you can add one custom connector.</p>
-  <p class="small muted">Disconnect it any time in Campaignify under Settings, API and Claude.</p>
+  <p class="small muted">Disconnect it any time in Campaignify under Settings, MCP access.</p>
 
   <h2>Turn it on in a chat</h2>
   <p>In a chat, click <b>+</b>, then <b>Connectors</b>, and switch Campaignify on. Then ask in plain words, for example:</p>
@@ -53,7 +53,7 @@
 
   <h2>Make an API key</h2>
   <ol>
-    <li>In the app, open <a href="{{ settings_path }}">Settings, API and Claude</a>.</li>
+    <li>In the app, open <a href="{{ settings_path }}">Settings, MCP access</a>.</li>
     <li>Name the key and pick <b>Read only</b> or <b>Read and write</b>.</li>
     <li>Copy the key. It is shown once. We store only a fingerprint of it.</li>
   </ol>

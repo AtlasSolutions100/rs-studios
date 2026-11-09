@@ -16,7 +16,7 @@
     {% if want_write %}
     <label class="small"><input type="checkbox" name="allow_write" value="1" checked> Also let it spend credits: write ad copy, plan campaigns, research competitors and make image ads and videos. It shows the price in credits first and Claude asks you before it spends.</label>
     {% endif %}
-    <p class="small muted">It works with your plan's tools and your credits. Disconnect it any time on <a href="{{ settings_path }}">API and Claude</a>.</p>
+    <p class="small muted">It works with your plan's tools and your credits. Disconnect it any time on <a href="{{ settings_path }}">MCP access</a>.</p>
     <p style="margin-top:18px;display:flex;gap:10px"><button class="btn" name="decision" value="allow">Connect</button><button class="btn dark" name="decision" value="deny">Cancel</button></p>
   </form>
 {% endif %}
