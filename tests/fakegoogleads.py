@@ -98,6 +98,12 @@ class FakeGoogleAds:
                                        "https://www.googleapis.com/auth/adwords")
         return self
 
+    def tracking(self, cid, owner=None, terms=False, ec_leads=False):
+        """customer.conversion_tracking_setting: `owner` a manager that manages this customer's conversions
+        (cross-account conversion tracking), the customer data terms and enhanced conversions for leads."""
+        self.customers[cid].update(conv_owner=owner, terms=terms, ec_leads=ec_leads)
+        return self
+
     def conversion_action(self, cid, name, typ="WEBPAGE", category="SUBMIT_LEAD_FORM", status="ENABLED", primary=True):
         """An existing conversion action on customer `cid` (made in the Google Ads UI, or by an earlier sync)."""
         oid = str(next(self._ids))
@@ -160,7 +166,8 @@ class FakeGoogleAds:
             path = u.path[len(f"/{V}"):] if u.path.startswith(f"/{V}") else u.path
             if path == "/customers:listAccessibleCustomers" and method == "GET":
                 return adhttp.Response(200, {}, {"resourceNames": [f"customers/{c}" for c in self.access_of.get(sub, [])]})
-            m = re.fullmatch(r"/customers/(\d{10})/(googleAds:search|googleAds:mutate|assets:mutate|campaigns:mutate)", path)
+            m = re.fullmatch(r"/customers/(\d{10})/(googleAds:search|googleAds:mutate|assets:mutate|campaigns:mutate|"
+                             r"conversionActions:mutate)", path)
             if not m or method != "POST":
                 raise AssertionError(f"no fake Google answer for {method} {u.path}")
             cid, op = m.groups()
@@ -171,6 +178,8 @@ class FakeGoogleAds:
                 return adhttp.Response(200, {}, self._mutate(cid, call["data"]))
             if op == "assets:mutate":
                 return adhttp.Response(200, {}, self._assets(cid, call["data"]))
+            if op == "conversionActions:mutate":
+                return adhttp.Response(200, {}, self._conversion_actions(cid, call["data"]))
             return adhttp.Response(200, {}, self._campaigns(cid, call["data"]))
         except Refuse as e:
             return self._answer(e.answer)
@@ -300,7 +309,14 @@ class FakeGoogleAds:
             c = self.customers[cid]
             rows.append({"customer": {"resourceName": f"customers/{cid}", "id": cid, "descriptiveName": c["name"],
                                       "currencyCode": c["currency"], "timeZone": c["tz"], "manager": c["manager"],
-                                      "testAccount": c["test"], "status": c["status"]}})
+                                      "testAccount": c["test"], "status": c["status"],
+                                      "conversionTrackingSetting": {
+                                          "conversionTrackingId": str(self._conv_id(cid)),
+                                          "googleAdsConversionCustomer": f"customers/{c.get('conv_owner') or cid}",
+                                          **({"crossAccountConversionTrackingId": str(self._conv_id(c['conv_owner']))}
+                                             if c.get("conv_owner") else {}),
+                                          "acceptedCustomerDataTerms": bool(c.get("terms")),
+                                          "enhancedConversionsForLeadsEnabled": bool(c.get("ec_leads"))}}})
         elif res == "customer_client":
             for kid, level in self._tree(cid):
                 k = self.customers[kid]
@@ -331,6 +347,10 @@ class FakeGoogleAds:
                                               "servingStatus": "SERVING"},
                                  "assetGroup": {"resourceName": ag["rn"], "id": ag["id"], "name": ag["name"],
                                                 "status": ag["status"], "primaryStatus": "PENDING"}})
+        elif res == "conversion_action":
+            for a in self._mine(cid, "conversion_action"):
+                if ok({"conversion_action.status": a["status"], "conversion_action.name": a["name"]}):
+                    rows.append({"conversionAction": self._action_row(a)})
         elif res == "asset":
             for a in self._mine(cid, "asset"):
                 if ok({"asset.name": a.get("name") or "", "asset.resource_name": a["rn"]}):
@@ -469,6 +489,51 @@ class FakeGoogleAds:
                                        ("SQUARE_MARKETING_IMAGE", 1, "square_marketing_image")):
                     if fs.count(field) < n:
                         raise Refuse(f"google/error_not_enough_{name}.json")
+
+    # ------------------------------------------------------------ conversion actions (ConversionActionService)
+    def _conv_id(self, cid):
+        return 900000000 + int(cid) % 99999999
+
+    def _action_row(self, a):
+        """A conversion_action GAQL row the way v25 REST answers it; WEBPAGE actions carry tag_snippets in Google's
+        format (the Google tag plus an event snippet with send_to AW-<conversion tracking id>/<label>)."""
+        row = {"resourceName": a["rn"], "id": a["id"], "name": a["name"], "status": a["status"], "type": a["type"],
+               "category": a["category"], "primaryForGoal": a["primary"]}
+        if a["type"] == "WEBPAGE":
+            aw = f"AW-{self._conv_id(a['customer'])}"
+            label = a.setdefault("label", "Lb" + base64.urlsafe_b64encode(a["id"].encode()).decode().rstrip("=")[-14:])
+            gst = (f"<!-- Google tag (gtag.js) -->\n<script async src=\"https://www.googletagmanager.com/gtag/js?id={aw}\">"
+                   f"</script>\n<script>\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){{dataLayer.push(arguments);}}"
+                   f"\n  gtag('js', new Date());\n\n  gtag('config', '{aw}');\n</script>\n")
+            extra = "\n      'value': 1.0,\n      'currency': 'USD'," if a["category"] == "PURCHASE" else ""
+            ev = (f"<!-- Event snippet for {a['name']} conversion page -->\n<script>\n  gtag('event', 'conversion', {{\n"
+                  f"      'send_to': '{aw}/{label}',{extra}\n      'transaction_id': ''\n  }});\n</script>\n")
+            row["tagSnippets"] = [{"type": "WEBPAGE", "pageFormat": "HTML", "globalSiteTag": gst, "eventSnippet": ev},
+                                  {"type": "WEBPAGE", "pageFormat": "AMP", "globalSiteTag": "<amp-analytics/>",
+                                   "eventSnippet": "<amp-analytics/>"},
+                                  {"type": "WEBPAGE_ONCLICK", "pageFormat": "HTML", "globalSiteTag": gst,
+                                   "eventSnippet": ev.replace("conversion page", "click")}]
+        return row
+
+    def _conversion_actions(self, cid, body):
+        """ConversionActionService.MutateConversionActions: creates only, all or nothing, unique names."""
+        taken = {a["name"] for a in self._mine(cid, "conversion_action") if a["status"] != "REMOVED"}
+        made = []
+        for i, op in enumerate(body["operations"]):
+            c = op["create"]
+            assert c["type"] in ("WEBPAGE", "UPLOAD_CLICKS") and c["status"] == "ENABLED" and c["category"]
+            assert c["countingType"] in ("ONE_PER_CLICK", "MANY_PER_CLICK") and isinstance(c["primaryForGoal"], bool)
+            if c["name"] in taken:
+                raise Refuse(gerr(400, "INVALID_ARGUMENT", "conversionActionError", "DUPLICATE_NAME",
+                                  "Conversion action names must be unique.", i))
+            taken.add(c["name"])
+            made.append(c)
+        out = []
+        for c in made:
+            a = self.conversion_action(cid, c["name"], typ=c["type"], category=c["category"], primary=c["primaryForGoal"])
+            a["fields"] = c
+            out.append({"resourceName": a["rn"]})
+        return {"results": out}
 
     def _assets(self, cid, body):
         (op,) = body["operations"]

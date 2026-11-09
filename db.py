@@ -692,6 +692,18 @@ CREATE TABLE IF NOT EXISTS conversion_actions (
     created_by_us INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
     UNIQUE (connection_id, kind));
+-- conversion_setups: what M3.5's sync read from a Google connection's customer (conversion_actions.py): the tag id,
+-- a manager that owns its conversions (cross-account tracking), the customer data terms and enhanced conversions for
+-- leads as Google reports them, other primary actions the account already had, Google's purchase snippet to copy.
+CREATE TABLE IF NOT EXISTS conversion_setups (
+    connection_id INTEGER PRIMARY KEY,
+    workspace_id INTEGER NOT NULL,
+    customer_id TEXT, tag_id TEXT, managed_by TEXT,
+    accepted_terms INTEGER, ec_leads INTEGER,  -- 1 / 0, NULL when Google didn't say
+    other_actions INTEGER NOT NULL DEFAULT 0,
+    purchase_snippet TEXT,
+    status TEXT,                             -- ready | partial | none | managed_elsewhere | error
+    error TEXT, checked_at TEXT);
 """
 
 # Columns added after the first release: (table, column, definition).

@@ -7,6 +7,8 @@ Campaignify pages go.
     POST /app/settings/conversions/tiktok               add (or update) a TikTok pixel: pixel code, Events API token,
                                                         Test Events code
     POST /app/settings/conversions/tiktok/<id>/remove   remove a TikTok pixel and its token
+    POST /app/settings/conversions/google/<conn id>/sync  make (or re-read) the Google Ads conversion actions
+                                                        (conversion_actions.sync, M3.5; also runs on Google connect)
 
 Behind CONVERSIONS_API and AD_LAUNCH (conversions.ws_enabled): off = 404. Owners and admins change things;
 members see the page. Tokens go straight into a token box (secretsbox.py, sealed to "pixels:<workspace>") and are
@@ -79,11 +81,19 @@ def settings():
                                 "measurement!='off'", (g.ws["id"],)).fetchone()[0]
         pages_all = conn.execute("SELECT COUNT(*) FROM pages WHERE workspace_id=? AND status='published'",
                                  (g.ws["id"],)).fetchone()[0]
+        gconns = []
+        if google.enabled(g.ws, g.get("user")):
+            import conversion_actions
+            for row in conn.execute("SELECT * FROM ad_connections WHERE workspace_id=? AND platform='google' AND "
+                                    "status='active' ORDER BY id", (g.ws["id"],)).fetchall():
+                gconns.append({"row": row, "setup": conversion_actions.setup(conn, row["id"]),
+                               "actions": conversion_actions.actions(conn, row["id"]),
+                               "checklist": conversion_actions.checklist(conn, row)})
     return render_template("conversions.html", meta_rows=meta_rows, tiktok_rows=tiktok_rows, google_rows=dests["google"],
                            stats=stats, words=error_words, owner=is_owner() and not g.get("viewing"),
                            box_ready=secretsbox.configured(), conn_token=conversions.meta_connection_token_ok(),
                            pages_on=pages_on, pages_all=pages_all, has_dm=conversions.has_datamanager,
-                           google_on=google.enabled(g.ws, g.get("user")))
+                           google_on=google.enabled(g.ws, g.get("user")), gconns=gconns, dashed=google.dashed)
 
 
 @bp.route("/app/settings/conversions/meta/<int:pid>", methods=["POST"])
@@ -168,3 +178,24 @@ def tiktok_remove(pid):
         conn.commit()
     flash(f"Removed {px['name'] or 'the TikTok pixel'} and its token.")
     return redirect(url_for("conversions.settings"))
+
+
+@bp.route("/app/settings/conversions/google/<int:cid>/sync", methods=["POST"])
+@login_required
+def google_sync(cid):
+    _on()
+    _owner()
+    if not google.enabled(g.ws, g.get("user")):
+        abort(404)
+    import adplatforms
+    import conversion_actions
+    with db.connect() as conn:
+        row = adplatforms.get(conn, g.ws["id"], cid)
+        if row is None or row["platform"] != "google":
+            abort(404)
+        res = conversion_actions.sync(conn, row)
+    if res["status"] == "ready":
+        flash(res["words"], "ok")
+    else:
+        flash(res["words"])
+    return redirect(url_for("conversions.settings") + "#google")
