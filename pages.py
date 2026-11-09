@@ -209,3 +209,46 @@ def starter_blocks(brand: dict) -> list[dict]:
 CSP = ("default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'self' 'unsafe-inline'; "
        "font-src 'self'; form-action 'self'; base-uri 'none'; "
        f"frame-src {FRAME_SOURCES}; frame-ancestors 'none'")
+
+
+# Conversion tracking (conversions.tracking, CONVERSIONS_API): a measured visit of a page whose workspace has
+# connected destinations runs one script, static/pagepx.js, and the platforms' own scripts it loads. The CSP then
+# allows that page's nonce and those platforms' hosts only; every other page keeps CSP above (no scripts at all).
+PIXEL_HOSTS = {
+    "meta": {"script": ("https://connect.facebook.net",),
+             "connect": ("https://www.facebook.com", "https://connect.facebook.net"),
+             "img": ("https://www.facebook.com",), "frame": ()},
+    "tiktok": {"script": ("https://analytics.tiktok.com",),
+               "connect": ("https://analytics.tiktok.com", "https://analytics-ipv6.tiktokw.us"),
+               "img": ("https://analytics.tiktok.com",), "frame": ()},
+    "google": {"script": ("https://www.googletagmanager.com", "https://www.googleadservices.com",
+                          "https://googleads.g.doubleclick.net", "https://www.google.com"),
+               "connect": ("https://www.googletagmanager.com", "https://www.google.com", "https://www.googleadservices.com",
+                           "https://googleads.g.doubleclick.net"),
+               "img": ("https://www.googletagmanager.com", "https://www.google.com", "https://googleads.g.doubleclick.net",
+                       "https://www.googleadservices.com"),
+               "frame": ("https://www.googletagmanager.com", "https://td.doubleclick.net")},
+}
+_NONCE_RX = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
+
+
+def csp(track=None) -> str:
+    """The page's Content-Security-Policy: CSP, or with tracking on this render its nonce and pixel hosts."""
+    browser = (track or {}).get("browser") or {}
+    nonce = (track or {}).get("nonce") or ""
+    on = [k for k in PIXEL_HOSTS if browser.get(k)]
+    if not on or not _NONCE_RX.match(nonce):
+        return CSP
+
+    def hosts(kind):
+        seen = []
+        for k in on:
+            for h in PIXEL_HOSTS[k][kind]:
+                if h not in seen:
+                    seen.append(h)
+        return " ".join(seen)
+    frames = (FRAME_SOURCES + " " + hosts("frame")).strip()
+    return ("default-src 'none'; img-src 'self' data: " + hosts("img") + "; media-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; font-src 'self'; form-action 'self'; base-uri 'none'; "
+            f"script-src 'nonce-{nonce}' " + hosts("script") + "; connect-src " + hosts("connect") + "; "
+            f"frame-src {frames}; frame-ancestors 'none'")

@@ -44,6 +44,7 @@ from flask import Blueprint, abort, flash, g, redirect, render_template, request
 
 import adhttp
 import adplatforms
+import conversions
 import db
 import secretsbox
 from adplatforms import google, meta
@@ -119,7 +120,8 @@ def settings():
     return render_template("ad_connections.html", rows=rows, pixels=px, owner=is_owner() and not g.get("viewing"),
                            meta_ready=live and meta.ADAPTER.configured(), checklist=meta.checklist(), paused=not live,
                            google_on=g_on, google_ready=g_on and google.ADAPTER.configured(),
-                           google_checklist=google.checklist(), dashed=google.dashed)
+                           google_checklist=google.checklist(), dashed=google.dashed,
+                           conv_on=live and conversions.ws_enabled(g.ws, g.get("user")))
 
 
 @bp.route("/connect/meta", methods=["POST"])
@@ -335,6 +337,8 @@ def disconnect(cid):
         conn.execute("UPDATE ad_connections SET status='revoked', token_enc=NULL, refresh_token_enc=NULL, pending_json=NULL, "
                      "last_error=NULL, updated_at=? WHERE id=?", (db.now(), cid))
         conn.execute("DELETE FROM pixels WHERE connection_id=? AND workspace_id=?", (cid, g.ws["id"]))
+        import conversion_actions
+        conversion_actions.forget(conn, cid, g.ws["id"])          # Google's conversion actions as we read them (M3.5)
         conn.commit()
     name = row["account_name"] or "the ad account"
     word = WORDS.get(row["platform"], "the platform")
@@ -446,8 +450,14 @@ def _pick_google(conn, row):
                  (a["id"], a["name"], a["currency"], a["timezone"], a.get("login"), row["external_user_id"],
                   row["token_enc"], row["scopes"], now, target))
     conn.commit()
+    conv = ""
+    if conversions.ws_enabled(g.ws, g.get("user")):   # M3.5: lead and purchase conversion actions, once connected
+        import conversion_actions
+        res = conversion_actions.sync(conn, adplatforms.get(conn, g.ws["id"], target))
+        conv = " " + (res["words"] if res["status"] != "error" else
+                      "Conversion actions weren't made: " + res["words"].rstrip(".") + ". Try again in Conversion tracking.")
     flash(f"Connected {a['name']} ({google.dashed(a['id'])})." + (" It's a Google Ads test account: campaigns there "
-                                                                    "never run." if a.get("test") else ""))
+                                                                    "never run." if a.get("test") else "") + conv)
     return redirect(url_for("adconnect.settings"))
 
 

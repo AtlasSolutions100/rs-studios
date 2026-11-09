@@ -1,0 +1,30 @@
+{
+ "results": [
+  {
+   "conversionAction": {
+    "resourceName": "customers/1112223334/conversionActions/6543210987",
+    "id": "6543210987",
+    "name": "Campaignify lead [cfy]",
+    "status": "ENABLED",
+    "type": "WEBPAGE",
+    "category": "SUBMIT_LEAD_FORM",
+    "primaryForGoal": true,
+    "tagSnippets": [
+     {
+      "type": "WEBPAGE",
+      "pageFormat": "HTML",
+      "globalSiteTag": "<!-- Google tag (gtag.js) -->\n<script async src=\"https://www.googletagmanager.com/gtag/js?id=AW-987654321\"></script>\n<script>\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){dataLayer.push(arguments);}\n  gtag('js', new Date());\n\n  gtag('config', 'AW-987654321');\n</script>\n",
+      "eventSnippet": "<!-- Event snippet for Campaignify lead [cfy] conversion page -->\n<script>\n  gtag('event', 'conversion', {\n      'send_to': 'AW-987654321/AbC-D_efG-h12_34-567',\n      'transaction_id': ''\n  });\n</script>\n"
+     },
+     {
+      "type": "WEBPAGE",
+      "pageFormat": "AMP",
+      "globalSiteTag": "<amp-analytics type=\"gtag\" data-credentials=\"include\">\n<script type=\"application/json\">\n{\"vars\": {\"gtag_id\": \"AW-987654321\", \"config\": {\"AW-987654321\": {\"groups\": \"default\"}}}}\n</script>\n</amp-analytics>\n",
+      "eventSnippet": "<amp-analytics type=\"gtag\"></amp-analytics>\n"
+     }
+    ]
+   }
+  }
+ ],
+ "fieldMask": "conversionAction.id,conversionAction.name,conversionAction.resourceName,conversionAction.status,conversionAction.type,conversionAction.category,conversionAction.primaryForGoal,conversionAction.tagSnippets"
+}

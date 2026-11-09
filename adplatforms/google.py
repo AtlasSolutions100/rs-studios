@@ -56,6 +56,7 @@ TOKEN_URL = "https://oauth2.googleapis.com/token"
 REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 SCOPE_ADWORDS = "https://www.googleapis.com/auth/adwords"
 SCOPES = ("openid", "email", SCOPE_ADWORDS)
+SCOPE_DATAMANAGER = "https://www.googleapis.com/auth/datamanager"   # leads to Google (conversions.py, M3.4)
 
 MAX_ROOTS = 20            # accessible customers we read
 MAX_ACCOUNTS = 200        # customers listed in the picker
@@ -103,6 +104,14 @@ def client_secret() -> str:
 def redirect_uri() -> str:
     import verify
     return verify.public_url() + "/connect/google/callback"
+
+
+def scopes() -> tuple:
+    """What connect asks for: SCOPES, plus the Data Manager API's scope while CONVERSIONS_API is on (leads from
+    Campaignify pages go to Google through it, conversions.py). Optional on Google's screen: without it the
+    connection still launches, and Settings > Conversion tracking says to reconnect for server-side leads."""
+    import conversions
+    return SCOPES + ((SCOPE_DATAMANAGER,) if conversions.ws_flag_on() else ())
 
 
 def checklist():
@@ -201,7 +210,7 @@ class Google:
 
     def oauth_start(self, state: str, code_challenge: str, login_hint: str = None) -> str:
         q = {"client_id": client_id(), "redirect_uri": redirect_uri(), "response_type": "code",
-             "scope": " ".join(SCOPES), "state": state, "access_type": "offline", "prompt": "consent",
+             "scope": " ".join(scopes()), "state": state, "access_type": "offline", "prompt": "consent",
              "include_granted_scopes": "false", "code_challenge": code_challenge, "code_challenge_method": "S256"}
         return AUTH_URL + "?" + urlencode(q)
 
@@ -290,7 +299,7 @@ class Google:
         return []
 
     def list_pixels(self, token: str, account_id: str) -> list:
-        return []           # conversion actions arrive with M3.5
+        return []           # Google has conversion actions instead: conversion_actions.py (M3.5)
 
     def revoke(self, token: str) -> bool:
         """Revoke the refresh token at Google: Campaignify's access to Google Ads (and the sign-in scopes of this

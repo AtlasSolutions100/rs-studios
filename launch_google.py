@@ -293,9 +293,11 @@ def issues(conn, ws, spec, conn_row, assets: dict) -> list:
         add("warn", "google.audience_open", "On Google, Campaignify targets by location and "
             + ("keywords" if typ == "search" else "Google's own signals") + "; ages and gender are left open.",
             "Narrow them in Google Ads if you need to.", "audience")
-    if typ == "pmax" or g.get("bidding") == "conversions":
+    import conversion_actions
+    if (typ == "pmax" or g.get("bidding") == "conversions") and not conversion_actions.ready(conn, conn_row):
+        # cleared once the account tracks conversions: our lead / purchase actions (M3.5) or its own primary ones
         add("warn", "google.conversions_needed", "Google bids for the conversions you track in Google Ads.",
-            "If you don't track any yet, add conversion tracking in Google Ads first"
+            "If you don't track any yet, set up conversion tracking in Settings first"
             + (", or pick Maximize clicks." if typ == "search" else "."), "google.bidding")
     if typ == "pmax":
         for i, pid in enumerate(g.get("logos") or []):

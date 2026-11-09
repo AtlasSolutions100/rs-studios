@@ -37,6 +37,11 @@ class FakeTransport:
 
     def __call__(self, method, url, params=None, data=None, headers=None, timeout=None, files=None):
         path = urlsplit(url).path
+        if isinstance(data, (str, bytes)):          # a JSON body (adhttp.call(json_body=...))
+            try:
+                data = json.loads(data)
+            except ValueError:
+                data = {"_raw": data}
         self.calls.append({"method": method, "url": url, "path": path, "params": dict(params or {}),
                            "data": dict(data or {}), "headers": dict(headers or {}), "timeout": timeout})
         best = None
