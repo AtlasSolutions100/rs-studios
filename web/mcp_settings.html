@@ -1,9 +1,9 @@
-{% extends "base.html" %}{% block title %}API and Claude · Campaignify{% endblock %}
+{% extends "base.html" %}{% block title %}MCP access · Campaignify{% endblock %}
 {% block body %}
 <div class="page full">
   <p class="eyebrow">Settings</p>
-  <h1>API and Claude</h1>
-  <p class="muted">Use Campaignify from Claude and other MCP clients. Server address: <code>{{ mcp_url }}</code>. Setup steps: <a href="{{ docs_path }}">how to connect</a>. Ideas and a walkthrough: <a href="/claude">what to ask Claude</a>.</p>
+  <h1>MCP access</h1>
+  <p class="muted">Use Campaignify from Claude and other MCP clients. Server address: <code>{{ mcp_url }}</code>. Setup steps: <a href="{{ docs_path }}">how to connect</a>. Ideas and a walkthrough: <a href="/mcp">what to ask Claude</a>. Ideas and a walkthrough: <a href="/claude">what to ask Claude</a>.</p>
   {% if error %}<div class="flash">{{ error }}</div>{% endif %}
   {% if new_key %}
   <div class="panel" style="margin:16px 0">
