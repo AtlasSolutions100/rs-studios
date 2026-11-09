@@ -1019,14 +1019,27 @@ def view(conn, L) -> dict:
                        "external_id": s["external_id"], "kind": s["kind"]} for s in steps],
             "objects": [dict(o) for o in objs], "account": account, "platform": L["platform"],
             "word": PLATFORM_WORDS.get(L["platform"], "Meta"),
-            "manager": (None if not account else _google_url(account) if L["platform"] == "google"
-                        else _video_url(L["platform"], account) if L["platform"] in _video_platforms()
-                        else ads_manager_url(account, L["external_campaign_id"])),
+            "manager": manager_url(L["platform"], account, L["external_campaign_id"]),
             "review": next((json.loads(s["result_json"] or "{}") for s in steps if s["kind"] == "check"
                             and s["status"] == "done"), None),
             "busy": L["status"] in ACTIVE,
             "left": [dict(o) for o in objs if o["status"] != "DELETED" and o["kind"] in ("creative", "ad")]
             if L["status"] == "failed" else []}
+
+
+def manager_url(platform: str, account: str, campaign_id: str | None = None) -> str | None:
+    """The platform's own ads manager for this account (and campaign, on Meta), or None without an account."""
+    if not account:
+        return None
+    if platform == "google":
+        return _google_url(account)
+    if platform in _video_platforms():
+        return _video_url(platform, account)
+    return ads_manager_url(account, campaign_id)
+
+
+MANAGER_WORDS = {"meta": "Ads Manager", "google": "Google Ads", "tiktok": "TikTok Ads Manager",
+                 "snapchat": "Snapchat Ads Manager"}
 
 
 def _google_url(account: str) -> str:

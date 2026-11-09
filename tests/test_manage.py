@@ -676,8 +676,10 @@ with db.connect() as conn:
                         (WS, PLAN_ID, "google", CONN_ID, json.dumps({"name": "Google search test"}), "paused", "777",
                          "google-test-key", db.now(), db.now())).lastrowid
     conn.commit()
-check(owner.get(f"/app/ad-campaigns/{GLID}").status_code == 404 and "Google search test" not in html(owner.get("/app/ad-campaigns"))
-      and change(owner, GLID, action="on").status_code == 404, "a Google launch isn't managed here (Meta only for now)")
+check(owner.get(f"/app/ad-campaigns/{GLID}").status_code == 404 and change(owner, GLID, action="on").status_code == 404,
+      "a Google launch isn't managed here (Meta only for now)")
+check("Google search test" in html(owner.get("/app/ad-campaigns")),
+      "but it is listed on the Ad campaigns page with the others (M7: every platform's campaigns)")
 logs = "\n".join(CAP.lines)
 check(TOKEN not in logs and APP_SECRET not in logs, "no token or app secret in any log line")
 dump = json.dumps([dict(r_) for t in ("approval_cards", "ad_objects", "launches") for r_ in q(f"SELECT * FROM {t}")])

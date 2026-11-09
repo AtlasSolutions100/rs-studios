@@ -1,4 +1,5 @@
-"""Results of launched campaigns: Meta insights pulled into ad_insights_daily (roadmap M2.5, design doc 4.4).
+"""Results of launched campaigns, every platform, pulled into ad_insights_daily (roadmap M2.5, design doc 4.4; M7
+follow-up for Google, TikTok and Snapchat).
 
 Every 6 hours (AD_INSIGHTS_HOURS changes it) the worker pulls, per connected Meta ad account, today and the 14
 complete days before it (WINDOW_DAYS) of per-ad, per-day numbers for the campaigns Campaignify launched there (tick()):
@@ -20,8 +21,17 @@ the account's own date. Rates (click rate, cost per click, cost per result) are 
 the other standard events), link clicks for traffic, people reached for awareness. week_over_week() gives M4.2's
 creative fatigue check its inputs (link click rate this week against last week, at the spend of each).
 
-Everything sits behind AD_LAUNCH: the worker pulls only for workspaces that have it. Meta launches only (Google
-results come with Google's own reporting task).
+Google, TikTok and Snapchat (pull_other): the same schedule, window, upsert and error handling, through each
+adapter's pull_insights(ctx, objects, (first, last)), which answers campaign-level daily rows in the
+ad_insights_daily shape (spend_minor, impressions, clicks, link_clicks, leads, purchases, purchase_value_minor,
+conversions): Snapchat's /campaigns/<id>/stats by DAY, TikTok's BASIC report by campaign and day, Google's GAQL on
+campaign with segments.date (adplatforms/google.py). normalize() fills the rest: level "campaign" (those
+platforms' figures are per campaign; per-ad numbers and the fatigue check stay Meta's), results by the launch's
+goal (purchases, leads, link clicks or swipes; a platform's own conversion count when it has no lead or purchase
+figure), and the rates from the sums. Status and budget changes stay on Meta (admanage.py); the other platforms'
+campaigns are listed with their numbers and a link to their own ads manager.
+
+Everything sits behind AD_LAUNCH: the worker pulls only for workspaces that have it.
 """
 import json
 import logging
@@ -84,6 +94,8 @@ EVENT_KIND = {"Purchase": "purchase", "Lead": "lead", "CompleteRegistration": "c
               "AddToCart": "add_to_cart", "InitiateCheckout": "initiate_checkout", "ViewContent": "view_content",
               "Contact": "contact", "Schedule": "schedule", "SubmitApplication": "submit_application"}
 
+PLATFORMS = ("meta", "google", "tiktok", "snapchat")
+PLATFORM_WORDS = {"meta": "Meta", "google": "Google", "tiktok": "TikTok", "snapchat": "Snapchat"}
 WORDS = {
     "rate": "Meta asked us to slow down, so the numbers update a little later.",
     "auth": "Meta ended Campaignify's access to this ad account. Reconnect it in Settings > Connections to see results.",
@@ -91,6 +103,21 @@ WORDS = {
     "network": "We couldn't reach Meta, so these are the numbers from the last update.",
     "other": "Meta didn't send the numbers this time. We'll try again within the hour.",
 }
+OTHER_WORDS = {
+    "rate": "{p} asked us to slow down, so the numbers update a little later.",
+    "auth": "{p} ended Campaignify's access to this ad account. Reconnect it in Settings > Connections to see results.",
+    "permission": "Campaignify is missing a {p} permission to read this ad account's numbers. Reconnect it and allow "
+                  "every permission {p} asks about.",
+    "network": "We couldn't reach {p}, so these are the numbers from the last update.",
+    "other": "{p} didn't send the numbers this time. We'll try again within the hour.",
+}
+
+
+def words(platform: str, key: str) -> str:
+    """The plain words for a pull problem on this platform (Meta's are WORDS)."""
+    if platform == "meta":
+        return WORDS[key]
+    return OTHER_WORDS[key].format(p=PLATFORM_WORDS.get(platform, "The ad platform"))
 
 
 # ---------------------------------------------------------------- time
@@ -192,14 +219,58 @@ def parse(raw: dict, spec: dict, currency: str) -> dict:
             "raw_json": json.dumps(keep, separators=(",", ":"))}
 
 
+def _count(v) -> int:
+    return _int(v) if v not in (None, "") else 0
+
+
+def normalize(raw: dict, spec: dict, currency: str, platform: str) -> dict:
+    """One campaign-level daily row from the Google, TikTok or Snapchat adapter as ad_insights_daily columns (the
+    adapters already answer spend in minor units). Results follow the launch's goal like parse(): purchases, leads,
+    link clicks (Snapchat's swipes, Google's and TikTok's clicks) or reach; when the platform has no purchase or
+    lead figure of its own, its conversion count (the event the campaign optimizes for) stands in."""
+    cur = (raw.get("currency") or currency or "USD").upper()
+    spend = _count(raw.get("spend_minor"))
+    imp, reach = _count(raw.get("impressions")), _count(raw.get("reach"))
+    clicks = _count(raw.get("clicks"))
+    link = _count(raw.get("link_clicks")) if raw.get("link_clicks") not in (None, "") else clicks
+    conv = raw.get("conversions")
+    leads, purchases = _count(raw.get("leads")), _count(raw.get("purchases"))
+    value = _count(raw.get("purchase_value_minor")) or _count(raw.get("conversion_value_minor"))
+    kind, _ = goal_of(spec)
+    if kind == "purchase":
+        purchases = purchases or _count(conv)
+        results = purchases
+    elif kind == "lead":
+        leads = leads or _count(conv)
+        results = leads
+    elif kind == "reach":
+        results = reach
+    elif kind == "link_click":
+        results = link
+    else:                                   # another pixel event: the platform's conversion count
+        results = _count(conv) if conv not in (None, "") else leads
+    if kind == "reach":
+        cpr = int(round(spend * 1000 / results)) if results else None
+    else:
+        cpr = int(round(spend / results)) if results else None
+    camp = str(raw.get("campaign_external_id") or raw.get("external_object_id") or "")
+    return {"external_object_id": str(raw.get("external_object_id") or camp), "campaign_external_id": camp,
+            "adset_external_id": None, "day": str(raw.get("day") or "")[:10], "currency": cur, "spend_minor": spend,
+            "impressions": imp, "reach": reach, "clicks": clicks, "link_clicks": link,
+            "ctr": round(link * 100.0 / imp, 4) if imp else None, "ctr_all": round(clicks * 100.0 / imp, 4) if imp else None,
+            "cpc_minor": int(round(spend / link)) if link else None, "results": results, "result_kind": kind,
+            "cost_per_result_minor": cpr, "leads": leads, "purchases": purchases, "purchase_value_minor": value,
+            "raw_json": str(raw.get("raw_json") or "")[:2000] or None}
+
+
 # ---------------------------------------------------------------- the pull
 
 def _launches(conn, conn_row) -> list:
-    """The connection's launched campaigns whose campaign is still on Meta."""
+    """The connection's launched campaigns whose campaign is still on its platform."""
     return conn.execute("SELECT l.* FROM launches l JOIN ad_objects o ON o.launch_id=l.id AND o.kind='campaign' AND "
                         "o.status!='DELETED' WHERE l.connection_id=? AND l.workspace_id=? AND l.status='paused' AND "
-                        "l.external_campaign_id IS NOT NULL AND l.platform='meta' ORDER BY l.id",
-                        (conn_row["id"], conn_row["workspace_id"])).fetchall()
+                        "l.external_campaign_id IS NOT NULL AND l.platform=? ORDER BY l.id",
+                        (conn_row["id"], conn_row["workspace_id"], conn_row["platform"])).fetchall()
 
 
 def _sync_statuses(conn, conn_row, token, Ls) -> None:
@@ -241,7 +312,9 @@ def _fetch(ad, token, account, camp_ids, since: date, until: date) -> list:
 
 
 def store(conn, conn_row, Ls, rows: list, since: date, until: date) -> int:
-    """Upsert Meta's rows; remove the days Meta no longer reports for these ads inside the pulled window."""
+    """Upsert the platform's rows; remove the days it no longer reports for these ads (Meta) or campaigns (the others)
+    inside the pulled window."""
+    platform = conn_row["platform"] if "platform" in conn_row.keys() else "meta"
     specs, launch_of_campaign = {}, {}
     for L in Ls:
         try:
@@ -252,21 +325,27 @@ def store(conn, conn_row, Ls, rows: list, since: date, until: date) -> int:
     now = db.now()
     seen = set()
     for raw in rows:
-        lid = launch_of_campaign.get(str(raw.get("campaign_id") or ""))
-        if lid is None or not raw.get("ad_id") or not raw.get("date_start"):
-            continue
-        r = parse(raw, specs[lid], conn_row["currency"])
+        if platform == "meta":
+            lid = launch_of_campaign.get(str(raw.get("campaign_id") or ""))
+            if lid is None or not raw.get("ad_id") or not raw.get("date_start"):
+                continue
+            r, level = parse(raw, specs[lid], conn_row["currency"]), "ad"
+        else:
+            lid = launch_of_campaign.get(str(raw.get("campaign_external_id") or raw.get("external_object_id") or ""))
+            if lid is None or not raw.get("external_object_id") or not raw.get("day"):
+                continue
+            r, level = normalize(raw, specs[lid], conn_row["currency"], platform), "campaign"
         seen.add((r["external_object_id"], r["day"]))
         cols = ["workspace_id", "connection_id", "launch_id", "platform", "level"] + list(r.keys()) + ["fetched_at"]
-        vals = [conn_row["workspace_id"], conn_row["id"], lid, "meta", "ad"] + list(r.values()) + [now]
+        vals = [conn_row["workspace_id"], conn_row["id"], lid, platform, level] + list(r.values()) + [now]
         upd = ", ".join(f"{c}=excluded.{c}" for c in cols if c not in ("platform", "external_object_id", "day"))
         conn.execute(f"INSERT INTO ad_insights_daily ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))}) "
                      f"ON CONFLICT(platform, external_object_id, day) DO UPDATE SET {upd}", vals)
     lids = [L["id"] for L in Ls]
     if lids:
-        old = conn.execute(f"SELECT id, external_object_id, day FROM ad_insights_daily WHERE platform='meta' AND launch_id IN "
+        old = conn.execute(f"SELECT id, external_object_id, day FROM ad_insights_daily WHERE platform=? AND launch_id IN "
                            f"({','.join('?' * len(lids))}) AND day BETWEEN ? AND ?",
-                           (*lids, since.isoformat(), until.isoformat())).fetchall()
+                           (platform, *lids, since.isoformat(), until.isoformat())).fetchall()
         for o in old:
             if (o["external_object_id"], o["day"]) not in seen:
                 conn.execute("DELETE FROM ad_insights_daily WHERE id=?", (o["id"],))
@@ -280,73 +359,109 @@ def _later(conn, conn_row, seconds: float, error: str | None):
     conn.commit()
 
 
+def _window(conn_row, Ls) -> tuple:
+    """(since, until): today and the WINDOW_DAYS - 1 days before it in the account's time zone, never before the
+    day before the first launch."""
+    until = today(conn_row["timezone"])
+    first = min((str(L["approved_at"] or L["created_at"])[:10] for L in Ls), default=until.isoformat())
+    try:
+        since = max(until - timedelta(days=WINDOW_DAYS - 1), date.fromisoformat(first) - timedelta(days=1))
+    except ValueError:
+        since = until - timedelta(days=WINDOW_DAYS - 1)
+    return min(since, until), until
+
+
+def _rate_keys(conn_row) -> list:
+    """The adhttp budget keys a pull spends from (Meta: the ad account and its insights; the others: the account)."""
+    if conn_row["platform"] == "meta":
+        account = f"act_{conn_row['external_account_id']}"
+        return [account, f"{account}:insights"]
+    return [str(conn_row["external_account_id"])]
+
+
+def _rows_meta(conn, conn_row, token, Ls, since, until) -> tuple:
+    _sync_statuses(conn, conn_row, token, Ls)
+    Ls = _launches(conn, conn_row)
+    ad = adplatforms.adapter("meta")
+    return Ls, _fetch(ad, token, conn_row["external_account_id"], [L["external_campaign_id"] for L in Ls], since, until)
+
+
+def _rows_other(conn, conn_row, token, Ls, since, until) -> tuple:
+    """Google, TikTok, Snapchat: the adapter's campaign-level daily rows."""
+    ad = adplatforms.adapter(conn_row["platform"])
+    ctx = {"token": token, "account": conn_row["external_account_id"], "currency": conn_row["currency"] or "USD",
+           "timezone": conn_row["timezone"],
+           "login": conn_row["business_id"] if conn_row["platform"] == "google" else None}
+    objects = [{"kind": "campaign", "external_id": str(L["external_campaign_id"])} for L in Ls]
+    return Ls, ad.pull_insights(ctx, objects, (since, until))
+
+
 def pull(conn_id: int) -> str:
-    """Pull one connection now. Returns ok | waiting | failed | nothing."""
+    """Pull one connection now (any platform). Returns ok | waiting | failed | nothing."""
     with db.connect() as conn:
         conn_row = conn.execute("SELECT * FROM ad_connections WHERE id=?", (conn_id,)).fetchone()
-        if conn_row is None or conn_row["status"] != "active" or conn_row["platform"] != "meta":
+        if conn_row is None or conn_row["status"] != "active" or conn_row["platform"] not in PLATFORMS:
             return "nothing"
+        platform = conn_row["platform"]
         Ls = _launches(conn, conn_row)
         if not Ls:
             _later(conn, conn_row, every_s(), None)
             return "nothing"
-        account = f"act_{conn_row['external_account_id']}"
-        held = max(adhttp.blocked_for("meta", account), adhttp.blocked_for("meta", f"{account}:insights"))
+        held = max(adhttp.blocked_for(platform, k) for k in _rate_keys(conn_row))
         if held > 0:                        # the stored usage headers say wait: don't even ask
-            _later(conn, conn_row, held + 5, WORDS["rate"])
+            _later(conn, conn_row, held + 5, words(platform, "rate"))
             return "waiting"
         try:
             token = adplatforms.open_token(conn_row)
         except secretsbox.BoxError:
-            adplatforms.mark(conn, conn_row["id"], "expired", "Meta ended this access. Reconnect.")
-            _later(conn, conn_row, RETRY_ERROR_S, WORDS["auth"])
+            adplatforms.mark(conn, conn_row["id"], "expired", f"{PLATFORM_WORDS[platform]} ended this access. Reconnect.")
+            _later(conn, conn_row, RETRY_ERROR_S, words(platform, "auth"))
             return "failed"
-        until = today(conn_row["timezone"])
-        first = min((str(L["approved_at"] or L["created_at"])[:10] for L in Ls), default=until.isoformat())
+        since, until = _window(conn_row, Ls)
         try:
-            since = max(until - timedelta(days=WINDOW_DAYS - 1), date.fromisoformat(first) - timedelta(days=1))
-        except ValueError:
-            since = until - timedelta(days=WINDOW_DAYS - 1)
-        since = min(since, until)
-        ad = adplatforms.adapter("meta")
-        try:
-            _sync_statuses(conn, conn_row, token, Ls)
-            Ls = _launches(conn, conn_row)
-            rows = _fetch(ad, token, conn_row["external_account_id"], [L["external_campaign_id"] for L in Ls], since, until)
+            Ls, rows = (_rows_meta if platform == "meta" else _rows_other)(conn, conn_row, token, Ls, since, until)
+        except NotImplementedError:         # an adapter without a reader yet: nothing to pull, look again later
+            _later(conn, conn_row, every_s(), None)
+            return "nothing"
         except adhttp.RateLimited as e:
-            _later(conn, conn_row, max(60.0, float(e.retry_after or 60)), WORDS["rate"])
+            _later(conn, conn_row, max(60.0, float(e.retry_after or 60)), words(platform, "rate"))
             log.info("insights for connection %s wait: %s", conn_row["id"], type(e).__name__)
             return "waiting"
         except adhttp.TokenInvalid:
-            adplatforms.mark(conn, conn_row["id"], "expired", "Meta ended this access. Reconnect.")
-            _later(conn, conn_row, RETRY_ERROR_S, WORDS["auth"])
+            adplatforms.mark(conn, conn_row["id"], "expired", f"{PLATFORM_WORDS[platform]} ended this access. Reconnect.")
+            _later(conn, conn_row, RETRY_ERROR_S, words(platform, "auth"))
             return "failed"
         except adhttp.PermissionDenied:
-            _later(conn, conn_row, RETRY_ERROR_S, WORDS["permission"])
+            _later(conn, conn_row, RETRY_ERROR_S, words(platform, "permission"))
             return "failed"
         except adhttp.NetworkError:
-            _later(conn, conn_row, 15 * 60, WORDS["network"])
+            _later(conn, conn_row, 15 * 60, words(platform, "network"))
             return "failed"
         except adhttp.AdHttpError as e:
-            retry = 15 * 60 if (e.status or 0) >= 500 or e.code in adhttp.META_TRANSIENT else RETRY_ERROR_S
-            _later(conn, conn_row, retry, WORDS["other"])
-            log.warning("insights for connection %s failed: code %s", conn_row["id"], e.code)
+            transient = (adhttp.META_TRANSIENT if platform == "meta" else
+                         getattr(adhttp, f"{platform.upper()}_TRANSIENT", ()))
+            retry = 15 * 60 if (e.status or 0) >= 500 or e.code in transient else RETRY_ERROR_S
+            _later(conn, conn_row, retry, words(platform, "other"))
+            log.warning("insights for connection %s (%s) failed: code %s", conn_row["id"], platform, e.code)
             return "failed"
         n = store(conn, conn_row, Ls, rows, since, until)
         conn.execute("UPDATE ad_connections SET insights_at=?, insights_next_at=?, insights_error=NULL WHERE id=?",
                      (db.now(), _now_iso(every_s()), conn_row["id"]))
         conn.commit()
-        log.info("insights for connection %s: %s ad-days, %s to %s", conn_row["id"], n, since, until)
+        log.info("insights for connection %s (%s): %s rows, %s to %s", conn_row["id"], platform, n, since, until)
         return "ok"
+
+
+_marks = ",".join("?" * len(PLATFORMS))
 
 
 def due(conn, limit: int = PER_TICK) -> list:
     now = _now_iso()
     return [(r["id"], r["workspace_id"]) for r in conn.execute(
-        "SELECT c.id, c.workspace_id FROM ad_connections c WHERE c.platform='meta' AND c.status='active' AND "
+        f"SELECT c.id, c.workspace_id FROM ad_connections c WHERE c.platform IN ({_marks}) AND c.status='active' AND "
         "(c.insights_next_at IS NULL OR c.insights_next_at<=?) AND EXISTS (SELECT 1 FROM launches l WHERE "
-        "l.connection_id=c.id AND l.status='paused' AND l.platform='meta') ORDER BY COALESCE(c.insights_next_at, '') LIMIT ?",
-        (now, limit)).fetchall()]
+        "l.connection_id=c.id AND l.status='paused' AND l.platform=c.platform) ORDER BY COALESCE(c.insights_next_at, '') "
+        "LIMIT ?", (*PLATFORMS, now, limit)).fetchall()]
 
 
 def tick(limit: int = PER_TICK) -> int:
@@ -378,9 +493,9 @@ def maybe_tick():
 
 
 def refresh(conn, ws_id: int) -> bool:
-    """"Update now": make the workspace's Meta connections due, unless one was pulled in the last REFRESH_MIN_S."""
-    rows = conn.execute("SELECT * FROM ad_connections WHERE workspace_id=? AND platform='meta' AND status='active'",
-                        (int(ws_id),)).fetchall()
+    """"Update now": make the workspace's ad connections due, unless one was pulled in the last REFRESH_MIN_S."""
+    rows = conn.execute(f"SELECT * FROM ad_connections WHERE workspace_id=? AND platform IN ({_marks}) AND "
+                        "status='active'", (int(ws_id), *PLATFORMS)).fetchall()
     cut = (datetime.now(timezone.utc) - timedelta(seconds=REFRESH_MIN_S)).replace(microsecond=0).isoformat()
     moved = False
     for r in rows:
@@ -463,7 +578,7 @@ def workspace_totals(conn, ws_id: int, key: str = "7") -> list:
     """[figures with "cur"] per currency, for the workspace's launches in the range (each in its account's days)."""
     out = {}
     for L in conn.execute("SELECT l.*, c.timezone tz FROM launches l JOIN ad_connections c ON c.id=l.connection_id WHERE "
-                          "l.workspace_id=? AND l.status='paused' AND l.platform='meta'", (int(ws_id),)).fetchall():
+                          "l.workspace_id=? AND l.status='paused'", (int(ws_id),)).fetchall():
         f = launch_figures(conn, L, key, L["tz"])
         if not f["n"]:
             continue
@@ -506,5 +621,6 @@ def week_over_week(conn, ad_id: str, tz_name=None) -> dict:
 def status(conn, ws_id: int) -> dict:
     """When the numbers were last updated and what went wrong, for the pages."""
     r = conn.execute("SELECT MAX(insights_at) at, MAX(insights_error) err, MIN(insights_next_at) nxt FROM ad_connections "
-                     "WHERE workspace_id=? AND platform='meta' AND status IN ('active','expired')", (int(ws_id),)).fetchone()
+                     f"WHERE workspace_id=? AND platform IN ({_marks}) AND status IN ('active','expired')",
+                     (int(ws_id), *PLATFORMS)).fetchone()
     return {"at": r["at"], "error": r["err"], "next_at": r["nxt"]}
