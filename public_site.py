@@ -939,6 +939,9 @@ PAGES = {  # endpoint -> (path, title, description)
     "terms": ("/terms", "Terms of Service · Campaignify",
               "The rules for using Campaignify: your account, credits and plans, what you can't make with it, and "
               "who's responsible for the ads you post."),
+    "mcp_docs": ("/docs/mcp", "Connect Claude and MCP Clients · Campaignify",
+                 "Connect Campaignify to Claude and other MCP clients: price and make image ads and AI presenter "
+                 "videos, ad copy and campaign plans from a chat."),
     "messaging.policy": ("/messaging-policy", "Messaging Policy for Emails and Texts · Campaignify",
                          "The rules for every email and text sent through Campaignify flows: consent, opt-outs, "
                          "content limits and what happens when they're broken."),
@@ -950,6 +953,9 @@ def sitemap_paths() -> list[str]:
     paths += [f"/{s}" for s in SOLUTION_ORDER]
     paths += ["/guides"] + [guide_path(k) for k in GUIDE_ORDER]
     paths += [PAGES[e][0] for e in ("for_reps", "llm_info", "privacy", "terms", "messaging.policy")]
+    import mcpserver
+    if mcpserver.enabled():   # /docs/mcp is noindex until the MCP server is on (SEO-5)
+        paths.append(PAGES["mcp_docs"][0])
     return paths
 
 

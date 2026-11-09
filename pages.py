@@ -6,6 +6,7 @@ rebuilt from a URL on a short allow-list of providers (we construct the iframe
 src ourselves). Media comes only from the workspace's own Campaignify library.
 Public pages carry a strict Content-Security-Policy with no scripts at all.
 """
+import os
 import re
 from urllib.parse import parse_qs, urlsplit
 
@@ -158,6 +159,40 @@ def media_ids(blocks: list[dict]) -> set[int]:
     return {b["media"] for b in blocks if b.get("media")}
 
 
+def media_size(path: str | None, kind: str) -> tuple[int, int] | None:
+    """(width, height) of an image output, or of a video's poster frame (path + .jpg),
+    read from the file header only; None when it can't be read (SEO-1, SEO-3)."""
+    src = (path or "") + (".jpg" if kind == "video" else "")
+    if not path or not os.path.exists(src):
+        return None
+    try:
+        from PIL import Image
+        with Image.open(src) as im:
+            return im.size
+    except Exception:  # noqa: BLE001  a broken file just gets no size
+        return None
+
+
+def share_card(blocks: list[dict], kinds: dict, dims: dict) -> dict | None:
+    """The page's share image: the hero's media, else the first media block's
+    (a video shares its poster frame). {"oid", "poster", "width", "height"} or None."""
+    order = [b for b in blocks if b.get("type") == "hero"] + [b for b in blocks if b.get("type") != "hero"]
+    for b in order:
+        oid = b.get("media")
+        if oid in kinds and oid in dims:
+            w, h = dims[oid]
+            return {"oid": oid, "poster": kinds[oid] == "video", "width": w, "height": h}
+    return None
+
+
+def share_text(p, blocks: list[dict]) -> str:
+    """og:description: the page's own description, else the hero's subheadline."""
+    if (p["description"] or "").strip():
+        return p["description"].strip()
+    hero = next((b for b in blocks if b.get("type") == "hero"), {})
+    return (hero.get("subhead") or "").strip()[:300]
+
+
 def starter_blocks(brand: dict) -> list[dict]:
     product = brand.get("product") or "Your product"
     return [
@@ -170,6 +205,7 @@ def starter_blocks(brand: dict) -> list[dict]:
     ]
 
 
-CSP = ("default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'self' 'unsafe-inline' "
-       "https://fonts.googleapis.com; font-src https://fonts.gstatic.com; form-action 'self'; base-uri 'none'; "
+# Fonts are self-hosted (static/fonts.css), so font-src is 'self' (SEO-2).
+CSP = ("default-src 'none'; img-src 'self' data:; media-src 'self'; style-src 'self' 'unsafe-inline'; "
+       "font-src 'self'; form-action 'self'; base-uri 'none'; "
        f"frame-src {FRAME_SOURCES}; frame-ancestors 'none'")

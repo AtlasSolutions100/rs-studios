@@ -1,8 +1,5 @@
 {% extends "public_base.html" %}
-{% block title %}Campaignify for Claude and MCP{% endblock %}
-{% block pubhead %}<meta name="description" content="Connect Campaignify to Claude and other MCP clients: price and make image ads and AI presenter videos, ad copy and campaign plans from a chat.">
-<link rel="canonical" href="https://campaignify.ai/docs/mcp">{% endblock %}
-{% block robots %}<meta name="robots" content="{{ 'index, follow' if on else 'noindex' }}">{% endblock %}
+{% block robots %}<meta name="robots" content="{{ 'index, follow, max-image-preview:large' if on else 'noindex' }}">{% endblock %}
 {% block main %}
 <article class="lp-wrap lp-doc">
   <h1>Campaignify for Claude and MCP</h1>

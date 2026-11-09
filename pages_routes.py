@@ -297,15 +297,23 @@ def _render_public(p, preview=False):
     else:
         media_url = lambda oid: url_for("pages.public_media", slug=p["slug"], oid=oid)  # noqa: E731
     with db.connect() as conn:
-        kinds = {}
+        kinds, dims = {}, {}
         ids = list(pages.media_ids(blocks))
         if ids:
-            for r in conn.execute(f"SELECT o.id, o.kind FROM outputs o JOIN jobs j ON j.id=o.job_id WHERE j.workspace_id=? "
+            for r in conn.execute(f"SELECT o.id, o.kind, o.path FROM outputs o JOIN jobs j ON j.id=o.job_id WHERE j.workspace_id=? "
                                   f"AND o.id IN ({','.join('?' * len(ids))})", (p["workspace_id"], *ids)):
                 kinds[r["id"]] = r["kind"]
+                wh = pages.media_size(r["path"], r["kind"])
+                if wh:
+                    dims[r["id"]] = wh
         forms = _page_forms(conn, p, blocks)
     import forms as formsmod
+    share = None if preview else pages.share_card(blocks, kinds, dims)
+    if share:   # SEO-1: the share card for Meta, WhatsApp and iMessage
+        share["url"] = url_for("pages.public_media", slug=p["slug"], oid=share["oid"], _external=True,
+                               **({"poster": "1"} if share["poster"] else {}))
     resp = make_response(render_template("page_public.html", p=p, blocks=blocks, media_url=media_url, kinds=kinds,
+                                         dims=dims, share=share, share_text=pages.share_text(p, blocks),
                                          faq_items=pages.faq_items, lines=pages.lines, preview=preview, forms=forms,
                                          form_css=formsmod.logic_css))
     resp.headers["Content-Security-Policy"] = pages.CSP
