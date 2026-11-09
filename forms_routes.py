@@ -10,6 +10,7 @@ from flask import (Blueprint, Response, abort, current_app, flash, g, make_respo
                    url_for)
 
 import compliance
+import conversions
 import db
 import flows
 import flows_engine
@@ -80,7 +81,8 @@ def edit(fid):
         return render_template("form_edit.html", fm=fm, fields=fl, TYPES=forms.FIELD_TYPES, base=request.host_url,
                                has_phone=any(x["type"] == "phone" for x in fl),
                                default_email_consent=messaging.DEFAULT_EMAIL_CONSENT,
-                               default_sms_consent=messaging.DEFAULT_SMS_CONSENT)
+                               default_sms_consent=messaging.DEFAULT_SMS_CONSENT,
+                               conv_on=conversions.ws_enabled(g.ws, g.get("user")))
     f = request.form
     action = f.get("action") or "save"
     raw = _fields_from_form(f)
@@ -115,20 +117,24 @@ def edit(fid):
         for m in chk["blocks"]:
             flash("Not saved: " + m)
         return redirect(url_for("forms.edit", fid=fid))
+    measurement = fm["measurement"]
+    if f.get("measure_form") == "1":       # the box is shown (CONVERSIONS_API on): unticked means off
+        measurement = "us" if f.get("measurement") == "us" else "off"
     secret = fm["webhook_secret"] or secrets.token_hex(16)
     if action == "rotate":
         secret = secrets.token_hex(16)
         flash("New signing secret made. Update it wherever you check signatures.")
     with db.connect() as conn:
         conn.execute("UPDATE forms SET name=?, fields_json=?, button_text=?, success_message=?, redirect_url=?, webhook_url=?, "
-                     "webhook_secret=?, tags=?, updated_at=?, consent_email=?, consent_sms=?, consent_text=?, consent_sms_text=? "
-                     "WHERE id=?",
+                     "webhook_secret=?, tags=?, updated_at=?, consent_email=?, consent_sms=?, consent_text=?, consent_sms_text=?, "
+                     "measurement=? WHERE id=?",
                      ((f.get("name") or fm["name"]).strip()[:80], json.dumps(fields), (f.get("button_text") or "Send").strip()[:40],
                       (f.get("success_message") or "").strip()[:300], redirect_url or None, webhook or None, secret,
                       ",".join(_clean_tags(f.get("tags"))), db.now(), 1 if f.get("consent_email") else 0,
                       1 if f.get("consent_sms") and has_phone else 0,
                       None if consent_text == messaging.DEFAULT_EMAIL_CONSENT else consent_text or None,
-                      None if consent_sms_text == messaging.DEFAULT_SMS_CONSENT else consent_sms_text or None, fid))
+                      None if consent_sms_text == messaging.DEFAULT_SMS_CONSENT else consent_sms_text or None, measurement,
+                      fid))
         conn.commit()
     if action == "test" and webhook:
         st = forms.post_webhook(webhook, secret, {"event": "form.test", "form": {"id": fid, "name": fm["name"]},
@@ -193,11 +199,12 @@ def _public_form(code):
     return fm
 
 
-def _hosted(fm, errors=None, values=None, sent=False, status=200):
+def _hosted(fm, errors=None, values=None, sent=False, status=200, track=None):
+    ctx = {"track": conversions.form_fields(request)} if track else {}
     resp = make_response(render_template("form_public.html", fm=fm, fields=json.loads(fm["fields_json"] or "[]"),
                                          stamp=forms.stamp(current_app.secret_key, fm["code"]), errors=errors or [],
-                                         values=values or {}, sent=sent, css=forms.logic_css, ctx={}), status)
-    resp.headers["Content-Security-Policy"] = pages.CSP
+                                         values=values or {}, sent=sent, css=forms.logic_css, ctx=ctx, px=track), status)
+    resp.headers["Content-Security-Policy"] = pages.csp(track)
     resp.headers["X-Content-Type-Options"] = "nosniff"
     return resp
 
@@ -206,8 +213,23 @@ def _hosted(fm, errors=None, values=None, sent=False, status=200):
 def public(code):
     fm = _public_form(code)
     if request.method == "GET":
-        return _hosted(fm, sent=request.args.get("sent") == "1")
+        return _hosted(fm, sent=request.args.get("sent") == "1", track=_hosted_track(fm))
     return submit(fm)
+
+
+def _hosted_track(fm):
+    """Conversion tracking for a view of the hosted form (conversions.py): its own measurement setting, a view
+    counted once per visitor per 30 minutes, the thank-you render's browser Lead."""
+    if not conversions.ws_flag_on():
+        return None
+    import pages_routes
+    key = f"fv:{fm['id']}:{request.remote_addr or 'unknown'}"
+    counted = not db.throttled(key, 1, 1800)
+    with db.connect() as conn:
+        track = pages_routes._track(conn, fm["workspace_id"], fm["measurement"], counted, form_id=fm["id"])
+    if track is not None and counted:
+        db.hit(key)
+    return track
 
 
 def submit(fm):
@@ -246,7 +268,7 @@ def submit(fm):
     phone = next((values[x["key"]] for x in fields if x["type"] == "phone" and values.get(x["key"])), "")
     now = db.now()
     with db.connect() as conn:
-        page = conn.execute("SELECT slug FROM pages WHERE slug=? AND workspace_id=? AND status='published'",
+        page = conn.execute("SELECT * FROM pages WHERE slug=? AND workspace_id=? AND status='published'",
                             (page_slug, fm["workspace_id"])).fetchone() if page_slug else None
         link = conn.execute("SELECT code, title FROM links WHERE code=? AND workspace_id=?",
                             (link_code, fm["workspace_id"])).fetchone() if link_code else None
@@ -284,6 +306,11 @@ def submit(fm):
             flows_engine.enrol(conn, fm["workspace_id"], "form_submitted", contact_id, {"form_id": fm["id"]})
             flows_engine.enrol_tags(conn, fm["workspace_id"], contact_id, before, set(tags))
         conn.commit()
+        # conversion tracking (conversions.py, CONVERSIONS_API): the lead to the workspace's pixels and Google Ads,
+        # email and phone hashed; None when this visit isn't measured
+        ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (fm["workspace_id"],)).fetchone()
+        lead_id = conversions.on_lead(conn, ws, request, form=fm, page=page, submission_id=sid, email=email,
+                                      phone=phone) if conversions.ws_flag_on() else None
     if fm["webhook_url"]:
         payload = {"event": "form.submitted", "form": {"id": fm["id"], "name": fm["name"]}, "submission_id": sid,
                    "data": values, "page": page["slug"] if page else None, "smart_link": link["code"] if link else None,
@@ -297,9 +324,10 @@ def submit(fm):
                          sync=os.environ.get("RS_WORKER", "1") != "1")
     if fm["redirect_url"]:
         return redirect(fm["redirect_url"], code=303)
+    ev = {"ev": lead_id} if lead_id else {}      # the thank-you page fires the browser copy with this id
     if page:
-        return redirect(url_for("pages.public", slug=page["slug"], sent=fm["code"]) + f"#form-{fm['code']}", code=303)
-    return redirect(url_for("forms.public", code=fm["code"], sent=1), code=303)
+        return redirect(url_for("pages.public", slug=page["slug"], sent=fm["code"], **ev) + f"#form-{fm['code']}", code=303)
+    return redirect(url_for("forms.public", code=fm["code"], sent=1, **ev), code=303)
 
 
 def consent_texts(fm) -> dict:
