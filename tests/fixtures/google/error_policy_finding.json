@@ -1,0 +1,39 @@
+{
+ "error": {
+  "code": 400,
+  "message": "Request contains an invalid argument.",
+  "status": "INVALID_ARGUMENT",
+  "details": [
+   {
+    "@type": "type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure",
+    "errors": [
+     {
+      "errorCode": {
+       "policyFindingError": "POLICY_FINDING"
+      },
+      "message": "The resource has been disapproved since the policy summary includes policy topics of type PROHIBITED.",
+      "location": {
+       "fieldPathElements": [
+        {
+         "fieldName": "mutate_operations",
+         "index": 1
+        }
+       ]
+      },
+      "details": {
+       "policyFindingDetails": {
+        "policyTopicEntries": [
+         {
+          "topic": "HEALTH_IN_PERSONALIZED_ADS",
+          "type": "PROHIBITED"
+         }
+        ]
+       }
+      }
+     }
+    ],
+    "requestId": "fakeReq48005358"
+   }
+  ]
+ }
+}

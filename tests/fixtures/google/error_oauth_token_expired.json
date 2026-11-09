@@ -1,0 +1,21 @@
+{
+ "error": {
+  "code": 401,
+  "message": "Authentication of the request failed: the OAuth token has expired.",
+  "status": "UNAUTHENTICATED",
+  "details": [
+   {
+    "@type": "type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure",
+    "errors": [
+     {
+      "errorCode": {
+       "authenticationError": "OAUTH_TOKEN_EXPIRED"
+      },
+      "message": "Authentication of the request failed: the OAuth token has expired."
+     }
+    ],
+    "requestId": "fakeReq51606926"
+   }
+  ]
+ }
+}

@@ -6,7 +6,10 @@ What it does for each call:
   * a timeout (TIMEOUT seconds) on every request;
   * retries with jittered backoff on network errors, 5xx and the platforms' rate-limit and
     "temporary" error codes (Meta 1, 2, 4, 17, 32, 341, 613, 80000 to 80014; Google
-    RESOURCE_EXHAUSTED; TikTok 40100), at most RETRIES attempts;
+    RESOURCE_EXHAUSTED, INTERNAL_ERROR, TRANSIENT_ERROR, CONCURRENT_MODIFICATION; TikTok 40100), at most
+    RETRIES attempts;
+  * Google Ads errors (a GoogleAdsFailure in error.details) come back with `code` set to
+    "<category>.<ENUM>", e.g. "authenticationError.OAUTH_TOKEN_EXPIRED", and the request id as `trace`;
   * a per-(platform, ad account) point budget in the api_budget table, so we never pass the
     Meta Limited tier's 60 points (read 1, write 3, decaying over 300 s; research B1). A call
     that would pass it waits up to `max_wait` seconds, then raises RateLimited;
@@ -16,7 +19,7 @@ What it does for each call:
     takes the object's slot first; the launch saga (launches.py, M2.3) passes it on every change to an
     existing object (status, delete);
   * no secrets in logs or errors. A log line has the platform, method, path (never the query),
-    status, error code and time. Error messages are scrubbed of access tokens, app secrets,
+    status, error code and time. `json=` sends a JSON body (Google Ads REST). Error messages are scrubbed of access tokens, app secrets,
     authorization codes and appsecret_proof, and a network error is re-raised without the
     underlying exception (requests puts the full URL, query and all, in its messages).
 
@@ -58,6 +61,19 @@ _BEARER_RX = re.compile(r"(?i)\b(bearer|oauth)\s+[A-Za-z0-9._\-|]+")
 META_TRANSIENT = {1, 2, 4, 17, 32, 341, 613} | set(range(80000, 80015))
 META_AUTH = {102, 190}
 META_PERMISSION = {10, 200, 294}
+# Google Ads: the per-customer budget here is a safety net under Google's own limits (Basic access is
+# 15,000 operations a day per Cloud project; research B2), not Meta's ad-account score.
+PLATFORM_CAPS = {"google": 600.0}
+GOOGLE_TRANSIENT = {"internalError.INTERNAL_ERROR", "internalError.TRANSIENT_ERROR", "internalError.DEADLINE_EXCEEDED",
+                    "databaseError.CONCURRENT_MODIFICATION", "quotaError.RESOURCE_TEMPORARILY_EXHAUSTED",
+                    "quotaError.RESOURCE_EXHAUSTED"}
+GOOGLE_AUTH = {"authenticationError.OAUTH_TOKEN_EXPIRED", "authenticationError.OAUTH_TOKEN_REVOKED",
+               "authenticationError.OAUTH_TOKEN_INVALID", "authenticationError.OAUTH_TOKEN_DISABLED",
+               "authenticationError.AUTHENTICATION_ERROR", "authenticationError.OAUTH_TOKEN_HEADER_INVALID"}
+GOOGLE_PERMISSION = {"authorizationError.USER_PERMISSION_DENIED", "authorizationError.ACTION_NOT_PERMITTED",
+                     "authorizationError.CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION",
+                     "authorizationError.DEVELOPER_TOKEN_NOT_APPROVED", "authorizationError.CUSTOMER_NOT_ENABLED",
+                     "authenticationError.NOT_ADS_USER"}
 
 
 class AdHttpError(Exception):
@@ -130,8 +146,9 @@ def _budget_row(conn, platform, account):
 def take(platform: str, account: str, cost: float, max_wait: float = 0.0):
     """Spend `cost` points of (platform, account)'s budget, waiting up to max_wait seconds for it
     to decay. Raises RateLimited when it can't. Safe across processes (BEGIN IMMEDIATE)."""
-    cap = CAPS[tier()] * MARGIN
-    rate = CAPS[tier()] / DECAY_S
+    full = PLATFORM_CAPS.get(platform) or CAPS[tier()]
+    cap = full * MARGIN
+    rate = full / DECAY_S
     deadline = CLOCK() + max(0.0, max_wait)
     while True:
         now = CLOCK()
@@ -154,7 +171,8 @@ def take(platform: str, account: str, cost: float, max_wait: float = 0.0):
             conn.close()
         if now + wait > deadline:
             raise RateLimited(platform, f"{platform} budget for {account} is spent; wait {int(wait) + 1} s",
-                              retry_after=wait, user_message="Meta asked us to slow down. Try again in a few minutes.")
+                              retry_after=wait, user_message=f"{_word(platform)} asked us to slow down. Try again in a "
+                                                             "few minutes.")
         SLEEP(min(wait, max(0.0, deadline - now)) + 0.01)
 
 
@@ -218,6 +236,57 @@ def _read_usage(platform, account, headers):
 
 # ---------------------------------------------------------------- errors
 
+def _word(platform) -> str:
+    return {"meta": "Meta", "google": "Google"}.get(platform, "The ad platform")
+
+
+def _google_failure(body: dict):
+    """(code "category.ENUM" or None, Google's message, request id, retry seconds) from a Google Ads error body."""
+    err = body.get("error") if isinstance(body.get("error"), dict) else {}
+    code = msg = req = None
+    retry = 0.0
+    for d in err.get("details") or []:
+        if not isinstance(d, dict):
+            continue
+        req = req or d.get("requestId")
+        for e in d.get("errors") or []:
+            ec = e.get("errorCode") if isinstance(e, dict) else None
+            if isinstance(ec, dict) and ec and code is None:
+                cat, val = next(iter(ec.items()))
+                code, msg = f"{cat}.{val}", e.get("message")
+            q = ((e.get("details") or {}).get("quotaErrorDetails") or {}) if isinstance(e, dict) else {}
+            m = re.match(r"^(\d+(?:\.\d+)?)s$", str(q.get("retryDelay") or ""))
+            if m:
+                retry = max(retry, float(m.group(1)))
+    return code, (msg or err.get("message") or ""), req, retry
+
+
+def _classify_google(resp, body, secrets):
+    if isinstance(body.get("error"), str):        # the OAuth endpoints: {"error": "invalid_grant", ...}
+        if resp.status < 400 and not body.get("error"):
+            return None, False
+        code = str(body["error"])[:60]
+        msg = scrub(f"google {resp.status}: {code}: {str(body.get('error_description') or '')[:200]}", secrets)
+        if code in ("invalid_grant", "invalid_token", "unauthorized_client"):
+            return TokenInvalid("google", msg, status=resp.status, code=f"oauth.{code}"), False
+        return AdHttpError("google", msg, status=resp.status, code=f"oauth.{code}"), resp.status >= 500
+    if resp.status < 400:
+        return None, False
+    code, gmsg, req, retry = _google_failure(body)
+    status = str((body.get("error") or {}).get("status") or "") if isinstance(body.get("error"), dict) else ""
+    msg = scrub(f"google {resp.status} {status} {code or ''}: {gmsg or resp.text or 'no message'}"[:400], secrets)
+    kw = dict(status=resp.status, code=code, trace=req, user_message=scrub(gmsg, secrets))
+    if code in GOOGLE_AUTH or (resp.status == 401 and code != "authenticationError.NOT_ADS_USER"):
+        return TokenInvalid("google", msg, **kw), False
+    if code in GOOGLE_PERMISSION:
+        return PermissionDenied("google", msg, **kw), False
+    if resp.status == 429 or (code or "").startswith("quotaError.") or status == "RESOURCE_EXHAUSTED":
+        return RateLimited("google", msg, retry_after=retry or 60, **kw), True
+    if code in GOOGLE_TRANSIENT or resp.status >= 500:
+        return AdHttpError("google", msg, **kw), True
+    return AdHttpError("google", msg, **kw), False
+
+
 def _classify(platform, resp, secrets):
     """(error to raise or None, retryable?) for a response."""
     body = resp.body if isinstance(resp.body, dict) else {}
@@ -240,7 +309,9 @@ def _classify(platform, resp, secrets):
             return RateLimited(platform, scrub(msg, secrets), retry_after=60, **kw) if code in (4, 17, 32, 613) \
                 else AdHttpError(platform, scrub(msg, secrets), **kw), True
         return AdHttpError(platform, scrub(msg, secrets), **kw), False
-    # Google Ads / TikTok / others: HTTP status first, then their throttle markers.
+    if platform == "google":
+        return _classify_google(resp, body, secrets)
+    # TikTok / others: HTTP status first, then their throttle markers.
     if resp.status < 400 and not (platform == "tiktok" and body.get("code") not in (None, 0)):
         return None, False
     text = json.dumps(body)[:400] if body else (resp.text or "")[:400]
@@ -254,32 +325,40 @@ def _classify(platform, resp, secrets):
 
 def call(platform: str, method: str, url: str, *, params=None, data=None, headers=None, files=None,
          account: str = None, cost: float = None, max_wait: float = 0.0, retries: int = None, secrets=(),
-         edit_of: str = None):
+         edit_of: str = None, json_body=None):
     """The JSON body of one platform call, or an AdHttpError. `account` names the budget to
     spend from (an ad account id); `secrets` are extra values to scrub from any message; `edit_of`
     is an existing object this call changes (it waits for, then takes, that object's 30 s edit slot).
     Calls that create something should pass retries=1: a timeout may hide a create that worked, so
     the caller looks the object up before trying again (launches.py does)."""
     method = method.upper()
+    if json_body is not None:
+        data = json.dumps(json_body, separators=(",", ":"))
+        headers = dict(headers or {}, **{"Content-Type": "application/json"})
     if edit_of:
         edit_lock(platform, str(edit_of), max_wait=max(max_wait, EDIT_LOCK_S + 1))
     cost = cost if cost is not None else (1.0 if method == "GET" else 3.0)
     path = urlsplit(url).path
     attempts = max(1, retries or RETRIES)
     extra = [v for k, v in (params or {}).items() if k in SECRET_PARAMS] + \
-            [v for k, v in (data or {}).items() if k in SECRET_PARAMS] + list(secrets)
+            [v for k, v in (data.items() if isinstance(data, dict) else ()) if k in SECRET_PARAMS] + list(secrets)
     last = None
     for n in range(attempts):
         if account:
-            take(platform, account, cost, max_wait=max_wait)
+            try:
+                take(platform, account, cost, max_wait=max_wait)
+            except RateLimited:
+                if isinstance(last, RateLimited):    # the platform said wait: keep its code and request id
+                    raise last from None
+                raise
         t0 = CLOCK()
         try:
             resp = TRANSPORT(method, url, params=params, data=data, headers=headers, timeout=TIMEOUT, files=files)
         except (requests.RequestException, OSError) as e:
             # requests' messages carry the whole URL (query included): keep only the kind of failure.
             last = NetworkError(platform, f"{platform} {method} {path}: {type(e).__name__}",
-                                user_message="We couldn't reach Meta. Try again in a minute." if platform == "meta"
-                                else "We couldn't reach the ad platform. Try again in a minute.")
+                                user_message=f"We couldn't reach {_word(platform).replace('The ad', 'the ad')}. "
+                                             "Try again in a minute.")
             log.warning("adhttp %s %s %s network error %s (attempt %d)", platform, method, path, type(e).__name__, n + 1)
         else:
             _read_usage(platform, account, resp.headers)

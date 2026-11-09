@@ -1,0 +1,21 @@
+{
+ "error": {
+  "code": 503,
+  "message": "The service is temporarily unavailable.",
+  "status": "UNAVAILABLE",
+  "details": [
+   {
+    "@type": "type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure",
+    "errors": [
+     {
+      "errorCode": {
+       "internalError": "TRANSIENT_ERROR"
+      },
+      "message": "The service is temporarily unavailable."
+     }
+    ],
+    "requestId": "fakeReq22272390"
+   }
+  ]
+ }
+}

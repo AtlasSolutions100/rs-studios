@@ -1,0 +1,21 @@
+{
+ "error": {
+  "code": 403,
+  "message": "The Google Cloud project is approved for test accounts only.",
+  "status": "PERMISSION_DENIED",
+  "details": [
+   {
+    "@type": "type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure",
+    "errors": [
+     {
+      "errorCode": {
+       "authorizationError": "CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION"
+      },
+      "message": "The Google Cloud project is approved for test accounts only."
+     }
+    ],
+    "requestId": "fakeReq6329386"
+   }
+  ]
+ }
+}

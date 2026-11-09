@@ -6,7 +6,8 @@ Everything here sits behind AD_LAUNCH (default off):
     AD_LAUNCH=beta     only workspaces listed in AD_LAUNCH_WORKSPACES (comma-separated ids) and admins
     AD_LAUNCH=on       every workspace
 
-One adapter per platform implements AdPlatform (adplatforms/meta.py first). Tokens are kept
+One adapter per platform implements AdPlatform (adplatforms/meta.py first, adplatforms/google.py behind
+its own GOOGLE_ADS flag on top of AD_LAUNCH). Tokens are kept
 only as token boxes (secretsbox.py, sealed to the workspace) and opened only inside an
 adapter call; they are never logged, flashed or put in a page.
 """
@@ -75,6 +76,9 @@ def adapter(platform: str):
     if platform == "meta":
         from adplatforms import meta
         return meta.ADAPTER
+    if platform == "google":
+        from adplatforms import google
+        return google.ADAPTER
     raise KeyError(platform)
 
 
@@ -174,6 +178,14 @@ def maybe_sweep():
             sweep_pending(conn)
     except Exception:  # noqa: BLE001
         log.exception("pending ad connection sweep failed")
+
+
+def platform_on(platform: str, ws, user=None) -> bool:
+    """May this workspace connect and launch on `platform`? Meta: AD_LAUNCH. Google: AD_LAUNCH and GOOGLE_ADS."""
+    if platform == "google":
+        from adplatforms import google
+        return google.enabled(ws, user)
+    return platform == "meta" and enabled(ws, user)
 
 
 def forget_platform_user(conn, platform: str, external_user_id: str, delete: bool = False) -> int:
