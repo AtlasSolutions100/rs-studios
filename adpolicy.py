@@ -33,8 +33,9 @@ from research B6 (FTC 16 CFR 255 and 465, Meta, TikTok, Google and Snapchat ad p
     policy.pharmacy                  prescriptions, telehealth, GLP-1 names: LegitScript needed
     policy.political                 elections and social issues need authorization: warn
     policy.snapchat_supplements      Snapchat pre-approves supplement ads: warn
-    policy.caps_punctuation          Snapchat: words in capitals or repeated !! / ?? (Snap's creative review rejects
-                                     both): warn
+    policy.caps_punctuation          Snapchat and TikTok: words in capitals or repeated !! / ?? (their creative
+                                     reviews reject both): warn
+    policy.emoji                     TikTok ad text with emoji (TikTok's ad text doesn't take them): block
     policy.hidden_characters         invisible characters (zero-width, bidi controls, soft hyphen) in launch text
     policy.vertical_mismatch         the product or the copy says supplements, weight loss, crypto, housing, ... while the
                                      spec says "general" (block) or another vertical (warn); the rules of both run (L-17)
@@ -221,6 +222,7 @@ MESSAGES = {
     "policy.snapchat_supplements": ("Snapchat reviews supplement ads before they run.", "Expect a review delay."),
     "policy.caps_punctuation": ("Words in capitals or repeated punctuation (!! or ??) often get the ad rejected in review.",
                                 "Write it in normal case, with one ! or ? at most."),
+    "policy.emoji": ("TikTok's ad text doesn't take emoji.", "Remove the emoji. The video can still show them."),
     "policy.hidden_characters": ("This text has invisible characters (zero-width spaces, direction marks or soft "
                                  "hyphens). They can hide words from ad review.", "Retype the text without them."),
     "policy.vertical_mismatch": ("What this campaign sells doesn't match its product type. The age and category rules "
@@ -240,7 +242,7 @@ LEVELS = {
     "policy.special_category_maybe": ("warn", {}), "policy.special_category_targeting": ("block", {}),
     "policy.supplement_disclaimer": ("warn", {}), "policy.pharmacy": ("block", {}), "policy.political": ("warn", {}),
     "policy.snapchat_supplements": ("warn", {}), "policy.hidden_characters": ("block", {}),
-    "policy.caps_punctuation": ("warn", {}),
+    "policy.caps_punctuation": ("warn", {}), "policy.emoji": ("block", {}),
     "policy.vertical_mismatch": ("block", {}),
 }
 
@@ -264,7 +266,9 @@ def _before_after(text):
 
 
 # Rules that only one platform's review applies (how the text is written there): platform -> rule ids.
-PLATFORM_RULES = {"snapchat": ("policy.caps_punctuation",)}
+PLATFORM_RULES = {"snapchat": ("policy.caps_punctuation",), "tiktok": ("policy.caps_punctuation",)}
+EMOJI = re.compile("[\U0001F000-\U0001FAFF\U00002600-\U000027BF\U0001F900-\U0001F9FF\uFE0F\u200D\u2B50\u2B55\u231A"
+                   "\u231B\u23E9-\u23FA]")
 
 
 def caps_or_punctuation(text: str) -> bool:
@@ -518,6 +522,8 @@ def lint(spec, prov: dict = None) -> list:
             if compliance.hidden_chars(raw) and not any(i2.where == f"creatives[{i}].{fld}" and
                                                         i2.rule_id == "policy.hidden_characters" for i2 in out):
                 out.append(_issue("policy.hidden_characters", p, f"creatives[{i}].{fld}"))
+        if p == "tiktok" and EMOJI.search(c.primary_text or ""):
+            out.append(_issue("policy.emoji", p, f"creatives[{i}].primary_text"))
         if ai and not spec.ai_disclosure:
             out.append(_issue("policy.ai_disclosure_missing", p, f"creatives[{i}]"))
         elif (prov or {}).get(c.asset_id, {}).get("ai_generated") and not spec.ai_disclosure:
