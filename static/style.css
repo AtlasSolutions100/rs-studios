@@ -141,6 +141,20 @@ input[type=file]{color:var(--muted)}
 .choice{position:relative}
 .choice input{position:absolute;opacity:0;width:1px;height:1px;margin:0;pointer-events:none}
 .choice:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+/* planner budget (UX-6) and approved claims as a list (COPY-1) */
+.budgetset{border:0;padding:0;margin:16px 0 0;min-width:0}
+.budgetset legend{display:block;padding:0;font-weight:600;font-size:13px;margin:0 0 8px;color:var(--muted)}
+.budgetrow{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,.9fr);gap:10px;align-items:center}
+.budgetrow .bamt{display:grid;grid-template-columns:86px minmax(0,1fr);gap:6px}
+.budgetrow .bdays{display:flex;align-items:center;gap:8px}
+.budgetrow .bdays input{max-width:86px}
+.budgetrow .bdays span{white-space:nowrap}
+@media (max-width:760px){.budgetrow{grid-template-columns:1fr}}
+.claimlist{margin:0 0 4px;padding-left:20px;color:var(--ink);list-style:disc}
+.claimlist li{margin:0;padding:1px 0;display:list-item}
+.vblocked{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.vnocopy{color:var(--dim)}
+.splitamt{font-weight:600;color:var(--ink)}
 .price{font:700 40px var(--display);color:var(--gold2);line-height:1}
 .rules{padding-left:18px;margin:8px 0 0;color:var(--muted);font-size:13px}
 .rules li{margin:4px 0}

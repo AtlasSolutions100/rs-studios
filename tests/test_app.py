@@ -3209,6 +3209,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_competitors.py")], check=True)
     # The launch kit on the plan page (launch_kit.py, RS_LAUNCH_KIT): blocks per platform, exports, server-side ticks.
     subprocess.run([sys.executable, os.path.join(HERE, "test_launch_kit.py")], check=True)
+    # Planner correctness (M5.4): budget as money, platforms by goal, blocked copy, one balance, claims list.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_planner_polish.py")], check=True)
     # Credit holds (credits.py): AI runs reserve first, parallel runs can't overspend, stale holds go back.
     subprocess.run([sys.executable, os.path.join(HERE, "test_credit_holds.py")], check=True)
     # Creator Pools (creator_pools.py, /app/creator-pools): the flag, Checkout, the webhook, Crowdcut sync, refunds (faked).
