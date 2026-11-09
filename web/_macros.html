@@ -44,9 +44,14 @@
   {% if ctx == 'library' and j.product_id in names %}<p class="small dim" style="margin:4px 0 0">{{ names[j.product_id] }}</p>{% endif %}
   {% if j.status == 'failed' %}
     {% if not pr.preview %}
+    {# UX-12: most failures are the brief or the photo (a content filter, a rule), so the first action is to
+       change it. "Try again" with the same brief leads only when the failure was on our side. #}
+    {% set ours = j.error and j.error[:4] in ('401:', '402:', '403:') %}
+    {% set edit_first = j.batch_id and not ours %}
     <div class="row cardacts">
-      <form method="post" action="{{ url_for('jobs.retry', jid=j.id) }}" {% if tools[j.tool].kind != 'image' %}data-needs-verify="video" {% endif %}data-confirm="Try again for {{ price|credits }}?" data-confirm-ok="Try again"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="total" value="{{ price }}"><input type="hidden" name="back" value="{{ back }}"><button class="btn sm">Try again · {{ '{:,}'.format(price) }}</button></form>
-      {% if j.batch_id %}<a class="btn dark sm" href="{{ url_for('create.index', retry=j.id) }}">Edit &amp; retry</a>{% endif %}
+      {% if edit_first %}<a class="btn sm" href="{{ url_for('create.index', retry=j.id) }}">Edit and retry</a>{% endif %}
+      <form method="post" action="{{ url_for('jobs.retry', jid=j.id) }}" {% if tools[j.tool].kind != 'image' %}data-needs-verify="video" {% endif %}data-confirm="Try again with the same brief for {{ price|credits }}?" data-confirm-ok="Try again"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="total" value="{{ price }}"><input type="hidden" name="back" value="{{ back }}"><button class="btn sm{{ ' dark' if edit_first }}" title="Same brief and photo">Try again · {{ price|credits }}</button></form>
+      {% if j.batch_id and not edit_first %}<a class="btn dark sm" href="{{ url_for('create.index', retry=j.id) }}">Edit and retry</a>{% endif %}
     </div>
     {% else %}<p class="small" style="margin:8px 0 0"><a href="{{ url_for('studio', preview=1) }}">Try the free preview again</a></p>{% endif %}
   {% elif os_ %}

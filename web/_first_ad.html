@@ -4,7 +4,7 @@
 {% set F = first.form %}
 {% set pv_on = first.preview.ok or first.preview.why == 'verify' %}
 {% set kinds = (['video'] if first.video_on else []) + ['image'] + (['preview'] if pv_on else []) %}
-{% set go_text = {'image': ('Make 2 ads with your free credits' if first.free_images else 'Make my ' ~ first.n_images ~ ' image ad' ~ ('s' if first.n_images > 1 else '') ~ ' · ' ~ first.images_price ~ ' credits'),
+{% set go_text = {'image': ('Make 2 ads with your free credits' if first.free_images else 'Make my ' ~ first.n_images ~ ' image ad' ~ ('s' if first.n_images > 1 else '') ~ ' · ' ~ first.images_price|credits),
                   'video': 'Make my free video ad', 'preview': 'Make my free preview'} %}
 {% set go_note = {'image': 'Failed generations are refunded automatically.', 'video': 'Included in your free credits. Failed generations are refunded automatically.', 'preview': 'Free. Nothing is charged.'} %}
 <form method="post" action="{{ url_for('start') }}" enctype="multipart/form-data" class="fa panel" id="fa" data-kind="{{ first.kind }}" data-verify-preview="{{ first.needs.preview or '' }}" data-verify-image="{{ first.needs.image or '' }}" data-verify-video="{{ first.needs.video or '' }}" data-go-text='{{ go_text|tojson|forceescape }}' data-go-note='{{ go_note|tojson|forceescape }}' data-import-url="{{ url_for('start_import') }}" data-first-run{% if first.service_on %} data-sells="{{ first.sells }}"{% endif %}>
@@ -68,7 +68,7 @@
     {% elif k == 'image' %}
     <label class="fa-kind"><input type="radio" name="kind" value="image" {{ 'checked' if first.kind == 'image' }}>
       <span class="thumb"><img src="{{ url_for('static', filename='previews/ad_image.jpg') }}" alt="" loading="lazy"{% if first.service_on %} data-src-product="{{ url_for('static', filename='previews/ad_image.jpg') }}" data-src-service="{{ url_for('static', filename='previews/svc-logo.jpg') }}"{% endif %}></span>
-      <span><b>{{ '2 image ads' if first.n_images > 1 else 'Image ad' }} <em class="tag {{ 'ok' if first.free_images }}">{{ 'free' if first.free_images else first.images_price ~ ' credits' }}</em></b><span class="small muted">{{ 'Two finished ad images' if first.n_images > 1 else 'A finished ad image' }} with a headline, from a template. Ready in about a minute. You have {{ '{:,}'.format(first.bal) }} credits.</span></span></label>
+      <span><b>{{ '2 image ads' if first.n_images > 1 else 'Image ad' }} <em class="tag {{ 'ok' if first.free_images }}">{{ 'free' if first.free_images else first.images_price|credits }}</em></b><span class="small muted">{{ 'Two finished ad images' if first.n_images > 1 else 'A finished ad image' }} with a headline, from a template. Ready in about a minute. You have {{ first.bal|credits }}.</span></span></label>
     {% else %}
     <label class="fa-kind" data-kind-label="preview"><input type="radio" name="kind" value="preview" {{ 'checked' if first.kind == 'preview' }}>
       <span class="thumb"><img src="{{ url_for('static', filename='site/ugc-coffee.jpg') }}" alt="" loading="lazy"><span class="chip motion">Speaks</span></span>

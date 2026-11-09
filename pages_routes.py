@@ -10,6 +10,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from flask import (Blueprint, abort, flash, g, make_response, redirect, render_template, request, send_file,
                    url_for)
 
+import adhub
 import compliance
 import copywriter
 import credits as credit_holds
@@ -44,7 +45,7 @@ def _page(pid):
 
 
 def _library(conn):
-    return conn.execute("SELECT o.id, o.kind, j.template_id, j.tool, j.created_at FROM outputs o JOIN jobs j ON j.id=o.job_id "
+    return conn.execute("SELECT o.id, o.kind, j.template_id, j.tool, j.params_json, j.created_at FROM outputs o JOIN jobs j ON j.id=o.job_id "
                         "WHERE j.workspace_id=? AND j.status='done' ORDER BY o.id DESC LIMIT 60", (g.ws["id"],)).fetchall()
 
 
@@ -130,7 +131,7 @@ def edit(pid):
             published = _published_count(conn, exclude=pid)
             myforms = conn.execute("SELECT id, name FROM forms WHERE workspace_id=? AND archived=0 ORDER BY id DESC",
                                    (g.ws["id"],)).fetchall()
-        return render_template("page_edit.html", p=p, blocks=json.loads(p["blocks_json"] or "[]"), lib=lib, myforms=myforms,
+        return render_template("page_edit.html", p=p, blocks=json.loads(p["blocks_json"] or "[]"), lib=lib, myforms=myforms, hub=adhub,
                                BLOCKS=pages.BLOCKS, can_publish=plans.within(g.ws, "pages", published),
                                next_plan=plans.next_plan_for("pages", published), ai_on=llm.configured(),
                                ai_quote=copywriter.estimate(1, "landing"), base=request.host_url)
@@ -195,7 +196,7 @@ def edit(pid):
     if action.startswith(("add:", "up:", "down:")):
         anchor = f"#b{len(blocks) - 1}" if action.startswith("add:") else ""
     if action == "save":
-        flash("Saved.", "ok")
+        flash("Saved. The live page is updated." if status == "published" else "Saved as a draft. Only you can see it.", "ok")
     return redirect(url_for("pages.edit", pid=pid) + anchor)
 
 
