@@ -1671,7 +1671,33 @@ def team():
     used = len(members) + len(invites)
     return render_template("team.html", members=members, invites=invites, seats=seats, used=used,
                            can_invite=is_owner() and plans.within(g.ws, "seats", used),
-                           next_plan=plans.next_plan_for("seats", used), owner=is_owner(), base=request.host_url)
+                           next_plan=plans.next_plan_for("seats", used), owner=is_owner(), base=request.host_url,
+                           ws_named=workspace_named(g.ws, members), made=request.args.get("made") or "")
+
+
+def workspace_named(ws, members) -> bool:
+    """UX-18: a workspace keeps the name sign-up gave it ("<name or email>'s studio") until someone renames it on the
+    Team page; until then the page says "Your team" instead of the email's local part."""
+    name = (ws["name"] or "").strip()
+    if not name:
+        return False
+    auto = {(m["name"] or "").strip() + "'s studio" for m in members if m["name"]}
+    auto |= {m["email"].split("@")[0] + "'s studio" for m in members}
+    return name not in auto
+
+
+@app.route("/app/team/name", methods=["POST"])
+@owner_required
+def team_name():
+    name = " ".join((request.form.get("name") or "").split())[:60]
+    if not name:
+        flash("Type a name for the workspace.")
+        return redirect(url_for("team"))
+    with db.connect() as conn:
+        conn.execute("UPDATE workspaces SET name=? WHERE id=?", (name, g.ws["id"]))
+        conn.commit()
+    flash(f"Workspace renamed to {name}.")
+    return redirect(url_for("team"))
 
 
 @app.route("/app/team/invite", methods=["POST"])
@@ -1688,8 +1714,9 @@ def team_invite():
         conn.execute("INSERT INTO invites (code, workspace_id, note, created_by, created_at) VALUES (?,?,?,?,?)",
                      (code, g.ws["id"], (request.form.get("note") or "")[:120], g.user["id"], db.now()))
         conn.commit()
-    flash(f"Invite link (works once): {request.host_url}signup?invite={code}")
-    return redirect(url_for("team"))
+    # UX-19: the link lives on the Team page (Open invites, with Copy) until it's used or revoked, not in a flash
+    flash("Invite link made. It works once and stays under Open invites until someone uses it.")
+    return redirect(url_for("team", made=code) + "#invites")
 
 
 @app.route("/app/team/invites/<code>/revoke", methods=["POST"])
@@ -2838,7 +2865,8 @@ def _has_endpoint(name) -> bool:
             return False
         if "cpools_visible" not in g:
             with db.connect() as conn:
-                g.cpools_visible = creator_pools.visible(conn, g.ws, g.user)
+                g.cpools_visible = (creator_pools.visible(conn, g.ws, g.user)
+                                    and not creator_pools.needs_product(conn, g.ws, g.user))   # UX-20
         return g.cpools_visible
     if name == "mcp.settings":          # the MCP key page shows while MCP_SERVER=on
         return mcpserver.enabled()
