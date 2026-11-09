@@ -3253,6 +3253,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_google_launch.py")], check=True)
     # Which ad brought which lead, at what cost (adleads.py, M4.1): tags on forms, matching, cost per lead, flows as before.
     subprocess.run([sys.executable, os.path.join(HERE, "test_lead_attribution.py")], check=True)
+    # Creative fatigue (adfatigue.py, M4.2): the flag on fixtures, the winning angle, Create's refresh hint, no auto-spend.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_fatigue.py")], check=True)
     # Conversion tracking on members' pages and forms (conversions.py, M3.4): event ids, pixels, CAPI, Events API, Data Manager.
     subprocess.run([sys.executable, os.path.join(HERE, "test_conversions.py")], check=True)
     # Google Ads conversion actions and the Google tag on members' pages (conversion_actions.py, M3.5; Google faked).

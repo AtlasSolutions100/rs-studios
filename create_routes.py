@@ -10,6 +10,8 @@ import json
 
 from flask import Blueprint, abort, g, jsonify, redirect, render_template, request, url_for
 
+import adfatigue
+import admanage
 import catalog
 import compliance
 import creator
@@ -105,6 +107,13 @@ def index():
                     # "Make the rest": the same config, at review, with the lines already made unticked.
                     prefill.update(step="review", skip=prefill["made"], rest_of=b["id"])
                 prefill.pop("made", None)
+        refresh = None
+        if request.args.get("refresh") and admanage.on(g.ws, g.get("user")):
+            # "Refresh this ad" from a worn-out launched ad (adfatigue.py, M4.2): its format, the winning angle
+            r = adfatigue.refresh_prefill(conn, g.ws["id"], request.args.get("refresh") or "")
+            if r is not None:
+                prefill, refresh = r["prefill"], r["note"]
+                pid = prefill.get("product") or pid
         if request.args.get("retry", type=int):
             prefill = _from_job(conn, request.args.get("retry", type=int)) or prefill
             pid = prefill.get("product") or pid
@@ -153,7 +162,7 @@ def index():
                      "check": url_for("create.check_step"), "billing": url_for("billing_page"),
                      "state": url_for("create.product_state"), "new_product": url_for("products.new"),
                      "edit_product": url_for("products.edit", pid=0)}}
-    return render_template("create.html", boot=boot, tree=tree)
+    return render_template("create.html", boot=boot, tree=tree, refresh=refresh)
 
 
 def _from_job(conn, jid):

@@ -45,6 +45,7 @@
 .mc-table thead th{white-space:normal;vertical-align:bottom}
 .mc-table tbody th{text-transform:none;letter-spacing:0;font-weight:600;color:var(--ink)}
 .mc-ads .tag,.mc-hist .tag,.mc-big .tag{justify-self:start;white-space:nowrap}
+.mc-table .tag{white-space:nowrap;display:inline-block;margin-top:4px;text-decoration:none}
 .page .tag:not(.ok):not(.warn):not(.bad){background:var(--chipbg);border:1px solid var(--line);color:var(--muted)}
 @media (max-width:900px){.mc-top{grid-template-columns:1fr}}
 @media (max-width:560px){.mc-ads li{grid-template-columns:1fr auto}.mc-ads li .mc-ad-name{grid-column:1/-1}.mc-acts .btn,.mc-acts form{flex:1 1 auto}.mc-acts form .btn{width:100%}.mc-budget input{width:100%}.mc-budget>div{flex:1 1 100%}}
@@ -132,13 +133,24 @@
     {% if ad_fig or leads.by_ad %}
     <div class="scrollx"><table class="mc-table">
       <thead><tr><th scope="col">Ad</th><th scope="col">Spent</th><th scope="col">Times shown</th><th scope="col">Link clicks</th><th scope="col">Click rate</th><th scope="col">Cost per click</th><th scope="col">{{ fig.words[0] }}</th><th scope="col">{{ fig.words[1] }}</th><th scope="col">Form leads</th><th scope="col">Cost per form lead</th></tr></thead>
-      <tbody>{% for a in ads %}{% set f = ad_fig.get(a.row.external_id) %}{% set nl = leads.by_ad.get(a.row.external_id, 0) %}{% set cpl = leads.ad_cpl.get(a.row.external_id) %}<tr><th scope="row">Ad {{ a.n }} <span class="dim">{{ a.name }}</span></th>
+      <tbody>{% for a in ads %}{% set f = ad_fig.get(a.row.external_id) %}{% set nl = leads.by_ad.get(a.row.external_id, 0) %}{% set cpl = leads.ad_cpl.get(a.row.external_id) %}<tr><th scope="row">Ad {{ a.n }} <span class="dim">{{ a.name }}</span>{% if tired.get(a.row.external_id) %}<br><a class="tag warn" href="#next">Wearing out</a>{% endif %}</th>
         {% if f %}<td>{{ money(f.spend, s.currency) }}</td><td>{{ '{:,}'.format(f.imp) }}</td><td>{{ '{:,}'.format(f.link) }}</td><td>{{ '%.2f'|format(f.ctr) ~ '%' if f.ctr is not none else 'None yet' }}</td><td>{{ money(f.cpc, s.currency) if f.cpc is not none else 'None yet' }}</td><td>{{ '{:,}'.format(f.results) }}</td><td>{{ money(f.cpr, s.currency) if f.cpr is not none else 'None yet' }}</td>
         {% else %}<td colspan="7" class="muted">Nothing shown in this range.</td>{% endif %}<td>{{ '{:,}'.format(nl) }}</td><td>{{ money(cpl, s.currency) if cpl is not none else 'None yet' }}</td></tr>{% endfor %}</tbody>
     </table></div>
     {% endif %}
     {{ af.updated(ins) }}
   </section>
+
+  {% if fat.tired %}
+  <section class="panel mc-panel mc-next" id="next" aria-labelledby="mc-next">
+    <p class="eyebrow" style="margin-bottom:6px">What to change</p>
+    <h2 id="mc-next">{{ fat.tired|length }} ad{{ '' if fat.tired|length == 1 else 's' }} wearing out</h2>
+    <ul class="mc-hist">{% for a in fat.tired %}
+      <li><b>Ad {{ a.n }} {{ a.name }}</b><br><span class="small muted">{{ fat_words(a) }}{% if fat.winner and fat.winner.id != a.id %} The angle working now is “{{ fat.winner.angle }}” (Ad {{ fat.winner.n }}, {{ '%.2f'|format(fat.winner.wow.this.ctr) }}% click rate this week).{% endif %}</span>
+        <div class="mc-acts" style="margin-top:10px"><a class="btn sm" href="{{ url_for('create.index', refresh=L.id ~ ':' ~ a.id) }}">Refresh this ad</a>{% if not viewing and a.status == 'ACTIVE' %}<form method="post" action="{{ url_for('manage.change', lid=L.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="target" value="{{ a.id }}"><input type="hidden" name="action" value="off"><button class="btn sm dark" {{ 'disabled' if b }}>Pause it</button></form>{% endif %}</div></li>{% endfor %}</ul>
+    <p class="small muted" style="margin:8px 0 0">Refresh this ad opens Create with {{ 'the working angle' if fat.winner else 'the same format' }} filled in. Nothing is spent or changed on Meta until you launch the new ad, and pausing still asks the owner to approve a card.</p>
+  </section>
+  {% endif %}
 
   {% if recent %}{% set adn = {} %}{% for a in ads %}{% set _ = adn.update({a.row.external_id: a}) %}{% endfor %}
   <section class="panel mc-panel" aria-labelledby="mc-leads">

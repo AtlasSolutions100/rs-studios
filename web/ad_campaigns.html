@@ -61,6 +61,7 @@
       </div>
       {% if r.manageable and r.fig.n %}<div class="ac-figs">{{ af.tiles(r.fig, r.fig.cur or r.currency, money) }}</div>{% endif %}
       {% if r.manageable and (r.fig.n or r.leads.total) %}<p class="ac-figs small muted ac-leads">Your forms: <b>{{ '{:,}'.format(r.leads.total) }} lead{{ '' if r.leads.total == 1 else 's' }}</b>{% if r.leads.cpl is not none %}, <b>{{ money(r.leads.cpl, r.fig.cur or r.currency) }}</b> per lead{% endif %}. Meta counted {{ '{:,}'.format(r.fig.leads or 0) }}.</p>{% endif %}
+      {% if r.tired %}<p class="ac-note small"><span class="tag warn">Wearing out</span> {{ r.tired|length }} ad{{ ' is' if r.tired|length == 1 else 's are' }} getting fewer clicks at the same spend. <a href="{{ url_for('manage.show', lid=L.id) }}#next">See what to change</a></p>{% endif %}
       {% if r.busy %}<p class="ac-note small">{{ r.busy.card.title }}: {{ r.busy.state_word|lower }}.</p>
       {% elif r.pending %}<p class="ac-note small">Waiting for approval: {{ r.pending.card.title }}. {% if owner %}<a href="{{ url_for('manage.show', lid=L.id) }}#card">Check the card</a>{% else %}The workspace owner approves it.{% endif %}</p>{% endif %}
     </li>

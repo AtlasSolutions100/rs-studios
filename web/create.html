@@ -5,6 +5,7 @@
   <p class="eyebrow">Create</p>
   <h1 class="cf-title">Make ads for <span class="gold" data-pname>{{ boot.product.name if boot.product else 'your product' }}</span></h1>
   {% if boot.prefill.from_ad %}<div class="flash">Started from your campaign plan. Change anything, then generate.</div>{% endif %}
+  {% if refresh %}<div class="flash" role="status"><b>Refreshing Ad {{ refresh.worn_n }} {{ refresh.worn }}.</b> {% if refresh.tired %}Its click rate fell {{ '%.0f'|format(refresh.drop) }}% this week at about the same spend.{% endif %}{% if refresh.win %} This starts from the angle that's working now, “{{ refresh.win }}” ({{ '%.2f'|format(refresh.win_ctr) }}% click rate this week), in the same format.{% else %} Try a new hook in the same format.{% endif %} Nothing is spent or changed on Meta: you launch the new ad when you're ready.</div>{% endif %}
   {% if boot.prefill.template %}<div class="flash">Started from the “{{ boot.prefill.angle.title }}” template. Change anything, then see the price.</div>{% endif %}
 
   <div class="cf">
