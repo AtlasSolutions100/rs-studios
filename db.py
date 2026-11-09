@@ -472,6 +472,7 @@ CREATE TABLE IF NOT EXISTS free_plans (
     created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_free_plans_ws ON free_plans(workspace_id, created_at);
 -- "Your free ads are waiting" emails to sign-ups with no job yet (nudges.py): one row per step sent.
+-- Step 10 is the one-off "Your ads are ready" email for a member's first batch (ready_email.py).
 CREATE TABLE IF NOT EXISTS first_run_nudges (
     user_id INTEGER NOT NULL, step INTEGER NOT NULL, sent_at TEXT NOT NULL, PRIMARY KEY (user_id, step));
 CREATE TABLE IF NOT EXISTS c_events (

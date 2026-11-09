@@ -173,7 +173,7 @@ def capabilities() -> dict:
 # script step writes: spoken lines, an image headline + concept, or scenes.
 AD_TYPES = [
     {"id": "ugc", "name": "UGC presenter", "tool": "ugc_video", "script": "spoken", "presenter": True, "talking": True,
-     "line": "A presenter holds your product and says your script to camera, selfie-style.", "preview": "site/ugc-coffee"},
+     "line": "A presenter says your script to camera, selfie-style, with your product beside them.", "preview": "site/ugc-coffee"},
     {"id": "voiceover", "name": "Product video + voiceover", "tool": "ugc_video", "script": "spoken", "presenter": False,
      "talking": True, "line": "Your product on screen while a narrator reads the script.", "preview": "site/show-amber"},
     {"id": "image", "name": "Image ad", "tool": "ad_image", "script": "image",
@@ -185,6 +185,21 @@ AD_TYPES = [
 ]
 AD_TYPE_BY_ID = {a["id"]: a for a in AD_TYPES}
 TOOL_AD_TYPE = {"ad_image": "image", "photo_to_video": "product_video", "motion_copy": "motion", "ugc_video": "ugc"}
+
+
+def job_ad_type(tool: str, params=None, default: str | None = None) -> str:
+    """The ad type of a job or a planner proposal: what its params say first (a voiceover and a presenter video share
+    the ugc_video tool), then the tool's own type. `params` is the params dict or its JSON."""
+    if isinstance(params, (str, bytes)):
+        try:
+            import json
+            params = json.loads(params or "{}")
+        except (ValueError, TypeError):
+            params = {}
+    typ = (params or {}).get("ad_type") if isinstance(params, dict) else None
+    if typ in AD_TYPE_BY_ID:
+        return typ
+    return TOOL_AD_TYPE.get(tool, default if default is not None else tool)
 
 
 def ad_types() -> list[dict]:
@@ -222,6 +237,9 @@ PRESENTERS = [
      "vibe": "Friendly, chatty", "setting": "a cafe table by the window", "hue": 260},
 ]
 PRESENTER_BY_ID = {p["id"]: p for p in PRESENTERS}
+# Each presenter's default voice (default_voice() below). Every presenter has one: tests check the map is complete.
+PRESENTER_VOICE = {"maya": "warm_f", "priya": "warm_f", "elena": "warm_f", "sam": "upbeat_f", "lena": "upbeat_f",
+                   "jordan": "chatty_m", "theo": "chatty_m", "marcus": "calm_m"}
 
 VOICES = [
     {"id": "warm_f", "name": "Warm & friendly", "desc": "a warm, friendly female voice, natural American accent", "who": "female"},
@@ -341,8 +359,34 @@ def fit_spoken(hooks: list[str], body: str, duration: int, keep_all: bool = Fals
     return [h for h in keep if words(h + " " + body) <= bud["total"]], body
 
 
+# The fidelity line every prompt that starts from the member's product photo ends with (worker.build_inputs adds it
+# to photo-to-video scenes, hand-typed ones included, when the scene doesn't already say it).
+KEEP_PRODUCT = "Keep the product, its label and its logo exactly as in the reference photo."
+
+# What makes a presenter video read as filmed by a person rather than rendered: said in every presenter prompt.
+UNPOLISHED = ("Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than "
+              "razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio "
+              "lighting, no beauty filter.")
+
+# Where the product is in a presenter video. "table" (the default) keeps it out of the presenter's hands: a talking
+# face and a hand on the product are the two hardest things to render, and they shouldn't share a clip. "holding" is
+# the old look, still selectable (params["placement"]). A voiceover's "product_only" keeps hands out of the shots.
+PLACEMENTS = ("table", "holding")
+DEFAULT_PLACEMENT = "table"
+
+
+def with_fidelity(scene: str) -> str:
+    """A photo-to-video scene with the fidelity line at the end (once)."""
+    scene = " ".join((scene or "").split())
+    if KEEP_PRODUCT.lower() in scene.lower():
+        return scene
+    if scene and scene[-1] not in ".!?":
+        scene += "."
+    return (scene + " " + KEEP_PRODUCT).strip()
+
+
 def talking_prompt(ad_type: str, product: str, script: str, presenter_id: str = "", voice_id: str = "",
-                   setting: str = "") -> str:
+                   setting: str = "", placement: str = "") -> str:
     """The prompt for a talking video (built by the worker from the job's params)."""
     product = product or "the product"
     voice = VOICE_BY_ID.get(voice_id) or VOICES[0]
@@ -350,16 +394,31 @@ def talking_prompt(ad_type: str, product: str, script: str, presenter_id: str = 
     keep = (f"The {product} looks exactly as in the reference photos: same packaging, label, text and colors; never "
             "invent other branding.")
     if ad_type == "voiceover":
-        return (f"Short product video of the {product}. Clean, well-lit close-ups and hands using it in a real home; "
-                f"smooth, simple camera moves. {keep} A narrator, never seen on camera, says in {voice['desc']}: "
+        shots = ("Slow, simple camera moves over the product resting on a table in a real home: a push-in, a gentle "
+                 "pan, a close-up of the label. No people and no hands in frame."
+                 if placement == "product_only" else
+                 "Clean, well-lit close-ups and hands using it in a real home; smooth, simple camera moves.")
+        return (f"Short product video of the {product}. {shots} "
+                f"{keep} A narrator, never seen on camera, says in {voice['desc']}: "
                 f"\"{say}\" The narration is clear and matches the pacing of the shots. No on-screen text, no subtitles, "
                 "no music.")
     pr = PRESENTER_BY_ID.get(presenter_id) or PRESENTERS[0]
     where = setting or pr["setting"]
-    return (f"Vertical selfie-style UGC video filmed on a phone. A {pr['look']}, in {where}, holds the {product} up to "
-            f"the camera and talks directly to the viewer in a natural, unscripted tone with {voice['desc']}. They say: "
-            f"\"{say}\" Lip movements match the speech exactly. {keep} Natural light, slight handheld movement, "
-            "no on-screen text, no subtitles, no music.")
+    if placement == "holding":
+        does = f"holds the {product} up to the camera and talks"
+    else:
+        does = (f"sits with the {product} standing on the table beside them, in clear view, label facing the camera, "
+                "and talks. Their hands stay off the product")
+    return (f"Vertical selfie-style UGC video filmed on a phone. A {pr['look']}, in {where}, {does} directly to the "
+            f"viewer in a natural, unscripted tone with {voice['desc']}. They say: "
+            f"\"{say}\" Lip movements match the speech exactly. {keep} {UNPOLISHED} Natural light, slight handheld "
+            "movement, no on-screen text, no subtitles, no music.")
+
+
+def default_voice(presenter_id: str) -> str:
+    """The voice a presenter speaks with unless the member picks another (one map: Create, the first run and the
+    planner all read it). A presenter without an entry gets the first voice of VOICES."""
+    return PRESENTER_VOICE.get(presenter_id) or VOICES[0]["id"]
 
 
 # ---------------------------------------------------------------- image ad text
@@ -577,6 +636,56 @@ def templates_for(product=None, tool=None) -> list[dict]:
 def first_run_templates(product=None) -> list[dict]:
     """Image templates for the first ad: cheapest tool; with no product yet, only ones that fit anything."""
     return templates_for(product, "ad_image")
+
+
+# The first two free image ads are two different looks, not two versions of one: the template the member picked plus
+# the one that suits what they sell. Each row: the words that mark the category, then image templates in the order
+# to offer them. Coffee has its own templates (is_coffee); anything else falls back to FIRST_RUN_GENERIC.
+FIRST_RUN_CATEGORIES = [
+    (("skincare", "skin care", "serum", "moisturi", "cleanser", "lotion", "shampoo", "conditioner", "makeup", "lipstick",
+      "mascara", "soap", "deodorant", "perfume", "fragrance", "sunscreen", "supplement", "vitamin", "toothpaste"),
+     ["routine", "flatlay", "hero"]),
+    (("mug", "tumbler", "bottle", "flask", "backpack", "bag", "wallet", "watch", "sunglasses", "hat", "cap", "shoe",
+      "sneaker", "shirt", "hoodie", "jacket", "jewel", "necklace", "bracelet", "ring", "phone case", "headphone",
+      "earbud"),
+     ["inhand", "hero", "flatlay"]),
+    (("candle", "gift", "card", "print", "poster", "toy", "puzzle", "plush", "ornament", "decor", "vase", "blanket",
+      "chocolate", "candy", "cookie"),
+     ["gift", "flatlay", "hero"]),
+    (("tea", "snack", "sauce", "spice", "granola", "protein", "drink", "juice", "soda", "honey", "jam", "pasta", "oil"),
+     ["routine", "hero", "flatlay"]),
+]
+FIRST_RUN_GENERIC = ["hero", "routine", "flatlay", "inhand", "gift"]
+FIRST_RUN_COFFEE = ["two-pm", "iced", "gym"]
+
+
+def first_run_category(product) -> list:
+    """Image template ids that suit this product, best first (product: a brand brief, a product row, or a name)."""
+    import re
+    if isinstance(product, str):
+        product = {"product": product}
+    if is_coffee(product):
+        return FIRST_RUN_COFFEE + FIRST_RUN_GENERIC
+    if isinstance(product, dict):
+        text = " ".join(str(product.get(k) or "") for k in ("product", "name", "description", "tags"))
+    else:
+        keys = product.keys() if product is not None and hasattr(product, "keys") else []
+        text = " ".join(str(product[k] or "") for k in ("name", "description", "tags") if k in keys)
+    text = text.lower()
+    for words, ids in FIRST_RUN_CATEGORIES:
+        if any(re.search(r"\b" + re.escape(w), text) for w in words):
+            return ids + [i for i in FIRST_RUN_GENERIC if i not in ids]
+    return list(FIRST_RUN_GENERIC)
+
+
+def first_run_pair(product, pick_id: str | None = None) -> list[dict]:
+    """The two image templates for a first run: the member's pick (else the best fit), then a DIFFERENT one that
+    suits the product's category, else a different generic one. Always two distinct image templates."""
+    order = [TEMPLATE_BY_ID[i] for i in first_run_category(product)]
+    pick = TEMPLATE_BY_ID.get(pick_id or "")
+    first = pick if pick and pick["tool"] == "ad_image" else order[0]
+    second = next(t for t in order if t["id"] != first["id"])
+    return [first, second]
 
 
 def template_prefill(t: dict, b: dict) -> dict:

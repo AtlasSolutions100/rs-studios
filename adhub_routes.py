@@ -80,6 +80,10 @@ def export_file(oid, platform, fmt):
     except exporter.ExportError as e:
         flash(str(e))
         return redirect(url_for("adhub.export_page", oid=oid))
+    import site_events   # measurement: an export of this ad, with its ad type and template (never raises)
+    with db.connect() as conn:
+        site_events.on_asset(conn, "asset_export", conn.execute("SELECT * FROM jobs WHERE id=?", (o["job_id"],)).fetchone(),
+                             request, f"{platform}/{fmt}")
     name = f"campaignify-{o['job_id']}-{platform}-{fmt}-{spec[2]}x{spec[3]}{os.path.splitext(path)[1]}"
     return send_file(path, as_attachment=True, download_name=name, conditional=True)
 

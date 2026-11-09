@@ -282,7 +282,7 @@ def send_link(conn, secret: str, user, first_login: bool = False) -> bool:
                                          "image ads work right away. Video ads need this confirmation"
                                          if _card_waiting(conn, user) else
                                          " are ready: image ads work right away. Video ads need this confirmation")
-    what += (f", and so does your free {preview.SECONDS}-second talking-video preview." if preview.enabled() else ".")
+    what += (f", and so does your free {preview.SECONDS}-second video preview." if preview.enabled() else ".")
     mins = CODE_TTL_S // 60
     text = (f"Hi,\n\nYour Campaignify code is {code}\n\nType it in the box in Campaignify. It works for {mins} minutes.\n\n"
             f"Or confirm with this link (it works for 48 hours):\n\n{link}\n\n"

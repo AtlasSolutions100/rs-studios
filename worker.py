@@ -108,7 +108,9 @@ def build_inputs(conn, job) -> dict:
     if tool == "photo_to_video":
         if not urls:
             raise hf.GenError("Pick a product photo first.")
-        return {"prompt": job["brief"], "image_url": urls[0], "duration": int(p.get("duration") or 5),
+        # the scene, templated or hand-typed, always ends with the keep-the-product line
+        return {"prompt": catalog.with_fidelity(job["brief"] or ""), "image_url": urls[0],
+                "duration": int(p.get("duration") or 5),
                 "resolution": p.get("resolution") or "720p", "bitrate_mode": "high", "generate_audio": bool(p.get("audio"))}
     if tool == "ugc_video":
         if not urls:
@@ -117,7 +119,7 @@ def build_inputs(conn, job) -> dict:
             if "product_id" in job.keys() and job["product_id"] else None
         prompt = catalog.talking_prompt(p.get("ad_type") or "ugc", p.get("product") or (prod["name"] if prod else ""),
                                         job["brief"] or "", p.get("presenter") or "", p.get("voice") or "",
-                                        p.get("setting") or "")
+                                        p.get("setting") or "", p.get("placement") or "")
         return {"prompt": prompt, "image_urls": urls[:4], "duration": int(p.get("duration") or 10),
                 "aspect_ratio": p.get("aspect") or "9:16", "resolution": p.get("resolution") or "720p",
                 "bitrate_mode": "high",
@@ -171,6 +173,7 @@ def _fail(conn, job, msg, extra_where: str = "", extra_args: tuple = ()) -> bool
         import preview
         preview.release(conn, job["id"])
     conn.commit()
+    _notify_ready(conn, job)      # the last job of a first batch failing still means the others are ready
     return True
 
 
@@ -517,7 +520,18 @@ def _finish_done(conn, job) -> bool:
     cur = conn.execute("UPDATE jobs SET status='done', error=NULL, finished_at=?, updated_at=? WHERE id=? AND status='running'",
                        (t, t, job["id"]))
     conn.commit()
+    if cur.rowcount == 1:
+        _notify_ready(conn, job)
     return cur.rowcount == 1
+
+
+def _notify_ready(conn, job):
+    """The "your ads are ready" email, when this was the last job of a member's first batch (ready_email.py)."""
+    try:
+        import ready_email
+        ready_email.on_job_settled(conn, job)
+    except Exception:  # noqa: BLE001 — never into the worker loop
+        log.warning("ads-ready email check failed for job %s", job["id"])
 
 
 def _drop_outputs(conn, job):

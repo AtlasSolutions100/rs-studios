@@ -1,7 +1,11 @@
-"""The free talking-video preview (owner decision D2).
+"""The free video preview (owner decision D2).
 
-A free account gets ONE 8-second talking video at 480p, watermarked, instead of
-video credits: the first-run "wow". It costs us the vendor's 480p rate
+A free account gets ONE 8-second video at 480p, watermarked, instead of video
+credits: the first-run "wow". It is the lowest-risk talking format: a narrator
+reads one line over shots of the product resting on a table (AD_TYPE, VOICE,
+PLACEMENT). No presenter, so no lips to sync and no hand on the product, the
+two things most likely to make a first video look wrong. Same model, length and
+resolution as the presenter preview it replaced, so the same cost. It costs us the vendor's 480p rate
 ($0.2056/s, about $1.64) and the member nothing. Limits: one per workspace and
 one per email address (normalised: case, +tags and Gmail dots don't make a new
 address), a confirmed email (verify.py), the signup IP throttles and a daily
@@ -21,8 +25,11 @@ SECONDS = 8
 RESOLUTION = "480p"
 USD_PER_SECOND = float(os.environ.get("RS_PREVIEW_USD_PER_SECOND", "0.2056"))
 MAX_TRIES = 3
-DEFAULT_LINE = "Meet {product}. Let me show you what it is and why it's worth a look."
-PRESENTERS = ("maya", "jordan", "priya", "marcus")
+DEFAULT_LINE = "Meet {product}. Here's what it is and why it's worth a look."
+AD_TYPE = "voiceover"            # catalog.AD_TYPES: the product on screen while a narrator reads the line
+VOICE = "narrator_bright"        # catalog.VOICES
+PLACEMENT = "product_only"       # catalog.talking_prompt: the product on a table, no people or hands in frame
+PRESENTERS = ("maya", "jordan", "priya", "marcus")   # no longer used by the preview; kept for old imports
 DEFAULT_DAILY_CAP = 30     # free previews a day across all accounts (about $50 of vendor cost)
 
 
