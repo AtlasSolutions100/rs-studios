@@ -39,9 +39,10 @@
 .mc-bars li{flex:1;height:100%;display:flex;align-items:flex-end}
 .mc-bars .bar{display:block;width:100%;min-height:2px;background:var(--accent);border-radius:4px 4px 0 0}
 .mc-bars-ax{display:flex;justify-content:space-between}
-.mc-table{min-width:880px;margin-top:12px}
-.mc-table th,.mc-table td{text-align:right;padding:8px 10px;white-space:nowrap}
-.mc-table th:first-child{text-align:left;white-space:normal}
+.mc-table{min-width:760px;margin-top:12px}
+.mc-table th,.mc-table td{text-align:right;padding:8px 6px;white-space:nowrap}
+.mc-table th:first-child{text-align:left;white-space:normal;min-width:150px}
+.mc-table thead th{white-space:normal;vertical-align:bottom}
 .mc-table tbody th{text-transform:none;letter-spacing:0;font-weight:600;color:var(--ink)}
 .mc-ads .tag,.mc-hist .tag,.mc-big .tag{justify-self:start;white-space:nowrap}
 .page .tag:not(.ok):not(.warn):not(.bad){background:var(--chipbg);border:1px solid var(--line);color:var(--muted)}
