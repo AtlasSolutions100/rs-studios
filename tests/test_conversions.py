@@ -536,7 +536,7 @@ check(cfg.get("lead") == parse_qs(urlsplit(loc).query)["ev"][0], "which fires th
 # ================================================================ 10. worker, logs, database
 print("worker and secrets")
 visit(ip="10.77.0.11")
-conversions._last_tick[0] = 0.0
+conversions._last_tick[0] = float("-inf")
 conversions.tick()
 check(not q("SELECT 1 FROM ws_conversion_queue WHERE status='pending'"), "the worker's tick sends what's pending")
 os.environ.pop("CONVERSIONS_API")

@@ -235,7 +235,7 @@ def flush_soon() -> None:
     threading.Thread(target=run, daemon=True, name="capi-flush").start()
 
 
-_last_tick = [0.0]
+_last_tick = [float("-inf")]   # not 0.0: a just-booted machine has time.monotonic() under RETRY_SECONDS
 RETRY_SECONDS = 300
 
 
