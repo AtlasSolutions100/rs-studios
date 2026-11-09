@@ -1,0 +1,31 @@
+{
+ "data": [
+  {
+   "ad_id": "23850000000006",
+   "ad_name": "Ember Candle · ad 2 Lasts the month [cfy:1:ad:2]",
+   "adset_id": "23850000000004",
+   "campaign_id": "23850000000003",
+   "date_start": "2026-11-02",
+   "date_stop": "2026-11-02",
+   "account_currency": "USD",
+   "spend": "21.58",
+   "impressions": "3105",
+   "reach": "2702",
+   "clicks": "48",
+   "inline_link_clicks": "29",
+   "ctr": "1.545894",
+   "actions": [
+    {"action_type": "link_click", "value": "29"},
+    {"action_type": "offsite_conversion.fb_pixel_purchase", "value": "1"},
+    {"action_type": "purchase", "value": "1"}
+   ],
+   "action_values": [
+    {"action_type": "offsite_conversion.fb_pixel_purchase", "value": "29.00"},
+    {"action_type": "purchase", "value": "29.00"}
+   ]
+  }
+ ],
+ "paging": {
+  "cursors": {"before": "MQZDZD", "after": "MgZDZD"}
+ }
+}

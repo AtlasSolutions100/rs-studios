@@ -312,11 +312,14 @@ class Meta:
     def update_budget(self, token: str, account: str, campaign_id: str, daily_minor: int, max_wait: float = 0.0) -> dict:
         return update_budget(token, account, campaign_id, daily_minor, max_wait)
 
-    # Report (M2.5).
-    def _later(self, *a, **kw):
-        raise NotImplementedError("arrives in M2.5")
+    # Report (M2.5): adinsights.py pulls these every few hours into ad_insights_daily.
+    def pull_insights(self, token: str, account: str, campaign_ids: list, since: str, until: str) -> list:
+        return pull_insights(token, account, campaign_ids, since, until)
 
-    validate = pull_insights = _later
+    def _later(self, *a, **kw):
+        raise NotImplementedError("not used for Meta: adspec and adpolicy validate the spec")
+
+    validate = _later
 
 
 ADAPTER = Meta()
@@ -734,3 +737,49 @@ def update_budget(token: str, account: str, campaign_id: str, daily_minor: int, 
     if int(daily_minor) <= 0:
         raise ValueError(daily_minor)
     return _edit(campaign_id, token, account, {"daily_budget": str(int(daily_minor))}, max_wait)
+
+
+# ================================================================ report (M2.5)
+# GET /act_<id>/insights, level=ad, one row per ad per day (time_increment=1), for the launched campaigns only
+# (filtering on campaign.id). use_unified_attribution_setting=true makes the numbers use each ad set's attribution
+# setting, as Ads Manager does, so they line up with what the member sees there. Money comes back as decimal strings in
+# the account's currency; adinsights.py turns it into minor units.
+
+INSIGHT_FIELDS = ("ad_id,ad_name,adset_id,campaign_id,date_start,date_stop,account_currency,spend,impressions,reach,"
+                  "clicks,inline_link_clicks,ctr,actions,action_values")
+INSIGHT_LIMIT = 500        # rows per page
+INSIGHT_PAGES = 20         # pages followed per pull (10,000 rows: 700 ads for 14 days)
+
+
+class TooMuchData(adhttp.AdHttpError):
+    """Meta asked for a smaller request (code 1, "Please reduce the amount of data"): split the date range."""
+
+
+def pull_insights(token: str, account: str, campaign_ids: list, since: str, until: str) -> list:
+    """Meta's per-ad, per-day rows for these campaigns between since and until (YYYY-MM-DD, the account's time zone,
+    both included). Raises TooMuchData when Meta wants a smaller request, other adhttp errors as they come."""
+    ids = [str(c) for c in campaign_ids if c]
+    if not ids:
+        return []
+    params = {"level": "ad", "time_increment": "1", "fields": INSIGHT_FIELDS, "limit": str(INSIGHT_LIMIT),
+              "time_range": json.dumps({"since": since, "until": until}, separators=(",", ":")),
+              "filtering": json.dumps([{"field": "campaign.id", "operator": "IN", "value": ids}], separators=(",", ":")),
+              "use_unified_attribution_setting": "true"}
+    out, after = [], None
+    for _ in range(INSIGHT_PAGES):
+        q = dict(params)
+        if after:
+            q["after"] = after
+        try:
+            body = _get(f"/{_act(account)}/insights", token, q, account=_act(account))
+        except adhttp.AdHttpError as e:
+            if e.code == 1 and "reduce the amount of data" in (str(e) + " " + (e.user_message or "")).lower():
+                raise TooMuchData("meta", str(e), status=e.status, code=e.code, subcode=e.subcode,
+                                  user_message=e.user_message) from None
+            raise
+        out.extend(r for r in body.get("data") or [] if isinstance(r, dict))
+        paging = body.get("paging") or {}
+        after = (paging.get("cursors") or {}).get("after")
+        if not after or not paging.get("next"):
+            break
+    return out

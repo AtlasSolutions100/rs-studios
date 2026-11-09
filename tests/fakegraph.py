@@ -40,6 +40,9 @@ class FakeGraph:
         self.video_processing = video_processing   # how many status reads a new video answers "processing"
         self._ids = itertools.count(first_id)   # ids are unique per Meta; tests that keep several graphs space them out
         self.edits = []                    # [{"id", "status" | "daily_budget"}]: every change to an existing object
+        self.daily = {}                    # (ad id, "YYYY-MM-DD") -> {"spend": "12.34", "impressions": 1000, ...} (M2.5)
+        self.headers = {}                  # extra response headers on every answer (usage headers)
+        self.insight_page = 500            # rows per insights page (a test makes it small to see paging)
 
     # ------------------------------------------------------------ test controls
     def fail(self, method, edge, response, times=1):
@@ -71,6 +74,8 @@ class FakeGraph:
                     self._answer(method, parts, call)     # Meta made it...
                     import requests
                     raise requests.ReadTimeout("read timed out")   # ...and we never heard back
+                if isinstance(f[2], adhttp.Response):
+                    return f[2]
                 return self._fixture(f[2])
         return self._answer(method, parts, call)
 
@@ -90,7 +95,7 @@ class FakeGraph:
         return adhttp.Response(status, {}, body)
 
     def _ok(self, body):
-        return adhttp.Response(200, {}, body)
+        return adhttp.Response(200, dict(self.headers), body)
 
     def _err(self, name):
         return self._fixture(name)
@@ -102,6 +107,8 @@ class FakeGraph:
         d = call["data"]
         if not parts and method == "GET" and call["params"].get("ids"):
             return self._read_ids(call["params"])
+        if len(parts) == 2 and parts[0] == self.account and parts[1] == "insights" and method == "GET":
+            return self._insights(call["params"])
         if len(parts) == 2 and parts[0] == self.account:
             edge = parts[1]
             kind = EDGE_KIND.get(edge)
@@ -261,3 +268,54 @@ class FakeGraph:
                     r[f] = str(o["daily_budget"])
             out[oid] = r
         return self._ok(out)
+
+    # ------------------------------------------------------------ insights (M2.5)
+    def _insights(self, params):
+        """GET /act_<id>/insights?level=ad&time_increment=1: one row per ad per day with delivery (Meta leaves out days
+        with nothing), for the campaigns in `filtering`, inside `time_range`, paged by `after` (an offset here)."""
+        import json as _json
+        if params.get("level") != "ad" or params.get("time_increment") != "1":
+            return self._err("meta/error_100_invalid.json")
+        tr = _json.loads(params.get("time_range") or "{}")
+        camps = set()
+        for f in _json.loads(params.get("filtering") or "[]"):
+            if f.get("field") == "campaign.id" and f.get("operator") == "IN":
+                camps |= {str(v) for v in f.get("value") or []}
+        rows = []
+        for (ad_id, day), m in sorted(self.daily.items(), key=lambda kv: (kv[0][1], kv[0][0])):
+            ad = self.store.get(ad_id)
+            if ad is None or not (tr.get("since", "") <= day <= tr.get("until", "9999")):
+                continue
+            adset = self.store.get(ad.get("parent") or "", {})
+            camp = adset.get("parent")
+            if camps and camp not in camps:
+                continue
+            spend, imp = m.get("spend", "0"), int(m.get("impressions", 0))
+            clicks, link = int(m.get("clicks", m.get("link_clicks", 0))), int(m.get("link_clicks", 0))
+            actions = [{"action_type": "link_click", "value": str(link)}] if link else []
+            values = []
+            for t, k in (("offsite_conversion.fb_pixel_purchase", "purchases"), ("purchase", "purchases"),
+                         ("omni_purchase", "purchases"), ("offsite_conversion.fb_pixel_lead", "leads"), ("lead", "leads")):
+                if m.get(k):
+                    actions.append({"action_type": t, "value": str(m[k])})
+            if m.get("value"):
+                values = [{"action_type": t, "value": m["value"]} for t in ("offsite_conversion.fb_pixel_purchase",
+                                                                            "purchase", "omni_purchase")]
+            row = {"ad_id": ad_id, "ad_name": ad["name"], "adset_id": ad.get("parent"), "campaign_id": camp,
+                   "date_start": day, "date_stop": day, "account_currency": m.get("currency", "USD"), "spend": spend,
+                   "impressions": str(imp), "reach": str(m.get("reach", imp)), "clicks": str(clicks),
+                   "inline_link_clicks": str(link), "ctr": f"{clicks * 100 / imp:.6f}" if imp else "0"}
+            if actions:
+                row["actions"] = actions
+            if values:
+                row["action_values"] = values
+            rows.append(row)
+        start = int(params.get("after") or 0)
+        page = rows[start:start + min(int(params.get("limit") or 500), self.insight_page)]
+        body = {"data": page}
+        nxt = start + len(page)
+        if nxt < len(rows):
+            body["paging"] = {"cursors": {"before": str(start), "after": str(nxt)}, "next": "https://graph.facebook.com/next"}
+        else:
+            body["paging"] = {"cursors": {"before": str(start), "after": str(nxt)}}
+        return self._ok(body)

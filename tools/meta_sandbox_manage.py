@@ -12,7 +12,9 @@ What it does, with the same adapter code the app runs (adplatforms/meta.py):
   3. turns the ad on and off again while the campaign stays PAUSED (nothing can deliver or spend), reading it back
      each time (effective_status CAMPAIGN_PAUSED or ADSET_PAUSED while on);
   4. sends a second change inside 30 s: our edit lock (adhttp.edit_lock) holds it before Meta is called;
-  5. with --record, writes every answer Meta gave (tokens and ids scrubbed) as JSON fixtures, to replace the
+  5. with --insights, pulls the last 14 days of per-ad, per-day insights for the campaign (M2.5) and prints them as
+     the Ad campaigns page would add them up, to compare with Ads Manager (within 5%, roadmap M2.5);
+  6. with --record, writes every answer Meta gave (tokens and ids scrubbed) as JSON fixtures, to replace the
      hand-written tests/fixtures/meta/manage_*.json.
 
 It never turns the campaign on. Exit 0 when every check passed.
@@ -39,6 +41,7 @@ def main():
     ap.add_argument("--adset", required=True)
     ap.add_argument("--ad", required=True)
     ap.add_argument("--record")
+    ap.add_argument("--insights", action="store_true")
     a = ap.parse_args()
     token = os.environ.get("META_SANDBOX_TOKEN") or ""
     if not (token and meta.app_id() and meta.app_secret()):
@@ -82,6 +85,19 @@ def main():
     say(meta.read_objects(token, acct, {"ad": [a.ad]})[a.ad]["status"] == "PAUSED", "and paused again")
     st = meta.read_objects(token, acct, {"campaign": [a.campaign]})
     say(st[a.campaign]["status"] == "PAUSED", "the campaign stayed PAUSED throughout")
+    if a.insights:
+        import adinsights
+        from datetime import date, timedelta
+        until = date.today()
+        got = meta.pull_insights(token, acct, [a.campaign], (until - timedelta(days=14)).isoformat(), until.isoformat())
+        say(isinstance(got, list), f"insights: {len(got)} ad-day rows")
+        spec = {"objective": "sales", "conversion": {"pixel_id": "x", "event": "Purchase"}}
+        rows = [adinsights.parse(r, spec, r.get("account_currency") or "USD") for r in got]
+        f = adinsights.figures({"spend": sum(r["spend_minor"] for r in rows), "imp": sum(r["impressions"] for r in rows),
+                                "link": sum(r["link_clicks"] for r in rows), "results": sum(r["results"] for r in rows),
+                                "kind": "purchase"})
+        print(f"  14 days: spent {f['spend']} minor units, shown {f['imp']}, link clicks {f['link']}, click rate {f['ctr']}%, "
+              f"purchases {f['results']}. Compare with Ads Manager (Last 14 days plus today, same attribution).")
     print("PASS" if ok else "FAIL")
     sys.exit(0 if ok else 1)
 

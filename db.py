@@ -647,6 +647,34 @@ CREATE TABLE IF NOT EXISTS ad_objects (
     created_at TEXT NOT NULL,
     UNIQUE (platform, external_id));
 CREATE INDEX IF NOT EXISTS idx_adobj_launch ON ad_objects(launch_id);
+-- ad_insights_daily (adinsights.py, roadmap M2.5): what Meta reports per ad per day, in the ad account's currency and
+-- time zone. Pulled every few hours for today and the 14 days before it (two full weeks for the creative fatigue check, M4.2; late
+-- purchases settle inside it). Money in minor units (adspec.minor_factor); rates are computed from the sums.
+CREATE TABLE IF NOT EXISTS ad_insights_daily (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    connection_id INTEGER, launch_id INTEGER,
+    platform TEXT NOT NULL,
+    level TEXT NOT NULL DEFAULT 'ad',        -- ad (campaign and ad set figures are sums of their ads)
+    external_object_id TEXT NOT NULL,        -- the ad id
+    campaign_external_id TEXT, adset_external_id TEXT,
+    day TEXT NOT NULL,                       -- YYYY-MM-DD in the ad account's time zone (Meta's date_start)
+    currency TEXT,
+    spend_minor INTEGER NOT NULL DEFAULT 0,
+    impressions INTEGER NOT NULL DEFAULT 0, reach INTEGER NOT NULL DEFAULT 0,
+    clicks INTEGER NOT NULL DEFAULT 0,       -- all clicks (Meta's clicks)
+    link_clicks INTEGER NOT NULL DEFAULT 0,  -- Meta's inline_link_clicks (Ads Manager "Link clicks")
+    ctr REAL,                                -- link click-through rate in %, link_clicks / impressions * 100
+    ctr_all REAL,                            -- Meta's ctr (all clicks) in %
+    cpc_minor INTEGER,                       -- spend per link click
+    results INTEGER NOT NULL DEFAULT 0, result_kind TEXT,   -- purchase | lead | link_click | reach | <event>
+    cost_per_result_minor INTEGER,
+    leads INTEGER NOT NULL DEFAULT 0, purchases INTEGER NOT NULL DEFAULT 0, purchase_value_minor INTEGER NOT NULL DEFAULT 0,
+    raw_json TEXT,                           -- Meta's row as it came (ids and numbers only)
+    fetched_at TEXT NOT NULL,
+    UNIQUE (platform, external_object_id, day));
+CREATE INDEX IF NOT EXISTS idx_insights_launch ON ad_insights_daily(launch_id, day);
+CREATE INDEX IF NOT EXISTS idx_insights_ws ON ad_insights_daily(workspace_id, day);
 -- Conversion tracking on members' own pages and forms (conversions.py, site_events.py; roadmap M3.4).
 -- page_events: the first-party collector. One row per page view sent server side and per form lead, with the
 -- UUID the browser pixels fire with. No IP address, no raw email or phone: hashes_json holds SHA-256 values only.
@@ -839,6 +867,10 @@ COLUMNS = [
     ("ad_objects", "effective_status", "TEXT"),       # Meta's effective_status (ACTIVE, CAMPAIGN_PAUSED, DISAPPROVED...)
     ("ad_objects", "daily_budget_minor", "INTEGER"),  # campaigns: the daily budget in the account's minor units
     ("ad_objects", "synced_at", "TEXT"),
+    # Insights pulls per connection (adinsights.py, M2.5)
+    ("ad_connections", "insights_at", "TEXT"),        # the last pull that worked
+    ("ad_connections", "insights_next_at", "TEXT"),   # when the next pull is due (a rate limit pushes it out)
+    ("ad_connections", "insights_error", "TEXT"),     # the last pull's problem, in plain words
     # conversion tracking on members' pages and forms (conversions.py, M3.4): the owner's measurement setting
     # ('us': visitors in the US who send no GPC / Do Not Track; 'off': never), and per pixel the Test Events code
     ("pages", "measurement", "TEXT NOT NULL DEFAULT 'us'"),
