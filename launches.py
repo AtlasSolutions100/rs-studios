@@ -27,7 +27,8 @@ Google (M3.2 Search, M3.3 Performance Max; launch_google.py has its draft, rules
 same card, approval, ledger, saga and compensation, behind GOOGLE_ADS as well: one mutate makes the whole
 campaign (Google applies all of it or none), then a GAQL check reads it back. Its daily budget follows the
 same D3 ceilings. Snapchat (M6.1; launch_video.py has its draft, rules and card, adplatforms/snapchat.py the
-steps) does too, behind SNAPCHAT_ADS: uploads, creatives, the campaign, the ad squad, the ads, all PAUSED.
+steps) does too, behind SNAPCHAT_ADS: uploads, creatives, the campaign, the ad squad, the ads, all PAUSED. So does
+TikTok (M6.2, adplatforms/tiktok.py, behind TIKTOK_ADS): uploads, the campaign (off), the ad group, the ads.
 
 Rules (Koby's decisions): launching needs a paid plan (D2); a campaign's daily budget is capped per plan
 (D3: Starter 200, Growth 1,000, Scale 5,000 a day, in the ad account's currency; "ask us" above); every
@@ -80,8 +81,8 @@ FINISHED = ("paused", "failed", "rolled_back")
 
 KIND_WORDS = {"upload": "Upload", "creative": "Ad creative", "campaign": "Campaign", "adset": "Ad set", "ad": "Ad",
               "adgroup": "Ad group", "assetgroup": "Asset group", "check": "Check", "adsquad": "Ad squad"}
-PLATFORM_WORDS = {"meta": "Meta", "google": "Google", "snapchat": "Snapchat"}
-ADSET_KINDS = ("adset", "adsquad")       # the ad set of a launch, by platform (its step key is "adset" on each)
+PLATFORM_WORDS = {"meta": "Meta", "google": "Google", "snapchat": "Snapchat", "tiktok": "TikTok"}
+ADSET_KINDS = ("adset", "adsquad", "adgroup")       # the ad set of a launch, by platform (its step key is "adset" on each)
 OBJECTIVE_WORDS = {"sales": "Sales", "leads": "Leads", "traffic": "Traffic", "awareness": "Awareness"}
 GOAL_TO_OBJECTIVE = {"sales": "sales", "leads": "leads", "traffic": "traffic", "awareness": "awareness",
                      "engagement": "traffic", "installs": "traffic"}
@@ -354,6 +355,11 @@ def apply_form(base: dict, form, all_ads: list) -> dict:
         aud["genders"] = [g("genders")]
     if g("vertical") in adspec.VERTICALS:
         d["vertical"] = g("vertical")
+    if g("form") == "1" and g("placement_mode") in ("auto", "choose"):
+        # Meta (M6.3): automatic, or the ticked apps and spots (Instagram Feed, Stories, Reels; Facebook's too)
+        keys = dict(adspec.META_CHOICES)
+        d["placements"] = "auto" if g("placement_mode") == "auto" else \
+            [k for k in keys if k in form.getlist("place")]
     if g("form") == "1":
         d["special_ad_categories"] = [s for s in form.getlist("special") if s in adspec.SPECIAL_AD_CATEGORIES]
         d["claims_substantiated"] = g("claims") == "1"
@@ -434,6 +440,16 @@ def launch_issues(conn, ws, spec, conn_row, assets: dict, prov: dict, operator: 
         if not conn_row["page_id"]:
             add("block", "launch.no_page", "Ads on Meta run from a Facebook Page, and none is picked.",
                 "Reconnect the ad account and pick your Page.", "connection")
+        # M6.3: Instagram placements run as the Page's Instagram account (instagram_user_id on each creative).
+        ig = isinstance(spec.placements, list) and set(spec.placements) & adspec.INSTAGRAM_PLACEMENTS
+        if ig and not conn_row["instagram_actor_id"]:
+            add("block", "launch.no_instagram", "Instagram placements need the Instagram account linked to your Page, "
+                "and none is picked.", "Link it to the Page on Meta and reconnect, or untick the Instagram placements.",
+                "placements")
+        elif spec.placements == "auto" and not conn_row["instagram_actor_id"]:
+            add("warn", "launch.auto_no_instagram", "Automatic placements include Instagram, and no Instagram account is "
+                "linked to the Page.", "Link one on Meta and reconnect so Instagram shows your own account, or pick "
+                "Facebook placements only.", "placements")
         scopes = set((conn_row["scopes"] or "").split())
         miss = [s for s in ("ads_management", "pages_manage_ads") if scopes and s not in scopes]
         if miss:
@@ -513,7 +529,9 @@ def make_card(conn, ws, spec, conn_row, steps: list, prov: dict) -> dict:
     aud, geo = spec.audience or {}, spec.geo or {}
     genders = {"women": "women", "men": "men"}.get((aud.get("genders") or ["all"])[0], "all genders")
     where = ", ".join(geo.get("countries") or []) or "no location"
-    place = "automatic placements" if spec.placements == "auto" else "placements: " + ", ".join(spec.placements)
+    words = dict(adspec.META_CHOICES)
+    place = "automatic placements" if spec.placements == "auto" else \
+        "placements: " + ", ".join(words.get(p, p.replace("_", " ")) for p in spec.placements)
     px_name = None
     conv = spec.conversion or {}
     if conn_row is not None and conv.get("pixel_id"):
@@ -703,6 +721,8 @@ def _retryable(err) -> bool:
     if isinstance(err, adhttp.NetworkError):
         return True
     if isinstance(err, adhttp.AdHttpError) and not isinstance(err, (adhttp.TokenInvalid, adhttp.PermissionDenied)):
+        if err.platform == "tiktok":
+            return (err.status or 0) >= 500 or err.code in adhttp.TIKTOK_TRANSIENT
         return (err.status or 0) >= 500 or err.code in adhttp.META_TRANSIENT or err.code in adhttp.GOOGLE_TRANSIENT
     return False
 
@@ -723,6 +743,7 @@ def _record(conn, L, s, res: dict):
                      "name, status, created_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(platform, external_id) DO UPDATE "
                      "SET status=excluded.status, launch_id=excluded.launch_id",
                      (L["id"], L["workspace_id"], L["platform"], kind, ext, parent, s["name"],
+                      res.get("status") if res.get("status") in ("ENABLED", "PAUSED") else
                       {"video": "UPLOADED", "creative": "CREATED"}.get(kind, "PAUSED"), db.now()))
     if s["kind"] == "campaign":
         conn.execute("UPDATE launches SET external_campaign_id=? WHERE id=?", (ext, L["id"]))
@@ -943,7 +964,7 @@ def maybe_tick():
 
 STEP_WORDS = {"upload": "Upload {what}", "creative": "Create the ad creative for {what}", "campaign": "Create the campaign",
               "adset": "Create the ad set", "ad": "Create {what}", "check": "Check it on Google",
-              "adsquad": "Create the ad squad"}
+              "adsquad": "Create the ad squad", "adgroup": "Create the ad group"}
 
 
 def step_label(s) -> str:

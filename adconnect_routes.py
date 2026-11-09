@@ -1,5 +1,5 @@
 """Settings > Connections: a workspace connects its own Meta ad account (roadmap M2.1), Google Ads
-account (M3.1) and Snapchat ad account (M6.1).
+account (M3.1), Snapchat ad account (M6.1) and TikTok advertiser account (M6.2).
 
     GET  /app/settings/ad-accounts                 the connections, Connect Meta, the "no ad account yet" checklist
     POST /connect/meta                             start Facebook Login for Business (owner or admin; CSRF)
@@ -18,11 +18,15 @@ account (M3.1) and Snapchat ad account (M6.1).
     GET  /connect/snapchat/callback                Snap sends the person back here with ?code&state
                                                    (then .../<id>/pick: the ad account and its public profile,
                                                    then .../<id>/pixel when there are several Snap Pixels)
+    POST /connect/tiktok                           start TikTok's advertiser authorization (owner or admin)
+    GET  /connect/tiktok/callback                  TikTok sends the person back here with ?auth_code&state
+    GET/POST /app/settings/ad-accounts/<id>/identity  TikTok: pick the custom identity the ads show, or make one
 
 Google sits behind AD_LAUNCH and GOOGLE_ADS (adplatforms/google.py). Its refresh token goes into the same
 token box; Disconnect revokes it at Google. Snapchat sits behind AD_LAUNCH and SNAPCHAT_ADS (adplatforms/snapchat.py);
 its refresh token goes into the token box too. Snap has no revoke endpoint, so Disconnect deletes the token here and
-says where to remove the app on Snap.
+says where to remove the app on Snap. TikTok sits behind AD_LAUNCH and TIKTOK_ADS (adplatforms/tiktok.py); its
+access token goes into the token box and Disconnect revokes it at TikTok.
 
 Connecting sits behind AD_LAUNCH (adplatforms.enabled): off = 404. Removing never does (M-3): the
 Settings list and Disconnect stay open for a workspace that still holds connections, and Meta's two
@@ -53,7 +57,7 @@ import adplatforms
 import conversions
 import db
 import secretsbox
-from adplatforms import google, meta, snapchat
+from adplatforms import google, meta, snapchat, tiktok
 from core import is_owner, login_required
 
 log = logging.getLogger("campaignify.adconnect")
@@ -62,11 +66,13 @@ bp = Blueprint("adconnect", __name__)
 S_KEY = "ad_oauth"
 G_KEY = "ad_oauth_google"
 SNAP_KEY = "ad_oauth_snapchat"
+TT_KEY = "ad_oauth_tiktok"
 STATE_TTL_S = 600
 FAILED = "Connecting to Meta didn't work. Try again in a minute."
 G_FAILED = "Connecting to Google didn't work. Try again in a minute."
 SNAP_FAILED = "Connecting to Snapchat didn't work. Try again in a minute."
-WORDS = {"meta": "Meta", "google": "Google", "snapchat": "Snapchat"}
+TT_FAILED = "Connecting to TikTok didn't work. Try again in a minute."
+WORDS = {"meta": "Meta", "google": "Google", "snapchat": "Snapchat", "tiktok": "TikTok"}
 
 
 def _on():
@@ -91,6 +97,11 @@ def _google_on():
 
 def _snap_on():
     if not snapchat.enabled(g.get("ws"), g.get("user")):
+        abort(404)
+
+
+def _tt_on():
+    if not tiktok.enabled(g.get("ws"), g.get("user")):
         abort(404)
 
 
@@ -131,12 +142,14 @@ def settings():
             px.setdefault(p["connection_id"], []).append(p)
     g_on = live and google.enabled(g.ws, g.get("user"))
     s_on = live and snapchat.enabled(g.ws, g.get("user"))
+    t_on = live and tiktok.enabled(g.ws, g.get("user"))
     return render_template("ad_connections.html", rows=rows, pixels=px, owner=is_owner() and not g.get("viewing"),
                            meta_ready=live and meta.ADAPTER.configured(), checklist=meta.checklist(), paused=not live,
                            google_on=g_on, google_ready=g_on and google.ADAPTER.configured(),
                            google_checklist=google.checklist(), dashed=google.dashed,
                            snap_on=s_on, snap_ready=s_on and snapchat.ADAPTER.configured(),
                            snap_checklist=snapchat.checklist(),
+                           tt_on=t_on, tt_ready=t_on and tiktok.ADAPTER.configured(), tt_checklist=tiktok.checklist(),
                            conv_on=live and conversions.ws_enabled(g.ws, g.get("user")))
 
 
@@ -221,6 +234,8 @@ def pick(cid):
             return _pick_google(conn, row)
         if row["platform"] == "snapchat":
             return _pick_snapchat(conn, row)
+        if row["platform"] == "tiktok":
+            return _pick_tiktok(conn, row)
         d = _data(row)
         accounts = {a["id"]: a for a in d.get("accounts") or []}
         pages = {p["id"]: p for p in d.get("pages") or []}
@@ -300,9 +315,11 @@ def _revoke_replaced(conn, old, new):
 
 
 def _save_pixel(conn, row, px):
+    # TikTok: a pixel the member added by hand in Conversion tracking (with its Events API token) stays theirs, not
+    # the connection's, so Disconnect never deletes it; launches read both (launch_video.pixels_for).
+    keep = "DO NOTHING" if row["platform"] == "tiktok" else "DO UPDATE SET connection_id=excluded.connection_id, name=excluded.name"
     conn.execute("INSERT INTO pixels (workspace_id, platform, connection_id, external_pixel_id, name, created_at) "
-                 "VALUES (?,?,?,?,?,?) ON CONFLICT(workspace_id, platform, external_pixel_id) DO UPDATE SET "
-                 "connection_id=excluded.connection_id, name=excluded.name",
+                 f"VALUES (?,?,?,?,?,?) ON CONFLICT(workspace_id, platform, external_pixel_id) {keep}",
                  (row["workspace_id"], row["platform"], row["id"], px["id"], px["name"], db.now()))
     conn.execute("UPDATE ad_connections SET pending_json=NULL WHERE id=?", (row["id"],))
     conn.commit()
@@ -605,6 +622,174 @@ def _pick_snapchat(conn, row):
         conn.commit()
         return redirect(url_for("adconnect.pixel", cid=target))
     flash(f"Connected {a['name']}." + ("" if pxs else " It has no Snap Pixel yet: traffic campaigns run without one.") + note)
+    return redirect(url_for("adconnect.settings"))
+
+
+# ---------------------------------------------------------------- TikTok (M6.2)
+
+@bp.route("/connect/tiktok", methods=["POST"])
+@login_required
+def tiktok_start():
+    _on()
+    _tt_on()
+    _owner()
+    if not tiktok.ADAPTER.configured():
+        flash("Connecting TikTok isn't switched on yet. Try again later.")
+        return redirect(url_for("adconnect.settings"))
+    reconnect = request.form.get("reconnect") or ""
+    if reconnect:
+        with db.connect() as conn:
+            reconnect = str(_pending(conn, reconnect)["id"]) if reconnect.isdigit() else ""
+    state = secrets.token_urlsafe(24)
+    session[TT_KEY] = {"state": state, "ws": g.ws["id"], "uid": g.user["id"], "reconnect": reconnect,
+                       "at": int(time.time())}
+    return redirect(tiktok.ADAPTER.oauth_start(state))
+
+
+@bp.route("/connect/tiktok/callback")
+def tiktok_callback():
+    pend = session.pop(TT_KEY, None)
+    if not g.get("user"):
+        flash("Log in, then connect your TikTok ad account again.")
+        return redirect(url_for("login"))          # never a `next` carrying the code
+    _on()
+    _tt_on()
+    back = redirect(url_for("adconnect.settings"))
+    sent, code = request.args.get("state") or "", request.args.get("auth_code") or request.args.get("code") or ""
+    if request.args.get("error") or (sent and not code):
+        log.info("tiktok connect refused by the person")
+        flash("TikTok didn't connect: the request was cancelled. Nothing changed.")
+        return back
+    if not pend or not sent or not code or not secrets.compare_digest(sent, str(pend.get("state") or "")) \
+            or pend.get("ws") != g.ws["id"] or pend.get("uid") != g.user["id"] \
+            or time.time() - int(pend.get("at") or 0) > STATE_TTL_S:
+        flash("That connect attempt expired. Start it again.")
+        return back
+    _owner()
+    try:
+        got = tiktok.ADAPTER.oauth_finish(code)
+    except adhttp.AdHttpError as e:          # scrubbed: never carries a token or the code
+        log.warning("tiktok connect failed: %s", e)
+        flash(TT_FAILED)
+        return back
+    except Exception as e:  # noqa: BLE001  a malformed answer; log the kind only
+        log.error("tiktok connect failed: %s", type(e).__name__)
+        flash(TT_FAILED)
+        return back
+    now = db.now()
+    keep = {"accounts": got["accounts"], "user_name": got["user_name"], "reconnect": pend.get("reconnect") or ""}
+    with db.connect() as conn:
+        cid = conn.execute(
+            "INSERT INTO ad_connections (workspace_id, platform, external_account_id, external_user_id, token_enc, "
+            "token_expires_at, scopes, status, pending_json, created_by, created_at, updated_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (g.ws["id"], "tiktok", "pending:" + secrets.token_hex(8), got["user_id"],
+             adplatforms.seal_token(g.ws["id"], got["token"]), None, " ".join(got["scopes"]),
+             "pending", json.dumps(keep), g.user["id"], now, now)).lastrowid
+        conn.commit()
+    return redirect(url_for("adconnect.pick", cid=cid))
+
+
+def _pick_tiktok(conn, row):
+    """Pick the TikTok advertiser account, then (.../identity) the identity its ads show, then the pixel."""
+    _tt_on()
+    d = _data(row)
+    accounts = {a["id"]: a for a in d.get("accounts") or []}
+    pre = None
+    if d.get("reconnect"):
+        old = adplatforms.get(conn, g.ws["id"], d["reconnect"])
+        pre = old["external_account_id"] if old else None
+    if request.method == "GET":
+        return render_template("ad_connect_tiktok.html", step="account", row=row, d=d, pre=pre,
+                               checklist=tiktok.checklist())
+    a = accounts.get(request.form.get("account") or "")
+    if not a or not a["usable"]:
+        flash("Pick one of the ad accounts listed.")
+        return redirect(url_for("adconnect.pick", cid=row["id"]))
+    now = db.now()
+    same = conn.execute("SELECT * FROM ad_connections WHERE workspace_id=? AND platform='tiktok' AND "
+                        "external_account_id=? AND id!=?", (g.ws["id"], a["id"], row["id"])).fetchone()
+    target = same["id"] if same else row["id"]
+    if same:
+        _revoke_replaced(conn, same, row)
+        conn.execute("DELETE FROM ad_connections WHERE id=?", (row["id"],))
+    conn.execute("UPDATE ad_connections SET external_account_id=?, account_name=?, currency=?, timezone=?, business_id=NULL, "
+                 "page_id=?, page_name=?, instagram_actor_id=NULL, instagram_username=NULL, external_user_id=?, "
+                 "token_enc=?, token_expires_at=NULL, scopes=?, updated_at=?, status='active', last_error=NULL, "
+                 "pending_json=NULL WHERE id=?",
+                 (a["id"], a["name"], a["currency"], a["timezone"], same["page_id"] if same else None,
+                  same["page_name"] if same else None, row["external_user_id"], row["token_enc"], row["scopes"], now,
+                  target))
+    conn.commit()
+    row = adplatforms.get(conn, g.ws["id"], target)
+    token = adplatforms.open_token(row)
+    try:
+        ids = tiktok.ADAPTER.list_identities(token, a["id"])
+        pxs = tiktok.ADAPTER.list_pixels(token, a["id"])
+    except adhttp.TokenInvalid as e:
+        adplatforms.mark(conn, target, "expired", "TikTok ended this access. Reconnect.")
+        log.warning("tiktok identities: %s", e)
+        flash(f"Connected {a['name']}, but TikTok ended the access right away. Reconnect it.")
+        return redirect(url_for("adconnect.settings"))
+    except adhttp.AdHttpError as e:
+        log.warning("tiktok identities: %s", e)
+        ids, pxs = [], None
+    conn.execute("UPDATE ad_connections SET pending_json=? WHERE id=?",
+                 (json.dumps({"identities": ids, "pixels": pxs, "brand": g.ws["brand_name"] or g.ws["name"] or ""}), target))
+    conn.commit()
+    return redirect(url_for("adconnect.identity", cid=target))
+
+
+@bp.route("/app/settings/ad-accounts/<int:cid>/identity", methods=["GET", "POST"])
+@login_required
+def identity(cid):
+    """TikTok: the custom identity (name and avatar) the ads show. Pick one, or Campaignify makes one with the name
+    typed here (TikTok's /identity/create/; the avatar can be added in TikTok Ads Manager)."""
+    _on()
+    _tt_on()
+    _owner()
+    with db.connect() as conn:
+        row = _pending(conn, cid)
+        d = _data(row)
+        if row["platform"] != "tiktok" or row["status"] != "active" or "identities" not in d:
+            return redirect(url_for("adconnect.settings"))
+        ids = {i["id"]: i for i in d.get("identities") or []}
+        if request.method == "GET":
+            return render_template("ad_connect_tiktok.html", step="identity", row=row, d=d)
+        choice = request.form.get("identity") or ""
+        if choice == "new":
+            name = " ".join((request.form.get("display_name") or "").split())[:40]
+            if not name:
+                flash("Type the name the ads should show.")
+                return redirect(url_for("adconnect.identity", cid=cid))
+            try:
+                ident = tiktok.ADAPTER.create_identity(adplatforms.open_token(row), row["external_account_id"], name)
+            except adhttp.AdHttpError as e:
+                log.warning("tiktok identity create: %s", e)
+                flash("TikTok didn't make the identity" + (f": {e.user_message[:160]}" if e.user_message else ".")
+                      + " Try another name.")
+                return redirect(url_for("adconnect.identity", cid=cid))
+        elif choice in ids:
+            ident = ids[choice]
+        else:
+            flash("Pick one of the identities listed, or make one.")
+            return redirect(url_for("adconnect.identity", cid=cid))
+        conn.execute("UPDATE ad_connections SET page_id=?, page_name=?, pending_json=NULL, updated_at=? WHERE id=?",
+                     (ident["id"], ident["name"], db.now(), cid))
+        conn.commit()
+        row = adplatforms.get(conn, g.ws["id"], cid)
+        pxs = d.get("pixels")
+        if pxs is None:
+            flash(f"Connected {row['account_name']}. We couldn't read its pixels; you can pick one later.")
+            return redirect(url_for("adconnect.settings"))
+        if len(pxs) == 1:
+            _save_pixel(conn, row, pxs[0])
+        if len(pxs) > 1:
+            conn.execute("UPDATE ad_connections SET pending_json=? WHERE id=?", (json.dumps({"pixels": pxs}), cid))
+            conn.commit()
+            return redirect(url_for("adconnect.pixel", cid=cid))
+    flash(f"Connected {row['account_name']}." + ("" if pxs else " It has no TikTok Pixel yet: traffic campaigns run "
+                                                          "without one."))
     return redirect(url_for("adconnect.settings"))
 
 

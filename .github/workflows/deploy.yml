@@ -108,6 +108,11 @@ name: Deploy Campaignify (campaignify.ai)
 #   SNAPCHAT_CLIENT_ID     variable: the Snapchat Marketing API OAuth app's client id (Business Manager > Business
 #                          Details > OAuth Apps). Its redirect URI must be https://campaignify.ai/connect/snapchat/callback
 #   SNAPCHAT_CLIENT_SECRET secret: that OAuth app's client secret (Snap shows it once)
+#   TIKTOK_ADS             optional variable: 1 turns TikTok connect and launch on (adplatforms/tiktok.py, roadmap
+#                          M6.2), on top of AD_LAUNCH. Default off
+#   TIKTOK_APP_ID          variable: the TikTok for Business developer app's App ID (business-api.tiktok.com > My Apps).
+#                          Its Advertiser redirect URL must be https://campaignify.ai/connect/tiktok/callback
+#   TIKTOK_APP_SECRET      secret: that app's Secret
 #   CONVERSIONS_API        optional variable: 1 turns conversion tracking on members' Campaignify pages and forms
 #                          on (conversions.py, roadmap M3.4): browser pixels and server events with one event id
 #                          to the workspace's Meta pixel (Conversions API), TikTok pixel (Events API) and Google Ads
@@ -274,6 +279,9 @@ jobs:
           SNAPCHAT_ADS: ${{ vars.SNAPCHAT_ADS }}
           SNAPCHAT_CLIENT_ID: ${{ vars.SNAPCHAT_CLIENT_ID }}
           SNAPCHAT_CLIENT_SECRET: ${{ secrets.SNAPCHAT_CLIENT_SECRET }}
+          TIKTOK_ADS: ${{ vars.TIKTOK_ADS }}
+          TIKTOK_APP_ID: ${{ vars.TIKTOK_APP_ID }}
+          TIKTOK_APP_SECRET: ${{ secrets.TIKTOK_APP_SECRET }}
           # Conversion tracking on members' pages (conversions.py, M3.4/M3.5): off until CONVERSIONS_API is set.
           CONVERSIONS_API: ${{ vars.CONVERSIONS_API }}
           META_CAPI_USE_CONNECTION_TOKEN: ${{ vars.META_CAPI_USE_CONNECTION_TOKEN }}
@@ -329,6 +337,7 @@ jobs:
                                              "META_APP_SECRET", "META_LOGIN_CONFIG_ID", "TOKEN_KEY", "TOKEN_KEYS_OLD",
                                              "GOOGLE_ADS", "GOOGLE_ADS_CLIENT_ID", "GOOGLE_ADS_CLIENT_SECRET",
                                              "SNAPCHAT_ADS", "SNAPCHAT_CLIENT_ID", "SNAPCHAT_CLIENT_SECRET",
+                                             "TIKTOK_ADS", "TIKTOK_APP_ID", "TIKTOK_APP_SECRET",
                                              "CONVERSIONS_API", "META_CAPI_USE_CONNECTION_TOKEN",
                                              # kill switches and opt-ins (N15)
                                              "BILLING_HOLD", "CREDIT_HOLDS", "PLAN_PENDING", "RENEWAL_PAUSE", "HF_RETRY",

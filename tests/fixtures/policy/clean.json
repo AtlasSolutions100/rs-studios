@@ -649,6 +649,51 @@
    "ai": false,
    "expect": [],
    "house": []
+  },
+  {
+   "id": "ct01",
+   "text": "Light it once and smell it all week.",
+   "platform": "tiktok",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "ct02",
+   "text": "Hand poured soy, 50 hours of burn",
+   "platform": "tiktok",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "ct03",
+   "text": "Same-day drain cleaning in Austin",
+   "platform": "tiktok",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "ct04",
+   "text": "Our fall scents are here. Which one is yours?",
+   "platform": "tiktok",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "ct05",
+   "text": "Made in small batches in Ohio",
+   "platform": "tiktok",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
   }
  ]
 }

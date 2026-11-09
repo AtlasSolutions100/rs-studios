@@ -349,6 +349,13 @@ PLACEMENTS = {   # spec placement -> (publisher platform, positions field, posit
     "explore": [("instagram", "instagram_positions", "explore")],
     "messenger": [("messenger", "messenger_positions", "messenger_home")],
     "audience_network": [("audience_network", "audience_network_positions", "classic")],
+    # one app at a time (M6.3): Instagram placements need the Page's Instagram account (instagram_user_id)
+    "facebook_feed": [("facebook", "facebook_positions", "feed")],
+    "facebook_stories": [("facebook", "facebook_positions", "story")],
+    "facebook_reels": [("facebook", "facebook_positions", "facebook_reels")],
+    "instagram_feed": [("instagram", "instagram_positions", "stream")],
+    "instagram_stories": [("instagram", "instagram_positions", "story")],
+    "instagram_reels": [("instagram", "instagram_positions", "reels")],
 }
 # Meta has no Marketing API field we could confirm (as of 2026-11-08) for the "AI-generated or edited" box that
 # Ads Manager shows on an ad. When the sandbox run confirms one, set it here, e.g. ("ad", "<field>", <value>), and

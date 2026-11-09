@@ -11,6 +11,8 @@ Google Ads campaign, Search or Performance Max (M3.2, M3.3; launch_google.py has
     POST /app/campaigns/<cid>/launch/google/approve
     GET/POST /app/campaigns/<cid>/launch/snapchat    the same for Snapchat (M6.1; also behind SNAPCHAT_ADS;
     POST /app/campaigns/<cid>/launch/snapchat/approve  launch_video.py has its draft and card)
+    GET/POST /app/campaigns/<cid>/launch/tiktok      the same for TikTok (M6.2; also behind TIKTOK_ADS)
+    POST /app/campaigns/<cid>/launch/tiktok/approve
 
 All behind AD_LAUNCH (launches.on: off = 404, beta = AD_LAUNCH_WORKSPACES and admins) and the planner plan
 (the plan page needs it). Members can draft and look; only the owner (or an admin) approves. Another
@@ -37,7 +39,8 @@ bp = Blueprint("launch", __name__)
 
 APPROVALS_PER_HOUR = 10
 UPDATES_PER_HOUR = 120
-PAGES = {"meta": "launch.page", "google": "launch.google_page", "snapchat": "launch.snapchat_page"}
+PAGES = {"meta": "launch.page", "google": "launch.google_page", "snapchat": "launch.snapchat_page",
+         "tiktok": "launch.tiktok_page"}
 
 
 def _on(platform: str = "meta"):
@@ -87,7 +90,7 @@ def _render(conn, c, card_row, conn_row):
                            plan_name=plans.PLANS[launches.launch_plan_code(g.ws, _operator())]["name"],
                            text=launches.card_text(card) if card else "", latest=latest, adspec=adspec,
                            cta_words=launches.CTA_WORDS, verticals=launches.VERTICAL_WORDS,
-                           objectives=launches.OBJECTIVE_WORDS, steps=steps)
+                           objectives=launches.OBJECTIVE_WORDS, steps=steps, placement_choices=adspec.META_CHOICES)
 
 
 def _render_google(conn, c, card_row, conn_row, spec_d):
@@ -119,7 +122,7 @@ def _render_video(conn, c, card_row, conn_row, spec_d):
     picked = {cr.get("asset_id"): cr for cr in spec_d.get("creatives") or []}
     rows = [{"a": a, "c": picked.get(a["asset_id"]) or {}, "used": a["asset_id"] in picked} for a in videos]
     cap = launches.ceiling(g.ws, spec_d.get("currency"), _operator())
-    pxs = launches.pixels_of(conn, g.ws["id"], conn_row["id"]) if conn_row is not None else []
+    pxs = launch_video.pixels_for(conn, g.ws["id"], conn_row)
     mod = launch_video.module(platform)
     return render_template("launch_video.html", c=c, card_row=card_row, spec=spec_d, card=card,
                            blocks=[i for i in issues if i.level == "block"], warns=[i for i in issues if i.level != "block"],
@@ -153,6 +156,12 @@ def google_page(cid):
 @feature_required("planner")
 def snapchat_page(cid):
     return _page(cid, "snapchat")
+
+
+@bp.route("/app/campaigns/<int:cid>/launch/tiktok", methods=["GET", "POST"])
+@feature_required("planner")
+def tiktok_page(cid):
+    return _page(cid, "tiktok")
 
 
 def _draft(conn, c, conn_row, platform):
@@ -230,6 +239,12 @@ def google_approve(cid):
 @feature_required("planner")
 def snapchat_approve(cid):
     return _approve(cid, "snapchat")
+
+
+@bp.route("/app/campaigns/<int:cid>/launch/tiktok/approve", methods=["POST"])
+@feature_required("planner")
+def tiktok_approve(cid):
+    return _approve(cid, "tiktok")
 
 
 def _approve(cid, platform):
@@ -320,8 +335,9 @@ def retry(lid):
 
 @bp.app_context_processor
 def _slot():
-    """launch_slot(c, platform): what the plan page's Meta (Google, Snapchat) block shows in the launch kit (the
-    "Create paused campaign" button). Google's needs GOOGLE_ADS as well, Snapchat's SNAPCHAT_ADS."""
+    """launch_slot(c, platform): what the plan page's Meta (Google, Snapchat, TikTok) block shows in the launch kit
+    (the "Create paused campaign" button). Google's needs GOOGLE_ADS as well, Snapchat's SNAPCHAT_ADS, TikTok's
+    TIKTOK_ADS."""
     def launch_slot(c, platform="meta"):
         if c is None or not launches.on(g.get("ws"), g.get("user")) or c["status"] != "ready" \
                 or not adplatforms.platform_on(platform, g.get("ws"), g.get("user")):

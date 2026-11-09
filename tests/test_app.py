@@ -3243,6 +3243,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_adpolicy.py")], check=True)
     # The launch saga, the approval card and the Meta launch steps (launches.py, launch_routes.py; M2.3): fake Graph.
     subprocess.run([sys.executable, os.path.join(HERE, "test_launches.py")], check=True)
+    # Instagram placements on Meta (M6.3): Feed, Stories and Reels per app, the Instagram account rule (fake Graph).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_meta_placements.py")], check=True)
     # Manage a launched campaign (admanage.py, manage_routes.py; M2.4): on/off, budget, approval cards, fake Graph.
     subprocess.run([sys.executable, os.path.join(HERE, "test_manage.py")], check=True)
     # Results of launched campaigns (adinsights.py; M2.5): Meta insights pull, rate limits, the dashboard, fake Graph.
@@ -3253,6 +3255,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_google_launch.py")], check=True)
     # Snapchat connect and launch (adplatforms/snapchat.py, launch_video.py, SNAPCHAT_ADS; M6.1): saga, stats (Snap faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_snapchat.py")], check=True)
+    # TikTok connect and launch (adplatforms/tiktok.py, launch_video.py, TIKTOK_ADS; M6.2): identity, saga, reporting (faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_tiktok.py")], check=True)
     # Which ad brought which lead, at what cost (adleads.py, M4.1): tags on forms, matching, cost per lead, flows as before.
     subprocess.run([sys.executable, os.path.join(HERE, "test_lead_attribution.py")], check=True)
     # Creative fatigue (adfatigue.py, M4.2): the flag on fixtures, the winning angle, Create's refresh hint, no auto-spend.

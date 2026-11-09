@@ -49,6 +49,26 @@
    "vertical": "general",
    "ai": false,
    "expect": []
+  },
+  {
+   "id": "pl06",
+   "text": "NEW SCENTS JUST DROPPED",
+   "platform": "tiktok",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.caps_punctuation"
+   ]
+  },
+  {
+   "id": "pl07",
+   "text": "Which scent is yours??",
+   "platform": "tiktok",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.caps_punctuation"
+   ]
   }
  ]
 }

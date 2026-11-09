@@ -1,4 +1,4 @@
-"""A plan's videos as a PAUSED campaign on a full-screen video platform: Snapchat (roadmap M6.1).
+"""A plan's videos as a PAUSED campaign on a full-screen video platform: Snapchat (roadmap M6.1) and TikTok (M6.2).
 
 launches.py runs it: the same approval card, approve(), ledger, saga, compensation and rules (D2 paid plan, D3 daily
 ceiling in the account's currency, library assets only). This file has what the video platforms share and what is
@@ -7,11 +7,12 @@ each one's own:
     draft()        the spec from the plan: its finished videos (this platform's first), the copy studio's copy for
                    the platform, the budget share, the connection's pixel
     apply_form()   the member's edits on the Launch page (launches.apply_form, then the platform's defaults)
-    issues()       launch rules on top of adspec.validate and adpolicy: the public profile, the pixel and the event,
-                   whole countries only, the real shape and size of each video file, restricted categories
+    issues()       launch rules on top of adspec.validate and adpolicy: the public profile (Snapchat) or identity
+                   (TikTok), the pixel and the event, whole countries only, the real shape and size of each video
+                   file, TikTok's age bands, restricted categories
     make_card()    "What Campaignify will create on <platform>", written from the steps that will run
 
-Everything here sits behind AD_LAUNCH and the platform's own flag (SNAPCHAT_ADS).
+Everything here sits behind AD_LAUNCH and the platform's own flag (SNAPCHAT_ADS, TIKTOK_ADS).
 """
 import json
 import os
@@ -22,19 +23,37 @@ import adspec
 import launches
 from adspec import Issue
 
-PLATFORMS = ("snapchat",)
-WORDS = {"snapchat": "Snapchat"}
-ADSET_WORDS = {"snapchat": "ad squad"}
-IDENTITY_WORDS = {"snapchat": "public profile"}
+PLATFORMS = ("snapchat", "tiktok")
+WORDS = {"snapchat": "Snapchat", "tiktok": "TikTok"}
+ADSET_WORDS = {"snapchat": "ad squad", "tiktok": "ad group"}
+IDENTITY_WORDS = {"snapchat": "public profile", "tiktok": "identity"}
 CTA_DEFAULT = {"sales": "SHOP_NOW", "leads": "SIGN_UP", "traffic": "LEARN_MORE", "awareness": "LEARN_MORE"}
-EVENTS = {"snapchat": ("Purchase", "Lead", "CompleteRegistration", "AddToCart", "ViewContent")}
+EVENTS = {"snapchat": ("Purchase", "Lead", "CompleteRegistration", "AddToCart", "ViewContent"),
+          "tiktok": ("Purchase", "Lead", "CompleteRegistration", "AddToCart", "InitiateCheckout", "ViewContent")}
 
 
 def module(platform: str):
     if platform == "snapchat":
         from adplatforms import snapchat
         return snapchat
+    if platform == "tiktok":
+        from adplatforms import tiktok
+        return tiktok
     raise KeyError(platform)
+
+
+def pixels_for(conn, ws_id: int, conn_row) -> list:
+    """The pixels a launch on this connection can optimize for: the connection's, and on TikTok also pixels the member
+    added by hand in Conversion tracking (the same pixel codes; they aren't tied to a connection)."""
+    if conn_row is None:
+        return []
+    rows = list(launches.pixels_of(conn, ws_id, conn_row["id"]))
+    if conn_row["platform"] == "tiktok":
+        have = {r["external_pixel_id"] for r in rows}
+        rows += [r for r in conn.execute("SELECT * FROM pixels WHERE workspace_id=? AND platform='tiktok' AND "
+                                         "connection_id IS NULL ORDER BY id", (int(ws_id),)).fetchall()
+                 if r["external_pixel_id"] not in have]
+    return rows
 
 
 # ---------------------------------------------------------------- what the plan has
@@ -91,16 +110,19 @@ def draft(conn, ws, c, conn_row, platform: str) -> dict:
     link = (brief.get("link") or "").strip()
     link = link if link.startswith("https://") else ""
     cur = conn_row["currency"] if conn_row is not None and conn_row["currency"] else "USD"
-    pxs = launches.pixels_of(conn, ws["id"], conn_row["id"]) if conn_row is not None else []
+    pxs = pixels_for(conn, ws["id"], conn_row)
     start = launches._local_today(conn_row["timezone"] if conn_row is not None else None) + timedelta(days=1)
     import campaign_budget
     days = int(brief.get("budget_days") or 0) if campaign_budget.structured(brief) else 0
     hl = adspec.TEXT_LIMITS[platform]["headline"][1] or 100
+    tl = adspec.TEXT_LIMITS[platform]["primary_text"][1] or 100
     creatives = []
     for i, a in enumerate(plan_videos(conn, ws["id"], c["id"], platform)[:10]):
         cp = copy_for(plan, platform, a["angle"])
+        tiktok = platform == "tiktok"
         creatives.append({"kind": "video", "asset_id": a["asset_id"], "name": (a["angle"] or f"Ad {i + 1}")[:80],
-                          "primary_text": "", "headline": _fit(cp["headline"] or cp["primary_text"], hl),
+                          "primary_text": _fit(cp["primary_text"] or cp["headline"], tl) if tiktok else "",
+                          "headline": "" if tiktok else _fit(cp["headline"] or cp["primary_text"], hl),
                           "description": "", "cta": CTA_DEFAULT[objective], "destination_url": link, "utm": mod.UTM,
                           "aspect": launches._aspect(a["path"] + ".jpg")})
     d = {"objective": objective, "platform": platform, "name": (c["name"] or "Campaignify campaign")[:120],
@@ -122,8 +144,8 @@ def draft(conn, ws, c, conn_row, platform: str) -> dict:
 
 
 def apply_form(base: dict, form, videos: list) -> dict:
-    """The member's edits on top of `base`: launches.apply_form, then this platform's UTM on every ad and nothing
-    Snapchat doesn't show (primary text, description)."""
+    """The member's edits on top of `base`: launches.apply_form, then this platform's UTM on every ad and nothing the
+    platform doesn't show (Snapchat: primary text, description; TikTok: headline, description)."""
     platform = base.get("platform")
     d = launches.apply_form(base, form, videos)
     mod = module(platform)
@@ -132,6 +154,8 @@ def apply_form(base: dict, form, videos: list) -> dict:
         c["kind"] = "video"
         if platform == "snapchat":
             c["primary_text"] = c["description"] = ""
+        if platform == "tiktok":
+            c["headline"] = c["description"] = ""
     d["placements"] = "auto"
     return d
 
@@ -139,7 +163,7 @@ def apply_form(base: dict, form, videos: list) -> dict:
 # ---------------------------------------------------------------- rules
 
 def _connection_pixels(conn, ws_id: int, conn_row) -> set:
-    return {p["external_pixel_id"] for p in launches.pixels_of(conn, ws_id, conn_row["id"])}
+    return {p["external_pixel_id"] for p in pixels_for(conn, ws_id, conn_row)}
 
 
 def issues(conn, ws, spec, conn_row, assets: dict) -> list:
@@ -174,6 +198,17 @@ def issues(conn, ws, spec, conn_row, assets: dict) -> list:
         add("warn", f"{p}.restricted_category", f"{word} limits targeting for housing, credit and job ads.",
             f"Check the {ADSET_WORDS[p]}'s targeting in {word} Ads Manager before you turn it on.", "special_ad_categories")
     aud = spec.audience or {}
+    if p == "tiktok":
+        bad = [c for c in geo.get("countries") or [] if c not in mod.COUNTRIES]
+        if bad:
+            add("block", "tiktok.country_unsupported", f"Campaignify can't target {', '.join(bad)} on TikTok yet.",
+                "Use other countries, or add it in TikTok Ads Manager after the campaign is made.", "geo.countries")
+        groups = mod.age_groups(aud)
+        lo, hi = mod.band_ages(groups)
+        if (lo, hi if hi < 100 else 65) != (int(aud.get("age_min", 18)), int(aud.get("age_max", 65))):
+            add("warn", "tiktok.age_band", f"TikTok targets age bands, so this reaches ages {lo} to "
+                + ("55 and over" if hi >= 100 else str(hi)) + ".", "Set the ages on a band's edges (13, 18, 25, 35, 45, "
+                "55) to match exactly.", "audience")
     if p == "snapchat" and mod.OLDEST <= int(aud.get("age_max", 65)) < 65:
         add("warn", "snapchat.age_band", "Snapchat's oldest age band is 50 and over, so the oldest age is left open.",
             "Set the oldest age under 50 to cap it.", "audience.age_max")
@@ -186,6 +221,12 @@ def issues(conn, ws, spec, conn_row, assets: dict) -> list:
         if p == "snapchat" and real != "9:16":
             add("block", "snapchat.file_not_vertical", f"Ad {i + 1}'s video is {real}. Snapchat takes 9:16 only.",
                 "Make a 9:16 version of it, or untick it.", f"{w}.aspect")
+        if p == "tiktok" and real not in adspec.ASPECTS_OK["tiktok"]:
+            add("block", "tiktok.file_shape", f"Ad {i + 1}'s video is {real}. TikTok takes 9:16, 1:1 or 16:9.",
+                "Make a 9:16 version of it, or untick it.", f"{w}.aspect")
+        if p == "tiktok" and not (a.get("poster") and os.path.exists(a["poster"])):
+            add("block", "tiktok.no_cover", f"Ad {i + 1}'s video has no cover picture, which TikTok needs.",
+                "Make the video again, or untick it.", w)
         if p == "snapchat" and os.path.getsize(a["path"]) > mod.VIDEO_MAX_BYTES:
             add("block", "snapchat.file_large", f"Ad {i + 1}'s video is over 32 MB, the most Campaignify sends to "
                 "Snapchat in one go.", "Make a shorter version of it, or untick it.", w)
@@ -206,25 +247,38 @@ def make_card(conn, ws, spec, conn_row, steps: list, prov: dict) -> dict:
     genders = {"women": "women", "men": "men"}.get((aud.get("genders") or ["all"])[0], "all genders")
     where = ", ".join(geo.get("countries") or []) or "no location"
     lo, hi = aud.get("age_min", 18), aud.get("age_max", 65)
-    ages = f"ages {lo} and over" if p == "snapchat" and hi >= mod.OLDEST else f"ages {lo} to {hi}"
+    if p == "tiktok":
+        blo, bhi = mod.band_ages(mod.age_groups(aud))
+        ages = f"ages {blo} and over" if bhi >= 100 else f"ages {blo} to {bhi}"
+    else:
+        ages = f"ages {lo} and over" if hi >= mod.OLDEST else f"ages {lo} to {hi}"
     conv = spec.conversion or {}
     px_name = None
     if conn_row is not None and conv.get("pixel_id"):
-        row = next((x for x in launches.pixels_of(conn, ws["id"], conn_row["id"])
-                    if x["external_pixel_id"] == conv["pixel_id"]), None)
+        row = next((x for x in pixels_for(conn, ws["id"], conn_row) if x["external_pixel_id"] == conv["pixel_id"]), None)
         px_name = (row["name"] if row else None) or f"pixel {conv['pixel_id']}"
-    g = mod.goal(spec)
-    goal = f"optimizes for {mod.GOAL_WORDS.get(g, g.lower())}" + (f" on {px_name}" if px_name and g.startswith("PIXEL")
-                                                                  else "")
     ads = [s for s in steps if s["kind"] == "ad"]
-    lines = [f"1 campaign: {spec.name}. {launches.OBJECTIVE_WORDS[spec.objective]}, PAUSED.",
-             f"1 {ADSET_WORDS[p]}: {money} a day, {where}, {ages}, {genders}, automatic placements, {goal}. PAUSED.",
-             f"{len(ads)} ad{'s' if len(ads) != 1 else ''}, PAUSED: " + "; ".join(s["name"] for s in ads) + "."]
-    by_key = {s["key"]: s for s in steps}
+    names = "; ".join(s["name"] for s in ads) + "."
+    plural = "s" if len(ads) != 1 else ""
+    if p == "tiktok":
+        g, _, ev = mod.goal(spec)
+        goal = f"optimizes for {mod.EVENT_WORDS.get(ev or g, (ev or g).lower())}" + (f" on {px_name}" if ev and px_name else "")
+        lines = [f"1 campaign: {spec.name}. {launches.OBJECTIVE_WORDS[spec.objective]}, turned off (PAUSED).",
+                 f"1 {ADSET_WORDS[p]}: {money} a day, {where}, {ages}, {genders}, the TikTok placement, {goal}. "
+                 "On, inside the turned-off campaign.",
+                 f"{len(ads)} ad{plural}, on inside the turned-off campaign, showing as "
+                 f"{(conn_row['page_name'] if conn_row is not None else '') or 'your identity'}: {names}"]
+    else:
+        g = mod.goal(spec)
+        goal = f"optimizes for {mod.GOAL_WORDS.get(g, g.lower())}" + (f" on {px_name}" if px_name and g.startswith("PIXEL")
+                                                                      else "")
+        lines = [f"1 campaign: {spec.name}. {launches.OBJECTIVE_WORDS[spec.objective]}, PAUSED.",
+                 f"1 {ADSET_WORDS[p]}: {money} a day, {where}, {ages}, {genders}, automatic placements, {goal}. PAUSED.",
+                 f"{len(ads)} ad{plural}, PAUSED: {names}"]
     for i, c in enumerate(spec.creatives, start=1):
-        cr = (by_key.get(f"creative:{i}") or {}).get("request", {}).get("creative") or {}
-        if cr:
-            lines.append(f'Ad {i}: "{c.headline}", button {launches.CTA_WORDS.get(c.cta, c.cta)}, opens {c.destination_url}.')
+        if f"ad:{i}" in {s["key"] for s in ads}:
+            said = c.primary_text if p == "tiktok" else c.headline
+            lines.append(f'Ad {i}: "{said}", button {launches.CTA_WORDS.get(c.cta, c.cta)}, opens {c.destination_url}.')
     presenter = [i + 1 for i, c in enumerate(spec.creatives) if c.ai_presenter or c.synthetic_voice]
     made = [i + 1 for i, c in enumerate(spec.creatives) if i + 1 not in presenter
             and (prov.get(c.asset_id) or {}).get("ai_generated")]
@@ -234,8 +288,11 @@ def make_card(conn, ws, spec, conn_row, steps: list, prov: dict) -> dict:
             parts.append(f"{launches._ad_list(presenter)} {'has' if len(presenter) == 1 else 'have'} an AI presenter or AI voice")
         if made:
             parts.append(f"{launches._ad_list(made)} {'is' if len(made) == 1 else 'are'} AI-made media")
-        disclosure = ("AI disclosure: " + "; ".join(parts) + f". {word} has no AI label setting Campaignify can set, so "
-                      "keep the AI label on the video itself.")
+        disclosure = ("AI disclosure: " + "; ".join(parts) + (
+            ". Before you turn the campaign on, turn on TikTok's AI-generated content label on "
+            + ("that ad" if len(presenter) + len(made) == 1 else "those ads") + " in TikTok Ads Manager."
+            if p == "tiktok" else f". {word} has no AI label setting Campaignify can set, so keep the AI label on the video "
+            "itself."))
     else:
         disclosure = "AI disclosure: none of these ads use AI-made media."
     start, end = launches._day(spec.start_at), launches._day(spec.end_at)
@@ -248,4 +305,5 @@ def make_card(conn, ws, spec, conn_row, steps: list, prov: dict) -> dict:
     return {"platform": p, "account": account, "page": page, "lines": lines, "budget": f"{money} a day",
             "schedule": schedule, "disclosure": disclosure, "ai": bool(presenter or made), "objects": objs,
             "uploads": sum(1 for s in steps if s["kind"] == "upload"),
-            "footer": "Nothing runs until you turn it on."}
+            "footer": ("Nothing runs until you turn the campaign on. Inside it, the ad group and ads are on, so turning "
+                       "the campaign on is all it takes." if p == "tiktok" else "Nothing runs until you turn it on.")}

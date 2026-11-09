@@ -161,6 +161,11 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # https://campaignify.ai/connect/snapchat/callback.
 # SNAPCHAT_ADS=0
 # SNAPCHAT_CLIENT_ID=   SNAPCHAT_CLIENT_SECRET=
+# TikTok (adplatforms/tiktok.py, roadmap M6.2), on top of AD_LAUNCH. A TikTok for Business developer app
+# (business-api.tiktok.com, company email) with the Advertiser redirect URL https://campaignify.ai/connect/tiktok/callback
+# and the scopes Ad Account Management, Ads Management, Creative Management, Reporting, Pixel Management.
+# TIKTOK_ADS=0
+# TIKTOK_APP_ID=   TIKTOK_APP_SECRET=
 # Token box key (secretsbox.py): 32 random bytes, base64. Old keys stay readable from TOKEN_KEYS_OLD
 # (comma separated) until `python3 secretsbox.py rotate` re-seals every token under TOKEN_KEY.
 # TOKEN_KEY=
