@@ -14,6 +14,7 @@
 .ac-row .tag{white-space:nowrap}
 .ac-row .tag:not(.ok):not(.warn):not(.bad){background:var(--chipbg);border:1px solid var(--line);color:var(--muted)}
 .ac-figs{grid-column:1/-1}
+.ac-leads{margin:0}
 .ac-note{grid-column:1/-1;margin:0;padding:8px 12px;border-radius:10px;background:var(--field)}
 @media (max-width:820px){.ac-row{grid-template-columns:1fr 1fr}.ac-row .ac-name{grid-column:1/-1}.ac-go{grid-column:1/-1;justify-content:flex-start}}
 @media (max-width:560px){.ac-go .btn{flex:1 1 auto;text-align:center}}
@@ -32,6 +33,7 @@
     {{ af.range_tabs(key, ranges, url_for('manage.index')) }}
     {% for t in totals %}{{ af.tiles(t, t.cur, money) }}{% if not loop.last %}<div style="height:10px"></div>{% endif %}
     {% else %}<p class="muted" style="margin:0">No results for {{ ranges[key]|lower }} yet. Meta reports a campaign once it has run.</p>{% endfor %}
+    {% if other_leads %}<p class="small muted af-note">Also on your forms {{ ranges[key]|lower }}: {% for p, n in other_leads.items() %}{{ '{:,}'.format(n) }} lead{{ '' if n == 1 else 's' }} from {{ platform_words.get(p, p) }} ads Campaignify didn't launch{{ ', ' if not loop.last else '.' }}{% endfor %} They're in <a href="{{ url_for('forms.contacts') }}">Contacts</a>.</p>{% endif %}
     {{ af.updated(ins) }}
   </section>
   {% endif %}
@@ -58,6 +60,7 @@
         {% if r.manager and r.manageable %}<a class="btn sm dark" href="{{ r.manager }}" target="_blank" rel="noopener noreferrer">Ads Manager ↗</a>{% endif %}
       </div>
       {% if r.manageable and r.fig.n %}<div class="ac-figs">{{ af.tiles(r.fig, r.fig.cur or r.currency, money) }}</div>{% endif %}
+      {% if r.manageable and (r.fig.n or r.leads.total) %}<p class="ac-figs small muted ac-leads">Your forms: <b>{{ '{:,}'.format(r.leads.total) }} lead{{ '' if r.leads.total == 1 else 's' }}</b>{% if r.leads.cpl is not none %}, <b>{{ money(r.leads.cpl, r.fig.cur or r.currency) }}</b> per lead{% endif %}. Meta counted {{ '{:,}'.format(r.fig.leads or 0) }}.</p>{% endif %}
       {% if r.busy %}<p class="ac-note small">{{ r.busy.card.title }}: {{ r.busy.state_word|lower }}.</p>
       {% elif r.pending %}<p class="ac-note small">Waiting for approval: {{ r.pending.card.title }}. {% if owner %}<a href="{{ url_for('manage.show', lid=L.id) }}#card">Check the card</a>{% else %}The workspace owner approves it.{% endif %}</p>{% endif %}
     </li>

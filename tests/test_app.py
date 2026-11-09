@@ -3257,6 +3257,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_snapchat.py")], check=True)
     # TikTok connect and launch (adplatforms/tiktok.py, launch_video.py, TIKTOK_ADS; M6.2): identity, saga, reporting (faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_tiktok.py")], check=True)
+    # Which ad brought which lead, at what cost (adleads.py, M4.1): tags on forms, matching, cost per lead, flows as before.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_lead_attribution.py")], check=True)
     # Conversion tracking on members' pages and forms (conversions.py, M3.4): event ids, pixels, CAPI, Events API, Data Manager.
     subprocess.run([sys.executable, os.path.join(HERE, "test_conversions.py")], check=True)
     # Google Ads conversion actions and the Google tag on members' pages (conversion_actions.py, M3.5; Google faked).

@@ -19,6 +19,7 @@ import logging
 from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
 
 import adinsights
+import adleads
 import admanage
 import adspec
 import db
@@ -61,12 +62,18 @@ def index():
     with db.connect() as conn:
         rows = admanage.listed(conn, g.ws["id"])
         for r in rows:
-            r["fig"] = adinsights.launch_figures(conn, r["launch"], key, r["conn_row"]["timezone"] if r["conn_row"] else None)
-        connected = launches.connection(conn, g.ws["id"]) is not None
+            tz = r["conn_row"]["timezone"] if r["conn_row"] else None
+            r["fig"] = adinsights.launch_figures(conn, r["launch"], key, tz)
+            r["leads"] = adleads.leads_for(conn, r["launch"], key, tz,             # our forms (M4.1)
+                                          spend=r["fig"]["spend"] if r["fig"]["n"] else None)
+        conn_row = launches.connection(conn, g.ws["id"])
+        connected = conn_row is not None
+        other_leads = adleads.unmatched(conn, g.ws["id"], key, conn_row["timezone"] if conn_row else None)
         totals = adinsights.workspace_totals(conn, g.ws["id"], key)
         ins = adinsights.status(conn, g.ws["id"])
     return render_template("ad_campaigns.html", rows=rows, connected=connected, owner=_owner_ok(), totals=totals, ins=ins,
-                           key=key, ranges=adinsights.RANGES, money=launches.money)
+                           key=key, ranges=adinsights.RANGES, money=launches.money, other_leads=other_leads,
+                           platform_words=adleads.PLATFORM_WORDS)
 
 
 @bp.route("/app/ad-campaigns/refresh", methods=["POST"])
@@ -105,11 +112,15 @@ def show(lid):
         ad_fig = adinsights.ad_figures(conn, L, key, tz)
         days = adinsights.daily(conn, L, 14, tz)
         ins = adinsights.status(conn, g.ws["id"])
+        # leads on the member's own forms next to Meta's numbers, with cost per lead (adleads.py, M4.1)
+        leads = adleads.leads_for(conn, L, key, tz, {a: f["spend"] for a, f in ad_fig.items()},
+                                  fig["spend"] if fig["n"] else None)
+        recent = adleads.recent(conn, L)
     return render_template("ad_campaign.html", s=s, L=L, ads=ads, ai_kinds=kinds, hist=hist, owner=_owner_ok(),
                            sync_error=sync_error, cap_text=launches.money(cap, s["currency"]) if cap else "",
                            plan_name=plans.PLANS.get(code, {}).get("name", ""), minor_factor=adspec.minor_factor(
                                s["currency"]), viewing=bool(g.get("viewing")), fig=fig, ad_fig=ad_fig, days=days, ins=ins,
-                           key=key, ranges=adinsights.RANGES, money=launches.money)
+                           key=key, ranges=adinsights.RANGES, money=launches.money, leads=leads, recent=recent)
 
 
 @bp.route("/app/ad-campaigns/<int:lid>.json")

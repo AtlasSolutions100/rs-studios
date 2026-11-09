@@ -17,6 +17,16 @@
   {% endif %}
 </dl>
 {%- endmacro %}
+{% macro our_leads(lf, f, cur, money) -%}
+{# Leads on the member's own Campaignify forms, matched to the ad by its link tags (adleads.leads_for, M4.1). #}
+<h3 class="af-sub">From your own forms</h3>
+<dl class="af-tiles">
+  <div><dt>Leads on your forms</dt><dd>{{ '{:,}'.format(lf.total) }}</dd></div>
+  <div><dt>Cost per lead, your forms</dt><dd>{{ money(lf.cpl, cur) if lf.cpl is not none else 'None yet' }}</dd></div>
+  <div><dt>Leads Meta counted</dt><dd>{{ '{:,}'.format(f.leads or 0) }}</dd></div>
+</dl>
+<p class="small muted af-note">Leads on your forms are the people who sent a Campaignify form after clicking this campaign's ads. Meta counts leads from its pixel, so the 2 numbers can differ. Cost per lead is what Meta says you spent, divided by your form leads.</p>
+{%- endmacro %}
 {% macro updated(ins) -%}
 <p class="small muted af-note">Numbers from Meta, in the ad account's currency and time zone.{% if ins.at %} Updated {{ ins.at|localtime }}.{% else %} The first update comes within a few hours of the launch.{% endif %} Meta can add late purchases for a few days, so recent days may still go up.</p>
 {% if ins.error %}<div class="flash warn">{{ ins.error }}</div>{% endif %}
@@ -31,6 +41,7 @@
 .af-tiles dt{font-size:12px;color:var(--muted);margin:0 0 2px}
 .af-tiles dd{margin:0;font-weight:800;font-size:17px;overflow-wrap:anywhere}
 .af-note{margin:10px 0 0}
+.af-sub{font-size:14px;margin:16px 0 8px;color:var(--muted);font-weight:700}
 @media (max-width:560px){.af-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 {%- endmacro %}
