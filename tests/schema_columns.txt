@@ -181,6 +181,7 @@ campaigns.steps_json TEXT
 campaigns.updated_at TEXT
 campaigns.user_id INTEGER
 campaigns.workspace_id INTEGER
+card_trials.user_id INTEGER
 communities.about TEXT
 communities.created_at TEXT
 communities.join_code TEXT
@@ -745,6 +746,7 @@ throttle.key TEXT
 users.auth_provider TEXT
 users.created_at TEXT
 users.email TEXT
+users.email_norm TEXT
 users.email_verified_at TEXT
 users.first_touch TEXT
 users.id INTEGER
