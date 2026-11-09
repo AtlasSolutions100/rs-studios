@@ -595,6 +595,7 @@ def workspace_totals(conn, ws_id: int, key: str = "7") -> list:
         f = figures(t)
         if t["kind"] is None:
             f["results"], f["cpr"] = None, None
+            f["words"] = ("Results", "Cost per result")     # campaigns with different goals: no one result name
         res.append(f)
     return res
 

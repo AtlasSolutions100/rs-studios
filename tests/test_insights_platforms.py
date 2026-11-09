@@ -430,6 +430,8 @@ check("$25.00" in flat or "$25" in flat, "a row shows its spend")
 check("Each ad platform reports a campaign once it has run" not in flat and "Results, all campaigns" in flat,
       "the totals panel shows")
 check("Numbers from each ad platform" in flat, "the update note names no single platform")
+check("Link clicks Mixed goals" not in flat and "Results Mixed goals" in flat,
+      "totals over campaigns with different goals say Results, not one goal's name")
 check("Not made yet" in page, "a launch still being made is listed too")
 r = owner.get(f"/app/ad-campaigns/{SNAP_L}")
 check(r.status_code == 404, "the Meta manage page isn't offered for a Snapchat campaign")
