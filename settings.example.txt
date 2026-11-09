@@ -127,6 +127,11 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # OPS_ALERT_EMAIL=
 # OPS_ALERT_DEDUPE_MIN=60   OPS_WORKER_DOWN_MIN=5   OPS_JOB_STUCK_MIN=20   OPS_WEBHOOK_SIG_PER_HOUR=10
 # OPS_VENDOR_ERROR_PCT=20   OPS_VENDOR_MIN_JOBS=5   OPS_ALERT_DISK_GB=10   OPS_BACKUP_MAX_HOURS=26
+# Database load (dbstats.py, roadmap M7.3): write lock waits per process, on Admin > System > Database load.
+# DB_STATS=off               the plain connection, nothing measured (default on)
+# DB_PG_WAIT_P95_MS=200      the Postgres threshold: write lock wait p95 over this for 24 h (with DB_PG_MIN_WRITES=500)
+# DB_PG_SIZE_GB=5            or the database over this size; the alert postgres_threshold goes out once a day
+# DB_STATS_KEEP_DAYS=30
 # /health answers 503 when the worker loop's last beat is older than this many seconds (keep it over 120,
 # the deploy hook's wait after the switch). Long vendor calls beat every 10 s for up to RS_HEALTH_BUSY_MAX_S.
 # RS_HEALTH_WORKER_MAX_AGE=180   RS_HEALTH_BUSY_MAX_S=900

@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import time
 from datetime import datetime, timezone
 
 DATA = os.environ.get("RS_DATA", os.path.join(os.path.dirname(os.path.abspath(__file__)), "data"))
@@ -908,11 +909,16 @@ def now() -> str:
 
 
 def connect():
+    """A connection to the app database. It times its write lock waits for the admin Database load panel
+    (dbstats.py, roadmap M7.3; DB_STATS=off gives the plain sqlite3 connection)."""
+    import dbstats
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, timeout=15)
+    t0 = time.perf_counter()
+    conn = sqlite3.connect(DB_PATH, timeout=15, factory=dbstats.factory())
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
+    dbstats.note_connect(time.perf_counter() - t0)
     return conn
 
 

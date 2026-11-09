@@ -150,7 +150,16 @@ def health(conn) -> dict:
                        ("Meta", bool(px["meta"]), px["meta"]), ("TikTok", bool(px["tiktok"]), px["tiktok"]),
                        ("Reddit", bool(px["reddit"]), px["reddit"]), ("X", bool(px["x"]), px["x"])],
             "server_side": server, "warn": warn, "imports": imports(conn), "backup": _backup_status(),
-            "mail": _mail_status(conn)}
+            "mail": _mail_status(conn), "dbload": _dbload(conn)}
+
+
+def _dbload(conn) -> dict | None:
+    """The Database load row (dbstats.report, roadmap M7.3). None when it can't be read."""
+    try:
+        import dbstats
+        return dbstats.report(conn, hours=48)
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _mail_status(conn) -> dict:

@@ -21,6 +21,8 @@ What fires an alert:
   backup_late          the last good backup (meta BACKUP_META, written by the backup job) is over
                        OPS_BACKUP_MAX_HOURS (26) hours old; quiet until a first backup is recorded
   payment_reversed     a refund or dispute on one of our payments (charge.refunded, charge.dispute.*)
+  postgres_threshold   SQLite's write lock wait p95 over 200 ms for 24 h, or the database over 5 GB (dbstats.py,
+                       M7.3); at most once a day
 
 `sweep()` runs from the worker loop about once a minute; the worker-down check
 runs in `/health` (the container healthcheck calls it every 30 s), because a
@@ -391,6 +393,11 @@ def _conditions(conn, probe: bool):
         if late:
             yield ("backup_late", "Backup is late",
                    f"The last good backup was at {row['value']} (alert after {hours:g} hours).")
+
+    import dbstats
+    pg = dbstats.condition(conn)     # looks once an hour, says so at most once a day
+    if pg:
+        yield pg
 
 
 def backup_ok(conn):

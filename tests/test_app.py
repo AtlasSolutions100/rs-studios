@@ -3228,6 +3228,8 @@ if __name__ == "__main__" and not os.environ.get("RS_TEST_ONE"):
     subprocess.run([sys.executable, os.path.join(HERE, "test_mcp.py")], check=True)
     # Operator alerts and the real /health (alerts.py, opslog.py): each condition, dedupe, JSON logs (mail faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_alerts.py")], check=True)
+    # SQLite contention and size on the admin System card, the Postgres threshold and its alert (dbstats.py, M7.3).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_dbstats.py")], check=True)
     # Storage quotas, body limits, the disk guard and the daily purge (storage.py; big files are sparse).
     subprocess.run([sys.executable, os.path.join(HERE, "test_storage.py")], check=True)
     # Login hardening (login_security.py): throttles, one login message, password reset, single-use /m links, code limits.
