@@ -103,6 +103,11 @@ name: Deploy Campaignify (campaignify.ai)
 #                          https://campaignify.ai/connect/google/callback. No developer token: Google retired them
 #                          on 2026-09-09; access follows the Cloud project
 #   GOOGLE_ADS_CLIENT_SECRET optional secret: that client's secret; unset = GOOGLE_OAUTH_CLIENT_SECRET
+#   SNAPCHAT_ADS           optional variable: 1 turns Snapchat connect and launch on (adplatforms/snapchat.py,
+#                          roadmap M6.1), on top of AD_LAUNCH. Default off
+#   SNAPCHAT_CLIENT_ID     variable: the Snapchat Marketing API OAuth app's client id (Business Manager > Business
+#                          Details > OAuth Apps). Its redirect URI must be https://campaignify.ai/connect/snapchat/callback
+#   SNAPCHAT_CLIENT_SECRET secret: that OAuth app's client secret (Snap shows it once)
 #   CONVERSIONS_API        optional variable: 1 turns conversion tracking on members' Campaignify pages and forms
 #                          on (conversions.py, roadmap M3.4): browser pixels and server events with one event id
 #                          to the workspace's Meta pixel (Conversions API), TikTok pixel (Events API) and Google Ads
@@ -266,6 +271,9 @@ jobs:
           GOOGLE_ADS: ${{ vars.GOOGLE_ADS }}
           GOOGLE_ADS_CLIENT_ID: ${{ vars.GOOGLE_ADS_CLIENT_ID }}
           GOOGLE_ADS_CLIENT_SECRET: ${{ secrets.GOOGLE_ADS_CLIENT_SECRET }}
+          SNAPCHAT_ADS: ${{ vars.SNAPCHAT_ADS }}
+          SNAPCHAT_CLIENT_ID: ${{ vars.SNAPCHAT_CLIENT_ID }}
+          SNAPCHAT_CLIENT_SECRET: ${{ secrets.SNAPCHAT_CLIENT_SECRET }}
           # Conversion tracking on members' pages (conversions.py, M3.4/M3.5): off until CONVERSIONS_API is set.
           CONVERSIONS_API: ${{ vars.CONVERSIONS_API }}
           META_CAPI_USE_CONNECTION_TOKEN: ${{ vars.META_CAPI_USE_CONNECTION_TOKEN }}
@@ -320,6 +328,7 @@ jobs:
                                              "AD_LAUNCH", "AD_LAUNCH_WORKSPACES", "AD_RATE_TIER", "META_APP_ID",
                                              "META_APP_SECRET", "META_LOGIN_CONFIG_ID", "TOKEN_KEY", "TOKEN_KEYS_OLD",
                                              "GOOGLE_ADS", "GOOGLE_ADS_CLIENT_ID", "GOOGLE_ADS_CLIENT_SECRET",
+                                             "SNAPCHAT_ADS", "SNAPCHAT_CLIENT_ID", "SNAPCHAT_CLIENT_SECRET",
                                              "CONVERSIONS_API", "META_CAPI_USE_CONNECTION_TOKEN",
                                              # kill switches and opt-ins (N15)
                                              "BILLING_HOLD", "CREDIT_HOLDS", "PLAN_PENDING", "RENEWAL_PAUSE", "HF_RETRY",

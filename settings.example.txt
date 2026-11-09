@@ -156,6 +156,11 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # https://campaignify.ai/connect/google/callback. No developer token (retired 2026-09-09).
 # GOOGLE_ADS=0
 # GOOGLE_ADS_CLIENT_ID=   GOOGLE_ADS_CLIENT_SECRET=
+# Snapchat (adplatforms/snapchat.py, roadmap M6.1), on top of AD_LAUNCH. A Marketing API OAuth app made in Snap's
+# Business Manager (Business Details > OAuth Apps; no review) with the redirect URI
+# https://campaignify.ai/connect/snapchat/callback.
+# SNAPCHAT_ADS=0
+# SNAPCHAT_CLIENT_ID=   SNAPCHAT_CLIENT_SECRET=
 # Token box key (secretsbox.py): 32 random bytes, base64. Old keys stay readable from TOKEN_KEYS_OLD
 # (comma separated) until `python3 secretsbox.py rotate` re-seals every token under TOKEN_KEY.
 # TOKEN_KEY=

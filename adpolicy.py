@@ -33,6 +33,8 @@ from research B6 (FTC 16 CFR 255 and 465, Meta, TikTok, Google and Snapchat ad p
     policy.pharmacy                  prescriptions, telehealth, GLP-1 names: LegitScript needed
     policy.political                 elections and social issues need authorization: warn
     policy.snapchat_supplements      Snapchat pre-approves supplement ads: warn
+    policy.caps_punctuation          Snapchat: words in capitals or repeated !! / ?? (Snap's creative review rejects
+                                     both): warn
     policy.hidden_characters         invisible characters (zero-width, bidi controls, soft hyphen) in launch text
     policy.vertical_mismatch         the product or the copy says supplements, weight loss, crypto, housing, ... while the
                                      spec says "general" (block) or another vertical (warn); the rules of both run (L-17)
@@ -217,6 +219,8 @@ MESSAGES = {
     "policy.political": ("Ads about elections, politics or social issues need the platform's authorization and a "
                          "\"Paid for by\" label.", "Remove it, or get authorized first."),
     "policy.snapchat_supplements": ("Snapchat reviews supplement ads before they run.", "Expect a review delay."),
+    "policy.caps_punctuation": ("Words in capitals or repeated punctuation (!! or ??) often get the ad rejected in review.",
+                                "Write it in normal case, with one ! or ? at most."),
     "policy.hidden_characters": ("This text has invisible characters (zero-width spaces, direction marks or soft "
                                  "hyphens). They can hide words from ad review.", "Retype the text without them."),
     "policy.vertical_mismatch": ("What this campaign sells doesn't match its product type. The age and category rules "
@@ -236,6 +240,7 @@ LEVELS = {
     "policy.special_category_maybe": ("warn", {}), "policy.special_category_targeting": ("block", {}),
     "policy.supplement_disclaimer": ("warn", {}), "policy.pharmacy": ("block", {}), "policy.political": ("warn", {}),
     "policy.snapchat_supplements": ("warn", {}), "policy.hidden_characters": ("block", {}),
+    "policy.caps_punctuation": ("warn", {}),
     "policy.vertical_mismatch": ("block", {}),
 }
 
@@ -256,6 +261,19 @@ def _any(rule_id, text):
 
 def _before_after(text):
     return compliance.before_after(text)
+
+
+# Rules that only one platform's review applies (how the text is written there): platform -> rule ids.
+PLATFORM_RULES = {"snapchat": ("policy.caps_punctuation",)}
+
+
+def caps_or_punctuation(text: str) -> bool:
+    """Two or more words of 4+ letters all in capitals (and at least half the words), or !! / ?? / ?! runs."""
+    if re.search(r"[!?]{2,}", text):
+        return True
+    words = re.findall(r"[^\W\d_]{4,}", text)
+    caps = [w for w in words if w.isupper()]
+    return len(caps) >= 2 and len(caps) * 2 >= len(words)
 
 
 # Rules about what is advertised (not how it is said): the only ones that apply to keywords, names and URLs.
@@ -298,6 +316,9 @@ def lint_text(text: str, *, platform: str = "meta", vertical: str = "general", a
             out.append(_issue("policy.ai_first_person", platform, where))
     if run("policy.special_category_maybe") and _any("policy.special_category_maybe", text):
         out.append(_issue("policy.special_category_maybe", platform, where))
+    rules = PLATFORM_RULES.get(platform, ())
+    if "policy.caps_punctuation" in rules and run("policy.caps_punctuation") and caps_or_punctuation(text):
+        out.append(_issue("policy.caps_punctuation", platform, where))
     if house and only is None:
         for lvl, rid, msg in compliance.findings(text):
             out.append(Issue(lvl, f"house.{rid}", msg, "Reword it: Campaignify doesn't make or launch ads with this.", where))
