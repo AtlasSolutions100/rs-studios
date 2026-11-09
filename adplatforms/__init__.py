@@ -7,7 +7,7 @@ Everything here sits behind AD_LAUNCH (default off):
     AD_LAUNCH=on       every workspace
 
 One adapter per platform implements AdPlatform (adplatforms/meta.py first, adplatforms/google.py behind
-its own GOOGLE_ADS flag on top of AD_LAUNCH). Tokens are kept
+its own GOOGLE_ADS flag on top of AD_LAUNCH, adplatforms/snapchat.py behind SNAPCHAT_ADS). Tokens are kept
 only as token boxes (secretsbox.py, sealed to the workspace) and opened only inside an
 adapter call; they are never logged, flashed or put in a page.
 """
@@ -79,6 +79,9 @@ def adapter(platform: str):
     if platform == "google":
         from adplatforms import google
         return google.ADAPTER
+    if platform == "snapchat":
+        from adplatforms import snapchat
+        return snapchat.ADAPTER
     raise KeyError(platform)
 
 
@@ -181,10 +184,14 @@ def maybe_sweep():
 
 
 def platform_on(platform: str, ws, user=None) -> bool:
-    """May this workspace connect and launch on `platform`? Meta: AD_LAUNCH. Google: AD_LAUNCH and GOOGLE_ADS."""
+    """May this workspace connect and launch on `platform`? Meta: AD_LAUNCH. Google: AD_LAUNCH and GOOGLE_ADS.
+    Snapchat: AD_LAUNCH and SNAPCHAT_ADS."""
     if platform == "google":
         from adplatforms import google
         return google.enabled(ws, user)
+    if platform == "snapchat":
+        from adplatforms import snapchat
+        return snapchat.enabled(ws, user)
     return platform == "meta" and enabled(ws, user)
 
 

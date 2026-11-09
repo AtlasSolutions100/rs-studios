@@ -1,0 +1,34 @@
+{% extends "base.html" %}{% block title %}Connect Snapchat · Campaignify{% endblock %}
+{% block body %}
+{# Pick the Snapchat ad account and its public profile (adconnect_routes._pick_snapchat, roadmap M6.1). Ad accounts are
+   grouped by organization; a public profile can be picked only for an ad account of the same organization. #}
+<div class="page">
+  <p class="eyebrow">Settings · Connect Snapchat</p>
+  <h1>Pick the Snapchat ad account</h1>
+  {% if d.user_name %}<p class="muted">Signed in on Snapchat as {{ d.user_name }}.</p>{% endif %}
+  {% set usable = d.accounts|selectattr('usable')|list %}
+  {% if usable %}
+  <form method="post" class="panel"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <fieldset style="border:0;padding:0;margin:0"><legend><h2>Ad account</h2></legend>
+    {% set first = usable[0].id %}
+    {% for a in d.accounts %}<p><label><input type="radio" name="account" value="{{ a.id }}" {{ 'checked' if (pre == a.id) or (not pre and a.id == first) }} {{ '' if a.usable else 'disabled' }} required>
+      <b>{{ a.name }}</b> <span class="small muted">{% if a.org_name %}{{ a.org_name }} · {% endif %}{% if a.currency %}{{ a.currency }}{% endif %}{% if a.status != 'Active' %} · {{ a.status }}{% endif %}</span></label></p>{% endfor %}
+    </fieldset>
+    <fieldset style="border:0;padding:0;margin:16px 0 0"><legend><h2>Public profile</h2></legend>
+    <p class="small muted">Every Snapchat ad shows the name and logo of a public profile. Pick the one of the same business as the ad account.</p>
+    {% if d.pages %}
+    {% for p in d.pages %}<p><label><input type="radio" name="profile" value="{{ p.id }}" {{ 'checked' if loop.first }}> <b>{{ p.name }}</b>{% set org = (d.accounts|selectattr('org_id', 'equalto', p.org_id)|first) %}{% if org %} <span class="small muted">{{ org.org_name }}</span>{% endif %}</label></p>{% endfor %}
+    {% else %}<p class="muted">No public profile on this login yet. Make one in Snapchat Ads Manager, then reconnect. You can connect the ad account now; launching waits for the profile.</p>{% endif %}
+    </fieldset>
+    <p style="margin-top:16px"><button class="btn">Connect this account</button></p>
+  </form>
+  {% else %}
+  <div class="panel">
+    <h2>No ad account to pick on this Snapchat login</h2>
+    <p class="muted">{% if d.accounts %}The ad accounts on this login aren't active. {% endif %}Create a Snapchat ad account, or ask its admin to add you, then connect again.</p>
+    <ol class="checks">{% for t, dd, link in checklist %}<li><b>{{ t }}</b><br><span class="small muted">{{ dd }}</span>{% if link %}<br><a class="small" href="{{ link }}" target="_blank" rel="noopener">Open on Snapchat</a>{% endif %}</li>{% endfor %}</ol>
+    <a class="btn sm" href="{{ url_for('adconnect.settings') }}">Back to connections</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
