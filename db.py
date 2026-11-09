@@ -681,6 +681,10 @@ COLUMNS = [
     ("workspaces", "card_label", "TEXT"),
     ("workspaces", "card_pending_credits", "INTEGER NOT NULL DEFAULT 0"),
     ("workspaces", "card_pending_reason", "TEXT"),
+    # L-3: the normalized email (preview.norm_email), indexed, so one-trial-per-person is a lookup, not a scan of
+    # every Gmail user; filled at sign-up and backfilled in init(). L-2: the member whose card a card_trials row is.
+    ("users", "email_norm", "TEXT"),
+    ("card_trials", "user_id", "INTEGER"),
     ("campaigns", "free_plan", "INTEGER NOT NULL DEFAULT 0"),   # made free while out of credits (plan_paywall.py)
     ("plan_invoices", "payment_intent", "TEXT"),
     # plans switch on only when paid (BILL-3); a paid period is kept to its end (plans.GRACE_STATUSES)
@@ -715,6 +719,25 @@ def connect():
     return conn
 
 
+def norm_email(email: str) -> str:
+    """Case, +tags and Gmail dots folded (preview.norm_email calls this): one person, one key."""
+    email = (email or "").strip().lower()
+    if "@" not in email:
+        return email
+    local, domain = email.rsplit("@", 1)
+    local = local.split("+", 1)[0]
+    if domain in ("gmail.com", "googlemail.com"):
+        local, domain = local.replace(".", ""), "gmail.com"
+    return f"{local}@{domain}"
+
+
+def _backfill_email_norm(conn):
+    """users.email_norm for rows written before the column (or by an older image during a deploy). No commit."""
+    rows = conn.execute("SELECT id, email FROM users WHERE email_norm IS NULL").fetchall()
+    for r in rows:
+        conn.execute("UPDATE users SET email_norm=? WHERE id=?", (norm_email(r["email"]), r["id"]))
+
+
 def init():
     """Create and upgrade the schema in place. Runs on every boot, and the deploy hook's
     side container runs it against the live database before the switch (N3): a rollback
@@ -746,6 +769,9 @@ def init():
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_outputs_share ON outputs(share_token)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_free_plans_fp ON free_plans(fingerprint, created_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_free_plans_email ON free_plans(email_norm, created_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_users_email_norm ON users(email_norm)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_card_trials_user ON card_trials(user_id)")
+        _backfill_email_norm(conn)
         conn.commit()
         if not conn.execute("SELECT 1 FROM meta WHERE key='owner_admin_v1'").fetchone():
             # Koby signed up through the normal form (user 1, workspace 1, the Scale

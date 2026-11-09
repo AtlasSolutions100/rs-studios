@@ -14,6 +14,7 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import catalog
+import db
 import plans
 
 SECONDS = 8
@@ -41,14 +42,7 @@ def cost_usd() -> float:
 
 
 def norm_email(email: str) -> str:
-    email = (email or "").strip().lower()
-    if "@" not in email:
-        return email
-    local, domain = email.rsplit("@", 1)
-    local = local.split("+", 1)[0]
-    if domain in ("gmail.com", "googlemail.com"):
-        local, domain = local.replace(".", ""), "gmail.com"
-    return f"{local}@{domain}"
+    return db.norm_email(email)
 
 
 def ip_hash(ip: str) -> str:

@@ -170,7 +170,13 @@ def confirm(conn, secret: str, token: str, max_age: int | None = None) -> tuple[
 
 
 def completed(conn, user, path: str = "/app"):
-    """The funnel's verify_completed step (site_events), once per workspace. Never raises."""
+    """The member confirmed their email: the funnel's verify_completed step (site_events), once per workspace, and
+    the address goes on the cards they saved before (card_on_file.email_confirmed, L-2). Never raises."""
+    try:
+        import card_on_file
+        card_on_file.email_confirmed(conn, user)
+    except Exception:  # noqa: BLE001
+        log.warning("card rows not updated after user %s confirmed", user["id"])
     try:
         import site_events
         site_events.on_workspace_step(conn, "verify_completed", user["workspace_id"], detail=None, path=path, once=True)

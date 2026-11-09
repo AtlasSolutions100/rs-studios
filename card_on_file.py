@@ -12,6 +12,11 @@ when the member picks one on Billing; a pack only when they buy one.
   * One trial per card and per person: a card fingerprint or an email address
     (case, +tags and Gmail dots, preview.norm_email) that already had starter
     credits on another workspace gets the card saved but no credits again.
+    Only confirmed emails count (L-2): a card row gets its email_norm when its
+    member has confirmed the address (at save, or later in verify.completed),
+    and the email match only looks at confirmed rows and confirmed members, so
+    signing up with someone else's address can't use up their trial. The
+    member lookup is by the indexed users.email_norm (L-3), not a scan.
   * Existing free accounts without a card keep everything they made and their
     credits, and add a card on their next visit before making anything new
     (card_routes.gate: a full-page step; core.hold_check covers the API).
@@ -36,6 +41,7 @@ import billing
 import db
 import plans
 import preview
+import verify
 
 log = logging.getLogger("campaignify")
 
@@ -126,35 +132,59 @@ def _had_starter(conn, ws_id: int) -> bool:
                         (ws_id,)).fetchone() is not None
 
 
+def confirmed(user) -> bool:
+    """Does this member's email count for one-trial-per-person (L-2)? Confirmed, or no confirm step at all."""
+    return user is not None and (verify.is_verified(user) or not verify.required())
+
+
+# A member whose email counts (L-2): confirmed, unless the app has no confirm step (RS_EMAIL_VERIFY=0).
+def _confirmed_sql(alias: str) -> str:
+    return "1" if not verify.required() else f"{alias}.email_verified_at IS NOT NULL"
+
+
 def trial_used(conn, ws_id: int, fingerprint: str | None, email: str | None) -> str | None:
-    """Why this card or person can't have the starter credits again: "card", "email", or None."""
+    """Why this card or person can't have the starter credits again: "card", "email", or None.
+    Email matches count only confirmed addresses (L-2), found by the indexed users.email_norm (L-3)."""
     if fingerprint and conn.execute("SELECT 1 FROM card_trials WHERE fingerprint=? AND workspace_id!=? AND trial=1 "
                                     "LIMIT 1", (fingerprint, ws_id)).fetchone():
         return "card"
     norm = preview.norm_email(email or "")
     if not norm or "@" not in norm:
         return None
+    # card rows carry email_norm only once their member confirmed it (record_card, email_confirmed)
     if conn.execute("SELECT 1 FROM card_trials WHERE email_norm=? AND workspace_id!=? AND trial=1 LIMIT 1",
                     (norm, ws_id)).fetchone():
         return "email"
-    if conn.execute("SELECT 1 FROM ad_signup_grants WHERE email_norm=? AND workspace_id!=? LIMIT 1",
-                    (norm, ws_id)).fetchone():
+    # an ad-offer grant counts when that workspace's member with this address confirmed it
+    if conn.execute("SELECT 1 FROM ad_signup_grants a JOIN users u ON u.workspace_id=a.workspace_id "
+                    f"AND u.email_norm=a.email_norm WHERE a.email_norm=? AND a.workspace_id!=? AND {_confirmed_sql('u')} "
+                    "LIMIT 1", (norm, ws_id)).fetchone():
         return "email"
-    domain = norm.rsplit("@", 1)[1]
-    domains = ("gmail.com", "googlemail.com") if domain == "gmail.com" else (domain,)
-    for d in domains:
-        for r in conn.execute("SELECT email, workspace_id FROM users WHERE email LIKE ? AND workspace_id!=?",
-                              ("%@" + d, ws_id)):
-            if preview.norm_email(r["email"]) == norm and _had_starter(conn, r["workspace_id"]):
-                return "email"
+    for r in conn.execute(f"SELECT workspace_id FROM users u WHERE email_norm=? AND workspace_id!=? AND {_confirmed_sql('u')}",
+                          (norm, ws_id)):
+        if _had_starter(conn, r["workspace_id"]):
+            return "email"
     return None
 
 
-def record_card(conn, ws_id: int, *, customer, pm_id, fingerprint, label, email) -> dict:
+def email_confirmed(conn, user) -> int:
+    """The member just confirmed their email (verify.completed): put it on the card rows they saved before, so it
+    counts for one-trial-per-person from now on, even after the account is deleted (L-2). Commits; returns rows."""
+    norm = preview.norm_email(user["email"] or "")
+    if "@" not in norm:
+        return 0
+    n = conn.execute("UPDATE card_trials SET email_norm=? WHERE user_id=? AND email_norm IS NULL",
+                     (norm, user["id"])).rowcount
+    conn.commit()
+    return n
+
+
+def record_card(conn, ws_id: int, *, customer, pm_id, fingerprint, label, email, user=None) -> dict:
     """The card is saved on Stripe: mark the workspace and grant its waiting
     starter credits unless this card or person already had them (commits).
     Safe to call twice (the return page and the webhook): the second call
-    changes nothing. Returns {"ok", "already", "credits", "reused"}."""
+    changes nothing. `user` is the member who saved it: the row keeps the
+    email only if theirs is confirmed (L-2). Returns {"ok", "already", "credits", "reused"}."""
     cur = conn.execute("UPDATE workspaces SET card_saved_at=?, card_customer_id=COALESCE(card_customer_id, ?), "
                        "card_pm_id=?, card_label=? WHERE id=? AND card_saved_at IS NULL",
                        (db.now(), customer, pm_id, (label or "")[:60], ws_id))
@@ -170,10 +200,11 @@ def record_card(conn, ws_id: int, *, customer, pm_id, fingerprint, label, email)
         db.adjust_credits(conn, ws_id, waiting, ws["card_pending_reason"] or STARTER_REASON)
         granted = waiting
     conn.execute("UPDATE workspaces SET card_pending_credits=0 WHERE id=?", (ws_id,))
-    conn.execute("INSERT INTO card_trials (workspace_id, fingerprint, email_norm, trial, credits, created_at) "
-                 "VALUES (?,?,?,?,?,?)",
-                 (ws_id, fingerprint or None, preview.norm_email(email or "") or None, 1 if (had or granted) else 0,
-                  granted, db.now()))
+    keep_email = confirmed(user) and preview.norm_email(user["email"] or "") == preview.norm_email(email or "")
+    conn.execute("INSERT INTO card_trials (workspace_id, fingerprint, email_norm, trial, credits, created_at, user_id) "
+                 "VALUES (?,?,?,?,?,?,?)",
+                 (ws_id, fingerprint or None, (preview.norm_email(email or "") or None) if keep_email else None,
+                  1 if (had or granted) else 0, granted, db.now(), user["id"] if user is not None else None))
     conn.commit()
     if reused:
         log.info("card saved on workspace %s without starter credits (%s already had a trial)", ws_id, reused)
@@ -185,7 +216,7 @@ def card_label(card: dict) -> str:
     return f"{brand} ending {card.get('last4') or '????'}"
 
 
-def from_session(conn, sess: dict, ws_id: int | None = None, email: str | None = None) -> dict:
+def from_session(conn, sess: dict, ws_id: int | None = None, user=None) -> dict:
     """Read a setup-mode Checkout Session (billing.get_setup_session) and save its card.
     Returns {"ok": False, "why": "not_ours" | "other_workspace" | "declined"} when it
     can't, else record_card's answer (plus "workspace_id")."""
@@ -206,17 +237,19 @@ def from_session(conn, sess: dict, ws_id: int | None = None, email: str | None =
     if isinstance(pm, str):
         pm = billing._get(f"/payment_methods/{pm}")
     card = pm.get("card") or {}
-    if email is None:
+    if user is not None:   # the return page: the member who's logged in, read fresh (confirmed or not)
+        user = conn.execute("SELECT * FROM users WHERE id=? AND workspace_id=?", (user["id"], sid)).fetchone()
+    if user is None:
         uid = str(meta.get("user_id") or "")
-        u = conn.execute("SELECT email FROM users WHERE id=? AND workspace_id=?", (int(uid), sid)).fetchone() \
+        user = conn.execute("SELECT * FROM users WHERE id=? AND workspace_id=?", (int(uid), sid)).fetchone() \
             if uid.isdigit() else None
-        u = u or conn.execute("SELECT email FROM users WHERE workspace_id=? ORDER BY role='owner' DESC, id LIMIT 1",
-                              (sid,)).fetchone()
-        email = u["email"] if u else ""
+        user = user or conn.execute("SELECT * FROM users WHERE workspace_id=? ORDER BY role='owner' DESC, id LIMIT 1",
+                                    (sid,)).fetchone()
+    email = user["email"] if user is not None else ""
     customer = sess.get("customer")
     customer = customer.get("id") if isinstance(customer, dict) else customer
     out = record_card(conn, sid, customer=customer, pm_id=pm.get("id"), fingerprint=card.get("fingerprint"),
-                      label=card_label(card), email=email)
+                      label=card_label(card), email=email, user=user)
     out["workspace_id"] = sid
     return out
 
