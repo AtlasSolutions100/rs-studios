@@ -149,7 +149,16 @@ def health(conn) -> dict:
                         + (" · purchase label" if google["purchase"] else " · no purchase label") if google["tag"] else ""),
                        ("Meta", bool(px["meta"]), px["meta"]), ("TikTok", bool(px["tiktok"]), px["tiktok"]),
                        ("Reddit", bool(px["reddit"]), px["reddit"]), ("X", bool(px["x"]), px["x"])],
-            "server_side": server, "warn": warn, "imports": imports(conn), "backup": _backup_status()}
+            "server_side": server, "warn": warn, "imports": imports(conn), "backup": _backup_status(),
+            "mail": _mail_status(conn)}
+
+
+def _mail_status(conn) -> dict:
+    try:
+        import mailer
+        return mailer.status(conn)
+    except Exception:  # noqa: BLE001 — the card must render even if this breaks
+        return {"configured": False}
 
 
 def _backup_status() -> dict:

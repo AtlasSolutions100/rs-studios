@@ -3219,6 +3219,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_storage.py")], check=True)
     # Login hardening (login_security.py): throttles, one login message, password reset, single-use /m links, code limits.
     subprocess.run([sys.executable, os.path.join(HERE, "test_login.py")], check=True)
+    # Email priority (mailer.py): pacing, 429 retries, quota deferral and resend, the nurture budget (Resend faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_email_priority.py")], check=True)
     # Vendor retry, idempotent resubmits, timeouts canceled at the vendor, the Cancel button (hf.py, worker.py; HTTP faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_vendor_retry.py")], check=True)
     # Refunds and disputes (billing_holds.py): credits voided, downloads-only hold, dispute won, event-id dedupe.

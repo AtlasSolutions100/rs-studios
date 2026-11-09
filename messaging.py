@@ -175,6 +175,8 @@ def send_queued(now=None, limit=100) -> int:
     """Send what flows queued: suppression, consent, caps, content rules, then the provider. Returns how many went."""
     now = now or flows_engine.utcnow()
     sent = 0
+    if mailer.hold_until():
+        return 0      # the shared quota is spent (mailer.py): everything stays queued until it's back
     with db.connect() as conn:
         for msg in conn.execute("SELECT * FROM messages WHERE status='queued' AND channel='email' ORDER BY id LIMIT ?",
                                 (limit,)).fetchall():
@@ -218,6 +220,14 @@ def send_queued(now=None, limit=100) -> int:
                                  (e["from"], e["reply_to"], e["html"], msg["id"]))
                     _finish(conn, msg, "sent", now, provider_id=pid, credits=EMAIL_CREDITS)
                     sent += 1
+                except mailer.MailDeferred as err:
+                    # The shared quota or rate limit, not this email (mailer.py): refund and leave it
+                    # queued, so it goes on a later tick instead of failing.
+                    db.adjust_credits(conn, ws["id"], EMAIL_CREDITS, "refund: email waiting for the sending limit")
+                    conn.commit()
+                    if err.code.startswith("quota"):
+                        break
+                    continue
                 except mailer.MailError as err:
                     db.adjust_credits(conn, ws["id"], EMAIL_CREDITS, f"refund: email not sent ({str(err)[:40]})")
                     _finish(conn, msg, "failed", now, f"The email service refused it: {str(err)[:200]}")
