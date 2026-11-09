@@ -57,6 +57,8 @@ log = logging.getLogger("campaignify")
 
 BACKUP_META = "backup_last_ok_at"       # ISO time of the last good off-site backup (M1.6 writes it)
 HEARTBEAT_META = "worker_heartbeat"     # epoch seconds of the worker loop's last pass
+BUILD_META = "worker_heartbeat_build"   # {"build", "role", "host"} of the process that saved that beat (M7.2)
+BEAT_FILE = os.environ.get("RS_WORKER_BEAT_FILE") or "/tmp/rs-worker-beat"   # the worker container healthcheck (--check)
 ALERT_META = "alert:"                   # meta key prefix for dedupe state
 SWEEP_SECONDS = 60
 ASYNC = True                            # send in a thread so a slow mail API never holds a request; tests set False
@@ -158,15 +160,31 @@ _beat = {"at": 0.0, "saved": 0.0}
 STARTED = time.time()
 
 
+def _role() -> str:
+    return (os.environ.get("RS_PROC_ROLE") or "").strip().lower() or "web"
+
+
 def beat():
-    """The worker loop calls this each pass (and between jobs). Kept in memory; written to meta every 10 s."""
+    """The worker loop calls this each pass (and between jobs). Kept in memory; written to meta every 10 s, with the
+    build and role of this process (so the web of a new release waits for its own worker, M7.2)."""
     t = time.time()
     _beat["at"] = t
+    if _role() == "worker":
+        try:
+            with open(BEAT_FILE, "a"):
+                os.utime(BEAT_FILE, None)
+        except OSError:
+            pass
     if t - _beat["saved"] >= 10:
         _beat["saved"] = t
         try:
+            import socket
+            import worker
+            info = json.dumps({"build": worker.build_id(), "role": _role(), "mode": worker.mode(),
+                               "host": socket.gethostname(), "at": t})
             with db.connect() as conn:
                 conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (HEARTBEAT_META, str(t)))
+                conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (BUILD_META, info))
                 conn.commit()
         except Exception:  # noqa: BLE001
             log.warning("couldn't record the worker heartbeat")
@@ -251,13 +269,29 @@ def worker_state(conn) -> dict:
         except (ValueError, TypeError):
             saved = 0.0
         last = max(_beat["at"], saved)
-        if not last:
-            if os.environ.get("RS_WORKER", "1") != "1":
-                return {"ok": True, "status": "off", "age_s": None}
+        if not last and os.environ.get("RS_WORKER", "1") != "1":
+            return {"ok": True, "status": "off", "age_s": None}
+        if not last and worker.mode() != "process":
             starting = time.time() - STARTED < 60
             return {"ok": starting, "status": "starting" if starting else "no heartbeat", "age_s": None}
+        if worker.mode() == "process" and os.environ.get("RS_WORKER", "1") == "1":
+            # The worker is its own container (M7.2). Right after a deploy the last beat is the old release's worker:
+            # wait for this release's own (same BUILD_ID) before answering ok, so the deploy hook's check after the
+            # switch fails, and rolls back, when the new worker doesn't come up. Never ok on another build's beat.
+            want = worker.build_id()
+            try:
+                info = json.loads((conn.execute("SELECT value FROM meta WHERE key=?", (BUILD_META,)).fetchone()
+                                   or {"value": "{}"})["value"] or "{}")
+            except (ValueError, TypeError):
+                info = {}
+            if not last or (want and (info.get("build") != want or info.get("role") != "worker")):
+                waiting = time.time() - STARTED < max(60.0, max_age)
+                return {"ok": False, "status": "starting" if waiting else "no heartbeat", "age_s": None,
+                        "mode": "process", "build": want, "worker_build": info.get("build")}
     age = time.time() - last
-    out = {"ok": age <= max_age, "status": "ok" if age <= max_age else "late", "age_s": round(age)}
+    out = {"ok": age <= max_age, "status": "ok" if age <= max_age else "late", "age_s": round(age), "mode": worker.mode()}
+    if worker.build_id():
+        out["build"] = worker.build_id()
     if _busy["since"]:
         out.update(busy=_busy["what"], busy_s=round(time.time() - _busy["since"]))
     return out
@@ -304,11 +338,22 @@ def health() -> tuple[dict, int]:
         age = worker_info.get("age_s")
         if worker_info["status"] in ("stopped", "no heartbeat") or (age or 0) >= _num("OPS_WORKER_DOWN_MIN", 5) * 60:
             try:
+                where = ("the worker container (docker restart rs-studios-worker)" if worker_info.get("mode") == "process"
+                         else "the app container")
                 fire("worker_down", "The background worker isn't running",
                      f"Worker status: {worker_info['status']}; last pass {age if age is not None else 'unknown'} s ago. "
-                     "Jobs aren't being submitted or finished. Restart the app container.")
+                     f"Jobs aren't being submitted or finished. Restart {where}.")
             except Exception:  # noqa: BLE001
                 log.exception("couldn't raise the worker alert")
+    try:   # the worker's code imports and its tables exist (the deploy hook's candidate check sees this, M7.2)
+        import workerproc
+        wok, why = workerproc.selfcheck()
+    except Exception as e:  # noqa: BLE001
+        wok, why = False, f"workerproc: {type(e).__name__}"
+    checks["worker_code"] = why
+    if not wok:
+        ok = False
+        log.error("health: the worker's code can't start: %s", why)
     free = disk_free_gb()
     checks["disk"] = "ok" if free < 0 or free >= _num("OPS_ALERT_DISK_GB", 10) else "low"
     checks["vendor"] = vendor_status()

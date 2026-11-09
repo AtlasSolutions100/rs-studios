@@ -322,7 +322,7 @@ credits.maybe_release_stale()
 check(credits._last_sweep[0] > 0, "the worker's sweep runs (and never raises)")
 import worker  # noqa: E402
 import inspect  # noqa: E402
-check("credits.maybe_release_stale()" in inspect.getsource(worker.start), "the worker loop calls the sweep")
+check("credits.maybe_release_stale()" in inspect.getsource(worker.loop_once), "the worker loop calls the sweep")
 
 print("== the planner holds its cap and settles it")
 with db.connect() as conn:

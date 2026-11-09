@@ -282,6 +282,14 @@ GitHub OIDC token (no SSH key). The hook writes `/opt/rs-studios`, keeps
 Crowdcut's Caddy serves campaignify.ai (studio.rectorandstull.com redirects there) and proxies to
 `rs-studios-app:8080`. Data (SQLite + media) lives in `/opt/rs-studios/data`.
 
+Two containers run from the one image (roadmap M7.2): `rs-studios-app` (gunicorn, requests only) and
+`rs-studios-worker` (`python worker_main.py`: generation jobs, flows and sends, conversions, alerts, backups,
+launches, insights, the plan sync, nudges, and the planning and research runs the web queues in `task_queue`).
+One worker holds the `worker` lease at a time. Its logs: `docker logs rs-studios-worker`. The web's `/health`
+answers ok only once the worker of the same image (`BUILD_ID`) beats, so the deploy hook's check after the switch
+rolls back a release whose worker doesn't come up. `RS_WORKER_PROCESS=off` in settings.txt puts the loop back in
+the app container as a thread (the worker container then idles).
+
 ## Health and alerts (`alerts.py`, `opslog.py`)
 
 `/health` reads and writes the database and checks the worker loop's heartbeat (last beat under

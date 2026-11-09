@@ -140,7 +140,8 @@ def health(conn) -> dict:
     if live and live.get("ok") is False:
         warn.append(f"The last {live.get('misses') or 1} talking-video estimate(s) were unreadable: they started at "
                     "our table price (not blocked).")
-    return {"configured": hf.configured(), "probe": probe or "not checked yet",
+    return {"worker": _worker_status(conn),       # where the background loop runs (M7.2)
+            "configured": hf.configured(), "probe": probe or "not checked yet",
             "jobs_24h": dict(day), "last_fail": dict(last_fail) if last_fail else None,
             "check_at": check.get("at"), "check_answered": sum(r.get("vendor") is not None for r in rows),
             "check_total": len(rows), "live": live, "tolerance": worker.PRICE_TOLERANCE,
@@ -160,6 +161,22 @@ def _dbload(conn) -> dict | None:
         return dbstats.report(conn, hours=48)
     except Exception:  # noqa: BLE001
         return None
+
+
+def _worker_status(conn) -> dict:
+    """Where the background loop runs and the queued AI runs (roadmap M7.2)."""
+    import alerts
+    import tasks
+    import worker
+    out = {"mode": worker.mode(), "state": {}, "tasks": {}}
+    try:
+        out["state"] = alerts.worker_state(conn)
+        out["tasks"] = tasks.counts(conn)
+        lease = conn.execute("SELECT holder, until FROM worker_leases WHERE name='worker'").fetchone()
+        out["lease"] = dict(lease) if lease else None
+    except Exception:  # noqa: BLE001
+        pass
+    return out
 
 
 def _mail_status(conn) -> dict:

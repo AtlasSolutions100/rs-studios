@@ -208,6 +208,11 @@ def run(claim: int, cid: int, rid: int | None) -> str:
 def start(claim, cid, rid):
     if os.environ.get("RS_WORKER", "1") != "1":
         return run(claim, cid, rid)
+    import worker
+    if worker.mode() == "process":          # the worker process runs it (tasks.py, M7.2); this request returns now
+        import tasks
+        tasks.enqueue("free_plan", {"claim": claim, "cid": cid, "rid": rid}, None, f"campaign:{cid}")
+        return "planning"
     threading.Thread(target=run, args=(claim, cid, rid), name=f"free-plan-{cid}", daemon=True).start()
     return "planning"
 

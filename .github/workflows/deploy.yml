@@ -155,6 +155,10 @@ name: Deploy Campaignify (campaignify.ai)
 #   OPS_ALERTS             operator alert emails (alerts.py), default on
 #   BACKUPS / BACKUP_MEDIA the nightly off-site backup, and its media folders (backup.py), default on
 #   RS_DISK_MIN_GB         uploads and new files are refused below this much free disk (storage.py), default 5
+#   RS_WORKER_PROCESS      optional variable, the M7.2 kill switch: "off" puts the background loop back in the app
+#                          container as a thread (the worker container then idles). Default on: docker-compose runs
+#                          the loop in its own "worker" service (worker_main.py) and the web only serves requests.
+#   RS_TASK_THREADS        optional variable: planning and research runs the worker runs at once (default 4)
 #   RS_HEALTH_WORKER_MAX_AGE / RS_HEALTH_BUSY_MAX_S   /health worker heartbeat limits in seconds (alerts.py),
 #                          default 180 and 900; keep the first over 120 (the deploy hook's wait after the switch)
 # A secret or variable that isn't set is simply not sent, so the server keeps
@@ -328,6 +332,8 @@ jobs:
           BACKUP_MEDIA: ${{ vars.BACKUP_MEDIA }}
           RS_DISK_MIN_GB: ${{ vars.RS_DISK_MIN_GB }}
           RS_HEALTH_WORKER_MAX_AGE: ${{ vars.RS_HEALTH_WORKER_MAX_AGE }}
+          RS_WORKER_PROCESS: ${{ vars.RS_WORKER_PROCESS }}
+          RS_TASK_THREADS: ${{ vars.RS_TASK_THREADS }}
           RS_HEALTH_BUSY_MAX_S: ${{ vars.RS_HEALTH_BUSY_MAX_S }}
         run: |
           git archive --format=tar.gz -o /tmp/app.tgz HEAD
@@ -373,6 +379,7 @@ jobs:
                                              "RS_JOB_CANCEL", "RS_STORAGE_PURGE_DELETED", "RS_SERVICE_PATH", "OPS_ALERTS", "BACKUPS",
                                              "RS_CARD_REQUIRED", "RS_PLAN_PAYWALL", "RS_CARD_STARTS_PER_HOUR",
                                              "BACKUP_MEDIA", "RS_DISK_MIN_GB", "RS_HEALTH_WORKER_MAX_AGE", "RS_LAUNCH_KIT",
+                                             "RS_WORKER_PROCESS", "RS_TASK_THREADS",
                                              "RS_HEALTH_BUSY_MAX_S")
                       if os.environ.get(k)}
           print("settings sent:", ", ".join(settings) or "none")
@@ -415,10 +422,17 @@ jobs:
           done
           echo "deploy did not finish in 20 minutes"; exit 1
 
+      # 200 means the database answers and the background loop beats: with the worker in its own container
+      # (M7.2) that is this release's worker (same BUILD_ID), not the old one's last beat.
       - name: Health check
         run: |
           for i in $(seq 1 20); do
-            if curl -fsS --max-time 20 "https://campaignify.ai/health?deep=1"; then echo; exit 0; fi
+            if body=$(curl -fsS --max-time 20 "https://campaignify.ai/health?deep=1"); then
+              echo "$body"
+              echo "$body" | jq -r '"worker: " + (.checks.worker.status // "?") + ", mode " + (.checks.worker.mode // "thread")
+                + ", build " + (.checks.worker.build // "none") + ", worker code " + (.checks.worker_code // "?")'
+              exit 0
+            fi
             sleep 6
           done
           exit 1

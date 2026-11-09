@@ -2472,7 +2472,9 @@ def _settle_plans():
 
 
 def _start_plan_sync():
-    if os.environ.get("RS_PLAN_SYNC", "1") != "1":
+    """The hourly plan sync (a safety net for missed Stripe webhooks). In process mode (roadmap M7.2) it runs in the
+    worker process, which imports this module (workerproc.py), never in gunicorn."""
+    if os.environ.get("RS_PLAN_SYNC", "1") != "1" or not worker.background_here():
         return
 
     def loop():

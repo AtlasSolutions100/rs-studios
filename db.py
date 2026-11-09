@@ -180,6 +180,26 @@ CREATE INDEX IF NOT EXISTS idx_asst_u ON assistant_threads(user_id, id);
 CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
     value TEXT);
+-- task_queue (tasks.py, roadmap M7.2): long AI runs the web hands to the worker process. A worker claims a queued
+-- row with one compare-and-set UPDATE (claimed_by, lease_until) and renews the lease while it runs it.
+CREATE TABLE IF NOT EXISTS task_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,                      -- planner | competitors | free_plan
+    payload_json TEXT NOT NULL,              -- ids only (campaign, report, credit hold), never a token
+    workspace_id INTEGER, ref TEXT,
+    status TEXT NOT NULL DEFAULT 'queued',   -- queued | running | done | failed | interrupted | skipped
+    claimed_by TEXT, claimed_at TEXT, lease_until TEXT,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    error TEXT,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, finished_at TEXT);
+CREATE INDEX IF NOT EXISTS idx_task_queue_status ON task_queue(status, id);
+-- worker_leases (workerproc.py, M7.2): one worker process runs the loop at a time; a lease the holder stopped
+-- renewing lapses after WORKER_LEASE_S and another worker may take it.
+CREATE TABLE IF NOT EXISTS worker_leases (
+    name TEXT PRIMARY KEY,
+    holder TEXT NOT NULL,
+    until TEXT NOT NULL,
+    info TEXT);
 CREATE TABLE IF NOT EXISTS copy_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workspace_id INTEGER NOT NULL,
@@ -906,6 +926,20 @@ COLUMNS = [
 
 def now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def lease(conn, name: str, holder: str, ttl_s: float = 90.0, info: str | None = None) -> bool:
+    """Take or renew the lease `name` for `holder` until ttl_s from now (Crowdcut's db.lease). True when `holder` has
+    it: it was free, expired, or already ours. One atomic upsert, so two processes never both get True."""
+    from datetime import timedelta
+    ts = datetime.now(timezone.utc)
+    until = (ts + timedelta(seconds=ttl_s)).isoformat()
+    cur = conn.execute(
+        "INSERT INTO worker_leases (name, holder, until, info) VALUES (?,?,?,?) ON CONFLICT(name) DO UPDATE SET "
+        "holder=excluded.holder, until=excluded.until, info=excluded.info WHERE worker_leases.holder=excluded.holder "
+        "OR worker_leases.until < ?", (name, holder, until, info, ts.isoformat()))
+    conn.commit()
+    return cur.rowcount == 1
 
 
 def connect():
