@@ -17,16 +17,16 @@
 <body>
 {% if preview %}<div class="pp-preview">Preview{% if p.status != 'published' %} · this page is a draft and isn't public yet{% endif %}</div>{% endif %}
 <main>
-{% macro media(oid, cls='') %}{% if oid and oid in kinds %}<div class="pp-media {{ cls }}">{% set wh = dims.get(oid) %}{% if kinds[oid] == 'video' %}<video src="{{ media_url(oid) }}" controls playsinline preload="metadata"{% if wh %} width="{{ wh[0] }}" height="{{ wh[1] }}"{% endif %}></video>{% else %}<img src="{{ media_url(oid) }}" alt=""{% if wh %} width="{{ wh[0] }}" height="{{ wh[1] }}"{% endif %}{% if cls == 'tall' %} fetchpriority="high"{% else %} loading="lazy"{% endif %}>{% endif %}</div>{% endif %}{% endmacro %}
+{% macro media(oid, cls='', alt='') %}{% if oid and oid in kinds %}<div class="pp-media {{ cls }}">{% set wh = dims.get(oid) %}{% if kinds[oid] == 'video' %}<video src="{{ media_url(oid) }}" controls playsinline preload="metadata"{% if wh %} width="{{ wh[0] }}" height="{{ wh[1] }}"{% endif %}></video>{% else %}<img src="{{ media_url(oid) }}" alt="{{ alt }}"{% if wh %} width="{{ wh[0] }}" height="{{ wh[1] }}"{% endif %}{% if cls == 'tall' %} fetchpriority="high"{% else %} loading="lazy"{% endif %}>{% endif %}</div>{% endif %}{% endmacro %}
 {% for b in blocks %}
   {% if b.type == 'hero' %}
   <section class="pp-hero {{ 'has-media' if b.media in kinds }}"><div class="pp-wrap pp-hero-in">
     <div><h1>{{ b.headline }}</h1>{% if b.subhead %}<p class="pp-lede">{{ b.subhead }}</p>{% endif %}
       {% if b.button_text and b.button_url %}<a class="pp-btn" href="{{ b.button_url }}" rel="noopener nofollow">{{ b.button_text }}</a>{% endif %}</div>
-    {{ media(b.media, 'tall') }}
+    {{ media(b.media, 'tall', p.title) }}
   </div></section>
   {% elif b.type == 'media' %}
-  <section class="pp-sec"><div class="pp-wrap pp-center">{{ media(b.media) }}{% if b.caption %}<p class="pp-cap">{{ b.caption }}</p>{% endif %}</div></section>
+  <section class="pp-sec"><div class="pp-wrap pp-center">{{ media(b.media, '', '' if b.caption else p.title) }}{% if b.caption %}<p class="pp-cap">{{ b.caption }}</p>{% endif %}</div></section>
   {% elif b.type == 'text' %}
   <section class="pp-sec"><div class="pp-wrap pp-narrow">{% if b.heading %}<h2>{{ b.heading }}</h2>{% endif %}{% for para in (b.body or '').split('\n\n') if para.strip() %}<p>{{ para }}</p>{% endfor %}</div></section>
   {% elif b.type == 'benefits' %}

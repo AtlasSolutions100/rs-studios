@@ -1,6 +1,6 @@
 {% extends "auth_base.html" %}{% block title %}Log in · Campaignify{% endblock %}
 {% block auth %}
-  <h2>Welcome back</h2>
+  <h1 class="auth-h">Welcome back</h1>
   <p class="muted">Make this week's ads in one sitting.</p>
   {% if google_signin() %}{% with href=url_for('google_auth.start', next=request.args.get('next') or None) %}{% include "_google_button.html" %}{% endwith %}{% endif %}
   <form method="post">

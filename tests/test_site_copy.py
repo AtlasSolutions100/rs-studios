@@ -249,7 +249,8 @@ check(f'<meta property="og:image" content="http://localhost/p/og-hero/m/{oi}">' 
       and 'name="twitter:card" content="summary_large_image"' in h, "/p/ page: og:image from the hero image, with its size (SEO-1)")
 check('<meta property="og:description" content="A soy candle with amber and cedar.">' in h,
       "no description typed: og:description falls back to the hero subheadline")
-check(f'src="/p/og-hero/m/{oi}" alt="" width="864" height="1080"' in h, "the hero image carries its own size (SEO-3)")
+check(f'src="/p/og-hero/m/{oi}" alt="Ember Candle" width="864" height="1080"' in h,
+      "the hero image carries its own size (SEO-3) and the page title as alt (A11Y-7)")
 check(client().get(f"/p/og-hero/m/{oi}").status_code == 200, "and the share image is public")
 h = page(client(), "/p/og-video")
 check(f'content="http://localhost/p/og-video/m/{ov}?poster=1"' in h and 'og:image:width" content="720"' in h

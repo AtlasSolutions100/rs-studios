@@ -10,7 +10,7 @@
 <form method="post" action="{{ url_for('start') }}" enctype="multipart/form-data" class="fa panel" id="fa" data-kind="{{ first.kind }}" data-verify-preview="{{ first.needs.preview or '' }}" data-verify-image="{{ first.needs.image or '' }}" data-verify-video="{{ first.needs.video or '' }}" data-go-text='{{ go_text|tojson|forceescape }}' data-go-note='{{ go_note|tojson|forceescape }}' data-import-url="{{ url_for('start_import') }}" data-first-run{% if first.service_on %} data-sells="{{ first.sells }}"{% endif %}>
   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
   <p class="eyebrow" style="margin:0 0 6px">Your first ad</p>
-  <h2 class="fa-title">{% if first.video_on %}Your free video ad is ready to make{% elif first.free_images %}Your free credits cover 2 ads{% else %}See your product in an ad in a few minutes{% endif %}</h2>
+  <h1 class="fa-title">{% if first.video_on %}Your free video ad is ready to make{% elif first.free_images %}Your free credits cover 2 ads{% else %}See your product in an ad in a few minutes{% endif %}</h1>
   <p class="muted" style="margin:0 0 18px" {% if first.service_on %}data-svc data-product="Paste your product's page and we read the name, brand and photo. Or type the name and add one photo. Your product is saved under Products as you go." data-service="Paste your website and we read your business name, logo, colors and photos. No photo needed: we can build the ads from your logo and a headline."{% endif %}>Paste your product's page and we read the name, brand and photo. Or type the name and add one photo. Your product is saved under Products as you go.</p>
   {% if first.service_on %}
   <fieldset class="fa-sells">

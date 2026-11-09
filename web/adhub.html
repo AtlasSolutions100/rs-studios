@@ -7,7 +7,7 @@
   <div class="hubgrid">
     {% for k in (order if order is defined else hub.ORDER) %}{% set p = hub.PLATFORMS[k] %}{% set n = (done.get(k) or [])|length %}
     <a class="panel hubcard" href="{{ url_for('adhub.platform', platform=k) }}">
-      <h3>{{ p.name }}</h3>{% if in_plan is defined and k in in_plan %}<span class="tag ok">In your plan</span>{% endif %}
+      <h2 class="hubcard-h">{{ p.name }}</h2>{% if in_plan is defined and k in in_plan %}<span class="tag ok">In your plan</span>{% endif %}
       <p class="small muted">{{ p.steps|length }} steps · {{ p.pixel[0] }}</p>
       <div class="bar"><i style="--v:{{ (100 * n / p.steps|length)|round|int }}%"></i></div>
       <span class="small {{ 'gold' if n == p.steps|length else 'muted' }}">{{ 'Ready' if n == p.steps|length else n ~ ' of ' ~ p.steps|length ~ ' done' }}</span>

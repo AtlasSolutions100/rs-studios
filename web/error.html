@@ -1,10 +1,10 @@
 {% extends "auth_base.html" %}{% block title %}{{ 'Page not found' if code == 404 else 'Something went wrong' }} · Campaignify{% endblock %}{% block auth %}
 {% if code == 404 %}
-<h2>That page isn't here.</h2>
+<h1 class="auth-h">That page isn't here.</h1>
 <p class="muted">{{ message or "It may have moved, or the link was cut short." }}</p>
 <p class="err-actions"><a class="btn" href="{{ url_for('studio') if g.user else url_for('index') }}">Home</a>{% if g.user %} <a class="btn dark" href="{{ url_for('library') }}">Library</a>{% endif %}</p>
 <p class="small dim" style="margin:0">Error 404</p>
 {% else %}
-<h2>{{ code }}</h2><p class="muted">{{ message or 'Something went wrong.' }}</p><p><a class="btn dark" href="{{ url_for('index') }}">Back</a></p>
+<h1 class="auth-h">{{ code }}</h1><p class="muted">{{ message or 'Something went wrong.' }}</p><p><a class="btn dark" href="{{ url_for('index') }}">Back</a></p>
 {% endif %}
 {% endblock %}
