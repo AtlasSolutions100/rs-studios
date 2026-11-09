@@ -743,7 +743,7 @@ class Run:
         self.page.wait_for_url("**/signup**")
         self.fill("input[name=email]", email)
         self.fill("input[name=password]", PW)
-        self.click("form button:has-text('Create account')")
+        self.click("form button:has-text('Create my account')")
         self.wait_until(lambda: re.search(r"/app(/card)?(\?|$)", self.page.url)
                         or self.page.locator("[data-signup-sent]").count(), "the page after Create account", 20)
         if self.page.locator("[data-signup-sent]").count():

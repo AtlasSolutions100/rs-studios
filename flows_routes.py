@@ -185,7 +185,7 @@ def draft():
             flash(err)
             return redirect(url_for("flows.index"))
         fid = _create(conn, str(out.get("name") or "Drafted flow")[:80], tree)
-    flash(f"Drafted for {taken} credit{'s' if taken != 1 else ''}. It's off: check every step, then turn it on.", "ok")
+    flash(f"Drafted for {taken} credit{'s' if taken != 1 else ''}. It's off: check each step marked AI draft, then turn it on.", "ok")
     return redirect(url_for("flows.edit", fid=fid))
 
 

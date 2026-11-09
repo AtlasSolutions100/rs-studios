@@ -243,7 +243,7 @@ check(r.status_code == 302 and urlsplit(loc).path == "/app/products/new" and q.g
 html = u3.get(loc).get_data(as_text=True)
 check("This store doesn&#39;t let apps read its pages automatically." in html or
       "This store doesn't let apps read its pages automatically." in html, "the friendly explanation is shown")
-check("Add the details yourself — takes 30 seconds:" in html, "with the 30-second promise")
+check("Add the details yourself. It takes about 30 seconds." in html, "with the 30-second promise")
 check('value="Night Cream"' in html and 'name="brand_name"' in html and 'value="Wallstore"' in html
       and 'value="https://wallstore.com/products/night-cream"' in html, "prefilled: name from the link, brand from the domain, the link")
 check('name="price"' in html and 'name="description"' in html and "Key claims" in html and 'name="photos"' in html

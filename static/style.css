@@ -1080,6 +1080,8 @@ dialog.jd::backdrop{background:rgba(0,0,0,.55)}
 .cf-preset>span{display:flex;flex-direction:column;gap:2px;min-width:0}
 .cf-preset b{font-size:13.5px}.cf-preset .small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .plan-out{margin:-4px 0 8px;font-weight:600;color:var(--gold2)}
+.plan-per{margin:0 0 8px;color:var(--ink)}.plan-why{margin:8px 0 0}
+.err-actions{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 14px}
 .lp-anchor{margin:0 0 18px;color:var(--muted)}.lp-anchor b{color:var(--ink)}
 .fa-ava{width:22px;height:22px;border-radius:50%;object-fit:cover;margin:-3px 6px -6px -6px;vertical-align:middle}
 .cf-pres img.cf-ava{object-fit:cover;background:none}
@@ -1127,6 +1129,7 @@ dialog.jd::backdrop{background:rgba(0,0,0,.55)}
 .fl-txt{display:flex;flex-direction:column;gap:2px;min-width:0;font-size:14px}
 .fl-txt>span{color:var(--muted);overflow-wrap:anywhere}
 .fl-txt i{font-style:normal;font-size:12px;color:var(--dim)}
+.lock.fl-ai{color:var(--gold2);border-color:currentColor;margin-left:4px}
 .fl-err{color:var(--bad)!important;font-size:12.5px}
 .fl-ins{position:relative;display:flex;justify-content:center;height:34px;width:100%}
 .fl-ins::before{content:"";position:absolute;top:0;bottom:0;left:50%;border-left:2px solid var(--line)}

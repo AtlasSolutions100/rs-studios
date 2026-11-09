@@ -118,6 +118,8 @@ def clean_step(s: dict, depth=0) -> dict:
     out = {"id": s.get("id") if re.match(r"^[a-z0-9_-]{1,24}$", str(s.get("id") or "")) else new_id(), "type": typ}
     if s.get("hint"):
         out["hint"] = _txt(s.get("hint"), 200)
+    if s.get("ai") is True:   # written by the AI draft and not edited since (COPY-11)
+        out["ai"] = True
     if typ == "email":
         out.update(subject=_txt(s.get("subject"), 150), body=_txt(s.get("body"), 5000))
     elif typ == "sms":
@@ -692,7 +694,7 @@ def without(tree: dict, typ: str) -> dict:
 def from_draft(d: dict) -> dict:
     """The AI's draft as a clean tree (conditions get their tests; 'clicked' points at the email before it)."""
     def conv(s):
-        s = dict(s)
+        s = dict(s, ai=True)   # tagged "AI draft" in the editor until first edited
         if s.get("type") in ("condition", "exit_if"):
             s["test"] = {"kind": s.get("test_kind") or "has_tag", "tag": s.get("test_tag") or s.get("tag") or "",
                          "channel": "sms" if s.get("test_kind") == "has_consent" else "email"}

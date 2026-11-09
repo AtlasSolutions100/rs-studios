@@ -46,6 +46,12 @@ def stray_dollars(html):
     import plans
     ok = {"$0"} | {f"${p['usd']}" for p in plans.PAID} | {f"${p['usd']}" for p in catalog.PACKS}
     ok |= {f"{a}.00" for a in ok}
+    # The plan and pack prices broken down per finished ad (public_site.ad_math, COPY-5): the
+    # one dollar sum allowed beside them, computed from those prices, never typed in.
+    import public_site
+    for p in list(plans.PAID) + list(catalog.PACKS):
+        m = public_site.ad_math(p["credits"], p["usd"])
+        ok |= {m["usd_image"], m["usd_video"], m["usd_talk"]}
     return [m for m in re.findall(r"\$\s?\d+(?:,\d{3})*(?:\.\d+)?", html) if m not in ok]
 
 
@@ -145,10 +151,10 @@ print("== accounts")
 x = client()
 r = x.get("/")
 html = r.get_data(as_text=True)
-check(r.status_code == 200 and "AI ads from your product page" in html and "Paste your product page. " in html
-      and "Start free" in html, "logged out: / is the landing page (paste your product page, get the ads)")
+check(r.status_code == 200 and "Ads, copy, plan and page from one product link" in html and "Paste your product page. " in html
+      and "Start free" in html, "logged out: / is the landing page (paste your product page, get the whole campaign)")
 for section in ('id="journey"', 'id="gallery"', 'id="reps"', 'id="pricing"', 'id="faq"', "© 2026 Campaignify",
-                "/privacy", "/terms", "$29", "$79", "$199", "Checkout coming soon"):
+                "/privacy", "/terms", "$29", "$79", "$199", "Pack checkout isn't switched on yet."):
     check(section in html, f"landing has {section}")
 check(not re.search(r"higgsfield", html, re.I), "landing never names the vendor")
 check(not stray_dollars(html) and "1 credit =" not in html, f"landing prices ads in credits, not dollars: {stray_dollars(html)}")
@@ -768,7 +774,7 @@ with db.connect() as conn:
 
 print("== billing")
 r = n.get("/app/billing")
-check(r.status_code == 200 and b"Checkout coming soon" in r.data and b"$79" in r.data, "billing page: packs shown, checkout off until keys are set")
+check(r.status_code == 200 and b"Not open yet" in r.data and b"$79" in r.data, "billing page: packs shown, checkout off until keys are set")
 r = n.post("/app/billing/checkout", data={"csrf": csrf(n), "pack": "pro"})
 with db.connect() as conn:
     check(r.status_code == 302 and conn.execute("SELECT COUNT(*) FROM purchases WHERE workspace_id=?", (nws["id"],)).fetchone()[0] == 0,
@@ -1082,8 +1088,8 @@ a.post("/admin/plan", data={"csrf": csrf(a), "workspace_id": xws["id"], "plan": 
 check(plans.plan_code(wsrow(xws["id"])) == "free", "comp cleared")
 html = client().get("/").get_data(as_text=True)
 for bit in ("$39", "$99", "$249", "2,000 credits every month", "6,000 credits every month", "18,000 credits every month",
-            "Credit packs", "Plan credits reset monthly, pack credits never", "No trial that bills you: nothing is charged until you pick a plan or buy a pack.",
-            "Only want ads? Buy a pack. Credits never expire.", appmod.public_site.basket(2000)["line"] + " a month (2,000 credits)",
+            "Credit packs", "Plan credits reset monthly and are spent before pack credits", "No trial that bills you: nothing is charged until you pick a plan or buy a pack.",
+            "Only want ads? Buy a pack. Credits never expire.", appmod.public_site.ad_math(2000, 39)["counts"] + ", each month.", appmod.public_site.ad_math(2000, 39)["per_ad"],
             'class="plan-more" open'):
     check(bit in html, f"landing pricing shows {bit!r}")
 fh = client().get("/features")
@@ -2082,6 +2088,9 @@ check(fl["status"] == "draft" and len(steps) == 7 and [st["type"] for st in step
       and cond["test"]["node"] == steps[0]["id"] and not any("pounds" in (st.get("subject") or "") for st in steps)
       and tree["trigger"]["form_id"] == fm["id"] and db.balance(wsrow(xws["id"])) < bal,
       "the draft is an editable 7-step flow, off, charged at cost; the rule-breaking email is dropped")
+check(all(st.get("ai") is True for st in steps) and "check each step marked AI draft" in x.get(r.headers["Location"]).get_data(as_text=True),
+      "every drafted step is tagged AI draft, and the flash says to check those (COPY-11)")
+check("ai" not in flows.clean_step({"type": "wait", "days": 1, "ai": "yes"}), "only a real true keeps the AI-draft tag")
 tl = flows.timeline(tree)
 check([r_["day"] for r_ in tl] == [0, 1, 1, 3] and tl[1]["branch"].startswith("if they clicked") and tl[0]["hint"],
       "Timeline: Day 0 welcome, Day 1 tag or text (by branch), Day 3 offer")
@@ -3220,6 +3229,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_plan_pending.py")], check=True)
     # Card on file at sign-up and the out-of-credits paywall (RS_CARD_REQUIRED, RS_PLAN_PAYWALL; Stripe and AI faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_card_paywall.py")], check=True)
+    # Site copy (M5.8, L-4): the hero, one pricing sum on /pricing and Billing, sign-up, the 404, card-on-file copy.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_site_copy.py")], check=True)
     # The pip-audit gate (tools/audit_gate.py): severity from OSV, fail only on High or Critical (OSV faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_audit_gate.py")], check=True)
     # Off-site backups and the restore drill (backup.py, tools/restore.sh): rclone faked by tests/fake_rclone.sh.
