@@ -2,6 +2,16 @@
 {% block title %}{{ c.name }} · Campaignify{% endblock %}
 {% block body %}
 {% set final = plan.final %}
+<style>
+.v2setup{margin:0 0 16px}.v2setup h3{margin:0 0 6px}
+.v2rows{list-style:none;padding:0;margin:0}
+.v2rows li{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,.8fr) minmax(0,1fr);gap:14px;align-items:start;padding:12px 0;border-top:1px solid var(--line)}
+.v2rows li:first-child{border-top:0;padding-top:0}
+.v2band{display:flex;flex-direction:column}.v2band b{font-size:20px}
+.v2total{margin:12px 0 0;padding-top:12px;border-top:1px solid var(--line)}
+.v2test{padding-left:20px;margin:6px 0 0}.v2test li{margin:0 0 8px}.v2test li b{display:block}
+@media (max-width:640px){.v2rows li{grid-template-columns:1fr 1fr}.v2rows li>div:first-child{grid-column:1/-1}}
+</style>
 <div class="page full camp">
   <p style="margin:0 0 14px"><a href="{{ url_for('campaigns.index') }}">← Campaigns</a></p>
   <p class="eyebrow">Campaign · {{ (brief.goal or 'sales')|first_upper }}{% for p in brief.platforms or [] %}{{ ' · ' if loop.first else ', ' }}{{ PLATFORMS[p].short if p in PLATFORMS else p }}{% endfor %}</p>
@@ -26,13 +36,36 @@
     <h2>The plan</h2>
     <p class="lede">{{ final.summary }}</p>
     {% if final.offer %}<div class="panel offerbox"><h3>The offer</h3><p>{{ final.offer }}</p></div>{% endif %}
+    {% if setup %}{% set cur = setup.currency %}
+    {# Planner v2 (planner_v2.build, M4.3): the platform mix, the daily budget band and the connected accounts. #}
+    <div class="panel v2setup" data-setup="{{ setup.path }}">
+      <h3>Where to run it and how much</h3>
+      <p class="small muted" style="margin:0 0 12px">{{ 'For leads: Google Search for people already looking, plus Meta lead ads.' if setup.path == 'service' else 'For sales: Meta optimized for purchases, plus Google Performance Max.' }} Amounts are per day, in {{ cur }}{% if setup.connected %}, your ad account's currency{% endif %}.</p>
+      <ul class="v2rows">{% for r in setup.rows %}
+        <li data-setup-row="{{ r.platform }}">
+          <div><b>{{ r.name }}</b> <span class="small muted">{{ r.share }}% of the budget</span><br><span class="small muted">{{ r.what }}</span></div>
+          <div class="v2band"><span class="small muted">A day</span><b>{{ v2money(r.mid, cur) }}</b><span class="small dim">{{ v2money(r.low, cur) }} to {{ v2money(r.high, cur) }}</span></div>
+          <div class="v2acct">{% if r.connected %}<span class="tag ok">Connected</span><br><span class="small muted">{{ r.account }}</span>
+            {% elif launch_on %}<span class="tag">Not connected</span><br><a class="small" href="{{ url_for('adconnect.settings') }}">Connect your {{ connect_words[r.platform] }}</a><span class="small muted"> to launch it from here, or launch it by hand with the kit below.</span>
+            {% else %}<span class="small muted">Launch it by hand with the kit below.</span>{% endif %}</div>
+        </li>{% endfor %}</ul>
+      <p class="v2total"><b>Suggested start: {{ v2money(setup.total.mid, cur) }} a day</b> for {{ setup.days }} days <span class="muted">({{ v2money(setup.total.low, cur) }} to {{ v2money(setup.total.high, cur) }} a day)</span></p>
+      {% if setup.where == 'below' %}<p class="small" style="margin:4px 0 0">Your budget, {{ v2money(setup.mine, cur) }} a day, is under this range. With less, run {{ setup.rows[0].name }} alone first.</p>
+      {% elif setup.where == 'above' %}<p class="small" style="margin:4px 0 0">Your budget, {{ v2money(setup.mine, cur) }} a day, is above this range. Start near the top of it and raise it once cost per {{ setup.result }} holds.</p>
+      {% elif setup.where == 'inside' %}<p class="small" style="margin:4px 0 0">Your budget, {{ v2money(setup.mine, cur) }} a day, is inside this range.</p>{% endif %}
+      {% if setup.capped and setup.cap %}<p class="small muted" style="margin:4px 0 0">Your plan allows up to {{ v2money(setup.cap, cur) }} a day from Campaignify.</p>{% endif %}
+      <p class="small muted" style="margin:10px 0 0">These ranges come from typical costs per click for {{ setup.vertical_words }} ads. They are a starting point, not a forecast: your costs and results will be different.</p>
+    </div>
+    {% endif %}
     <div class="grid2">
       {% if final.budget_split %}<div class="panel"><h3>Budget split for the first test</h3>
         {% for b in final.budget_split %}<div class="bar"><div class="bar-h"><span>{{ PLATFORMS[b.platform].name if b.platform in PLATFORMS else b.platform }}</span><b>{% set amt = money.share(brief, b.share_percent) %}{% if amt %}<span class="splitamt">{{ amt }}</span> · {% endif %}{{ b.share_percent }}%</b></div><i style="--v:{{ b.share_percent }}%"></i>{% if b.note %}<p class="small muted">{{ b.note }}</p>{% endif %}</div>{% endfor %}
       </div>{% endif %}
       <div class="panel">
         {% if final.kpis %}<h3>What to watch</h3><ul class="rules">{% for k in final.kpis %}<li>{{ k }}</li>{% endfor %}</ul>{% endif %}
-        {% if final.test_plan %}<h3 style="margin-top:16px">Test plan</h3><p class="muted">{{ final.test_plan }}</p>{% endif %}
+        {% if setup %}<h3 style="margin-top:16px">The {{ setup.days }}-day test</h3>
+        <ol class="v2test">{% for when, what in setup.test_plan %}<li><b>{{ when }}</b><span class="small muted">{{ what }}</span></li>{% endfor %}</ol>
+        {% elif final.test_plan %}<h3 style="margin-top:16px">Test plan</h3><p class="muted">{{ final.test_plan }}</p>{% endif %}
       </div>
     </div>
   </section>

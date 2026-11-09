@@ -257,7 +257,13 @@ def _copy_for(plan: dict, angle: str) -> dict:
 def _daily_from_brief(brief: dict, plan: dict, currency: str = "USD", platform: str = "meta") -> int:
     import campaign_budget
     if not campaign_budget.structured(brief):
+        setup = (plan.get("final") or {}).get("setup") or {}
+        row = next((r for r in setup.get("rows") or [] if r.get("platform") == platform), None)
+        if row and setup.get("currency") == (currency or "USD").upper() and row.get("mid"):
+            return max(adspec.MIN_DAILY[platform], int(row["mid"]))     # Planner v2's suggested amount (M4.3)
         return DEFAULT_DAILY
+    src = (brief.get("budget_currency") or "USD").upper()
+    cur = (currency or "USD").upper()
     share = next((b.get("share_percent") for b in (plan.get("final") or {}).get("budget_split") or []
                   if b.get("platform") == platform), 100)
     try:
@@ -267,6 +273,8 @@ def _daily_from_brief(brief: dict, plan: dict, currency: str = "USD", platform: 
     amount = float(brief["budget_amount"]) * share / 100
     if brief.get("budget_period") != "day":
         amount /= max(1, int(brief.get("budget_days") or campaign_budget.DEFAULT_DAYS))
+    if src != cur and src in UNITS_PER_USD and cur in UNITS_PER_USD:
+        amount = _two_sig(amount / UNITS_PER_USD[src] * UNITS_PER_USD[cur])   # the brief's currency to the account's (D3)
     return max(adspec.MIN_DAILY[platform], int(round(amount)) * adspec.minor_factor(currency))
 
 
