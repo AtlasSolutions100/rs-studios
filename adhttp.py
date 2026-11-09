@@ -168,6 +168,13 @@ def block(platform: str, account: str, seconds: float):
         conn.commit()
 
 
+def blocked_for(platform: str, account: str) -> float:
+    """Seconds (platform, account) is still blocked for (0 when it isn't)."""
+    with db.connect() as conn:
+        r = _budget_row(conn, platform, account)
+    return max(0.0, ((r["blocked_until"] if r else 0.0) or 0.0) - CLOCK())
+
+
 def edit_lock(platform: str, object_id: str, max_wait: float = 0.0):
     """Take the 30 s edit slot for one object (Meta: one edit per object per 30 s). Waits up to
     max_wait seconds, else RateLimited."""
@@ -209,6 +216,12 @@ def _read_usage(platform, account, headers):
         acc = json.loads(h.get("x-ad-account-usage") or "{}")
         if isinstance(acc, dict) and float(acc.get("acc_id_util_pct") or 0) >= 95:
             wait = max(wait, float(acc.get("reset_time_duration") or 60))
+        # The Insights API's own throttle (x-fb-ads-insights-throttle): only reports wait, under "<account>:insights",
+        # so launches and changes on the account carry on (adinsights.py checks it before a pull).
+        ins = json.loads(h.get("x-fb-ads-insights-throttle") or "{}")
+        if isinstance(ins, dict) and max(float(ins.get("app_id_util_pct") or 0), float(ins.get("acc_id_util_pct") or 0)) >= 95:
+            block(platform, f"{account}:insights", 300.0)
+            log.warning("adhttp %s %s insights throttled by the platform", platform, account)
     except (ValueError, TypeError, AttributeError):
         return
     if wait > 0:

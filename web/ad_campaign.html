@@ -1,6 +1,7 @@
-{% extends "base.html" %}
+{% extends "base.html" %}{% import "_ad_figures.html" as af with context %}
 {% block title %}{{ s.name }} · Ad campaigns · Campaignify{% endblock %}
 {% block body %}
+{{ af.styles() }}
 {# One launched campaign (manage_routes.show; roadmap M2.4): turn it or its ads on or off, change the daily budget.
    Each change is drafted as a card (admanage.draft) that the owner approves (admanage.approve). #}
 {% set L = s.launch %}{% set p = s.pending %}{% set b = s.busy %}
@@ -33,6 +34,15 @@
 .mc-hist li{padding:10px 0;border-top:1px solid var(--line)}
 .mc-hist li:first-child{border-top:0}
 .mc-panel{margin-top:18px}
+.mc-bars{margin:14px 0 6px}
+.mc-bars ol{list-style:none;display:flex;align-items:flex-end;gap:4px;height:90px;padding:0;margin:12px 0 2px;border-bottom:1px solid var(--line)}
+.mc-bars li{flex:1;height:100%;display:flex;align-items:flex-end}
+.mc-bars .bar{display:block;width:100%;min-height:2px;background:var(--accent);border-radius:4px 4px 0 0}
+.mc-bars-ax{display:flex;justify-content:space-between}
+.mc-table{min-width:720px;margin-top:12px}
+.mc-table th,.mc-table td{text-align:right;padding:8px 10px;white-space:nowrap}
+.mc-table th:first-child{text-align:left;white-space:normal}
+.mc-table tbody th{text-transform:none;letter-spacing:0;font-weight:600;color:var(--ink)}
 .mc-ads .tag,.mc-hist .tag,.mc-big .tag{justify-self:start;white-space:nowrap}
 .page .tag:not(.ok):not(.warn):not(.bad){background:var(--chipbg);border:1px solid var(--line);color:var(--muted)}
 @media (max-width:900px){.mc-top{grid-template-columns:1fr}}
@@ -103,6 +113,30 @@
     </div>
   </form>
   {% endif %}
+
+  <section class="panel mc-panel" id="results" aria-labelledby="mc-res">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <h2 id="mc-res">Results</h2>
+      {% if not viewing %}<form method="post" action="{{ url_for('manage.refresh') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ url_for('manage.show', lid=L.id, range=key) }}#results"><button class="btn sm dark">Update now</button></form>{% endif %}
+    </div>
+    {{ af.range_tabs(key, ranges, url_for('manage.show', lid=L.id)) }}
+    {{ af.tiles(fig, fig.cur or s.currency, money, full=True) }}
+    {% set top = days|map(attribute=1)|max %}
+    <figure class="mc-bars" aria-labelledby="mc-bars-cap">
+      <figcaption id="mc-bars-cap" class="small muted">Spent per day, last 14 days</figcaption>
+      <ol>{% for d, sp, res in days %}<li title="{{ d }}: {{ money(sp, s.currency) }}, {{ res }} {{ fig.words[0]|lower }}"><span class="bar" style="height:{{ (sp * 100 / top)|round(1) if top else 0 }}%"></span><span class="sr">{{ d }}: {{ money(sp, s.currency) }} spent, {{ res }} {{ fig.words[0]|lower }}</span></li>{% endfor %}</ol>
+      <div class="small dim mc-bars-ax"><span>{{ days[0][0] }}</span><span>Today</span></div>
+    </figure>
+    {% if ad_fig %}
+    <div class="scrollx"><table class="mc-table">
+      <thead><tr><th scope="col">Ad</th><th scope="col">Spent</th><th scope="col">Times shown</th><th scope="col">Link clicks</th><th scope="col">Click rate</th><th scope="col">Cost per click</th><th scope="col">{{ fig.words[0] }}</th><th scope="col">{{ fig.words[1] }}</th></tr></thead>
+      <tbody>{% for a in ads %}{% set f = ad_fig.get(a.row.external_id) %}<tr><th scope="row">Ad {{ a.n }} <span class="dim">{{ a.name }}</span></th>
+        {% if f %}<td>{{ money(f.spend, s.currency) }}</td><td>{{ '{:,}'.format(f.imp) }}</td><td>{{ '{:,}'.format(f.link) }}</td><td>{{ '%.2f'|format(f.ctr) ~ '%' if f.ctr is not none else 'None yet' }}</td><td>{{ money(f.cpc, s.currency) if f.cpc is not none else 'None yet' }}</td><td>{{ '{:,}'.format(f.results) }}</td><td>{{ money(f.cpr, s.currency) if f.cpr is not none else 'None yet' }}</td>
+        {% else %}<td colspan="7" class="muted">Nothing shown in this range.</td>{% endif %}</tr>{% endfor %}</tbody>
+    </table></div>
+    {% endif %}
+    {{ af.updated(ins) }}
+  </section>
 
   <div class="panel mc-panel">
     <h2>Ads</h2>

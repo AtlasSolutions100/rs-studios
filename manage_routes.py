@@ -3,6 +3,7 @@
     GET  /app/ad-campaigns                       every launch with its status on Meta, budget, pending changes
     GET  /app/ad-campaigns/<lid>                 one campaign: its ads, turn on or pause, the daily budget, the card
     GET  /app/ad-campaigns/<lid>.json            the state of a change being made (the page polls while it waits)
+    POST /app/ad-campaigns/refresh               "Update now": pull Meta's numbers soon (adinsights.refresh, M2.5)
     POST /app/ad-campaigns/<lid>/change          draft a change card: action=on|off|budget, target=campaign|<ad id>
     POST /app/ad-cards/<card_id>/approve         the owner approves the card shown (hash, confirm_big, confirm_ai)
     POST /app/ad-cards/<card_id>/discard         drop an undecided card (the owner, or who drafted it)
@@ -17,6 +18,7 @@ import logging
 
 from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
 
+import adinsights
 import admanage
 import adspec
 import db
@@ -55,10 +57,30 @@ def _launch(conn, lid):
 @login_required
 def index():
     _on()
+    key = request.args.get("range") if request.args.get("range") in adinsights.RANGES else "7"
     with db.connect() as conn:
         rows = admanage.listed(conn, g.ws["id"])
+        for r in rows:
+            r["fig"] = adinsights.launch_figures(conn, r["launch"], key, r["conn_row"]["timezone"] if r["conn_row"] else None)
         connected = launches.connection(conn, g.ws["id"]) is not None
-    return render_template("ad_campaigns.html", rows=rows, connected=connected, owner=_owner_ok())
+        totals = adinsights.workspace_totals(conn, g.ws["id"], key)
+        ins = adinsights.status(conn, g.ws["id"])
+    return render_template("ad_campaigns.html", rows=rows, connected=connected, owner=_owner_ok(), totals=totals, ins=ins,
+                           key=key, ranges=adinsights.RANGES, money=launches.money)
+
+
+@bp.route("/app/ad-campaigns/refresh", methods=["POST"])
+@login_required
+def refresh():
+    _on()
+    if g.get("viewing"):
+        abort(403, "Viewing as admin is read-only.")
+    with db.connect() as conn:
+        moved = adinsights.refresh(conn, g.ws["id"])
+    flash("Getting the latest numbers from Meta. They show here within a few minutes." if moved else
+          "The numbers were updated in the last 15 minutes. Meta itself updates them every few hours.")
+    return redirect(request.form.get("next") if (request.form.get("next") or "").startswith("/app/ad-campaigns")
+                    else url_for("manage.index"))
 
 
 @bp.route("/app/ad-campaigns/<int:lid>")
@@ -77,10 +99,17 @@ def show(lid):
         hist = admanage.history(conn, L)
         cap = launches.ceiling(g.ws, s["currency"], _operator())
         code = launches.launch_plan_code(g.ws, _operator())
+        key = request.args.get("range") if request.args.get("range") in adinsights.RANGES else "7"
+        tz = s["conn_row"]["timezone"] if s["conn_row"] else None
+        fig = adinsights.launch_figures(conn, L, key, tz)
+        ad_fig = adinsights.ad_figures(conn, L, key, tz)
+        days = adinsights.daily(conn, L, 14, tz)
+        ins = adinsights.status(conn, g.ws["id"])
     return render_template("ad_campaign.html", s=s, L=L, ads=ads, ai_kinds=kinds, hist=hist, owner=_owner_ok(),
                            sync_error=sync_error, cap_text=launches.money(cap, s["currency"]) if cap else "",
                            plan_name=plans.PLANS.get(code, {}).get("name", ""), minor_factor=adspec.minor_factor(
-                               s["currency"]), viewing=bool(g.get("viewing")))
+                               s["currency"]), viewing=bool(g.get("viewing")), fig=fig, ad_fig=ad_fig, days=days, ins=ins,
+                           key=key, ranges=adinsights.RANGES, money=launches.money)
 
 
 @bp.route("/app/ad-campaigns/<int:lid>.json")

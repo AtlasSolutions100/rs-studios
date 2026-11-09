@@ -1,6 +1,7 @@
-{% extends "base.html" %}
+{% extends "base.html" %}{% import "_ad_figures.html" as af with context %}
 {% block title %}Ad campaigns · Campaignify{% endblock %}
 {% block body %}
+{{ af.styles() }}
 {# The Campaigns page for launched campaigns (manage_routes.index, admanage.listed; roadmap M2.4). #}
 <style>
 .ac-list{list-style:none;padding:0;margin:18px 0 0;display:grid;gap:12px}
@@ -12,6 +13,7 @@
 .ac-go{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .ac-row .tag{white-space:nowrap}
 .ac-row .tag:not(.ok):not(.warn):not(.bad){background:var(--chipbg);border:1px solid var(--line);color:var(--muted)}
+.ac-figs{grid-column:1/-1}
 .ac-note{grid-column:1/-1;margin:0;padding:8px 12px;border-radius:10px;background:var(--field)}
 @media (max-width:820px){.ac-row{grid-template-columns:1fr 1fr}.ac-row .ac-name{grid-column:1/-1}.ac-go{grid-column:1/-1;justify-content:flex-start}}
 @media (max-width:560px){.ac-go .btn{flex:1 1 auto;text-align:center}}
@@ -20,6 +22,19 @@
   <p class="eyebrow">Launch on Meta · beta</p>
   <h1>Ad campaigns</h1>
   <p class="muted">The campaigns Campaignify created on your Meta ad account. Turn them on or pause them and change the daily budget here. Every change shows you a card first, and the workspace owner approves it.</p>
+
+  {% if rows %}
+  <section class="panel" style="margin-top:18px" aria-labelledby="ac-res">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <h2 id="ac-res" style="margin:0 0 10px;font-size:18px">Results, all campaigns</h2>
+      <form method="post" action="{{ url_for('manage.refresh') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ url_for('manage.index', range=key) }}"><button class="btn sm dark">Update now</button></form>
+    </div>
+    {{ af.range_tabs(key, ranges, url_for('manage.index')) }}
+    {% for t in totals %}{{ af.tiles(t, t.cur, money) }}{% if not loop.last %}<div style="height:10px"></div>{% endif %}
+    {% else %}<p class="muted" style="margin:0">No results for {{ ranges[key]|lower }} yet. Meta reports a campaign once it has run.</p>{% endfor %}
+    {{ af.updated(ins) }}
+  </section>
+  {% endif %}
 
   {% if not rows %}
   <div class="panel" style="margin-top:18px">
@@ -42,6 +57,7 @@
         {% if r.manageable %}<a class="btn sm" href="{{ url_for('manage.show', lid=L.id) }}">Manage</a>{% else %}<a class="btn sm dark" href="{{ url_for('launch.status', lid=L.id) }}">See the launch</a>{% endif %}
         {% if r.manager and r.manageable %}<a class="btn sm dark" href="{{ r.manager }}" target="_blank" rel="noopener noreferrer">Ads Manager ↗</a>{% endif %}
       </div>
+      {% if r.manageable and r.fig.n %}<div class="ac-figs">{{ af.tiles(r.fig, r.fig.cur or r.currency, money) }}</div>{% endif %}
       {% if r.busy %}<p class="ac-note small">{{ r.busy.card.title }}: {{ r.busy.state_word|lower }}.</p>
       {% elif r.pending %}<p class="ac-note small">Waiting for approval: {{ r.pending.card.title }}. {% if owner %}<a href="{{ url_for('manage.show', lid=L.id) }}#card">Check the card</a>{% else %}The workspace owner approves it.{% endif %}</p>{% endif %}
     </li>

@@ -1,0 +1,9 @@
+{
+ "error": {
+  "message": "Please reduce the amount of data you're asking for, then retry your request",
+  "type": "OAuthException",
+  "code": 1,
+  "is_transient": false,
+  "fbtrace_id": "AFAKEtrace1reduce"
+ }
+}
