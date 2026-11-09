@@ -3243,6 +3243,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_adpolicy.py")], check=True)
     # The launch saga, the approval card and the Meta launch steps (launches.py, launch_routes.py; M2.3): fake Graph.
     subprocess.run([sys.executable, os.path.join(HERE, "test_launches.py")], check=True)
+    # Instagram placements on Meta (M6.3): Feed, Stories and Reels per app, the Instagram account rule (fake Graph).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_meta_placements.py")], check=True)
     # Manage a launched campaign (admanage.py, manage_routes.py; M2.4): on/off, budget, approval cards, fake Graph.
     subprocess.run([sys.executable, os.path.join(HERE, "test_manage.py")], check=True)
     # Results of launched campaigns (adinsights.py; M2.5): Meta insights pull, rate limits, the dashboard, fake Graph.

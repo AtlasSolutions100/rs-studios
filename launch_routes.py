@@ -90,7 +90,7 @@ def _render(conn, c, card_row, conn_row):
                            plan_name=plans.PLANS[launches.launch_plan_code(g.ws, _operator())]["name"],
                            text=launches.card_text(card) if card else "", latest=latest, adspec=adspec,
                            cta_words=launches.CTA_WORDS, verticals=launches.VERTICAL_WORDS,
-                           objectives=launches.OBJECTIVE_WORDS, steps=steps)
+                           objectives=launches.OBJECTIVE_WORDS, steps=steps, placement_choices=adspec.META_CHOICES)
 
 
 def _render_google(conn, c, card_row, conn_row, spec_d):

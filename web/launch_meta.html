@@ -68,7 +68,13 @@
         <div><label for="ln-amin">Youngest age</label><input type="number" id="ln-amin" name="age_min" min="13" max="65" value="{{ spec.audience.age_min or 18 }}"></div>
         <div><label for="ln-amax">Oldest age</label><input type="number" id="ln-amax" name="age_max" min="13" max="65" value="{{ spec.audience.age_max or 65 }}"></div>
       </div>
-      <p class="small muted">Placements are automatic: Meta shows the ads across Facebook and Instagram where they do best.</p>
+      <fieldset style="border:0;padding:0;margin:14px 0 0" data-placements><legend class="small muted">Where the ads show</legend>
+        {% set chosen = spec.placements if spec.placements != 'auto' else [] %}
+        <div class="ln-checks"><label><input type="radio" name="placement_mode" value="auto" {{ 'checked' if spec.placements == 'auto' }}> Automatic: Meta picks across Facebook and Instagram</label>
+          <label><input type="radio" name="placement_mode" value="choose" {{ 'checked' if spec.placements != 'auto' }}> Let me choose</label></div>
+        <div class="ln-checks" style="margin-top:8px">{% for k, w in placement_choices %}<label><input type="checkbox" name="place" value="{{ k }}" {{ 'checked' if k in chosen }}> {{ w }}</label>{% endfor %}</div>
+        <p class="small muted" style="margin:6px 0 0">{% if conn_row and conn_row.instagram_username %}Instagram ads show as @{{ conn_row.instagram_username }}.{% else %}Instagram placements need an Instagram account linked to your Page. Link it on Meta, then reconnect.{% endif %} Stories and Reels are full screen, so they want a 9:16 ad. The ticks count when "Let me choose" is on.</p>
+      </fieldset>
 
       <h3 style="margin:22px 0 0">Where people land</h3>
       <label for="ln-landing">Landing page</label>
