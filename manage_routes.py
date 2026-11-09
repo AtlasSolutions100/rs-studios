@@ -18,6 +18,7 @@ import logging
 
 from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
 
+import adfatigue
 import adinsights
 import adleads
 import admanage
@@ -64,6 +65,7 @@ def index():
         for r in rows:
             tz = r["conn_row"]["timezone"] if r["conn_row"] else None
             r["fig"] = adinsights.launch_figures(conn, r["launch"], key, tz)
+            r["tired"] = adfatigue.for_launch(conn, r["launch"], s=r)["tired"] if r["manageable"] else []  # M4.2
             r["leads"] = adleads.leads_for(conn, r["launch"], key, tz,             # our forms (M4.1)
                                           spend=r["fig"]["spend"] if r["fig"]["n"] else None)
         conn_row = launches.connection(conn, g.ws["id"])
@@ -116,11 +118,16 @@ def show(lid):
         leads = adleads.leads_for(conn, L, key, tz, {a: f["spend"] for a, f in ad_fig.items()},
                                   fig["spend"] if fig["n"] else None)
         recent = adleads.recent(conn, L)
+        # ads wearing out and the angle that's working (adfatigue.py, M4.2): a suggestion, never a change on Meta
+        fat = adfatigue.for_launch(conn, L, s=s)
+        if fat["tired"] and fat["winner"] is None:
+            fat["winner"] = adfatigue._winner([a for _, x in adfatigue.workspace(conn, g.ws["id"]) for a in x["ads"]])
     return render_template("ad_campaign.html", s=s, L=L, ads=ads, ai_kinds=kinds, hist=hist, owner=_owner_ok(),
                            sync_error=sync_error, cap_text=launches.money(cap, s["currency"]) if cap else "",
                            plan_name=plans.PLANS.get(code, {}).get("name", ""), minor_factor=adspec.minor_factor(
                                s["currency"]), viewing=bool(g.get("viewing")), fig=fig, ad_fig=ad_fig, days=days, ins=ins,
-                           key=key, ranges=adinsights.RANGES, money=launches.money, leads=leads, recent=recent)
+                           key=key, ranges=adinsights.RANGES, money=launches.money, leads=leads, recent=recent, fat=fat,
+                           tired={a["id"]: a for a in fat["tired"]}, fat_words=adfatigue.words)
 
 
 @bp.route("/app/ad-campaigns/<int:lid>.json")
