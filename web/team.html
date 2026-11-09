@@ -44,5 +44,6 @@
       {% endif %}
     </div>
   </div>
+  <p class="small muted" style="margin-top:24px">{% if g.ws.delete_after and not g.ws.deleted_at %}This workspace is set to be deleted. {% endif %}<a href="{{ url_for('wsdelete.page') }}">Delete this workspace</a></p>
 </div>
 {% endblock %}
