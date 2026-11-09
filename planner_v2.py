@@ -36,23 +36,28 @@ import adspec
 TEST_DAYS = 14
 LOW, MID, HIGH = 8, 15, 30          # results over the 14-day test each band point pays for (planning assumption)
 # Typical cost per click in US dollars by vertical and platform (planning assumptions for a first test; Koby's to
-# tune). meta = link clicks, google_search = Search, pmax = Performance Max.
+# tune). meta = link clicks, google_search = Search, pmax = Performance Max. Meta and Search follow the Nov 2026
+# benchmark research (WordStream/LocalIQ Search benchmarks Apr 2025-Mar 2026, WordStream Meta traffic Apr 2024-Jun
+# 2025, plus vertical sources; weight loss, credit and crypto are estimates). pmax keeps the earlier assumptions:
+# the only published PMax CPCs cover online stores (Koby, Nov 9 2026).
 CPC_USD = {
-    "general":       {"meta": 0.90, "google_search": 2.00, "pmax": 0.80},
-    "local_service": {"meta": 1.20, "google_search": 5.50, "pmax": 1.10},
-    "health":        {"meta": 1.30, "google_search": 3.50, "pmax": 1.00},
-    "supplements":   {"meta": 1.10, "google_search": 2.00, "pmax": 0.90},
-    "weight_loss":   {"meta": 1.40, "google_search": 3.00, "pmax": 1.10},
-    "cosmetics":     {"meta": 1.00, "google_search": 1.80, "pmax": 0.80},
-    "finance":       {"meta": 2.50, "google_search": 6.00, "pmax": 2.00},
-    "credit":        {"meta": 2.50, "google_search": 6.00, "pmax": 2.00},
-    "crypto":        {"meta": 2.00, "google_search": 4.00, "pmax": 1.50},
-    "housing":       {"meta": 1.50, "google_search": 2.50, "pmax": 1.00},
-    "employment":    {"meta": 1.20, "google_search": 2.50, "pmax": 1.00},
-    "alcohol":       {"meta": 1.00, "google_search": 1.50, "pmax": 0.80},
+    "general":        {"meta": 0.70, "google_search": 5.40, "pmax": 0.80},
+    "local_service":  {"meta": 1.20, "google_search": 8.00, "pmax": 1.10},
+    "health":         {"meta": 0.85, "google_search": 5.60, "pmax": 1.00},
+    "supplements":    {"meta": 0.80, "google_search": 1.80, "pmax": 0.90},
+    "weight_loss":    {"meta": 1.00, "google_search": 4.00, "pmax": 1.10},
+    "cosmetics":      {"meta": 0.75, "google_search": 2.00, "pmax": 0.80},
+    "finance":        {"meta": 1.60, "google_search": 3.40, "pmax": 2.00},
+    "credit":         {"meta": 2.00, "google_search": 8.00, "pmax": 2.00},
+    "crypto":         {"meta": 1.20, "google_search": 5.00, "pmax": 1.50},
+    "housing":        {"meta": 1.10, "google_search": 3.20, "pmax": 1.00},
+    "employment":     {"meta": 0.85, "google_search": 5.80, "pmax": 1.00},
+    "alcohol":        {"meta": 0.70, "google_search": 1.60, "pmax": 0.80},
 }
-# Typical share of clicks that become a result on a Campaignify landing page, by goal (planning assumption).
-CVR = {"leads": 0.08, "sales": 0.025, "traffic": 1.0, "awareness": 1.0, "engagement": 1.0, "installs": 0.05}
+# Typical share of clicks that become a result on a Campaignify landing page, by goal (planning assumption; leads
+# from Unbounce/WordStream lead benchmarks, sales from Triple Whale's 2025 paid-ads median, installs from app store
+# page conversion).
+CVR = {"leads": 0.075, "sales": 0.020, "traffic": 1.0, "awareness": 1.0, "engagement": 1.0, "installs": 0.10}
 VERTICAL_WORDS = {"general": "small brands", "local_service": "local service businesses", "health": "health",
                   "supplements": "supplements", "weight_loss": "weight loss", "cosmetics": "skin care and beauty",
                   "finance": "money and investing", "credit": "loans and credit", "crypto": "crypto",
