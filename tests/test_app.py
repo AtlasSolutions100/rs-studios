@@ -3275,3 +3275,5 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_create_polish.py")], check=True)
     # Accessibility pass (M5.6): light-theme status colours, skip link, input labels, h1s, focus ring, hero alt.
     subprocess.run([sys.executable, os.path.join(HERE, "test_a11y.py")], check=True)
+    # SQLite contention and size on the admin System card, the Postgres threshold and its alert (dbstats.py, M7.3).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_dbstats.py")], check=True)
