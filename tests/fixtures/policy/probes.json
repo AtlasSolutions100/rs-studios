@@ -1,0 +1,951 @@
+{
+ "_note": "M2 re-audit L-16, widened: every probe must hit its rule at the level in 'levels' (the house rules from compliance.py block the same weight-loss, before/after and guaranteed-return lines). p58 to p63 are the finding's own probes on other verticals and platforms.",
+ "cases": [
+  {
+   "id": "p01",
+   "text": "Guaranteed 20% monthly returns",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.finance_rates",
+    "policy.guaranteed_returns"
+   ],
+   "house": [
+    "income_words",
+    "promise_words"
+   ],
+   "levels": {
+    "policy.guaranteed_returns": "block"
+   }
+  },
+  {
+   "id": "p02",
+   "text": "Guaranteed 20 percent monthly returns",
+   "platform": "meta",
+   "vertical": "finance",
+   "ai": false,
+   "expect": [
+    "policy.finance_rates",
+    "policy.guaranteed_returns"
+   ],
+   "house": [
+    "income_words",
+    "promise_words"
+   ],
+   "levels": {
+    "policy.guaranteed_returns": "block"
+   }
+  },
+  {
+   "id": "p03",
+   "text": "Returns guaranteed: 8% a month",
+   "platform": "meta",
+   "vertical": "finance",
+   "ai": false,
+   "expect": [
+    "policy.finance_rates",
+    "policy.guaranteed_returns"
+   ],
+   "house": [
+    "income_words",
+    "promise_words"
+   ],
+   "levels": {
+    "policy.guaranteed_returns": "block"
+   }
+  },
+  {
+   "id": "p04",
+   "text": "Risk free 15% returns on every trade",
+   "platform": "meta",
+   "vertical": "crypto",
+   "ai": false,
+   "expect": [
+    "policy.finance_rates",
+    "policy.guaranteed_returns"
+   ],
+   "house": [
+    "income_words"
+   ],
+   "levels": {
+    "policy.guaranteed_returns": "block"
+   }
+  },
+  {
+   "id": "p05",
+   "text": "100% guaranteed profits, every week",
+   "platform": "meta",
+   "vertical": "crypto",
+   "ai": false,
+   "expect": [
+    "policy.guaranteed_returns"
+   ],
+   "house": [
+    "income_words",
+    "promise_words"
+   ],
+   "levels": {
+    "policy.guaranteed_returns": "block"
+   }
+  },
+  {
+   "id": "p06",
+   "text": "Earn 10% weekly, guaranteed.",
+   "platform": "meta",
+   "vertical": "finance",
+   "ai": false,
+   "expect": [
+    "policy.finance_rates",
+    "policy.guaranteed_returns"
+   ],
+   "house": [
+    "income_words",
+    "promise_words"
+   ],
+   "levels": {
+    "policy.guaranteed_returns": "block"
+   }
+  },
+  {
+   "id": "p07",
+   "text": "Guaranteed 1.5% daily ROI",
+   "platform": "meta",
+   "vertical": "crypto",
+   "ai": false,
+   "expect": [
+    "policy.finance_rates",
+    "policy.guaranteed_returns"
+   ],
+   "house": [
+    "income_words",
+    "promise_words"
+   ],
+   "levels": {
+    "policy.guaranteed_returns": "block"
+   }
+  },
+  {
+   "id": "p08",
+   "text": "Before \u27a1\ufe0f After",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.before_after"
+   ],
+   "house": [
+    "before_after"
+   ],
+   "levels": {
+    "policy.before_after": "block"
+   }
+  },
+  {
+   "id": "p09",
+   "text": "Before \ud83d\udc49 After in 30 days",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.before_after"
+   ],
+   "house": [
+    "before_after"
+   ],
+   "levels": {
+    "policy.before_after": "block"
+   }
+  },
+  {
+   "id": "p10",
+   "text": "before --> after",
+   "platform": "meta",
+   "vertical": "health",
+   "ai": false,
+   "expect": [
+    "policy.before_after"
+   ],
+   "house": [
+    "before_after"
+   ],
+   "levels": {
+    "policy.before_after": "block"
+   }
+  },
+  {
+   "id": "p11",
+   "text": "BEFORE >>> AFTER",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.before_after"
+   ],
+   "house": [
+    "before_after"
+   ],
+   "levels": {
+    "policy.before_after": "block"
+   }
+  },
+  {
+   "id": "p12",
+   "text": "Before | After",
+   "platform": "meta",
+   "vertical": "supplements",
+   "ai": false,
+   "expect": [
+    "policy.before_after"
+   ],
+   "house": [
+    "before_after"
+   ],
+   "levels": {
+    "policy.before_after": "block"
+   }
+  },
+  {
+   "id": "p13",
+   "text": "B4 and after: 6 weeks on our plan",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.before_after"
+   ],
+   "house": [
+    "before_after"
+   ],
+   "levels": {
+    "policy.before_after": "block"
+   }
+  },
+  {
+   "id": "p14",
+   "text": "Before: tired skin. After: glowing.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": false,
+   "expect": [
+    "policy.before_after"
+   ],
+   "house": [
+    "before_after"
+   ],
+   "levels": {
+    "policy.before_after": "warn"
+   }
+  },
+  {
+   "id": "p15",
+   "text": "Before \u27f9 After, same jeans",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.before_after"
+   ],
+   "house": [
+    "before_after"
+   ],
+   "levels": {
+    "policy.before_after": "warn"
+   }
+  },
+  {
+   "id": "p16",
+   "text": "Day 1 \u27a1\ufe0f Day 30",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.implied_transformation"
+   ],
+   "house": [],
+   "levels": {
+    "policy.implied_transformation": "block"
+   }
+  },
+  {
+   "id": "p17",
+   "text": "Week 1 \u2192 week 12 on the plan",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.implied_transformation"
+   ],
+   "house": [],
+   "levels": {
+    "policy.implied_transformation": "block"
+   }
+  },
+  {
+   "id": "p18",
+   "text": "Overweight? Try this.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.personal_attributes"
+   ],
+   "house": [],
+   "levels": {
+    "policy.personal_attributes": "block"
+   }
+  },
+  {
+   "id": "p19",
+   "text": "Still overweight at 40?",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.personal_attributes"
+   ],
+   "house": [],
+   "levels": {
+    "policy.personal_attributes": "block"
+   }
+  },
+  {
+   "id": "p20",
+   "text": "Anxious all the time?",
+   "platform": "meta",
+   "vertical": "health",
+   "ai": false,
+   "expect": [
+    "policy.personal_attributes"
+   ],
+   "house": [],
+   "levels": {
+    "policy.personal_attributes": "block"
+   }
+  },
+  {
+   "id": "p21",
+   "text": "In debt again?",
+   "platform": "meta",
+   "vertical": "finance",
+   "ai": false,
+   "expect": [
+    "policy.personal_attributes"
+   ],
+   "house": [],
+   "levels": {
+    "policy.personal_attributes": "block"
+   }
+  },
+  {
+   "id": "p22",
+   "text": "Over 45 and tired?",
+   "platform": "meta",
+   "vertical": "supplements",
+   "ai": false,
+   "expect": [
+    "policy.personal_attributes"
+   ],
+   "house": [],
+   "levels": {
+    "policy.personal_attributes": "block"
+   }
+  },
+  {
+   "id": "p23",
+   "text": "Tired of being overweight?",
+   "platform": "meta",
+   "vertical": "weight_loss",
+   "ai": false,
+   "expect": [
+    "policy.personal_attributes"
+   ],
+   "house": [],
+   "levels": {
+    "policy.personal_attributes": "block"
+   }
+  },
+  {
+   "id": "p24",
+   "text": "Losing your hair? Try our shampoo.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": false,
+   "expect": [
+    "policy.personal_attributes"
+   ],
+   "house": [],
+   "levels": {
+    "policy.personal_attributes": "block"
+   }
+  },
+  {
+   "id": "p25",
+   "text": "Pregnant? Read this first.",
+   "platform": "meta",
+   "vertical": "health",
+   "ai": false,
+   "expect": [
+    "policy.personal_attributes"
+   ],
+   "house": [],
+   "levels": {
+    "policy.personal_attributes": "block"
+   }
+  },
+  {
+   "id": "p26",
+   "text": "Got bad credit? We can help.",
+   "platform": "meta",
+   "vertical": "credit",
+   "ai": false,
+   "expect": [
+    "policy.personal_attributes"
+   ],
+   "house": [],
+   "levels": {
+    "policy.personal_attributes": "block"
+   }
+  },
+  {
+   "id": "p27",
+   "text": "Diabetic? This snack is for you.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.personal_attributes"
+   ],
+   "house": [],
+   "levels": {
+    "policy.personal_attributes": "block"
+   }
+  },
+  {
+   "id": "p28",
+   "text": "America's number-one serum",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": false,
+   "expect": [
+    "policy.results_claim"
+   ],
+   "house": [],
+   "levels": {
+    "policy.results_claim": "block"
+   }
+  },
+  {
+   "id": "p29",
+   "text": "The No 1 choice for runners",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.results_claim"
+   ],
+   "house": [],
+   "levels": {
+    "policy.results_claim": "block"
+   }
+  },
+  {
+   "id": "p30",
+   "text": "N\u00b01 in France",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.results_claim"
+   ],
+   "house": [],
+   "levels": {
+    "policy.results_claim": "block"
+   }
+  },
+  {
+   "id": "p31",
+   "text": "Ranked number one by shoppers",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.results_claim"
+   ],
+   "house": [],
+   "levels": {
+    "policy.results_claim": "block"
+   }
+  },
+  {
+   "id": "p32",
+   "text": "Ozemp1c results without the needle",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.pharmacy"
+   ],
+   "house": [],
+   "levels": {
+    "policy.pharmacy": "block"
+   }
+  },
+  {
+   "id": "p33",
+   "text": "Try s e m a g l u t i d e today",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.pharmacy"
+   ],
+   "house": [],
+   "levels": {
+    "policy.pharmacy": "block"
+   }
+  },
+  {
+   "id": "p34",
+   "text": "Comp0unded tirz, shipped monthly",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.pharmacy"
+   ],
+   "house": [],
+   "levels": {
+    "policy.pharmacy": "block"
+   }
+  },
+  {
+   "id": "p35",
+   "text": "GLP 1 shots at home",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.pharmacy"
+   ],
+   "house": [],
+   "levels": {
+    "policy.pharmacy": "block"
+   }
+  },
+  {
+   "id": "p36",
+   "text": "Nature's 0zempic is here",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.pharmacy"
+   ],
+   "house": [],
+   "levels": {
+    "policy.pharmacy": "block"
+   }
+  },
+  {
+   "id": "p37",
+   "text": "W3govy without the wait",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.pharmacy"
+   ],
+   "house": [],
+   "levels": {
+    "policy.pharmacy": "block"
+   }
+  },
+  {
+   "id": "p38",
+   "text": "Sema/tirz programs from $199",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.pharmacy"
+   ],
+   "house": [],
+   "levels": {
+    "policy.pharmacy": "block"
+   }
+  },
+  {
+   "id": "p39",
+   "text": "Phentermine online, fast",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.pharmacy"
+   ],
+   "house": [],
+   "levels": {
+    "policy.pharmacy": "block"
+   }
+  },
+  {
+   "id": "p40",
+   "text": "I've used it every night for a month.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial"
+   ],
+   "house": [],
+   "levels": {
+    "policy.ai_testimonial": "block"
+   }
+  },
+  {
+   "id": "p41",
+   "text": "I've been using this for 2 weeks.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial"
+   ],
+   "house": [],
+   "levels": {
+    "policy.ai_testimonial": "block"
+   }
+  },
+  {
+   "id": "p42",
+   "text": "My face has never looked better.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial"
+   ],
+   "house": [],
+   "levels": {
+    "policy.ai_testimonial": "block"
+   }
+  },
+  {
+   "id": "p43",
+   "text": "My skin \u2192 glowing.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial"
+   ],
+   "house": [],
+   "levels": {
+    "policy.ai_testimonial": "block"
+   }
+  },
+  {
+   "id": "p44",
+   "text": "Me after 2 weeks of using it:",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial"
+   ],
+   "house": [],
+   "levels": {
+    "policy.ai_testimonial": "block"
+   }
+  },
+  {
+   "id": "p45",
+   "text": "Trust me, I've tried them all and this one wins.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial"
+   ],
+   "house": [],
+   "levels": {
+    "policy.ai_testimonial": "block"
+   }
+  },
+  {
+   "id": "p46",
+   "text": "Ever since I switched, my pores look smaller.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial"
+   ],
+   "house": [],
+   "levels": {
+    "policy.ai_testimonial": "block"
+   }
+  },
+  {
+   "id": "p47",
+   "text": "My wrinkles? Softer. My skin? Brighter.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial"
+   ],
+   "house": [],
+   "levels": {
+    "policy.ai_testimonial": "block"
+   }
+  },
+  {
+   "id": "p48",
+   "text": "Melts belly fat while you sleep",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric"
+   ],
+   "house": [
+    "weight_loss_phrase"
+   ],
+   "levels": {
+    "policy.health_outcome_numeric": "block"
+   }
+  },
+  {
+   "id": "p49",
+   "text": "Down 3 dress sizes!",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric"
+   ],
+   "house": [
+    "weight_loss_phrase"
+   ],
+   "levels": {
+    "policy.health_outcome_numeric": "block"
+   }
+  },
+  {
+   "id": "p50",
+   "text": "From a size 16 to a size 8 in 3 months",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric"
+   ],
+   "house": [
+    "weight_loss_phrase"
+   ],
+   "levels": {
+    "policy.health_outcome_numeric": "block"
+   }
+  },
+  {
+   "id": "p51",
+   "text": "Flat tummy in 7 days",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric"
+   ],
+   "house": [
+    "weight_loss_phrase"
+   ],
+   "levels": {
+    "policy.health_outcome_numeric": "block"
+   }
+  },
+  {
+   "id": "p52",
+   "text": "Lose the belly in 30 days",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric"
+   ],
+   "house": [
+    "weight_loss_phrase"
+   ],
+   "levels": {
+    "policy.health_outcome_numeric": "block"
+   }
+  },
+  {
+   "id": "p53",
+   "text": "10 lbs down, 10 to go",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric"
+   ],
+   "house": [
+    "weight_loss_phrase"
+   ],
+   "levels": {
+    "policy.health_outcome_numeric": "block"
+   }
+  },
+  {
+   "id": "p54",
+   "text": "Fat-melting morning coffee",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric"
+   ],
+   "house": [
+    "weight_loss_phrase"
+   ],
+   "levels": {
+    "policy.health_outcome_numeric": "block"
+   }
+  },
+  {
+   "id": "p55",
+   "text": "Burns 500 calories while you sit",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric"
+   ],
+   "house": [
+    "weight_loss_phrase"
+   ],
+   "levels": {
+    "policy.health_outcome_numeric": "block"
+   }
+  },
+  {
+   "id": "p56",
+   "text": "Lose a dress size by the weekend",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric"
+   ],
+   "house": [
+    "weight_loss_phrase"
+   ],
+   "levels": {
+    "policy.health_outcome_numeric": "block"
+   }
+  },
+  {
+   "id": "p57",
+   "text": "Size 14 \u2192 size 6",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.health_outcome_numeric"
+   ],
+   "house": [
+    "weight_loss_phrase"
+   ],
+   "levels": {
+    "policy.health_outcome_numeric": "block"
+   }
+  },
+  {
+   "id": "p58",
+   "text": "Best serum I've used. My face? Glowing.",
+   "platform": "meta",
+   "vertical": "cosmetics",
+   "ai": true,
+   "expect": [
+    "policy.ai_testimonial"
+   ],
+   "house": [],
+   "levels": {
+    "policy.ai_testimonial": "block"
+   }
+  },
+  {
+   "id": "p59",
+   "text": "Before \u2192 After: 30 days",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.before_after"
+   ],
+   "house": [
+    "before_after"
+   ],
+   "levels": {
+    "policy.before_after": "warn"
+   }
+  },
+  {
+   "id": "p60",
+   "text": "Number 1 in America",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.results_claim"
+   ],
+   "house": [],
+   "levels": {
+    "policy.results_claim": "block"
+   }
+  },
+  {
+   "id": "p61",
+   "text": "0zempic",
+   "platform": "google",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.pharmacy"
+   ],
+   "house": [],
+   "levels": {
+    "policy.pharmacy": "block"
+   }
+  },
+  {
+   "id": "p62",
+   "text": "sema glutide",
+   "platform": "tiktok",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.pharmacy"
+   ],
+   "house": [],
+   "levels": {
+    "policy.pharmacy": "block"
+   }
+  },
+  {
+   "id": "p63",
+   "text": "Compounded tirz",
+   "platform": "snapchat",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.pharmacy"
+   ],
+   "house": [],
+   "levels": {
+    "policy.pharmacy": "block"
+   }
+  }
+ ]
+}

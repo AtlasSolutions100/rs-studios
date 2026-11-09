@@ -9,15 +9,92 @@ note shown to the member.
 import re
 import unicodedata
 
+# ---------------------------------------------------------------- shared patterns
+# adpolicy.py (the launch pre-flight) matches the same claims with these exact lists, so whatever its
+# cure, health-outcome, weight-loss, guaranteed-returns and before/after rules catch, generation refuses
+# too (tests/test_adpolicy.py checks the two agree on every fixture).
+DISEASES = (r"cancer|diabetes|depression|anxiety|arthritis|alzheimer'?s|dementia|covid(-19)?|flu|infections?|diseases?|"
+            r"high blood pressure|hypertension|cholesterol|adhd|autism|insomnia|acne|eczema|psoriasis|asthma|migraines?|"
+            r"ibs|crohn'?s|herpes|hiv|obesity|heart disease|stroke")
+# Health words that turn "treat", "prevent" or "cure" into a health claim even in a context that is usually fine.
+SYMPTOMS = (DISEASES + r"|pain|aches?|fatigue|bloating|inflammation|symptoms?|conditions?|illness(es)?|sickness|colds|common cold|"
+            r"headaches?|cramps?|nausea|constipation|hair loss|balding|wounds?|injur(y|ies)|immune|disorders?|"
+            r"blood sugar|a1c|weight")
+CURE_CLAIM = [
+    r"\b(cures?|cured|curing|treats?|treated|treating|heals?|healed|healing|prevents?|prevented|reverses?|reversed|"
+    r"eliminates?|eliminated|gets? rid of|fights?|fight off|wards? off|relieves?|relief from)\b[^.!?\n]{0,40}?\b(" +
+    DISEASES + r")\b",
+    r"\b(cure|remedy|remedies|treatment|relief) for (\w+\s+){0,2}?(" + DISEASES + r")\b",
+    r"\b(" + DISEASES + r")\b[^.!?\n]{0,30}?\b(gone|cured|healed|reversed|disappeared|vanished)\b",
+]
+_WORDNUM = r"(\d+(\.\d+)?|a|an|one|two|three|four|five|six|seven|eight|nine|ten|a full|a whole)"
+_UNITS = r"(lbs?|pounds?|kg|kilos?|inches|in\.|(dress |jean |pant |clothing )?sizes?|% body fat)"
+_ARROWS = r"\s*(->|-->|=>|>|\u2192|\u27f6|\u279c|\u27a1\ufe0f?|\u21d2|\u27f9|\u00bb)\s*"
+_TO = r"\s*(to|down to|->|-->|=>|>|\u2192|\u27f6|\u279c|\u27a1\ufe0f?|\u21d2|\u27f9|\u00bb)\s*"
+# "size 16 to size 8": a first number bigger than the second (10 to 39 down to a smaller one)
+_SMALLER = (r"size\s+([1-3]\d{to}(a\s+)?(size\s+)?\d|[2-3]\d{to}(a\s+)?(size\s+)?1\d|3\d{to}(a\s+)?(size\s+)?2\d)\b")
+WEIGHT_OUTCOME = [
+    r"\b(lose|lost|losing|drop|dropped|dropping|shed|shedding|burn|burned|melt|melted|cut(?!\s+\S+\s*(inches|in\.))|"
+    r"down)\s+(up to\s+|over\s+|nearly\s+)?"
+    + _WORDNUM + r"\s*" + _UNITS + r"(?!\s+(of|bag|pack|box|tin)s?\b)\b",
+    r"\b\d+(\.\d+)?\s*(lbs?|pounds?|kg|kilos?|inches|sizes?)\s+(down\s+)?(in|within|after)\s+(just\s+)?\d+\s*(days?|weeks?|months?)\b",
+    r"\b\d+(\.\d+)?\s*(lbs?|pounds?|kg|kilos?)\s+(down|gone|lighter|lost|off)\b",
+    r"\b(down|lost|dropped|minus)\s+" + _WORDNUM + r"\s*" + _UNITS + r"\b",
+    r"\b(melts?|melted|melting|burns?|burning|torch(es)?|blasts?|dissolves?)\s+(away\s+)?(stubborn\s+)?(belly|body|"
+    r"tummy|stomach|thigh|arm)?\s*fat\b",
+    r"\bfat[- ](melting|melter|burning|burner|blasting|torching|dissolving)\b",
+    r"\bburns?\s+(up to\s+|over\s+)?\d+\s*(extra\s+)?(calories|kcal|cals)\b",
+    r"\bflat (tummy|belly|stomach|abs)\s+(in|within|by)\b",
+    r"\blose (the|your|that|those|this) (belly|gut|muffin top|love handles|baby weight|weight|pounds|fat)\b[^.!?\n]{0,30}?"
+    r"\b(in|within|by)\b",
+    # a smaller clothing size: "from a size 16 to a size 8", "size 14 -> size 6" ("sizes 2 to 16" is a range)
+    r"\bfrom\s+(a\s+)?" + _SMALLER.format(to=_TO), r"\b" + _SMALLER.format(to=_ARROWS),
+]
+HEALTH_OUTCOME = [
+    r"\b(lower(ed|s)?|reduce[ds]?|cut|drop(ped|s)?)\s+(your\s+|my\s+)?(blood sugar|blood pressure|cholesterol|a1c|bmi)\s+"
+    r"(by\s+)?\d+",
+    r"\b\d+(\.\d+)?\s*%\s+(less|fewer|lower|reduction in|drop in)\s+(pain|anxiety|stress|body fat|fat|wrinkles|acne|bloating|"
+    r"cravings|joint pain|inflammation)\b",
+]
+_RATE = r"\d+(\.\d+)?\s*(%|percent|pct)"
+_PERIOD = (r"(returns?|profits?|roi|gains|yields?|interest|payouts?|apy|(a|per|each|every) (day|week|month|year)|daily|"
+           r"weekly|monthly|yearly|annually|annual)")
+GUARANTEED_RETURNS = [
+    r"\bguarantee(d|s)?\s+([\w$%.,+-]+\s+){0,3}?(profits?|income|gains|yields?|interest|payouts?|roi|dividends?)\b",
+    r"\bguarantee(d|s)?\b[^.!?\n]{0,30}?" + _RATE + r"\s+(\w+\s+){0,2}?" + _PERIOD + r"\b",
+    _RATE + r"\s+(\w+\s+){0,2}?" + _PERIOD + r"\b[^.!?\n]{0,25}?\bguarantee(d|s)?\b",
+    r"\b(returns?|profits?|roi|gains|payouts?)\s+(are\s+|is\s+)?guarantee(d|s)?\b",
+    r"\brisk[- ]free\s+(\S+\s+){0,2}?(investment|returns?|profits?|trading|income|gains|roi|yields?)\b",
+    r"\b(can'?t|cannot|won'?t|never) lose (money|a (dime|cent))\b|\bdouble your (money|investment|crypto)\b",
+    r"\bno risk\b[^.!?\n]{0,30}?\b(invest\w*|trading|returns?|profits?)\b",
+]
+# "before -> after", "before | after", "B4 and after", "Before: dull. After: glowing." Any run of symbols
+# (arrows, emoji, bars, dashes) between the two words counts; commas and full stops don't ("before work, after").
+_BA_JOIN = r"(and|&|n|'n'|vs\.?|versus|to|then|\+|[^\w\s,.;!?()'\"]{1,8})"
+BEFORE_AFTER = [r"\b(before|b4)\s*-?\s*" + _BA_JOIN + r"\s*-?\s*afters?\b", r"\bbefore\s*:[^\n]{1,60}?\bafter\s*:"]
+# "before and after school", "before and after each use": a time, not before/after pictures
+_BA_TIME = re.compile(r"^\s*(the |your |a |an |each |every |our |their |any |all |big )*(construction|renovations?|remodels?|"
+                      r"moves?|moving|move-ins?|move-outs?|work|school|class(es)?|shifts?|meals?|dinner|lunch|breakfast|"
+                      r"brunch|events?|parties|party|weddings?|games?|gym|workouts?|training|practice|surgery|procedures?|"
+                      r"sessions?|storms?|holidays?|trips?|travel|flights?|sunrise|sunset|hours|care|day|use|bed|bedtime|"
+                      r"swim(ming)?|showers?|baths?|closing|opening|the (show|game|match|race))\b(?!\s+(photos?|pics?|"
+                      r"pictures?|shots?|images?|results?|selfies?|videos?))", re.I)
+
+
+def before_after_time(text: str, end: int) -> bool:
+    """Is the before/after that ends at `end` about time ("before and after school"), not pictures?"""
+    return bool(_BA_TIME.match(text[end:end + 60]))
+
+
 RULES = [
-    # (level, pattern, message)
-    ("block", r"\b(los[et]|losing|drop|shed|burn|melt(s|ed|ing)?)\b[^.]{0,30}\b(weight|pounds|lbs|kilos?|fat|inches|belly)\b",
-     "No weight-loss language."),
-    ("block", r"\bweight[- ]?loss\b|\bslim(ming)?\b|\bskinny\b|\bfat[- ]burn", "No weight-loss language."),
-    ("block", r"\bbefore\s*-?\s*(and|&|/|vs\.?|->|=>|>|\u2192|\u27f6|\u279c|\u27a1|\u21d2|\u00bb)\s*-?\s*after\b",
-     "No before-and-after content.", "negatable"),
-    ("block", r"\b(cure[sd]?|treat(s|ment)?|heal(s|ing)?|prevent(s|ion)?|diagnos\w*)\b",
-     "No health or disease claims: use only the label's words."),
+    # (level, pattern, message[, flags])
+    ("block", r"\b(los[et]|losing|drop|shed|burn|melt(s|ed|ing)?)\b[^.]{0,30}\b(weight|pounds|lbs|kilos?|fat|inches|belly)\b|"
+              + "|".join(WEIGHT_OUTCOME), "No weight-loss language."),
+    ("block", r"\bweight[- ]?loss\b|\bslim(ming)?\b|\bskinny\b|\bfat[- ]burn|\bappetite suppress\w*|"
+              r"\bsuppress(es)? (your )?appetite\b|\bcurbs? (your )?(appetite|cravings)\b", "No weight-loss language."),
+    ("block", "|".join(BEFORE_AFTER), "No before-and-after content.", "negatable", "time"),
+    ("block", r"\b(cure[sd]?|treat(s|ments?)?|heal(s|ing)?|prevent(s|ion)?|diagnos\w*|remed(y|ies))\b|" + "|".join(CURE_CLAIM + HEALTH_OUTCOME),
+     "No health or disease claims: use only the label's words.", "benign"),
     ("block", r"\b(diabetes|cancer|anxiety|depression|adhd|arthritis|disease|blood pressure|cholesterol)\b",
      "No health or disease claims: use only the label's words."),
     ("block", r"\b\d{1,2}\s?% off\b|\bdiscount\b|\bcoupon\b|\bpromo code\b|\bfree shipping\b|\bbogo\b",
@@ -31,7 +108,7 @@ RULES = [
               r"seven[- ]figures?|[67][- ]figures?|financial(ly)? free(dom)?|time freedom|passive income|extra cash|"
               r"quit (your|my) (9[- ]?to[- ]?5|nine[- ]to[- ]five|job)|fire (your|my) boss|retire (early|young)|"
               r"replace (your|my) (income|salary|paycheck)|be your own boss|dream (car|house|home|life)|luxury lifestyle|"
-              r"get paid to|work from (home|anywhere) and (earn|make|get paid))\b",
+              r"get paid to|work from (home|anywhere) and (earn|make|get paid))\b|" + "|".join(GUARANTEED_RETURNS),
      "No income or earnings claims."),
     ("block", r"\$\s?\d[\d,.]*\s*k?\s*(a|an|per|/)\s*(hour|day|week|month|year)\b[^.]{0,40}\b(income|earn|paid|profit)",
      "No income or earnings claims."),
@@ -41,10 +118,51 @@ RULES = [
               r"ground[- ]floor|start your own business|own your own business|build (a|your) team)\b",
      "No recruiting or business-opportunity content in product creatives."),
     ("warn", r"\b(guarantee[ds]?|clinically|proven|miracle|instant results)\b",
-     "Avoid promise words unless they are printed on the label."),
+     "Avoid promise words unless they are printed on the label.", "benign"),
     ("warn", r"\b(i|we) (lost|gained|felt|noticed)\b|\bmy results\b",
      "AI presenters can't speak as customers or claim results."),
 ]
+
+# Everyday senses of the health and promise words: "treat yourself", "dog treats", "lawn treatment",
+# "pest prevention", "prevents leaks", "dry-cured ham", "color-treated hair", "satisfaction guaranteed".
+# They are skipped only when the sentence has no health word in it ("hair treatment for hair loss" still blocks).
+_BENIGN = [
+    re.compile(r"\btreat(s)?\b(?=\s+(yourself|yourselves|yo ?self|someone|them|her|him|everyone|the (family|kids|team|crew)|"
+               r"your(self| (family|friends|team|guests|kids|mom|dad|pup|dog|cat|skin|hair|feet|lips|taste ?buds|senses|crew|"
+               r"loved ones|customers|clients)))\b)", re.I),
+    re.compile(r"(\b(a|sweet|tasty|little|special|holiday|dog|cat|pet|perfect|frozen|weekend|yummy|crunchy|chewy|training|"
+               r"afternoon|morning|summer|real|healthy|the|our|their|baked|homemade|party|halloween|christmas|easter|"
+               r"birthday|chocolate|dessert|cold|icy|savory)\s+treats?|\btreats? (for|from|and|or|in|made|baked|bag|box|jar))\b",
+               re.I),
+    re.compile(r"\b(spa|hair|lawn|pest|facial|window|scalp|keratin|conditioning|water|stain|floor|wood|termite|mosquito|"
+               r"weed|tree|gutter|roof|mold|deck|carpet|nail|brow|lash|body|massage|foot|leather|fabric|heat|surface|"
+               r"glass|ceramic|vip|royal|red[- ]carpet)\s+treatments?\b", re.I),
+    re.compile(r"\b(colou?r|heat|pressure|chemically|water|uv|kiln)[- ]treated\b|\btreated (wood|lumber|glass|leather|"
+               r"cotton|fabric|water)\b", re.I),
+    re.compile(r"\b(fire|fall|loss|theft|leak|mold|flood|rust|pest|termite|weed|crime|fraud|spam|ice|dam)\s+prevention\b|"
+               r"\bprevent(s|ed|ing)?\s+(\w+\s+){0,2}?(leaks?|clogs?|frizz|breakage|split ends|damage|pests?|mold|rust|"
+               r"stains?|spills?|slips?|tangles?|fading|shrinking|pilling|static|odou?rs?|break-?ins?|theft|scratches|"
+               r"dents|freezing|burst pipes|water damage|downtime|overflows?|chafing|blisters)\b", re.I),
+    re.compile(r"\b(dry|salt|sugar|smoke|smoked|house|home|hickory|honey|maple|wet|brine|cold|uv|led|gel)[- ]?cur(ed|ing|e)\b|"
+               r"\bcured (meats?|ham|salami|bacon|salmon|pork|sausages?|egg yolks?|yolks?|olives|lemons|beef|chorizo|"
+               r"prosciutto|duck)\b|\bcur(e|ing) time\b", re.I),
+    re.compile(r"\b(satisfaction|money[- ]back|price|fit|freshness|lifetime|quality|happiness|\d+[- ](day|year|month))\s+"
+               r"guarantee[ds]?\b|\bguaranteed\s+(fresh|delivery|to fit|fit|on[- ]time|by|or|for life|for \d+|"
+               r"(on|for) (every|all|each))\b|\bsatisfaction\s+(is\s+)?guaranteed\b", re.I),
+]
+_HEALTH_NEAR = re.compile(r"\b(" + SYMPTOMS + r")\b", re.I)
+
+
+def _benign(text: str, m) -> bool:
+    """Is this match an everyday use of the word (see _BENIGN), in a sentence with no health word?"""
+    a = max(text.rfind(c, 0, m.start()) for c in ".!?\n") + 1
+    ends = [i for i in (text.find(c, m.end()) for c in ".!?\n") if i >= 0]
+    sentence = text[a:min(ends) if ends else len(text)]
+    if _HEALTH_NEAR.search(sentence) or re.search(_RATE, sentence):
+        return False
+    lo, hi = m.start() - a, m.end() - a
+    return any(b.start() <= lo and hi <= b.end() or b.start() <= lo < b.end() or lo <= b.start() < hi
+               for rx in _BENIGN for b in rx.finditer(sentence))
 
 # A stable id per rule, in RULES order (adpolicy.py reports them as "house.<id>" in the launch
 # pre-flight, so a launch never lets through what generation refuses).
@@ -96,7 +214,7 @@ def normalize(text: str) -> str:
     return unicodedata.normalize("NFC", t)
 
 
-_COMPILED = [(r[0], re.compile(r[1], re.I), r[2], "negatable" in r[3:]) for r in RULES]
+_COMPILED = [(r[0], re.compile(r[1], re.I), r[2], set(r[3:])) for r in RULES]
 
 # A rule marked "negatable" doesn't fire on a phrase that rules the thing out
 # ("no before/after imagery", "without before-and-after shots", "avoid
@@ -110,10 +228,23 @@ def _negated(text: str, start: int) -> bool:
     return bool(_NEGATION.search(before)) and not re.search(r"\bno\s+more\s*$", before, re.I)
 
 
-def _hits(rx, text: str, negatable: bool) -> bool:
-    if not negatable:
+def _hits(rx, text: str, flags) -> bool:
+    if not flags:
         return bool(rx.search(text))
-    return any(not _negated(text, m.start()) for m in rx.finditer(text))
+    for m in rx.finditer(text):
+        if "negatable" in flags and _negated(text, m.start()):
+            continue
+        if "time" in flags and before_after_time(text, m.end()):
+            continue
+        if "benign" in flags and _benign(text, m):
+            continue
+        return True
+    return False
+
+
+def before_after(text: str) -> bool:
+    """Before/after content in an already normalized text (the house rule and adpolicy share it)."""
+    return _hits(_COMPILED[IDS.index("before_after")][1], text, {"negatable", "time"})
 
 
 def check(*texts: str) -> dict:
@@ -122,8 +253,8 @@ def check(*texts: str) -> dict:
     scripts, briefs); callers check each piece the member sees on its own."""
     text = normalize(" ".join(t for t in texts if t))
     blocks, warns = [], []
-    for lvl, rx, msg, negatable in _COMPILED:
-        if _hits(rx, text, negatable):
+    for lvl, rx, msg, flags in _COMPILED:
+        if _hits(rx, text, flags):
             (blocks if lvl == "block" else warns).append(msg)
     dedupe = lambda xs: list(dict.fromkeys(xs))
     return {"ok": not blocks, "blocks": dedupe(blocks), "warnings": dedupe(warns)}
@@ -133,7 +264,7 @@ def findings(*texts: str) -> list:
     """[(level, rule id, message)] for every rule the combined text breaks, in RULES order.
     The same rules and wording as check(); used where a caller needs to know which rule hit."""
     text = normalize(" ".join(t for t in texts if t))
-    return [(lvl, IDS[i], msg) for i, (lvl, rx, msg, negatable) in enumerate(_COMPILED) if _hits(rx, text, negatable)]
+    return [(lvl, IDS[i], msg) for i, (lvl, rx, msg, flags) in enumerate(_COMPILED) if _hits(rx, text, flags)]
 
 
 def negated(text: str, start: int) -> bool:
