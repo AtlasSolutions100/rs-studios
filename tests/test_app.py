@@ -1882,9 +1882,9 @@ with db.connect() as conn:
     conn.commit()
 retry_price = catalog.price_credits("ad_image", batch=2)
 html = a.get("/app/library?status=failed").get_data(as_text=True)
-check("Credits refunded." in html and f"Try again · {retry_price}" in html and "Steam rising" not in html,
+check("Credits refunded." in html and f"Try again · {retry_price:,} credit" in html and "Steam rising" not in html,
       "a failed card says credits were refunded and offers Try again at today's price; filtered to failed")
-check("Edit &amp; retry" not in html.split(f'data-job="{fj}"')[1].split("</article>")[0], "edit & retry only for ads made in a batch")
+check("Edit and retry" not in html.split(f'data-job="{fj}"')[1].split("</article>")[0], "edit & retry only for ads made in a batch")
 with db.connect() as conn:
     bal = db.balance(conn.execute("SELECT * FROM workspaces WHERE id=?", (ws1["id"],)).fetchone())
 r = a.post(f"/app/jobs/{fj}/retry", data={"csrf": csrf(a), "total": str(retry_price - 1)}, headers={"Accept": "application/json"})
@@ -3241,3 +3241,5 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_adpolicy.py")], check=True)
     # Migrations stay additive (N3): no column dropped, renamed or retyped; an old database upgrades in place.
     subprocess.run([sys.executable, os.path.join(HERE, "test_migrations.py")], check=True)
+    # Create polish (M5.5): template previews, failed-card actions, export thumbnail labels, page Save vs live.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_create_polish.py")], check=True)

@@ -47,7 +47,7 @@
         <label>{{ label }}</label>
         <div class="medpick">
           <label class="medopt none"><input type="radio" name="b{{ i }}_media" value="" {{ 'checked' if not b.media }}><span>None</span></label>
-          {% for o in lib %}<label class="medopt"><input type="radio" name="b{{ i }}_media" value="{{ o.id }}" {{ 'checked' if b.media == o.id }}>{% if o.kind == 'video' %}<img src="{{ url_for('media', oid=o.id, poster=1) }}" alt="Video {{ o.id }}" loading="lazy"><em>Video</em>{% else %}<img src="{{ url_for('media', oid=o.id) }}" alt="Image {{ o.id }}" loading="lazy">{% endif %}</label>{% endfor %}
+          {% for o in lib %}{% set cap = hub.thumb_caption(o) %}<label class="medopt" title="{{ cap.text }}"><input type="radio" name="b{{ i }}_media" value="{{ o.id }}" {{ 'checked' if b.media == o.id }} aria-label="{{ 'Video' if o.kind == 'video' else 'Image' }}: {{ cap.text }}"><span class="medthumb">{% if o.kind == 'video' %}<img src="{{ url_for('media', oid=o.id, poster=1) }}" alt="" loading="lazy"><em>Video</em>{% else %}<img src="{{ url_for('media', oid=o.id) }}" alt="" loading="lazy">{% endif %}</span><span class="excap"><span class="exw">{{ cap.words }}</span>{% if cap.shape %}<span class="exs">{{ cap.shape }}</span>{% endif %}</span></label>{% endfor %}
         </div>
         {% if not lib %}<p class="small muted">Your finished ads show up here. <a href="{{ url_for('studio') }}">Make one</a>.</p>{% endif %}
         {% elif key == 'form' %}
@@ -70,11 +70,12 @@
     </div>
 
     <div class="go savebar">
-      <span class="small muted">{% if p.status == 'published' %}Live at <a href="{{ url_for('pages.public', slug=p.slug) }}" target="_blank" rel="noopener">{{ base }}p/{{ p.slug }}</a> · {{ p.views }} views{% elif not can_publish %}Your plan's published page is in use.{% if next_plan %} <a href="{{ url_for('billing_page') }}">{{ next_plan.name }}</a> includes unlimited pages.{% endif %}{% else %}Draft · only you can see it{% endif %}</span>
+      {# UX-17: a live page has no separate draft. Saving it changes the live page at once, so it gets one
+         button that says so; a draft page saves privately and publishes with its own button. #}
+      <span class="small muted">{% if p.status == 'published' %}Live at <a href="{{ url_for('pages.public', slug=p.slug) }}" target="_blank" rel="noopener">{{ base }}p/{{ p.slug }}</a> · {{ p.views }} views<br><span data-savehint>Saving changes the live page right away.</span>{% elif not can_publish %}Your plan's published page is in use.{% if next_plan %} <a href="{{ url_for('billing_page') }}">{{ next_plan.name }}</a> includes unlimited pages.{% endif %}{% else %}Draft · only you can see it. Save keeps it private; Publish puts it live.{% endif %}</span>
       <div class="row">
-        <button class="btn dark" name="action" value="save">Save</button>
-        {% if p.status == 'published' %}<button class="btn dark" name="action" value="unpublish">Unpublish</button><button class="btn" name="action" value="save">Update live page</button>
-        {% else %}<button class="btn" name="action" value="publish" {{ 'disabled' if not can_publish }}>Publish</button>{% endif %}
+        {% if p.status == 'published' %}<button class="btn dark" name="action" value="unpublish">Unpublish</button><button class="btn" name="action" value="save">Save and update live page</button>
+        {% else %}<button class="btn dark" name="action" value="save">Save draft</button><button class="btn" name="action" value="publish" {{ 'disabled' if not can_publish }}>Publish</button>{% endif %}
       </div>
     </div>
   </form>

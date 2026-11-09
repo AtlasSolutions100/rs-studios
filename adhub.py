@@ -229,3 +229,30 @@ OFFICIAL_HOSTS = {"www.facebook.com", "business.facebook.com", "developers.faceb
                   "www.linkedin.com", "business.linkedin.com", "ads.pinterest.com", "help.pinterest.com",
                   "policy.pinterest.com", "ads.snapchat.com", "businesshelp.snapchat.com", "www.snap.com",
                   "ads.reddit.com", "business.reddithelp.com"}
+
+
+def thumb_caption(row) -> dict:
+    """A label for an ad thumbnail in the export rail and the page media picker (UX-11): the hook's first
+    3 words (or the template's name) and the shape, so near-identical frames can be told apart."""
+    import json
+    import catalog
+    try:
+        pr = json.loads(row["params_json"] or "{}")
+    except (KeyError, IndexError, TypeError, ValueError):
+        pr = {}
+    if not isinstance(pr, dict):
+        pr = {}
+    words = " ".join(str(pr.get("hook") or "").split())
+    if words:
+        parts = words.split(" ")
+        words = " ".join(parts[:3])
+        if len(parts) > 3:
+            words = words.rstrip(".,;:!?-") + "…"
+    else:
+        keys = row.keys() if hasattr(row, "keys") else []
+        tid = row["template_id"] if "template_id" in keys else None
+        tool = row["tool"] if "tool" in keys else None
+        t = next((t for t in catalog.TEMPLATES if t["id"] == tid), None)
+        words = pr.get("label") or (t["name"] if t else (catalog.TOOLS.get(tool) or {}).get("name") or "Ad")
+    shape = str(pr.get("aspect") or "").strip()
+    return {"words": words, "shape": shape, "text": words + (" · " + shape if shape else "")}

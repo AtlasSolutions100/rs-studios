@@ -467,30 +467,30 @@ def image_ad_prompt(scene: str, headline: str = "", subline: str = "", cta: str 
 # "fits": "any" works for any product you can photograph; "coffee" templates
 # were written for a coffee product and assume one.
 TEMPLATES = [
-    {"id": "hero", "preview": "ad_image", "line": "Clean studio shot, headline on top", "name": "Product hero", "tool": "ad_image",
+    {"id": "hero", "preview": "tpl-hero", "line": "Clean studio shot, headline on top", "name": "Product hero", "tool": "ad_image",
      "aspect": "4:5", "fits": "any",
      "brief": "Premium studio product shot: the {product} centred on a clean surface, soft directional light, a "
               "subtle shadow and plenty of empty space for a headline. Packaging, label and colors exactly as in "
               "the photo. Headline: \"{product}\" in clean, modern type.",
      "audience": ""},
-    {"id": "routine", "preview": "how", "line": "Your product in an everyday moment", "name": "Daily routine", "tool": "ad_image",
+    {"id": "routine", "preview": "tpl-routine", "line": "Your product in an everyday moment", "name": "Daily routine", "tool": "ad_image",
      "aspect": "9:16", "fits": "any",
      "brief": "Everyday lifestyle scene in a bright, tidy kitchen: the {product} on the counter as part of someone's "
               "morning routine, hands in frame, no faces. Natural window light. The label stays sharp and "
               "unchanged. Headline: \"Part of the morning.\"",
      "audience": ""},
-    {"id": "flatlay", "preview": "ad_image", "line": "Overhead flat lay with a few props", "name": "Flat lay",
+    {"id": "flatlay", "preview": "tpl-flatlay", "line": "Overhead flat lay with a few props", "name": "Flat lay",
      "tool": "ad_image", "aspect": "4:5", "fits": "any",
      "brief": "Overhead flat lay on a soft neutral surface: the {product} in the centre, a few simple everyday props "
               "around it with plenty of breathing room, soft even daylight. Packaging, label and colors exactly as in "
               "the photo. Headline: \"Made for your day.\"",
      "audience": ""},
-    {"id": "inhand", "preview": "ad_image", "line": "A hand holding it, outdoors", "name": "In hand", "tool": "ad_image",
+    {"id": "inhand", "preview": "tpl-inhand", "line": "A hand holding it, outdoors", "name": "In hand", "tool": "ad_image",
      "aspect": "9:16", "fits": "any",
      "brief": "A hand holds the {product} up against a bright, softly blurred outdoor background, natural light, no "
               "face in frame. The label faces the camera, sharp and unchanged. Headline: \"Take it with you.\"",
      "audience": ""},
-    {"id": "gift", "preview": "ad_image", "line": "Gift moment, ribbon and card", "name": "Gift idea", "tool": "ad_image",
+    {"id": "gift", "preview": "tpl-gift", "line": "Gift moment, ribbon and card", "name": "Gift idea", "tool": "ad_image",
      "aspect": "1:1", "fits": "any",
      "brief": "Warm gifting scene: the {product} next to a ribbon and a blank card on a wooden table, cozy evening light. "
               "Packaging exactly as in the photo. Headline: \"An easy gift.\"",

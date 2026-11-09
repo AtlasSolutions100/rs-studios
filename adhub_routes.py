@@ -38,7 +38,7 @@ def platform(platform):
     if not p:
         abort(404)
     with db.connect() as conn:
-        outs = conn.execute("SELECT o.*, j.template_id, j.tool FROM outputs o JOIN jobs j ON j.id=o.job_id "
+        outs = conn.execute("SELECT o.*, j.template_id, j.tool, j.params_json FROM outputs o JOIN jobs j ON j.id=o.job_id "
                             "WHERE j.workspace_id=? AND j.status='done' ORDER BY o.id DESC LIMIT 12",
                             (g.ws["id"],)).fetchall()
     return render_template("adhub_platform.html", hub=adhub, key=platform, p=p, done=_done().get(platform, set()),

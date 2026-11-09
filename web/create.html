@@ -185,7 +185,7 @@
            lines: null, skip: P.skip || null, many: false, flags: null, resolution: P.resolution || '720p'};
   var $ = function(s, r){ return (r||document).querySelector(s); }, $$ = function(s, r){ return [].slice.call((r||document).querySelectorAll(s)); };
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-  function n(x){ return Number(x || 0).toLocaleString(); }
+  function n(x){ return Number(x || 0).toLocaleString('en-US'); }
   function cr(c){ c = Number(c || 0); return n(c) + (c === 1 ? ' credit' : ' credits'); }
   function plural(k, w, ws){ return k + ' ' + (k === 1 ? w : (ws || w + 's')); }
   function T(){ return B.types.filter(function(t){ return t.id === S.type; })[0]; }
@@ -196,7 +196,7 @@
   var STEP_NAMES = {product: 'Product', type: 'Ad type', angle: 'Angle', script: 'Script', cast: 'Presenter and voice', format: 'Format', review: 'Review'};
   function post(url, body){ return fetch(url, {method:'POST', headers:{'Content-Type':'application/json','X-CSRF':CSRF,'Accept':'application/json'}, body: JSON.stringify(body)})
       .then(function(r){ return r.json().then(function(j){ j._status = r.status; return j; }); }); }
-  function setBal(b){ if(b != null){ B.balance = b; $('[data-bal]').textContent = n(b); } }
+  function setBal(b){ if(b != null){ B.balance = b; $('[data-bal]').textContent = n(b); if(window.cfyBalance) window.cfyBalance(b); } }
 
   // ---- the running total, computed here from the price table (the server confirms it at review)
   function liveItems(){ var el = $$('[data-item]'); return el.length && S.step === 'script' ? el.map(function(e){ return e.value.trim(); }).filter(Boolean).length : S.items.filter(Boolean).length; }
@@ -221,7 +221,7 @@
     if(e.count > B.max_batch) return {bad: true, t: 'One batch makes at most ' + B.max_batch + '. Pick fewer before you go on.'};
     if(e.video && e.count > B.confirm_videos) return {t: 'That\'s a lot of videos at once. You\'ll confirm all ' + e.count + ' at review, or make 1 first.'};
     if(e.video && e.count > B.warn_videos) return {t: 'Tip: make 1 first at review to check the look, then the rest.'};
-    if(e.total > B.balance) return {t: 'You have ' + n(B.balance) + ' credits.'};
+    if(e.total > B.balance) return {t: 'You have ' + cr(B.balance) + '.'};
     return '';
   }
   function showTotals(){
@@ -493,7 +493,7 @@
       var first = (q.lines || []).filter(function(l){ return l.on; })[0], one = $('[data-one]');
       one.hidden = !(q.count > 1 && first); if(first){ one.textContent = 'Make 1 first · ' + n(first.credits); one.disabled = first.credits > q.balance; one.dataset.key = first.key; one.dataset.credits = first.credits; }
       if(q.count && q.total > q.balance){ err.hidden = false;
-        var pk = q.pack, more = 'That needs ' + n(q.total) + ' credits and you have ' + n(q.balance) + ': ' + n(q.short) + ' more. ';
+        var pk = q.pack, more = 'That needs ' + cr(q.total) + ' and you have ' + n(q.balance) + ': ' + n(q.short) + ' more. ';
         err.innerHTML = esc(more) + (pk ? (pk.covers ? 'The ' + esc(pk.name) + ' pack (' + n(pk.credits) + ' credits, $' + pk.usd + ') covers it. ' : '') : '') + '<a href="' + B.urls.billing + '#packs">Top up on Billing</a>, or untick some.'; }
       showTotals();
     });
