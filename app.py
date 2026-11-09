@@ -2853,11 +2853,13 @@ import creator_pool_routes  # noqa: E402
 import creator_pools  # noqa: E402
 import google_auth  # noqa: E402
 import adconnect_routes  # noqa: E402  connected ad accounts (AD_LAUNCH)
+import launch_routes  # noqa: E402  plan -> paused Meta campaign (AD_LAUNCH, M2.3)
 import adplatforms  # noqa: E402
 
 app.register_blueprint(product_routes.bp)
 app.register_blueprint(google_auth.bp)
 app.register_blueprint(adconnect_routes.bp)   # /app/settings/ad-accounts, /connect/meta (AD_LAUNCH, default off)
+app.register_blueprint(launch_routes.bp)   # /app/campaigns/<id>/launch/meta, /app/launches/<id> (AD_LAUNCH, default off)
 app.register_blueprint(login_security.bp)   # /forgot, /reset, /m (login hardening)
 app.jinja_env.globals["google_signin"] = google_auth.configured   # the Continue with Google button
 app.register_blueprint(create_routes.bp)

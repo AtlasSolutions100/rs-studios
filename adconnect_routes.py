@@ -201,10 +201,11 @@ def pick(cid):
         sql = ("UPDATE ad_connections SET external_account_id=?, account_name=?, currency=?, timezone=?, business_id=?, "
                "page_id=?, page_name=?, instagram_actor_id=?, instagram_username=?, external_user_id=?, token_enc=?, "
                "token_expires_at=?, scopes=?, updated_at=?, status='active', last_error=NULL, pending_json=? WHERE id=?")
-        same = conn.execute("SELECT id FROM ad_connections WHERE workspace_id=? AND platform='meta' AND "
+        same = conn.execute("SELECT * FROM ad_connections WHERE workspace_id=? AND platform='meta' AND "
                             "external_account_id=? AND id!=?", (g.ws["id"], a["id"], cid)).fetchone()
         target = same["id"] if same else cid
         if same:
+            _revoke_replaced(conn, same, row)
             conn.execute("DELETE FROM ad_connections WHERE id=?", (cid,))
         conn.execute(sql, fields + (None, target))
         conn.commit()
@@ -229,6 +230,26 @@ def pick(cid):
             return redirect(url_for("adconnect.pixel", cid=target))
     flash(f"Connected {a['name']}." + ("" if pxs else " It has no pixel yet: create one in Meta Events Manager."))
     return redirect(url_for("adconnect.settings"))
+
+
+def _revoke_replaced(conn, old, new):
+    """Re-audit L-14: a different Meta user reconnected this ad account, so the old user's token is about to be
+    overwritten. Revoke the old grant at Meta first, unless another connection still uses that user's grant.
+    Best effort: the old token is replaced here either way."""
+    if not old["token_enc"] or not old["external_user_id"] or old["external_user_id"] == new["external_user_id"]:
+        return False
+    held = conn.execute("SELECT 1 FROM ad_connections WHERE platform=? AND external_user_id=? AND id NOT IN (?,?) AND "
+                        "token_enc IS NOT NULL AND status IN ('active','expired','error','pending') LIMIT 1",
+                        (old["platform"], old["external_user_id"], old["id"], new["id"])).fetchone()
+    if held or not meta.ADAPTER.configured():
+        return False
+    try:
+        ok = meta.ADAPTER.revoke(adplatforms.open_token(old))
+        log.info("meta reconnect by another person: the previous grant was revoked (%s)", "ok" if ok else "no")
+        return ok
+    except (adhttp.AdHttpError, secretsbox.BoxError) as e:
+        log.warning("meta revoke of the replaced grant: %s", e)
+        return False
 
 
 def _save_pixel(conn, row, px):

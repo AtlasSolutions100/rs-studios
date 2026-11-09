@@ -3239,6 +3239,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_adconnect.py")], check=True)
     # The campaign spec, its validator and the ad policy linter (adspec.py, adpolicy.py): 60+ copy fixtures.
     subprocess.run([sys.executable, os.path.join(HERE, "test_adpolicy.py")], check=True)
+    # The launch saga, the approval card and the Meta launch steps (launches.py, launch_routes.py; M2.3): fake Graph.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_launches.py")], check=True)
     # Migrations stay additive (N3): no column dropped, renamed or retyped; an old database upgrades in place.
     subprocess.run([sys.executable, os.path.join(HERE, "test_migrations.py")], check=True)
     # Create polish (M5.5): template previews, failed-card actions, export thumbnail labels, page Save vs live.

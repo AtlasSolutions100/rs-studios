@@ -12,8 +12,9 @@ What it does for each call:
     that would pass it waits up to `max_wait` seconds, then raises RateLimited;
   * the usage headers Meta sends back (x-business-use-case-usage, x-ad-account-usage): when Meta
     says an account is throttled, the account is blocked here for as long as Meta says;
-  * edit_lock(): Meta allows one edit per object per 30 s (subcode 4841018), used by the launch
-    steps (M2.3);
+  * edit_lock(): Meta allows one edit per object per 30 s (subcode 4841018). call(edit_of=<object id>)
+    takes the object's slot first; the launch saga (launches.py, M2.3) passes it on every change to an
+    existing object (status, delete);
   * no secrets in logs or errors. A log line has the platform, method, path (never the query),
     status, error code and time. Error messages are scrubbed of access tokens, app secrets,
     authorization codes and appsecret_proof, and a network error is re-raised without the
@@ -252,10 +253,16 @@ def _classify(platform, resp, secrets):
 
 
 def call(platform: str, method: str, url: str, *, params=None, data=None, headers=None, files=None,
-         account: str = None, cost: float = None, max_wait: float = 0.0, retries: int = None, secrets=()):
+         account: str = None, cost: float = None, max_wait: float = 0.0, retries: int = None, secrets=(),
+         edit_of: str = None):
     """The JSON body of one platform call, or an AdHttpError. `account` names the budget to
-    spend from (an ad account id); `secrets` are extra values to scrub from any message."""
+    spend from (an ad account id); `secrets` are extra values to scrub from any message; `edit_of`
+    is an existing object this call changes (it waits for, then takes, that object's 30 s edit slot).
+    Calls that create something should pass retries=1: a timeout may hide a create that worked, so
+    the caller looks the object up before trying again (launches.py does)."""
     method = method.upper()
+    if edit_of:
+        edit_lock(platform, str(edit_of), max_wait=max(max_wait, EDIT_LOCK_S + 1))
     cost = cost if cost is not None else (1.0 if method == "GET" else 3.0)
     path = urlsplit(url).path
     attempts = max(1, retries or RETRIES)
