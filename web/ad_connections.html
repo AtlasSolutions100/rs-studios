@@ -3,7 +3,7 @@
 <div class="page full">
   <p class="eyebrow">Settings</p>
   <h1>Connected ad accounts</h1>
-  <p class="muted">Connect your own Meta ad account. Campaignify reads its name, currency, Pages and pixels. Nothing is created or changed on the account from this page. You can disconnect at any time.</p>
+  <p class="muted">Connect your own {{ 'Meta ad account or Google Ads account' if google_on else 'Meta ad account' }}. Campaignify reads its name, currency{{ ', Pages and pixels' if not google_on else ' and, on Meta, its Pages and pixels' }}. Nothing is created or changed on the account from this page. You can disconnect at any time.</p>
   <div class="grid2">
     <div class="panel">
       <h2>Your connections</h2>
@@ -11,13 +11,19 @@
       <ul class="checks">{% for r in rows %}<li>
         <b>{{ r.account_name or 'Ad account' }}</b>
         {% if r.status == 'active' %}<span class="tag ok">Connected</span>{% elif r.status == 'expired' %}<span class="tag warn">Needs reconnect</span>{% else %}<span class="tag bad">Problem</span>{% endif %}
+        {% if r.platform == 'google' %}
+        <br><span class="small muted">Google Ads account {{ dashed(r.external_account_id) }}{% if r.currency %} · {{ r.currency }}{% endif %}</span>
+        {% if r.business_id %}<br><span class="small">Reached through manager account {{ dashed(r.business_id) }}</span>{% endif %}
+        {% else %}
         <br><span class="small muted">Meta ad account {{ r.external_account_id }}{% if r.currency %} · {{ r.currency }}{% endif %}</span>
         <br><span class="small">Page: {{ r.page_name or 'none picked' }}{% if r.instagram_username %} · Instagram @{{ r.instagram_username }}{% endif %}</span>
         <br><span class="small">Pixel: {% for p in pixels.get(r.id, []) %}{{ p.name }}{{ ', ' if not loop.last }}{% else %}none{% endfor %}</span>
+        {% endif %}
         {% if r.status == 'active' and r.token_expires_at %}<br><span class="small muted">Access ends {{ r.token_expires_at|localtime('date') }}. Reconnect before then to keep it.</span>{% endif %}
         {% if r.last_error and r.status != 'active' %}<br><span class="small muted">{{ r.last_error }}</span>{% endif %}
         {% if owner %}<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:10px">
-          {% if r.status != 'active' and meta_ready %}<form method="post" action="{{ url_for('adconnect.meta_start') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="reconnect" value="{{ r.id }}"><button class="btn sm">Reconnect</button></form>{% endif %}
+          {% if r.status != 'active' and r.platform == 'google' and google_ready %}<form method="post" action="{{ url_for('adconnect.google_start') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="reconnect" value="{{ r.id }}"><button class="btn sm">Reconnect</button></form>{% endif %}
+          {% if r.status != 'active' and r.platform == 'meta' and meta_ready %}<form method="post" action="{{ url_for('adconnect.meta_start') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="reconnect" value="{{ r.id }}"><button class="btn sm">Reconnect</button></form>{% endif %}
           <form method="post" action="{{ url_for('adconnect.disconnect', cid=r.id) }}" data-confirm="Disconnect {{ r.account_name or 'this ad account' }}? Campaignify stops reading it and deletes its access."><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Disconnect</button></form>
         </div>{% endif %}
       </li>{% endfor %}</ul>
@@ -29,6 +35,10 @@
         <form method="post" action="{{ url_for('adconnect.meta_start') }}" style="margin-top:16px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn">Connect Meta</button></form>
         <p class="small muted">You sign in on Facebook and choose what to share. Meta then sends you back here to pick the ad account and Page.</p>
         {% else %}<p class="small muted" style="margin-top:16px">Connecting Meta isn't switched on yet.</p>{% endif %}
+        {% if google_on %}{% if google_ready %}
+        <form method="post" action="{{ url_for('adconnect.google_start') }}" style="margin-top:16px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn">Connect Google Ads</button></form>
+        <p class="small muted">You sign in with Google and allow Google Ads access. Google then sends you back here to pick the account.</p>
+        {% else %}<p class="small muted" style="margin-top:16px">Connecting Google Ads isn't switched on yet.</p>{% endif %}{% endif %}
       {% else %}<p class="small muted" style="margin-top:16px">Only the workspace owner can connect or remove ad accounts.</p>{% endif %}
     </div>
     <div class="panel">
@@ -38,6 +48,15 @@
       <p class="small muted">The payment method is added on Meta. Campaignify never sees your card.</p>
       {% if owner and meta_ready %}<form method="post" action="{{ url_for('adconnect.meta_start') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn sm">Done, connect it</button></form>{% endif %}
     </div>
+    {% if google_on %}
+    <div class="panel" data-google-checklist>
+      <h2>No Google Ads account yet?</h2>
+      <p class="small muted">Make it in Google Ads first. Each link opens Google in a new tab.</p>
+      <ol class="checks">{% for t, d, link in google_checklist %}<li><b>{{ t }}</b><br><span class="small muted">{{ d }}</span>{% if link %}<br><a class="small" href="{{ link }}" target="_blank" rel="noopener">Open on Google</a>{% endif %}</li>{% endfor %}</ol>
+      <p class="small muted">Billing is set up in Google Ads. Campaignify never sees your card.</p>
+      {% if owner and google_ready and not paused %}<form method="post" action="{{ url_for('adconnect.google_start') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn sm">Done, connect it</button></form>{% endif %}
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

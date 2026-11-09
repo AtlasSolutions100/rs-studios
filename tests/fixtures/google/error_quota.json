@@ -1,0 +1,28 @@
+{
+ "error": {
+  "code": 429,
+  "message": "Too many requests. Retry in 30 seconds.",
+  "status": "RESOURCE_EXHAUSTED",
+  "details": [
+   {
+    "@type": "type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure",
+    "errors": [
+     {
+      "errorCode": {
+       "quotaError": "RESOURCE_EXHAUSTED"
+      },
+      "message": "Too many requests. Retry in 30 seconds.",
+      "details": {
+       "quotaErrorDetails": {
+        "rateScope": "DEVELOPER",
+        "rateName": "Requests per developer per day",
+        "retryDelay": "30s"
+       }
+      }
+     }
+    ],
+    "requestId": "fakeReq443866"
+   }
+  ]
+ }
+}

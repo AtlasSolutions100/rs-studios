@@ -1,0 +1,29 @@
+{
+ "error": {
+  "code": 400,
+  "message": "Request contains an invalid argument.",
+  "status": "INVALID_ARGUMENT",
+  "details": [
+   {
+    "@type": "type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure",
+    "errors": [
+     {
+      "errorCode": {
+       "assetGroupError": "NOT_ENOUGH_SQUARE_MARKETING_IMAGE_ASSET"
+      },
+      "message": "Not enough square marketing image assets.",
+      "location": {
+       "fieldPathElements": [
+        {
+         "fieldName": "mutate_operations",
+         "index": 1
+        }
+       ]
+      }
+     }
+    ],
+    "requestId": "fakeReq17450188"
+   }
+  ]
+ }
+}

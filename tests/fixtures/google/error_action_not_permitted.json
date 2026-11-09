@@ -1,0 +1,21 @@
+{
+ "error": {
+  "code": 403,
+  "message": "The user does not have permission to perform this action on the resource.",
+  "status": "PERMISSION_DENIED",
+  "details": [
+   {
+    "@type": "type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure",
+    "errors": [
+     {
+      "errorCode": {
+       "authorizationError": "ACTION_NOT_PERMITTED"
+      },
+      "message": "The user does not have permission to perform this action on the resource."
+     }
+    ],
+    "requestId": "fakeReq25033523"
+   }
+  ]
+ }
+}
