@@ -26,7 +26,8 @@ The promise: "launch by hand or let Campaignify create it". The flow:
 Google (M3.2 Search, M3.3 Performance Max; launch_google.py has its draft, rules and card) runs through the
 same card, approval, ledger, saga and compensation, behind GOOGLE_ADS as well: one mutate makes the whole
 campaign (Google applies all of it or none), then a GAQL check reads it back. Its daily budget follows the
-same D3 ceilings.
+same D3 ceilings. Snapchat (M6.1; launch_video.py has its draft, rules and card, adplatforms/snapchat.py the
+steps) does too, behind SNAPCHAT_ADS: uploads, creatives, the campaign, the ad squad, the ads, all PAUSED.
 
 Rules (Koby's decisions): launching needs a paid plan (D2); a campaign's daily budget is capped per plan
 (D3: Starter 200, Growth 1,000, Scale 5,000 a day, in the ad account's currency; "ask us" above); every
@@ -78,8 +79,9 @@ ACTIVE = ("queued", "launching")
 FINISHED = ("paused", "failed", "rolled_back")
 
 KIND_WORDS = {"upload": "Upload", "creative": "Ad creative", "campaign": "Campaign", "adset": "Ad set", "ad": "Ad",
-              "adgroup": "Ad group", "assetgroup": "Asset group", "check": "Check"}
-PLATFORM_WORDS = {"meta": "Meta", "google": "Google"}
+              "adgroup": "Ad group", "assetgroup": "Asset group", "check": "Check", "adsquad": "Ad squad"}
+PLATFORM_WORDS = {"meta": "Meta", "google": "Google", "snapchat": "Snapchat"}
+ADSET_KINDS = ("adset", "adsquad")       # the ad set of a launch, by platform (its step key is "adset" on each)
 OBJECTIVE_WORDS = {"sales": "Sales", "leads": "Leads", "traffic": "Traffic", "awareness": "Awareness"}
 GOAL_TO_OBJECTIVE = {"sales": "sales", "leads": "leads", "traffic": "traffic", "awareness": "awareness",
                      "engagement": "traffic", "installs": "traffic"}
@@ -425,6 +427,9 @@ def launch_issues(conn, ws, spec, conn_row, assets: dict, prov: dict, operator: 
             add("block", "launch.currency", f"The account bills in {conn_row['currency']}, not {spec.currency}.",
                 "Reload the page.", "currency")
         out += launch_google.issues(conn, ws, spec, conn_row, assets)
+    elif spec.platform in _video_platforms():
+        import launch_video
+        out += launch_video.issues(conn, ws, spec, conn_row, assets)
     else:
         if not conn_row["page_id"]:
             add("block", "launch.no_page", "Ads on Meta run from a Facebook Page, and none is picked.",
@@ -479,7 +484,15 @@ def review(conn, ws, spec_dict: dict, conn_row, operator: bool = False) -> tuple
     steps = adplatforms.adapter(spec.platform).plan_steps(spec, conn_row, assets) if ok_row else []
     if spec.platform == "google":
         return spec, issues, launch_google.make_card(conn, ws, spec, conn_row, steps, prov, assets), steps
+    if spec.platform in _video_platforms():
+        import launch_video
+        return spec, issues, launch_video.make_card(conn, ws, spec, conn_row, steps, prov), steps
     return spec, issues, make_card(conn, ws, spec, conn_row, steps, prov), steps
+
+
+def _video_platforms() -> tuple:
+    import launch_video
+    return launch_video.PLATFORMS
 
 
 def _day(iso: str | None) -> str | None:
@@ -665,6 +678,9 @@ def translate(err) -> str:
     if isinstance(err, adhttp.AdHttpError) and err.platform == "google":
         from adplatforms import google
         return google.translate(err)
+    if isinstance(err, adhttp.AdHttpError) and err.platform in _video_platforms():
+        import launch_video
+        return launch_video.module(err.platform).translate(err)
     if isinstance(err, adhttp.NetworkError):
         return NETWORK_WORDS
     if isinstance(err, adhttp.AdHttpError):
@@ -698,7 +714,7 @@ def _record(conn, L, s, res: dict):
     kind = {"upload": "video" if res.get("object") == "video" else None, "check": None}.get(s["kind"], s["kind"])
     if kind and ext:
         parent = None
-        if s["kind"] == "adset":
+        if s["kind"] in ADSET_KINDS:
             parent = L["external_campaign_id"]
         elif s["kind"] == "ad":
             parent = (conn.execute("SELECT external_id FROM launch_steps WHERE launch_id=? AND step_key='adset'",
@@ -831,6 +847,9 @@ def _fail(conn, L, s, err, token, conn_row) -> str:
     if isinstance(err, adhttp.RateLimited):
         from adplatforms import google
         message = google.WAITED_WORDS if L["platform"] == "google" else WAITED_WORDS
+        if L["platform"] in _video_platforms():
+            import launch_video
+            message = launch_video.module(L["platform"]).WAITED_WORDS
     else:
         message = translate(err)
     complete = compensate(conn, L, token) if token else not _has_done(conn, L["id"])
@@ -923,7 +942,8 @@ def maybe_tick():
 # ---------------------------------------------------------------- what the pages show
 
 STEP_WORDS = {"upload": "Upload {what}", "creative": "Create the ad creative for {what}", "campaign": "Create the campaign",
-              "adset": "Create the ad set", "ad": "Create {what}", "check": "Check it on Google"}
+              "adset": "Create the ad set", "ad": "Create {what}", "check": "Check it on Google",
+              "adsquad": "Create the ad squad"}
 
 
 def step_label(s) -> str:
@@ -970,8 +990,9 @@ def view(conn, L) -> dict:
                        "external_id": s["external_id"], "kind": s["kind"]} for s in steps],
             "objects": [dict(o) for o in objs], "account": account, "platform": L["platform"],
             "word": PLATFORM_WORDS.get(L["platform"], "Meta"),
-            "manager": (None if not account else ads_manager_url(account, L["external_campaign_id"])
-                        if L["platform"] != "google" else _google_url(account)),
+            "manager": (None if not account else _google_url(account) if L["platform"] == "google"
+                        else _video_url(L["platform"], account) if L["platform"] in _video_platforms()
+                        else ads_manager_url(account, L["external_campaign_id"])),
             "review": next((json.loads(s["result_json"] or "{}") for s in steps if s["kind"] == "check"
                             and s["status"] == "done"), None),
             "busy": L["status"] in ACTIVE,
@@ -982,6 +1003,11 @@ def view(conn, L) -> dict:
 def _google_url(account: str) -> str:
     from adplatforms import google
     return google.ads_url(account)
+
+
+def _video_url(platform: str, account: str) -> str:
+    import launch_video
+    return launch_video.module(platform).ads_url(account)
 
 
 def latest_for_plan(conn, ws_id: int, cid: int, platform: str = None):

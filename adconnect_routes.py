@@ -1,5 +1,5 @@
-"""Settings > Connections: a workspace connects its own Meta ad account (roadmap M2.1) and Google Ads
-account (M3.1).
+"""Settings > Connections: a workspace connects its own Meta ad account (roadmap M2.1), Google Ads
+account (M3.1) and Snapchat ad account (M6.1).
 
     GET  /app/settings/ad-accounts                 the connections, Connect Meta, the "no ad account yet" checklist
     POST /connect/meta                             start Facebook Login for Business (owner or admin; CSRF)
@@ -14,9 +14,15 @@ account (M3.1).
     GET  /connect/google/callback                  Google sends the person back here with ?code&state
                                                    (then .../<id>/pick lists the Google Ads customers, managers'
                                                    client accounts included)
+    POST /connect/snapchat                         start Snap's OAuth (snapchat-marketing-api; owner or admin)
+    GET  /connect/snapchat/callback                Snap sends the person back here with ?code&state
+                                                   (then .../<id>/pick: the ad account and its public profile,
+                                                   then .../<id>/pixel when there are several Snap Pixels)
 
 Google sits behind AD_LAUNCH and GOOGLE_ADS (adplatforms/google.py). Its refresh token goes into the same
-token box; Disconnect revokes it at Google.
+token box; Disconnect revokes it at Google. Snapchat sits behind AD_LAUNCH and SNAPCHAT_ADS (adplatforms/snapchat.py);
+its refresh token goes into the token box too. Snap has no revoke endpoint, so Disconnect deletes the token here and
+says where to remove the app on Snap.
 
 Connecting sits behind AD_LAUNCH (adplatforms.enabled): off = 404. Removing never does (M-3): the
 Settings list and Disconnect stay open for a workspace that still holds connections, and Meta's two
@@ -47,7 +53,7 @@ import adplatforms
 import conversions
 import db
 import secretsbox
-from adplatforms import google, meta
+from adplatforms import google, meta, snapchat
 from core import is_owner, login_required
 
 log = logging.getLogger("campaignify.adconnect")
@@ -55,10 +61,12 @@ bp = Blueprint("adconnect", __name__)
 
 S_KEY = "ad_oauth"
 G_KEY = "ad_oauth_google"
+SNAP_KEY = "ad_oauth_snapchat"
 STATE_TTL_S = 600
 FAILED = "Connecting to Meta didn't work. Try again in a minute."
 G_FAILED = "Connecting to Google didn't work. Try again in a minute."
-WORDS = {"meta": "Meta", "google": "Google"}
+SNAP_FAILED = "Connecting to Snapchat didn't work. Try again in a minute."
+WORDS = {"meta": "Meta", "google": "Google", "snapchat": "Snapchat"}
 
 
 def _on():
@@ -78,6 +86,11 @@ def _on_or_stored():
 
 def _google_on():
     if not google.enabled(g.get("ws"), g.get("user")):
+        abort(404)
+
+
+def _snap_on():
+    if not snapchat.enabled(g.get("ws"), g.get("user")):
         abort(404)
 
 
@@ -117,10 +130,13 @@ def settings():
         for p in conn.execute("SELECT * FROM pixels WHERE workspace_id=? ORDER BY id", (g.ws["id"],)).fetchall():
             px.setdefault(p["connection_id"], []).append(p)
     g_on = live and google.enabled(g.ws, g.get("user"))
+    s_on = live and snapchat.enabled(g.ws, g.get("user"))
     return render_template("ad_connections.html", rows=rows, pixels=px, owner=is_owner() and not g.get("viewing"),
                            meta_ready=live and meta.ADAPTER.configured(), checklist=meta.checklist(), paused=not live,
                            google_on=g_on, google_ready=g_on and google.ADAPTER.configured(),
                            google_checklist=google.checklist(), dashed=google.dashed,
+                           snap_on=s_on, snap_ready=s_on and snapchat.ADAPTER.configured(),
+                           snap_checklist=snapchat.checklist(),
                            conv_on=live and conversions.ws_enabled(g.ws, g.get("user")))
 
 
@@ -203,6 +219,8 @@ def pick(cid):
             return redirect(url_for("adconnect.settings"))
         if row["platform"] == "google":
             return _pick_google(conn, row)
+        if row["platform"] == "snapchat":
+            return _pick_snapchat(conn, row)
         d = _data(row)
         accounts = {a["id"]: a for a in d.get("accounts") or []}
         pages = {p["id"]: p for p in d.get("pages") or []}
@@ -348,6 +366,9 @@ def disconnect(cid):
         flash(f"Disconnected {name} and removed Campaignify's access on {word}.")
     elif row["platform"] == "google":
         flash(f"Disconnected {name}. To be sure, remove Campaignify under Third-party apps in your Google Account.")
+    elif row["platform"] == "snapchat":
+        flash(f"Disconnected {name} and deleted Campaignify's access here. Snapchat has no way for apps to end their own "
+              "access, so to be sure, remove Campaignify from your Snapchat account's connected apps.")
     else:
         flash(f"Disconnected {name}. To be sure, remove Campaignify under Business integrations in your Facebook settings.")
     return redirect(url_for("adconnect.settings"))
@@ -458,6 +479,132 @@ def _pick_google(conn, row):
                       "Conversion actions weren't made: " + res["words"].rstrip(".") + ". Try again in Conversion tracking.")
     flash(f"Connected {a['name']} ({google.dashed(a['id'])})." + (" It's a Google Ads test account: campaigns there "
                                                                     "never run." if a.get("test") else "") + conv)
+    return redirect(url_for("adconnect.settings"))
+
+
+# ---------------------------------------------------------------- Snapchat (M6.1)
+
+@bp.route("/connect/snapchat", methods=["POST"])
+@login_required
+def snapchat_start():
+    _on()
+    _snap_on()
+    _owner()
+    if not snapchat.ADAPTER.configured():
+        flash("Connecting Snapchat isn't switched on yet. Try again later.")
+        return redirect(url_for("adconnect.settings"))
+    reconnect = request.form.get("reconnect") or ""
+    if reconnect:
+        with db.connect() as conn:
+            reconnect = str(_pending(conn, reconnect)["id"]) if reconnect.isdigit() else ""
+    state = secrets.token_urlsafe(24)
+    session[SNAP_KEY] = {"state": state, "ws": g.ws["id"], "uid": g.user["id"], "reconnect": reconnect,
+                         "at": int(time.time())}
+    return redirect(snapchat.ADAPTER.oauth_start(state))
+
+
+@bp.route("/connect/snapchat/callback")
+def snapchat_callback():
+    pend = session.pop(SNAP_KEY, None)
+    if not g.get("user"):
+        flash("Log in, then connect your Snapchat ad account again.")
+        return redirect(url_for("login"))          # never a `next` carrying the code
+    _on()
+    _snap_on()
+    back = redirect(url_for("adconnect.settings"))
+    if request.args.get("error"):
+        log.info("snapchat connect refused by the person: %s", (request.args.get("error") or "")[:40])
+        flash("Snapchat didn't connect: the request was cancelled. Nothing changed.")
+        return back
+    sent, code = request.args.get("state") or "", request.args.get("code") or ""
+    if not pend or not sent or not code or not secrets.compare_digest(sent, str(pend.get("state") or "")) \
+            or pend.get("ws") != g.ws["id"] or pend.get("uid") != g.user["id"] \
+            or time.time() - int(pend.get("at") or 0) > STATE_TTL_S:
+        flash("That connect attempt expired. Start it again.")
+        return back
+    _owner()
+    try:
+        got = snapchat.ADAPTER.oauth_finish(code)
+    except adhttp.AdHttpError as e:          # scrubbed: never carries a token or the code
+        log.warning("snapchat connect failed: %s", e)
+        flash(e.user_message if e.code == "oauth.no_refresh" and e.user_message else SNAP_FAILED)
+        return back
+    except Exception as e:  # noqa: BLE001  a malformed answer; log the kind only
+        log.error("snapchat connect failed: %s", type(e).__name__)
+        flash(SNAP_FAILED)
+        return back
+    now = db.now()
+    keep = {"accounts": got["accounts"], "pages": got["pages"], "user_name": got["user_name"],
+            "reconnect": pend.get("reconnect") or ""}
+    with db.connect() as conn:
+        cid = conn.execute(
+            "INSERT INTO ad_connections (workspace_id, platform, external_account_id, external_user_id, token_enc, "
+            "token_expires_at, scopes, status, pending_json, created_by, created_at, updated_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (g.ws["id"], "snapchat", "pending:" + secrets.token_hex(8), got["user_id"],
+             adplatforms.seal_token(g.ws["id"], got["token"]), None, " ".join(got["scopes"]),
+             "pending", json.dumps(keep), g.user["id"], now, now)).lastrowid
+        conn.commit()
+    return redirect(url_for("adconnect.pick", cid=cid))
+
+
+def _pick_snapchat(conn, row):
+    """Pick the Snapchat ad account and the public profile its ads run from (one of the account's organization's),
+    then the Snap Pixel (skipped when there are 0 or 1)."""
+    _snap_on()
+    d = _data(row)
+    accounts = {a["id"]: a for a in d.get("accounts") or []}
+    profiles = {p["id"]: p for p in d.get("pages") or []}
+    pre = None
+    if d.get("reconnect"):
+        old = adplatforms.get(conn, g.ws["id"], d["reconnect"])
+        pre = old["external_account_id"] if old else None
+    if request.method == "GET":
+        return render_template("ad_connect_snapchat.html", row=row, d=d, pre=pre, checklist=snapchat.checklist())
+    a = accounts.get(request.form.get("account") or "")
+    if not a or not a["usable"]:
+        flash("Pick one of the ad accounts listed.")
+        return redirect(url_for("adconnect.pick", cid=row["id"]))
+    p = profiles.get(request.form.get("profile") or "")
+    if request.form.get("profile") and (p is None or p.get("org_id") != a.get("org_id")):
+        flash("Pick one of the public profiles listed for that ad account.")
+        return redirect(url_for("adconnect.pick", cid=row["id"]))
+    p = p or {}
+    now = db.now()
+    same = conn.execute("SELECT * FROM ad_connections WHERE workspace_id=? AND platform='snapchat' AND "
+                        "external_account_id=? AND id!=?", (g.ws["id"], a["id"], row["id"])).fetchone()
+    target = same["id"] if same else row["id"]
+    if same:
+        _revoke_replaced(conn, same, row)
+        conn.execute("DELETE FROM ad_connections WHERE id=?", (row["id"],))
+    conn.execute("UPDATE ad_connections SET external_account_id=?, account_name=?, currency=?, timezone=?, business_id=?, "
+                 "page_id=?, page_name=?, instagram_actor_id=NULL, instagram_username=NULL, external_user_id=?, "
+                 "token_enc=?, token_expires_at=NULL, scopes=?, updated_at=?, status='active', last_error=NULL, "
+                 "pending_json=NULL WHERE id=?",
+                 (a["id"], a["name"], a["currency"], a["timezone"], a.get("org_id"), p.get("id"), p.get("name"),
+                  row["external_user_id"], row["token_enc"], row["scopes"], now, target))
+    conn.commit()
+    row = adplatforms.get(conn, g.ws["id"], target)
+    try:
+        pxs = snapchat.ADAPTER.list_pixels(adplatforms.open_token(row), a["id"])
+    except adhttp.TokenInvalid as e:
+        adplatforms.mark(conn, target, "expired", "Snapchat ended this access. Reconnect.")
+        log.warning("snapchat pixels: %s", e)
+        pxs = None
+    except (adhttp.AdHttpError, secretsbox.BoxError) as e:
+        log.warning("snapchat pixels: %s", e)
+        pxs = None
+    note = "" if p else " Pick a public profile before launching: reconnect once you've made one in Snapchat Ads Manager."
+    if pxs is None:
+        flash(f"Connected {a['name']}. We couldn't read its pixels; you can pick one later." + note)
+        return redirect(url_for("adconnect.settings"))
+    if len(pxs) == 1:
+        _save_pixel(conn, row, pxs[0])
+    if len(pxs) > 1:
+        conn.execute("UPDATE ad_connections SET pending_json=? WHERE id=?", (json.dumps({"pixels": pxs}), target))
+        conn.commit()
+        return redirect(url_for("adconnect.pixel", cid=target))
+    flash(f"Connected {a['name']}." + ("" if pxs else " It has no Snap Pixel yet: traffic campaigns run without one.") + note)
     return redirect(url_for("adconnect.settings"))
 
 
