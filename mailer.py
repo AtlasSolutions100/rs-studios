@@ -113,7 +113,7 @@ def from_address(ws_id: int, sender_name: str, custom: str | None = None) -> str
 
 # ---------------------------------------------------------------- priority
 
-NURTURE = frozenset({"outreach"})
+NURTURE = frozenset({"outreach", "weekly_report"})     # weekly_report: the Ad campaigns weekly email (M4.4)
 NURTURE_PREFIXES = ("first_run_nudge_",)
 # How long a deferred transactional email is still worth sending (minutes since it was first tried).
 RETRY_MINUTES = {"verify_email": 15, "verify_signup": 48 * 60, "password_reset": 60, "account_exists": 60,

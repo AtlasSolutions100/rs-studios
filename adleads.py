@@ -221,6 +221,11 @@ def leads_for(conn, L, key: str = "7", tz_name=None, ad_spend: dict | None = Non
     from the caller's insights figures, in the account's minor units."""
     import adinsights
     since, until = adinsights.window(tz_name, key)
+    return leads_between(conn, L, since, until, tz_name, ad_spend, spend)
+
+
+def leads_between(conn, L, since, until, tz_name=None, ad_spend: dict | None = None, spend: int | None = None) -> dict:
+    """leads_for() over explicit days since..until (the ad account's dates), for the weekly report (M4.4)."""
     rows = _rows(conn, "workspace_id=? AND launch_id=?", (L["workspace_id"], L["id"]), since, until, tz_name)
     people, by_ad, no_ad = set(), {}, set()
     for r in rows:
