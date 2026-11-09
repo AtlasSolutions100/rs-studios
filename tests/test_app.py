@@ -3247,6 +3247,10 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_manage.py")], check=True)
     # Results of launched campaigns (adinsights.py; M2.5): Meta insights pull, rate limits, the dashboard, fake Graph.
     subprocess.run([sys.executable, os.path.join(HERE, "test_insights.py")], check=True)
+    # Google Ads connect (adplatforms/google.py, GOOGLE_ADS; M3.1): OAuth, the customer picker, errors (Google faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_google_connect.py")], check=True)
+    # Google Ads launch (launch_google.py; M3.2 Search, M3.3 Performance Max): one mutate, saga, errors (Google faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_google_launch.py")], check=True)
     # Migrations stay additive (N3): no column dropped, renamed or retyped; an old database upgrades in place.
     subprocess.run([sys.executable, os.path.join(HERE, "test_migrations.py")], check=True)
     # Create polish (M5.5): template previews, failed-card actions, export thumbnail labels, page Save vs live.

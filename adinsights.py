@@ -20,7 +20,8 @@ the account's own date. Rates (click rate, cost per click, cost per result) are 
 the other standard events), link clicks for traffic, people reached for awareness. week_over_week() gives M4.2's
 creative fatigue check its inputs (link click rate this week against last week, at the spend of each).
 
-Everything sits behind AD_LAUNCH: the worker pulls only for workspaces that have it.
+Everything sits behind AD_LAUNCH: the worker pulls only for workspaces that have it. Meta launches only (Google
+results come with Google's own reporting task).
 """
 import json
 import logging
@@ -197,7 +198,7 @@ def _launches(conn, conn_row) -> list:
     """The connection's launched campaigns whose campaign is still on Meta."""
     return conn.execute("SELECT l.* FROM launches l JOIN ad_objects o ON o.launch_id=l.id AND o.kind='campaign' AND "
                         "o.status!='DELETED' WHERE l.connection_id=? AND l.workspace_id=? AND l.status='paused' AND "
-                        "l.external_campaign_id IS NOT NULL ORDER BY l.id",
+                        "l.external_campaign_id IS NOT NULL AND l.platform='meta' ORDER BY l.id",
                         (conn_row["id"], conn_row["workspace_id"])).fetchall()
 
 
@@ -344,7 +345,7 @@ def due(conn, limit: int = PER_TICK) -> list:
     return [(r["id"], r["workspace_id"]) for r in conn.execute(
         "SELECT c.id, c.workspace_id FROM ad_connections c WHERE c.platform='meta' AND c.status='active' AND "
         "(c.insights_next_at IS NULL OR c.insights_next_at<=?) AND EXISTS (SELECT 1 FROM launches l WHERE "
-        "l.connection_id=c.id AND l.status='paused') ORDER BY COALESCE(c.insights_next_at, '') LIMIT ?",
+        "l.connection_id=c.id AND l.status='paused' AND l.platform='meta') ORDER BY COALESCE(c.insights_next_at, '') LIMIT ?",
         (now, limit)).fetchall()]
 
 
@@ -462,7 +463,7 @@ def workspace_totals(conn, ws_id: int, key: str = "7") -> list:
     """[figures with "cur"] per currency, for the workspace's launches in the range (each in its account's days)."""
     out = {}
     for L in conn.execute("SELECT l.*, c.timezone tz FROM launches l JOIN ad_connections c ON c.id=l.connection_id WHERE "
-                          "l.workspace_id=? AND l.status='paused'", (int(ws_id),)).fetchall():
+                          "l.workspace_id=? AND l.status='paused' AND l.platform='meta'", (int(ws_id),)).fetchall():
         f = launch_figures(conn, L, key, L["tz"])
         if not f["n"]:
             continue

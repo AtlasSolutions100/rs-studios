@@ -670,6 +670,14 @@ card = card_of(LID)
 check(card["decision"] is None and card["created_by"] == u["id"], "the owner drafts a card")
 check(member2.post(f"/app/ad-cards/{card['id']}/discard", data={"csrf": csrf(member2)}).status_code == 403,
       "another member can't drop a card someone else drafted")
+with db.connect() as conn:
+    GLID = conn.execute("INSERT INTO launches (workspace_id, plan_id, platform, connection_id, spec_json, status, "
+                        "external_campaign_id, idempotency_key, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                        (WS, PLAN_ID, "google", CONN_ID, json.dumps({"name": "Google search test"}), "paused", "777",
+                         "google-test-key", db.now(), db.now())).lastrowid
+    conn.commit()
+check(owner.get(f"/app/ad-campaigns/{GLID}").status_code == 404 and "Google search test" not in html(owner.get("/app/ad-campaigns"))
+      and change(owner, GLID, action="on").status_code == 404, "a Google launch isn't managed here (Meta only for now)")
 logs = "\n".join(CAP.lines)
 check(TOKEN not in logs and APP_SECRET not in logs, "no token or app secret in any log line")
 dump = json.dumps([dict(r_) for t in ("approval_cards", "ad_objects", "launches") for r_ in q(f"SELECT * FROM {t}")])

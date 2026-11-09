@@ -1,0 +1,30 @@
+{% extends "base.html" %}{% block title %}Connect Google Ads · Campaignify{% endblock %}
+{% block body %}
+{# Pick the Google Ads account (adconnect_routes._pick_google, roadmap M3.1). Managers are listed as where a client
+   account was reached from; only client accounts that are active can be picked. #}
+<div class="page">
+  <p class="eyebrow">Settings · Connect Google Ads</p>
+  <h1>Pick the Google Ads account</h1>
+  {% if d.user_name %}<p class="muted">Signed in with Google as {{ d.user_name }}.</p>{% endif %}
+  {% set usable = d.accounts|selectattr('usable')|list %}
+  {% if usable %}
+  <form method="post" class="panel"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <fieldset style="border:0;padding:0;margin:0"><legend><h2>Account</h2></legend>
+    <p class="small muted">Campaigns go on a client account. A manager account only holds other accounts.</p>
+    {% set first = usable[0].id %}
+    {% for a in d.accounts %}<p><label><input type="radio" name="account" value="{{ a.id }}" {{ 'checked' if (pre == a.id) or (not pre and a.id == first) }} {{ '' if a.usable else 'disabled' }} required>
+      <b>{{ a.name }}</b> <span class="small muted">{{ dashed(a.id) }}{% if a.currency %} · {{ a.currency }}{% endif %}{% if a.manager %} · Manager account{% endif %}{% if a.via %} · through {{ a.via }}{% endif %}{% if a.test %} · Test account{% endif %}{% if a.status != 'Active' %} · {{ a.status }}{% endif %}</span></label></p>{% endfor %}
+    </fieldset>
+    <p class="small muted">A test account never runs ads; it's for trying Campaignify out.</p>
+    <p style="margin-top:16px"><button class="btn">Connect this account</button></p>
+  </form>
+  {% else %}
+  <div class="panel">
+    <h2>No account to pick on this Google login</h2>
+    <p class="muted">{% if d.accounts %}The accounts on this login are managers, cancelled, or not finished. {% endif %}Create a Google Ads account, or ask its admin to add your Google login, then connect again.</p>
+    <ol class="checks">{% for t, dd, link in checklist %}<li><b>{{ t }}</b><br><span class="small muted">{{ dd }}</span>{% if link %}<br><a class="small" href="{{ link }}" target="_blank" rel="noopener">Open on Google</a>{% endif %}</li>{% endfor %}</ol>
+    <a class="btn sm" href="{{ url_for('adconnect.settings') }}">Back to connections</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

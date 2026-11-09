@@ -151,6 +151,11 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # AD_LAUNCH_WORKSPACES=       workspace ids that see it while AD_LAUNCH=beta (admins always do)
 # AD_RATE_TIER=limited        limited | full (Meta's API access level for the app)
 # META_APP_ID=   META_APP_SECRET=   META_LOGIN_CONFIG_ID=
+# Google Ads (adplatforms/google.py, roadmap M3), on top of AD_LAUNCH. The OAuth client defaults to the sign-in one
+# (GOOGLE_OAUTH_CLIENT_ID / _SECRET); its Cloud project needs the Google Ads API (Basic access) and the redirect URI
+# https://campaignify.ai/connect/google/callback. No developer token (retired 2026-09-09).
+# GOOGLE_ADS=0
+# GOOGLE_ADS_CLIENT_ID=   GOOGLE_ADS_CLIENT_SECRET=
 # Token box key (secretsbox.py): 32 random bytes, base64. Old keys stay readable from TOKEN_KEYS_OLD
 # (comma separated) until `python3 secretsbox.py rotate` re-seals every token under TOKEN_KEY.
 # TOKEN_KEY=

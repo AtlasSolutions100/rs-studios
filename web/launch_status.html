@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Launch on Meta · Campaignify{% endblock %}
+{% block title %}Launch on {{ v.word }} · Campaignify{% endblock %}
 {% block body %}
 {# One launch (launch_routes.status, launches.view): progress while the worker runs the saga, then what was made. #}
-{% set st = L.status %}
+{% set st = L.status %}{% set gg = v.platform == 'google' %}
 <style>
 .ls-steps{list-style:none;padding:0;margin:12px 0 0}
 .ls-steps li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
@@ -18,34 +18,43 @@
 @media (max-width:560px){.ls-steps li{flex-direction:column;gap:2px}}
 </style>
 <div class="page full">
-  {% if c %}<p style="margin:0 0 14px"><a href="{{ url_for('campaigns.show', cid=c.id) }}#kit-meta">← Back to the plan</a></p>{% endif %}
-  <p class="eyebrow">Launch on Meta · beta</p>
+  {% if c %}<p style="margin:0 0 14px"><a href="{{ url_for('campaigns.show', cid=c.id) }}#kit-{{ v.platform }}">← Back to the plan</a></p>{% endif %}
+  <p class="eyebrow">Launch on {{ v.word }} · beta</p>
   <h1>{% if st in ('queued', 'launching') %}Creating your paused campaign{% elif st == 'paused' %}Paused campaign created{% else %}The launch stopped{% endif %}</h1>
   <div aria-live="polite" data-ls-status data-busy="{{ '1' if v.busy else '0' }}" data-src="{{ url_for('launch.status_json', lid=L.id) }}">
   {% if st in ('queued', 'launching') %}
     <p class="muted"><span class="spinner" style="display:inline-block;width:14px;height:14px;margin:0 6px -2px 0"></span>This takes a minute or two. You can leave this page; it keeps going.</p>
   {% elif st == 'paused' %}
+    {% if gg %}
+    <p class="muted">It's on your Google Ads account {{ v.account }}, PAUSED. Nothing runs and nothing is spent until you turn the campaign on.{% if v.review and v.review.approval in ('UNDER_REVIEW', 'UNKNOWN', None) %} Google reviews the ad before it can show; that usually takes up to a working day.{% endif %}</p>
+    {% if v.card and v.card.ai %}<div class="flash warn">{{ v.card.disclosure }}</div>{% endif %}
+    <p>{% if v.manager %}<a class="btn" href="{{ v.manager }}" target="_blank" rel="noopener noreferrer">Open Google Ads ↗</a>{% endif %}</p>
+    {% else %}
     <p class="muted">It's on your Meta ad account, PAUSED. Nothing runs and nothing is spent until you turn it on.</p>
     {% if v.card and v.card.ai %}<div class="flash warn">Before you turn it on: {{ v.card.disclosure.split('. Before you turn the campaign on, ')[-1] }}</div>{% endif %}
     <p class="row"><a class="btn" href="{{ url_for('manage.show', lid=L.id) }}">Manage it: turn on, budget</a>{% if v.manager %} <a class="btn dark" href="{{ v.manager }}" target="_blank" rel="noopener noreferrer">Open it in Ads Manager ↗</a>{% endif %}</p>
+    {% endif %}
   {% else %}
-    <div class="flash bad">{{ L.error or 'Meta refused part of the campaign.' }}</div>
-    {% if st == 'rolled_back' %}<p class="muted">Campaignify removed the ads and creatives it had made. The campaign and ad set, if they were made, stay PAUSED on your account, so trying again reuses them.</p>
+    <div class="flash bad">{{ L.error or (v.word + ' refused part of the campaign.') }}</div>
+    {% if gg %}
+    {% if st == 'rolled_back' %}<p class="muted">Google makes the campaign in one go, so nothing of it was left half made. Uploaded images stay unused in the account's asset library{% if v.launch.external_campaign_id %}, and the campaign stays PAUSED, so trying again reuses it{% endif %}.</p>
+    {% else %}<p class="muted">Some items couldn't be checked. They are all PAUSED, so nothing runs. Check them in Google Ads, or try again.</p>{% endif %}
+    {% elif st == 'rolled_back' %}<p class="muted">Campaignify removed the ads and creatives it had made. The campaign and ad set, if they were made, stay PAUSED on your account, so trying again reuses them.</p>
     {% else %}<p class="muted">Some items couldn't be removed. They are all PAUSED, so nothing runs. Remove them in Ads Manager, or try again.</p>{% endif %}
-    {% if owner %}<form method="post" action="{{ url_for('launch.retry', lid=L.id) }}" style="margin:12px 0"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn">Try again</button> {% if c %}<a class="btn dark" href="{{ url_for('launch.page', cid=c.id) }}">Change the campaign</a>{% endif %}</form>{% endif %}
+    {% if owner %}<form method="post" action="{{ url_for('launch.retry', lid=L.id) }}" style="margin:12px 0"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn">Try again</button> {% if c %}<a class="btn dark" href="{{ url_for('launch.google_page' if gg else 'launch.page', cid=c.id) }}">Change the campaign</a>{% endif %}</form>{% endif %}
   {% endif %}
   </div>
 
   <div class="grid2">
     <div class="panel">
       <h2 style="margin-top:0">Steps</h2>
-      <ol class="ls-steps">{% for s in v.steps %}<li class="{{ s.status }}"><span>{{ s.label }}{% if s.error %}<br><details><summary class="small muted">What Meta said</summary><span class="small muted">{{ s.error }}</span></details>{% endif %}</span><span class="w small">{{ s.word }}</span></li>{% endfor %}</ol>
+      <ol class="ls-steps">{% for s in v.steps %}<li class="{{ s.status }}"><span>{{ s.label }}{% if s.error %}<br><details><summary class="small muted">What {{ v.word }} said</summary><span class="small muted">{{ s.error }}</span></details>{% endif %}</span><span class="w small">{{ s.word }}</span></li>{% endfor %}</ol>
     </div>
     <div class="panel">
       <h2 style="margin-top:0">On your ad account</h2>
       {% set live = v.objects|rejectattr('status', 'equalto', 'DELETED')|list %}
       {% if live %}
-      <ul class="ls-objs">{% for o in live %}<li><b>{{ {'campaign': 'Campaign', 'adset': 'Ad set', 'creative': 'Ad creative', 'ad': 'Ad', 'video': 'Video'}[o.kind] }}</b> {{ o.name }} <span class="small dim">id {{ o.external_id }} · {{ o.status }}</span></li>{% endfor %}</ul>
+      <ul class="ls-objs">{% for o in live %}<li><b>{{ {'campaign': 'Campaign', 'adset': 'Ad set', 'creative': 'Ad creative', 'ad': 'Ad', 'video': 'Video', 'adgroup': 'Ad group', 'assetgroup': 'Asset group'}.get(o.kind, o.kind) }}</b> {{ o.name }} <span class="small dim">id {{ o.external_id }} · {{ 'on, inside the paused campaign' if gg and o.status == 'ENABLED' else o.status }}</span></li>{% endfor %}</ul>
       {% else %}<p class="muted">Nothing yet.</p>{% endif %}
       {% if v.card %}
       <details style="margin-top:14px"><summary class="small muted">The card you approved</summary>
