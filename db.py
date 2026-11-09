@@ -970,12 +970,14 @@ def init():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_card_trials_user ON card_trials(user_id)")
         _backfill_email_norm(conn)
         conn.commit()
-        if not conn.execute("SELECT 1 FROM meta WHERE key='owner_admin_v1'").fetchone():
-            # Koby signed up through the normal form (user 1, workspace 1, the Scale
-            # subscription's metadata) instead of his owner setup link, so his account
-            # never got the operator flag. One time, pinned to that exact row.
-            conn.execute("UPDATE users SET is_admin=1 WHERE id=1 AND workspace_id=1 "
-                         "AND lower(email)='koby@rectorandstull.com'")
+        first_owner = (os.environ.get("RS_FIRST_OWNER_EMAIL") or "").strip().lower()
+        if first_owner and not conn.execute("SELECT 1 FROM meta WHERE key='owner_admin_v1'").fetchone():
+            # The first owner signed up through the normal form (user 1, workspace 1)
+            # instead of an owner setup link, so the account never got the operator flag.
+            # One time, pinned to that exact row. Production ran this already (meta
+            # owner_admin_v1); the email is a setting, never in the source (SEC-9, M7.4).
+            conn.execute("UPDATE users SET is_admin=1 WHERE id=1 AND workspace_id=1 AND lower(email)=?",
+                         (first_owner,))
             conn.execute("INSERT OR IGNORE INTO meta (key, value) VALUES ('owner_admin_v1', ?)", (now(),))
             conn.commit()
         if not conn.execute("SELECT 1 FROM meta WHERE key='products_v1'").fetchone():

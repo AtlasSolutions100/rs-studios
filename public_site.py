@@ -15,6 +15,7 @@ import re
 from markupsafe import Markup, escape
 
 import catalog
+import liveids
 import plans
 import platforms
 
@@ -26,7 +27,7 @@ CONTACT = "hello@campaignify.ai"
 # IndexNow (https://www.indexnow.org): the key is public by design. Search engines
 # fetch it from /<key>.txt to confirm a ping came from this site, so it lives here
 # rather than in a secret. INDEXNOW_KEY overrides it (8-128 hex characters).
-INDEXNOW_KEY = os.environ.get("INDEXNOW_KEY") or "93eefb1e35ebe44cf5f9d86a424a9107"
+INDEXNOW_KEY = liveids.get("INDEXNOW_KEY") or "0" * 32   # a setting (liveids.py, M7.4)
 INDEXNOW_ENDPOINT = "https://api.indexnow.org/indexnow"
 
 

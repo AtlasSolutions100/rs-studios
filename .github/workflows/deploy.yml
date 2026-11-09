@@ -22,6 +22,13 @@ name: Deploy Campaignify (campaignify.ai)
 #   ANTHROPIC_MODEL        optional repo variable (default claude-sonnet-4-6)
 #   GROQ_API_KEY           optional fallback writing key; GROQ_MODEL optional variable
 #   STRIPE_PORTAL_CONFIG   optional repo variable: Customer Portal configuration id
+#   Live ids (liveids.py, roadmap M7.4): each optional repo variable overrides today's production value, which
+#   liveids.PRODUCTION keeps as the fallback. STRIPE_PLAN_PRICE_STARTER/_GROWTH/_SCALE,
+#   STRIPE_PLAN_PRODUCT_STARTER/_GROWTH/_SCALE, STRIPE_PRICE_STARTER/_PRO/_STUDIO (credit packs),
+#   TWILIO_SECONDARY_POLICY_SID, TWILIO_A2P_POLICY_SID, INDEXNOW_KEY (plus STRIPE_PORTAL_CONFIG, GADS_TAG_ID,
+#   GOOGLE_OAUTH_CLIENT_ID, RS_POSTAL_ADDRESS listed here). RS_LIVE_IDS=settings drops the fallback (a staging copy).
+#   RS_OWNER_INVITES       optional secret: owner setup links, "email:sha256-of-code,..." (SEC-9: no owner email or
+#                          code hash in the source any more; unset = no owner setup links)
 #   RS_MARKUP              optional repo variable, default 2.0
 #   RS_STARTER_CREDITS     optional repo variable; default = 2 image ads (44 credits)
 #   SIGNUP_CREDITS_ADS     optional repo variable: starter credits for sign-ups whose first touch is a paid ad
@@ -205,6 +212,20 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GROQ_MODEL: ${{ vars.GROQ_MODEL }}
           STRIPE_PORTAL_CONFIG: ${{ vars.STRIPE_PORTAL_CONFIG }}
+          STRIPE_PLAN_PRICE_STARTER: ${{ vars.STRIPE_PLAN_PRICE_STARTER }}
+          STRIPE_PLAN_PRICE_GROWTH: ${{ vars.STRIPE_PLAN_PRICE_GROWTH }}
+          STRIPE_PLAN_PRICE_SCALE: ${{ vars.STRIPE_PLAN_PRICE_SCALE }}
+          STRIPE_PLAN_PRODUCT_STARTER: ${{ vars.STRIPE_PLAN_PRODUCT_STARTER }}
+          STRIPE_PLAN_PRODUCT_GROWTH: ${{ vars.STRIPE_PLAN_PRODUCT_GROWTH }}
+          STRIPE_PLAN_PRODUCT_SCALE: ${{ vars.STRIPE_PLAN_PRODUCT_SCALE }}
+          STRIPE_PRICE_STARTER: ${{ vars.STRIPE_PRICE_STARTER }}
+          STRIPE_PRICE_PRO: ${{ vars.STRIPE_PRICE_PRO }}
+          STRIPE_PRICE_STUDIO: ${{ vars.STRIPE_PRICE_STUDIO }}
+          TWILIO_SECONDARY_POLICY_SID: ${{ vars.TWILIO_SECONDARY_POLICY_SID }}
+          TWILIO_A2P_POLICY_SID: ${{ vars.TWILIO_A2P_POLICY_SID }}
+          INDEXNOW_KEY: ${{ vars.INDEXNOW_KEY }}
+          RS_LIVE_IDS: ${{ vars.RS_LIVE_IDS }}
+          RS_OWNER_INVITES: ${{ secrets.RS_OWNER_INVITES }}
           RS_MARKUP: ${{ vars.RS_MARKUP }}
           RS_STARTER_CREDITS: ${{ vars.RS_STARTER_CREDITS }}
           SIGNUP_CREDITS_ADS: ${{ vars.SIGNUP_CREDITS_ADS }}
@@ -315,6 +336,13 @@ jobs:
           settings = {k: os.environ[k] for k in ("HF_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET",
                                              "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "GROQ_API_KEY", "GROQ_MODEL",
                                              "STRIPE_PORTAL_CONFIG", "RS_MARKUP", "RS_STARTER_CREDITS",
+                                             # live ids (liveids.py, M7.4) and owner setup links (SEC-9)
+                                             "STRIPE_PLAN_PRICE_STARTER", "STRIPE_PLAN_PRICE_GROWTH",
+                                             "STRIPE_PLAN_PRICE_SCALE", "STRIPE_PLAN_PRODUCT_STARTER",
+                                             "STRIPE_PLAN_PRODUCT_GROWTH", "STRIPE_PLAN_PRODUCT_SCALE",
+                                             "STRIPE_PRICE_STARTER", "STRIPE_PRICE_PRO", "STRIPE_PRICE_STUDIO",
+                                             "TWILIO_SECONDARY_POLICY_SID", "TWILIO_A2P_POLICY_SID", "INDEXNOW_KEY",
+                                             "RS_LIVE_IDS", "RS_OWNER_INVITES",
                                              "SIGNUP_CREDITS_ADS", "SIGNUP_CREDITS_ADS_PER_DAY",
                                              "RESEND_API_KEY", "RESEND_WEBHOOK_SECRET", "RS_MAIL_DOMAIN", "RS_POSTAL_ADDRESS",
                                              "RS_HD_MARKUP", "RS_VIDEO_UPSCALE_MODEL", "RS_VIDEO_UPSCALE_USD_PER_SECOND",

@@ -15,6 +15,8 @@ import os
 
 import requests
 
+import liveids
+
 API = "https://api.twilio.com/2010-04-01"
 MSG = "https://messaging.twilio.com/v1"
 TRUST = "https://trusthub.twilio.com/v1"
@@ -144,7 +146,7 @@ def tollfree_status(verification_sid: str) -> str:
 
 def create_customer_profile(f: dict, notify_email: str) -> str:
     """A secondary customer profile under Campaignify's primary one, with the business's details, then submitted."""
-    policy = os.environ.get("TWILIO_SECONDARY_POLICY_SID", "RNdfbf3fae0e1107f8aded0e7cead80bf5")
+    policy = liveids.get("TWILIO_SECONDARY_POLICY_SID")
     prof = _post(f"{TRUST}/CustomerProfiles", {"FriendlyName": f.get("legal_name", "")[:60], "Email": notify_email,
                                               "PolicySid": policy}).get("sid", "")
     biz = _post(f"{TRUST}/EndUsers", {"FriendlyName": "business", "Type": "customer_profile_business_information",
@@ -177,7 +179,7 @@ def profile_status(profile_sid: str) -> str:
 def create_brand(profile_sid: str, low_volume: bool) -> str:
     """A2P trust product for the brand, then the brand registration."""
     tp = _post(f"{TRUST}/TrustProducts", {"FriendlyName": "a2p", "Email": os.environ.get("TWILIO_NOTIFY_EMAIL", ""),
-                                          "PolicySid": os.environ.get("TWILIO_A2P_POLICY_SID", "RNb0d4771c2c98518d916a3d4cd70a8f8b")}
+                                          "PolicySid": liveids.get("TWILIO_A2P_POLICY_SID")}
                ).get("sid", "")
     _post(f"{TRUST}/TrustProducts/{tp}/EntityAssignments", {"ObjectSid": profile_sid})
     _post(f"{TRUST}/TrustProducts/{tp}", {"Status": "pending-review"})

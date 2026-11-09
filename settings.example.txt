@@ -15,6 +15,17 @@ RS_STARTER_CREDITS=44
 STRIPE_SECRET_KEY=rk_live_xxx
 STRIPE_WEBHOOK_SECRET=whsec_xxx
 
+# Live ids (liveids.py, roadmap M7.4). Each one is a setting; unset, the production value in liveids.PRODUCTION is
+# used, so nothing changes until you set one. RS_LIVE_IDS=settings turns that fallback off (a staging copy or a
+# Stripe test-mode account must not reach the production accounts). `python liveids.py` lists where each comes from.
+# STRIPE_PLAN_PRICE_STARTER=   STRIPE_PLAN_PRICE_GROWTH=   STRIPE_PLAN_PRICE_SCALE=
+# STRIPE_PLAN_PRODUCT_STARTER= STRIPE_PLAN_PRODUCT_GROWTH= STRIPE_PLAN_PRODUCT_SCALE=
+# STRIPE_PRICE_STARTER=        STRIPE_PRICE_PRO=           STRIPE_PRICE_STUDIO=
+# TWILIO_SECONDARY_POLICY_SID= TWILIO_A2P_POLICY_SID=      INDEXNOW_KEY=
+# RS_LIVE_IDS=settings
+# Owner setup links (owners.py, SEC-9): no owner email or code hash is in the source. Unset = no owner setup links.
+# RS_OWNER_INVITES=owner@example.com:<sha256 of the code>,second@example.com:<sha256>
+# RS_FIRST_OWNER_EMAIL=        a fresh database only: makes user 1 (workspace 1) an operator once if its email matches
 # ---- Flows: email sending (Resend). Leave unset and email steps become tasks for the owner.
 # Full-access API key (sending + domains), the webhook signing secret (svix, "whsec_...") of
 # https://campaignify.ai/webhooks/resend, and the shared sending subdomain verified in Resend.

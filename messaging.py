@@ -19,6 +19,7 @@ from datetime import timedelta
 import billing_holds
 import compliance
 import db
+import liveids
 import flows
 import flows_engine
 import mailer
@@ -29,7 +30,7 @@ CAPS = {"growth": int(os.environ.get("RS_EMAIL_CAP_GROWTH", "300")), "scale": in
 WARMUP_DAYS, WARMUP_CAP = 7, int(os.environ.get("RS_EMAIL_WARMUP_CAP", "50"))
 PER_CONTACT_DAY = 2
 COMPLAINT_RATE, BOUNCE_RATE, RATE_WINDOW = 0.003, 0.05, 200
-CAMPAIGNIFY_ADDRESS = os.environ.get("RS_POSTAL_ADDRESS", "30 N Gould St Ste R, Sheridan, WY 82801")
+CAMPAIGNIFY_ADDRESS = liveids.get("RS_POSTAL_ADDRESS") or ""   # a setting (liveids.py, M7.4)
 CONSENTED = ("form", "import", "manual")
 POLICY_VERSION = "2026-10"
 
