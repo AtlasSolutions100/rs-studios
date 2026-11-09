@@ -1,0 +1,12 @@
+{
+ "error": {
+  "message": "Invalid parameter",
+  "type": "OAuthException",
+  "code": 100,
+  "error_subcode": 1885183,
+  "is_transient": false,
+  "error_user_title": "Ads creative post was created by an app that is in development mode",
+  "error_user_msg": "Ads creative post was created by an app that is in development mode. It must be in public to create this ad.",
+  "fbtrace_id": "AFAKEtrace1885183"
+ }
+}
