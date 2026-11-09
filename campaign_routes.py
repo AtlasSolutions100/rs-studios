@@ -12,6 +12,7 @@ import db
 import launch_kit
 import llm
 import planner
+import planner_v2
 import platforms
 import products
 import service_path
@@ -120,11 +121,14 @@ def index():
         return redirect(url_for("campaigns.show", cid=cid))
     with db.connect() as conn:
         rows = conn.execute("SELECT * FROM campaigns WHERE workspace_id=? ORDER BY id DESC LIMIT 50", (g.ws["id"],)).fetchall()
-        svc = service_path.on() and service_path.is_service(products.get_product(conn, g.ws["id"], pid) if pid else None)
-        site = service_path.site_info(products.get_product(conn, g.ws["id"], pid)) if svc else {}
+        prow = products.get_product(conn, g.ws["id"], pid) if pid else None
+        svc = service_path.on() and service_path.is_service(prow)
+        site = service_path.site_info(prow) if svc else {}
+        # Planner v2 (M4.3): the suggested mix and daily amount per goal, pre-filled from the connected accounts
+        hints = planner_v2.form_hints(conn, g.ws, g.user, service=svc, product=prow) if planner_v2.on() else None
     return render_template("campaigns.html", campaigns=[_unstale(c) for c in rows], b=brand(pid), pid=pid, money=campaign_budget,
                            cap=planner.cap_credits(), ai_on=llm.anthropic_ready(), service_on=service_path.on(),
-                           svc=svc, area=", ".join(site.get("area") or []))
+                           svc=svc, area=", ".join(site.get("area") or []), hints=hints)
 
 
 def _ads(cid):
@@ -151,7 +155,12 @@ def show(cid):
     c = _get(cid)
     ads, jobs, outs, photos = _ads(cid)
     brief, plan = json.loads(c["brief_json"] or "{}"), json.loads(c["plan_json"] or "{}")
-    return render_template("campaign.html", c=c, brief=brief, money=campaign_budget,
+    setup = None
+    if planner_v2.on() and (plan.get("final") or {}):     # M4.3: mix, daily band, 2-week test, connected accounts
+        setup = planner.setup_for(c, brief, g.user, bool(g.user["is_admin"]))
+    import adplatforms
+    return render_template("campaign.html", c=c, brief=brief, money=campaign_budget, setup=setup, v2money=planner_v2.money,
+                           launch_on=adplatforms.enabled(g.ws, g.user), connect_words=planner_v2.CONNECT_WORDS,
                            plan=plan, steps=json.loads(c["steps_json"] or "[]"),
                            ads=ads, jobs=jobs, outs=outs, photos=photos, templates=catalog.TEMPLATE_BY_ID,
                            ai_on=llm.anthropic_ready(), cap=planner.cap_credits(),
