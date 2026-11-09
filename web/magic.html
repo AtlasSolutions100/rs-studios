@@ -1,6 +1,6 @@
 {% extends "auth_base.html" %}{% block title %}Log in · Campaignify{% endblock %}
 {% block auth %}
-  <h2>Log in to Campaignify</h2>
+  <h1 class="auth-h">Log in to Campaignify</h1>
   <p class="muted">As {{ email }}.{% if signed_in %} This logs you out of the account you're in now.{% endif %} The link works once.</p>
   <form method="post" action="{{ url_for('logins.magic_login') }}">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">

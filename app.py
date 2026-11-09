@@ -822,10 +822,10 @@ def signup():
                 ("Rector & Stull", 0, db.now())).lastrowid
             joins = conn.execute("SELECT 1 FROM users WHERE workspace_id=?", (ws_id,)).fetchone() is not None
             cur = conn.execute("INSERT INTO users (email, name, pw_hash, is_admin, workspace_id, created_at, role, "
-                               "email_verified_at, verify_nonce, first_touch) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                               "email_verified_at, verify_nonce, first_touch, email_norm) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                                (email, name, generate_password_hash(pw), 1, ws_id, db.now(),
                                 "member" if joins else "owner", db.now(), None,
-                                gads.first_touch_json(request.cookies.get(gads.COOKIE))))
+                                gads.first_touch_json(request.cookies.get(gads.COOKIE)), db.norm_email(email)))
             conn.commit()
             login_security.start_session(conn.execute("SELECT * FROM users WHERE id=?", (cur.lastrowid,)).fetchone())
         resp = redirect(url_for("brand_kit"))
@@ -1089,7 +1089,6 @@ def start_import():
     the product, downloads its first photo, and answers with what the form
     pre-fills: name, brand, the photo, a description for the brief."""
     import fetcher
-    import product_import
     import product_routes
     url = str((request.get_json(silent=True) or {}).get("url") or request.form.get("url") or "").strip()[:500]
     if not url:
@@ -1099,9 +1098,41 @@ def start_import():
     key = f"import:{g.ws['id']}"
     if db.throttled(key, product_routes.IMPORTS_PER_HOUR, 3600):
         return jsonify({"error": "That's a lot of imports this hour. Add the name and a photo by hand."}), 429
+    # L-10: imports hold a request thread while they fetch (page, photos, logo), so at most IMPORT_SLOTS run at once
+    # across all workspaces, and each one gets IMPORT_BUDGET_S seconds in total for all of its fetches.
+    if not _IMPORT_SLOTS.acquire(timeout=IMPORT_WAIT_S):
+        log.warning("start import refused: %s imports already running", IMPORT_CONCURRENCY)
+        return jsonify({"error": "We're reading a lot of pages right now. Try again in a minute, or type the name "
+                                 "and add a photo by hand.", "manual": True}), 503
     db.hit(key)
-    if service_path.on() and str((request.get_json(silent=True) or {}).get("sells") or "") == "service":
-        return _start_import_site(url)
+    try:
+        with fetcher.budget(IMPORT_BUDGET_S):
+            if service_path.on() and str((request.get_json(silent=True) or {}).get("sells") or "") == "service":
+                return _start_import_site(url)
+            return _start_import_page(url)
+    finally:
+        _IMPORT_SLOTS.release()
+
+
+def _env_num(name, default, cast=int):
+    try:
+        v = cast(os.environ.get(name) or default)
+        return v if v > 0 else default
+    except ValueError:
+        return default
+
+
+IMPORT_CONCURRENCY = _env_num("RS_IMPORT_CONCURRENCY", 4)          # of gunicorn's 16 threads (Dockerfile)
+IMPORT_BUDGET_S = _env_num("RS_IMPORT_BUDGET_S", 40, float)        # page + photos + logo, all together
+IMPORT_WAIT_S = 2                                                  # wait this long for a free slot, then 503
+_IMPORT_SLOTS = threading.BoundedSemaphore(IMPORT_CONCURRENCY)
+
+
+def _start_import_page(url):
+    """The product branch of start_import: the store page and its photos."""
+    import fetcher
+    import product_import
+    import product_routes
     with db.connect() as conn:
         try:
             pid, facts, _ = product_routes.import_url(conn, url, g.ws["brand_id"], use_ai=False)
@@ -1671,7 +1702,33 @@ def team():
     used = len(members) + len(invites)
     return render_template("team.html", members=members, invites=invites, seats=seats, used=used,
                            can_invite=is_owner() and plans.within(g.ws, "seats", used),
-                           next_plan=plans.next_plan_for("seats", used), owner=is_owner(), base=request.host_url)
+                           next_plan=plans.next_plan_for("seats", used), owner=is_owner(), base=request.host_url,
+                           ws_named=workspace_named(g.ws, members), made=request.args.get("made") or "")
+
+
+def workspace_named(ws, members) -> bool:
+    """UX-18: a workspace keeps the name sign-up gave it ("<name or email>'s studio") until someone renames it on the
+    Team page; until then the page says "Your team" instead of the email's local part."""
+    name = (ws["name"] or "").strip()
+    if not name:
+        return False
+    auto = {(m["name"] or "").strip() + "'s studio" for m in members if m["name"]}
+    auto |= {m["email"].split("@")[0] + "'s studio" for m in members}
+    return name not in auto
+
+
+@app.route("/app/team/name", methods=["POST"])
+@owner_required
+def team_name():
+    name = " ".join((request.form.get("name") or "").split())[:60]
+    if not name:
+        flash("Type a name for the workspace.")
+        return redirect(url_for("team"))
+    with db.connect() as conn:
+        conn.execute("UPDATE workspaces SET name=? WHERE id=?", (name, g.ws["id"]))
+        conn.commit()
+    flash(f"Workspace renamed to {name}.")
+    return redirect(url_for("team"))
 
 
 @app.route("/app/team/invite", methods=["POST"])
@@ -1688,8 +1745,9 @@ def team_invite():
         conn.execute("INSERT INTO invites (code, workspace_id, note, created_by, created_at) VALUES (?,?,?,?,?)",
                      (code, g.ws["id"], (request.form.get("note") or "")[:120], g.user["id"], db.now()))
         conn.commit()
-    flash(f"Invite link (works once): {request.host_url}signup?invite={code}")
-    return redirect(url_for("team"))
+    # UX-19: the link lives on the Team page (Open invites, with Copy) until it's used or revoked, not in a flash
+    flash("Invite link made. It works once and stays under Open invites until someone uses it.")
+    return redirect(url_for("team", made=code) + "#invites")
 
 
 @app.route("/app/team/invites/<code>/revoke", methods=["POST"])
@@ -2795,11 +2853,13 @@ import creator_pool_routes  # noqa: E402
 import creator_pools  # noqa: E402
 import google_auth  # noqa: E402
 import adconnect_routes  # noqa: E402  connected ad accounts (AD_LAUNCH)
+import launch_routes  # noqa: E402  plan -> paused Meta campaign (AD_LAUNCH, M2.3)
 import adplatforms  # noqa: E402
 
 app.register_blueprint(product_routes.bp)
 app.register_blueprint(google_auth.bp)
 app.register_blueprint(adconnect_routes.bp)   # /app/settings/ad-accounts, /connect/meta (AD_LAUNCH, default off)
+app.register_blueprint(launch_routes.bp)   # /app/campaigns/<id>/launch/meta, /app/launches/<id> (AD_LAUNCH, default off)
 app.register_blueprint(login_security.bp)   # /forgot, /reset, /m (login hardening)
 app.jinja_env.globals["google_signin"] = google_auth.configured   # the Continue with Google button
 app.register_blueprint(create_routes.bp)
@@ -2838,7 +2898,8 @@ def _has_endpoint(name) -> bool:
             return False
         if "cpools_visible" not in g:
             with db.connect() as conn:
-                g.cpools_visible = creator_pools.visible(conn, g.ws, g.user)
+                g.cpools_visible = (creator_pools.visible(conn, g.ws, g.user)
+                                    and not creator_pools.needs_product(conn, g.ws, g.user))   # UX-20
         return g.cpools_visible
     if name == "mcp.settings":          # the MCP key page shows while MCP_SERVER=on
         return mcpserver.enabled()

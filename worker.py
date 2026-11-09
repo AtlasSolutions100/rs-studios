@@ -569,6 +569,8 @@ def start():
             credits.maybe_release_stale()  # holds left by a crashed AI run go back after 30 min (never raises)
             import adplatforms
             adplatforms.maybe_sweep()      # unfinished ad-account connects lose their token after 1 hour (never raises)
+            import launches
+            launches.maybe_tick()          # approved launches: the saga that makes the paused campaign (never raises)
             import backup
             backup.maybe_run()     # nightly off-site backup in its own thread, once R2 is set (never raises)
             time.sleep(POLL_SECONDS)

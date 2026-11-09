@@ -1,0 +1,8 @@
+{
+ "error": {
+  "message": "You are calling a deprecated version of the Ads API. Please update to the latest version.",
+  "type": "OAuthException",
+  "code": 2635,
+  "fbtrace_id": "AFAKEtrace2635"
+ }
+}

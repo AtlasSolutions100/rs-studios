@@ -89,12 +89,12 @@ def create_self_serve_account(conn, email: str, name: str, pw_hash: str, req, ip
     # Everyone confirms by email before the free credits work (verify.py), unless the
     # sign-in provider already confirmed the address.
     cur = conn.execute("INSERT INTO users (email, name, pw_hash, is_admin, workspace_id, created_at, role, "
-                       "email_verified_at, verify_nonce, first_touch, auth_provider, signup_pending) "
-                       "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                       "email_verified_at, verify_nonce, first_touch, auth_provider, signup_pending, email_norm) "
+                       "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                        (email, name, pw_hash, 0, ws_id, db.now(), "member" if joins else "owner",
                         db.now() if verified else None, None if verified else verify.new_nonce(),
                         gads.first_touch_json(req.cookies.get(gads.COOKIE)), auth_provider,
-                        1 if pending and not verified else 0))
+                        1 if pending and not verified else 0, db.norm_email(email)))
     if inv:
         conn.execute("UPDATE invites SET used_by=? WHERE code=?", (cur.lastrowid, invite_code))
     return {"uid": cur.lastrowid, "ws_id": ws_id, "ad_credits": ad_credits, "joins": joins, "invited": inv is not None}

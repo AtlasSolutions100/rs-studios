@@ -8,9 +8,12 @@ checked (so a DNS answer can't change between the check and the request).
 Redirects are followed by hand (at most 4), each hop checked again. Bodies
 are capped at MAX_BYTES and timeouts are short.
 """
+import contextlib
+import contextvars
 import ipaddress
 import os
 import socket
+import time
 from urllib.parse import urljoin, urlsplit
 
 import certifi
@@ -25,6 +28,28 @@ UA = "Mozilla/5.0 (compatible; CampaignifyBot/1.0; +https://campaignify.ai)"
 
 class FetchError(ValueError):
     pass
+
+
+# One deadline shared by every fetch inside `with budget(seconds):` (L-10): a site import reads the page, 3 photos
+# and the logo, and all of them together get one time budget instead of TOTAL_SECONDS each.
+_BUDGET = contextvars.ContextVar("fetch_budget", default=None)
+
+
+@contextlib.contextmanager
+def budget(seconds: float):
+    end = time.monotonic() + max(0.0, float(seconds))
+    outer = _BUDGET.get()
+    token = _BUDGET.set(min(end, outer) if outer is not None else end)
+    try:
+        yield
+    finally:
+        _BUDGET.reset(token)
+
+
+def _deadline() -> float:
+    own = time.monotonic() + TOTAL_SECONDS
+    shared = _BUDGET.get()
+    return min(own, shared) if shared is not None else own
 
 
 def _public(ip: str) -> bool:
@@ -128,20 +153,22 @@ def _chunks(r):
 
 
 def _get(url: str, accept: str, max_bytes: int) -> dict:
-    import time
     seen = 0
-    deadline = time.monotonic() + TOTAL_SECONDS
+    deadline = _deadline()
     while True:
-        if time.monotonic() > deadline:
+        left = deadline - time.monotonic()
+        if left <= 0:
             raise FetchError("The site took too long to answer.")
         scheme, host, port, path, full = check_url(url)
         ip = resolve(host, port)
         pool = _open(scheme, host, port, ip)
-        try:
+        try:   # no single connect or read may outlast what's left of the deadline
             r = pool.urlopen("GET", path, headers={"Host": host if port in (80, 443) else f"{host}:{port}",
                                                    "User-Agent": UA, "Accept": accept,
                                                    "Accept-Encoding": "gzip, deflate"},
-                             redirect=False, preload_content=False, decode_content=True)
+                             redirect=False, preload_content=False, decode_content=True,
+                             timeout=urllib3.Timeout(connect=min(TIMEOUT.connect_timeout, left),
+                                                     read=min(TIMEOUT.read_timeout, left)))
         except urllib3.exceptions.SSLError:
             raise FetchError("The site's HTTPS certificate isn't valid.") from None
         except (urllib3.exceptions.HTTPError, OSError):

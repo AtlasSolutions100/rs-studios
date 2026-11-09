@@ -2,8 +2,16 @@
 {% block body %}
 <div class="page full">
   <p class="eyebrow">Team</p>
-  <h1>Who's in <span class="gold">{{ g.ws.name }}</span></h1>
+  <h1>{% if ws_named %}Who's in <span class="gold">{{ g.ws.name }}</span>{% else %}Your <span class="gold">team</span>{% endif %}</h1>
   <p class="muted">Everyone in a workspace shares its brands, library and credits. Seats used: <b>{{ used }}</b> of {{ seats if seats is not none else 'unlimited' }} (open invites count).</p>
+  {% if owner %}
+  <form method="post" action="{{ url_for('team_name') }}" class="panel team-name">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <label for="ws-name">Workspace name</label>
+    <div class="row"><input type="text" id="ws-name" name="name" maxlength="60" required value="{{ g.ws.name if ws_named else '' }}" placeholder="e.g. Hearth & Co" style="flex:1;min-width:180px"><button class="btn dark sm">Save name</button></div>
+    <p class="small muted" style="margin:6px 0 0">Everyone in the workspace sees it here.</p>
+  </form>
+  {% endif %}
   <div class="grid2">
     <div class="panel scrollx">
       <h2>Members</h2>
@@ -19,15 +27,20 @@
       {% elif can_invite %}
         <p class="muted small">Make a one-time link and send it to them. They pick a password and join this workspace.</p>
         <form method="post" action="{{ url_for('team_invite') }}" class="row"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
-          <input type="text" name="note" placeholder="Who it's for (optional)" maxlength="120" style="flex:1;min-width:180px"><button class="btn sm">Create invite link</button></form>
+          <input type="text" name="note" aria-label="Who it's for (optional)" placeholder="Who it's for (optional)" maxlength="120" style="flex:1;min-width:180px"><button class="btn sm">Create invite link</button></form>
       {% else %}
         <p class="muted">Every seat on the {{ plans.plan(g.ws).name }} plan is taken.{% if next_plan %} {{ next_plan.name }} includes up to {{ next_plan.seats }} seats.{% endif %}</p>
         <a class="btn sm" href="{{ url_for('billing_page') }}">See plans</a>
       {% endif %}
       {% if invites %}
-      <h3 style="margin-top:22px">Open invites</h3>
-      <table>{% for i in invites %}<tr><td><code>{{ base }}signup?invite={{ i.code }}</code><br><span class="small muted">{{ i.note or '' }} · {{ i.created_at|localtime('date') }}</span></td>
-        <td>{% if owner %}<form method="post" action="{{ url_for('team_invite_revoke', code=i.code) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Revoke</button></form>{% endif %}</td></tr>{% endfor %}</table>
+      <h3 style="margin-top:22px" id="invites">Open invites</h3>
+      <p class="small muted" style="margin:0 0 8px">Each link works once. It stays here until someone uses it or you revoke it.</p>
+      <ul class="invites">{% for i in invites %}<li class="invite{{ ' new' if i.code == made }}">
+        <label class="sr" for="inv-{{ loop.index }}">Invite link{{ ' for ' ~ i.note if i.note }}</label>
+        <div class="row"><input id="inv-{{ loop.index }}" type="text" readonly value="{{ base }}signup?invite={{ i.code }}" data-select-all style="flex:1 1 240px;min-width:0">
+          <button type="button" class="btn dark sm" data-copy="inv-{{ loop.index }}">Copy</button>
+          {% if owner %}<form method="post" action="{{ url_for('team_invite_revoke', code=i.code) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Revoke</button></form>{% endif %}</div>
+        <span class="small muted">{% if i.code == made %}<b>New.</b> {% endif %}{{ i.note ~ ' · ' if i.note }}made {{ i.created_at|localtime('date') }}</span></li>{% endfor %}</ul>
       {% endif %}
     </div>
   </div>

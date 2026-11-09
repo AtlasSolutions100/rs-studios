@@ -147,7 +147,7 @@ def done():
         flash("We couldn't confirm your card yet. Refresh this page in a moment. Nothing was charged.")
         return redirect(url_for("card.page"))
     with db.connect() as conn:
-        out = card_on_file.from_session(conn, sess, ws_id=g.ws["id"], email=g.user["email"])
+        out = card_on_file.from_session(conn, sess, ws_id=g.ws["id"], user=g.user)
     if not out.get("ok"):
         if out.get("why") == "declined":
             flash("Your card wasn't saved, so nothing was charged. Try again or use another card.")

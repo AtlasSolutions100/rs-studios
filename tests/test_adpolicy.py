@@ -3,9 +3,13 @@ No network, no app server: a throwaway database only for the asset provenance ch
 
     python tests/test_adpolicy.py      (tests/test_app.py runs it too)
 
-  * tests/fixtures/policy/*.json: 60+ ad copy snippets, each with the exact policy rules it must hit
-    (and, where given, the house rules from compliance.py and the level)
-  * compliance.check() is unchanged; compliance.findings() names the rule behind each message
+  * tests/fixtures/policy/*.json: 200+ ad copy snippets, each with the exact policy rules it must hit
+    (and, where given, the house rules from compliance.py and the level); probes.json holds the
+    widened L-16 probes, clean.json 50+ ordinary lines that must stay clean everywhere
+  * compliance.check() agrees with the linter where they overlap (cures, health outcomes, weight loss,
+    guaranteed returns, before/after); compliance.findings() names the rule behind each message
+  * the vertical is derived from the product and the copy (L-17); keywords, names, URLs and UTM
+    strings are linted for drugs and politics (L-18)
   * CampaignSpec: shape check against the JSON schema, round trip, a stable hash
   * the validator: budgets, dates, location, ages, pixel for sales and leads, text limits per
     platform, landing page, aspect ratios, video-only platforms, Google responsive search ads
@@ -75,6 +79,34 @@ check({"policy.personal_attributes", "policy.cure_claim", "policy.health_outcome
       "the fixtures cover the rules the design names (personal attributes, cures, numeric outcomes, before/after, "
       "transformations, guaranteed returns, AI testimonials)")
 check(sum(1 for c in cases if not c["expect"]) >= 15, "and at least 15 clean snippets that must not trip anything")
+probes = [c for c in cases if c["file"] == "probes.json"]
+check(len(probes) >= 60 and all(c["levels"] for c in probes), f"{len(probes)} L-16 probes, each with the level it must hit")
+clean = [c for c in cases if c["file"] == "clean.json"]
+check(len(clean) >= 30 and all(not c["expect"] and c["house"] == [] for c in clean),
+      f"{len(clean)} ordinary ad lines (coffee, skincare, local services, apparel) expected clean")
+bad = [c["id"] for c in clean if not compliance.check(c["text"])["ok"] or compliance.check(c["text"])["warnings"]]
+check(not bad, f"compliance.check passes every clean line with no warning {bad or ''}")
+# compliance.check (what generation refuses) agrees with the linter where they overlap
+OVERLAP = ("policy.cure_claim", "policy.health_outcome_numeric", "policy.guaranteed_returns", "policy.before_after")
+miss, extra = [], []
+for c in cases:
+    iss = adpolicy.lint_text(c["text"], platform=c["platform"], vertical=c["vertical"], ai=c["ai"])
+    pol = {i.rule_id for i in iss}
+    chk = compliance.check(c["text"])
+    if pol & set(OVERLAP) and chk["ok"]:
+        miss.append(c["id"])
+    house_ba = "No before-and-after content." in chk["blocks"]
+    if house_ba != ("policy.before_after" in pol):
+        extra.append(c["id"])
+check(not miss, f"every cure, health-outcome, weight-loss or guaranteed-return line the linter flags, generation blocks too {miss or ''}")
+check(not extra, f"the before/after rule fires in both or in neither {extra or ''}")
+for t in ("Before and after school care, 7 am to 6 pm.", "Wipe the mat before and after each use.",
+          "Stretch before, after and during your run."):
+    check(not compliance.check(t)["blocks"] and not adpolicy.lint_text(t), f"a time, not pictures: {t!r}")
+check(not compliance.check("Our before and after treatment photos")["ok"], "...but 'before and after treatment photos' blocks")
+for t in ("Hair treatment for hair loss.", "A natural treatment for fatigue.", "Treats acne overnight.",
+          "Prevents colds all winter."):
+    check(not compliance.check(t)["ok"], f"an everyday word with a health word still blocks: {t!r}")
 
 # ================================================================ compliance.py stays the same
 print("compliance")
@@ -235,6 +267,63 @@ iss = adpolicy.lint(spec(platform="google", objective="traffic", conversion=None
                          google=dict(g, headlines=g["headlines"] + ["Cures insomnia fast"])))
 check("policy.cure_claim" in ids(iss) and any(i.where == "google.headlines[3]" for i in iss),
       "Google headlines are linted too")
+
+# ---------------------------------------------------------------- the vertical, derived (L-17)
+print("derived vertical")
+for kw, want, rules, what in (
+        (dict(creative={"primary_text": "Our collagen powder mixes into coffee."}), "supplements",
+         {"policy.vertical_mismatch", "policy.supplement_disclaimer"}, "a supplement on 'general'"),
+        (dict(audience={"age_min": 16, "age_max": 40}, creative={"primary_text": "A weight loss tea for busy mornings."}),
+         "weight_loss", {"policy.vertical_mismatch", "policy.age_restricted"}, "weight loss to 16-year-olds on 'general'"),
+        (dict(audience={"age_min": 21, "age_max": 40}, creative={"primary_text": "Buy bitcoin in 2 taps."}), "crypto",
+         {"policy.vertical_mismatch", "policy.age_restricted"}, "crypto to 21-year-olds on 'general'"),
+        (dict(audience={"age_min": 18, "age_max": 65}, creative={"primary_text": "Apartments for rent near downtown."}),
+         "housing", {"policy.vertical_mismatch", "policy.special_category_missing"}, "a housing ad on 'general'"),
+        (dict(creative={"destination_url": "https://shop.test/sema-glutide-program"}), "weight_loss",
+         {"policy.vertical_mismatch", "policy.pharmacy"}, "a spaced-out drug name in the landing page")):
+    s = spec(**kw)
+    iss = adpolicy.lint(s)
+    mm = [i for i in iss if i.rule_id == "policy.vertical_mismatch"]
+    check(adpolicy.derive_vertical(s)[0] == want and rules <= set(ids(iss)) and mm and mm[0].level == "block"
+          and adpolicy.blocking(iss), f"derives {want}: {what} -> {', '.join(sorted(rules))}")
+check(adpolicy.derive_vertical(spec()) == ("general", "") and not adpolicy.lint(spec()), "the candle stays general")
+s = spec(vertical="cosmetics", creative={"primary_text": "A weight loss tea."})
+iss = adpolicy.lint(s)
+check([i.level for i in iss if i.rule_id == "policy.vertical_mismatch"] == ["warn"],
+      "a declared vertical that isn't general gets a warning when the copy says something else")
+s = spec(vertical="supplements", creative={"primary_text": "Our collagen powder mixes into coffee. These statements have "
+                                                          "not been evaluated by the Food and Drug Administration."})
+check(not adpolicy.lint(s), "a declared supplement ad with the FDA statement has nothing to fix")
+mm = [i for i in adpolicy.lint(spec(creative={"primary_text": "Buy bitcoin in 2 taps."})) if i.rule_id == "policy.vertical_mismatch"]
+check(mm and "bitcoin" in mm[0].message and "Crypto" in mm[0].fix and "—" not in mm[0].message,
+      "the mismatch says what it saw and what to pick")
+
+# ---------------------------------------------------------------- keywords, names, URLs (L-18)
+print("keywords, names and URLs")
+gk = dict(g, keywords=["ozempic near me", "vote yes on prop 5", "soy candles"], negative_keywords=["ozempic", "free\u200bcandles"])
+iss = adpolicy.lint(spec(platform="google", objective="traffic", conversion=None, creatives=[], google=gk))
+w = {(i.rule_id, i.where): i.level for i in iss}
+check(w.get(("policy.pharmacy", "google.keywords[0]")) == "block" and w.get(("policy.political", "google.keywords[1]")) == "warn"
+      and not any(k[1] == "google.keywords[2]" for k in w), "keywords: a drug blocks, an election warns, 'soy candles' is clean")
+check(not any(k[1] == "google.negative_keywords[0]" for k in w) and
+      w.get(("policy.hidden_characters", "google.negative_keywords[1]")) == "block",
+      "negative keywords only exclude searches: a drug name there is fine, hidden characters are not")
+iss = adpolicy.lint(spec(platform="google", objective="traffic", conversion=None, creatives=[],
+                         google=dict(g, keywords=[{"text": "0zempic", "match": "exact"}])))
+check(("policy.pharmacy", "google.keywords[0]") in {(i.rule_id, i.where) for i in iss}, "a keyword given as {text, match} too")
+for cre, rule, where, what in (
+        ({"name": "Ozempic promo v2"}, "policy.pharmacy", "creatives[0].name", "the creative's name"),
+        ({"destination_url": "https://shop.test/%6Fzempic-alternative"}, "policy.pharmacy", "creatives[0].destination_url",
+         "a percent-encoded drug name in the landing page"),
+        ({"utm": "utm_source=meta&utm_campaign=vote_yes_prop_5"}, "policy.political", "creatives[0].utm", "an election in the UTM"),
+        ({"destination_url": "https://glowco.test/ember\u200b"}, "policy.hidden_characters", "creatives[0].destination_url",
+         "an invisible character in the URL")):
+    check(rule in {i.rule_id for i in adpolicy.lint(spec(creative=cre)) if i.where == where}, f"{what} -> {rule}")
+check([i.where for i in adpolicy.lint(spec(name="Elections 2026 push")) if i.rule_id == "policy.political"] == ["name"],
+      "the campaign name is linted too")
+check(not adpolicy.lint(spec(creative={"name": "Number 1 candle, before and after", "utm": "utm_campaign=fall_2026"})),
+      "names and URLs get the subject rules only (no claim rules on a name the viewer never sees)")
+
 check(all(i.message and i.fix for i in adpolicy.lint(spec(creative={"primary_text": "Are you overweight? Lose 10 lbs in "
                                                                               "2 weeks. Clinically proven."}))),
       "every finding has a plain message and a fix")
@@ -258,10 +347,10 @@ with db.connect() as conn:
     o_other = output(wb, "ugc_video", "ugc")
     conn.commit()
     prov = adpolicy.provenance(conn, wa, [o_ugc, o_vo, o_img, o_motion, o_other])
-    check(prov[o_ugc] == {"ai_presenter": True, "synthetic_voice": True, "ai_generated": True}, "a UGC video: presenter and voice")
+    check(prov[o_ugc] == {"ai_presenter": True, "synthetic_voice": True, "ai_generated": True, "product": {}}, "a UGC video: presenter and voice")
     check(prov[o_vo]["synthetic_voice"] and not prov[o_vo]["ai_presenter"], "a voiceover: AI voice, no presenter")
     check(prov[o_motion]["ai_presenter"] and not prov[o_motion]["synthetic_voice"], "copy-a-motion: an AI presenter")
-    check(prov[o_img] == {"ai_presenter": False, "synthetic_voice": False, "ai_generated": True}, "an image ad: AI-made, no person")
+    check(prov[o_img] == {"ai_presenter": False, "synthetic_voice": False, "ai_generated": True, "product": {}}, "an image ad: AI-made, no person")
     check(o_other not in prov, "another workspace's asset tells nothing")
     s = spec(creative={"asset_id": o_ugc, "script": ai_script})
     check(s.ai_disclosure is False, "(the spec came in with the disclosure off)")
@@ -272,6 +361,33 @@ with db.connect() as conn:
     s = spec(creative={"asset_id": o_other, "script": ai_script})
     check("policy.ai_testimonial" not in ids(adpolicy.preflight(s, conn=conn, workspace_id=wa)) and not s.ai_disclosure,
           "an asset id from another workspace is ignored (no provenance leak)")
+    # the product behind an asset sets the vertical (L-17)
+    def product(ws, cat, name, tags="", claims=""):
+        return conn.execute("INSERT INTO products (workspace_id, brand_id, name, tags, claims, category, created_at, "
+                            "updated_at) VALUES (?,?,?,?,?,?,?,?)", (ws, 1, name, tags, claims, cat, now, now)).lastrowid
+    p_sup, p_beauty, p_coffee, p_other = (product(wa, "supplement", "Daily greens"), product(wa, "beauty", "Glow serum"),
+                                          product(wa, "food_drink", "House blend", tags="coffee, beans"),
+                                          product(wb, "supplement", "Not yours"))
+    p_guess = product(wa, "", "Night cream", tags="skincare, cream")
+
+    def asset(ws, pid):
+        jid = conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, params_json, status, created_at, updated_at, "
+                           "product_id) VALUES (?,?,?,?,?,?,?,?)", (ws, 1, "ad_image", "{}", "done", now, now, pid)).lastrowid
+        return conn.execute("INSERT INTO outputs (job_id, kind, path) VALUES (?,?,?)", (jid, "image", "/x")).lastrowid
+    a_sup, a_beauty, a_coffee, a_guess = asset(wa, p_sup), asset(wa, p_beauty), asset(wa, p_coffee), asset(wa, p_guess)
+    a_cross = asset(wa, p_other)
+    conn.commit()
+    for aid, want, what in ((a_sup, "supplements", "a supplement product"), (a_beauty, "cosmetics", "a beauty product"),
+                            (a_guess, "cosmetics", "a product with no category, guessed from its tags"),
+                            (a_coffee, "general", "a coffee"), (a_cross, "general", "another workspace's product")):
+        s = spec(ai_disclosure=True, creative={"asset_id": aid, "kind": "image"})
+        iss = adpolicy.preflight(s, conn=conn, workspace_id=wa)
+        mm = "policy.vertical_mismatch" in ids(iss)
+        check(adpolicy.derive_vertical(s, adpolicy.provenance(conn, wa, [aid]))[0] == want and mm == (want != "general"),
+              f"{what} -> {want}" + (" (blocks on 'general')" if mm else ""))
+    s = spec(vertical="cosmetics", ai_disclosure=True, creative={"asset_id": a_beauty, "kind": "image"})
+    check("policy.vertical_mismatch" not in ids(adpolicy.preflight(s, conn=conn, workspace_id=wa)),
+          "the beauty product declared as cosmetics passes")
     s = spec(creative={"asset_id": o_img, "kind": "image"})
     iss = adpolicy.preflight(s, conn=conn, workspace_id=wa)
     check("policy.ai_generated_disclosure" in ids(iss) and not adpolicy.blocking(iss),

@@ -111,7 +111,12 @@
 
   // ---- inspector
   function opt(v, label, cur){ return '<option value="' + esc(v) + '"' + (String(cur) === String(v) ? ' selected' : '') + '>' + esc(label) + '</option>'; }
-  function field(label, html, help){ return '<label>' + label + (help ? ' <span class="dim">' + help + '</span>' : '') + '</label>' + html; }
+  var fieldN = 0;   // labels point at their control (for/id), so screen readers name every select and input
+  function field(label, html, help){
+    var id = 'flf' + (++fieldN), tied = /^<(select|input|textarea)\b/.test(html);
+    if(tied) html = html.replace(/^<(select|input|textarea)\b/, '<$1 id="' + id + '"');
+    return '<label' + (tied ? ' for="' + id + '"' : '') + '>' + label + (help ? ' <span class="dim">' + help + '</span>' : '') + '</label>' + html;
+  }
   function input(name, val, attrs){ return '<input type="text" data-f="' + name + '" value="' + esc(val) + '" ' + (attrs || '') + '>'; }
   function testFields(t){
     var h = field('Check', '<select data-f="test.kind">' + Object.keys(B.tests).map(function(k){ return opt(k, B.tests[k], t.kind); }).join('') + '</select>');

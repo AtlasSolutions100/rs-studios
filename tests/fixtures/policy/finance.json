@@ -11,6 +11,7 @@
     "policy.guaranteed_returns"
    ],
    "house": [
+    "income_words",
     "promise_words"
    ]
   },
@@ -23,7 +24,9 @@
    "expect": [
     "policy.guaranteed_returns"
    ],
-   "house": []
+   "house": [
+    "income_words"
+   ]
   },
   {
    "id": "f03",
@@ -34,7 +37,9 @@
    "expect": [
     "policy.guaranteed_returns"
    ],
-   "house": []
+   "house": [
+    "income_words"
+   ]
   },
   {
    "id": "f04",
@@ -45,7 +50,9 @@
    "expect": [
     "policy.guaranteed_returns"
    ],
-   "house": []
+   "house": [
+    "income_words"
+   ]
   },
   {
    "id": "f05",

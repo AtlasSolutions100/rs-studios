@@ -1,0 +1,10 @@
+{
+ "error": {
+  "message": "There have been too many calls to this ad-account. Wait a bit and try again.",
+  "type": "OAuthException",
+  "code": 80004,
+  "error_subcode": 2446079,
+  "is_transient": true,
+  "fbtrace_id": "AFAKEtrace80004"
+ }
+}

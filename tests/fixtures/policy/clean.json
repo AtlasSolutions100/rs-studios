@@ -1,0 +1,600 @@
+{
+ "_note": "Ordinary ad lines (coffee, skincare without claims, local services, apparel) that must stay clean: no policy finding, no house rule, and compliance.check passes them with no warning.",
+ "clean": true,
+ "cases": [
+  {
+   "id": "c01",
+   "text": "Fresh roasted beans, shipped the day we roast them.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c02",
+   "text": "Treat yourself to a cold brew this afternoon.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c03",
+   "text": "Our house blend: chocolate, caramel and a little citrus.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c04",
+   "text": "Oat milk latte, made the way you like it.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c05",
+   "text": "Thirsty? Grab an iced coffee on your way in.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c06",
+   "text": "Each bag makes about 30 cups.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c07",
+   "text": "Before work, after the gym, or anytime.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c08",
+   "text": "Guaranteed fresh, or we replace the bag.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c09",
+   "text": "Dog treats made with peanut butter and oats.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c10",
+   "text": "Cured meats and espresso for Saturday brunch.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c11",
+   "text": "A lightweight moisturizer for everyday wear.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c12",
+   "text": "Fragrance-free and made for sensitive skin.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c13",
+   "text": "Treat your skin to something gentle tonight.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c14",
+   "text": "SPF 30 sunscreen that doesn't leave a white cast.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c15",
+   "text": "Two drops at night, then your usual moisturizer.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c16",
+   "text": "Our lip balm comes in 4 shades.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c17",
+   "text": "Hydrating face mist with rose water.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c18",
+   "text": "Made without parabens or sulfates.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c19",
+   "text": "Locked out? We'll be there in 30 minutes.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c20",
+   "text": "Lawn treatment and weed control for Plano yards.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c21",
+   "text": "Pest prevention plans, billed monthly.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c22",
+   "text": "We fix leaks before they turn into floods.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c23",
+   "text": "Same-day AC repair across Dallas.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c24",
+   "text": "Book a deep clean before your guests arrive.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c25",
+   "text": "Gutter cleaning from $99 a visit.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c26",
+   "text": "Licensed plumbers, upfront prices, no surprise fees.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c27",
+   "text": "Need a haircut? Walk-ins welcome until 7 pm.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c28",
+   "text": "Dog walking in Uptown, 30 or 60 minutes.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c29",
+   "text": "Spa treatment packages for 2.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c30",
+   "text": "Free estimates on fence repair this week.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c31",
+   "text": "Free returns within 30 days.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c32",
+   "text": "Guaranteed to fit, or free returns.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c33",
+   "text": "Available in dress sizes 0 to 20.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c34",
+   "text": "High-waist jeans in 3 washes.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c35",
+   "text": "A lightweight rain jacket that packs into its own pocket.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c36",
+   "text": "From size 2 to size 16, every pair is the same price.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c37",
+   "text": "Satisfaction guaranteed on every order.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c38",
+   "text": "Hoodies in 6 colors, made from recycled cotton.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c39",
+   "text": "Order before Friday, get it after the weekend.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c40",
+   "text": "Single-origin beans from Colombia.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c41",
+   "text": "Busy week? We deliver lunch to your office.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c42",
+   "text": "Best seller since 2019: the canvas tote.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c43",
+   "text": "Wrinkle-free shirts for travel.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c44",
+   "text": "Votive candles in 3 scents.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c45",
+   "text": "Our return policy is simple: 30 days.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c46",
+   "text": "Hair treatment for color-treated hair.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c47",
+   "text": "Wine-red sweater in soft merino.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c48",
+   "text": "Step 1: grind the beans. Step 2: brew for 4 minutes.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c49",
+   "text": "Meet our new serum: two drops, every night.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": true,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c50",
+   "text": "Here's how to brew it in 4 minutes.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": true,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c51",
+   "text": "This jacket packs into its own pocket.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": true,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c52",
+   "text": "Running late? Grab a coffee to go.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c53",
+   "text": "Window cleaning before and after construction.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c54",
+   "text": "Dog treats for every size of pup.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c55",
+   "text": "Treat your team to lunch.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c56",
+   "text": "Number one rule of camping: pack a warm jacket.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c57",
+   "text": "Prescription glasses from $79.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c58",
+   "text": "Guaranteed delivery by Christmas.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c59",
+   "text": "Lifetime guarantee on every knife.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c60",
+   "text": "Money-back guarantee, no questions asked.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c61",
+   "text": "Pet-safe pest treatment for your yard.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c62",
+   "text": "Prevent leaks with a yearly checkup.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c63",
+   "text": "Anxious to try it? Order now.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c64",
+   "text": "Before and after school care, 7 am to 6 pm.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c65",
+   "text": "Fits sizes 4 to 14.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "c66",
+   "text": "Our 2 lb bag lasts a month.",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  }
+ ]
+}

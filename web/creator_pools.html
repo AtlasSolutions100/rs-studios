@@ -15,7 +15,11 @@
       </ul>
     </div>
     {% if not connected %}<div class="flash warn">Creator Pools isn't connected to Crowdcut yet, so a pool can be saved but not paid for.{% if g.user.is_admin %} Admin: set the <code>POOLS_PARTNER_SECRET</code> repo secret in both repos and redeploy.{% endif %}</div>{% endif %}
-    {% if owner %}
+    {% if need_product %}
+    <div class="panel"><h2 style="margin-top:0">Add a product first</h2>
+      <p class="muted">A Creator Pool pays creators to post about a product you sell, so it starts from one. Add yours and this form opens.</p>
+      <a class="btn" href="{{ url_for('products.new') }}">Add a product</a></div>
+    {% elif owner %}
     <form method="post" class="panel copyform" enctype="multipart/form-data" id="cpform">
       <input type="hidden" name="csrf" value="{{ csrf_token() }}">
       <h2 style="margin-top:0">New campaign</h2>

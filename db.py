@@ -578,6 +578,66 @@ CREATE TABLE IF NOT EXISTS api_budget (
     platform TEXT NOT NULL, account TEXT NOT NULL,
     points REAL NOT NULL DEFAULT 0, at REAL NOT NULL DEFAULT 0, blocked_until REAL NOT NULL DEFAULT 0,
     PRIMARY KEY (platform, account));
+-- Launches (launches.py, roadmap M2.3): a plan made into a PAUSED campaign on the member's own ad account.
+-- approval_cards: what the member saw and approved ("what Campaignify will create"), with the spec it came from.
+CREATE TABLE IF NOT EXISTS approval_cards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    launch_id INTEGER,                       -- set once approved and the launch exists
+    kind TEXT NOT NULL,                      -- launch | budget_change | status_change | pause_all
+    campaign_id INTEGER, connection_id INTEGER,
+    spec_json TEXT, spec_hash TEXT,          -- the CampaignSpec the card was made from (adspec.to_dict)
+    before_json TEXT, after_json TEXT,       -- after_json: the card itself (lines, objects, issues)
+    created_by INTEGER, created_at TEXT NOT NULL,
+    decided_by INTEGER, decision TEXT, decided_at TEXT,   -- decision: approved | rejected
+    applied_at TEXT, error TEXT);
+CREATE INDEX IF NOT EXISTS idx_cards_ws ON approval_cards(workspace_id, campaign_id, id);
+CREATE TABLE IF NOT EXISTS launches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    plan_id INTEGER,                         -- campaigns.id (the planner's plan)
+    platform TEXT NOT NULL, connection_id INTEGER NOT NULL,
+    card_id INTEGER,
+    spec_json TEXT NOT NULL,
+    status TEXT NOT NULL,                    -- queued | launching | paused | failed | rolled_back
+    external_campaign_id TEXT,
+    idempotency_key TEXT NOT NULL UNIQUE,    -- sha256(workspace, plan, spec hash): one launch per approved spec
+    error TEXT,                              -- plain words for the member
+    created_by INTEGER, approved_by INTEGER, approved_at TEXT,
+    next_at TEXT, lease_at TEXT,             -- the worker's schedule (rate limits, video processing) and claim
+    runs INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, finished_at TEXT);
+CREATE INDEX IF NOT EXISTS idx_launches_ws ON launches(workspace_id, plan_id, id);
+CREATE INDEX IF NOT EXISTS idx_launches_status ON launches(status);
+-- launch_steps: the saga's ledger, one row per platform call that makes an object, in order.
+CREATE TABLE IF NOT EXISTS launch_steps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    launch_id INTEGER NOT NULL,
+    step_no INTEGER NOT NULL,
+    step_key TEXT NOT NULL,                  -- upload:1, creative:1, campaign, adset, ad:1 (in the external name)
+    kind TEXT NOT NULL,                      -- upload | creative | campaign | adset | ad
+    name TEXT,                               -- the object's name without the cfy tag (what the card shows)
+    request_json TEXT,                       -- the call's fields; "$key" points at an earlier step's result
+    external_id TEXT, result_json TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending | running | done | failed | compensated | kept
+    attempts INTEGER NOT NULL DEFAULT 0,
+    error TEXT,                              -- scrubbed platform error (never a token)
+    started_at TEXT, finished_at TEXT,
+    UNIQUE (launch_id, step_no));
+-- ad_objects: every object a launch made on a platform, with its external id.
+CREATE TABLE IF NOT EXISTS ad_objects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    launch_id INTEGER NOT NULL,
+    workspace_id INTEGER NOT NULL,
+    platform TEXT NOT NULL,
+    kind TEXT NOT NULL,                      -- video | creative | campaign | adset | ad
+    external_id TEXT NOT NULL,
+    parent_external_id TEXT,
+    name TEXT,
+    status TEXT,                             -- PAUSED | DELETED (removed by compensation) | ...
+    created_at TEXT NOT NULL,
+    UNIQUE (platform, external_id));
+CREATE INDEX IF NOT EXISTS idx_adobj_launch ON ad_objects(launch_id);
 """
 
 # Columns added after the first release: (table, column, definition).
@@ -681,6 +741,10 @@ COLUMNS = [
     ("workspaces", "card_label", "TEXT"),
     ("workspaces", "card_pending_credits", "INTEGER NOT NULL DEFAULT 0"),
     ("workspaces", "card_pending_reason", "TEXT"),
+    # L-3: the normalized email (preview.norm_email), indexed, so one-trial-per-person is a lookup, not a scan of
+    # every Gmail user; filled at sign-up and backfilled in init(). L-2: the member whose card a card_trials row is.
+    ("users", "email_norm", "TEXT"),
+    ("card_trials", "user_id", "INTEGER"),
     ("campaigns", "free_plan", "INTEGER NOT NULL DEFAULT 0"),   # made free while out of credits (plan_paywall.py)
     ("plan_invoices", "payment_intent", "TEXT"),
     # plans switch on only when paid (BILL-3); a paid period is kept to its end (plans.GRACE_STATUSES)
@@ -715,6 +779,25 @@ def connect():
     return conn
 
 
+def norm_email(email: str) -> str:
+    """Case, +tags and Gmail dots folded (preview.norm_email calls this): one person, one key."""
+    email = (email or "").strip().lower()
+    if "@" not in email:
+        return email
+    local, domain = email.rsplit("@", 1)
+    local = local.split("+", 1)[0]
+    if domain in ("gmail.com", "googlemail.com"):
+        local, domain = local.replace(".", ""), "gmail.com"
+    return f"{local}@{domain}"
+
+
+def _backfill_email_norm(conn):
+    """users.email_norm for rows written before the column (or by an older image during a deploy). No commit."""
+    rows = conn.execute("SELECT id, email FROM users WHERE email_norm IS NULL").fetchall()
+    for r in rows:
+        conn.execute("UPDATE users SET email_norm=? WHERE id=?", (norm_email(r["email"]), r["id"]))
+
+
 def init():
     """Create and upgrade the schema in place. Runs on every boot, and the deploy hook's
     side container runs it against the live database before the switch (N3): a rollback
@@ -746,6 +829,9 @@ def init():
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_outputs_share ON outputs(share_token)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_free_plans_fp ON free_plans(fingerprint, created_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_free_plans_email ON free_plans(email_norm, created_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_users_email_norm ON users(email_norm)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_card_trials_user ON card_trials(user_id)")
+        _backfill_email_norm(conn)
         conn.commit()
         if not conn.execute("SELECT 1 FROM meta WHERE key='owner_admin_v1'").fetchone():
             # Koby signed up through the normal form (user 1, workspace 1, the Scale

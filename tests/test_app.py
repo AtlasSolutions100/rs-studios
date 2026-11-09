@@ -3209,6 +3209,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_credit_holds.py")], check=True)
     # Creator Pools (creator_pools.py, /app/creator-pools): the flag, Checkout, the webhook, Crowdcut sync, refunds (faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_creator_pools.py")], check=True)
+    # Team and small flows (M5.9): workspace name, the invite link kept on Team, Creator Pools for Free accounts.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_team_flows.py")], check=True)
     # The MCP server (mcpserver.py, mcp_tools.py): API keys, OAuth, the handshake, quote-then-generate.
     subprocess.run([sys.executable, os.path.join(HERE, "test_mcp.py")], check=True)
     # Operator alerts and the real /health (alerts.py, opslog.py): each condition, dedupe, JSON logs (mail faked).
@@ -3225,6 +3227,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_plan_pending.py")], check=True)
     # Card on file at sign-up and the out-of-credits paywall (RS_CARD_REQUIRED, RS_PLAN_PAYWALL; Stripe and AI faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_card_paywall.py")], check=True)
+    # Re-audit L-2, L-3, L-10: one trial per confirmed email, the indexed users.email_norm, the import budget and cap.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_card_import_hardening.py")], check=True)
     # Site copy (M5.8, L-4): the hero, one pricing sum on /pricing and Billing, sign-up, the 404, card-on-file copy.
     subprocess.run([sys.executable, os.path.join(HERE, "test_site_copy.py")], check=True)
     # The pip-audit gate (tools/audit_gate.py): severity from OSV, fail only on High or Critical (OSV faked).
@@ -3235,7 +3239,11 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_adconnect.py")], check=True)
     # The campaign spec, its validator and the ad policy linter (adspec.py, adpolicy.py): 60+ copy fixtures.
     subprocess.run([sys.executable, os.path.join(HERE, "test_adpolicy.py")], check=True)
+    # The launch saga, the approval card and the Meta launch steps (launches.py, launch_routes.py; M2.3): fake Graph.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_launches.py")], check=True)
     # Migrations stay additive (N3): no column dropped, renamed or retyped; an old database upgrades in place.
     subprocess.run([sys.executable, os.path.join(HERE, "test_migrations.py")], check=True)
     # Create polish (M5.5): template previews, failed-card actions, export thumbnail labels, page Save vs live.
     subprocess.run([sys.executable, os.path.join(HERE, "test_create_polish.py")], check=True)
+    # Accessibility pass (M5.6): light-theme status colours, skip link, input labels, h1s, focus ring, hero alt.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_a11y.py")], check=True)
