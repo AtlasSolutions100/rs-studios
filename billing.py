@@ -224,7 +224,9 @@ def create_setup_session(*, customer: str, success_url: str, cancel_url: str, me
     """A Checkout Session in setup mode for one card. Returns {"id", "url"}."""
     if not secret_key():
         raise BillingError("Stripe is not configured.")
-    form = [("mode", "setup"), ("customer", customer), ("payment_method_types[0]", "card"),
+    # Stripe API 2026-09-30 refuses payment_method_types on Checkout Sessions (payment methods come
+    # from the Dashboard settings); setup mode without it needs a currency instead.
+    form = [("mode", "setup"), ("customer", customer), ("currency", "usd"),
             ("success_url", success_url), ("cancel_url", cancel_url),
             ("client_reference_id", client_reference_id),
             ("setup_intent_data[description]", "Campaignify card on file (not charged)")]
