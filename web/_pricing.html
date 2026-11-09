@@ -5,7 +5,7 @@
     <h3>Free</h3>
     <div class="lp-amt">$0</div>
     <p class="lp-cr">{{ '{:,}'.format(sc) }} starter credits</p>
-    <p class="muted small">{{ sc // r.image }} image ads to try the studio on your own product{{ ', or your first video ad' if sc >= r.video5 }}. Nothing is charged{{ ': a card is saved at sign-up to stop abuse' if card_required() }}.</p>
+    <p class="muted small">{{ '{:,}'.format(sc) }} credits to start: {{ sc // r.image }} image ads on your own product{{ ', or your first video ad' if sc >= r.video5 }}. {{ signup_offer().terms }}</p>
     <p class="small plan-out">Only want ads? Buy a pack. Credits never expire.</p>
     <ul class="plan-feats">{% for k, f in plans.FEATURES.items() if f.plan == 'free' and f.shipped %}<li>{{ f.name }}</li>{% endfor %}<li>Credit packs whenever you need more</li></ul>
     <a class="btn dark" href="{{ url_for('signup') }}" data-cta="pricing-free">Start free</a>
@@ -16,27 +16,30 @@
     <h3>{{ p.name }}</h3>
     <div class="lp-amt">${{ p.usd }}<span class="per">/mo</span></div>
     <p class="lp-cr">{{ '{:,}'.format(p.credits) }} credits every month</p>
-    {% set bk = basket(p.credits) %}<p class="small plan-out">{{ bk.line }} a month ({{ '{:,}'.format(p.credits) }} credits)</p>
+    {% set m = ad_math(p.credits, p.usd) %}<p class="small plan-out">{{ m.counts }}, each month.</p>
+    <p class="small plan-per">{{ m.per_ad }}</p>
     <p class="muted small">{{ p.line }}</p>
     <details class="plan-more" open><summary>What's in {{ p.name }}</summary>{% include "_plan_features.html" %}</details>
     {% if billing_configured() %}
-    <a class="btn {{ '' if p.code == 'growth' else 'dark' }}" href="{{ url_for('signup') }}" data-cta="pricing-{{ p.code }}">Start with {{ p.name }}</a>
+    <a class="btn {{ '' if p.code == 'growth' else 'dark' }}" href="{{ url_for('signup') }}" data-cta="pricing-{{ p.code }}">Start {{ p.name }}, ${{ p.usd }}/mo</a>
     {% else %}
-    <span class="btn dark disabled" aria-disabled="true">Opens soon</span>
+    <span class="btn dark disabled" aria-disabled="true">Not open yet</span>
+    <p class="small dim plan-why">Plan checkout isn't switched on yet. Start free now; your credits carry over.</p>
     {% endif %}
   </div>
   {% endfor %}
 </div>
-<p class="small dim" style="margin:14px 0 30px">No trial that bills you: nothing is charged until you pick a plan or buy a pack. Plan credits reset monthly, pack credits never. Monthly plans, cancel anytime; failed generations are refunded automatically.</p>
+<p class="small dim" style="margin:14px 0 30px">No trial that bills you: nothing is charged until you pick a plan or buy a pack. Cancel any month; the plan runs to the end of the month you paid for. Plan credits reset monthly and are spent before pack credits; pack credits never expire. Failed generations are refunded automatically.</p>
 <h3 class="lp-h3">Credit packs <span class="muted small">one-time top-ups, on any plan or none</span></h3>
 <div class="lp-packs">
   {% for p in packs %}
   <div class="lp-pack">
     <b>{{ p.name }} pack</b>
     <span class="lp-pack-amt">${{ p.usd }}</span>
-    {% set bk = basket(p.credits) %}<span class="muted small">{{ '{:,}'.format(p.credits) }} credits{% if p.bonus %} · <span class="gold">{{ '{:,}'.format(p.bonus) }} bonus</span>{% endif %} · {{ bk.line }} · never expire</span>
+    {% set m = ad_math(p.credits, p.usd) %}<span class="muted small">{{ '{:,}'.format(p.credits) }} credits{% if p.bonus %} · <span class="gold">{{ '{:,}'.format(p.bonus) }} bonus</span>{% endif %} · never expire</span>
+    <span class="small">{{ m.counts }}. Image ad about {{ m.usd_image }}.</span>
   </div>
   {% endfor %}
 </div>
-{% if not billing_configured() %}<p class="small dim">Checkout coming soon.</p>{% endif %}
+{% if not billing_configured() %}<p class="small dim">Pack checkout isn't switched on yet.</p>{% endif %}
 <script>(function(){ if (window.matchMedia && matchMedia('(max-width:760px)').matches) [].forEach.call(document.querySelectorAll('.plan-more'), function(d){ d.open = false; }); })();</script>

@@ -10,14 +10,14 @@
 <section class="lp-hero">
   <div class="lp-wrap lp-hero-in">
     <div class="lp-hero-copy">
-      <p class="eyebrow">AI ads from your product page</p>
-      <h1>Paste your product page. <span class="gold">Get the ads.</span></h1>
-      <p class="lp-lede">Campaignify reads your product page and makes UGC-style video ads, product videos and image ads from your own photos. Every ad is priced in credits before you press Generate: an image ad is {{ r.image }} credits, an 8-second talking video {{ r.talk8 }}. The copy, landing page and launch checklist live in the same workspace.</p>
+      <p class="eyebrow">Ads, copy, plan and page from one product link</p>
+      <h1>Paste your product page. <span class="gold">Get the whole campaign.</span></h1>
+      <p class="lp-lede">Campaignify reads the page and makes the ads: talking presenters, product videos and image ads from your own photos. Then it writes the copy for each platform, plans the budget and the first 2-week test, builds the landing page and walks you through launch in Ads Manager. You see the price in credits before anything runs: an image ad is {{ r.image }} credits, an 8-second talking video {{ '{:,}'.format(r.talk8) }}.</p>
       <div class="lp-cta">
         <a class="btn lg" href="{{ url_for('signup') }}" data-cta="hero">{{ so.cta }}</a>
-        <a class="lp-textlink" href="#gallery">See ads made here →</a>
+        <a class="lp-textlink" href="#step-plan">See a finished plan →</a>
       </div>
-      <p class="small muted lp-note">{{ so.body }} The campaign tools come with a plan.</p>
+      <p class="small muted lp-note">{{ so.body }} The planner, copy studio, pages and launch guide come with a plan, from ${{ plans.PLANS.starter.usd }} monthly.</p>
     </div>
     <div class="lp-hero-art" aria-hidden="true">
       {% for gi in hero %}

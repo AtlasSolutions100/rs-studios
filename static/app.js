@@ -5,6 +5,15 @@
    - flash messages get a close button; success ones fade after 6 s */
 (function(){
   'use strict';
+  // ---- one balance (UX-8): a page that learns the balance (a price quote, a spend) writes it into the
+  // sidebar pill and the phone top-bar chip, so the screen never shows two numbers
+  window.cfyBalance = function(b){
+    b = Number(b); if(!isFinite(b)) return;
+    var t = b.toLocaleString('en-US'), word = b === 1 ? ' credit' : ' credits';
+    [].forEach.call(document.querySelectorAll('[data-bal-pill]'), function(el){ el.textContent = t + word; });
+    [].forEach.call(document.querySelectorAll('[data-bal-n]'), function(el){ el.textContent = t; });
+    [].forEach.call(document.querySelectorAll('[data-bal-chip]'), function(el){ el.setAttribute('aria-label', t + word + ' left. Buy more'); });
+  };
   // ---- local time
   function sameDay(a, b){ return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
   function fmt(d, mode){

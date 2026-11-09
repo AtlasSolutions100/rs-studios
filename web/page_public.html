@@ -3,8 +3,11 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{ p.title }}</title>
-{% if p.description %}<meta name="description" content="{{ p.description }}"><meta property="og:description" content="{{ p.description }}">{% endif %}
+{% if share_text %}<meta name="description" content="{{ share_text }}"><meta property="og:description" content="{{ share_text }}">{% endif %}
 <meta property="og:title" content="{{ p.title }}"><meta property="og:type" content="website">
+{% if share %}<meta property="og:image" content="{{ share.url }}"><meta property="og:image:width" content="{{ share.width }}"><meta property="og:image:height" content="{{ share.height }}"><meta property="og:image:alt" content="{{ p.title }}">
+<meta name="twitter:card" content="summary_large_image">{% endif %}
+{% if not preview %}<meta property="og:url" content="{{ request.base_url }}">{% endif %}
 {% if not preview %}<link rel="canonical" href="{{ request.base_url }}">{% else %}<meta name="robots" content="noindex">{% endif %}
 <link rel="preload" as="font" type="font/woff2" href="{{ url_for('static', filename='fonts/inter-latin.woff2') }}" crossorigin>
 <link rel="stylesheet" href="{{ url_for('static', filename='fonts.css') }}">
@@ -14,7 +17,7 @@
 <body>
 {% if preview %}<div class="pp-preview">Preview{% if p.status != 'published' %} · this page is a draft and isn't public yet{% endif %}</div>{% endif %}
 <main>
-{% macro media(oid, cls='') %}{% if oid and oid in kinds %}<div class="pp-media {{ cls }}">{% if kinds[oid] == 'video' %}<video src="{{ media_url(oid) }}" controls playsinline preload="metadata"></video>{% else %}<img src="{{ media_url(oid) }}" alt="">{% endif %}</div>{% endif %}{% endmacro %}
+{% macro media(oid, cls='') %}{% if oid and oid in kinds %}<div class="pp-media {{ cls }}">{% set wh = dims.get(oid) %}{% if kinds[oid] == 'video' %}<video src="{{ media_url(oid) }}" controls playsinline preload="metadata"{% if wh %} width="{{ wh[0] }}" height="{{ wh[1] }}"{% endif %}></video>{% else %}<img src="{{ media_url(oid) }}" alt=""{% if wh %} width="{{ wh[0] }}" height="{{ wh[1] }}"{% endif %}{% if cls == 'tall' %} fetchpriority="high"{% else %} loading="lazy"{% endif %}>{% endif %}</div>{% endif %}{% endmacro %}
 {% for b in blocks %}
   {% if b.type == 'hero' %}
   <section class="pp-hero {{ 'has-media' if b.media in kinds }}"><div class="pp-wrap pp-hero-in">

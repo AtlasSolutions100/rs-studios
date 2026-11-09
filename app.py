@@ -20,6 +20,7 @@ import uuid
 
 from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file,
                    session, url_for)
+from werkzeug.exceptions import NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -387,13 +388,29 @@ app.jinja_env.globals["signup_offer"] = _signup_offer
 def _public_meta():
     """Title, description, canonical, share card and JSON-LD for the public pages
     (public_site.py), plus the Google tag, the ad pixels (pixels.py) and this page's conversion events."""
-    out = {"gads_tag": gads.tag_id(), "gads_consent_regions": gads.CONSENT_REGIONS, "gads_events": _gads_events,
+    out = {"gads_tag": gads.tag_id(), "gads_here": _gads_here, "gads_consent_regions": gads.CONSENT_REGIONS,
+           "gads_events": _gads_events,
            "ad_pixels": lambda: pixels.context(request, _gads_events, request.endpoint),
            "site_beacon": lambda: site_events.beacon(request, g.get("user"))}
     m = public_site.meta(request.endpoint, request.view_args)
     if m:
         out["page_meta"] = m
     return out
+
+
+def _gads_here() -> bool:
+    """Load the Google Ads tag here? On the public site and the sign-up and log-in pages,
+    on the first-run Home of a free workspace, on Billing (where purchases return) and on
+    any app page with a conversion to report; not across the rest of the app (SEO-4)."""
+    path = request.path or "/"
+    if not path.startswith(("/app", "/admin")):
+        return True
+    if path.startswith("/admin"):
+        return False
+    if request.endpoint == "billing_page" or _gads_events():
+        return True
+    ws = g.get("ws")
+    return request.endpoint == "studio" and ws is not None and plans.plan_code(ws) == "free"
 
 
 def _gads_events():
@@ -1820,9 +1837,12 @@ def billing_code():
     if not login_security.code_attempt(f"code:{g.ws['id']}"):   # BILL-6
         flash(login_security.CODES_MSG)
         return redirect(url_for("billing_page") + "#code")
-    if not compcodes.normalize(raw) and not _subscribed(g.ws) and billing.normalize_promo(raw) \
-            and _save_promo(raw):
-        return redirect(url_for("billing_page") + "#plans")
+    if not compcodes.normalize(raw) and billing.normalize_promo(raw):
+        if not _subscribed(g.ws) and _save_promo(raw):
+            return redirect(url_for("billing_page") + "#plans")
+        # A discount-code shape we couldn't find (COPY-7): not "it looks like CFY-...".
+        flash(f"We couldn't find {billing.normalize_promo(raw)}. Check the spelling, or enter it on the checkout page.")
+        return redirect(url_for("billing_page") + "#code")
     with db.connect() as conn:
         try:
             row = compcodes.redeem(conn, g.ws["id"], g.user["id"], request.form.get("code") or "")
@@ -2839,7 +2859,8 @@ import mcp_tools  # noqa: E402  the MCP server (/mcp, OAuth, API keys); MCP_SERV
 mcp_tools.init(app)
 app.jinja_env.globals["has_endpoint"] = _has_endpoint
 app.jinja_env.globals.update(faq_answer=public_site.answer_html, solution_links=lambda: public_site.SOLUTION_ORDER,
-                             solution_nav=lambda slug: public_site.SOLUTIONS[slug]["nav"], basket=public_site.basket,
+                             solution_nav=lambda slug: public_site.SOLUTIONS[slug]["nav"], basket=public_site.basket, ad_math=public_site.ad_math,
+                             service_path_on=service_path.on, first_run_count=lambda: len(catalog.first_run_templates()),
                              related_cards=public_site.related_cards, footer_groups=public_site.footer_groups)
 
 
@@ -2857,7 +2878,10 @@ def billing_hold_error(e):
 @app.errorhandler(403)
 @app.errorhandler(404)
 def http_error(e):
-    return render_template("error.html", code=e.code, message=getattr(e, "description", "")), e.code
+    message = getattr(e, "description", "")
+    if e.code == 404 and message == NotFound.description:
+        message = ""   # Werkzeug's own sentence: the page says it in our words (COPY-8)
+    return render_template("error.html", code=e.code, message=message), e.code
 
 
 if __name__ == "__main__":

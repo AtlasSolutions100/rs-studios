@@ -75,9 +75,15 @@ def plan_platforms(brief: dict, plan: dict, ads) -> list:
 
 
 def _budget_line(brief: dict, split: dict | None) -> str:
-    total = (brief.get("budget") or "").strip()
+    """UX-6: "$360 (60% of $600 total over 14 days)" with a structured budget; a legacy free-text one as typed."""
+    import campaign_budget
+    total = campaign_budget.text(brief)
     if split and split.get("share_percent") is not None:
-        line = f"{split['share_percent']}% of {total}" if total else f"{split['share_percent']}% of the budget"
+        part = campaign_budget.share(brief, split["share_percent"])
+        if part:
+            line = f"{part} ({split['share_percent']}% of {total})"
+        else:
+            line = f"{split['share_percent']}% of {total}" if total else f"{split['share_percent']}% of the budget"
         return line + (f". {split['note'].rstrip('.')}." if split.get("note") else "")
     return total or "Not set in the brief."
 
@@ -190,24 +196,42 @@ def plan_ticks(conn, ws_id: int, cid: int) -> set:
                                             (ws_id, cid))}
 
 
-def toggle(conn, ws_id: int, user_id: int, cid: int, item: str) -> bool:
-    """Flip one tick; True when it is now done. hub:<platform>:<step> goes to the hub's table (shared with the hub
-    page), anything else to launch_ticks for this plan. The caller checks the item is in this plan's kit."""
+def set_tick(conn, ws_id: int, user_id: int, cid: int, item: str, done: bool) -> bool:
+    """Set one tick to the state the page asked for (re-audit L-11: a retried or double-sent POST lands on the same
+    state instead of flipping it back). hub:<platform>:<step> goes to the hub's table (shared with the hub page),
+    anything else to launch_ticks for this plan. The caller checks the item is in this plan's kit. Returns done."""
     import db
     m = re.fullmatch(r"hub:([a-z]+):(\d+)", item)
     if m:
-        cur = conn.execute("DELETE FROM adhub_progress WHERE workspace_id=? AND platform=? AND step=?",
-                           (ws_id, m.group(1), int(m.group(2))))
-        if not cur.rowcount:
-            conn.execute("INSERT INTO adhub_progress (workspace_id, platform, step, done_by, done_at) VALUES (?,?,?,?,?)",
-                         (ws_id, m.group(1), int(m.group(2)), user_id, db.now()))
+        key = (ws_id, m.group(1), int(m.group(2)))
+        if done:
+            conn.execute("INSERT OR IGNORE INTO adhub_progress (workspace_id, platform, step, done_by, done_at) "
+                         "VALUES (?,?,?,?,?)", key + (user_id, db.now()))
+        else:
+            conn.execute("DELETE FROM adhub_progress WHERE workspace_id=? AND platform=? AND step=?", key)
     else:
-        cur = conn.execute("DELETE FROM launch_ticks WHERE workspace_id=? AND campaign_id=? AND item=?", (ws_id, cid, item))
-        if not cur.rowcount:
-            conn.execute("INSERT INTO launch_ticks (workspace_id, campaign_id, item, done_by, done_at) VALUES (?,?,?,?,?)",
-                         (ws_id, cid, item, user_id, db.now()))
+        if done:
+            conn.execute("INSERT OR IGNORE INTO launch_ticks (workspace_id, campaign_id, item, done_by, done_at) "
+                         "VALUES (?,?,?,?,?)", (ws_id, cid, item, user_id, db.now()))
+        else:
+            conn.execute("DELETE FROM launch_ticks WHERE workspace_id=? AND campaign_id=? AND item=?", (ws_id, cid, item))
     conn.commit()
-    return not cur.rowcount
+    return done
+
+
+def is_ticked(conn, ws_id: int, cid: int, item: str) -> bool:
+    m = re.fullmatch(r"hub:([a-z]+):(\d+)", item)
+    if m:
+        return bool(conn.execute("SELECT 1 FROM adhub_progress WHERE workspace_id=? AND platform=? AND step=?",
+                                 (ws_id, m.group(1), int(m.group(2)))).fetchone())
+    return bool(conn.execute("SELECT 1 FROM launch_ticks WHERE workspace_id=? AND campaign_id=? AND item=?",
+                             (ws_id, cid, item)).fetchone())
+
+
+def toggle(conn, ws_id: int, user_id: int, cid: int, item: str) -> bool:
+    """Flip one tick; True when it is now done. Only for a request without the desired state (a page cached
+    from before L-11); the kit's forms send done=1/0 and go through set_tick."""
+    return set_tick(conn, ws_id, user_id, cid, item, not is_ticked(conn, ws_id, cid, item))
 
 
 def hub_order(conn, ws_id: int) -> tuple[list, set]:

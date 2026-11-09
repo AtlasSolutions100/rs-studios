@@ -743,7 +743,7 @@ class Run:
         self.page.wait_for_url("**/signup**")
         self.fill("input[name=email]", email)
         self.fill("input[name=password]", PW)
-        self.click("form button:has-text('Create account')")
+        self.click("form button:has-text('Create my account')")
         self.wait_until(lambda: re.search(r"/app(/card)?(\?|$)", self.page.url)
                         or self.page.locator("[data-signup-sent]").count(), "the page after Create account", 20)
         if self.page.locator("[data-signup-sent]").count():
@@ -933,7 +933,12 @@ class Run:
         self.select("#goal", goal)
         for k in ("meta", "tiktok", "youtube", "google", "x", "linkedin", "pinterest", "snapchat", "reddit"):
             self.check(f"input[name=platforms][value={k}]", k in platforms_on)
-        self.fill("#budget", budget)
+        amount, period, days = budget          # UX-6: a number, total or per day, and the test length
+        self.fill("#budget", amount)
+        if period != "total":
+            self.select("#budget_period", period)
+        if days != "14":
+            self.fill("#budget_days", days)
         self.fill("#link", link)
         self.paid_click("form.copyform button:has-text('Plan my campaign')")
         self.page.wait_for_url(re.compile(r"/app/campaigns/\d+"))
@@ -1161,7 +1166,7 @@ def product_path(r):
     code = comp_code()
     r.step("plan_pick", "Pick a plan", lambda st: r.s_pick_plan(st, code))
     r.step("planner", "Plan the campaign (Sales; Meta, Google)",
-           lambda st: r.s_plan(st, "sales", ["meta", "google"], "$600 for two weeks", F.PRODUCT_URL))
+           lambda st: r.s_plan(st, "sales", ["meta", "google"], ("600", "total", "14"), F.PRODUCT_URL))
     r.step("creative", "Creative batch from the plan", lambda st: r.s_creative(st, videos=True))
     r.step("copy", "Copy for Google Search", lambda st: r.s_copy(st, "google"))
     r.step("landing", "Landing page, published", lambda st: r.s_page(st, "Ember Candle"))
@@ -1185,7 +1190,7 @@ def service_path(r):
     code = comp_code()
     r.step("plan_pick", "Pick a plan", lambda st: r.s_pick_plan(st, code))
     r.step("planner", "Plan the campaign (Leads; Google, Meta)",
-           lambda st: r.s_plan(st, "leads", ["google", "meta"], "$900 for the first month", F.SERVICE_URL))
+           lambda st: r.s_plan(st, "leads", ["google", "meta"], ("900", "total", "30"), F.SERVICE_URL))
     r.step("copy", "Copy for Google Search (RSA)", lambda st: r.s_copy(st, "google"))
     r.step("form", "Quote form", lambda st: r.s_form(st, "Free quote"))
     r.step("landing", "Landing page with the quote form, published",

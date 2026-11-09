@@ -1,13 +1,24 @@
+{# One copy variant. UX-5: a variant that failed the checks has no Copy buttons (the platform would reject its
+   text) and one way forward instead: rewrite it in the optimizer, or ask the planner for a new one. #}
+{% set blocked = not v.compliance.ok %}
 <article class="variant {{ '' if v.ok else 'flagged' }}">
   <header><b>{{ v.angle or ('Variant ' ~ loop.index) }}</b>
-    {% if not v.compliance.ok %}<span class="tag bad">Blocked: {{ v.compliance.blocks|join(' ') }}</span>
+    {% if blocked %}<span class="tag bad">Blocked: {{ v.compliance.blocks|join(' ') }}</span>
     {% elif v.compliance.warnings %}<span class="tag warn">{{ v.compliance.warnings|join(' ') }}</span>
     {% else %}<span class="tag ok">Checks passed</span>{% endif %}</header>
   {% for f in v.fields %}
   <div class="vfield">
     <div class="vfield-h"><span class="small muted">{{ f.name }}</span><span class="small {{ 'bad' if f.state == 'over' else 'warnc' if f.state == 'long' else 'dim' }}">{{ f.chars }}{% if f.limit %}/{{ f.limit }} characters{% elif f.rec %} characters · aim for {{ f.rec }}{% else %} characters{% endif %}</span></div>
     <p class="vtext" id="v{{ loop.index }}-{{ vid }}">{{ f.text }}</p>
-    <button type="button" class="linkbtn copybtn" data-copy="v{{ loop.index }}-{{ vid }}">Copy</button>
+    {% if not blocked %}<button type="button" class="linkbtn copybtn" data-copy="v{{ loop.index }}-{{ vid }}">Copy</button>{% endif %}
   </div>
   {% endfor %}
+  {% if blocked %}
+  <div class="vblocked">
+    {% if has_feature('optimizer') %}<a class="btn sm" href="{{ url_for('copy.optimize', text=v.fields|map(attribute='text')|join('\n'), platform=vplatform if vplatform is defined and vplatform else 'meta') }}">Rewrite this one</a>
+    {% elif vrevise is defined and vrevise %}<a class="btn sm" href="#revise" data-revise-note="Rewrite the {{ v.angle or 'blocked' }} copy so it passes the checks: {{ v.compliance.blocks|join(' ') }}">Rewrite this one</a>
+    {% endif %}
+    <span class="small vnocopy">No Copy button: the platform would reject this text.</span>
+  </div>
+  {% endif %}
 </article>

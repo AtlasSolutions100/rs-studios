@@ -116,7 +116,7 @@ def ws_of(email):
 print("== sign-up page and the confirmation email")
 c = client()
 html = c.get("/signup").get_data(as_text=True)
-check("What happens next" in html and "Paste your product page" in html and "Pick a template" in html
+check("What happens next" in html and "Paste your product page" in html and "Pick a look." in html
       and "ready in about a minute" in html and 'class="auth wide"' in html,
       "/signup carries the 3-step 'What happens next' panel (desktop column)")
 check("What happens next" not in c.get("/signup?invite=nope").get_data(as_text=True), "invite sign-ups don't get the panel")

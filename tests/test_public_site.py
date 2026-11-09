@@ -269,7 +269,7 @@ arc = public_site.solution("arcads-alternative")["table"]
 check(arc["source"] == "https://help.arcads.ai/en/articles/17595066-how-does-arcads-pricing-work"
       and "72" in arc["rows"][0][1] and "card is required" in arc["rows"][0][1] and "Starter monthly plan starts automatically" in arc["rows"][0][1]
       and "Not listed on the public site" in arc["rows"][1][1] and "800 credits" in arc["rows"][2][1]
-      and "Nothing charged" in arc["rows"][0][2] and "740" in arc["rows"][2][2],
+      and "Nothing is charged at sign-up" in arc["rows"][0][2] and "740" in arc["rows"][2][2],
       "Arcads: the 72-hour card trial, unpublished prices and 800 credits per talking video, against nothing charged and 740 credits")
 check("Higgsfield" not in "".join(pub.get(p).get_data(as_text=True) for p in paths), "the vendor isn't named on the public site")
 for s in ("ai-ugc-ad-generator", "ai-product-ads-for-shopify", "ai-marketing-platform-for-small-business"):
@@ -635,7 +635,7 @@ def sign(c, email):
     return c.post("/signup", data={"csrf": csrf(c), "email": email, "password": "longpassword1"})
 
 
-ORGANIC = ("Try 2 image ads free", "Free sign-up includes 2 image ads (44 credits). Nothing is charged.")
+ORGANIC = ("Make 2 ads with your free credits", "Free sign-up includes 2 image ads (44 credits). Nothing is charged.")
 for path in ("/", "/pricing", "/features", "/signup", "/ai-ugc-ad-generator", "/arcads-alternative",
              "/ai-product-ads-for-shopify", "/llms.txt"):
     html = page(client(), path)
@@ -643,9 +643,9 @@ for path in ("/", "/pricing", "/features", "/signup", "/ai-ugc-ad-generator", "/
           and "video ad free" not in html, f"organic {path}: no free-video or first-ad-free promise")
 for path in ("/", "/pricing", "/ai-ugc-ad-generator"):
     html = page(client(), path)
-    check(ORGANIC[0] in html and ORGANIC[1] in html, f"organic {path}: 'Try 2 image ads free' + what sign-up includes")
+    check(ORGANIC[0] in html and ORGANIC[1] in html, f"organic {path}: 'Make 2 ads with your free credits' + what sign-up includes")
 html = page(client(), "/pricing")
-check('<h2 class="lp-h2">Try 2 image ads free.</h2>' in html, "the pricing footer no longer says 'Make your first ad free'")
+check('<h2 class="lp-h2">Make 2 ads with your free credits.</h2>' in html, "the pricing footer no longer says 'Make your first ad free'")
 for path in ("/", "/pricing", "/ai-ugc-ad-generator", "/arcads-alternative"):
     m = Page(page(client(), path))
     check("Free sign-up includes 2 image ads" in m.meta["description"] or "Try 2 image ads free" in m.meta["description"],
@@ -729,7 +729,7 @@ for off in ("0", "off"):
 os.environ["SIGNUP_CREDITS_ADS"] = "100"
 f_ = client()
 html = page(f_, "/?gclid=small")
-check("Try 4 image ads free" in html and "video ad free" not in html, "SIGNUP_CREDITS_ADS=100: 'Try 4 image ads free'")
+check("Make 4 ads with your free credits" in html and "video ad free" not in html, "SIGNUP_CREDITS_ADS=100: 'Make 4 ads with your free credits'")
 sign(f_, "small@example.com")
 check(ws_of("small@example.com")[0] == 100, "SIGNUP_CREDITS_ADS=100: 100 credits")
 os.environ.pop("SIGNUP_CREDITS_ADS")

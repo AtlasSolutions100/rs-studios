@@ -103,7 +103,7 @@
     <div class="batchlist">{% for b in batches %}<a class="runrow" href="{{ url_for('create.batch', bid=b.id) }}"><b>{{ b.title or 'Batch' }}</b><span class="small muted">{{ ad_type_names[b.ad_type].name if b.ad_type in ad_type_names else b.ad_type }}{% if b.pname %} · {{ b.pname }}{% endif %} · {{ b.n }} ad{{ 's' if b.n != 1 }}{% if b.busy %} · <span class="gold">{{ b.busy }} rendering</span>{% endif %}</span></a>{% endfor %}</div>
     {% endif %}
 
-    <div class="section-h"><h2>Templates</h2><span class="muted small">Angles that already work, one click to a brief</span></div>
+    <div class="section-h"><h2>Templates</h2><span class="muted small">Start from a brief we wrote; edit anything.</span></div>
     <div class="search">
       <label class="field" style="margin:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="q" type="search" placeholder="Search templates, styles, or ideas…" aria-label="Search templates"></label>
       <a class="btn dark" href="{{ url_for('create.index', type='image') }}">Blank image ad</a>

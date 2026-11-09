@@ -6,7 +6,7 @@
   <p style="margin:0 0 14px"><a href="{{ url_for('campaigns.index') }}">← Campaigns</a></p>
   <p class="eyebrow">Campaign · {{ (brief.goal or 'sales')|first_upper }}{% for p in brief.platforms or [] %}{{ ' · ' if loop.first else ', ' }}{{ PLATFORMS[p].short if p in PLATFORMS else p }}{% endfor %}</p>
   <h1>{{ c.name }}</h1>
-  <p class="muted">{% if brief.audience %}{{ brief.audience }} · {% endif %}{% if brief.budget %}Budget {{ brief.budget }} · {% endif %}Planning cost {{ c.credits }} credits</p>
+  <p class="muted">{% if brief.audience %}{{ brief.audience }} · {% endif %}{% set btext = money.text(brief) %}{% if btext %}Ad budget {{ btext }} · {% endif %}Planning cost {{ c.credits|credits }}</p>
 
   {% if c.status == 'planning' %}
   <div class="panel planning" id="planning" data-steps="{{ steps|length }}">
@@ -28,7 +28,7 @@
     {% if final.offer %}<div class="panel offerbox"><h3>The offer</h3><p>{{ final.offer }}</p></div>{% endif %}
     <div class="grid2">
       {% if final.budget_split %}<div class="panel"><h3>Budget split for the first test</h3>
-        {% for b in final.budget_split %}<div class="bar"><div class="bar-h"><span>{{ PLATFORMS[b.platform].name if b.platform in PLATFORMS else b.platform }}</span><b>{{ b.share_percent }}%</b></div><i style="--v:{{ b.share_percent }}%"></i>{% if b.note %}<p class="small muted">{{ b.note }}</p>{% endif %}</div>{% endfor %}
+        {% for b in final.budget_split %}<div class="bar"><div class="bar-h"><span>{{ PLATFORMS[b.platform].name if b.platform in PLATFORMS else b.platform }}</span><b>{% set amt = money.share(brief, b.share_percent) %}{% if amt %}<span class="splitamt">{{ amt }}</span> · {% endif %}{{ b.share_percent }}%</b></div><i style="--v:{{ b.share_percent }}%"></i>{% if b.note %}<p class="small muted">{{ b.note }}</p>{% endif %}</div>{% endfor %}
       </div>{% endif %}
       <div class="panel">
         {% if final.kpis %}<h3>What to watch</h3><ul class="rules">{% for k in final.kpis %}<li>{{ k }}</li>{% endfor %}</ul>{% endif %}
@@ -76,12 +76,12 @@
             <p class="vtext small">{{ a.brief }}</p>
             {% if a.status == 'proposed' %}<p class="small" style="margin:6px 0 0"><a href="{{ url_for('create.index', from_ad=a.id) }}">Open in Create →</a> <span class="dim">pick the presenter, hooks and shapes there</span></p><details class="small"><summary>Edit brief</summary><textarea name="brief" form="edit{{ a.id }}" maxlength="2000" aria-label="Brief">{{ a.brief }}</textarea><button class="btn dark sm" form="edit{{ a.id }}" style="margin-top:8px">Save brief</button></details>{% endif %}
           </div>
-          <div class="adcost"><b>{{ a.credits }}</b><span class="small muted">credits</span></div>
+          <div class="adcost"><b>{{ '{:,}'.format(a.credits) }}</b><span class="small muted">{{ 'credit' if a.credits == 1 else 'credits' }}</span></div>
         </div>
       {% endfor %}
       </div>
       {% if ads|selectattr('status', 'equalto', 'proposed')|list %}
-      <div class="go confirm"><span class="muted small">Selected: <b id="selcount">0</b> ads · <b id="seltotal">0</b> credits · you have {{ '{:,}'.format(balance()) }}</span>
+      <div class="go confirm"><span class="muted small"><span id="selline">Selected: 0 ads · 0 credits</span> · you have <span data-plan-bal>{{ balance()|credits }}</span></span>
         <button class="btn" id="genbtn">Generate selected ads</button></div>
       {% endif %}
     </form>
@@ -107,7 +107,7 @@
     <h2>Copy for each platform</h2>
     {% for cp in plan.get('copy') or [] %}
     <h3 class="subh">{{ PLATFORMS[cp.platform].name }} · {{ COPY_KINDS[cp.kind].name }}{% if cp.angle and cp.angle != 'all' %} · <span class="muted">{{ cp.angle }}</span>{% endif %}</h3>
-    <div class="variants" style="margin-top:10px">{% set outer = loop.index %}{% for v in cp.variants %}{% set vid = outer ~ '-' ~ loop.index %}{% include "_variant.html" %}{% endfor %}</div>
+    <div class="variants" style="margin-top:10px">{% set outer = loop.index %}{% set vplatform = cp.platform %}{% set vrevise = True %}{% for v in cp.variants %}{% set vid = outer ~ '-' ~ loop.index %}{% include "_variant.html" %}{% endfor %}</div>
     {% endfor %}
   </section>
   {% endif %}
@@ -131,11 +131,11 @@
 
   {% if c.status != 'planning' %}
   <section class="camp-sec">
-    <form method="post" action="{{ url_for('campaigns.revise', cid=c.id) }}" class="panel copyform">
+    <form method="post" action="{{ url_for('campaigns.revise', cid=c.id) }}" class="panel copyform" id="revise">
       <input type="hidden" name="csrf" value="{{ csrf_token() }}">
       <h3>Revise the plan</h3>
-      <p class="small muted">Tell the planner what to change. Ads you haven't generated are replaced; generated ones stay. Up to {{ cap }} credits, you pay what it uses.</p>
-      <textarea name="notes" maxlength="1500" style="min-height:80px" placeholder="e.g. Focus on TikTok only, younger audience, more video"></textarea>
+      <p class="small muted">Tell the planner what to change. Ads you haven't generated are replaced; generated ones stay. Up to {{ cap|credits }}, you pay what it uses.</p>
+      <label for="revise-notes" class="sr">What to change</label><textarea id="revise-notes" name="notes" maxlength="1500" style="min-height:80px" placeholder="e.g. Focus on TikTok only, younger audience, more video"></textarea>
       <div class="row" style="margin-top:12px"><button class="btn dark" {{ 'disabled' if not ai_on }}>Revise</button></div>
     </form>
     <form method="post" action="{{ url_for('campaigns.delete', cid=c.id) }}" data-confirm="Delete this campaign? Generated ads stay in your library." style="margin-top:14px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn copybtn" style="color:var(--dim)">Delete campaign</button></form>
@@ -151,10 +151,14 @@
   var f = document.getElementById('adform');
   if (f) {
     function upd(){ var n = 0, t = 0; f.querySelectorAll('input[name=ad]:checked').forEach(function(i){ n++; t += +i.dataset.credits; });
-      document.getElementById('total').value = t; var c = document.getElementById('selcount'); if (c) { c.textContent = n; document.getElementById('seltotal').textContent = t.toLocaleString(); }
-      var b = document.getElementById('genbtn'); if (b) { b.disabled = !n; b.textContent = n ? 'Generate ' + n + ' ad' + (n > 1 ? 's' : '') + ' for ' + t.toLocaleString() + ' credits' : 'Pick ads to generate'; } }
+      var ts = t.toLocaleString('en-US'), cw = t === 1 ? ' credit' : ' credits';
+      document.getElementById('total').value = t; var c = document.getElementById('selline'); if (c) { c.textContent = 'Selected: ' + n + ' ad' + (n === 1 ? '' : 's') + ' · ' + ts + cw; }
+      var b = document.getElementById('genbtn'); if (b) { b.disabled = !n; b.textContent = n ? 'Generate ' + n + ' ad' + (n > 1 ? 's' : '') + ' for ' + ts + cw : 'Pick ads to generate'; } }
     f.addEventListener('change', upd); upd();
   }
+  document.addEventListener('click', function(e){ var a = e.target.closest('[data-revise-note]'); if (!a) return;
+    var t = document.getElementById('revise-notes'); if (!t) return; e.preventDefault();
+    t.value = (t.value ? t.value.replace(/\s+$/, '') + '\n' : '') + a.dataset.reviseNote; t.scrollIntoView({block: 'center'}); t.focus(); });
   var cl = document.querySelector('.checklist');
   if (cl) { var key = cl.dataset.key, st = {}; try { st = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) {}
     cl.querySelectorAll('input[data-i]').forEach(function(i){ i.checked = !!st[i.dataset.i]; i.addEventListener('change', function(){ st[i.dataset.i] = i.checked; try { localStorage.setItem(key, JSON.stringify(st)); } catch (e) {} }); }); }
