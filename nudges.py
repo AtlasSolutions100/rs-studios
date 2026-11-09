@@ -16,7 +16,8 @@ logs the account in and, since the email reached them, counts as confirming the
 address (verify.py) so video ads are unlocked when they land.
 
 run_once() is called every TICK_S by a daemon thread started from app.py (the
-same pattern as the hourly Stripe plan sync). FIRST_RUN_NUDGES=0 switches the
+same pattern as the hourly Stripe plan sync); the same thread resends deferred
+account emails every minute (mail_tick, mailer.retry_deferred). FIRST_RUN_NUDGES=0 switches the
 emails off (the thread still runs and does nothing).
 """
 import logging
@@ -180,15 +181,39 @@ def send(conn, secret: str, user, step: int) -> bool:
 
 
 def run_once(secret: str, now=None) -> int:
-    """Send every nudge that is due. Returns how many were sent."""
+    """Send every nudge that is due. Returns how many were sent. Nurture
+    (mailer.py): while mailer.nurture_block() says no (quota hold, a code or
+    confirm email waiting to be resent, EMAIL_NURTURE_DAILY_MAX, the
+    transactional reserve), nothing is claimed and the step waits for a later tick."""
     if not enabled() or not mailer.configured():
         return 0
     sent = 0
     with db.connect() as conn:
         for user, step in due(conn, now):
+            why = mailer.nurture_block(conn)
+            if why:
+                log.info("first-run nudges paused: %s", why)
+                break
             if send(conn, secret, user, step):
                 sent += 1
     return sent
+
+
+def mail_tick(app, n: int):
+    """One pass of the loop: resend deferred account emails first (every pass, a
+    minute apart: a code is only good for 15), then the nudges every TICK_S."""
+    try:
+        st = mailer.retry_deferred()
+        if st.get("resent") or st.get("failed"):
+            log.info("email resend: %s", st)
+    except Exception:  # noqa: BLE001
+        log.exception("email resend failed")
+    if n % max(1, TICK_S // RETRY_TICK_S) == 0:
+        with app.app_context():
+            run_once(app.secret_key)
+
+
+RETRY_TICK_S = 60
 
 
 def start(app):
@@ -197,11 +222,12 @@ def start(app):
         return
 
     def loop():
+        n = 0
         while True:
-            time.sleep(TICK_S)
+            time.sleep(RETRY_TICK_S)
+            n += 1
             try:
-                with app.app_context():
-                    run_once(app.secret_key)
+                mail_tick(app, n)
             except Exception:  # noqa: BLE001
                 log.exception("first-run nudges failed")
 

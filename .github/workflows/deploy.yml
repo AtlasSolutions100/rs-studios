@@ -43,6 +43,9 @@ name: Deploy Campaignify (campaignify.ai)
 #   RS_EMAIL_VERIFY / RS_ACCOUNT_MAIL_FROM                  optional variables: confirm-your-email for free accounts
 #                          (0 switches it off) and its From (default "Campaignify" <no-reply@RS_MAIL_DOMAIN>)
 #   FIRST_RUN_NUDGES       optional variable: "0" switches off the "your free ads are waiting" emails (nudges.py)
+#   EMAIL_DAILY_LIMIT / EMAIL_TRANSACTIONAL_RESERVE / EMAIL_NURTURE_DAILY_MAX  optional variables: the email
+#                          budget (mailer.py; defaults 100, 30, 60). Nurture stops at its cap or once today's
+#                          sends reach the limit minus the reserve; EMAIL_DAILY_LIMIT=0 means no daily limit.
 #   GOOGLE_OAUTH_CLIENT_SECRET  Continue with Google (google_auth.py): the OAuth client secret of the Campaignify
 #                          web app in Google Cloud. The button shows only once this is set.
 #   GOOGLE_OAUTH_CLIENT_ID optional variable: that client's id (public). Unset, the app uses
@@ -200,6 +203,9 @@ jobs:
           RS_ACCOUNT_MAIL_FROM: ${{ vars.RS_ACCOUNT_MAIL_FROM }}
           RS_OUTREACH_FROM: ${{ vars.RS_OUTREACH_FROM }}
           FIRST_RUN_NUDGES: ${{ vars.FIRST_RUN_NUDGES }}
+          EMAIL_DAILY_LIMIT: ${{ vars.EMAIL_DAILY_LIMIT }}
+          EMAIL_TRANSACTIONAL_RESERVE: ${{ vars.EMAIL_TRANSACTIONAL_RESERVE }}
+          EMAIL_NURTURE_DAILY_MAX: ${{ vars.EMAIL_NURTURE_DAILY_MAX }}
           GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           GADS_SIGNUP_LABEL: ${{ vars.GADS_SIGNUP_LABEL || 'vf0bCP_Xja8dEIK1gYpF' }}
@@ -279,6 +285,7 @@ jobs:
                                              "RS_HD_MARKUP", "RS_VIDEO_UPSCALE_MODEL", "RS_VIDEO_UPSCALE_USD_PER_SECOND",
                                              "RS_FREE_PREVIEW", "RS_FREE_PREVIEWS_PER_DAY", "RS_EMAIL_VERIFY",
                                              "RS_ACCOUNT_MAIL_FROM", "RS_OUTREACH_FROM", "FIRST_RUN_NUDGES",
+                                             "EMAIL_DAILY_LIMIT", "EMAIL_TRANSACTIONAL_RESERVE", "EMAIL_NURTURE_DAILY_MAX",
                                              "GOOGLE_OAUTH_CLIENT_ID", "GOOGLE_OAUTH_CLIENT_SECRET", "TWILIO_ACCOUNT_SID",
                                              "TWILIO_AUTH_TOKEN", "TWILIO_PRIMARY_PROFILE_SID", "TWILIO_NOTIFY_EMAIL",
                                              "GADS_SIGNUP_LABEL", "GADS_PURCHASE_LABEL", "GADS_TAG_ID",

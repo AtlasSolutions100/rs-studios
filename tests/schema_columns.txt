@@ -379,6 +379,16 @@ credit_reversals.status TEXT
 credit_reversals.stripe_id TEXT
 credit_reversals.updated_at TEXT
 credit_reversals.workspace_id INTEGER
+email_log.created_at TEXT
+email_log.error TEXT
+email_log.id INTEGER
+email_log.kind TEXT
+email_log.payload TEXT
+email_log.retried_at TEXT
+email_log.retry_after TEXT
+email_log.status TEXT
+email_log.subject TEXT
+email_log.to_addr TEXT
 first_run_nudges.sent_at TEXT
 first_run_nudges.step INTEGER
 first_run_nudges.user_id INTEGER

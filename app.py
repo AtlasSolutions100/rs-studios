@@ -43,6 +43,7 @@ import gads
 import hf
 import imagesafe  # noqa: F401  sets Pillow's MAX_IMAGE_PIXELS once at startup (H-1)
 import login_security
+import mailer
 import nudges
 import opslog
 import plans
@@ -890,7 +891,7 @@ def verify_resend():
     with db.connect() as conn:
         sent = verify.send_link(conn, app.secret_key, g.user)
     flash(f"Sent a new link and code to {g.user['email']}. It can take a minute; check spam too." if sent else
-          "We couldn't send the email just now. Try again in a few minutes.", "ok" if sent else "message")
+          mailer.COULD_NOT_SEND_CODE, "ok" if sent else "message")
     return redirect(dest)
 
 
@@ -903,7 +904,7 @@ def verify_code_send():
     if verify.is_verified(g.user):
         return jsonify({"ok": True, "verified": True})
     auto = bool((request.get_json(silent=True) or {}).get("auto"))
-    if auto and verify.code_live(g.user):
+    if auto and verify.code_live(g.user) and verify.code_sent(g.user):
         return jsonify({"ok": True, "sent": False, "message": f"We sent a code to {g.user['email']}."})
     wait = _resend_wait()
     if wait:
@@ -913,7 +914,7 @@ def verify_code_send():
     with db.connect() as conn:
         sent = verify.send_link(conn, app.secret_key, g.user)
     if not sent:
-        return jsonify({"error": "We couldn't send the email just now. Try again in a few minutes."}), 503
+        return jsonify({"error": mailer.COULD_NOT_SEND_CODE, "retry": 60}), 503
     return jsonify({"ok": True, "sent": True, "message": f"We sent a new code to {g.user['email']}. "
                                                          "It can take a minute; check spam too."})
 

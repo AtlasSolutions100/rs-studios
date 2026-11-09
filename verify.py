@@ -304,7 +304,12 @@ def send_link(conn, secret: str, user, first_login: bool = False) -> bool:
                     html=html, text=text, reply_to=reply_to(), tags={"kind": "verify_email"})
         return True
     except mailer.MailError as e:
+        # Not sent (Nov 8 2026: the shared quota ran out). The send doesn't count against
+        # the once-a-minute Resend limit, so the box can say "try again in a minute" and
+        # mean it; a deferred copy goes out within the code's 15 minutes if the provider
+        # takes mail again (mailer.retry_deferred), and a new Resend replaces it.
         log.warning("verification email to user %s not sent: %s", user["id"], e)
+        _refund_resend(user)
         return False
 
 
@@ -328,5 +333,21 @@ def _send_first_login(conn, user, link: str) -> bool:
                     html=html, text=text, reply_to=reply_to(), tags={"kind": "verify_signup"})
         return True
     except mailer.MailError as e:
-        log.warning("sign-up confirmation email to user %s not sent: %s", user["id"], e)
+        # A quota or rate refusal keeps the copy: mailer.retry_deferred sends it when the
+        # provider takes mail again (the link works 48 hours), so the sign-up isn't stuck.
+        log.warning("sign-up confirmation email to user %s not sent%s: %s", user["id"],
+                    " (deferred, resent later)" if getattr(e, "queued", False) else "", e)
+        _refund_resend(user)
         return False
+
+
+def _refund_resend(user):
+    try:
+        db.unhit(f"verify:{user['id']}")
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def code_sent(user) -> bool:
+    """The newest code email reached the provider (False only when the log says it didn't)."""
+    return mailer.delivered(user["email"], "verify_email") is not False

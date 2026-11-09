@@ -37,6 +37,15 @@ RS_MAIL_DOMAIN=mail.campaignify.ai
 # Admin outreach emails (/admin/outreach) come from "Koby Stull" <hello@RS_MAIL_DOMAIN> unless set;
 # replies go to hello@ the From's domain.
 # RS_OUTREACH_FROM="Koby Stull" <hello@campaignify.ai>
+# Email budget (mailer.py). Codes, confirm links and resets always go first; a quota error defers them
+# and they are resent when the quota is back. Nurture (first-run nudges, outreach) stops at
+# EMAIL_NURTURE_DAILY_MAX a day (UTC), or once today's sends reach EMAIL_DAILY_LIMIT minus
+# EMAIL_TRANSACTIONAL_RESERVE. EMAIL_DAILY_LIMIT=0 means no daily limit (Resend Pro). Crowdcut shares
+# the Resend account and keeps its own count, so split the 100 between the two on the Free plan.
+# EMAIL_DAILY_LIMIT=100
+# EMAIL_TRANSACTIONAL_RESERVE=30
+# EMAIL_NURTURE_DAILY_MAX=60
+# EMAIL_MAX_PER_SEC=3
 # RS_EMAIL_VERIFY=1
 # A form sign-up logs in first from its emailed link, so sign-up says nothing about which emails
 # have accounts (login_security.py). 0 logs a new sign-up straight in again.

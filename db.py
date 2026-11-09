@@ -95,6 +95,15 @@ CREATE TABLE IF NOT EXISTS login_tokens (
     token_hash TEXT PRIMARY KEY, kind TEXT NOT NULL, user_id INTEGER NOT NULL, email TEXT NOT NULL,
     expires_at INTEGER NOT NULL, used_at TEXT, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_login_tokens_user ON login_tokens(user_id, kind);
+-- Account emails (mailer.py, Nov 8 2026): codes, confirm links, resets, nudges, alerts. status:
+-- sent | failed | skipped | deferred (quota or rate; payload kept for a transactional one) |
+-- retrying | retried (the deferred copy went out later) | dropped. Workspace emails stay in `messages`.
+CREATE TABLE IF NOT EXISTS email_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, to_addr TEXT NOT NULL, subject TEXT, kind TEXT, status TEXT NOT NULL,
+    error TEXT, created_at TEXT NOT NULL, retry_after TEXT, payload TEXT, retried_at TEXT);
+CREATE INDEX IF NOT EXISTS idx_email_log_created ON email_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_email_log_status ON email_log(status);
+CREATE INDEX IF NOT EXISTS idx_email_log_to ON email_log(to_addr, kind);
 CREATE TABLE IF NOT EXISTS plan_invoices (
     invoice_id TEXT PRIMARY KEY,
     workspace_id INTEGER NOT NULL,
@@ -1045,6 +1054,14 @@ def throttled(key: str, limit: int, window_s: float) -> bool:
     with connect() as conn:
         n = conn.execute("SELECT COUNT(*) FROM throttle WHERE key=? AND at>?", (key, time.time() - window_s)).fetchone()[0]
     return n >= limit
+
+
+def unhit(key: str):
+    """Take back the newest attempt for `key` (an email that never went out shouldn't count against a resend limit)."""
+    with connect() as conn:
+        conn.execute("DELETE FROM throttle WHERE rowid=(SELECT rowid FROM throttle WHERE key=? ORDER BY at DESC LIMIT 1)",
+                     (key,))
+        conn.commit()
 
 
 def hit(key: str):
