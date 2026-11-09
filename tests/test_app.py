@@ -3271,9 +3271,9 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_conversion_actions.py")], check=True)
     # Migrations stay additive (N3): no column dropped, renamed or retyped; an old database upgrades in place.
     subprocess.run([sys.executable, os.path.join(HERE, "test_migrations.py")], check=True)
+    # Live ids are settings (liveids.py, M7.4; SEC-9): one place, a setting wins, RS_LIVE_IDS=settings, no owner emails.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_liveids.py")], check=True)
     # Create polish (M5.5): template previews, failed-card actions, export thumbnail labels, page Save vs live.
     subprocess.run([sys.executable, os.path.join(HERE, "test_create_polish.py")], check=True)
     # Accessibility pass (M5.6): light-theme status colours, skip link, input labels, h1s, focus ring, hero alt.
     subprocess.run([sys.executable, os.path.join(HERE, "test_a11y.py")], check=True)
-    # Live ids are settings (liveids.py, M7.4; SEC-9): one place, a setting wins, RS_LIVE_IDS=settings, no owner emails.
-    subprocess.run([sys.executable, os.path.join(HERE, "test_liveids.py")], check=True)
