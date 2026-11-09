@@ -56,7 +56,7 @@
     <p class="muted small" style="margin:0 0 10px">Enter the code from our email. A free-month code needs no card and doesn't renew; a discount code comes off your first plan payment.</p>
     <form method="post" action="{{ url_for('billing_code') }}" class="row" style="gap:8px;flex-wrap:wrap">
       <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-      <input id="comp-code" type="text" name="code" aria-label="Code" maxlength="40" placeholder="CFY-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" style="width:220px" required>
+      <input id="comp-code" type="text" name="code" aria-label="Code" maxlength="40" placeholder="Code from our email" autocomplete="off" autocapitalize="characters" spellcheck="false" style="width:220px" required>
       <button class="btn sm">Apply code</button>
     </form>
   </div>
@@ -70,13 +70,14 @@
       <h3>{{ p.name }}</h3>
       <div class="lp-amt">${{ p.usd }}<span class="per">/mo</span></div>
       <p class="lp-cr">{{ '{:,}'.format(p.credits) }} credits every month</p>
-      <p class="small plan-out">≈ {{ p.credits // r.talk10 }} talking videos or {{ p.credits // r.video5 }} product videos a month</p>
+      {% set m = ad_math(p.credits, p.usd) %}<p class="small plan-out">{{ m.counts }}, each month.</p>
+      <p class="small plan-per">{{ m.per_ad }}</p>
       <p class="muted small">{{ p.line }}</p>
       {% include "_plan_features.html" %}
       {% if not owner %}
         <span class="btn dark disabled" aria-disabled="true">Owner manages billing</span>
       {% elif not billing_configured() %}
-        <span class="btn dark disabled" aria-disabled="true">Plans open soon</span>
+        <span class="btn dark disabled" aria-disabled="true">Not open yet</span>
       {% elif renewal_failed %}
         {% if p.code == g.ws.plan %}<form method="post" action="{{ url_for('billing_portal') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark" style="width:100%">Update your card</button></form>
         {% else %}<span class="btn dark disabled" aria-disabled="true">Update your card first</span>{% endif %}
@@ -98,11 +99,11 @@
       <h3>{{ p.name }} pack</h3>
       <div class="lp-amt">${{ p.usd }}</div>
       <p class="lp-cr">{{ '{:,}'.format(p.credits) }} credits{% if p.bonus %} <span class="gold">· {{ '{:,}'.format(p.bonus) }} bonus</span>{% endif %}</p>
-      <p class="muted small">About {{ p.credits // r.talk10 }} talking videos (10 s), {{ p.credits // r.video5 }} product videos (5 s) or {{ '{:,}'.format(p.credits // r.image) }} image ads.</p>
+      {% set m = ad_math(p.credits, p.usd) %}<p class="muted small">{{ m.counts }}. Image ad about {{ m.usd_image }}.</p>
       {% if billing_configured() %}
       <form method="post" action="{{ url_for('checkout') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="pack" value="{{ p.code }}"><button class="btn dark" style="width:100%">Buy for ${{ p.usd }}</button></form>
       {% else %}
-      <span class="btn dark disabled" aria-disabled="true" style="width:100%">Checkout coming soon</span>
+      <span class="btn dark disabled" aria-disabled="true" style="width:100%">Not open yet</span>
       {% endif %}
     </div>
     {% endfor %}

@@ -2,13 +2,14 @@
 {% block auth_class %}{{ ' wide' if not owner and not invite }}{% endblock %}
 {% block auth_aside %}{% if not owner and not invite %}
 <aside class="auth-next" aria-labelledby="next-h">
+  {% set sc = signup_offer().credits %}{% set ni = sc // rates().image %}
   <p class="eyebrow" id="next-h">What happens next</p>
   <ol>
-    <li><b>Paste your product page</b> or add a photo. We read the name, brand and photo for you.</li>
-    <li><b>Pick a template.</b> The brief is written for you; edit it if you like.</li>
-    <li><b>Your ad is ready in about a minute.</b> Every price is shown in credits before you press the button.</li>
+    <li><b>Paste your product page.</b> We read the name, brand and photo. No store page? Type the name and add one photo{{ ', or tell us you sell a service' if service_path_on() }}.</li>
+    <li><b>Pick a look.</b> {{ first_run_count() }} templates, brief written for you. Your {{ ni }} ad{{ '' if ni == 1 else 's' }} {{ 'is' if ni == 1 else 'are' }} ready in about a minute.</li>
+    <li><b>Then the campaign.</b> The planner proposes the budget, platforms and a 2-week test, writes the copy per platform and builds the landing page. Every price is shown before you press the button.</li>
   </ol>
-  <p class="small muted" style="margin:14px 0 0" data-signup-card-note>{% if card_required() %}Next, you save a card. Nothing is charged, and no plan starts until you pick one. It stops abuse of the free credits.{% else %}Nothing is charged and nothing renews.{% endif %} Costs are in credits only; the free credits never expire.</p>
+  <p class="small muted" style="margin:14px 0 0" data-signup-card-note>{% if card_required() %}Next, you save a card. Nothing is charged until you pick a plan or buy a pack, and no plan starts by itself. One free trial per person; the card stops abuse of the free credits.{% else %}Nothing is charged and nothing renews.{% endif %} The {{ '{:,}'.format(sc) }} free credits never expire.</p>
 </aside>{% endif %}{% endblock %}
 {% block auth %}
   {% set r = rates() %}{% set so = signup_offer() %}{% set sc = so.credits %}
@@ -20,19 +21,19 @@
   <p class="muted">Your invite puts you in your team's workspace. Pick a password and you're in.</p>
   {% else %}
   <h2>Start free</h2>
-  <p class="muted">{{ so.body }}</p>
+  <p class="muted">{{ so.body }} The plan, copy, page and launch guide come when you want them.</p>
   {% endif %}
   {% if not owner and google_signin() %}{% with href=url_for('google_auth.start', invite=invite or None) %}{% include "_google_button.html" %}{% endwith %}{% endif %}
   <form method="post" action="{{ url_for('signup') }}">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
     <div class="hp" aria-hidden="true"><label for="website">Website</label><input id="website" type="text" name="website" tabindex="-1" autocomplete="off"></div>
     <label for="email">Email</label><input id="email" type="email" name="email" required autocomplete="email" value="{{ owner or email }}">
-    <label for="pw">Password (8+ characters)</label><input id="pw" type="password" name="password" required minlength="8" autocomplete="new-password">
+    <label for="pw">Password, 8 or more characters</label><input id="pw" type="password" name="password" required minlength="8" autocomplete="new-password">
     {% if owner %}<input type="hidden" name="invite" value="{{ invite }}">
     {% elif invite %}<label for="inv">Invite code</label><input id="inv" type="text" name="invite" value="{{ invite }}">
     {% else %}<details class="inv"><summary class="small muted">Have an invite code?</summary><label for="inv">Invite code</label><input id="inv" type="text" name="invite" value=""></details>{% endif %}
     {% if not owner %}<details class="inv" {{ 'open' if comp_code }}><summary class="small muted">Have a free-month code?</summary><label for="comp">Code from our email</label><input id="comp" type="text" name="comp_code" maxlength="40" value="{{ comp_code or '' }}" placeholder="CFY-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false"></details>{% endif %}
-    <p style="margin-top:22px"><button class="btn" style="width:100%">Create account</button></p>
+    <p style="margin-top:22px"><button class="btn" style="width:100%">Create my account</button></p>
     <p class="small dim" style="margin:0">By creating an account you agree to the <a href="{{ url_for('terms') }}">terms</a> and <a href="{{ url_for('privacy') }}">privacy policy</a>.</p>
   </form>
   <p class="small muted">Already have one? <a href="{{ url_for('login') }}">Log in</a>.</p>

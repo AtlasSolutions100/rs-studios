@@ -3,15 +3,15 @@
 {% set r = rates() %}{% set so = signup_offer() %}{% set sc = so.credits %}
 <section class="lp-hero lp-hero-sm">
   <div class="lp-wrap">
-    <p class="eyebrow">Pricing</p>
-    <h1>Campaignify pricing</h1>
-    <p class="lp-lede">{{ so.body }} Plans are ${{ plans.PLANS.starter.usd }}, ${{ plans.PLANS.growth.usd }} and ${{ plans.PLANS.scale.usd }} a month with monthly credits and the campaign tools, and credit packs top up any account. You see the price of every ad in credits before it's made.</p>
+    <p class="eyebrow">Plans and credits</p>
+    <h1>Pricing</h1>
+    <p class="lp-lede">Every plan is a monthly credit allowance plus the campaign tools. An image ad is {{ r.image }} credits, a 5-second product video {{ '{:,}'.format(r.video5) }}, an 8-second talking video {{ '{:,}'.format(r.talk8) }}, and you see the exact number before you press Generate. Failed renders are refunded. Plan credits reset each month; pack credits never expire.</p>
   </div>
 </section>
 <section class="lp-sec" id="plans">
   <div class="lp-wrap">
     <h2 class="lp-h2">Plans and credit packs</h2>
-    <p class="lp-sub muted">The free studio makes ads. Starter adds the planner, copy, ad-account setup, a landing page and smart links; Growth adds search and AI-answer audits, forms, contacts and full link analytics; Scale adds your community. An image ad is {{ r.image }} credits, a 5-second video {{ r.video5 }}, a 10-second video {{ r.video10 }}.</p>
+    <p class="lp-sub muted">The free studio makes ads. Starter adds the planner, copy, ad-account setup, a landing page and smart links; Growth adds search and AI-answer audits, forms, contacts and full link analytics; Scale adds your community.</p>
     {% include "_pricing.html" %}
     <p class="small muted">Want the detail behind each plan? See <a href="{{ url_for('features') }}">every feature, step by step</a>.</p>
   </div>

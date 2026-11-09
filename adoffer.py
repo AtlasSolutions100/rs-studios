@@ -18,7 +18,10 @@ Anyone who doesn't qualify gets the normal starter credits.
 The page copy uses the same test (offer(), web templates' signup_offer()): a
 visitor sees "Your first video ad is on us: 500 credits" only when the grant would be made
 for them and it covers the cheapest video ad (a 5-second product video);
-everyone else sees "Try 2 image ads free".
+everyone else sees "Make 2 ads with your free credits".
+
+While the card step is on (RS_CARD_REQUIRED, card_on_file.active()) the copy says
+so plainly (CARD_LINE); otherwise it says nothing is charged (NO_CARD_LINE).
 """
 import os
 from datetime import datetime, timedelta, timezone
@@ -36,6 +39,16 @@ BROWSER_COOKIE_DAYS = 365
 PAID_MEDIUMS = {"cpc", "ppc", "cpm", "paid"}
 AD_CLICK_KEYS = ("gclid", "gbraid", "wbraid", "fbclid", "ttclid", "rdt_cid", "twclid")
 REASON = "starter credits (ad sign-up offer)"
+# What free sign-up asks for, in the public copy (re-audit L-4). One free trial per
+# person: a card or email that already had starter credits gets none again (card_on_file).
+CARD_LINE = "Card needed to start, never charged until you pick a plan or buy a pack. One free trial per person."
+NO_CARD_LINE = "Nothing is charged."
+
+
+def card_on() -> bool:
+    """The card step is on for new sign-ups (card_on_file.active)."""
+    import card_on_file
+    return card_on_file.active()
 
 
 def credits() -> int:
@@ -110,9 +123,12 @@ def claim(conn, ws_id: int, email: str, ip: str, touch: dict, browser_marked: bo
     return n if cur.rowcount == 1 else 0
 
 
-def offer(n_credits: int | None = None) -> dict:
+def offer(n_credits: int | None = None, card: bool | None = None) -> dict:
     """The sign-up offer copy for `n_credits` starter credits (default: the normal
-    ones): {"credits", "images", "video", "ad", "cta", "body"}."""
+    ones): {"credits", "images", "video", "ad", "cta", "body", "terms", "card"}.
+    `card` (default: card_on()) says whether sign-up asks for a card."""
+    card = card_on() if card is None else card
+    terms = CARD_LINE if card else NO_CARD_LINE
     r = catalog.rates()
     base = catalog.starter_credits()
     n = base if n_credits is None else n_credits
@@ -122,8 +138,9 @@ def offer(n_credits: int | None = None) -> dict:
     if video:
         cta = f"Your first video ad is on us: {n:,} credits"
         body = (f"Free sign-up includes {n:,} credits: enough for a 5-second product video, or {ads}. "
-                f"Talking presenter videos from {r['talk8']:,} credits. Nothing is charged.")
+                f"Talking presenter videos from {r['talk8']:,} credits. {terms}")
     else:
-        cta = f"Try {ads} free"
-        body = f"Free sign-up includes {ads} ({n:,} credits). Nothing is charged."
-    return {"credits": n, "images": images, "video": video, "ad": n > base, "cta": cta, "body": body}
+        cta = f"Make {images} ad{'' if images == 1 else 's'} with your free credits"
+        body = f"Free sign-up includes {ads} ({n:,} credits). {terms}"
+    return {"credits": n, "images": images, "video": video, "ad": n > base, "cta": cta, "body": body,
+            "terms": terms, "card": card}

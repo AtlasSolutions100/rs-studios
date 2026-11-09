@@ -85,7 +85,7 @@
     var p = probs[s.id] || [], typeName = (B.types[s.type] || {}).name || s.type;
     var chan = (s.type === 'email' && !B.channels.email) || (s.type === 'sms' && !B.channels.sms);
     return '<div class="fl-card t-' + s.type + (sel === s.id ? ' sel' : '') + (p.length ? ' bad' : '') + '" data-id="' + esc(s.id) + '" tabindex="0" role="button" aria-pressed="' + (sel === s.id) + '" aria-label="' + esc(typeName + ': ' + summary(s)) + '">' +
-      '<span class="fl-ico">' + icon(s.type) + '</span><span class="fl-txt"><b>' + esc(typeName) + (chan ? ' <em class="lock">as a task</em>' : '') + '</b><span>' + esc(summary(s)) + '</span>' +
+      '<span class="fl-ico">' + icon(s.type) + '</span><span class="fl-txt"><b>' + esc(typeName) + (chan ? ' <em class="lock">as a task</em>' : '') + (s.ai ? ' <em class="lock fl-ai">AI draft</em>' : '') + '</b><span>' + esc(summary(s)) + '</span>' +
       (s.hint ? '<i>' + esc(s.hint) + '</i>' : '') + (p.length ? '<span class="fl-err">' + esc(p.join(' ')) + '</span>' : '') + '</span></div>';
   }
   function ins(list, i){ lists.push(list); return '<div class="fl-ins"><button type="button" class="fl-plus" data-ins="' + (lists.length - 1) + ':' + i + '" aria-label="Add a step here">+</button></div>'; }
@@ -210,6 +210,7 @@
     if(/form_id$/.test(f)) val = el.value ? +el.value : null;
     if(f === 'trigger.at') val = el.value;
     setPath(target(), f, val);
+    if(sel !== 'trigger' && target().ai) delete target().ai;   // edited: no longer an untouched AI draft
     setDirty(true); renderStack();
     if(f === 'body' && sel !== 'trigger' && find(sel).step.type === 'sms'){ var g = segs(val), sg = $('[data-segs]', insp); if(sg){ sg.textContent = g.n + ' characters · ' + plural(g.segs, 'segment') + ' (' + g.enc + ')' + (g.segs > 1 ? ': keep it to one if you can' : ''); sg.classList.toggle('warnc', g.segs > 1); } }
     var pv = $('.fl-prev', insp); if(pv && sel !== 'trigger'){ var tmp = document.createElement('div'); tmp.innerHTML = preview(find(sel).step); pv.replaceWith(tmp.firstChild); }

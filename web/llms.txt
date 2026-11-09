@@ -39,7 +39,7 @@ Campaignify doesn't post ads, buy media or read results from ad platforms. It gu
 
 ## Plans
 
-- Free: {{ '{:,}'.format(starter_credits()) }} starter credits (free sign-up includes {{ starter_credits() // rates().image }} image ads) and the ad studio, nothing charged.
+- Free: {{ '{:,}'.format(starter_credits()) }} starter credits (free sign-up includes {{ starter_credits() // rates().image }} image ads) and the ad studio. {{ signup_offer().terms }}
 {% for p in plans.PAID %}- {{ p.name }}: ${{ p.usd }} a month, {{ '{:,}'.format(p.credits) }} credits a month. {{ p.line }}
 {% endfor %}- Credit packs ({% for p in packs %}${{ p.usd }}{{ ', ' if not loop.last }}{% endfor %}) top up any account.
 - Every ad is priced in credits, shown before it's made. Plan credits expire at each renewal; pack credits never expire.
@@ -55,7 +55,7 @@ Campaignify doesn't post ads, buy media or read results from ad platforms. It gu
 - Talking (UGC) video with an AI presenter: {{ rc.talk8 }} credits for 8 seconds, {{ rc.talk10 }} for 10 seconds at 720p; {{ '{:,}'.format(rc.talk10_1080) }} for 10 seconds at 1080p.
 - Copy a reference video's motion: {{ rc.motion_per_s }} credits per second of the reference, up to {{ rc.motion_max }}.
 - AI writing tools (planner, copy, SEO audits): charged at what the AI actually used, at least 1 credit, with the most a run can cost shown first.
-- Failed generations are refunded automatically. Free sign-up includes {{ '{:,}'.format(starter_credits()) }} credits ({{ starter_credits() // rc.image }} image ads), nothing charged.
+- Failed generations are refunded automatically. Free sign-up includes {{ '{:,}'.format(starter_credits()) }} credits ({{ starter_credits() // rc.image }} image ads). {{ signup_offer().terms }}
 
 ## Tools
 {% for k, f in plans.FEATURES.items() if f.shipped %}

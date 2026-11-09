@@ -20,6 +20,7 @@ import uuid
 
 from flask import (Flask, abort, flash, g, jsonify, redirect, render_template, request, send_file,
                    session, url_for)
+from werkzeug.exceptions import NotFound
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -1820,9 +1821,12 @@ def billing_code():
     if not login_security.code_attempt(f"code:{g.ws['id']}"):   # BILL-6
         flash(login_security.CODES_MSG)
         return redirect(url_for("billing_page") + "#code")
-    if not compcodes.normalize(raw) and not _subscribed(g.ws) and billing.normalize_promo(raw) \
-            and _save_promo(raw):
-        return redirect(url_for("billing_page") + "#plans")
+    if not compcodes.normalize(raw) and billing.normalize_promo(raw):
+        if not _subscribed(g.ws) and _save_promo(raw):
+            return redirect(url_for("billing_page") + "#plans")
+        # A discount-code shape we couldn't find (COPY-7): not "it looks like CFY-...".
+        flash(f"We couldn't find {billing.normalize_promo(raw)}. Check the spelling, or enter it on the checkout page.")
+        return redirect(url_for("billing_page") + "#code")
     with db.connect() as conn:
         try:
             row = compcodes.redeem(conn, g.ws["id"], g.user["id"], request.form.get("code") or "")
@@ -2839,7 +2843,8 @@ import mcp_tools  # noqa: E402  the MCP server (/mcp, OAuth, API keys); MCP_SERV
 mcp_tools.init(app)
 app.jinja_env.globals["has_endpoint"] = _has_endpoint
 app.jinja_env.globals.update(faq_answer=public_site.answer_html, solution_links=lambda: public_site.SOLUTION_ORDER,
-                             solution_nav=lambda slug: public_site.SOLUTIONS[slug]["nav"], basket=public_site.basket,
+                             solution_nav=lambda slug: public_site.SOLUTIONS[slug]["nav"], basket=public_site.basket, ad_math=public_site.ad_math,
+                             service_path_on=service_path.on, first_run_count=lambda: len(catalog.first_run_templates()),
                              related_cards=public_site.related_cards, footer_groups=public_site.footer_groups)
 
 
@@ -2857,7 +2862,10 @@ def billing_hold_error(e):
 @app.errorhandler(403)
 @app.errorhandler(404)
 def http_error(e):
-    return render_template("error.html", code=e.code, message=getattr(e, "description", "")), e.code
+    message = getattr(e, "description", "")
+    if e.code == 404 and message == NotFound.description:
+        message = ""   # Werkzeug's own sentence: the page says it in our words (COPY-8)
+    return render_template("error.html", code=e.code, message=message), e.code
 
 
 if __name__ == "__main__":

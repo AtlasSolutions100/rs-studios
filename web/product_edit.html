@@ -17,7 +17,7 @@
 
   {% if not p and manual %}
   <section class="panel manualbar" id="manual" aria-labelledby="manual-h">
-    <h2 id="manual-h">{% if manual.why == 'blocked' %}This store doesn't let apps read its pages automatically.{% else %}We couldn't read that page.{% endif %} <span class="gold">Add the details yourself — takes 30 seconds:</span></h2>
+    <h2 id="manual-h">{% if manual.why == 'blocked' %}This store doesn't let apps read its pages automatically.{% else %}We couldn't read that page.{% endif %} <span class="gold">Add the details yourself. It takes about 30 seconds.</span></h2>
     <p class="small muted">{% if manual.domain %}{{ manual.domain }} · {% endif %}{% if manual.why == 'blocked' %}Its bot protection turned us away, and we never try to get around that.{% endif %} Copy the name, price and claims from the product page{% if manual.link %} (<a href="{{ manual.link }}" target="_blank" rel="noopener noreferrer">open it in a new tab</a>){% endif %}, or paste the whole page's text below and we'll pull them out.</p>
     <details class="manual-retry"><summary class="small">Try another link</summary>
       <form method="post" action="{{ url_for('products.import_page') }}" class="importbar-f" data-busy style="margin-top:10px">
