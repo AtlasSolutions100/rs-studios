@@ -481,6 +481,10 @@ class CampaignifyAdapter(mcpserver.Adapter):
     version = "1.0"
     icons = [("/static/img/campaignify-icon-512.png", "image/png", "512x512"),
              ("/static/img/campaignify-icon-192.png", "image/png", "192x192"), ("/favicon.ico", "image/x-icon", "48x48")]
+
+    def web_page(self):
+        """GET /mcp in a browser: the Campaignify MCP page (app.mcp_page)."""
+        return current_app.view_functions["mcp_page"]()
     token_prefix = "cfy"
     settings_path = "/app/mcp"
     docs_path = "/docs/mcp"

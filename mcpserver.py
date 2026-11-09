@@ -6,7 +6,9 @@ each repo holds that app's tools and its Adapter).
 Transport: MCP Streamable HTTP at POST /mcp (spec 2025-11-25, also answers
 2025-06-18 and 2025-03-26 clients). Every POST gets one JSON answer
 (application/json), which the spec allows instead of an SSE stream; the server
-keeps no session, so there is no Mcp-Session-Id, and GET/DELETE /mcp answer 405.
+keeps no session, so there is no Mcp-Session-Id, and GET/DELETE /mcp answer 405. A browser opening /mcp (a GET
+that asks for HTML and not an event stream) gets the app's "use it in Claude" page instead (Adapter.web_page), so
+the address people paste into Claude also explains itself.
 
 Why not the official `mcp` Python SDK: it is an ASGI (Starlette/anyio) server
 and these apps are Flask under sync gunicorn workers. Mounting it would need an
@@ -390,6 +392,8 @@ class Adapter:
     # shows it on the connector; square PNGs on a solid background read best at small sizes.
     icons: list = []
     tools: list = []
+    # A function returning the human page for GET /mcp in a browser (see wants_page), or None for a plain 405.
+    web_page = None
 
     def connect(self):
         raise NotImplementedError
@@ -514,8 +518,13 @@ def blueprint(adapter: Adapter) -> Blueprint:
     # ---- the MCP endpoint
 
     @bp.route("/mcp", methods=["POST", "GET", "DELETE", "OPTIONS"])
-    @on
     def mcp_endpoint():
+        if request.method == "GET" and adapter.web_page and wants_page():
+            return adapter.web_page()        # the human page, whether the server is on or not
+        return mcp_protocol()
+
+    @on
+    def mcp_protocol():
         if request.method == "OPTIONS":
             return cors(Response(status=204))
         if not origin_ok():
@@ -1024,6 +1033,12 @@ def _server_info(adapter) -> dict:
     if adapter.icons:
         info["icons"] = [{"src": base + path, "mimeType": mime, "sizes": [size]} for path, mime, size in adapter.icons]
     return info
+
+
+def wants_page() -> bool:
+    """A browser's page load: it accepts HTML and isn't asking for an MCP event stream."""
+    accept = request.headers.get("Accept", "")
+    return "text/html" in accept and "text/event-stream" not in accept
 
 
 def _ok(mid, result):

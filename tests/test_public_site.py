@@ -230,7 +230,7 @@ for p, pg in pages.items():
             continue
         path = u.path or p
         if path not in seen:
-            seen[path] = pub.get(path)
+            seen[path] = pub.get(path, headers={"Accept": "text/html,application/xhtml+xml"})   # as a browser asks (/mcp is a page only then)
         r = seen[path]
         check(r.status_code == 200, f"{p} → {href} resolves ({r.status_code})") if r.status_code != 200 else None
         if u.fragment:

@@ -935,7 +935,8 @@ PAGES = {  # endpoint -> (path, title, description)
     "terms": ("/terms", "Terms of Service · Campaignify",
               "The rules for using Campaignify: your account, credits and plans, what you can't make with it, and "
               "who's responsible for the ads you post."),
-    "claude_page": ("/claude", "Use Campaignify in Claude: Make Ads From a Chat · Campaignify",
+    # /mcp: browsers get the MCP page there (mcpserver.wants_page), so its meta is keyed by the MCP route's endpoint.
+    "mcp.mcp_endpoint": ("/mcp", "Campaignify MCP: Make Ads From Claude · Campaignify",
                     "Connect Campaignify to Claude and make ads by asking: price and make image ads and AI presenter "
                     "videos, write copy, plan a campaign. Credits shown first, nothing made until you agree."),
     "mcp_docs": ("/docs/mcp", "Connect Claude and MCP Clients · Campaignify",
@@ -954,7 +955,7 @@ def sitemap_paths() -> list[str]:
     paths += [PAGES[e][0] for e in ("for_reps", "llm_info", "privacy", "terms", "messaging.policy")]
     import mcpserver
     if mcpserver.enabled():   # /docs/mcp is noindex until the MCP server is on (SEO-5)
-        paths += [PAGES["claude_page"][0], PAGES["mcp_docs"][0]]
+        paths += [PAGES["mcp.mcp_endpoint"][0], PAGES["mcp_docs"][0]]
     return paths
 
 
