@@ -103,21 +103,16 @@ def _n(n: int, one: str, many: str) -> str:
 
 
 def ad_math(credits: int, usd: float) -> dict:
-    """What `credits` bought for `usd` (a plan's month or a pack) makes, from the rate
-    card: how many of each kind of ad, and about what each finished ad costs in
-    dollars. The one pricing sum for /pricing and Billing (COPY-5); never typed in.
-    E.g. Starter, 2,000 credits for $39: about 90 image ads, or 4 product videos, or 2
-    talking videos; image about $0.43, product video about $9, talking video about $14."""
+    """What `credits` (a plan's month or a pack) makes, from the rate card: how many of
+    each kind of ad. The one pricing sum for /pricing and Billing (COPY-5); never typed
+    in. Counts only: what things cost to make is shown in credits, never in dollars
+    (Koby, Nov 8). E.g. Starter, 2,000 credits: about 90 image ads, or 4 product videos,
+    or 2 talking videos. `usd` is kept for callers and ignored."""
     r = catalog.rates()
-    per = usd / credits if credits else 0.0
     images, videos, talks = credits // max(r["image"], 1), credits // max(r["video5"], 1), credits // max(r["talk8"], 1)
-    usd_image, usd_video, usd_talk = _usd(per * r["image"]), _usd(per * r["video5"]), _usd(per * r["talk8"])
     return {"images": images, "videos": videos, "talks": talks,
-            "usd_image": usd_image, "usd_video": usd_video, "usd_talk": usd_talk,
             "counts": f"About {_n(images, 'image ad', 'image ads')}, or {_n(videos, 'product video', 'product videos')}, "
-                      f"or {_n(talks, 'talking video', 'talking videos')}, in any mix",
-            "per_ad": f"Per finished ad: image about {usd_image}, product video about {usd_video}, "
-                      f"talking video about {usd_talk}."}
+                      f"or {_n(talks, 'talking video', 'talking videos')}, in any mix"}
 
 
 def _max_batch() -> int:

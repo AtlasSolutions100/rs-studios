@@ -71,7 +71,6 @@
       <div class="lp-amt">${{ p.usd }}<span class="per">/mo</span></div>
       <p class="lp-cr">{{ '{:,}'.format(p.credits) }} credits every month</p>
       {% set m = ad_math(p.credits, p.usd) %}<p class="small plan-out">{{ m.counts }}, each month.</p>
-      <p class="small plan-per">{{ m.per_ad }}</p>
       <p class="muted small">{{ p.line }}</p>
       {% include "_plan_features.html" %}
       {% if not owner %}
@@ -99,7 +98,7 @@
       <h3>{{ p.name }} pack</h3>
       <div class="lp-amt">${{ p.usd }}</div>
       <p class="lp-cr">{{ '{:,}'.format(p.credits) }} credits{% if p.bonus %} <span class="gold">· {{ '{:,}'.format(p.bonus) }} bonus</span>{% endif %}</p>
-      {% set m = ad_math(p.credits, p.usd) %}<p class="muted small">{{ m.counts }}. Image ad about {{ m.usd_image }}.</p>
+      {% set m = ad_math(p.credits, p.usd) %}<p class="muted small">{{ m.counts }}.</p>
       {% if billing_configured() %}
       <form method="post" action="{{ url_for('checkout') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="pack" value="{{ p.code }}"><button class="btn dark" style="width:100%">Buy for ${{ p.usd }}</button></form>
       {% else %}
