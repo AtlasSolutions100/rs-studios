@@ -1,0 +1,21 @@
+{
+ "error": {
+  "code": 429,
+  "message": "Too many requests for a short period. Retry soon.",
+  "status": "RESOURCE_EXHAUSTED",
+  "details": [
+   {
+    "@type": "type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure",
+    "errors": [
+     {
+      "errorCode": {
+       "quotaError": "RESOURCE_TEMPORARILY_EXHAUSTED"
+      },
+      "message": "Too many requests for a short period. Retry soon."
+     }
+    ],
+    "requestId": "fakeReq58567035"
+   }
+  ]
+ }
+}

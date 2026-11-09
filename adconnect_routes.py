@@ -1,4 +1,5 @@
-"""Settings > Connections: a workspace connects its own Meta ad account (roadmap M2.1).
+"""Settings > Connections: a workspace connects its own Meta ad account (roadmap M2.1) and Google Ads
+account (M3.1).
 
     GET  /app/settings/ad-accounts                 the connections, Connect Meta, the "no ad account yet" checklist
     POST /connect/meta                             start Facebook Login for Business (owner or admin; CSRF)
@@ -9,6 +10,13 @@
     POST /connect/meta/deauthorize                 Meta's Deauthorize Callback (signed_request)
     POST /connect/meta/data-deletion               Meta's Data Deletion Request Callback (signed_request)
     GET  /connect/meta/deletion?code=...           the status page that callback links to
+    POST /connect/google                           start Google's OAuth (adwords scope, offline; owner or admin)
+    GET  /connect/google/callback                  Google sends the person back here with ?code&state
+                                                   (then .../<id>/pick lists the Google Ads customers, managers'
+                                                   client accounts included)
+
+Google sits behind AD_LAUNCH and GOOGLE_ADS (adplatforms/google.py). Its refresh token goes into the same
+token box; Disconnect revokes it at Google.
 
 Connecting sits behind AD_LAUNCH (adplatforms.enabled): off = 404. Removing never does (M-3): the
 Settings list and Disconnect stay open for a workspace that still holds connections, and Meta's two
@@ -38,15 +46,18 @@ import adhttp
 import adplatforms
 import db
 import secretsbox
-from adplatforms import meta
+from adplatforms import google, meta
 from core import is_owner, login_required
 
 log = logging.getLogger("campaignify.adconnect")
 bp = Blueprint("adconnect", __name__)
 
 S_KEY = "ad_oauth"
+G_KEY = "ad_oauth_google"
 STATE_TTL_S = 600
 FAILED = "Connecting to Meta didn't work. Try again in a minute."
+G_FAILED = "Connecting to Google didn't work. Try again in a minute."
+WORDS = {"meta": "Meta", "google": "Google"}
 
 
 def _on():
@@ -62,6 +73,16 @@ def _on_or_stored():
         if g.get("ws") is None or not adplatforms.has_stored(conn, g.ws["id"]):
             abort(404)
     return False
+
+
+def _google_on():
+    if not google.enabled(g.get("ws"), g.get("user")):
+        abort(404)
+
+
+def _pkce():
+    verifier = secrets.token_urlsafe(48)
+    return verifier, base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
 
 
 def _owner():
@@ -94,8 +115,11 @@ def settings():
         px = {}
         for p in conn.execute("SELECT * FROM pixels WHERE workspace_id=? ORDER BY id", (g.ws["id"],)).fetchall():
             px.setdefault(p["connection_id"], []).append(p)
+    g_on = live and google.enabled(g.ws, g.get("user"))
     return render_template("ad_connections.html", rows=rows, pixels=px, owner=is_owner() and not g.get("viewing"),
-                           meta_ready=live and meta.ADAPTER.configured(), checklist=meta.checklist(), paused=not live)
+                           meta_ready=live and meta.ADAPTER.configured(), checklist=meta.checklist(), paused=not live,
+                           google_on=g_on, google_ready=g_on and google.ADAPTER.configured(),
+                           google_checklist=google.checklist(), dashed=google.dashed)
 
 
 @bp.route("/connect/meta", methods=["POST"])
@@ -175,6 +199,8 @@ def pick(cid):
             adplatforms.sweep_pending(conn, g.ws["id"])
             flash("That connect attempt expired. Start it again.")
             return redirect(url_for("adconnect.settings"))
+        if row["platform"] == "google":
+            return _pick_google(conn, row)
         d = _data(row)
         accounts = {a["id"]: a for a in d.get("accounts") or []}
         pages = {p["id"]: p for p in d.get("pages") or []}
@@ -241,14 +267,15 @@ def _revoke_replaced(conn, old, new):
     held = conn.execute("SELECT 1 FROM ad_connections WHERE platform=? AND external_user_id=? AND id NOT IN (?,?) AND "
                         "token_enc IS NOT NULL AND status IN ('active','expired','error','pending') LIMIT 1",
                         (old["platform"], old["external_user_id"], old["id"], new["id"])).fetchone()
-    if held or not meta.ADAPTER.configured():
+    ad = adplatforms.adapter(old["platform"])
+    if held or not ad.configured():
         return False
     try:
-        ok = meta.ADAPTER.revoke(adplatforms.open_token(old))
-        log.info("meta reconnect by another person: the previous grant was revoked (%s)", "ok" if ok else "no")
+        ok = ad.revoke(adplatforms.open_token(old))
+        log.info("%s reconnect by another person: the previous grant was revoked (%s)", old["platform"], "ok" if ok else "no")
         return ok
     except (adhttp.AdHttpError, secretsbox.BoxError) as e:
-        log.warning("meta revoke of the replaced grant: %s", e)
+        log.warning("%s revoke of the replaced grant: %s", old["platform"], e)
         return False
 
 
@@ -299,22 +326,128 @@ def disconnect(cid):
             "SELECT 1 FROM ad_connections WHERE platform=? AND external_user_id=? AND id!=? AND token_enc IS NOT NULL "
             "AND status IN ('active','expired','error','pending')", (row["platform"], row["external_user_id"], cid)).fetchone()
         revoked = False
-        if not shared and row["token_enc"] and meta.ADAPTER.configured():
+        ad = adplatforms.adapter(row["platform"])
+        if not shared and row["token_enc"] and ad.configured():
             try:
-                revoked = meta.ADAPTER.revoke(adplatforms.open_token(row))
+                revoked = ad.revoke(adplatforms.open_token(row))
             except (adhttp.AdHttpError, secretsbox.BoxError) as e:
-                log.warning("meta revoke: %s", e)
+                log.warning("%s revoke: %s", row["platform"], e)
         conn.execute("UPDATE ad_connections SET status='revoked', token_enc=NULL, refresh_token_enc=NULL, pending_json=NULL, "
                      "last_error=NULL, updated_at=? WHERE id=?", (db.now(), cid))
         conn.execute("DELETE FROM pixels WHERE connection_id=? AND workspace_id=?", (cid, g.ws["id"]))
         conn.commit()
     name = row["account_name"] or "the ad account"
+    word = WORDS.get(row["platform"], "the platform")
     if shared:
-        flash(f"Disconnected {name}. Your Meta login stays connected for your other Campaignify connections.")
+        flash(f"Disconnected {name}. Your {word} login stays connected for your other Campaignify connections.")
     elif revoked:
-        flash(f"Disconnected {name} and removed Campaignify's access on Meta.")
+        flash(f"Disconnected {name} and removed Campaignify's access on {word}.")
+    elif row["platform"] == "google":
+        flash(f"Disconnected {name}. To be sure, remove Campaignify under Third-party apps in your Google Account.")
     else:
         flash(f"Disconnected {name}. To be sure, remove Campaignify under Business integrations in your Facebook settings.")
+    return redirect(url_for("adconnect.settings"))
+
+
+# ---------------------------------------------------------------- Google Ads (M3.1)
+
+@bp.route("/connect/google", methods=["POST"])
+@login_required
+def google_start():
+    _on()
+    _google_on()
+    _owner()
+    if not google.ADAPTER.configured():
+        flash("Connecting Google isn't switched on yet. Try again later.")
+        return redirect(url_for("adconnect.settings"))
+    reconnect = request.form.get("reconnect") or ""
+    if reconnect:
+        with db.connect() as conn:
+            reconnect = str(_pending(conn, reconnect)["id"]) if reconnect.isdigit() else ""
+    verifier, challenge = _pkce()
+    state = secrets.token_urlsafe(24)
+    session[G_KEY] = {"state": state, "verifier": verifier, "ws": g.ws["id"], "uid": g.user["id"],
+                      "reconnect": reconnect, "at": int(time.time())}
+    return redirect(google.ADAPTER.oauth_start(state, challenge))
+
+
+@bp.route("/connect/google/callback")
+def google_callback():
+    pend = session.pop(G_KEY, None)
+    if not g.get("user"):
+        flash("Log in, then connect your Google Ads account again.")
+        return redirect(url_for("login"))          # never a `next` carrying the code
+    _on()
+    _google_on()
+    back = redirect(url_for("adconnect.settings"))
+    if request.args.get("error"):
+        log.info("google connect refused by the person: %s", (request.args.get("error") or "")[:40])
+        flash("Google didn't connect: the request was cancelled. Nothing changed.")
+        return back
+    sent, code = request.args.get("state") or "", request.args.get("code") or ""
+    if not pend or not sent or not code or not secrets.compare_digest(sent, str(pend.get("state") or "")) \
+            or pend.get("ws") != g.ws["id"] or pend.get("uid") != g.user["id"] \
+            or time.time() - int(pend.get("at") or 0) > STATE_TTL_S:
+        flash("That connect attempt expired. Start it again.")
+        return back
+    _owner()
+    try:
+        got = google.ADAPTER.oauth_finish(code, pend["verifier"])
+    except adhttp.AdHttpError as e:          # scrubbed: never carries a token or the code
+        log.warning("google connect failed: %s", e)
+        own = e.code in ("oauth.scope_missing", "oauth.no_refresh") and e.user_message
+        flash(e.user_message if own else google.ERRORS.get(e.code or "") or G_FAILED)
+        return back
+    except Exception as e:  # noqa: BLE001  a malformed answer; log the kind only
+        log.error("google connect failed: %s", type(e).__name__)
+        flash(G_FAILED)
+        return back
+    now = db.now()
+    keep = {"accounts": got["accounts"], "user_name": got["user_name"], "reconnect": pend.get("reconnect") or ""}
+    with db.connect() as conn:
+        cid = conn.execute(
+            "INSERT INTO ad_connections (workspace_id, platform, external_account_id, external_user_id, token_enc, "
+            "token_expires_at, scopes, status, pending_json, created_by, created_at, updated_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (g.ws["id"], "google", "pending:" + secrets.token_hex(8), got["user_id"],
+             adplatforms.seal_token(g.ws["id"], got["token"]), None, " ".join(got["scopes"]),
+             "pending", json.dumps(keep), g.user["id"], now, now)).lastrowid
+        conn.commit()
+    return redirect(url_for("adconnect.pick", cid=cid))
+
+
+def _pick_google(conn, row):
+    """Pick the Google Ads customer (a client account; managers are shown as where it was reached from)."""
+    _google_on()
+    d = _data(row)
+    accounts = {a["id"]: a for a in d.get("accounts") or []}
+    pre = None
+    if d.get("reconnect"):
+        old = adplatforms.get(conn, g.ws["id"], d["reconnect"])
+        pre = old["external_account_id"] if old else None
+    if request.method == "GET":
+        return render_template("ad_connect_google.html", row=row, d=d, pre=pre, checklist=google.checklist(),
+                               dashed=google.dashed)
+    a = accounts.get(request.form.get("account") or "")
+    if not a or not a["usable"]:
+        flash("Pick one of the Google Ads accounts listed.")
+        return redirect(url_for("adconnect.pick", cid=row["id"]))
+    now = db.now()
+    same = conn.execute("SELECT * FROM ad_connections WHERE workspace_id=? AND platform='google' AND "
+                        "external_account_id=? AND id!=?", (g.ws["id"], a["id"], row["id"])).fetchone()
+    target = same["id"] if same else row["id"]
+    if same:
+        _revoke_replaced(conn, same, row)
+        conn.execute("DELETE FROM ad_connections WHERE id=?", (row["id"],))
+    conn.execute("UPDATE ad_connections SET external_account_id=?, account_name=?, currency=?, timezone=?, business_id=?, "
+                 "page_id=NULL, page_name=NULL, instagram_actor_id=NULL, instagram_username=NULL, external_user_id=?, "
+                 "token_enc=?, token_expires_at=NULL, scopes=?, updated_at=?, status='active', last_error=NULL, "
+                 "pending_json=NULL WHERE id=?",
+                 (a["id"], a["name"], a["currency"], a["timezone"], a.get("login"), row["external_user_id"],
+                  row["token_enc"], row["scopes"], now, target))
+    conn.commit()
+    flash(f"Connected {a['name']} ({google.dashed(a['id'])})." + (" It's a Google Ads test account: campaigns there "
+                                                                    "never run." if a.get("test") else ""))
     return redirect(url_for("adconnect.settings"))
 
 

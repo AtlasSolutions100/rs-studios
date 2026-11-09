@@ -1,0 +1,21 @@
+{
+ "error": {
+  "code": 409,
+  "message": "Multiple requests were attempting to modify the same resource at once.",
+  "status": "ABORTED",
+  "details": [
+   {
+    "@type": "type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure",
+    "errors": [
+     {
+      "errorCode": {
+       "databaseError": "CONCURRENT_MODIFICATION"
+      },
+      "message": "Multiple requests were attempting to modify the same resource at once."
+     }
+    ],
+    "requestId": "fakeReq61040203"
+   }
+  ]
+ }
+}

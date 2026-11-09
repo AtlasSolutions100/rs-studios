@@ -1,0 +1,21 @@
+{
+ "error": {
+  "code": 401,
+  "message": "The OAuth token has been revoked.",
+  "status": "UNAUTHENTICATED",
+  "details": [
+   {
+    "@type": "type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure",
+    "errors": [
+     {
+      "errorCode": {
+       "authenticationError": "OAUTH_TOKEN_REVOKED"
+      },
+      "message": "The OAuth token has been revoked."
+     }
+    ],
+    "requestId": "fakeReq33230676"
+   }
+  ]
+ }
+}

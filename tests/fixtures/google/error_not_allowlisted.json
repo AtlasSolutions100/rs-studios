@@ -1,0 +1,21 @@
+{
+ "error": {
+  "code": 403,
+  "message": "Customer is not allowlisted for accessing this feature.",
+  "status": "PERMISSION_DENIED",
+  "details": [
+   {
+    "@type": "type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure",
+    "errors": [
+     {
+      "errorCode": {
+       "notAllowlistedError": "CUSTOMER_NOT_ALLOWLISTED_FOR_THIS_FEATURE"
+      },
+      "message": "Customer is not allowlisted for accessing this feature."
+     }
+    ],
+    "requestId": "fakeReq78544879"
+   }
+  ]
+ }
+}

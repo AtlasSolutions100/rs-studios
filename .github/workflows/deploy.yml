@@ -96,6 +96,13 @@ name: Deploy Campaignify (campaignify.ai)
 #   META_LOGIN_CONFIG_ID   the Facebook Login for Business configuration id (secret or variable)
 #   TOKEN_KEY              the token box key: 32 random bytes, base64 (secretsbox.py). Keep a copy outside
 #                          GitHub: without it no stored ad-account token can be read
+#   GOOGLE_ADS             optional variable: 1 turns Google Ads connect and launch on (adplatforms/google.py,
+#                          roadmap M3), on top of AD_LAUNCH. Default off
+#   GOOGLE_ADS_CLIENT_ID   optional variable: the OAuth client for Google Ads; unset = GOOGLE_OAUTH_CLIENT_ID. Its Cloud
+#                          project must have the Google Ads API on (Basic access) and list the redirect URI
+#                          https://campaignify.ai/connect/google/callback. No developer token: Google retired them
+#                          on 2026-09-09; access follows the Cloud project
+#   GOOGLE_ADS_CLIENT_SECRET optional secret: that client's secret; unset = GOOGLE_OAUTH_CLIENT_SECRET
 #   TOKEN_KEYS_OLD         only while rotating TOKEN_KEY: the previous key(s), comma separated, still read.
 #                          To rotate: (1) set TOKEN_KEYS_OLD to the current TOKEN_KEY, (2) set TOKEN_KEY to a new
 #                          key, (3) deploy, (4) on the server run `python3 secretsbox.py rotate` in the app
@@ -250,6 +257,9 @@ jobs:
           META_LOGIN_CONFIG_ID: ${{ secrets.META_LOGIN_CONFIG_ID || vars.META_LOGIN_CONFIG_ID }}
           TOKEN_KEY: ${{ secrets.TOKEN_KEY }}
           TOKEN_KEYS_OLD: ${{ secrets.TOKEN_KEYS_OLD }}
+          GOOGLE_ADS: ${{ vars.GOOGLE_ADS }}
+          GOOGLE_ADS_CLIENT_ID: ${{ vars.GOOGLE_ADS_CLIENT_ID }}
+          GOOGLE_ADS_CLIENT_SECRET: ${{ secrets.GOOGLE_ADS_CLIENT_SECRET }}
           # Kill switches and opt-ins (repo variables; see the list at the top). Unset = not sent.
           BILLING_HOLD: ${{ vars.BILLING_HOLD }}
           CREDIT_HOLDS: ${{ vars.CREDIT_HOLDS }}
@@ -300,6 +310,7 @@ jobs:
                                              "BACKUP_CRYPT_PASSWORD", "BACKUP_CRYPT_SALT",
                                              "AD_LAUNCH", "AD_LAUNCH_WORKSPACES", "AD_RATE_TIER", "META_APP_ID",
                                              "META_APP_SECRET", "META_LOGIN_CONFIG_ID", "TOKEN_KEY", "TOKEN_KEYS_OLD",
+                                             "GOOGLE_ADS", "GOOGLE_ADS_CLIENT_ID", "GOOGLE_ADS_CLIENT_SECRET",
                                              # kill switches and opt-ins (N15)
                                              "BILLING_HOLD", "CREDIT_HOLDS", "PLAN_PENDING", "RENEWAL_PAUSE", "HF_RETRY",
                                              "RS_LOGIN_HARDENING", "RS_SIGNUP_CONFIRM", "RS_NEXT_STEPS", "RS_STORAGE_QUOTAS",

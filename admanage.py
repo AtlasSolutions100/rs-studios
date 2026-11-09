@@ -21,7 +21,8 @@ and change the campaign's daily budget. Every change goes through an approval ca
 What changes is only ever what the card lists. Members draft, owners approve (core.is_owner: owner or admin);
 an admin viewing another workspace is read-only. Who drafted, who approved, when, and what Meta answered stay
 on the card. Pausing is always allowed; turning on and raising the budget need a paid plan and stay under the
-plan's daily cap (launches.ceiling, D3). Everything sits behind AD_LAUNCH (adplatforms.enabled).
+plan's daily cap (launches.ceiling, D3). Everything sits behind AD_LAUNCH (adplatforms.enabled). Meta launches only: a Google launch (launch_google.py,
+M3.2) is managed in Google Ads until its own manage task.
 """
 import hashlib
 import json
@@ -96,7 +97,9 @@ def money(minor, currency) -> str:
 
 
 def launch_of(conn, ws_id: int, lid: int):
-    return conn.execute("SELECT * FROM launches WHERE id=? AND workspace_id=?", (int(lid), int(ws_id))).fetchone()
+    """A Meta launch of this workspace, or None (Google launches are managed in Google Ads for now)."""
+    return conn.execute("SELECT * FROM launches WHERE id=? AND workspace_id=? AND platform='meta'",
+                        (int(lid), int(ws_id))).fetchone()
 
 
 def connection_of(conn, L):
@@ -482,6 +485,8 @@ def draft(conn, ws, user, L, action, target="campaign", budget_after=None, opera
     id). Reads Meta first. Returns the card id. Raises Refused when it can't be drafted."""
     if action not in ("on", "off", "budget"):
         raise Refused("Pick turn on, pause or a new budget.")
+    if L["platform"] != "meta":
+        raise Refused("Manage this campaign in Google Ads for now.")
     obj = objects(conn, L)
     if L["status"] != "paused" or obj["campaign"] is None:
         raise Refused("This campaign isn't on Meta yet.")
@@ -623,7 +628,7 @@ def apply(card_id: int) -> str | None:
         if row is None:
             return None
         card = json.loads(row["after_json"])
-        L = conn.execute("SELECT * FROM launches WHERE id=? AND workspace_id=?",
+        L = conn.execute("SELECT * FROM launches WHERE id=? AND workspace_id=? AND platform='meta'",
                          (row["launch_id"], row["workspace_id"])).fetchone()
         conn_row = connection_of(conn, L) if L is not None else None
         if L is None:
@@ -798,5 +803,5 @@ def summary(conn, L) -> dict:
 
 def listed(conn, ws_id: int) -> list:
     """Every launch of the workspace, newest first, as the Campaigns page lists them."""
-    return [summary(conn, L) for L in conn.execute("SELECT * FROM launches WHERE workspace_id=? ORDER BY id DESC",
-                                                   (int(ws_id),)).fetchall()]
+    return [summary(conn, L) for L in conn.execute("SELECT * FROM launches WHERE workspace_id=? AND platform='meta' "
+                                                   "ORDER BY id DESC", (int(ws_id),)).fetchall()]

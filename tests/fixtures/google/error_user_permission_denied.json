@@ -1,0 +1,21 @@
+{
+ "error": {
+  "code": 403,
+  "message": "User doesn't have permission to access customer.",
+  "status": "PERMISSION_DENIED",
+  "details": [
+   {
+    "@type": "type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure",
+    "errors": [
+     {
+      "errorCode": {
+       "authorizationError": "USER_PERMISSION_DENIED"
+      },
+      "message": "User doesn't have permission to access customer."
+     }
+    ],
+    "requestId": "fakeReq56085497"
+   }
+  ]
+ }
+}
