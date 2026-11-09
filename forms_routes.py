@@ -447,10 +447,9 @@ def contact(cid):
             abort(404)
         if request.method == "POST":
             if request.form.get("action") == "delete":
-                conn.execute("DELETE FROM contact_events WHERE contact_id=? AND workspace_id=?", (cid, g.ws["id"]))
                 adleads.forget_contact(conn, g.ws["id"], cid)
-                conn.execute("UPDATE form_submissions SET contact_id=NULL, data_json='{}' WHERE contact_id=? AND workspace_id=?",
-                             (cid, g.ws["id"]))
+                import wsdelete      # events, form answers, messages' address and body, flow context, tasks (SEC-12)
+                wsdelete.forget_contact(conn, g.ws["id"], cid)
                 conn.execute("DELETE FROM contacts WHERE id=?", (cid,))
                 conn.commit()
                 flash("Contact and their form answers deleted.")

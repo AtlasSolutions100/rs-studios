@@ -606,6 +606,8 @@ def loop_once():
     adinsights.maybe_tick()        # results of launched campaigns, every 6 hours (never raises)
     import backup
     backup.maybe_run()     # nightly off-site backup in its own thread, once R2 is set (never raises)
+    import wsdelete
+    wsdelete.maybe_tick()  # workspaces whose owner asked for deletion, once the 7-day grace has passed (hourly)
     if mode() == "process":
         import tasks
         tasks.tick()       # planner, competitor and free-plan runs the web queued (never raises)

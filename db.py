@@ -200,6 +200,14 @@ CREATE TABLE IF NOT EXISTS worker_leases (
     holder TEXT NOT NULL,
     until TEXT NOT NULL,
     info TEXT);
+-- deletion_runs (wsdelete.py, roadmap M7.5): each purge of a workspace whose owner asked for deletion and whose
+-- 7-day grace has passed. ids and counts only.
+CREATE TABLE IF NOT EXISTS deletion_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    ran_at TEXT NOT NULL,
+    done INTEGER NOT NULL DEFAULT 0,
+    summary TEXT);
 CREATE TABLE IF NOT EXISTS copy_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workspace_id INTEGER NOT NULL,
@@ -815,6 +823,11 @@ COLUMNS = [
     ("jobs", "finished_at", "TEXT"),
     ("jobs", "parent_job_id", "INTEGER"),
     ("jobs", "deleted_at", "TEXT"),
+    ("jobs", "vendor_deleted_at", "TEXT"),          # wsdelete.py (M7.5): the vendor's copy was deleted (or why not)
+    ("workspaces", "delete_requested_at", "TEXT"),  # wsdelete.py (M7.5): the owner asked to delete the workspace
+    ("workspaces", "delete_after", "TEXT"),         # ... and it is purged after this (7 days of grace)
+    ("workspaces", "delete_requested_by", "INTEGER"),
+    ("workspaces", "deleted_at", "TEXT"),
     # vendor submits (worker.py): the idempotency key, stored before the call, and the worker's claim on it
     ("jobs", "submit_key", "TEXT"),
     ("jobs", "claimed_at", "TEXT"),

@@ -1,0 +1,52 @@
+{% extends "base.html" %}{% block title %}Delete workspace · Campaignify{% endblock %}
+{% block body %}
+{# Delete this workspace (deletion_routes.py, wsdelete.py; roadmap M7.5). #}
+<div class="page full" id="delete-ws" style="max-width:820px">
+  <p class="eyebrow">Team</p>
+  <h1>Delete this workspace</h1>
+
+  {% if st.scheduled %}
+  <div class="panel" style="margin-top:18px;border-color:var(--bad, #c0392b)">
+    <h2 style="margin-top:0">Deletion is scheduled</h2>
+    <p>{{ g.ws.name }} and everything in it will be deleted on <b>{{ st.delete_after|localtime }}</b>. Until then everything works as usual.</p>
+    {% if owner %}<form method="post" action="{{ url_for('wsdelete.cancel') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn">Cancel the deletion</button></form>
+    {% else %}<p class="muted">Only the workspace owner can cancel it.</p>{% endif %}
+  </div>
+  {% endif %}
+
+  <div class="panel" style="margin-top:18px">
+    <h2 style="margin-top:0">What deleting removes</h2>
+    <ul>
+      <li>Your products, photos, ads and videos, plans, copy, pages, forms and links.</li>
+      <li>Your contacts, their form answers, and the emails and texts sent to them.</li>
+      <li>Your flows, communities and connected ad accounts. Campaignify's access to them is removed. Campaigns already on your ad accounts stay there: they are yours.</li>
+      <li>The copies our video and image provider keeps of your ads. Photos you uploaded to it are removed by the provider within 7 days.</li>
+      <li>Every login in this workspace. Nobody can sign in to it afterwards.</li>
+    </ul>
+    <h2>What we keep</h2>
+    <p class="muted">Payment and credit records (amounts and dates, no content), as the law asks us to. Your payment details stay with Stripe, our payment processor.</p>
+    <p class="muted">Nothing is removed for {{ st.grace_days }} days after you ask. You can cancel at any time in those {{ st.grace_days }} days. After that it can't be undone.</p>
+  </div>
+
+  {% if not st.scheduled and not st.deleted_at %}
+  <div class="panel" style="margin-top:18px">
+    {% if st.blocked == 'billing' %}
+    <h2 style="margin-top:0">Cancel your plan first</h2>
+    <p>This workspace has a paid plan that renews. Cancel it on the Billing page, then come back here.</p>
+    <p><a class="btn" href="{{ url_for('billing_page') }}">Go to Billing</a></p>
+    {% elif st.blocked %}
+    <p class="muted" style="margin:0">This workspace can't be deleted here. Write to us and we'll help.</p>
+    {% elif owner %}
+    <form method="post" action="{{ url_for('wsdelete.schedule') }}">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <label for="dw-confirm"><b>Type the workspace name to confirm:</b> {{ g.ws.name }}</label>
+      <input type="text" id="dw-confirm" name="confirm" autocomplete="off" required style="display:block;margin:8px 0 12px;max-width:420px;width:100%">
+      <p><button class="btn dark">Delete this workspace in 7 days</button></p>
+    </form>
+    {% else %}
+    <p class="muted" style="margin:0">Only the workspace owner can delete the workspace.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

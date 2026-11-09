@@ -450,6 +450,11 @@ credit_reversals.status TEXT
 credit_reversals.stripe_id TEXT
 credit_reversals.updated_at TEXT
 credit_reversals.workspace_id INTEGER
+deletion_runs.done INTEGER
+deletion_runs.id INTEGER
+deletion_runs.ran_at TEXT
+deletion_runs.summary TEXT
+deletion_runs.workspace_id INTEGER
 email_log.created_at TEXT
 email_log.error TEXT
 email_log.id INTEGER
@@ -608,6 +613,7 @@ jobs.template_id TEXT
 jobs.tool TEXT
 jobs.updated_at TEXT
 jobs.user_id INTEGER
+jobs.vendor_deleted_at TEXT
 jobs.workspace_id INTEGER
 launch_steps.attempts INTEGER
 launch_steps.error TEXT
@@ -1005,6 +1011,10 @@ workspaces.comp_until TEXT
 workspaces.consent_manual INTEGER
 workspaces.created_at TEXT
 workspaces.credits INTEGER
+workspaces.delete_after TEXT
+workspaces.delete_requested_at TEXT
+workspaces.delete_requested_by INTEGER
+workspaces.deleted_at TEXT
 workspaces.flows_json TEXT
 workspaces.id INTEGER
 workspaces.messaging_accepted_at TEXT
