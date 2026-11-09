@@ -2,8 +2,8 @@
 {% block title %}Launch on {{ v.word }} · Campaignify{% endblock %}
 {% block body %}
 {# One launch (launch_routes.status, launches.view): progress while the worker runs the saga, then what was made. #}
-{% set st = L.status %}{% set gg = v.platform == 'google' %}{% set vid = v.platform in ('snapchat',) %}
-{% set pages = {'google': 'launch.google_page', 'snapchat': 'launch.snapchat_page'} %}
+{% set st = L.status %}{% set gg = v.platform == 'google' %}{% set vid = v.platform in ('snapchat', 'tiktok') %}{% set tt = v.platform == 'tiktok' %}
+{% set pages = {'google': 'launch.google_page', 'snapchat': 'launch.snapchat_page', 'tiktok': 'launch.tiktok_page'} %}
 <style>
 .ls-steps{list-style:none;padding:0;margin:12px 0 0}
 .ls-steps li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
@@ -44,7 +44,7 @@
     {% if gg %}
     {% if st == 'rolled_back' %}<p class="muted">Google makes the campaign in one go, so nothing of it was left half made. Uploaded images stay unused in the account's asset library{% if v.launch.external_campaign_id %}, and the campaign stays PAUSED, so trying again reuses it{% endif %}.</p>
     {% else %}<p class="muted">Some items couldn't be checked. They are all PAUSED, so nothing runs. Check them in Google Ads, or try again.</p>{% endif %}
-    {% elif vid and st == 'rolled_back' %}<p class="muted">Campaignify removed the ads it had made. {{ v.word }} keeps unused creatives and videos in the account's library. The campaign and ad squad, if they were made, stay PAUSED on your account, so trying again reuses them.</p>
+    {% elif vid and st == 'rolled_back' %}<p class="muted">Campaignify removed the ads it had made. {{ v.word }} keeps unused {{ 'videos' if tt else 'creatives and videos' }} in the account's library. The campaign and {{ 'ad group' if tt else 'ad squad' }}, if they were made, stay {{ 'turned off' if tt else 'PAUSED' }} on your account, so trying again reuses them.</p>
     {% elif vid %}<p class="muted">Some items couldn't be removed. They are all PAUSED, so nothing runs. Remove them in {{ v.word }} Ads Manager, or try again.</p>
     {% elif st == 'rolled_back' %}<p class="muted">Campaignify removed the ads and creatives it had made. The campaign and ad set, if they were made, stay PAUSED on your account, so trying again reuses them.</p>
     {% else %}<p class="muted">Some items couldn't be removed. They are all PAUSED, so nothing runs. Remove them in Ads Manager, or try again.</p>{% endif %}
@@ -61,7 +61,7 @@
       <h2 style="margin-top:0">On your ad account</h2>
       {% set live = v.objects|rejectattr('status', 'equalto', 'DELETED')|list %}
       {% if live %}
-      <ul class="ls-objs">{% for o in live %}<li><b>{{ {'campaign': 'Campaign', 'adset': 'Ad set', 'creative': 'Ad creative', 'ad': 'Ad', 'video': 'Video', 'adgroup': 'Ad group', 'assetgroup': 'Asset group', 'adsquad': 'Ad squad'}.get(o.kind, o.kind) }}</b> {{ o.name }} <span class="small dim">id {{ o.external_id }} · {{ 'on, inside the paused campaign' if gg and o.status == 'ENABLED' else o.status }}</span></li>{% endfor %}</ul>
+      <ul class="ls-objs">{% for o in live %}<li><b>{{ {'campaign': 'Campaign', 'adset': 'Ad set', 'creative': 'Ad creative', 'ad': 'Ad', 'video': 'Video', 'adgroup': 'Ad group', 'assetgroup': 'Asset group', 'adsquad': 'Ad squad'}.get(o.kind, o.kind) }}</b> {{ o.name }} <span class="small dim">id {{ o.external_id }} · {{ 'on, inside the paused campaign' if (gg or tt) and o.status == 'ENABLED' else o.status }}</span></li>{% endfor %}</ul>
       {% else %}<p class="muted">Nothing yet.</p>{% endif %}
       {% if v.card %}
       <details style="margin-top:14px"><summary class="small muted">The card you approved</summary>
