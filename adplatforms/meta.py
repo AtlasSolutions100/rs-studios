@@ -36,6 +36,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 import adhttp
+import adspec
 import secretsbox
 
 # The Graph / Marketing API version every call uses. One place: bump it here.
@@ -387,7 +388,8 @@ def _delete(object_id: str, token: str, account: str, max_wait: float = 0.0):
 
 
 def _money(minor: int, currency: str) -> str:
-    return f"{minor / 100:,.2f} {currency}"
+    f = adspec.minor_factor(currency)
+    return f"{minor / f:,.{2 if f == 100 else 0}f} {currency}"
 
 
 def _when(iso: str | None, tz_name: str | None):
