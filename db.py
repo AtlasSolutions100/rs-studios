@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import time
 from datetime import datetime, timezone
 
 DATA = os.environ.get("RS_DATA", os.path.join(os.path.dirname(os.path.abspath(__file__)), "data"))
@@ -179,6 +180,34 @@ CREATE INDEX IF NOT EXISTS idx_asst_u ON assistant_threads(user_id, id);
 CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
     value TEXT);
+-- task_queue (tasks.py, roadmap M7.2): long AI runs the web hands to the worker process. A worker claims a queued
+-- row with one compare-and-set UPDATE (claimed_by, lease_until) and renews the lease while it runs it.
+CREATE TABLE IF NOT EXISTS task_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,                      -- planner | competitors | free_plan
+    payload_json TEXT NOT NULL,              -- ids only (campaign, report, credit hold), never a token
+    workspace_id INTEGER, ref TEXT,
+    status TEXT NOT NULL DEFAULT 'queued',   -- queued | running | done | failed | interrupted | skipped
+    claimed_by TEXT, claimed_at TEXT, lease_until TEXT,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    error TEXT,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, finished_at TEXT);
+CREATE INDEX IF NOT EXISTS idx_task_queue_status ON task_queue(status, id);
+-- worker_leases (workerproc.py, M7.2): one worker process runs the loop at a time; a lease the holder stopped
+-- renewing lapses after WORKER_LEASE_S and another worker may take it.
+CREATE TABLE IF NOT EXISTS worker_leases (
+    name TEXT PRIMARY KEY,
+    holder TEXT NOT NULL,
+    until TEXT NOT NULL,
+    info TEXT);
+-- deletion_runs (wsdelete.py, roadmap M7.5): each purge of a workspace whose owner asked for deletion and whose
+-- 7-day grace has passed. ids and counts only.
+CREATE TABLE IF NOT EXISTS deletion_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    ran_at TEXT NOT NULL,
+    done INTEGER NOT NULL DEFAULT 0,
+    summary TEXT);
 CREATE TABLE IF NOT EXISTS copy_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workspace_id INTEGER NOT NULL,
@@ -593,7 +622,7 @@ CREATE TABLE IF NOT EXISTS approval_cards (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workspace_id INTEGER NOT NULL,
     launch_id INTEGER,                       -- set once approved and the launch exists
-    kind TEXT NOT NULL,                      -- launch | budget_change | status_change | pause_all
+    kind TEXT NOT NULL,                      -- launch | budget_change | status_change (admanage.py, M2.4) | pause_all
     campaign_id INTEGER, connection_id INTEGER,
     spec_json TEXT, spec_hash TEXT,          -- the CampaignSpec the card was made from (adspec.to_dict)
     before_json TEXT, after_json TEXT,       -- after_json: the card itself (lines, objects, issues)
@@ -647,6 +676,114 @@ CREATE TABLE IF NOT EXISTS ad_objects (
     created_at TEXT NOT NULL,
     UNIQUE (platform, external_id));
 CREATE INDEX IF NOT EXISTS idx_adobj_launch ON ad_objects(launch_id);
+-- ad_insights_daily (adinsights.py, roadmap M2.5): what Meta reports per ad per day, in the ad account's currency and
+-- time zone. Pulled every few hours for today and the 14 days before it (two full weeks for the creative fatigue check, M4.2; late
+-- purchases settle inside it). Money in minor units (adspec.minor_factor); rates are computed from the sums.
+CREATE TABLE IF NOT EXISTS ad_insights_daily (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    connection_id INTEGER, launch_id INTEGER,
+    platform TEXT NOT NULL,
+    level TEXT NOT NULL DEFAULT 'ad',        -- ad (campaign and ad set figures are sums of their ads)
+    external_object_id TEXT NOT NULL,        -- the ad id
+    campaign_external_id TEXT, adset_external_id TEXT,
+    day TEXT NOT NULL,                       -- YYYY-MM-DD in the ad account's time zone (Meta's date_start)
+    currency TEXT,
+    spend_minor INTEGER NOT NULL DEFAULT 0,
+    impressions INTEGER NOT NULL DEFAULT 0, reach INTEGER NOT NULL DEFAULT 0,
+    clicks INTEGER NOT NULL DEFAULT 0,       -- all clicks (Meta's clicks)
+    link_clicks INTEGER NOT NULL DEFAULT 0,  -- Meta's inline_link_clicks (Ads Manager "Link clicks")
+    ctr REAL,                                -- link click-through rate in %, link_clicks / impressions * 100
+    ctr_all REAL,                            -- Meta's ctr (all clicks) in %
+    cpc_minor INTEGER,                       -- spend per link click
+    results INTEGER NOT NULL DEFAULT 0, result_kind TEXT,   -- purchase | lead | link_click | reach | <event>
+    cost_per_result_minor INTEGER,
+    leads INTEGER NOT NULL DEFAULT 0, purchases INTEGER NOT NULL DEFAULT 0, purchase_value_minor INTEGER NOT NULL DEFAULT 0,
+    raw_json TEXT,                           -- Meta's row as it came (ids and numbers only)
+    fetched_at TEXT NOT NULL,
+    UNIQUE (platform, external_object_id, day));
+CREATE INDEX IF NOT EXISTS idx_insights_launch ON ad_insights_daily(launch_id, day);
+CREATE INDEX IF NOT EXISTS idx_insights_ws ON ad_insights_daily(workspace_id, day);
+-- lead_sources (adleads.py, roadmap M4.1): which ad brought each form lead. One row per sent form that carried ad
+-- tags or a click id; the ad and its launch when they match this workspace's launched objects.
+CREATE TABLE IF NOT EXISTS lead_sources (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    contact_id INTEGER, submission_id INTEGER UNIQUE, form_id INTEGER, page_slug TEXT,
+    platform TEXT,                           -- meta | google | tiktok | snapchat (NULL: tags without an ad platform)
+    launch_id INTEGER,                       -- the Campaignify launch of the ad, when matched
+    campaign_external_id TEXT, ad_external_id TEXT,
+    matched TEXT NOT NULL DEFAULT 'none',    -- ad | campaign | platform | none
+    utm_source TEXT, utm_medium TEXT, utm_campaign TEXT, utm_content TEXT, utm_term TEXT,
+    click_type TEXT, click_id TEXT,          -- gclid | fbclid | ttclid (only when the page or form measures visitors)
+    created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_lead_sources_launch ON lead_sources(workspace_id, launch_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_lead_sources_contact ON lead_sources(workspace_id, contact_id);
+-- weekly_reports (weekly_report.py, roadmap M4.4): one row per workspace, person and report week (the Monday it was
+-- due), written before the send so nobody is mailed twice. status: sending | sent | failed | nothing (no numbers).
+CREATE TABLE IF NOT EXISTS weekly_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL, user_id INTEGER NOT NULL, week TEXT NOT NULL,
+    status TEXT NOT NULL, subject TEXT, error TEXT,
+    created_at TEXT NOT NULL, sent_at TEXT,
+    UNIQUE (workspace_id, user_id, week));
+-- Conversion tracking on members' own pages and forms (conversions.py, site_events.py; roadmap M3.4).
+-- page_events: the first-party collector. One row per page view sent server side and per form lead, with the
+-- UUID the browser pixels fire with. No IP address, no raw email or phone: hashes_json holds SHA-256 values only.
+CREATE TABLE IF NOT EXISTS page_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    page_id INTEGER, form_id INTEGER, submission_id INTEGER,
+    name TEXT NOT NULL,                      -- PageView | Lead
+    event_id TEXT NOT NULL UNIQUE,           -- a UUID (version 4)
+    path TEXT,                               -- no query string
+    click_type TEXT, click_id TEXT,          -- gclid | fbclid | ttclid of the visit, when it had one
+    hashes_json TEXT,                        -- Lead: {"google": {"email": sha256, ...}} for the Google tag's user_data
+    browser_at TEXT,                         -- when the thank-you page fired the browser copy (once)
+    created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_page_events_ws ON page_events(workspace_id, name, created_at);
+-- ws_conversion_queue: the server-side copies, one row per destination and event id, sent once, retried by the
+-- worker. dest_id: pixels.id (meta, tiktok) or conversion_actions.id (google). payload: hashed identifiers only.
+CREATE TABLE IF NOT EXISTS ws_conversion_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    platform TEXT NOT NULL,                  -- meta | tiktok | google
+    dest_id INTEGER NOT NULL,
+    event TEXT NOT NULL, event_id TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending | sending | sent | failed | dropped
+    attempts INTEGER NOT NULL DEFAULT 0, error TEXT,
+    created_at TEXT NOT NULL, sent_at TEXT,
+    UNIQUE (platform, dest_id, event_id));
+CREATE INDEX IF NOT EXISTS idx_wsconv_status ON ws_conversion_queue(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_wsconv_dest ON ws_conversion_queue(workspace_id, platform, dest_id, id);
+-- conversion_actions: Google Ads conversion actions on a connected customer (filled by M3.5's
+-- ConversionActionService sync). kind lead (tag on pages), lead_server (Data Manager uploads), purchase.
+CREATE TABLE IF NOT EXISTS conversion_actions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    connection_id INTEGER NOT NULL,
+    customer_id TEXT NOT NULL,
+    kind TEXT NOT NULL,                      -- lead | lead_server | purchase
+    external_id TEXT NOT NULL, resource_name TEXT, name TEXT,
+    status TEXT,                             -- ENABLED | REMOVED | HIDDEN
+    tag_id TEXT,                             -- AW-123456789 (tag-based kinds)
+    label TEXT,                              -- the conversion label: send_to is AW-123456789/<label>
+    created_by_us INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+    UNIQUE (connection_id, kind));
+-- conversion_setups: what M3.5's sync read from a Google connection's customer (conversion_actions.py): the tag id,
+-- a manager that owns its conversions (cross-account tracking), the customer data terms and enhanced conversions for
+-- leads as Google reports them, other primary actions the account already had, Google's purchase snippet to copy.
+CREATE TABLE IF NOT EXISTS conversion_setups (
+    connection_id INTEGER PRIMARY KEY,
+    workspace_id INTEGER NOT NULL,
+    customer_id TEXT, tag_id TEXT, managed_by TEXT,
+    accepted_terms INTEGER, ec_leads INTEGER,  -- 1 / 0, NULL when Google didn't say
+    other_actions INTEGER NOT NULL DEFAULT 0,
+    purchase_snippet TEXT,
+    status TEXT,                             -- ready | partial | none | managed_elsewhere | error
+    error TEXT, checked_at TEXT);
 """
 
 # Columns added after the first release: (table, column, definition).
@@ -686,6 +823,11 @@ COLUMNS = [
     ("jobs", "finished_at", "TEXT"),
     ("jobs", "parent_job_id", "INTEGER"),
     ("jobs", "deleted_at", "TEXT"),
+    ("jobs", "vendor_deleted_at", "TEXT"),          # wsdelete.py (M7.5): the vendor's copy was deleted (or why not)
+    ("workspaces", "delete_requested_at", "TEXT"),  # wsdelete.py (M7.5): the owner asked to delete the workspace
+    ("workspaces", "delete_after", "TEXT"),         # ... and it is purged after this (7 days of grace)
+    ("workspaces", "delete_requested_by", "INTEGER"),
+    ("workspaces", "deleted_at", "TEXT"),
     # vendor submits (worker.py): the idempotency key, stored before the call, and the worker's claim on it
     ("jobs", "submit_key", "TEXT"),
     ("jobs", "claimed_at", "TEXT"),
@@ -772,6 +914,26 @@ COLUMNS = [
     ("free_plans", "fingerprint", "TEXT"),
     ("free_plans", "email_norm", "TEXT"),
     ("free_plans", "status", "TEXT"),          # running | ready | failed (NULL: made before this column)
+    # Manage a launched campaign (admanage.py, M2.4): a status_change / budget_change card is applied after approval,
+    # by the request and then the worker when Meta says wait (the 30 s edit slot, the rate budget).
+    ("approval_cards", "apply_state", "TEXT"),        # queued | applying | waiting | done | failed (change cards only)
+    ("approval_cards", "next_at", "TEXT"),            # when a waiting change may try again
+    ("approval_cards", "lease_at", "TEXT"),           # a run applying it holds it until this is LEASE old
+    ("approval_cards", "attempts", "INTEGER NOT NULL DEFAULT 0"),
+    # what Meta last said about a launched object (read when a card is drafted, approved or applied)
+    ("ad_objects", "effective_status", "TEXT"),       # Meta's effective_status (ACTIVE, CAMPAIGN_PAUSED, DISAPPROVED...)
+    ("ad_objects", "daily_budget_minor", "INTEGER"),  # campaigns: the daily budget in the account's minor units
+    ("ad_objects", "synced_at", "TEXT"),
+    # Insights pulls per connection (adinsights.py, M2.5)
+    ("ad_connections", "insights_at", "TEXT"),        # the last pull that worked
+    ("ad_connections", "insights_next_at", "TEXT"),   # when the next pull is due (a rate limit pushes it out)
+    ("ad_connections", "insights_error", "TEXT"),     # the last pull's problem, in plain words
+    ("users", "weekly_report_off", "TEXT"),           # when they stopped the weekly report email (weekly_report.py, M4.4)
+    # conversion tracking on members' pages and forms (conversions.py, M3.4): the owner's measurement setting
+    # ('us': visitors in the US who send no GPC / Do Not Track; 'off': never), and per pixel the Test Events code
+    ("pages", "measurement", "TEXT NOT NULL DEFAULT 'us'"),
+    ("forms", "measurement", "TEXT NOT NULL DEFAULT 'us'"),
+    ("pixels", "test_code", "TEXT"),
 ]
 
 
@@ -779,12 +941,31 @@ def now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def lease(conn, name: str, holder: str, ttl_s: float = 90.0, info: str | None = None) -> bool:
+    """Take or renew the lease `name` for `holder` until ttl_s from now (Crowdcut's db.lease). True when `holder` has
+    it: it was free, expired, or already ours. One atomic upsert, so two processes never both get True."""
+    from datetime import timedelta
+    ts = datetime.now(timezone.utc)
+    until = (ts + timedelta(seconds=ttl_s)).isoformat()
+    cur = conn.execute(
+        "INSERT INTO worker_leases (name, holder, until, info) VALUES (?,?,?,?) ON CONFLICT(name) DO UPDATE SET "
+        "holder=excluded.holder, until=excluded.until, info=excluded.info WHERE worker_leases.holder=excluded.holder "
+        "OR worker_leases.until < ?", (name, holder, until, info, ts.isoformat()))
+    conn.commit()
+    return cur.rowcount == 1
+
+
 def connect():
+    """A connection to the app database. It times its write lock waits for the admin Database load panel
+    (dbstats.py, roadmap M7.3; DB_STATS=off gives the plain sqlite3 connection)."""
+    import dbstats
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, timeout=15)
+    t0 = time.perf_counter()
+    conn = sqlite3.connect(DB_PATH, timeout=15, factory=dbstats.factory())
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
+    dbstats.note_connect(time.perf_counter() - t0)
     return conn
 
 
@@ -842,12 +1023,14 @@ def init():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_card_trials_user ON card_trials(user_id)")
         _backfill_email_norm(conn)
         conn.commit()
-        if not conn.execute("SELECT 1 FROM meta WHERE key='owner_admin_v1'").fetchone():
-            # Koby signed up through the normal form (user 1, workspace 1, the Scale
-            # subscription's metadata) instead of his owner setup link, so his account
-            # never got the operator flag. One time, pinned to that exact row.
-            conn.execute("UPDATE users SET is_admin=1 WHERE id=1 AND workspace_id=1 "
-                         "AND lower(email)='koby@rectorandstull.com'")
+        first_owner = (os.environ.get("RS_FIRST_OWNER_EMAIL") or "").strip().lower()
+        if first_owner and not conn.execute("SELECT 1 FROM meta WHERE key='owner_admin_v1'").fetchone():
+            # The first owner signed up through the normal form (user 1, workspace 1)
+            # instead of an owner setup link, so the account never got the operator flag.
+            # One time, pinned to that exact row. Production ran this already (meta
+            # owner_admin_v1); the email is a setting, never in the source (SEC-9, M7.4).
+            conn.execute("UPDATE users SET is_admin=1 WHERE id=1 AND workspace_id=1 AND lower(email)=?",
+                         (first_owner,))
             conn.execute("INSERT OR IGNORE INTO meta (key, value) VALUES ('owner_admin_v1', ?)", (now(),))
             conn.commit()
         if not conn.execute("SELECT 1 FROM meta WHERE key='products_v1'").fetchone():

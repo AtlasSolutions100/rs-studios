@@ -1,0 +1,47 @@
+{# Ad platform results in plain words (adinsights.figures): used by the Ad campaigns pages (roadmap M2.5). #}
+{% macro range_tabs(key, ranges, base) -%}
+<nav class="af-tabs" aria-label="Date range">{% for k, w in ranges.items() %}<a href="{{ base }}?range={{ k }}" {{ 'aria-current=page' if k == key }} class="{{ 'on' if k == key }}">{{ w }}</a>{% endfor %}</nav>
+{%- endmacro %}
+{% macro tiles(f, cur, money, full=False) -%}
+{% set rw = f.words %}
+<dl class="af-tiles">
+  <div><dt>Spent</dt><dd>{{ money(f.spend, cur) }}</dd></div>
+  <div><dt>{{ rw[0] }}</dt><dd>{{ '{:,}'.format(f.results) if f.results is not none else 'Mixed goals' }}</dd></div>
+  <div><dt>{{ rw[1] }}</dt><dd>{{ money(f.cpr, cur) if f.cpr is not none else 'None yet' }}</dd></div>
+  <div><dt>Click rate</dt><dd>{{ '%.2f'|format(f.ctr) ~ '%' if f.ctr is not none else 'None yet' }}</dd></div>
+  {% if full %}
+  <div><dt>Times shown</dt><dd>{{ '{:,}'.format(f.imp) }}</dd></div>
+  <div><dt>Link clicks</dt><dd>{{ '{:,}'.format(f.link) }}</dd></div>
+  <div><dt>Cost per click</dt><dd>{{ money(f.cpc, cur) if f.cpc is not none else 'None yet' }}</dd></div>
+  {% if f.purchases %}<div><dt>Purchase value</dt><dd>{{ money(f.value, cur) }}</dd></div>{% endif %}
+  {% endif %}
+</dl>
+{%- endmacro %}
+{% macro our_leads(lf, f, cur, money) -%}
+{# Leads on the member's own Campaignify forms, matched to the ad by its link tags (adleads.leads_for, M4.1). #}
+<h3 class="af-sub">From your own forms</h3>
+<dl class="af-tiles">
+  <div><dt>Leads on your forms</dt><dd>{{ '{:,}'.format(lf.total) }}</dd></div>
+  <div><dt>Cost per lead, your forms</dt><dd>{{ money(lf.cpl, cur) if lf.cpl is not none else 'None yet' }}</dd></div>
+  <div><dt>Leads Meta counted</dt><dd>{{ '{:,}'.format(f.leads or 0) }}</dd></div>
+</dl>
+<p class="small muted af-note">Leads on your forms are the people who sent a Campaignify form after clicking this campaign's ads. Meta counts leads from its pixel, so the 2 numbers can differ. Cost per lead is what Meta says you spent, divided by your form leads.</p>
+{%- endmacro %}
+{% macro updated(ins, word=None) -%}
+<p class="small muted af-note">Numbers from {{ word or 'each ad platform' }}, in the ad account's currency and time zone.{% if ins.at %} Updated {{ ins.at|localtime }}.{% else %} The first update comes within a few hours of the launch.{% endif %} {{ word or 'The platforms' }} can add late purchases for a few days, so recent days may still go up.</p>
+{% if ins.error %}<div class="flash warn">{{ ins.error }}</div>{% endif %}
+{%- endmacro %}
+{% macro styles() -%}
+<style>
+.af-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+.af-tabs a{padding:6px 12px;border-radius:999px;border:1px solid var(--line);text-decoration:none;color:var(--muted);font-size:13px;font-weight:600}
+.af-tabs a.on{background:var(--btn2);color:var(--ink);border-color:var(--ink)}
+.af-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0}
+.af-tiles div{background:var(--field);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
+.af-tiles dt{font-size:12px;color:var(--muted);margin:0 0 2px}
+.af-tiles dd{margin:0;font-weight:800;font-size:17px;overflow-wrap:anywhere}
+.af-note{margin:10px 0 0}
+.af-sub{font-size:14px;margin:16px 0 8px;color:var(--muted);font-weight:700}
+@media (max-width:560px){.af-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+{%- endmacro %}

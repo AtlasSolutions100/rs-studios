@@ -426,6 +426,29 @@ def estimate(model_id: str, inputs: dict) -> float | None:
 
 
 CANCELED, STARTED, GONE = "canceled", "started", "gone"
+DELETED, BUSY = "deleted", "busy"
+
+
+def delete_request(request_id: str) -> str:
+    """Delete a finished request's data at the vendor: its input and output files, prompt and parameters, right away
+    (DELETE /requests/{id}; docs.higgsfield.ai "Delete request data", read 2026-11-09; billing records stay there).
+    Returns "deleted" (200), "gone" (404: no such request, or already expired), "busy" (409: still queued or in
+    progress) or "error: ..." (anything else, after the usual retries). Idempotent. Never raises (workspace
+    deletion, wsdelete.py, M7.5)."""
+    try:
+        r = _send("delete", f"{BASE}/requests/{request_id}", tries=TRIES if retries_on() else 1, check=False,
+                  headers=_headers(), timeout=TIMEOUT)
+    except GenError as e:
+        return f"error: {str(e)[:120]}"
+    except requests.RequestException as e:
+        return f"error: {type(e).__name__}"
+    if r.status_code == 200:
+        return DELETED
+    if r.status_code == 404:
+        return GONE
+    if r.status_code == 409:
+        return BUSY
+    return f"error: {r.status_code}"
 
 
 def cancel(request_id: str) -> str:

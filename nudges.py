@@ -211,14 +211,23 @@ def mail_tick(app, n: int):
     if n % max(1, TICK_S // RETRY_TICK_S) == 0:
         with app.app_context():
             run_once(app.secret_key)
+    import weekly_report
+    if n % weekly_report.TICK_PASSES == 0:      # the weekly report email (M4.4), nurture like the nudges
+        try:
+            with app.app_context():
+                weekly_report.run_once(app.secret_key)
+        except Exception:  # noqa: BLE001
+            log.exception("weekly report pass failed")
 
 
 RETRY_TICK_S = 60
 
 
 def start(app):
-    """The background loop (daemon thread), unless RS_NUDGE_LOOP=0 (tests)."""
-    if os.environ.get("RS_NUDGE_LOOP", "1") != "1":
+    """The background loop (daemon thread), unless RS_NUDGE_LOOP=0 (tests). In process mode (M7.2) it runs in the
+    worker process only."""
+    import worker
+    if os.environ.get("RS_NUDGE_LOOP", "1") != "1" or not worker.background_here():
         return
 
     def loop():

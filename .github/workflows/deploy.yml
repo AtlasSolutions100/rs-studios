@@ -22,6 +22,13 @@ name: Deploy Campaignify (campaignify.ai)
 #   ANTHROPIC_MODEL        optional repo variable (default claude-sonnet-4-6)
 #   GROQ_API_KEY           optional fallback writing key; GROQ_MODEL optional variable
 #   STRIPE_PORTAL_CONFIG   optional repo variable: Customer Portal configuration id
+#   Live ids (liveids.py, roadmap M7.4): each optional repo variable overrides today's production value, which
+#   liveids.PRODUCTION keeps as the fallback. STRIPE_PLAN_PRICE_STARTER/_GROWTH/_SCALE,
+#   STRIPE_PLAN_PRODUCT_STARTER/_GROWTH/_SCALE, STRIPE_PRICE_STARTER/_PRO/_STUDIO (credit packs),
+#   TWILIO_SECONDARY_POLICY_SID, TWILIO_A2P_POLICY_SID, INDEXNOW_KEY (plus STRIPE_PORTAL_CONFIG, GADS_TAG_ID,
+#   GOOGLE_OAUTH_CLIENT_ID, RS_POSTAL_ADDRESS listed here). RS_LIVE_IDS=settings drops the fallback (a staging copy).
+#   RS_OWNER_INVITES       optional secret: owner setup links, "email:sha256-of-code,..." (SEC-9: no owner email or
+#                          code hash in the source any more; unset = no owner setup links)
 #   RS_MARKUP              optional repo variable, default 2.0
 #   RS_STARTER_CREDITS     optional repo variable; default = 2 image ads (44 credits)
 #   SIGNUP_CREDITS_ADS     optional repo variable: starter credits for sign-ups whose first touch is a paid ad
@@ -96,6 +103,29 @@ name: Deploy Campaignify (campaignify.ai)
 #   META_LOGIN_CONFIG_ID   the Facebook Login for Business configuration id (secret or variable)
 #   TOKEN_KEY              the token box key: 32 random bytes, base64 (secretsbox.py). Keep a copy outside
 #                          GitHub: without it no stored ad-account token can be read
+#   GOOGLE_ADS             optional variable: 1 turns Google Ads connect and launch on (adplatforms/google.py,
+#                          roadmap M3), on top of AD_LAUNCH. Default off
+#   GOOGLE_ADS_CLIENT_ID   optional variable: the OAuth client for Google Ads; unset = GOOGLE_OAUTH_CLIENT_ID. Its Cloud
+#                          project must have the Google Ads API on (Basic access) and list the redirect URI
+#                          https://campaignify.ai/connect/google/callback. No developer token: Google retired them
+#                          on 2026-09-09; access follows the Cloud project
+#   GOOGLE_ADS_CLIENT_SECRET optional secret: that client's secret; unset = GOOGLE_OAUTH_CLIENT_SECRET
+#   SNAPCHAT_ADS           optional variable: 1 turns Snapchat connect and launch on (adplatforms/snapchat.py,
+#                          roadmap M6.1), on top of AD_LAUNCH. Default off
+#   SNAPCHAT_CLIENT_ID     variable: the Snapchat Marketing API OAuth app's client id (Business Manager > Business
+#                          Details > OAuth Apps). Its redirect URI must be https://campaignify.ai/connect/snapchat/callback
+#   SNAPCHAT_CLIENT_SECRET secret: that OAuth app's client secret (Snap shows it once)
+#   TIKTOK_ADS             optional variable: 1 turns TikTok connect and launch on (adplatforms/tiktok.py, roadmap
+#                          M6.2), on top of AD_LAUNCH. Default off
+#   TIKTOK_APP_ID          variable: the TikTok for Business developer app's App ID (business-api.tiktok.com > My Apps).
+#                          Its Advertiser redirect URL must be https://campaignify.ai/connect/tiktok/callback
+#   TIKTOK_APP_SECRET      secret: that app's Secret
+#   CONVERSIONS_API        optional variable: 1 turns conversion tracking on members' Campaignify pages and forms
+#                          on (conversions.py, roadmap M3.4): browser pixels and server events with one event id
+#                          to the workspace's Meta pixel (Conversions API), TikTok pixel (Events API) and Google Ads
+#                          (Data Manager API, leads). On top of AD_LAUNCH. Default off
+#   META_CAPI_USE_CONNECTION_TOKEN optional variable: 1 lets a Meta pixel without its own Conversions API token use
+#                          the Meta connection's token. Set it only after tools/conversions_check.py shows Meta takes it
 #   TOKEN_KEYS_OLD         only while rotating TOKEN_KEY: the previous key(s), comma separated, still read.
 #                          To rotate: (1) set TOKEN_KEYS_OLD to the current TOKEN_KEY, (2) set TOKEN_KEY to a new
 #                          key, (3) deploy, (4) on the server run `python3 secretsbox.py rotate` in the app
@@ -125,6 +155,10 @@ name: Deploy Campaignify (campaignify.ai)
 #   OPS_ALERTS             operator alert emails (alerts.py), default on
 #   BACKUPS / BACKUP_MEDIA the nightly off-site backup, and its media folders (backup.py), default on
 #   RS_DISK_MIN_GB         uploads and new files are refused below this much free disk (storage.py), default 5
+#   RS_WORKER_PROCESS      optional variable, the M7.2 kill switch: "off" puts the background loop back in the app
+#                          container as a thread (the worker container then idles). Default on: docker-compose runs
+#                          the loop in its own "worker" service (worker_main.py) and the web only serves requests.
+#   RS_TASK_THREADS        optional variable: planning and research runs the worker runs at once (default 4)
 #   RS_HEALTH_WORKER_MAX_AGE / RS_HEALTH_BUSY_MAX_S   /health worker heartbeat limits in seconds (alerts.py),
 #                          default 180 and 900; keep the first over 120 (the deploy hook's wait after the switch)
 # A secret or variable that isn't set is simply not sent, so the server keeps
@@ -182,6 +216,20 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GROQ_MODEL: ${{ vars.GROQ_MODEL }}
           STRIPE_PORTAL_CONFIG: ${{ vars.STRIPE_PORTAL_CONFIG }}
+          STRIPE_PLAN_PRICE_STARTER: ${{ vars.STRIPE_PLAN_PRICE_STARTER }}
+          STRIPE_PLAN_PRICE_GROWTH: ${{ vars.STRIPE_PLAN_PRICE_GROWTH }}
+          STRIPE_PLAN_PRICE_SCALE: ${{ vars.STRIPE_PLAN_PRICE_SCALE }}
+          STRIPE_PLAN_PRODUCT_STARTER: ${{ vars.STRIPE_PLAN_PRODUCT_STARTER }}
+          STRIPE_PLAN_PRODUCT_GROWTH: ${{ vars.STRIPE_PLAN_PRODUCT_GROWTH }}
+          STRIPE_PLAN_PRODUCT_SCALE: ${{ vars.STRIPE_PLAN_PRODUCT_SCALE }}
+          STRIPE_PRICE_STARTER: ${{ vars.STRIPE_PRICE_STARTER }}
+          STRIPE_PRICE_PRO: ${{ vars.STRIPE_PRICE_PRO }}
+          STRIPE_PRICE_STUDIO: ${{ vars.STRIPE_PRICE_STUDIO }}
+          TWILIO_SECONDARY_POLICY_SID: ${{ vars.TWILIO_SECONDARY_POLICY_SID }}
+          TWILIO_A2P_POLICY_SID: ${{ vars.TWILIO_A2P_POLICY_SID }}
+          INDEXNOW_KEY: ${{ vars.INDEXNOW_KEY }}
+          RS_LIVE_IDS: ${{ vars.RS_LIVE_IDS }}
+          RS_OWNER_INVITES: ${{ secrets.RS_OWNER_INVITES }}
           RS_MARKUP: ${{ vars.RS_MARKUP }}
           RS_STARTER_CREDITS: ${{ vars.RS_STARTER_CREDITS }}
           SIGNUP_CREDITS_ADS: ${{ vars.SIGNUP_CREDITS_ADS }}
@@ -250,6 +298,18 @@ jobs:
           META_LOGIN_CONFIG_ID: ${{ secrets.META_LOGIN_CONFIG_ID || vars.META_LOGIN_CONFIG_ID }}
           TOKEN_KEY: ${{ secrets.TOKEN_KEY }}
           TOKEN_KEYS_OLD: ${{ secrets.TOKEN_KEYS_OLD }}
+          GOOGLE_ADS: ${{ vars.GOOGLE_ADS }}
+          GOOGLE_ADS_CLIENT_ID: ${{ vars.GOOGLE_ADS_CLIENT_ID }}
+          GOOGLE_ADS_CLIENT_SECRET: ${{ secrets.GOOGLE_ADS_CLIENT_SECRET }}
+          SNAPCHAT_ADS: ${{ vars.SNAPCHAT_ADS }}
+          SNAPCHAT_CLIENT_ID: ${{ vars.SNAPCHAT_CLIENT_ID }}
+          SNAPCHAT_CLIENT_SECRET: ${{ secrets.SNAPCHAT_CLIENT_SECRET }}
+          TIKTOK_ADS: ${{ vars.TIKTOK_ADS }}
+          TIKTOK_APP_ID: ${{ vars.TIKTOK_APP_ID }}
+          TIKTOK_APP_SECRET: ${{ secrets.TIKTOK_APP_SECRET }}
+          # Conversion tracking on members' pages (conversions.py, M3.4/M3.5): off until CONVERSIONS_API is set.
+          CONVERSIONS_API: ${{ vars.CONVERSIONS_API }}
+          META_CAPI_USE_CONNECTION_TOKEN: ${{ vars.META_CAPI_USE_CONNECTION_TOKEN }}
           # Kill switches and opt-ins (repo variables; see the list at the top). Unset = not sent.
           BILLING_HOLD: ${{ vars.BILLING_HOLD }}
           CREDIT_HOLDS: ${{ vars.CREDIT_HOLDS }}
@@ -272,6 +332,8 @@ jobs:
           BACKUP_MEDIA: ${{ vars.BACKUP_MEDIA }}
           RS_DISK_MIN_GB: ${{ vars.RS_DISK_MIN_GB }}
           RS_HEALTH_WORKER_MAX_AGE: ${{ vars.RS_HEALTH_WORKER_MAX_AGE }}
+          RS_WORKER_PROCESS: ${{ vars.RS_WORKER_PROCESS }}
+          RS_TASK_THREADS: ${{ vars.RS_TASK_THREADS }}
           RS_HEALTH_BUSY_MAX_S: ${{ vars.RS_HEALTH_BUSY_MAX_S }}
         run: |
           git archive --format=tar.gz -o /tmp/app.tgz HEAD
@@ -280,6 +342,13 @@ jobs:
           settings = {k: os.environ[k] for k in ("HF_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET",
                                              "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "GROQ_API_KEY", "GROQ_MODEL",
                                              "STRIPE_PORTAL_CONFIG", "RS_MARKUP", "RS_STARTER_CREDITS",
+                                             # live ids (liveids.py, M7.4) and owner setup links (SEC-9)
+                                             "STRIPE_PLAN_PRICE_STARTER", "STRIPE_PLAN_PRICE_GROWTH",
+                                             "STRIPE_PLAN_PRICE_SCALE", "STRIPE_PLAN_PRODUCT_STARTER",
+                                             "STRIPE_PLAN_PRODUCT_GROWTH", "STRIPE_PLAN_PRODUCT_SCALE",
+                                             "STRIPE_PRICE_STARTER", "STRIPE_PRICE_PRO", "STRIPE_PRICE_STUDIO",
+                                             "TWILIO_SECONDARY_POLICY_SID", "TWILIO_A2P_POLICY_SID", "INDEXNOW_KEY",
+                                             "RS_LIVE_IDS", "RS_OWNER_INVITES",
                                              "SIGNUP_CREDITS_ADS", "SIGNUP_CREDITS_ADS_PER_DAY",
                                              "RESEND_API_KEY", "RESEND_WEBHOOK_SECRET", "RS_MAIL_DOMAIN", "RS_POSTAL_ADDRESS",
                                              "RS_HD_MARKUP", "RS_VIDEO_UPSCALE_MODEL", "RS_VIDEO_UPSCALE_USD_PER_SECOND",
@@ -300,12 +369,17 @@ jobs:
                                              "BACKUP_CRYPT_PASSWORD", "BACKUP_CRYPT_SALT",
                                              "AD_LAUNCH", "AD_LAUNCH_WORKSPACES", "AD_RATE_TIER", "META_APP_ID",
                                              "META_APP_SECRET", "META_LOGIN_CONFIG_ID", "TOKEN_KEY", "TOKEN_KEYS_OLD",
+                                             "GOOGLE_ADS", "GOOGLE_ADS_CLIENT_ID", "GOOGLE_ADS_CLIENT_SECRET",
+                                             "SNAPCHAT_ADS", "SNAPCHAT_CLIENT_ID", "SNAPCHAT_CLIENT_SECRET",
+                                             "TIKTOK_ADS", "TIKTOK_APP_ID", "TIKTOK_APP_SECRET",
+                                             "CONVERSIONS_API", "META_CAPI_USE_CONNECTION_TOKEN",
                                              # kill switches and opt-ins (N15)
                                              "BILLING_HOLD", "CREDIT_HOLDS", "PLAN_PENDING", "RENEWAL_PAUSE", "HF_RETRY",
                                              "RS_LOGIN_HARDENING", "RS_SIGNUP_CONFIRM", "RS_NEXT_STEPS", "RS_STORAGE_QUOTAS",
                                              "RS_JOB_CANCEL", "RS_STORAGE_PURGE_DELETED", "RS_SERVICE_PATH", "OPS_ALERTS", "BACKUPS",
                                              "RS_CARD_REQUIRED", "RS_PLAN_PAYWALL", "RS_CARD_STARTS_PER_HOUR",
                                              "BACKUP_MEDIA", "RS_DISK_MIN_GB", "RS_HEALTH_WORKER_MAX_AGE", "RS_LAUNCH_KIT",
+                                             "RS_WORKER_PROCESS", "RS_TASK_THREADS",
                                              "RS_HEALTH_BUSY_MAX_S")
                       if os.environ.get(k)}
           print("settings sent:", ", ".join(settings) or "none")
@@ -348,10 +422,17 @@ jobs:
           done
           echo "deploy did not finish in 20 minutes"; exit 1
 
+      # 200 means the database answers and the background loop beats: with the worker in its own container
+      # (M7.2) that is this release's worker (same BUILD_ID), not the old one's last beat.
       - name: Health check
         run: |
           for i in $(seq 1 20); do
-            if curl -fsS --max-time 20 "https://campaignify.ai/health?deep=1"; then echo; exit 0; fi
+            if body=$(curl -fsS --max-time 20 "https://campaignify.ai/health?deep=1"); then
+              echo "$body"
+              echo "$body" | jq -r '"worker: " + (.checks.worker.status // "?") + ", mode " + (.checks.worker.mode // "thread")
+                + ", build " + (.checks.worker.build // "none") + ", worker code " + (.checks.worker_code // "?")'
+              exit 0
+            fi
             sleep 6
           done
           exit 1

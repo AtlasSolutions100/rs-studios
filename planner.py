@@ -28,6 +28,7 @@ import credits as credit_holds
 import db
 import llm
 import platforms
+import planner_v2
 import plans
 import products
 import seo
@@ -220,9 +221,24 @@ def brief_prompt(c, brand, brief, notes_from_before=None):
             lines.append(service_path.SERVICE_PROMPT)
         elif "google" in (brief.get("platforms") or []):
             lines.append(service_path.KEYWORDS_PROMPT)
+    if planner_v2.on():     # M4.3: the platform mix, the daily band and the connected accounts, as the page shows them
+        try:
+            lines += planner_v2.prompt_lines(setup_for(c, brief))
+        except Exception:  # noqa: BLE001 — the plan still runs without the band
+            pass
     if notes_from_before:
         lines.append("This is a revision. The member's notes on the previous plan: " + notes_from_before)
     return "\n".join(lines)
+
+
+def setup_for(c, brief, user=None, operator: bool = False) -> dict:
+    """Planner v2's setup (planner_v2.build) for a campaign row: its product, the workspace's connections."""
+    with db.connect() as conn:
+        ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (c["workspace_id"],)).fetchone()
+        p = products.get_product(conn, c["workspace_id"], c["product_id"]) if c["product_id"] else None
+        conns = planner_v2.connections(conn, ws, user)
+    svc = service_path.on() and service_path.is_service(p)
+    return planner_v2.build(brief, service=svc, product=p, conns=conns, ws=ws, operator=operator)
 
 
 def _photos(ws_id, product_id=None):
@@ -426,6 +442,16 @@ def dispatch(name, inp, ctx):
                                                     None if brief.get("area") else ctx.get("area"))
                 source = "starter"
             plan.final["keywords"] = {"items": kws, "source": source, "negatives": service_path.NEGATIVES}
+        if planner_v2.on():   # M4.3: the mix and band the plan was made with, for the launch draft's daily budget
+            try:
+                with db.connect() as conn:
+                    crow = conn.execute("SELECT * FROM campaigns WHERE id=?", (ctx["cid"],)).fetchone()
+                su = setup_for(crow, brief)
+                plan.final["setup"] = {"path": su["path"], "currency": su["currency"],
+                                       "rows": [{"platform": r["platform"], "kind": r["kind"], "low": r["low"],
+                                                 "mid": r["mid"], "high": r["high"]} for r in su["rows"]]}
+            except Exception:  # noqa: BLE001 — the plan is finished either way
+                pass
         _step(steps, "done", "Finished the plan", f"{len(plan.final['checklist'])} launch steps")
         return {"ok": True}
     return {"error": f"unknown tool {name}"}
@@ -564,6 +590,14 @@ def run(cid: int, notes: str | None = None, hold=None, free: bool = False):
 def start(cid: int, notes: str | None = None, hold=None):
     if os.environ.get("RS_WORKER", "1") != "1":
         return run(cid, notes, hold)
+    import worker
+    if worker.mode() == "process":          # the worker process runs it (tasks.py, M7.2); this request returns now
+        import tasks
+        with db.connect() as conn:
+            ws_id = (conn.execute("SELECT workspace_id FROM campaigns WHERE id=?", (cid,)).fetchone() or [None])[0]
+        tasks.enqueue("planner", {"cid": cid, "notes": notes, "hold": tasks.hold_fields(hold)}, ws_id, f"campaign:{cid}")
+        tasks.handoff(hold)
+        return "planning"
     threading.Thread(target=_safe_run, args=(cid, notes, hold), name=f"planner-{cid}", daemon=True).start()
     return "planning"
 

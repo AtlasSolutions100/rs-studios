@@ -1095,6 +1095,16 @@ class Run:
         if "google" in platforms_on:
             kw = self.page.locator("#keywords table.kwlist tbody tr").count()
             note += f", search keyword list {yn[bool(kw)]}" + (f" ({kw} terms)" if kw else "")
+        if (os.environ.get("RS_PLANNER_V2") or "1") != "0":   # Planner v2 (M4.3): the mix, the daily band, the 14-day test
+            box = self.page.locator("[data-setup]")
+            want = "service" if goal == "leads" else "product"
+            if not box.count() or box.get_attribute("data-setup") != want:
+                raise StepFailed(f"the plan has no {want} setup (Planner v2: platform mix and daily budget band)")
+            rows = [r.get_attribute("data-setup-row") for r in box.locator("[data-setup-row]").all()]
+            band = re.search(r"Suggested start: ([^\n]+?) a day", box.inner_text())
+            note += f", setup {want}: {' + '.join(rows)}, suggested {band.group(1) if band else '?'} a day"
+            if "The 14-day test" not in main:
+                raise StepFailed("the plan has no 14-day test plan")
         if goal == "leads":
             lead_items = bool(re.search(r"(?i)\bform\b", checklist) and re.search(r"(?i)\bflow\b", checklist))
             links = sec.locator("a[href='/app/pages'], a[href='/app/forms'], a[href='/app/flows']").count() if sec.count() else 0

@@ -9,6 +9,8 @@ import math
 import os
 import re
 
+import liveids
+
 MARKUP = float(os.environ.get("RS_MARKUP", "2.0"))
 # 1080p carries a smaller markup of its own (owner decision D9): the vendor's
 # 1080p rate is ~2.5x its 720p rate, so 2x would price it out of reach.
@@ -617,14 +619,14 @@ STARTER_IMAGE_ADS = int(os.environ.get("RS_STARTER_IMAGE_ADS", "2"))
 # STRIPE_PRICE_<CODE> overrides a price id (e.g. for a test-mode account).
 PACKS = [
     {"code": "starter", "name": "Starter", "usd": 29, "credits": 2900, "bonus": 0,
-     "price_id": "price_1UVd2ERskSkrZOvOBwL2BJVU"},
+     "price_id": None},
     {"code": "pro", "name": "Pro", "usd": 79, "credits": 8500, "bonus": 600,
-     "price_id": "price_1UVd2FRskSkrZOvOxLP4KMcR"},
+     "price_id": None},
     {"code": "studio", "name": "Studio", "usd": 199, "credits": 23000, "bonus": 3100,
-     "price_id": "price_1UVd2GRskSkrZOvOegXnFALF"},
+     "price_id": None},
 ]
-for _p in PACKS:
-    _p["price_id"] = os.environ.get(f"STRIPE_PRICE_{_p['code'].upper()}", _p["price_id"])
+for _p in PACKS:      # the price ids are settings (liveids.py, M7.4)
+    _p["price_id"] = liveids.get(f"STRIPE_PRICE_{_p['code'].upper()}")
 PACK_BY_CODE = {p["code"]: p for p in PACKS}
 
 

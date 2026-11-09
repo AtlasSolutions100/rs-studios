@@ -13,9 +13,16 @@
       <div class="row" style="margin-top:14px;justify-content:space-between"><button class="btn" name="action" value="save">Save</button><button class="btn dark sm" name="action" value="delete" data-confirm="Delete this contact and their form answers?">Delete contact</button></div>
     </form>
     <div class="panel"><h3>Engagement</h3>
-      <ol class="steplist">{% for e in events %}<li class="{{ 'done' if e.kind == 'form' else 'note' }}"><b>{{ {'form': 'Filled in', 'page': 'On page', 'link': 'Came through smart link', 'msg_click': 'Clicked a link in', 'msg_open': 'Opened', 'sms_reply': 'Replied by text:'}.get(e.kind, e.kind) }} {{ e.detail }}</b><span class="small muted">{{ e.at|localtime }}</span></li>{% else %}<li class="note"><b>Nothing yet</b></li>{% endfor %}</ol>
+      <ol class="steplist">{% for e in events %}<li class="{{ 'done' if e.kind == 'form' else 'note' }}"><b>{{ {'form': 'Filled in', 'page': 'On page', 'link': 'Came through smart link', 'ad': 'Came from', 'msg_click': 'Clicked a link in', 'msg_open': 'Opened', 'sms_reply': 'Replied by text:'}.get(e.kind, e.kind) }} {{ e.detail }}</b><span class="small muted">{{ e.at|localtime }}</span></li>{% else %}<li class="note"><b>Nothing yet</b></li>{% endfor %}</ol>
     </div>
   </div>
+  {% if sources %}<div class="section-h"><h2>Where they came from</h2><span class="muted small">The ad tags on the page they filled in the form from</span></div>
+  <div class="panel"><ul class="ct-src">{% for s in sources %}
+    <li><b>{% if s.launch_link %}<a href="{{ url_for('manage.show', lid=s.launch_id) }}">{{ s.words }}</a>{% else %}{{ s.words }}{% endif %}</b>
+      <span class="small muted">{{ s.created_at|localtime }}{% if s.page_slug %} · on /p/{{ s.page_slug }}{% endif %}{% if s.click_type %} · {{ {'fbclid': 'Meta click id', 'gclid': 'Google click id', 'ttclid': 'TikTok click id'}.get(s.click_type, s.click_type) }}{% endif %}</span>
+      {% set tags = [('utm_source', s.utm_source), ('utm_medium', s.utm_medium), ('utm_campaign', s.utm_campaign), ('utm_content', s.utm_content), ('utm_term', s.utm_term)]|selectattr(1)|list %}
+      {% if tags %}<span class="small dim" style="overflow-wrap:anywhere">{% for k, v in tags %}{{ k }}={{ v }}{{ ' · ' if not loop.last }}{% endfor %}</span>{% endif %}</li>{% endfor %}</ul></div>
+  <style>.ct-src{list-style:none;padding:0;margin:0}.ct-src li{display:grid;gap:3px;padding:10px 0;border-top:1px solid var(--line)}.ct-src li:first-child{border-top:0;padding-top:0}</style>{% endif %}
   <div class="section-h"><h2>Consent</h2><span class="muted small">What they agreed to, and when</span></div>
   <div class="grid2">
     {% for ch, label in (('email', 'Email'), ('sms', 'Texts')) %}{% set val = c[ch ~ '_consent'] or 'none' %}{% set stopped = c.unsubscribed_at if ch == 'email' else c.sms_stopped_at %}

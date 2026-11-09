@@ -23,6 +23,7 @@ from werkzeug.security import generate_password_hash
 
 import accounts
 import db
+import liveids
 import login_security
 import verify
 
@@ -32,7 +33,7 @@ bp = Blueprint("google_auth", __name__)
 # The OAuth client id of the Campaignify web app in Google Cloud. It is public
 # (it's in the redirect to Google); deploy.yml passes GOOGLE_OAUTH_CLIENT_ID only
 # when the repo variable is set, so this is the one place the default lives.
-DEFAULT_CLIENT_ID = "107807691054-chboji6914euu71l1g29hkiputd6o97c.apps.googleusercontent.com"
+DEFAULT_CLIENT_ID = liveids.PRODUCTION["GOOGLE_OAUTH_CLIENT_ID"]   # read through liveids (M7.4)
 
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -46,7 +47,7 @@ FAILED = "Google sign-in didn't work. Try again, or use your email and password.
 
 
 def client_id() -> str:
-    return (os.environ.get("GOOGLE_OAUTH_CLIENT_ID") or DEFAULT_CLIENT_ID).strip()
+    return (liveids.get("GOOGLE_OAUTH_CLIENT_ID") or "").strip()
 
 
 def client_secret() -> str:

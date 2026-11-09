@@ -1,0 +1,35 @@
+{
+ "data": [
+  {
+   "ad_id": "23850000000005",
+   "ad_name": "Ember Candle · ad 1 Evening ritual [cfy:1:ad:1]",
+   "adset_id": "23850000000004",
+   "campaign_id": "23850000000003",
+   "date_start": "2026-11-02",
+   "date_stop": "2026-11-02",
+   "account_currency": "USD",
+   "spend": "18.42",
+   "impressions": "2310",
+   "reach": "1984",
+   "clicks": "61",
+   "inline_link_clicks": "44",
+   "ctr": "2.640693",
+   "actions": [
+    {"action_type": "link_click", "value": "44"},
+    {"action_type": "landing_page_view", "value": "37"},
+    {"action_type": "offsite_conversion.fb_pixel_purchase", "value": "2"},
+    {"action_type": "purchase", "value": "2"},
+    {"action_type": "omni_purchase", "value": "2"}
+   ],
+   "action_values": [
+    {"action_type": "offsite_conversion.fb_pixel_purchase", "value": "58.00"},
+    {"action_type": "purchase", "value": "58.00"},
+    {"action_type": "omni_purchase", "value": "58.00"}
+   ]
+  }
+ ],
+ "paging": {
+  "cursors": {"before": "MAZDZD", "after": "MQZDZD"},
+  "next": "https://graph.facebook.com/v26.0/act_111000111/insights?after=MQZDZD"
+ }
+}

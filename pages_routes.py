@@ -11,13 +11,16 @@ from flask import (Blueprint, abort, flash, g, make_response, redirect, render_t
                    url_for)
 
 import adhub
+import adleads
 import compliance
+import conversions
 import copywriter
 import credits as credit_holds
 import db
 import llm
 import pages
 import plans
+import site_events
 from core import brand, can_afford, feature_required, not_enough, picked_product, reserve_ai
 
 bp = Blueprint("pages", __name__)
@@ -134,7 +137,8 @@ def edit(pid):
         return render_template("page_edit.html", p=p, blocks=json.loads(p["blocks_json"] or "[]"), lib=lib, myforms=myforms, hub=adhub,
                                BLOCKS=pages.BLOCKS, can_publish=plans.within(g.ws, "pages", published),
                                next_plan=plans.next_plan_for("pages", published), ai_on=llm.configured(),
-                               ai_quote=copywriter.estimate(1, "landing"), base=request.host_url)
+                               ai_quote=copywriter.estimate(1, "landing"), base=request.host_url,
+                               conv_on=conversions.ws_enabled(g.ws, g.get("user")))
     f = request.form
     action = f.get("action") or "save"
     blocks = _blocks_from_form(f, _media_ok_for(g.ws["id"]))
@@ -158,6 +162,9 @@ def edit(pid):
     theme = "dark" if f.get("theme") == "dark" else "light"
     accent = f.get("accent") if pages.HEX_RX.match(f.get("accent") or "") else p["accent"]
     slug = (f.get("slug") or p["slug"]).strip().lower()
+    measurement = p["measurement"]
+    if f.get("measure_form") == "1":       # the box is shown (CONVERSIONS_API on): unticked means off
+        measurement = "us" if f.get("measurement") == "us" else "off"
     status = p["status"]
     with db.connect() as conn:
         if slug != p["slug"]:
@@ -189,8 +196,9 @@ def edit(pid):
             status = "draft"
             flash("Taken offline until the flagged text is fixed.")
         conn.execute("UPDATE pages SET title=?, description=?, theme=?, accent=?, slug=?, blocks_json=?, status=?, "
-                     "updated_at=?, published_at=COALESCE(published_at, CASE WHEN ?='published' THEN ? END) WHERE id=?",
-                     (title, desc, theme, accent, slug, json.dumps(blocks), status, db.now(), status, db.now(), pid))
+                     "measurement=?, updated_at=?, published_at=COALESCE(published_at, CASE WHEN ?='published' THEN ? END) "
+                     "WHERE id=?", (title, desc, theme, accent, slug, json.dumps(blocks), status, measurement, db.now(),
+                                    status, db.now(), pid))
         conn.commit()
     anchor = ""
     if action.startswith(("add:", "up:", "down:")):
@@ -291,7 +299,7 @@ def delete(pid):
 
 # ---------------------------------------------------------------- public pages
 
-def _render_public(p, preview=False):
+def _render_public(p, preview=False, track=None):
     blocks = json.loads(p["blocks_json"] or "[]")
     if preview:
         media_url = lambda oid: url_for("media", oid=oid)  # noqa: E731
@@ -316,8 +324,11 @@ def _render_public(p, preview=False):
     resp = make_response(render_template("page_public.html", p=p, blocks=blocks, media_url=media_url, kinds=kinds,
                                          dims=dims, share=share, share_text=pages.share_text(p, blocks),
                                          faq_items=pages.faq_items, lines=pages.lines, preview=preview, forms=forms,
-                                         form_css=formsmod.logic_css))
-    resp.headers["Content-Security-Policy"] = pages.CSP
+                                         form_css=formsmod.logic_css, px=track,
+                                         px_form=(lambda: conversions.form_fields(request)) if track else None,
+                                         lead_fields=None if preview else (lambda: adleads.hidden_fields(
+                                             request.args, measured=p["measurement"] != "off"))))
+    resp.headers["Content-Security-Policy"] = pages.csp(track)
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     if preview:
@@ -349,11 +360,30 @@ def public(slug):
         if not p:
             abort(404)
         key = f"pv:{p['id']}:{client_ip()}"
+        counted = False
         if not BOT_RX.search(request.headers.get("User-Agent", "")) and not db.throttled(key, 1, 1800):
             conn.execute("UPDATE pages SET views=views+1 WHERE id=?", (p["id"],))
             conn.commit()
             db.hit(key)
-    return _render_public(p)
+            counted = True
+        track = _track(conn, p["workspace_id"], p["measurement"], counted, page_id=p["id"])
+    return _render_public(p, track=track)
+
+
+def _track(conn, ws_id, setting, counted, page_id=None, form_id=None):
+    """Conversion tracking for this render (conversions.py, CONVERSIONS_API): None, or the pixel config. A counted
+    view also goes server side; the thank-you render (?sent=...&ev=<lead id>) fires the browser Lead, once."""
+    ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+    track = conversions.tracking(conn, ws, setting, request)
+    if track is None:
+        return None
+    if counted:
+        conversions.on_page_view(conn, ws_id, track, request, page_id=page_id, form_id=form_id)
+    if request.args.get("sent") and request.args.get("ev") and track["browser"]:
+        lead = site_events.lead_for_browser(conn, request.args.get("ev"), page_id=page_id, form_id=form_id)
+        if lead is not None:
+            conversions.add_lead(track, lead)
+    return track
 
 
 @bp.route("/p/<slug>/m/<int:oid>")

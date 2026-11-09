@@ -1,6 +1,6 @@
 """Google Ads on our own site: the Google tag, conversions and first-touch attribution.
 
-The tag (AW-18543041154, the owner's Google Ads account) loads on every page of
+The tag (GADS_TAG_ID, the owner's Google Ads account; liveids.py) loads on every page of
 campaignify.ai that uses web/base.html: the public site and the app. Member pages
 (/p/, /f/, /c/) and share links (/s/) never get it: they run no scripts.
 
@@ -35,7 +35,9 @@ import re
 import time
 from urllib.parse import parse_qsl, urlencode
 
-DEFAULT_TAG = "AW-18543041154"
+import liveids
+
+DEFAULT_TAG = liveids.PRODUCTION["GADS_TAG_ID"]   # kept for callers; read through liveids (M7.4)
 LABEL_ENV = {"sign_up": "GADS_SIGNUP_LABEL", "purchase": "GADS_PURCHASE_LABEL"}
 COOKIE = "cfy_ft"
 COOKIE_DAYS = 90
@@ -50,7 +52,7 @@ _VAL_RE = re.compile(r"[^\w.\-+~:/ ]")
 
 
 def tag_id() -> str:
-    v = (os.environ.get("GADS_TAG_ID") or DEFAULT_TAG).strip()
+    v = (liveids.get("GADS_TAG_ID") or "").strip()
     return "" if v.lower() in ("off", "0", "none", "false") else v
 
 

@@ -1,8 +1,9 @@
 """Background jobs: submit pending generations, poll running ones, save the
 results to disk, refund credits for anything that failed.
 
-`tick()` does one pass and is what the tests drive; `start()` runs it in a
-daemon thread inside the web process (one process is plenty at this scale).
+`tick()` does one pass and is what the tests drive; loop_once() is one pass of the whole background loop.
+Where the loop runs (mode(), roadmap M7.2): in its own container (worker_main.py, workerproc.py) when
+docker-compose sets RS_WORKER_MODE=process, else as a daemon thread inside the web process (start()).
 """
 import json
 import mimetypes
@@ -536,43 +537,92 @@ def _minutes_ago(m):
 _thread = None
 
 
+def mode() -> str:
+    """Where the background loop runs (roadmap M7.2): "process" when docker-compose says so (RS_WORKER_MODE=process,
+    set on both services) and the kill switch RS_WORKER_PROCESS isn't off: the worker container (worker_main.py)
+    runs it and the web process starts no loop. "thread" otherwise: the loop is a thread in the web process, as before
+    (local runs, and RS_WORKER_PROCESS=off in settings.txt, which also leaves the worker container idle)."""
+    if (os.environ.get("RS_WORKER_MODE") or "").strip().lower() != "process":
+        return "thread"
+    if (os.environ.get("RS_WORKER_PROCESS") or "on").strip().lower() in ("0", "off", "false", "no"):
+        return "thread"
+    return "process"
+
+
+_build = []
+
+
+def build_id() -> str:
+    """This image's build id (the Dockerfile writes BUILD_ID once per build; "" outside docker). The web and the
+    worker container of one release share it, so /health can tell the new worker's heartbeat from the old one's."""
+    if not _build:
+        try:
+            _build.append(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "BUILD_ID")).read().strip()[:64])
+        except OSError:
+            _build.append("")
+    return _build[0]
+
+
+def background_here() -> bool:
+    """Do the hourly plan sync and the nudge loop run in this process? Thread mode: in the web process, as before.
+    Process mode: only in the worker process (RS_PROC_ROLE=worker), never in gunicorn."""
+    return mode() == "thread" or (os.environ.get("RS_PROC_ROLE") or "").strip().lower() == "worker"
+
+
+def loop_once():
+    """One pass of the background loop: jobs, flows and sends, conversions, the minute sweep, the daily purge, stale
+    holds, ad-account sweeps, launches, changes, insights, backups and (process mode) queued AI runs. Never raises."""
+    import alerts
+    alerts.beat()
+    try:
+        tick()
+    except Exception:  # noqa: BLE001
+        traceback.print_exc()
+    try:
+        import flows_engine
+        with alerts.busy("flows"):   # email and text sends
+            flows_engine.tick()
+    except Exception:  # noqa: BLE001
+        traceback.print_exc()
+    try:
+        import conversions   # retry server-side ad conversions that didn't go out
+        with alerts.busy("conversions"):
+            conversions.tick()
+    except Exception:  # noqa: BLE001
+        traceback.print_exc()
+    with alerts.busy("alert sweep"):   # includes the vendor probe
+        alerts.maybe_sweep()   # operator alerts: stuck jobs, vendor errors, disk, backups (never raises)
+    import storage
+    storage.maybe_purge()  # once a day: temp leftovers and expired exports (never raises)
+    import credits
+    credits.maybe_release_stale()  # holds left by a crashed AI run go back after 30 min (never raises)
+    import adplatforms
+    adplatforms.maybe_sweep()      # unfinished ad-account connects lose their token after 1 hour (never raises)
+    import launches
+    launches.maybe_tick()          # approved launches: the saga that makes the paused campaign (never raises)
+    import admanage
+    admanage.maybe_tick()          # approved on/off and budget changes that wait on Meta (never raises)
+    import adinsights
+    adinsights.maybe_tick()        # results of launched campaigns, every 6 hours (never raises)
+    import backup
+    backup.maybe_run()     # nightly off-site backup in its own thread, once R2 is set (never raises)
+    import wsdelete
+    wsdelete.maybe_tick()  # workspaces whose owner asked for deletion, once the 7-day grace has passed (hourly)
+    if mode() == "process":
+        import tasks
+        tasks.tick()       # planner, competitor and free-plan runs the web queued (never raises)
+
+
 def start():
+    """The loop as a daemon thread of the web process (thread mode). In process mode the web starts nothing:
+    workerproc.run() calls loop_once() on the worker container's main thread."""
     global _thread
-    if _thread or os.environ.get("RS_WORKER", "1") != "1":
+    if _thread or os.environ.get("RS_WORKER", "1") != "1" or mode() == "process":
         return
 
     def loop():
-        import alerts
         while True:
-            alerts.beat()
-            try:
-                tick()
-            except Exception:  # noqa: BLE001
-                traceback.print_exc()
-            try:
-                import flows_engine
-                with alerts.busy("flows"):   # email and text sends
-                    flows_engine.tick()
-            except Exception:  # noqa: BLE001
-                traceback.print_exc()
-            try:
-                import conversions   # retry server-side ad conversions that didn't go out
-                with alerts.busy("conversions"):
-                    conversions.tick()
-            except Exception:  # noqa: BLE001
-                traceback.print_exc()
-            with alerts.busy("alert sweep"):   # includes the vendor probe
-                alerts.maybe_sweep()   # operator alerts: stuck jobs, vendor errors, disk, backups (never raises)
-            import storage
-            storage.maybe_purge()  # once a day: temp leftovers and expired exports (never raises)
-            import credits
-            credits.maybe_release_stale()  # holds left by a crashed AI run go back after 30 min (never raises)
-            import adplatforms
-            adplatforms.maybe_sweep()      # unfinished ad-account connects lose their token after 1 hour (never raises)
-            import launches
-            launches.maybe_tick()          # approved launches: the saga that makes the paused campaign (never raises)
-            import backup
-            backup.maybe_run()     # nightly off-site backup in its own thread, once R2 is set (never raises)
+            loop_once()
             time.sleep(POLL_SECONDS)
 
     _thread = threading.Thread(target=loop, name="rs-worker", daemon=True)

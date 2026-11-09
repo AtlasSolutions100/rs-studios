@@ -11,6 +11,17 @@
 # A release that is unhealthy after the switch goes back to :prev on its own;
 # the "Roll back Campaignify" workflow (rollback.yml) does it by hand.
 # Settings live in settings.txt next to this file (never committed).
+#
+# Two services, one image (roadmap M7.2): "app" serves requests only; "worker" runs the background loop
+# (generation jobs, flows, sends, conversions, alerts, backups, launches, insights, plan sync, nudges) and the
+# planning and research runs the web queues (tasks.py). RS_WORKER_MODE=process on both says so. The deploy hook's
+# `up -d --no-build --force-recreate` recreates both from :latest, and a rollback (which retags :prev as :latest)
+# brings both back. The worker starts after the app (depends_on), so the old release's loop has stopped first.
+# The app's /health answers ok only once the worker of the same image beats (BUILD_ID), so the hook's check
+# after the switch rolls back a release whose worker never comes up.
+# Kill switch: RS_WORKER_PROCESS=off in settings.txt puts the loop back in the app as a thread; the worker idles.
+# An image from before M7.2 (after a rollback) has no worker_main.py: its app runs the thread as it always did
+# and the worker container only sleeps, so nothing runs twice.
 services:
   app:
     build: .
@@ -21,6 +32,7 @@ services:
     env_file: [settings.txt]
     environment:
       - RS_COOKIE_SECURE=1
+      - RS_WORKER_MODE=process
     volumes:
       - ./data:/srv/rs/data
     expose: ["8080"]
@@ -29,6 +41,27 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  worker:
+    image: rs-studios-app:latest
+    container_name: rs-studios-worker
+    restart: unless-stopped
+    env_file: [settings.txt]
+    environment:
+      - RS_WORKER_MODE=process
+      - RS_PROC_ROLE=worker
+    depends_on: [app]
+    command: ["sh", "-c", "if [ -f worker_main.py ]; then exec python worker_main.py; else echo 'this image has no worker process; its app runs the loop'; exec sleep infinity; fi"]
+    volumes:
+      - ./data:/srv/rs/data
+    # a pass, then the running AI runs (RS_WORKER_STOP_S, 40 s), then exit
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD", "sh", "-c", "[ ! -f worker_main.py ] || python worker_main.py --check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 networks:
   default:

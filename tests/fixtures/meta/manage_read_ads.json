@@ -1,0 +1,14 @@
+{
+ "23850000000005": {
+  "id": "23850000000005",
+  "name": "Ember Candle · ad 1 Evening ritual [cfy:1:ad:1]",
+  "status": "PAUSED",
+  "effective_status": "ADSET_PAUSED"
+ },
+ "23850000000006": {
+  "id": "23850000000006",
+  "name": "Ember Candle · ad 2 Lasts the month [cfy:1:ad:2]",
+  "status": "ACTIVE",
+  "effective_status": "DISAPPROVED"
+ }
+}

@@ -9,7 +9,9 @@ import secrets
 from flask import (Blueprint, Response, abort, current_app, flash, g, make_response, redirect, render_template, request,
                    url_for)
 
+import adleads
 import compliance
+import conversions
 import db
 import flows
 import flows_engine
@@ -80,7 +82,8 @@ def edit(fid):
         return render_template("form_edit.html", fm=fm, fields=fl, TYPES=forms.FIELD_TYPES, base=request.host_url,
                                has_phone=any(x["type"] == "phone" for x in fl),
                                default_email_consent=messaging.DEFAULT_EMAIL_CONSENT,
-                               default_sms_consent=messaging.DEFAULT_SMS_CONSENT)
+                               default_sms_consent=messaging.DEFAULT_SMS_CONSENT,
+                               conv_on=conversions.ws_enabled(g.ws, g.get("user")))
     f = request.form
     action = f.get("action") or "save"
     raw = _fields_from_form(f)
@@ -115,20 +118,24 @@ def edit(fid):
         for m in chk["blocks"]:
             flash("Not saved: " + m)
         return redirect(url_for("forms.edit", fid=fid))
+    measurement = fm["measurement"]
+    if f.get("measure_form") == "1":       # the box is shown (CONVERSIONS_API on): unticked means off
+        measurement = "us" if f.get("measurement") == "us" else "off"
     secret = fm["webhook_secret"] or secrets.token_hex(16)
     if action == "rotate":
         secret = secrets.token_hex(16)
         flash("New signing secret made. Update it wherever you check signatures.")
     with db.connect() as conn:
         conn.execute("UPDATE forms SET name=?, fields_json=?, button_text=?, success_message=?, redirect_url=?, webhook_url=?, "
-                     "webhook_secret=?, tags=?, updated_at=?, consent_email=?, consent_sms=?, consent_text=?, consent_sms_text=? "
-                     "WHERE id=?",
+                     "webhook_secret=?, tags=?, updated_at=?, consent_email=?, consent_sms=?, consent_text=?, consent_sms_text=?, "
+                     "measurement=? WHERE id=?",
                      ((f.get("name") or fm["name"]).strip()[:80], json.dumps(fields), (f.get("button_text") or "Send").strip()[:40],
                       (f.get("success_message") or "").strip()[:300], redirect_url or None, webhook or None, secret,
                       ",".join(_clean_tags(f.get("tags"))), db.now(), 1 if f.get("consent_email") else 0,
                       1 if f.get("consent_sms") and has_phone else 0,
                       None if consent_text == messaging.DEFAULT_EMAIL_CONSENT else consent_text or None,
-                      None if consent_sms_text == messaging.DEFAULT_SMS_CONSENT else consent_sms_text or None, fid))
+                      None if consent_sms_text == messaging.DEFAULT_SMS_CONSENT else consent_sms_text or None, measurement,
+                      fid))
         conn.commit()
     if action == "test" and webhook:
         st = forms.post_webhook(webhook, secret, {"event": "form.test", "form": {"id": fid, "name": fm["name"]},
@@ -158,19 +165,25 @@ def submissions(fid):
     with db.connect() as conn:
         rows = conn.execute("SELECT * FROM form_submissions WHERE form_id=? AND workspace_id=? ORDER BY id DESC LIMIT 500",
                             (fid, g.ws["id"])).fetchall()
+        src = adleads.of_submissions(conn, g.ws["id"], [r["id"] for r in rows])
     if request.args.get("format") == "csv":
         buf = io.StringIO()
         w = csv.writer(buf)
         w.writerow(["submitted_at"] + [x["label"] for x in fields] + ["page", "smart_link", "utm_source", "utm_medium",
-                                                                        "utm_campaign"])
+                                                                        "utm_campaign", "utm_content", "utm_term",
+                                                                        "ad_platform", "ad_campaign_id", "ad_id"])
         for r in rows:
             d = json.loads(r["data_json"])
+            s = src.get(r["id"])
             w.writerow([r["created_at"]] + [_csv_safe(d.get(x["key"], "")) for x in fields] +
                        [r["page_slug"] or "", r["link_code"] or "", r["utm_source"] or "", r["utm_medium"] or "",
-                        r["utm_campaign"] or ""])
+                        r["utm_campaign"] or ""] +
+                       [_csv_safe((s[k] if s is not None else None) or "") for k in
+                        ("utm_content", "utm_term", "platform", "campaign_external_id", "ad_external_id")])
         return Response(buf.getvalue(), mimetype="text/csv",
                         headers={"Content-Disposition": f"attachment; filename=form-{fid}-submissions.csv"})
-    return render_template("form_subs.html", fm=fm, fields=fields, rows=rows, loads=json.loads)
+    return render_template("form_subs.html", fm=fm, fields=fields, rows=rows, loads=json.loads, src=src,
+                           platform_words=adleads.PLATFORM_WORDS)
 
 
 def _csv_safe(v):
@@ -193,11 +206,15 @@ def _public_form(code):
     return fm
 
 
-def _hosted(fm, errors=None, values=None, sent=False, status=200):
+def _hosted(fm, errors=None, values=None, sent=False, status=200, track=None):
+    ctx = {"track": conversions.form_fields(request)} if track else {}
+    # the ad's tags and click id from the address, so the lead keeps which ad brought it (adleads.py, M4.1)
+    ctx["attr"] = adleads.hidden_fields(request.args if request.method == "GET" else request.form,
+                                        measured=fm["measurement"] != "off")
     resp = make_response(render_template("form_public.html", fm=fm, fields=json.loads(fm["fields_json"] or "[]"),
                                          stamp=forms.stamp(current_app.secret_key, fm["code"]), errors=errors or [],
-                                         values=values or {}, sent=sent, css=forms.logic_css, ctx={}), status)
-    resp.headers["Content-Security-Policy"] = pages.CSP
+                                         values=values or {}, sent=sent, css=forms.logic_css, ctx=ctx, px=track), status)
+    resp.headers["Content-Security-Policy"] = pages.csp(track)
     resp.headers["X-Content-Type-Options"] = "nosniff"
     return resp
 
@@ -206,8 +223,23 @@ def _hosted(fm, errors=None, values=None, sent=False, status=200):
 def public(code):
     fm = _public_form(code)
     if request.method == "GET":
-        return _hosted(fm, sent=request.args.get("sent") == "1")
+        return _hosted(fm, sent=request.args.get("sent") == "1", track=_hosted_track(fm))
     return submit(fm)
+
+
+def _hosted_track(fm):
+    """Conversion tracking for a view of the hosted form (conversions.py): its own measurement setting, a view
+    counted once per visitor per 30 minutes, the thank-you render's browser Lead."""
+    if not conversions.ws_flag_on():
+        return None
+    import pages_routes
+    key = f"fv:{fm['id']}:{request.remote_addr or 'unknown'}"
+    counted = not db.throttled(key, 1, 1800)
+    with db.connect() as conn:
+        track = pages_routes._track(conn, fm["workspace_id"], fm["measurement"], counted, form_id=fm["id"])
+    if track is not None and counted:
+        db.hit(key)
+    return track
 
 
 def submit(fm):
@@ -246,7 +278,7 @@ def submit(fm):
     phone = next((values[x["key"]] for x in fields if x["type"] == "phone" and values.get(x["key"])), "")
     now = db.now()
     with db.connect() as conn:
-        page = conn.execute("SELECT slug FROM pages WHERE slug=? AND workspace_id=? AND status='published'",
+        page = conn.execute("SELECT * FROM pages WHERE slug=? AND workspace_id=? AND status='published'",
                             (page_slug, fm["workspace_id"])).fetchone() if page_slug else None
         link = conn.execute("SELECT code, title FROM links WHERE code=? AND workspace_id=?",
                             (link_code, fm["workspace_id"])).fetchone() if link_code else None
@@ -279,15 +311,29 @@ def submit(fm):
                             link["code"] if link else None, referrer, utm["utm_source"] or None, utm["utm_medium"] or None,
                             utm["utm_campaign"] or None, now)).lastrowid
         conn.execute("UPDATE forms SET submissions=submissions+1 WHERE id=?", (fm["id"],))
+        # which ad brought this lead (adleads.py, M4.1): the tags and click id the form carried, matched to a launch
+        ad = adleads.record(conn, fm["workspace_id"], form=fm, contact_id=contact_id, submission_id=sid, page=page,
+                            measured=(page["measurement"] if page is not None else fm["measurement"]) != "off")
         if contact_id:
             _record_consent(conn, fm, contact_id, f, phone, ip)
             flows_engine.enrol(conn, fm["workspace_id"], "form_submitted", contact_id, {"form_id": fm["id"]})
             flows_engine.enrol_tags(conn, fm["workspace_id"], contact_id, before, set(tags))
         conn.commit()
+        # conversion tracking (conversions.py, CONVERSIONS_API): the lead to the workspace's pixels and Google Ads,
+        # email and phone hashed; None when this visit isn't measured
+        ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (fm["workspace_id"],)).fetchone()
+        lead_id = conversions.on_lead(conn, ws, request, form=fm, page=page, submission_id=sid, email=email,
+                                      phone=phone) if conversions.ws_flag_on() else None
     if fm["webhook_url"]:
         payload = {"event": "form.submitted", "form": {"id": fm["id"], "name": fm["name"]}, "submission_id": sid,
                    "data": values, "page": page["slug"] if page else None, "smart_link": link["code"] if link else None,
                    "utm": {k: v for k, v in utm.items() if v}, "submitted_at": now}
+        if ad and ad.get("platform"):
+            payload["ad"] = {"platform": ad["platform"], "campaign_id": ad["campaign_external_id"],
+                             "ad_id": ad["ad_external_id"]}
+        for k in ("utm_content", "utm_term"):
+            if (f.get(k) or "").strip():
+                payload["utm"][k] = (f.get(k) or "").strip()[:80]
 
         def done(status, sid=sid):
             with db.connect() as c2:
@@ -297,9 +343,10 @@ def submit(fm):
                          sync=os.environ.get("RS_WORKER", "1") != "1")
     if fm["redirect_url"]:
         return redirect(fm["redirect_url"], code=303)
+    ev = {"ev": lead_id} if lead_id else {}      # the thank-you page fires the browser copy with this id
     if page:
-        return redirect(url_for("pages.public", slug=page["slug"], sent=fm["code"]) + f"#form-{fm['code']}", code=303)
-    return redirect(url_for("forms.public", code=fm["code"], sent=1), code=303)
+        return redirect(url_for("pages.public", slug=page["slug"], sent=fm["code"], **ev) + f"#form-{fm['code']}", code=303)
+    return redirect(url_for("forms.public", code=fm["code"], sent=1, **ev), code=303)
 
 
 def consent_texts(fm) -> dict:
@@ -374,6 +421,7 @@ def contacts():
     with db.connect() as conn:
         rows = conn.execute(sql + " ORDER BY last_seen DESC LIMIT 500", args).fetchall()
         total = conn.execute("SELECT COUNT(*) FROM contacts WHERE workspace_id=?", (g.ws["id"],)).fetchone()[0]
+        from_ads = adleads.platforms_by_contact(conn, g.ws["id"], [r["id"] for r in rows])
         alltags = {}
         for r in conn.execute("SELECT tags FROM contacts WHERE workspace_id=?", (g.ws["id"],)):
             for t in filter(None, (r["tags"] or "").split(",")):
@@ -386,7 +434,7 @@ def contacts():
             w.writerow([_csv_safe(r[k] or "") for k in ("email", "name", "phone", "tags", "source")] +
                        [r["submissions"], r["first_seen"], r["last_seen"]])
         return Response(buf.getvalue(), mimetype="text/csv", headers={"Content-Disposition": "attachment; filename=contacts.csv"})
-    return render_template("contacts.html", rows=rows, total=total, q=q, tag=tag,
+    return render_template("contacts.html", rows=rows, total=total, q=q, tag=tag, from_ads=from_ads,
                            tags=sorted(alltags.items(), key=lambda x: -x[1])[:30])
 
 
@@ -399,9 +447,9 @@ def contact(cid):
             abort(404)
         if request.method == "POST":
             if request.form.get("action") == "delete":
-                conn.execute("DELETE FROM contact_events WHERE contact_id=? AND workspace_id=?", (cid, g.ws["id"]))
-                conn.execute("UPDATE form_submissions SET contact_id=NULL, data_json='{}' WHERE contact_id=? AND workspace_id=?",
-                             (cid, g.ws["id"]))
+                adleads.forget_contact(conn, g.ws["id"], cid)
+                import wsdelete      # events, form answers, messages' address and body, flow context, tasks (SEC-12)
+                wsdelete.forget_contact(conn, g.ws["id"], cid)
                 conn.execute("DELETE FROM contacts WHERE id=?", (cid,))
                 conn.commit()
                 flash("Contact and their form answers deleted.")
@@ -426,6 +474,8 @@ def contact(cid):
             v = conn.execute("SELECT graph_json FROM flow_versions WHERE id=?", (r["version_id"],)).fetchone()
             nodes = flows.unpack(v["graph_json"] if v else "{}").get("nodes") or {}
             steps[r["id"]] = flows.describe(nodes[r["node_id"]]) if r["node_id"] in nodes else ""
+        sources = adleads.of_contact(conn, g.ws["id"], cid)
     from core import is_owner
     return render_template("contact.html", c=c, events=events, subs=subs, loads=json.loads, runs=runs, steps=steps,
+                           sources=sources,
                            is_owner=is_owner())

@@ -1,6 +1,11 @@
 """End-to-end checks on a throwaway database with the generation API faked.
 
-    python tests/test_app.py
+    python tests/test_app.py          # every suite, each in its own process (tests/run_all.py)
+    RS_TEST_ONE=1 python tests/test_app.py   # only this file's own checks
+
+Run as a script, this file hands over to tests/run_all.py, which runs this file's checks and then every other
+suite, keeps going when one fails and reports them all at the end (roadmap M7.6). The `__main__` block at the
+bottom is the list of suites, in order, with what each covers; run_all.py reads it.
 """
 import io
 import os
@@ -10,6 +15,10 @@ import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+if __name__ == "__main__" and not os.environ.get("RS_TEST_ONE"):
+    sys.path.insert(0, HERE)
+    import run_all  # noqa: E402
+    sys.exit(run_all.main(sys.argv[1:]))
 sys.path.insert(0, os.path.dirname(HERE))
 TMP = tempfile.mkdtemp(prefix="rs_test_")
 os.environ.setdefault("RS_SIGNUP_CONFIRM", "0")  # sign-ups here go straight in; test_login.py checks the emailed-link step
@@ -3170,7 +3179,9 @@ check(">Save</a>" not in html and 'class="mtop-cr"' in html, "library cards say 
 
 print(f"\nall {passed} checks passed ({TMP})")
 
-if __name__ == "__main__":
+if __name__ == "__main__" and not os.environ.get("RS_TEST_ONE"):
+    # Not reached when run as a script (the top of this file hands over to tests/run_all.py, which runs these
+    # in this order, each even when an earlier one failed). Kept as the ordered list of suites run_all.py reads.
     # Brands & products, the creation flow and the setup assistant run in their
     # own process (their own throwaway database).
     import subprocess
@@ -3205,6 +3216,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_launch_kit.py")], check=True)
     # Planner correctness (M5.4): budget as money, platforms by goal, blocked copy, one balance, claims list.
     subprocess.run([sys.executable, os.path.join(HERE, "test_planner_polish.py")], check=True)
+    # Planner v2 (planner_v2.py, M4.3): platform mix by path, daily band in the account's currency, connected accounts.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_planner_v2.py")], check=True)
     # Credit holds (credits.py): AI runs reserve first, parallel runs can't overspend, stale holds go back.
     subprocess.run([sys.executable, os.path.join(HERE, "test_credit_holds.py")], check=True)
     # Creator Pools (creator_pools.py, /app/creator-pools): the flag, Checkout, the webhook, Crowdcut sync, refunds (faked).
@@ -3215,6 +3228,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_mcp.py")], check=True)
     # Operator alerts and the real /health (alerts.py, opslog.py): each condition, dedupe, JSON logs (mail faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_alerts.py")], check=True)
+    # SQLite contention and size on the admin System card, the Postgres threshold and its alert (dbstats.py, M7.3).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_dbstats.py")], check=True)
     # Storage quotas, body limits, the disk guard and the daily purge (storage.py; big files are sparse).
     subprocess.run([sys.executable, os.path.join(HERE, "test_storage.py")], check=True)
     # Login hardening (login_security.py): throttles, one login message, password reset, single-use /m links, code limits.
@@ -3223,6 +3238,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_email_priority.py")], check=True)
     # Vendor retry, idempotent resubmits, timeouts canceled at the vendor, the Cancel button (hf.py, worker.py; HTTP faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_vendor_retry.py")], check=True)
+    # The worker as its own process (workerproc.py, tasks.py, M7.2): the queue, /health per release, the lease, SIGTERM.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_worker_process.py")], check=True)
     # Refunds and disputes (billing_holds.py): credits voided, downloads-only hold, dispute won, event-id dedupe.
     subprocess.run([sys.executable, os.path.join(HERE, "test_billing_holds.py")], check=True)
     # Plans on only when paid (pending), a paid period kept to its end, a failed renewal paused with credits kept.
@@ -3243,9 +3260,40 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_adpolicy.py")], check=True)
     # The launch saga, the approval card and the Meta launch steps (launches.py, launch_routes.py; M2.3): fake Graph.
     subprocess.run([sys.executable, os.path.join(HERE, "test_launches.py")], check=True)
+    # Instagram placements on Meta (M6.3): Feed, Stories and Reels per app, the Instagram account rule (fake Graph).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_meta_placements.py")], check=True)
+    # Manage a launched campaign (admanage.py, manage_routes.py; M2.4): on/off, budget, approval cards, fake Graph.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_manage.py")], check=True)
+    # Results of launched campaigns (adinsights.py; M2.5): Meta insights pull, rate limits, the dashboard, fake Graph.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_insights.py")], check=True)
+    # Results of Google, TikTok and Snapchat campaigns (adinsights.normalize, google.pull_insights; M7): stored next to
+    # Meta's, the schedule, errors with the platform's name, every platform on the Ad campaigns page (platforms faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_insights_platforms.py")], check=True)
+    # Google Ads connect (adplatforms/google.py, GOOGLE_ADS; M3.1): OAuth, the customer picker, errors (Google faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_google_connect.py")], check=True)
+    # Google Ads launch (launch_google.py; M3.2 Search, M3.3 Performance Max): one mutate, saga, errors (Google faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_google_launch.py")], check=True)
+    # Snapchat connect and launch (adplatforms/snapchat.py, launch_video.py, SNAPCHAT_ADS; M6.1): saga, stats (Snap faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_snapchat.py")], check=True)
+    # TikTok connect and launch (adplatforms/tiktok.py, launch_video.py, TIKTOK_ADS; M6.2): identity, saga, reporting (faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_tiktok.py")], check=True)
+    # Which ad brought which lead, at what cost (adleads.py, M4.1): tags on forms, matching, cost per lead, flows as before.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_lead_attribution.py")], check=True)
+    # Creative fatigue (adfatigue.py, M4.2): the flag on fixtures, the winning angle, Create's refresh hint, no auto-spend.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_fatigue.py")], check=True)
+    # The weekly report email (weekly_report.py, M4.4): when, the fixture render, nurture budget, unsubscribe, switches.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_weekly_report.py")], check=True)
+    # Conversion tracking on members' pages and forms (conversions.py, M3.4): event ids, pixels, CAPI, Events API, Data Manager.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_conversions.py")], check=True)
+    # Google Ads conversion actions and the Google tag on members' pages (conversion_actions.py, M3.5; Google faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_conversion_actions.py")], check=True)
     # Migrations stay additive (N3): no column dropped, renamed or retyped; an old database upgrades in place.
     subprocess.run([sys.executable, os.path.join(HERE, "test_migrations.py")], check=True)
+    # Live ids are settings (liveids.py, M7.4; SEC-9): one place, a setting wins, RS_LIVE_IDS=settings, no owner emails.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_liveids.py")], check=True)
     # Create polish (M5.5): template previews, failed-card actions, export thumbnail labels, page Save vs live.
     subprocess.run([sys.executable, os.path.join(HERE, "test_create_polish.py")], check=True)
     # Accessibility pass (M5.6): light-theme status colours, skip link, input labels, h1s, focus ring, hero alt.
     subprocess.run([sys.executable, os.path.join(HERE, "test_a11y.py")], check=True)
+    # Workspace deletion with a 7-day grace (wsdelete.py, M7.5; SEC-7, SEC-12): owner only, plan check, vendor copies.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_wsdelete.py")], check=True)

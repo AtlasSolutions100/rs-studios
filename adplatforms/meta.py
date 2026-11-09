@@ -15,7 +15,8 @@ Connecting creates or changes nothing on an ad account: every call is a GET, exc
 /me/permissions when a connection is disconnected (it removes our app's access, nothing on the
 account). Launching (M2.3, the second half of this file) creates PAUSED objects only, after the
 member approved the card that lists them: ad images and videos, ad creatives (object_story_spec),
-one campaign, one ad set (promoted_object) and the ads.
+one campaign, one ad set (promoted_object) and the ads. Managing (M2.4, the end of this file)
+changes only the status and the daily budget of those objects, again after an approved card.
 
 Every call goes through adhttp.call (timeouts, retries, the per-account point budget, scrubbed
 errors). The token goes in the Authorization header, never the URL, with appsecret_proof.
@@ -301,11 +302,24 @@ class Meta:
     def upload_asset(self, ctx: dict, step: dict) -> dict:
         return _upload(step, ctx)
 
-    # Manage and report (M2.4, M2.5).
-    def _later(self, *a, **kw):
-        raise NotImplementedError("arrives in M2.4 / M2.5")
+    # Manage (M2.4): admanage.py drafts the approval card from read_objects and applies it with these.
+    def read_objects(self, token: str, account: str, ids_by_kind: dict) -> dict:
+        return read_objects(token, account, ids_by_kind)
 
-    validate = set_status = update_budget = pull_insights = _later
+    def set_status(self, token: str, account: str, object_id: str, status: str, max_wait: float = 0.0) -> dict:
+        return set_status(token, account, object_id, status, max_wait)
+
+    def update_budget(self, token: str, account: str, campaign_id: str, daily_minor: int, max_wait: float = 0.0) -> dict:
+        return update_budget(token, account, campaign_id, daily_minor, max_wait)
+
+    # Report (M2.5): adinsights.py pulls these every few hours into ad_insights_daily.
+    def pull_insights(self, token: str, account: str, campaign_ids: list, since: str, until: str) -> list:
+        return pull_insights(token, account, campaign_ids, since, until)
+
+    def _later(self, *a, **kw):
+        raise NotImplementedError("not used for Meta: adspec and adpolicy validate the spec")
+
+    validate = _later
 
 
 ADAPTER = Meta()
@@ -335,6 +349,13 @@ PLACEMENTS = {   # spec placement -> (publisher platform, positions field, posit
     "explore": [("instagram", "instagram_positions", "explore")],
     "messenger": [("messenger", "messenger_positions", "messenger_home")],
     "audience_network": [("audience_network", "audience_network_positions", "classic")],
+    # one app at a time (M6.3): Instagram placements need the Page's Instagram account (instagram_user_id)
+    "facebook_feed": [("facebook", "facebook_positions", "feed")],
+    "facebook_stories": [("facebook", "facebook_positions", "story")],
+    "facebook_reels": [("facebook", "facebook_positions", "facebook_reels")],
+    "instagram_feed": [("instagram", "instagram_positions", "stream")],
+    "instagram_stories": [("instagram", "instagram_positions", "story")],
+    "instagram_reels": [("instagram", "instagram_positions", "reels")],
 }
 # Meta has no Marketing API field we could confirm (as of 2026-11-08) for the "AI-generated or edited" box that
 # Ads Manager shows on an ad. When the sandbox run confirms one, set it here, e.g. ("ad", "<field>", <value>), and
@@ -650,3 +671,122 @@ def verify(step: dict, ctx: dict) -> bool:
             return False
         raise
     return str(body.get("effective_status") or "") not in ("DELETED", "ARCHIVED")
+
+
+# ================================================================ manage (M2.4)
+# Turn a launched campaign or ad on or off and change the campaign's daily budget, after the member approved the
+# card (admanage.py). Each change is one POST to the object, sent once (retries=1): admanage retries later from the
+# worker when Meta or our budget says wait. Every change takes the object's 30 s edit slot first (adhttp.edit_lock),
+# without blocking the request: a busy slot raises RateLimited at once and the change waits in the worker.
+
+STATUSES = ("ACTIVE", "PAUSED")
+# Fields read per kind. An ad has no budget fields, and Meta refuses a multi-id read that asks a node for a field its
+# type doesn't have, so campaigns and ad sets are read in one call and ads in another.
+READ_FIELDS = {"campaign": "id,name,status,effective_status,daily_budget,lifetime_budget",
+               "adset": "id,name,status,effective_status,daily_budget,lifetime_budget",
+               "ad": "id,name,status,effective_status"}
+READ_CHUNK = 50          # ids per GET /?ids=... (Meta's limit for a multi-id read)
+
+
+def _int_or_none(v):
+    try:
+        return int(str(v)) if v not in (None, "") else None
+    except ValueError:
+        return None
+
+
+def read_objects(token: str, account: str, ids_by_kind: dict) -> dict:
+    """What Meta says now about launched objects: {id: {"kind", "name", "status", "effective_status",
+    "daily_budget" (minor units or None), "lifetime_budget"}}. ids_by_kind: {"campaign": [...], "adset": [...],
+    "ad": [...]}. One GET /?ids=... per kind group (1 point each). An id Meta doesn't return is left out
+    (deleted on Meta)."""
+    groups = {"budgeted": [(k, str(i)) for k in ("campaign", "adset") for i in ids_by_kind.get(k) or [] if i],
+              "ad": [("ad", str(i)) for i in ids_by_kind.get("ad") or [] if i]}
+    out = {}
+    for group, pairs in groups.items():
+        fields = READ_FIELDS["ad" if group == "ad" else "campaign"]
+        for n in range(0, len(pairs), READ_CHUNK):
+            chunk = pairs[n:n + READ_CHUNK]
+            body = _get("/", token, {"ids": ",".join(i for _, i in chunk), "fields": fields}, account=_act(account))
+            for kind, oid in chunk:
+                r = body.get(oid) if isinstance(body, dict) else None
+                if not isinstance(r, dict):
+                    continue
+                out[oid] = {"kind": kind, "name": r.get("name") or "", "status": str(r.get("status") or ""),
+                            "effective_status": str(r.get("effective_status") or ""),
+                            "daily_budget": _int_or_none(r.get("daily_budget")),
+                            "lifetime_budget": _int_or_none(r.get("lifetime_budget"))}
+    return out
+
+
+def _edit(object_id: str, token: str, account: str, data: dict, max_wait: float = 0.0) -> dict:
+    """One change to an existing object: its 30 s edit slot (waiting at most max_wait), then one POST."""
+    adhttp.edit_lock("meta", str(object_id), max_wait=max_wait)
+    headers, params, secrets = _auth(token)
+    body = adhttp.call("meta", "POST", f"{GRAPH}/{object_id}", params=params, data=data, headers=headers,
+                       account=_act(account), retries=1, secrets=secrets, max_wait=max_wait)
+    if not (isinstance(body, dict) and (body.get("success") or body.get("id"))):
+        raise adhttp.AdHttpError("meta", f"no success in the change to {object_id}")
+    return body
+
+
+def set_status(token: str, account: str, object_id: str, status: str, max_wait: float = 0.0) -> dict:
+    """ACTIVE or PAUSED on a campaign, ad set or ad (POST /<id> status=...). Setting what it already is is a no-op
+    on Meta, so a change applied twice (a retry after a crash) does no harm."""
+    if status not in STATUSES:
+        raise ValueError(status)
+    return _edit(object_id, token, account, {"status": status}, max_wait)
+
+
+def update_budget(token: str, account: str, campaign_id: str, daily_minor: int, max_wait: float = 0.0) -> dict:
+    """The campaign's daily budget (Advantage campaign budget, as the launch made it), in the ad account's minor
+    units (cents; whole units for zero-decimal currencies, adspec.minor_factor)."""
+    if int(daily_minor) <= 0:
+        raise ValueError(daily_minor)
+    return _edit(campaign_id, token, account, {"daily_budget": str(int(daily_minor))}, max_wait)
+
+
+# ================================================================ report (M2.5)
+# GET /act_<id>/insights, level=ad, one row per ad per day (time_increment=1), for the launched campaigns only
+# (filtering on campaign.id). use_unified_attribution_setting=true makes the numbers use each ad set's attribution
+# setting, as Ads Manager does, so they line up with what the member sees there. Money comes back as decimal strings in
+# the account's currency; adinsights.py turns it into minor units.
+
+INSIGHT_FIELDS = ("ad_id,ad_name,adset_id,campaign_id,date_start,date_stop,account_currency,spend,impressions,reach,"
+                  "clicks,inline_link_clicks,ctr,actions,action_values")
+INSIGHT_LIMIT = 500        # rows per page
+INSIGHT_PAGES = 20         # pages followed per pull (10,000 rows: 700 ads for 14 days)
+
+
+class TooMuchData(adhttp.AdHttpError):
+    """Meta asked for a smaller request (code 1, "Please reduce the amount of data"): split the date range."""
+
+
+def pull_insights(token: str, account: str, campaign_ids: list, since: str, until: str) -> list:
+    """Meta's per-ad, per-day rows for these campaigns between since and until (YYYY-MM-DD, the account's time zone,
+    both included). Raises TooMuchData when Meta wants a smaller request, other adhttp errors as they come."""
+    ids = [str(c) for c in campaign_ids if c]
+    if not ids:
+        return []
+    params = {"level": "ad", "time_increment": "1", "fields": INSIGHT_FIELDS, "limit": str(INSIGHT_LIMIT),
+              "time_range": json.dumps({"since": since, "until": until}, separators=(",", ":")),
+              "filtering": json.dumps([{"field": "campaign.id", "operator": "IN", "value": ids}], separators=(",", ":")),
+              "use_unified_attribution_setting": "true"}
+    out, after = [], None
+    for _ in range(INSIGHT_PAGES):
+        q = dict(params)
+        if after:
+            q["after"] = after
+        try:
+            body = _get(f"/{_act(account)}/insights", token, q, account=_act(account))
+        except adhttp.AdHttpError as e:
+            if e.code == 1 and "reduce the amount of data" in (str(e) + " " + (e.user_message or "")).lower():
+                raise TooMuchData("meta", str(e), status=e.status, code=e.code, subcode=e.subcode,
+                                  user_message=e.user_message) from None
+            raise
+        out.extend(r for r in body.get("data") or [] if isinstance(r, dict))
+        paging = body.get("paging") or {}
+        after = (paging.get("cursors") or {}).get("after")
+        if not after or not paging.get("next"):
+            break
+    return out

@@ -35,6 +35,11 @@
         <div><label>Theme</label><div class="choices"><label class="choice"><input type="radio" name="theme" value="light" {{ 'checked' if p.theme != 'dark' }}>Light</label><label class="choice"><input type="radio" name="theme" value="dark" {{ 'checked' if p.theme == 'dark' }}>Dark</label></div></div>
         <div><label for="ac">Button color</label><input id="ac" type="color" name="accent" value="{{ p.accent }}" class="color"></div>
       </div>
+      {% if conv_on %}<div data-measurement style="margin-top:14px">
+        <input type="hidden" name="measure_form" value="1">
+        <label class="choice" style="display:inline-flex;gap:8px"><input type="checkbox" name="measurement" value="us" {{ 'checked' if p.measurement != 'off' }}>Measure ad results on this page</label>
+        <p class="small muted">Sends page views and form leads to the pixels and Google Ads account in <a href="{{ url_for('conversions.settings') }}">Conversion tracking</a>, for visitors in the US only. Emails and phone numbers leave only as one-way hashes. Visitors who turn on Global Privacy Control or Do Not Track are skipped. Mention this in your privacy notice.</p>
+      </div>{% endif %}
     </div>
 
     {% for b in blocks %}{% set i = loop.index0 %}

@@ -1,0 +1,21 @@
+{
+ "error": {
+  "code": 403,
+  "message": "The developer token is only approved for use with test accounts.",
+  "status": "PERMISSION_DENIED",
+  "details": [
+   {
+    "@type": "type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure",
+    "errors": [
+     {
+      "errorCode": {
+       "authorizationError": "DEVELOPER_TOKEN_NOT_APPROVED"
+      },
+      "message": "The developer token is only approved for use with test accounts."
+     }
+    ],
+    "requestId": "fakeReq97058677"
+   }
+  ]
+ }
+}

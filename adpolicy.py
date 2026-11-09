@@ -33,6 +33,9 @@ from research B6 (FTC 16 CFR 255 and 465, Meta, TikTok, Google and Snapchat ad p
     policy.pharmacy                  prescriptions, telehealth, GLP-1 names: LegitScript needed
     policy.political                 elections and social issues need authorization: warn
     policy.snapchat_supplements      Snapchat pre-approves supplement ads: warn
+    policy.caps_punctuation          Snapchat and TikTok: words in capitals or repeated !! / ?? (their creative
+                                     reviews reject both): warn
+    policy.emoji                     TikTok ad text with emoji (TikTok's ad text doesn't take them): block
     policy.hidden_characters         invisible characters (zero-width, bidi controls, soft hyphen) in launch text
     policy.vertical_mismatch         the product or the copy says supplements, weight loss, crypto, housing, ... while the
                                      spec says "general" (block) or another vertical (warn); the rules of both run (L-17)
@@ -217,6 +220,9 @@ MESSAGES = {
     "policy.political": ("Ads about elections, politics or social issues need the platform's authorization and a "
                          "\"Paid for by\" label.", "Remove it, or get authorized first."),
     "policy.snapchat_supplements": ("Snapchat reviews supplement ads before they run.", "Expect a review delay."),
+    "policy.caps_punctuation": ("Words in capitals or repeated punctuation (!! or ??) often get the ad rejected in review.",
+                                "Write it in normal case, with one ! or ? at most."),
+    "policy.emoji": ("TikTok's ad text doesn't take emoji.", "Remove the emoji. The video can still show them."),
     "policy.hidden_characters": ("This text has invisible characters (zero-width spaces, direction marks or soft "
                                  "hyphens). They can hide words from ad review.", "Retype the text without them."),
     "policy.vertical_mismatch": ("What this campaign sells doesn't match its product type. The age and category rules "
@@ -236,6 +242,7 @@ LEVELS = {
     "policy.special_category_maybe": ("warn", {}), "policy.special_category_targeting": ("block", {}),
     "policy.supplement_disclaimer": ("warn", {}), "policy.pharmacy": ("block", {}), "policy.political": ("warn", {}),
     "policy.snapchat_supplements": ("warn", {}), "policy.hidden_characters": ("block", {}),
+    "policy.caps_punctuation": ("warn", {}), "policy.emoji": ("block", {}),
     "policy.vertical_mismatch": ("block", {}),
 }
 
@@ -256,6 +263,21 @@ def _any(rule_id, text):
 
 def _before_after(text):
     return compliance.before_after(text)
+
+
+# Rules that only one platform's review applies (how the text is written there): platform -> rule ids.
+PLATFORM_RULES = {"snapchat": ("policy.caps_punctuation",), "tiktok": ("policy.caps_punctuation",)}
+EMOJI = re.compile("[\U0001F000-\U0001FAFF\U00002600-\U000027BF\U0001F900-\U0001F9FF\uFE0F\u200D\u2B50\u2B55\u231A"
+                   "\u231B\u23E9-\u23FA]")
+
+
+def caps_or_punctuation(text: str) -> bool:
+    """Two or more words of 4+ letters all in capitals (and at least half the words), or !! / ?? / ?! runs."""
+    if re.search(r"[!?]{2,}", text):
+        return True
+    words = re.findall(r"[^\W\d_]{4,}", text)
+    caps = [w for w in words if w.isupper()]
+    return len(caps) >= 2 and len(caps) * 2 >= len(words)
 
 
 # Rules about what is advertised (not how it is said): the only ones that apply to keywords, names and URLs.
@@ -298,6 +320,9 @@ def lint_text(text: str, *, platform: str = "meta", vertical: str = "general", a
             out.append(_issue("policy.ai_first_person", platform, where))
     if run("policy.special_category_maybe") and _any("policy.special_category_maybe", text):
         out.append(_issue("policy.special_category_maybe", platform, where))
+    rules = PLATFORM_RULES.get(platform, ())
+    if "policy.caps_punctuation" in rules and run("policy.caps_punctuation") and caps_or_punctuation(text):
+        out.append(_issue("policy.caps_punctuation", platform, where))
     if house and only is None:
         for lvl, rid, msg in compliance.findings(text):
             out.append(Issue(lvl, f"house.{rid}", msg, "Reword it: Campaignify doesn't make or launch ads with this.", where))
@@ -393,7 +418,7 @@ def derive_vertical(spec, prov: dict = None) -> tuple:
     for c in spec.creatives:
         texts += [getattr(c, f) or "" for f in TEXT_FIELDS] + [c.name, url_words(c.destination_url), url_words(c.utm)]
     g = spec.google or {}
-    texts += list(g.get("headlines") or []) + list(g.get("descriptions") or [])
+    texts += list(g.get("headlines") or []) + list(g.get("descriptions") or []) + list(g.get("long_headlines") or [])
     texts += [_keyword_text(k) for k in g.get("keywords") or []]
     alltext = compliance.normalize(" ".join(t for t in texts if t))
     for v, words in _signals(alltext).items():
@@ -497,15 +522,19 @@ def lint(spec, prov: dict = None) -> list:
             if compliance.hidden_chars(raw) and not any(i2.where == f"creatives[{i}].{fld}" and
                                                         i2.rule_id == "policy.hidden_characters" for i2 in out):
                 out.append(_issue("policy.hidden_characters", p, f"creatives[{i}].{fld}"))
+        if p == "tiktok" and EMOJI.search(c.primary_text or ""):
+            out.append(_issue("policy.emoji", p, f"creatives[{i}].primary_text"))
         if ai and not spec.ai_disclosure:
             out.append(_issue("policy.ai_disclosure_missing", p, f"creatives[{i}]"))
         elif (prov or {}).get(c.asset_id, {}).get("ai_generated") and not spec.ai_disclosure:
             out.append(_issue("policy.ai_generated_disclosure", p, f"creatives[{i}]"))
     g = spec.google or {}
-    for key in ("headlines", "descriptions"):
+    for key in ("headlines", "descriptions", "long_headlines"):
         for i, t in enumerate(g.get(key) or []):
             out += lint_text(t, platform=p, vertical=v, where=f"google.{key}[{i}]",
                              claims_substantiated=spec.claims_substantiated)
+    if g.get("business_name"):
+        out += lint_text(g["business_name"], platform=p, vertical=v, where="google.business_name", only=sub)
     # Keywords: Google refuses drug and political terms (and US housing, credit and job terms need its
     # restrictions). Negative keywords only keep the ad away from a search, so they get the invisible-text check.
     for i, k in enumerate(g.get("keywords") or []):

@@ -595,6 +595,105 @@
    "ai": false,
    "expect": [],
    "house": []
+  },
+  {
+   "id": "cs01",
+   "text": "Light it once, smell it all week",
+   "platform": "snapchat",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "cs02",
+   "text": "Burns 50 hours, poured by hand",
+   "platform": "snapchat",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "cs03",
+   "text": "New USA-made soy candles are here",
+   "platform": "snapchat",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "cs04",
+   "text": "Book a deep clean for Saturday",
+   "platform": "snapchat",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "cs05",
+   "text": "Wait, what? It smells like cedar.",
+   "platform": "snapchat",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "cs06",
+   "text": "Swipe up to see the fall colors",
+   "platform": "snapchat",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "ct01",
+   "text": "Light it once and smell it all week.",
+   "platform": "tiktok",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "ct02",
+   "text": "Hand poured soy, 50 hours of burn",
+   "platform": "tiktok",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "ct03",
+   "text": "Same-day drain cleaning in Austin",
+   "platform": "tiktok",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "ct04",
+   "text": "Our fall scents are here. Which one is yours?",
+   "platform": "tiktok",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
+  },
+  {
+   "id": "ct05",
+   "text": "Made in small batches in Ohio",
+   "platform": "tiktok",
+   "vertical": "general",
+   "ai": false,
+   "expect": [],
+   "house": []
   }
  ]
 }

@@ -8,9 +8,12 @@ COPY requirements.txt .
 # exactly those files or the build fails (SEC-3).
 RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 COPY . .
-RUN mkdir -p data
+# BUILD_ID: one random id per image. The web and worker containers of a release share it, so the web's /health
+# waits for its own release's worker heartbeat after a deploy (alerts.worker_state, roadmap M7.2).
+RUN mkdir -p data && python -c "import secrets; open('BUILD_ID', 'w').write(secrets.token_hex(8))"
 ENV PYTHONUNBUFFERED=1 RS_DATA=/srv/rs/data
 EXPOSE 8080
-# One process: the background worker thread lives in it (RS_WORKER=1).
+# The web process. With docker-compose (RS_WORKER_MODE=process) the background loop runs in the separate "worker"
+# service from this same image (python worker_main.py); without it, as a thread in here (RS_WORKER=1).
 CMD ["gunicorn", "-w", "1", "-k", "gthread", "--threads", "16", "--timeout", "120", \
      "--graceful-timeout", "30", "-b", "0.0.0.0:8080", "app:app"]

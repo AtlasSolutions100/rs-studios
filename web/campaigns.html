@@ -1,5 +1,6 @@
 {% extends "base.html" %}{% from "_macros.html" import product_picker with context %}{% block title %}Campaigns · Campaignify{% endblock %}
 {% block body %}
+<style>.v2use{background:none;border:0;padding:0;color:inherit;font:inherit;font-weight:700;text-decoration:underline;cursor:pointer}</style>
 <div class="page">
   <section>
     <p class="eyebrow">AI campaign planner · {{ b.name or 'Your brand' }}</p>
@@ -20,11 +21,14 @@
       <fieldset class="budgetset">
         <legend>Ad budget <span class="dim">(optional; what you'll spend on the platforms, not in Campaignify)</span></legend>
         <div class="budgetrow">
-          <div class="bamt"><label for="budget_currency" class="sr">Currency</label><select id="budget_currency" name="budget_currency">{% for code, sym in money.CURRENCIES.items() %}<option value="{{ code }}">{{ code }}</option>{% endfor %}</select>
+          <div class="bamt"><label for="budget_currency" class="sr">Currency</label><select id="budget_currency" name="budget_currency">{% set hc = hints.currency if hints else 'USD' %}{% for code, sym in money.CURRENCIES.items() %}<option value="{{ code }}" {{ 'selected' if code == hc }}>{{ code }}</option>{% endfor %}{% if hc not in money.CURRENCIES %}<option value="{{ hc }}" selected>{{ hc }}</option>{% endif %}</select>
             <label for="budget" class="sr">Amount</label><input id="budget" type="number" name="budget_amount" min="1" max="10000000" step="any" inputmode="decimal" placeholder="600"></div>
           <div><label for="budget_period" class="sr">Per day or total</label><select id="budget_period" name="budget_period">{% for k, v in money.PERIODS.items() %}<option value="{{ k }}">{{ v|first_upper }}</option>{% endfor %}</select></div>
           <div class="bdays"><label for="budget_days" class="sr">Test length in days</label><input id="budget_days" type="number" name="budget_days" min="1" max="365" step="1" inputmode="numeric" value="{{ money.DEFAULT_DAYS }}"><span class="small muted">day test</span></div>
         </div>
+        {% if hints %}{% set h0 = hints.by_goal['leads' if svc else 'sales'] %}
+        <p class="small muted v2hint" style="margin:8px 0 0" data-v2-hints='{{ hints.by_goal|tojson|forceescape }}'><span data-v2-text>{{ h0.text }}</span> <button type="button" class="v2use" data-v2-use>Use {{ money.money(h0.amount, h0.currency) }} a day</button>{% if hints.connected %}<br>Amounts in your ad account's currency.{% endif %}</p>
+        {% endif %}
       </fieldset>
       <label for="dates">Timing <span class="dim">(optional)</span></label><input id="dates" type="text" name="dates" maxlength="120" placeholder="e.g. launches Nov 15">
       {% if service_on %}<div data-area {{ 'hidden' if not svc }}><label for="area">Service area <span class="dim">(city or radius, for local ads)</span></label><input id="area" type="text" name="area" maxlength="120" value="{{ area }}" placeholder="e.g. Plano and Allen, or 20 miles around Plano"></div>{% endif %}
@@ -62,6 +66,17 @@
   g.addEventListener('change', function(){ if(mine) return; var want = map[g.value] || map.sales;
     box.querySelectorAll('input[name=platforms]').forEach(function(i){ i.checked = want.indexOf(i.value) >= 0; }); });
 })();</script>
+{% if hints %}<script>(function(){ /* Planner v2 (M4.3): the suggested mix and daily amount follow the goal */
+  var box = document.querySelector('[data-v2-hints]'), g = document.getElementById('goal'); if(!box || !g) return;
+  var map = JSON.parse(box.getAttribute('data-v2-hints')), t = box.querySelector('[data-v2-text]'), b = box.querySelector('[data-v2-use]');
+  function money(h){ var n = Number(h.amount); var s = n % 1 ? n.toFixed(2) : String(n); s = s.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    var sym = {USD: '$', CAD: 'CA$', AUD: 'A$', EUR: '€', GBP: '£'}[h.currency]; return sym ? sym + s : s + ' ' + h.currency; }
+  function show(){ var h = map[g.value] || map.sales; t.textContent = h.text; b.textContent = 'Use ' + money(h) + ' a day'; }
+  g.addEventListener('change', show);
+  b.addEventListener('click', function(){ var h = map[g.value] || map.sales;
+    document.getElementById('budget').value = h.amount; document.getElementById('budget_period').value = 'day';
+    var c = document.getElementById('budget_currency'); if(c) c.value = h.currency; });
+})();</script>{% endif %}
 {% if service_on %}<script>(function(){ var g = document.getElementById('goal'), a = document.querySelector('[data-area]');
   if(!g || !a) return; function t(){ a.hidden = g.value !== 'leads'; } g.addEventListener('change', t); t(); })();</script>{% endif %}
 {% endblock %}

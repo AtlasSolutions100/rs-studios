@@ -15,6 +15,17 @@ RS_STARTER_CREDITS=44
 STRIPE_SECRET_KEY=rk_live_xxx
 STRIPE_WEBHOOK_SECRET=whsec_xxx
 
+# Live ids (liveids.py, roadmap M7.4). Each one is a setting; unset, the production value in liveids.PRODUCTION is
+# used, so nothing changes until you set one. RS_LIVE_IDS=settings turns that fallback off (a staging copy or a
+# Stripe test-mode account must not reach the production accounts). `python liveids.py` lists where each comes from.
+# STRIPE_PLAN_PRICE_STARTER=   STRIPE_PLAN_PRICE_GROWTH=   STRIPE_PLAN_PRICE_SCALE=
+# STRIPE_PLAN_PRODUCT_STARTER= STRIPE_PLAN_PRODUCT_GROWTH= STRIPE_PLAN_PRODUCT_SCALE=
+# STRIPE_PRICE_STARTER=        STRIPE_PRICE_PRO=           STRIPE_PRICE_STUDIO=
+# TWILIO_SECONDARY_POLICY_SID= TWILIO_A2P_POLICY_SID=      INDEXNOW_KEY=
+# RS_LIVE_IDS=settings
+# Owner setup links (owners.py, SEC-9): no owner email or code hash is in the source. Unset = no owner setup links.
+# RS_OWNER_INVITES=owner@example.com:<sha256 of the code>,second@example.com:<sha256>
+# RS_FIRST_OWNER_EMAIL=        a fresh database only: makes user 1 (workspace 1) an operator once if its email matches
 # ---- Flows: email sending (Resend). Leave unset and email steps become tasks for the owner.
 # Full-access API key (sending + domains), the webhook signing secret (svix, "whsec_...") of
 # https://campaignify.ai/webhooks/resend, and the shared sending subdomain verified in Resend.
@@ -116,9 +127,19 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # OPS_ALERT_EMAIL=
 # OPS_ALERT_DEDUPE_MIN=60   OPS_WORKER_DOWN_MIN=5   OPS_JOB_STUCK_MIN=20   OPS_WEBHOOK_SIG_PER_HOUR=10
 # OPS_VENDOR_ERROR_PCT=20   OPS_VENDOR_MIN_JOBS=5   OPS_ALERT_DISK_GB=10   OPS_BACKUP_MAX_HOURS=26
+# Database load (dbstats.py, roadmap M7.3): write lock waits per process, on Admin > System > Database load.
+# DB_STATS=off               the plain connection, nothing measured (default on)
+# DB_PG_WAIT_P95_MS=200      the Postgres threshold: write lock wait p95 over this for 24 h (with DB_PG_MIN_WRITES=500)
+# DB_PG_SIZE_GB=5            or the database over this size; the alert postgres_threshold goes out once a day
+# DB_STATS_KEEP_DAYS=30
 # /health answers 503 when the worker loop's last beat is older than this many seconds (keep it over 120,
 # the deploy hook's wait after the switch). Long vendor calls beat every 10 s for up to RS_HEALTH_BUSY_MAX_S.
 # RS_HEALTH_WORKER_MAX_AGE=180   RS_HEALTH_BUSY_MAX_S=900
+# The worker process (roadmap M7.2). docker-compose runs the background loop in its own container ("worker",
+# python worker_main.py) and the web only serves requests; RS_WORKER_MODE=process is set by the compose file.
+# RS_WORKER_PROCESS=off      kill switch: the loop goes back into the app container as a thread; the worker idles
+# RS_TASK_THREADS=4          planning and research runs the worker runs at once
+# RS_WORKER_STOP_S=40        on stop, how long the worker waits for running AI runs before marking them interrupted
 # JSON logs with request and workspace ids (RS_LOG_JSON=0 for plain logs; RS_ACCESS_LOG=0 drops request lines).
 # RS_LOG_JSON=1
 # ---- Off-site backups (backup.py, tools/restore.sh). Nightly: rs.db snapshot + media folders to one Cloudflare
@@ -151,6 +172,21 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # AD_LAUNCH_WORKSPACES=       workspace ids that see it while AD_LAUNCH=beta (admins always do)
 # AD_RATE_TIER=limited        limited | full (Meta's API access level for the app)
 # META_APP_ID=   META_APP_SECRET=   META_LOGIN_CONFIG_ID=
+# Google Ads (adplatforms/google.py, roadmap M3), on top of AD_LAUNCH. The OAuth client defaults to the sign-in one
+# (GOOGLE_OAUTH_CLIENT_ID / _SECRET); its Cloud project needs the Google Ads API (Basic access) and the redirect URI
+# https://campaignify.ai/connect/google/callback. No developer token (retired 2026-09-09).
+# GOOGLE_ADS=0
+# GOOGLE_ADS_CLIENT_ID=   GOOGLE_ADS_CLIENT_SECRET=
+# Snapchat (adplatforms/snapchat.py, roadmap M6.1), on top of AD_LAUNCH. A Marketing API OAuth app made in Snap's
+# Business Manager (Business Details > OAuth Apps; no review) with the redirect URI
+# https://campaignify.ai/connect/snapchat/callback.
+# SNAPCHAT_ADS=0
+# SNAPCHAT_CLIENT_ID=   SNAPCHAT_CLIENT_SECRET=
+# TikTok (adplatforms/tiktok.py, roadmap M6.2), on top of AD_LAUNCH. A TikTok for Business developer app
+# (business-api.tiktok.com, company email) with the Advertiser redirect URL https://campaignify.ai/connect/tiktok/callback
+# and the scopes Ad Account Management, Ads Management, Creative Management, Reporting, Pixel Management.
+# TIKTOK_ADS=0
+# TIKTOK_APP_ID=   TIKTOK_APP_SECRET=
 # Token box key (secretsbox.py): 32 random bytes, base64. Old keys stay readable from TOKEN_KEYS_OLD
 # (comma separated) until `python3 secretsbox.py rotate` re-seals every token under TOKEN_KEY.
 # TOKEN_KEY=

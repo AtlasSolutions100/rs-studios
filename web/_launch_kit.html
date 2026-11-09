@@ -1,6 +1,7 @@
 {# Launch kit (launch_kit.py, RS_LAUNCH_KIT; roadmap M5.3): everything to launch by hand, one block per platform in the plan.
    Needs kit, c. Ticks are stored on the server: the hub's steps in adhub_progress (shared with the hub page),
-   the plan's own items in launch_ticks. The Meta block's head has M2.3's "Create paused campaign" button (launch_slot, AD_LAUNCH). #}
+   the plan's own items in launch_ticks. The Meta, Google and Snapchat blocks' heads have the "Create paused campaign" button (launch_slot; AD_LAUNCH, and
+   GOOGLE_ADS for Google, SNAPCHAT_ADS for Snapchat, TIKTOK_ADS for TikTok). #}
 {% macro tick(it) -%}
 <li class="lk-item {{ 'done' if it.done }}" id="lk-{{ it.key|replace(':', '-') }}">
   <form method="post" action="{{ url_for('campaigns.launch_tick', cid=c.id) }}" data-lk-tick>
@@ -23,12 +24,12 @@
     <header class="lk-head">
       <div><h3>{{ b.name }}</h3><span class="small muted">{{ b.done }} of {{ b.total }} done{% if b.guide %} · account setup {{ b.setup_done }} of {{ b.setup_total }} in the <a href="{{ b.guide }}">setup guide</a>{% endif %}</span></div>
       <div class="row" style="gap:8px;flex-wrap:wrap">
-      {% set slot = launch_slot(c) if b.key == 'meta' and launch_slot is defined else None %}
+      {% set slot = launch_slot(c, b.key) if b.key in ('meta', 'google', 'snapchat', 'tiktok') and launch_slot is defined else None %}
       {% if slot %}<a class="btn sm" href="{{ slot.url }}" data-launch-create>Create paused campaign</a>{% endif %}
       {% if b.manager %}<a class="btn dark sm" href="{{ b.manager[1] }}" target="_blank" rel="noopener noreferrer">Open {{ b.manager[0] }} ↗</a>{% endif %}
       </div>
     </header>
-    {% if slot %}<p class="small muted" style="margin:6px 0 0">Or let Campaignify create it for you on your Meta ad account, PAUSED until you turn it on.{% if not slot.connected %} <a href="{{ slot.connect }}">Connect the ad account</a> first.{% endif %}{% if slot.latest %} <a href="{{ slot.latest_url }}">Last launch: {{ {'queued': 'waiting to start', 'launching': 'in progress', 'paused': 'created, PAUSED', 'failed': 'stopped', 'rolled_back': 'stopped and undone'}[slot.latest.status] }}</a>.{% endif %}</p>{% endif %}
+    {% if slot %}<p class="small muted" style="margin:6px 0 0">Or let Campaignify create it for you on your {{ slot.word }} {{ 'Ads account' if slot.platform == 'google' else 'ad account' }}, PAUSED until you turn it on.{% if not slot.connected %} <a href="{{ slot.connect }}">Connect the ad account</a> first.{% endif %}{% if slot.latest %} <a href="{{ slot.latest_url }}">Last launch: {{ {'queued': 'waiting to start', 'launching': 'in progress', 'paused': 'created, PAUSED', 'failed': 'stopped', 'rolled_back': 'stopped and undone'}[slot.latest.status] }}</a>.{% endif %}</p>{% endif %}
     <dl class="lk-lines">
       <dt>Goal</dt><dd>{{ b.goal }}. Pick the objective in {{ b.manager[0] if b.manager else 'the ads manager' }} that matches it.</dd>
       <dt>Budget</dt><dd>{{ b.budget }}</dd>

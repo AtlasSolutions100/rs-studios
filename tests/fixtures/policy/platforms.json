@@ -1,0 +1,74 @@
+{
+ "_note": "Rules only one platform's review applies (adpolicy.PLATFORM_RULES): each line with the platform it runs on.",
+ "cases": [
+  {
+   "id": "pl01",
+   "text": "SHOP THE BIG CANDLE SALE NOW",
+   "platform": "snapchat",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.caps_punctuation"
+   ],
+   "levels": {
+    "policy.caps_punctuation": "warn"
+   }
+  },
+  {
+   "id": "pl02",
+   "text": "Our candles are back!!",
+   "platform": "snapchat",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.caps_punctuation"
+   ]
+  },
+  {
+   "id": "pl03",
+   "text": "Ready for fall??",
+   "platform": "snapchat",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.caps_punctuation"
+   ]
+  },
+  {
+   "id": "pl04",
+   "text": "Our candles are back!!",
+   "platform": "meta",
+   "vertical": "general",
+   "ai": false,
+   "expect": []
+  },
+  {
+   "id": "pl05",
+   "text": "SHOP THE BIG CANDLE SALE NOW",
+   "platform": "google",
+   "vertical": "general",
+   "ai": false,
+   "expect": []
+  },
+  {
+   "id": "pl06",
+   "text": "NEW SCENTS JUST DROPPED",
+   "platform": "tiktok",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.caps_punctuation"
+   ]
+  },
+  {
+   "id": "pl07",
+   "text": "Which scent is yours??",
+   "platform": "tiktok",
+   "vertical": "general",
+   "ai": false,
+   "expect": [
+    "policy.caps_punctuation"
+   ]
+  }
+ ]
+}

@@ -162,6 +162,8 @@ NAV_GROUPS = [
     ]),
     ("Launch", [
         ("adhub.index", "Ad accounts", "adhub", "adhub", ("adhub.index", "adhub.platform", "adhub.export_page")),
+        # Launched campaigns (manage_routes.py, M2.4): shown only where adplatforms.enabled() (AD_LAUNCH)
+        ("manage.index", "Ad campaigns", "planner", None, ("manage.index", "manage.show")),
     ]),
     ("Settings", [
         ("team", "Team", "team", None, ("team",)),
@@ -280,6 +282,7 @@ def _hold_banner():
 
 
 CSRF_EXEMPT = {"static", "stripe_webhook", "site_event", "forms.public", "messaging.resend_webhook", "messaging.unsubscribe",
+               "manage.weekly_unsub",   # the weekly report's one-click unsubscribe (signed token, no login; M4.4)
                "sms.inbound", "sms.status",
                "cpools.partner_asset_url", "cpools.partner_event",  # Crowdcut's server calls, HMAC-signed (creator_pools.py)  # public forms carry their own signed token
                # MCP clients (mcpserver.py): Bearer tokens or OAuth client credentials, never cookies
@@ -2469,7 +2472,9 @@ def _settle_plans():
 
 
 def _start_plan_sync():
-    if os.environ.get("RS_PLAN_SYNC", "1") != "1":
+    """The hourly plan sync (a safety net for missed Stripe webhooks). In process mode (roadmap M7.2) it runs in the
+    worker process, which imports this module (workerproc.py), never in gunicorn."""
+    if os.environ.get("RS_PLAN_SYNC", "1") != "1" or not worker.background_here():
         return
 
     def loop():
@@ -2855,12 +2860,16 @@ import creator_pools  # noqa: E402
 import google_auth  # noqa: E402
 import adconnect_routes  # noqa: E402  connected ad accounts (AD_LAUNCH)
 import launch_routes  # noqa: E402  plan -> paused Meta campaign (AD_LAUNCH, M2.3)
+import manage_routes  # noqa: E402  launched campaigns: on/off, budget, approval cards (AD_LAUNCH, M2.4)
 import adplatforms  # noqa: E402
 
 app.register_blueprint(product_routes.bp)
 app.register_blueprint(google_auth.bp)
 app.register_blueprint(adconnect_routes.bp)   # /app/settings/ad-accounts, /connect/meta (AD_LAUNCH, default off)
+import conversion_routes  # noqa: E402  conversion tracking on members' pages (CONVERSIONS_API)
+app.register_blueprint(conversion_routes.bp)   # /app/settings/conversions (CONVERSIONS_API + AD_LAUNCH, default off)
 app.register_blueprint(launch_routes.bp)   # /app/campaigns/<id>/launch/meta, /app/launches/<id> (AD_LAUNCH, default off)
+app.register_blueprint(manage_routes.bp)   # /app/ad-campaigns, /app/ad-cards/<id> (AD_LAUNCH, default off)
 app.register_blueprint(login_security.bp)   # /forgot, /reset, /m (login hardening)
 app.jinja_env.globals["google_signin"] = google_auth.configured   # the Continue with Google button
 app.register_blueprint(create_routes.bp)
@@ -2886,6 +2895,8 @@ import card_routes  # noqa: E402
 import paywall_routes  # noqa: E402
 app.register_blueprint(card_routes.bp)
 app.register_blueprint(paywall_routes.bp)
+import deletion_routes  # noqa: E402  (M7.5: Team > Delete this workspace)
+app.register_blueprint(deletion_routes.bp)
 import next_steps  # noqa: E402  the "Your campaign" strip on Home (RS_NEXT_STEPS, default off)
 next_steps.init(app)
 
@@ -2904,6 +2915,8 @@ def _has_endpoint(name) -> bool:
         return g.cpools_visible
     if name == "mcp.settings":          # the MCP key page shows while MCP_SERVER=on
         return mcpserver.enabled()
+    if name.startswith("manage."):      # launched campaigns: AD_LAUNCH (adplatforms.enabled)
+        return adplatforms.enabled(g.get("ws"), g.get("user"))
     if name.startswith("adconnect."):   # connected ad accounts: AD_LAUNCH (adplatforms.enabled)
         if adplatforms.enabled(g.get("ws"), g.get("user")):
             return True

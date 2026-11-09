@@ -16,11 +16,21 @@ MAX_DAYS = 365
 
 def money(amount: float, currency: str = "USD") -> str:
     """$1,200 or $12.50: thousands separators, cents only when there are any."""
-    sym = CURRENCIES.get(currency, "$")
     amount = float(amount)
-    if abs(amount - round(amount)) < 0.005:
+    whole = abs(amount - round(amount)) < 0.005
+    if currency and currency not in CURRENCIES and currency in accepted():   # an ad account's own currency (M4.3)
+        return f"{int(round(amount)):,} {currency}" if whole else f"{amount:,.2f} {currency}"
+    sym = CURRENCIES.get(currency, "$")
+    if whole:
         return f"{sym}{int(round(amount)):,}"
     return f"{sym}{amount:,.2f}"
+
+
+def accepted() -> set:
+    """Currencies a brief may be in: the form's list plus any ad account currency D3 converts (launches.UNITS_PER_USD),
+    so the planner can pre-fill a connected account's own currency (Planner v2, M4.3)."""
+    import launches
+    return set(CURRENCIES) | set(launches.UNITS_PER_USD)
 
 
 def parse(form) -> tuple[dict, str | None]:
@@ -35,7 +45,7 @@ def parse(form) -> tuple[dict, str | None]:
         return {}, "Budget: enter a number, like 300."
     if not 0 < amount <= MAX_AMOUNT or amount != amount:
         return {}, "Budget: enter an amount above 0."
-    currency = form.get("budget_currency") if form.get("budget_currency") in CURRENCIES else "USD"
+    currency = form.get("budget_currency") if form.get("budget_currency") in accepted() else "USD"
     period = form.get("budget_period") if form.get("budget_period") in PERIODS else "total"
     try:
         days = int((form.get("budget_days") or "").strip() or DEFAULT_DAYS)

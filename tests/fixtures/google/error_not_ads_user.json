@@ -1,0 +1,21 @@
+{
+ "error": {
+  "code": 401,
+  "message": "User in the cookie is not a valid Ads user.",
+  "status": "UNAUTHENTICATED",
+  "details": [
+   {
+    "@type": "type.googleapis.com/google.ads.googleads.v25.errors.GoogleAdsFailure",
+    "errors": [
+     {
+      "errorCode": {
+       "authenticationError": "NOT_ADS_USER"
+      },
+      "message": "User in the cookie is not a valid Ads user."
+     }
+    ],
+    "requestId": "fakeReq12484287"
+   }
+  ]
+ }
+}

@@ -23,6 +23,13 @@ The promise: "launch by hand or let Campaignify create it". The flow:
        (the page lists it, with Ads Manager links). "Try again" re-runs the same launch, reusing what
        was kept.
 
+Google (M3.2 Search, M3.3 Performance Max; launch_google.py has its draft, rules and card) runs through the
+same card, approval, ledger, saga and compensation, behind GOOGLE_ADS as well: one mutate makes the whole
+campaign (Google applies all of it or none), then a GAQL check reads it back. Its daily budget follows the
+same D3 ceilings. Snapchat (M6.1; launch_video.py has its draft, rules and card, adplatforms/snapchat.py the
+steps) does too, behind SNAPCHAT_ADS: uploads, creatives, the campaign, the ad squad, the ads, all PAUSED. So does
+TikTok (M6.2, adplatforms/tiktok.py, behind TIKTOK_ADS): uploads, the campaign (off), the ad group, the ads.
+
 Rules (Koby's decisions): launching needs a paid plan (D2); a campaign's daily budget is capped per plan
 (D3: Starter 200, Growth 1,000, Scale 5,000 a day, in the ad account's currency; "ask us" above); every
 ad must come from the workspace's library so its AI provenance is known (re-audit I-7). Everything sits
@@ -72,7 +79,10 @@ _last_tick = [0.0]
 ACTIVE = ("queued", "launching")
 FINISHED = ("paused", "failed", "rolled_back")
 
-KIND_WORDS = {"upload": "Upload", "creative": "Ad creative", "campaign": "Campaign", "adset": "Ad set", "ad": "Ad"}
+KIND_WORDS = {"upload": "Upload", "creative": "Ad creative", "campaign": "Campaign", "adset": "Ad set", "ad": "Ad",
+              "adgroup": "Ad group", "assetgroup": "Asset group", "check": "Check", "adsquad": "Ad squad"}
+PLATFORM_WORDS = {"meta": "Meta", "google": "Google", "snapchat": "Snapchat", "tiktok": "TikTok"}
+ADSET_KINDS = ("adset", "adsquad", "adgroup")       # the ad set of a launch, by platform (its step key is "adset" on each)
 OBJECTIVE_WORDS = {"sales": "Sales", "leads": "Leads", "traffic": "Traffic", "awareness": "Awareness"}
 GOAL_TO_OBJECTIVE = {"sales": "sales", "leads": "leads", "traffic": "traffic", "awareness": "awareness",
                      "engagement": "traffic", "installs": "traffic"}
@@ -172,10 +182,10 @@ def ceiling(ws, currency: str | None = "USD", operator: bool = False) -> int | N
     return int(round(amount * adspec.minor_factor(cur)))
 
 
-def connection(conn, ws_id: int):
-    """The workspace's active Meta connection (the newest), or None."""
-    return conn.execute("SELECT * FROM ad_connections WHERE workspace_id=? AND platform='meta' AND status='active' "
-                        "ORDER BY updated_at DESC, id DESC LIMIT 1", (int(ws_id),)).fetchone()
+def connection(conn, ws_id: int, platform: str = "meta"):
+    """The workspace's active connection on `platform` (the newest), or None."""
+    return conn.execute("SELECT * FROM ad_connections WHERE workspace_id=? AND platform=? AND status='active' "
+                        "ORDER BY updated_at DESC, id DESC LIMIT 1", (int(ws_id), platform)).fetchone()
 
 
 def pixels_of(conn, ws_id: int, conn_id: int) -> list:
@@ -244,12 +254,18 @@ def _copy_for(plan: dict, angle: str) -> dict:
     return out
 
 
-def _daily_from_brief(brief: dict, plan: dict, currency: str = "USD") -> int:
+def _daily_from_brief(brief: dict, plan: dict, currency: str = "USD", platform: str = "meta") -> int:
     import campaign_budget
     if not campaign_budget.structured(brief):
+        setup = (plan.get("final") or {}).get("setup") or {}
+        row = next((r for r in setup.get("rows") or [] if r.get("platform") == platform), None)
+        if row and setup.get("currency") == (currency or "USD").upper() and row.get("mid"):
+            return max(adspec.MIN_DAILY[platform], int(row["mid"]))     # Planner v2's suggested amount (M4.3)
         return DEFAULT_DAILY
+    src = (brief.get("budget_currency") or "USD").upper()
+    cur = (currency or "USD").upper()
     share = next((b.get("share_percent") for b in (plan.get("final") or {}).get("budget_split") or []
-                  if b.get("platform") == "meta"), 100)
+                  if b.get("platform") == platform), 100)
     try:
         share = float(share)
     except (TypeError, ValueError):
@@ -257,7 +273,9 @@ def _daily_from_brief(brief: dict, plan: dict, currency: str = "USD") -> int:
     amount = float(brief["budget_amount"]) * share / 100
     if brief.get("budget_period") != "day":
         amount /= max(1, int(brief.get("budget_days") or campaign_budget.DEFAULT_DAYS))
-    return max(adspec.MIN_DAILY["meta"], int(round(amount)) * adspec.minor_factor(currency))
+    if src != cur and src in UNITS_PER_USD and cur in UNITS_PER_USD:
+        amount = _two_sig(amount / UNITS_PER_USD[src] * UNITS_PER_USD[cur])   # the brief's currency to the account's (D3)
+    return max(adspec.MIN_DAILY[platform], int(round(amount)) * adspec.minor_factor(currency))
 
 
 def _local_today(tz_name: str | None) -> date:
@@ -345,6 +363,11 @@ def apply_form(base: dict, form, all_ads: list) -> dict:
         aud["genders"] = [g("genders")]
     if g("vertical") in adspec.VERTICALS:
         d["vertical"] = g("vertical")
+    if g("form") == "1" and g("placement_mode") in ("auto", "choose"):
+        # Meta (M6.3): automatic, or the ticked apps and spots (Instagram Feed, Stories, Reels; Facebook's too)
+        keys = dict(adspec.META_CHOICES)
+        d["placements"] = "auto" if g("placement_mode") == "auto" else \
+            [k for k in keys if k in form.getlist("place")]
     if g("form") == "1":
         d["special_ad_categories"] = [s for s in form.getlist("special") if s in adspec.SPECIAL_AD_CATEGORIES]
         d["claims_substantiated"] = g("claims") == "1"
@@ -393,6 +416,7 @@ def launch_issues(conn, ws, spec, conn_row, assets: dict, prov: dict, operator: 
     assets only (I-7), the pixel."""
     out = []
     add = lambda *a: out.append(Issue(*a))  # noqa: E731
+    word = PLATFORM_WORDS.get(spec.platform, spec.platform)
     code = launch_plan_code(ws, operator)
     if code == "free":
         add("block", "launch.paid_plan", "Creating campaigns from Campaignify needs an active subscription.",
@@ -407,12 +431,33 @@ def launch_issues(conn, ws, spec, conn_row, assets: dict, prov: dict, operator: 
             f"Your {plans.PLANS[code]['name']} plan creates campaigns up to {money(cap, spec.currency)} a day.",
             f"Lower the daily budget, or email {SUPPORT_EMAIL} to raise the limit.", "daily_budget_minor")
     if conn_row is None or conn_row["status"] != "active" or not conn_row["token_enc"]:
-        add("block", "launch.no_connection", "No Meta ad account is connected, or it needs Reconnect.",
+        add("block", "launch.no_connection", f"No {word} ad account is connected, or it needs Reconnect.",
             "Connect it in Settings > Ad accounts.", "connection")
+    elif conn_row["platform"] != spec.platform:
+        add("block", "launch.wrong_platform", f"That connection isn't a {word} account.", "Reload the page.", "connection")
+    elif spec.platform == "google":
+        import launch_google
+        if spec.currency != (conn_row["currency"] or spec.currency):
+            add("block", "launch.currency", f"The account bills in {conn_row['currency']}, not {spec.currency}.",
+                "Reload the page.", "currency")
+        out += launch_google.issues(conn, ws, spec, conn_row, assets)
+    elif spec.platform in _video_platforms():
+        import launch_video
+        out += launch_video.issues(conn, ws, spec, conn_row, assets)
     else:
         if not conn_row["page_id"]:
             add("block", "launch.no_page", "Ads on Meta run from a Facebook Page, and none is picked.",
                 "Reconnect the ad account and pick your Page.", "connection")
+        # M6.3: Instagram placements run as the Page's Instagram account (instagram_user_id on each creative).
+        ig = isinstance(spec.placements, list) and set(spec.placements) & adspec.INSTAGRAM_PLACEMENTS
+        if ig and not conn_row["instagram_actor_id"]:
+            add("block", "launch.no_instagram", "Instagram placements need the Instagram account linked to your Page, "
+                "and none is picked.", "Link it to the Page on Meta and reconnect, or untick the Instagram placements.",
+                "placements")
+        elif spec.placements == "auto" and not conn_row["instagram_actor_id"]:
+            add("warn", "launch.auto_no_instagram", "Automatic placements include Instagram, and no Instagram account is "
+                "linked to the Page.", "Link one on Meta and reconnect so Instagram shows your own account, or pick "
+                "Facebook placements only.", "placements")
         scopes = set((conn_row["scopes"] or "").split())
         miss = [s for s in ("ads_management", "pages_manage_ads") if scopes and s not in scopes]
         if miss:
@@ -455,9 +500,23 @@ def review(conn, ws, spec_dict: dict, conn_row, operator: bool = False) -> tuple
     ids = [c.asset_id for c in spec.creatives if c.asset_id]
     prov = adpolicy.provenance(conn, ws["id"], ids)
     assets = assets_for(conn, ws["id"], ids)
+    if spec.platform == "google":
+        import launch_google
+        assets.update(launch_google.logo_assets(conn, ws["id"], spec))
     issues += launch_issues(conn, ws, spec, conn_row, assets, prov, operator)
-    steps = adplatforms.adapter("meta").plan_steps(spec, conn_row, assets) if conn_row is not None else []
+    ok_row = conn_row is not None and conn_row["platform"] == spec.platform
+    steps = adplatforms.adapter(spec.platform).plan_steps(spec, conn_row, assets) if ok_row else []
+    if spec.platform == "google":
+        return spec, issues, launch_google.make_card(conn, ws, spec, conn_row, steps, prov, assets), steps
+    if spec.platform in _video_platforms():
+        import launch_video
+        return spec, issues, launch_video.make_card(conn, ws, spec, conn_row, steps, prov), steps
     return spec, issues, make_card(conn, ws, spec, conn_row, steps, prov), steps
+
+
+def _video_platforms() -> tuple:
+    import launch_video
+    return launch_video.PLATFORMS
 
 
 def _day(iso: str | None) -> str | None:
@@ -478,7 +537,9 @@ def make_card(conn, ws, spec, conn_row, steps: list, prov: dict) -> dict:
     aud, geo = spec.audience or {}, spec.geo or {}
     genders = {"women": "women", "men": "men"}.get((aud.get("genders") or ["all"])[0], "all genders")
     where = ", ".join(geo.get("countries") or []) or "no location"
-    place = "automatic placements" if spec.placements == "auto" else "placements: " + ", ".join(spec.placements)
+    words = dict(adspec.META_CHOICES)
+    place = "automatic placements" if spec.placements == "auto" else \
+        "placements: " + ", ".join(words.get(p, p.replace("_", " ")) for p in spec.placements)
     px_name = None
     conv = spec.conversion or {}
     if conn_row is not None and conv.get("pixel_id"):
@@ -528,7 +589,8 @@ def _ad_list(nums: list) -> str:
 
 def card_text(card: dict) -> str:
     """The card as one block of text (the page renders the same parts)."""
-    return "\n".join([f"What Campaignify will create on Meta, in {card['account']}:"] + card["lines"]
+    word = PLATFORM_WORDS.get(card.get("platform") or "meta", "Meta")
+    return "\n".join([f"What Campaignify will create on {word}, in {card['account']}:"] + card["lines"]
                      + [card["schedule"], card["disclosure"], card["footer"]])
 
 
@@ -586,7 +648,7 @@ def approve(conn, ws, user, card_row) -> tuple:
     cur = conn.execute("INSERT OR IGNORE INTO launches (workspace_id, plan_id, platform, connection_id, card_id, spec_json, "
                        "status, idempotency_key, created_by, approved_by, approved_at, created_at, updated_at) "
                        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                       (ws["id"], card_row["campaign_id"], "meta", conn_row["id"], card_row["id"],
+                       (ws["id"], card_row["campaign_id"], spec.platform, conn_row["id"], card_row["id"],
                         json.dumps(adspec.to_dict(spec)), "queued", key, card_row["created_by"], user["id"], now, now, now))
     if not cur.rowcount:          # a double click that lost the race: the other request made it
         conn.rollback()
@@ -639,6 +701,12 @@ def _step_dict(s) -> dict:
 
 def translate(err) -> str:
     """Plain words for a failure (the raw error is kept in launch_steps.error, scrubbed)."""
+    if isinstance(err, adhttp.AdHttpError) and err.platform == "google":
+        from adplatforms import google
+        return google.translate(err)
+    if isinstance(err, adhttp.AdHttpError) and err.platform in _video_platforms():
+        import launch_video
+        return launch_video.module(err.platform).translate(err)
     if isinstance(err, adhttp.NetworkError):
         return NETWORK_WORDS
     if isinstance(err, adhttp.AdHttpError):
@@ -661,7 +729,9 @@ def _retryable(err) -> bool:
     if isinstance(err, adhttp.NetworkError):
         return True
     if isinstance(err, adhttp.AdHttpError) and not isinstance(err, (adhttp.TokenInvalid, adhttp.PermissionDenied)):
-        return (err.status or 0) >= 500 or err.code in adhttp.META_TRANSIENT
+        if err.platform == "tiktok":
+            return (err.status or 0) >= 500 or err.code in adhttp.TIKTOK_TRANSIENT
+        return (err.status or 0) >= 500 or err.code in adhttp.META_TRANSIENT or err.code in adhttp.GOOGLE_TRANSIENT
     return False
 
 
@@ -669,10 +739,10 @@ def _record(conn, L, s, res: dict):
     ext = str(res.get("id") or "")
     conn.execute("UPDATE launch_steps SET status='done', external_id=?, result_json=?, error=NULL, finished_at=? WHERE id=?",
                  (ext, json.dumps(res), db.now(), s["id"]))
-    kind = {"upload": "video" if res.get("object") == "video" else None}.get(s["kind"], s["kind"])
+    kind = {"upload": "video" if res.get("object") == "video" else None, "check": None}.get(s["kind"], s["kind"])
     if kind and ext:
         parent = None
-        if s["kind"] == "adset":
+        if s["kind"] in ADSET_KINDS:
             parent = L["external_campaign_id"]
         elif s["kind"] == "ad":
             parent = (conn.execute("SELECT external_id FROM launch_steps WHERE launch_id=? AND step_key='adset'",
@@ -681,9 +751,21 @@ def _record(conn, L, s, res: dict):
                      "name, status, created_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(platform, external_id) DO UPDATE "
                      "SET status=excluded.status, launch_id=excluded.launch_id",
                      (L["id"], L["workspace_id"], L["platform"], kind, ext, parent, s["name"],
+                      res.get("status") if res.get("status") in ("ENABLED", "PAUSED") else
                       {"video": "UPLOADED", "creative": "CREATED"}.get(kind, "PAUSED"), db.now()))
     if s["kind"] == "campaign":
         conn.execute("UPDATE launches SET external_campaign_id=? WHERE id=?", (ext, L["id"]))
+    # Google makes the ad group and ad (or asset group) in the campaign's one mutate: one row each.
+    parents = {"campaign": ext}
+    for o in res.get("objects") or []:
+        if not o.get("external_id"):
+            continue
+        conn.execute("INSERT INTO ad_objects (launch_id, workspace_id, platform, kind, external_id, parent_external_id, "
+                     "name, status, created_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(platform, external_id) DO UPDATE "
+                     "SET status=excluded.status, launch_id=excluded.launch_id",
+                     (L["id"], L["workspace_id"], L["platform"], o["kind"], o["external_id"], parents.get(o.get("parent")),
+                      re.sub(r" \[cfy:\d+:[a-z0-9:]+\]$", "", o.get("name") or s["name"]), "ENABLED", db.now()))
+        parents.setdefault(o["kind"], o["external_id"])
     conn.commit()
 
 
@@ -698,12 +780,13 @@ def run(lid: int) -> str | None:
                                 (L["connection_id"], L["workspace_id"])).fetchone()
         try:
             if conn_row is None or conn_row["status"] != "active":
-                raise adhttp.TokenInvalid("meta", "the connection is not active")
+                raise adhttp.TokenInvalid(L["platform"], "the connection is not active")
             token = adplatforms.open_token(conn_row)
         except (adhttp.TokenInvalid, secretsbox.BoxError) as e:
-            return _fail(conn, L, None, adhttp.TokenInvalid("meta", str(e)), token=None, conn_row=conn_row)
+            return _fail(conn, L, None, adhttp.TokenInvalid(L["platform"], str(e)), token=None, conn_row=conn_row)
         ad = adplatforms.adapter(L["platform"])
-        base = {"launch_id": L["id"], "account": conn_row["external_account_id"], "token": token}
+        base = {"launch_id": L["id"], "account": conn_row["external_account_id"], "token": token,
+                "login": conn_row["business_id"] if L["platform"] == "google" else None}
         steps = conn.execute("SELECT * FROM launch_steps WHERE launch_id=? ORDER BY step_no", (L["id"],)).fetchall()
         results = {s["step_key"]: json.loads(s["result_json"] or "{}") for s in steps if s["status"] in ("done", "kept")}
         for s in steps:
@@ -778,19 +861,29 @@ def _fail(conn, L, s, err, token, conn_row) -> str:
     """Stop the launch: mark the step failed, undo what this launch made (compensate), report."""
     if isinstance(err, adhttp.AdHttpError):
         # str(err) is scrubbed (and "code=" reads as an OAuth code there), so the codes come from the attributes
-        raw = (f"HTTP {err.status}, Meta code {err.code}, subcode {err.subcode}: " if err.code is not None else "") + \
-            str(err).split(": ", 1)[-1][:400] + (f" (fbtrace_id {err.trace})" if err.trace else "")
+        word = PLATFORM_WORDS.get(err.platform, err.platform)
+        raw = (f"HTTP {err.status}, {word} code {err.code}" + (f", subcode {err.subcode}" if err.platform == "meta" else "")
+               + ": " if err.code is not None else "") + str(err).split(": ", 1)[-1][:400] + \
+            ((f" (fbtrace_id {err.trace})" if err.platform == "meta" else f" (request id {err.trace})") if err.trace else "")
     else:
         raw = f"{type(err).__name__}: " + adhttp.scrub(str(err))[:400]
     if s is not None:
         conn.execute("UPDATE launch_steps SET status='failed', error=?, finished_at=? WHERE id=?", (raw, db.now(), s["id"]))
         conn.commit()
+    word = PLATFORM_WORDS.get(L["platform"], "the platform")
     if isinstance(err, adhttp.TokenInvalid) and conn_row is not None and conn_row["status"] == "active":
-        adplatforms.mark(conn, conn_row["id"], "expired", "Meta ended this access. Reconnect.")
-    message = WAITED_WORDS if isinstance(err, adhttp.RateLimited) else translate(err)
+        adplatforms.mark(conn, conn_row["id"], "expired", f"{word} ended this access. Reconnect.")
+    if isinstance(err, adhttp.RateLimited):
+        from adplatforms import google
+        message = google.WAITED_WORDS if L["platform"] == "google" else WAITED_WORDS
+        if L["platform"] in _video_platforms():
+            import launch_video
+            message = launch_video.module(L["platform"]).WAITED_WORDS
+    else:
+        message = translate(err)
     complete = compensate(conn, L, token) if token else not _has_done(conn, L["id"])
     if not complete and not token:
-        message += " We couldn't reach Meta to remove what was made: the list below shows it, all PAUSED."
+        message += f" We couldn't reach {word} to remove what was made: the list below shows it, all PAUSED."
     status = "rolled_back" if complete else "failed"
     now = db.now()
     conn.execute("UPDATE launches SET status=?, error=?, lease_at=NULL, next_at=NULL, finished_at=?, updated_at=? WHERE id=?",
@@ -812,7 +905,8 @@ def compensate(conn, L, token) -> bool:
     PAUSED (kept), keep uploads. True when nothing that could run or be reused by mistake is left behind."""
     ad = adplatforms.adapter(L["platform"])
     conn_row = conn.execute("SELECT * FROM ad_connections WHERE id=?", (L["connection_id"],)).fetchone()
-    ctx = {"launch_id": L["id"], "account": conn_row["external_account_id"], "token": token, "max_wait": COMP_WAIT_S}
+    ctx = {"launch_id": L["id"], "account": conn_row["external_account_id"], "token": token, "max_wait": COMP_WAIT_S,
+           "login": conn_row["business_id"] if L["platform"] == "google" else None}
     ok = True
     for s in conn.execute("SELECT * FROM launch_steps WHERE launch_id=? AND status='done' ORDER BY step_no DESC",
                           (L["id"],)).fetchall():
@@ -821,7 +915,8 @@ def compensate(conn, L, token) -> bool:
         except adhttp.AdHttpError as e:
             ok = False
             conn.execute("UPDATE launch_steps SET error=? WHERE id=?",
-                         (("Couldn't remove it on Meta: " + str(e))[:500], s["id"]))
+                         ((f"Couldn't remove it on {PLATFORM_WORDS.get(L['platform'], 'the platform')}: " + str(e))[:500],
+                          s["id"]))
             conn.commit()
             continue
         conn.execute("UPDATE launch_steps SET status=? WHERE id=?", (outcome, s["id"]))
@@ -847,11 +942,13 @@ def tick(limit: int = 3) -> int:
         ids = due(conn, limit)
         wss = {}
         for lid in ids:
-            ws_id = conn.execute("SELECT workspace_id FROM launches WHERE id=?", (lid,)).fetchone()["workspace_id"]
-            wss[lid] = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+            row = conn.execute("SELECT workspace_id, platform FROM launches WHERE id=?", (lid,)).fetchone()
+            wss[lid] = (conn.execute("SELECT * FROM workspaces WHERE id=?", (row["workspace_id"],)).fetchone(),
+                        row["platform"])
     for lid in ids:
-        if not adplatforms.enabled(wss.get(lid)):
-            continue                # the flag is off for it: it waits, PAUSED, until the flag is back
+        w, platform = wss.get(lid) or (None, "meta")
+        if not adplatforms.platform_on(platform, w):
+            continue                # the flag is off for it (AD_LAUNCH; GOOGLE_ADS for Google): it waits, PAUSED
         try:
             run(lid)
             n += 1
@@ -874,7 +971,8 @@ def maybe_tick():
 # ---------------------------------------------------------------- what the pages show
 
 STEP_WORDS = {"upload": "Upload {what}", "creative": "Create the ad creative for {what}", "campaign": "Create the campaign",
-              "adset": "Create the ad set", "ad": "Create {what}"}
+              "adset": "Create the ad set", "ad": "Create {what}", "check": "Check it on Google",
+              "adsquad": "Create the ad squad", "adgroup": "Create the ad group"}
 
 
 def step_label(s) -> str:
@@ -882,12 +980,24 @@ def step_label(s) -> str:
     n = key.split(":")[1] if ":" in key else ""
     if kind == "upload":
         req = json.loads(s["request_json"] or "{}")
+        if req.get("field"):                       # Google Performance Max: one image asset per step
+            from adplatforms import google
+            return f"Upload the {google.FIELD_WORDS.get(req['field'], 'image')}" + \
+                (f" from ad {_ad_no(req)}" if req.get("asset_id") else "")
         return f"Upload ad {n}'s {req.get('media') or 'file'}"
+    if kind == "campaign" and s["request_json"] and '"operations"' in (s["request_json"] or ""):
+        typ = json.loads(s["request_json"]).get("type")
+        return "Create the campaign, " + ("its asset group and assets in one go" if typ == "pmax"
+                                          else "ad group, keywords and ad in one go")
     if kind == "creative":
         return f"Create ad {n}'s creative"
     if kind == "ad":
         return f"Create ad {n}"
     return STEP_WORDS[kind]
+
+
+def _ad_no(req: dict):
+    return req.get("ad_no") or req.get("asset_id")
 
 
 def ads_manager_url(account_id: str, campaign_id: str | None = None) -> str:
@@ -907,13 +1017,44 @@ def view(conn, L) -> dict:
             "steps": [{"label": step_label(s), "status": s["status"], "word": labels.get(s["status"], s["status"]),
                        "error": s["error"] if s["status"] in ("failed",) or (s["error"] and s["status"] == "done") else None,
                        "external_id": s["external_id"], "kind": s["kind"]} for s in steps],
-            "objects": [dict(o) for o in objs], "account": account,
-            "manager": ads_manager_url(account, L["external_campaign_id"]) if account else None,
+            "objects": [dict(o) for o in objs], "account": account, "platform": L["platform"],
+            "word": PLATFORM_WORDS.get(L["platform"], "Meta"),
+            "manager": manager_url(L["platform"], account, L["external_campaign_id"]),
+            "review": next((json.loads(s["result_json"] or "{}") for s in steps if s["kind"] == "check"
+                            and s["status"] == "done"), None),
             "busy": L["status"] in ACTIVE,
             "left": [dict(o) for o in objs if o["status"] != "DELETED" and o["kind"] in ("creative", "ad")]
             if L["status"] == "failed" else []}
 
 
-def latest_for_plan(conn, ws_id: int, cid: int):
+def manager_url(platform: str, account: str, campaign_id: str | None = None) -> str | None:
+    """The platform's own ads manager for this account (and campaign, on Meta), or None without an account."""
+    if not account:
+        return None
+    if platform == "google":
+        return _google_url(account)
+    if platform in _video_platforms():
+        return _video_url(platform, account)
+    return ads_manager_url(account, campaign_id)
+
+
+MANAGER_WORDS = {"meta": "Ads Manager", "google": "Google Ads", "tiktok": "TikTok Ads Manager",
+                 "snapchat": "Snapchat Ads Manager"}
+
+
+def _google_url(account: str) -> str:
+    from adplatforms import google
+    return google.ads_url(account)
+
+
+def _video_url(platform: str, account: str) -> str:
+    import launch_video
+    return launch_video.module(platform).ads_url(account)
+
+
+def latest_for_plan(conn, ws_id: int, cid: int, platform: str = None):
+    if platform:
+        return conn.execute("SELECT * FROM launches WHERE workspace_id=? AND plan_id=? AND platform=? ORDER BY id DESC "
+                            "LIMIT 1", (int(ws_id), int(cid), platform)).fetchone()
     return conn.execute("SELECT * FROM launches WHERE workspace_id=? AND plan_id=? ORDER BY id DESC LIMIT 1",
                         (int(ws_id), int(cid))).fetchone()

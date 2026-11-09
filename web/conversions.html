@@ -1,0 +1,106 @@
+{% extends "base.html" %}{% block title %}Conversion tracking · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+  <p style="margin:0 0 14px"><a href="{{ url_for('adconnect.settings') }}">← Connected ad accounts</a></p>
+  <p class="eyebrow">Settings</p>
+  <h1>Conversion tracking</h1>
+  <p class="muted">When someone visits one of your Campaignify pages or sends one of your forms, Campaignify tells your ad accounts, so they can count results and find more people like them. Each event goes from the visitor's browser and from our server with the same id, so it's counted once.</p>
+  <p class="small muted" data-measured-pages>Published pages measuring ad results: {{ pages_on }} of {{ pages_all }}. Only visitors in the US are measured, and never someone who turns on Global Privacy Control or Do Not Track. You can turn it off per page in the page editor.</p>
+  <div class="grid2">
+    <div class="panel" data-meta-pixels>
+      <h2>Meta pixel</h2>
+      {% for px in meta_rows %}{% set st = stats.get(('meta', px.id), {}) %}
+      <div style="margin-top:12px">
+        <b>{{ px.name or 'Pixel' }}</b> <span class="small muted">· {{ px.external_pixel_id }} · from {{ px.account_name or 'your Meta connection' }}</span><br>
+        {% if px.capi_token_enc %}<span class="tag ok">Server events on</span>{% elif conn_token %}<span class="tag ok">Server events on, with your Meta connection</span>{% else %}<span class="tag warn">Browser only</span>{% endif %}
+        {% if st %}<br><span class="small">Last 7 days: {{ st.sent }} sent{% if st.failed %}, {{ st.failed }} failed{% endif %}.</span>{% if st.last_error %}<br><span class="small bad">{{ words('meta', st.last_error) }}</span>{% endif %}{% endif %}
+        {% if owner %}
+        <form method="post" action="{{ url_for('conversions.meta_pixel', pid=px.id) }}" style="margin-top:10px">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <label for="mt{{ px.id }}">Conversions API token{% if px.capi_token_enc %} <span class="dim">(saved. Paste a new one to replace it)</span>{% endif %}</label>
+          <input id="mt{{ px.id }}" type="password" name="token" autocomplete="off" maxlength="600" {{ 'disabled' if not box_ready }}>
+          <label for="mc{{ px.id }}">Test events code <span class="dim">(optional, while you check it)</span></label>
+          <input id="mc{{ px.id }}" type="text" name="test_code" maxlength="40" value="{{ px.test_code or '' }}" autocomplete="off">
+          <div class="row" style="margin-top:10px;gap:8px"><button class="btn sm">Save</button>{% if px.capi_token_enc %}<button class="btn dark sm" name="action" value="remove_token" data-confirm="Remove the token? Server events to this pixel stop.">Remove token</button>{% endif %}</div>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}
+      <p class="muted">No Meta pixel yet. <a href="{{ url_for('adconnect.settings') }}">Connect your Meta ad account</a> and pick its pixel.</p>
+      {% endfor %}
+      <details class="small" style="margin-top:14px"><summary>Where do I get the token?</summary>
+        <ol class="checks">
+          <li>Open Meta Events Manager and pick this pixel (Meta calls it a dataset).</li>
+          <li>Open Settings, find Conversions API, and choose Generate access token.</li>
+          <li>Paste it here. To check it, copy the code from the Test events tab into Test events code, visit your page, and look for events from both Browser and Server marked as deduplicated. Then clear the code.</li>
+        </ol>
+      </details>
+    </div>
+
+    <div class="panel" data-tiktok-pixels>
+      <h2>TikTok pixel</h2>
+      {% for px in tiktok_rows %}{% set st = stats.get(('tiktok', px.id), {}) %}
+      <div style="margin-top:12px">
+        <b>{{ px.name }}</b> <span class="small muted">· {{ px.external_pixel_id }}</span><br><span class="tag ok">Server events on</span>
+        {% if px.test_code %}<span class="tag warn">Sending to Test events</span>{% endif %}
+        {% if st %}<br><span class="small">Last 7 days: {{ st.sent }} sent{% if st.failed %}, {{ st.failed }} failed{% endif %}.</span>{% if st.last_error %}<br><span class="small bad">{{ words('tiktok', st.last_error) }}</span>{% endif %}{% endif %}
+        {% if owner %}<form method="post" action="{{ url_for('conversions.tiktok_remove', pid=px.id) }}" style="margin-top:8px" data-confirm="Remove {{ px.name }}? Campaignify deletes its token and stops sending to it."><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm">Remove</button></form>{% endif %}
+      </div>
+      {% endfor %}
+      {% if owner %}
+      <form method="post" action="{{ url_for('conversions.tiktok_add') }}" style="margin-top:14px">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <label for="tc">Pixel code</label><input id="tc" type="text" name="pixel_code" maxlength="30" autocomplete="off" placeholder="C4AB12CD34EF56GH78IJ">
+        <label for="tn">Name <span class="dim">(optional)</span></label><input id="tn" type="text" name="name" maxlength="80">
+        <label for="tt">Events API access token</label><input id="tt" type="password" name="token" maxlength="600" autocomplete="off" {{ 'disabled' if not box_ready }}>
+        <label for="tx">Test events code <span class="dim">(optional, while you check it)</span></label><input id="tx" type="text" name="test_code" maxlength="40" autocomplete="off">
+        <button class="btn sm" style="margin-top:10px" {{ 'disabled' if not box_ready }}>{{ 'Save TikTok pixel' if tiktok_rows else 'Add TikTok pixel' }}</button>
+      </form>
+      {% endif %}
+      <details class="small" style="margin-top:14px"><summary>Where do I find these?</summary>
+        <ol class="checks">
+          <li>In TikTok Ads Manager, open Tools, then Events, then Web events, and pick your pixel. The code under its name is the pixel code.</li>
+          <li>Open the pixel's Settings and choose Generate access token under Events API.</li>
+          <li>TikTok shares hashed emails and phone numbers through Advanced Matching. Say so in your privacy notice.</li>
+        </ol>
+      </details>
+    </div>
+
+    {% if google_on %}
+    <div class="panel" id="google" data-google-actions>
+      <h2>Google Ads</h2>
+      {% for gc in gconns %}{% set r, su, acts = gc.row, gc.setup, gc.actions %}
+      <div style="margin-top:12px">
+        <b>{{ r.account_name or 'Google Ads account' }}</b> <span class="small muted">· {{ dashed(r.external_account_id) }}{% if su and su.tag_id %} · Google tag {{ su.tag_id }}{% endif %}</span><br>
+        {% if su and su.status == 'managed_elsewhere' %}<span class="tag warn">Managed in manager account {{ dashed(su.managed_by) }}</span>
+        <br><span class="small muted">This account uses its manager's conversion actions. Make a lead action there, and Google counts it for this account too.</span>
+        {% elif su and su.status == 'error' %}<span class="tag bad">Not set up</span><br><span class="small bad">{{ su.error }}</span>
+        {% elif acts %}<span class="tag ok">Conversion actions ready</span>
+        {% else %}<span class="tag warn">No conversion actions yet</span>{% endif %}
+        {% if acts %}<ul class="small" style="margin:8px 0 0;padding-left:18px">
+          {% for k, what in (('lead', 'counts leads on your Campaignify pages (primary)'), ('lead_server', 'the same leads sent from our server, secondary so none count twice'), ('purchase', 'for your own checkout page')) %}{% set a = acts.get(k) %}{% if a %}
+          <li data-action="{{ k }}"><b>{{ a.name }}</b>: {{ what }}{% set st = stats.get(('google', a.id), {}) %}{% if k == 'lead_server' and st %}. Last 7 days: {{ st.sent }} sent{% if st.failed %}, {{ st.failed }} failed{% endif %}{% if st.last_error %}. <span class="bad">{{ words('google', st.last_error) }}</span>{% endif %}{% endif %}{% if k == 'lead_server' and 'https://www.googleapis.com/auth/datamanager' not in (r.scopes or '').split() %}. <span class="bad">Reconnect Google Ads to send leads from the server.</span>{% endif %}</li>
+          {% endif %}{% endfor %}
+        </ul>{% endif %}
+        {% if owner %}<div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap"><form method="post" action="{{ url_for('conversions.google_sync', cid=r.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn sm">{{ 'Check again' if acts else 'Set up conversion actions' }}</button></form>
+          {% if 'https://www.googleapis.com/auth/datamanager' not in (r.scopes or '').split() %}<form method="post" action="{{ url_for('adconnect.google_start') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="reconnect" value="{{ r.id }}"><button class="btn dark sm">Reconnect Google Ads</button></form>{% endif %}</div>{% endif %}
+        <h3 style="margin-top:16px">Enhanced conversions</h3>
+        <p class="small muted">Google can't switch these on for Campaignify. Do the open steps in Google Ads.</p>
+        <ol class="checks" data-ec-checklist>{% for it in gc.checklist %}
+          <li data-step="{{ it.key }}"><b>{{ it.title }}</b> {% if it.state == true %}<span class="tag ok">Done</span>{% elif it.state == false %}<span class="tag warn">To do</span>{% else %}<span class="tag">Check in Google Ads</span>{% endif %}<br><span class="small muted">{{ it.words }}</span>{% if it.link %}<br><a class="small" href="{{ it.link }}" target="_blank" rel="noopener">Open on Google</a>{% endif %}</li>
+        {% endfor %}</ol>
+        {% if su and su.purchase_snippet %}
+        <details class="small" style="margin-top:10px" data-purchase-snippet><summary>Purchase tag for your own checkout page</summary>
+          <p class="muted">Paste it on the page people see after they pay. Fill in the order value, currency and order number.</p>
+          <pre style="white-space:pre-wrap;word-break:break-all;font-size:12px">{{ su.purchase_snippet }}</pre>
+        </details>{% endif %}
+      </div>
+      {% else %}
+      <p class="muted">No Google Ads account connected. <a href="{{ url_for('adconnect.settings') }}">Connect it</a> and Campaignify sets up the conversion actions.</p>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  <p class="small muted" style="margin-top:16px">Campaignify sends the event name, its time and id, the page address without its query, the visitor's IP address and browser, the platform's own cookie and ad click id, and for a lead the email and phone as one-way SHA-256 hashes. Never the raw email, phone, name or answers.</p>
+</div>
+{% endblock %}

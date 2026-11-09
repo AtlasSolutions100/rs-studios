@@ -30,7 +30,18 @@ CTAS = ("SHOP_NOW", "LEARN_MORE", "SIGN_UP", "BOOK_NOW", "CONTACT_US", "GET_QUOT
 EVENTS = ("Purchase", "Lead", "CompleteRegistration", "AddToCart", "InitiateCheckout", "Contact", "Schedule",
           "SubmitApplication", "ViewContent")
 PLACEMENTS = ("feed", "stories", "reels", "right_column", "search", "explore", "audience_network", "messenger",
-              "in_stream", "tiktok_feed", "snap_stories", "youtube", "discover")
+              "in_stream", "tiktok_feed", "snap_stories", "youtube", "discover",
+              # Meta, one app at a time (M6.3): the Launch page's placement choices
+              "facebook_feed", "facebook_stories", "facebook_reels", "instagram_feed", "instagram_stories",
+              "instagram_reels")
+# Meta placements the Launch page offers, in its order, with their words (roadmap M6.3).
+META_CHOICES = (("facebook_feed", "Facebook Feed"), ("facebook_stories", "Facebook Stories"),
+                ("facebook_reels", "Facebook Reels"), ("instagram_feed", "Instagram Feed"),
+                ("instagram_stories", "Instagram Stories"), ("instagram_reels", "Instagram Reels"))
+INSTAGRAM_PLACEMENTS = frozenset({"instagram_feed", "instagram_stories", "instagram_reels", "feed", "stories", "reels",
+                                  "explore"})
+VERTICAL_PLACEMENTS = frozenset({"stories", "reels", "facebook_stories", "facebook_reels", "instagram_stories",
+                                 "instagram_reels"})
 
 # Platform constraints (sources: research B1 to B4 and the platforms' ad specs, as of 2026-11-07).
 # hard: the platform refuses it. soft: it runs, but gets cut off or delivers worse.
@@ -278,6 +289,9 @@ def validate(spec: CampaignSpec, now: datetime = None) -> list:
         add("block", "meta.special_ad_categories", "Meta needs the special ad categories field.", "", "special_ad_categories")
     if spec.placements != "auto" and p == "snapchat" and spec.placements and set(spec.placements) - {"snap_stories"}:
         add("block", "snapchat.placements", "Snapchat ads run in Stories only here.", "Use automatic placements.", "placements")
+    if p == "meta" and isinstance(spec.placements, list) and not spec.placements:
+        add("block", "meta.placements_none", "No placement is picked.", "Tick at least one, or use automatic placements.",
+            "placements")
 
     # creatives
     if p != "google" or (spec.google or {}).get("type") != "search":
@@ -307,7 +321,7 @@ def validate(spec: CampaignSpec, now: datetime = None) -> list:
             add("block", f"{p}.aspect", f"{p} doesn't take {c.aspect} ads.", f"Export it at {ASPECTS_OK[p][0]}.", f"{w}.aspect")
         elif p == "tiktok" and c.aspect != "9:16":
             add("warn", "tiktok.aspect_not_vertical", "TikTok ads do best full-screen at 9:16.", "Export it at 9:16.", f"{w}.aspect")
-        if p == "meta" and isinstance(spec.placements, list) and {"stories", "reels"} & set(spec.placements) \
+        if p == "meta" and isinstance(spec.placements, list) and VERTICAL_PLACEMENTS & set(spec.placements) \
                 and c.aspect not in ("9:16",):
             add("warn", "meta.aspect_stories", "Stories and Reels show 9:16; this ad gets bars or a crop.",
                 "Add a 9:16 version.", f"{w}.aspect")
@@ -337,4 +351,80 @@ def validate(spec: CampaignSpec, now: datetime = None) -> list:
                     "", f"google.descriptions[{i}]")
         if not g.get("keywords"):
             add("block", "google.keywords", "A search campaign needs keywords.", "Add a few keywords.", "google.keywords")
+        if p == "google" and not _url_ok(g.get("final_url") or ""):
+            add("block", "spec.destination_url", "The landing page must be a full https:// address.",
+                "Paste the page address, starting with https://", "google.final_url")
+        _google_search_rules(g, add)
+    if p == "google" and (spec.google or {}).get("type") == "pmax":
+        _google_pmax_rules(spec, add)
     return out
+
+
+GOOGLE_MATCHES = ("exact", "phrase", "broad")
+PMAX_COUNTS = {"headlines": (3, 15, 30), "long_headlines": (1, 5, 90), "descriptions": (2, 5, 90)}
+PMAX_WORDS = {"headlines": "headlines", "long_headlines": "long headlines", "descriptions": "descriptions"}
+
+
+def _google_search_rules(g: dict, add):
+    """Keywords (80 characters, 10 words, a match type), display paths (15 each), pins (positions 1 and 2 must
+    still fill)."""
+    for i, k in enumerate(g.get("keywords") or []):
+        term = str((k.get("term") or k.get("text")) if isinstance(k, dict) else k or "")
+        match = str((k.get("match") if isinstance(k, dict) else None) or "phrase")
+        if len(term) > 80 or len(term.split()) > 10:
+            add("block", "google.keyword_long", f"Keyword {i + 1} is over Google's 80 characters or 10 words.",
+                "Shorten it.", f"google.keywords[{i}]")
+        if match not in GOOGLE_MATCHES:
+            add("block", "google.keyword_match", f"Keyword {i + 1} has no match type Google knows.",
+                "Use exact, phrase or broad.", f"google.keywords[{i}]")
+    for fld in ("path1", "path2"):
+        if len(g.get(fld) or "") > 15:
+            add("block", "google.path_long", "A display path part is over 15 characters.", "Shorten it.", f"google.{fld}")
+    if g.get("path2") and not g.get("path1"):
+        add("block", "google.path_order", "The second display path part needs a first one.", "Fill the first part.",
+            "google.path1")
+    hp, dp = list(g.get("headline_pins") or []), list(g.get("description_pins") or [])
+    hs = g.get("headlines") or []
+    if any(x not in (0, 1, 2, 3) for x in hp) or any(x not in (0, 1, 2) for x in dp):
+        add("block", "google.pin_bad", "A pin points at a position Google doesn't have.", "Pick position 1, 2 or 3.",
+            "google.headline_pins")
+    free = sum(1 for i in range(len(hs)) if (hp[i] if i < len(hp) else 0) == 0)
+    open_spots = sum(1 for pos in (1, 2) if pos not in hp)
+    if hs and free < open_spots:
+        add("block", "google.pin_fill", "With these pins Google can't fill headline positions 1 and 2.",
+            "Unpin a headline, or pin one to each of positions 1 and 2.", "google.headline_pins")
+    if any(hp):
+        add("warn", "google.pinned", "Pinned headlines or descriptions give Google fewer mixes to try.",
+            "Pin only what must always show, like a required disclaimer.", "google.headline_pins")
+
+
+def _google_pmax_rules(spec, add):
+    """Performance Max: brand guidelines (1 business name of 25 characters, 1 to 5 logos) and one asset group with
+    Google's minimum assets: 3 to 15 headlines (30), 1 to 5 long headlines (90), 2 to 5 descriptions (90, one of
+    60 or fewer), at least 1 image (each becomes a landscape and a square image)."""
+    g = spec.google or {}
+    for key, (lo, hi, n) in PMAX_COUNTS.items():
+        items = g.get(key) or []
+        if not lo <= len(items) <= hi:
+            add("block", f"google.pmax_{key}", f"Performance Max needs {lo} to {hi} {PMAX_WORDS[key]} (this has {len(items)}).",
+                "", f"google.{key}")
+        for i, t in enumerate(items):
+            if len(t) > n:
+                add("block", f"google.pmax_{key}_long", f"{PMAX_WORDS[key].capitalize()[:-1]} {i + 1} is {len(t)} "
+                    f"characters; Google allows {n}.", "", f"google.{key}[{i}]")
+    ds = g.get("descriptions") or []
+    if ds and not any(len(d) <= 60 for d in ds):
+        add("block", "google.pmax_short_description", "Performance Max needs 1 description of 60 characters or fewer.",
+            "Shorten one description.", "google.descriptions")
+    name = (g.get("business_name") or "").strip()
+    if not name or len(name) > 25:
+        add("block", "google.business_name", "Performance Max needs the business name, up to 25 characters.",
+            "Type it as customers know it.", "google.business_name")
+    logos = g.get("logos") or []
+    if not 1 <= len(logos) <= 5:
+        add("block", "google.logos", f"Performance Max needs 1 to 5 logos (this has {len(logos)}).",
+            "Pick your logo, or add it to the product's photos.", "google.logos")
+    if not spec.creatives:
+        add("block", "google.pmax_images", "Performance Max needs at least 1 image.", "Pick an image ad.", "creatives")
+    if len(spec.creatives) > 5:
+        add("block", "google.pmax_images_many", "Up to 5 images per launch here.", "Untick some.", "creatives")
