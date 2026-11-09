@@ -479,6 +479,8 @@ class CampaignifyAdapter(mcpserver.Adapter):
     name = "campaignify"
     title = "Campaignify"
     version = "1.0"
+    icons = [("/static/img/campaignify-icon-512.png", "image/png", "512x512"),
+             ("/static/img/campaignify-icon-192.png", "image/png", "192x192"), ("/favicon.ico", "image/x-icon", "48x48")]
     token_prefix = "cfy"
     settings_path = "/app/mcp"
     docs_path = "/docs/mcp"

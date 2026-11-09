@@ -158,6 +158,18 @@ check(r.status_code == 400, "making a key needs the form token")
 print("== handshake")
 res = rpc("initialize", {"protocolVersion": "2025-11-25", "capabilities": {}}, key=rkey).get_json()["result"]
 check(res["protocolVersion"] == "2025-11-25" and res["serverInfo"]["name"] == "campaignify", "initialize")
+icons = res["serverInfo"].get("icons") or []
+check(icons and all(i["src"].startswith("http") and i["mimeType"] and i["sizes"] for i in icons)
+      and any(i["sizes"] == ["512x512"] for i in icons), "serverInfo carries the logo (absolute URLs, 512 px)")
+for i in icons:
+    path = "/" + i["src"].split("/", 3)[3]
+    got = anon.get(path)
+    check(got.status_code == 200 and got.mimetype.startswith("image/") and len(got.data) > 500,
+          f"icon {path} serves an image")
+    got.close()
+got = anon.get("/apple-touch-icon.png")
+check(got.status_code == 200 and got.mimetype == "image/png", "/apple-touch-icon.png serves the PNG")
+got.close()
 check(rpc("notifications/initialized", key=rkey, notify=True).status_code == 202, "notification: 202")
 r = anon.post("/mcp", json=[{"jsonrpc": "2.0", "id": 1, "method": "ping"},
                             {"jsonrpc": "2.0", "method": "notifications/initialized"},

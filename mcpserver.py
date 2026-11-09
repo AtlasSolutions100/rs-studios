@@ -386,6 +386,9 @@ class Adapter:
     settings_path = "/app/settings/mcp"
     consent_template = "mcp_consent.html"
     settings_template = "mcp_settings.html"
+    # (path on this site, MIME type, "WxH"): the app's logo for MCP clients (serverInfo.icons, MCP 2025-11-25). Claude
+    # shows it on the connector; square PNGs on a solid background read best at small sizes.
+    icons: list = []
     tools: list = []
 
     def connect(self):
@@ -572,8 +575,7 @@ def blueprint(adapter: Adapter) -> Blueprint:
             want = str(params.get("protocolVersion") or "")
             return _ok(mid, {"protocolVersion": want if want in PROTOCOL_VERSIONS else LATEST,
                              "capabilities": {"tools": {"listChanged": False}},
-                             "serverInfo": {"name": adapter.name, "title": adapter.title, "version": adapter.version,
-                                            "websiteUrl": adapter.base_url() + adapter.docs_path},
+                             "serverInfo": _server_info(adapter),
                              "instructions": adapter.instructions})
         if method == "ping":
             return _ok(mid, {})
@@ -1012,6 +1014,16 @@ def blueprint(adapter: Adapter) -> Blueprint:
         return resp
 
     return bp
+
+
+def _server_info(adapter) -> dict:
+    """serverInfo for initialize: name, title, version, the docs link and the app's icons as absolute URLs."""
+    base = adapter.base_url()
+    info = {"name": adapter.name, "title": adapter.title, "version": adapter.version,
+            "websiteUrl": base + adapter.docs_path}
+    if adapter.icons:
+        info["icons"] = [{"src": base + path, "mimeType": mime, "sizes": [size]} for path, mime, size in adapter.icons]
+    return info
 
 
 def _ok(mid, result):
