@@ -393,7 +393,7 @@ def derive_vertical(spec, prov: dict = None) -> tuple:
     for c in spec.creatives:
         texts += [getattr(c, f) or "" for f in TEXT_FIELDS] + [c.name, url_words(c.destination_url), url_words(c.utm)]
     g = spec.google or {}
-    texts += list(g.get("headlines") or []) + list(g.get("descriptions") or [])
+    texts += list(g.get("headlines") or []) + list(g.get("descriptions") or []) + list(g.get("long_headlines") or [])
     texts += [_keyword_text(k) for k in g.get("keywords") or []]
     alltext = compliance.normalize(" ".join(t for t in texts if t))
     for v, words in _signals(alltext).items():
@@ -502,10 +502,12 @@ def lint(spec, prov: dict = None) -> list:
         elif (prov or {}).get(c.asset_id, {}).get("ai_generated") and not spec.ai_disclosure:
             out.append(_issue("policy.ai_generated_disclosure", p, f"creatives[{i}]"))
     g = spec.google or {}
-    for key in ("headlines", "descriptions"):
+    for key in ("headlines", "descriptions", "long_headlines"):
         for i, t in enumerate(g.get(key) or []):
             out += lint_text(t, platform=p, vertical=v, where=f"google.{key}[{i}]",
                              claims_substantiated=spec.claims_substantiated)
+    if g.get("business_name"):
+        out += lint_text(g["business_name"], platform=p, vertical=v, where="google.business_name", only=sub)
     # Keywords: Google refuses drug and political terms (and US housing, credit and job terms need its
     # restrictions). Negative keywords only keep the ad away from a search, so they get the invisible-text check.
     for i, k in enumerate(g.get("keywords") or []):
