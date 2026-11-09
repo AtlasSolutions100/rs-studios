@@ -407,3 +407,97 @@ def beacon(req, user=None) -> dict | None:
     return {"url": ENDPOINT, "view": view, "cta": cta, "vid_cookie": VID_COOKIE, "vid_days": VID_DAYS,
             "optout_cookie": pixels.OPTOUT_COOKIE, "consent_tz": pixels.CONSENT_TZ,
             "consent_tz_prefix": pixels.CONSENT_TZ_PREFIX}
+
+
+# ---------------------------------------------------------------- members' pages: the first-party collector (M3.4)
+# A separate table (page_events), not site_events: site_events is Campaignify's own funnel, read by HQ under a
+# fixed contract. page_events is per workspace and is the record behind conversions.py's server-side copies:
+# every page view sent server side and every form lead gets a UUID here, and the browser pixels fire with the
+# same UUID, so Meta (event_id), TikTok (event_id) and Google (transaction_id) count it once.
+
+PAGE_EVENTS = ("PageView", "Lead")
+LEAD_BROWSER_S = 3600          # the thank-you page fires the browser Lead for a lead at most this old, once
+PAGE_EVENTS_KEEP_DAYS = 90
+_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
+_CLICK_RE = re.compile(r"^[A-Za-z0-9._~-]{4,200}$")
+
+
+def new_event_id() -> str:
+    import uuid
+    return str(uuid.uuid4())
+
+
+def clean_event_id(v) -> str | None:
+    """A version 4 UUID (lower case), or None."""
+    v = str(v or "").strip().lower()
+    return v if _UUID_RE.match(v) else None
+
+
+def click_of(values) -> tuple[str | None, str | None]:
+    """(click_type, click_id) from query args or a form's hidden fields: gclid, else fbclid, else ttclid.
+    `values` maps either "gclid" or "_gclid" style keys."""
+    for k in CLICK_TYPES:
+        v = str((values.get(k) or values.get("_" + k) or "") if values is not None else "").strip()
+        if v and _CLICK_RE.match(v):
+            return k, v
+    return None, None
+
+
+def clicks_of(values) -> dict:
+    """Every ad click id in query args or hidden fields: {"gclid": ..., "fbclid": ..., "ttclid": ...} (those present)."""
+    out = {}
+    for k in CLICK_TYPES:
+        v = str((values.get(k) or values.get("_" + k) or "") if values is not None else "").strip()
+        if v and _CLICK_RE.match(v):
+            out[k] = v
+    return out
+
+
+def record_page_event(conn, workspace_id: int, name: str, event_id: str, *, page_id=None, form_id=None,
+                      submission_id=None, path=None, click=(None, None), hashes=None) -> bool:
+    """One collector row. False when the event id is taken (a repeat) or anything is wrong. Never raises."""
+    eid = clean_event_id(event_id)
+    if name not in PAGE_EVENTS or not eid or not workspace_id:
+        return False
+    try:
+        ct, cid = click if click and click[0] in CLICK_TYPES else (None, None)
+        cur = conn.execute("INSERT OR IGNORE INTO page_events (workspace_id, page_id, form_id, submission_id, name, "
+                           "event_id, path, click_type, click_id, hashes_json, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                           (int(workspace_id), page_id, form_id, submission_id, name, eid, _clean_path(path), ct,
+                            (cid or None) and cid[:200], json.dumps(hashes) if hashes else None, db.now()))
+        conn.commit()
+        return cur.rowcount == 1
+    except Exception as e:  # noqa: BLE001 — measurement never breaks a page
+        log.warning("page event %s not recorded: %s", name, str(e)[:120])
+        return False
+
+
+def lead_for_browser(conn, event_id, *, page_id=None, form_id=None):
+    """The thank-you page's lead: a Lead row of this page (or hosted form) made in the last hour that the browser
+    hasn't fired yet. Marks it fired and returns it, else None. So a link with ?ev= can't make the pixels fire."""
+    eid = clean_event_id(event_id)
+    if not eid or (page_id is None and form_id is None):
+        return None
+    from datetime import datetime, timedelta, timezone
+    since = (datetime.now(timezone.utc) - timedelta(seconds=LEAD_BROWSER_S)).replace(microsecond=0).isoformat()
+    try:
+        row = conn.execute("SELECT * FROM page_events WHERE event_id=? AND name='Lead' AND browser_at IS NULL AND "
+                           "created_at>? AND " + ("page_id=?" if page_id is not None else "form_id=? AND page_id IS NULL"),
+                           (eid, since, page_id if page_id is not None else form_id)).fetchone()
+        if row is None:
+            return None
+        cur = conn.execute("UPDATE page_events SET browser_at=? WHERE id=? AND browser_at IS NULL", (db.now(), row["id"]))
+        conn.commit()
+        return row if cur.rowcount == 1 else None
+    except Exception as e:  # noqa: BLE001
+        log.warning("thank-you lead lookup failed: %s", str(e)[:120])
+        return None
+
+
+def purge_page_events(conn) -> int:
+    """Collector rows older than PAGE_EVENTS_KEEP_DAYS go (the worker, with the conversion retries)."""
+    from datetime import datetime, timedelta, timezone
+    cut = (datetime.now(timezone.utc) - timedelta(days=PAGE_EVENTS_KEEP_DAYS)).replace(microsecond=0).isoformat()
+    n = conn.execute("DELETE FROM page_events WHERE created_at<?", (cut,)).rowcount
+    conn.commit()
+    return n

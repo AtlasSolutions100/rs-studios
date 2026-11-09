@@ -44,6 +44,7 @@ from flask import Blueprint, abort, flash, g, redirect, render_template, request
 
 import adhttp
 import adplatforms
+import conversions
 import db
 import secretsbox
 from adplatforms import google, meta
@@ -119,7 +120,8 @@ def settings():
     return render_template("ad_connections.html", rows=rows, pixels=px, owner=is_owner() and not g.get("viewing"),
                            meta_ready=live and meta.ADAPTER.configured(), checklist=meta.checklist(), paused=not live,
                            google_on=g_on, google_ready=g_on and google.ADAPTER.configured(),
-                           google_checklist=google.checklist(), dashed=google.dashed)
+                           google_checklist=google.checklist(), dashed=google.dashed,
+                           conv_on=live and conversions.ws_enabled(g.ws, g.get("user")))
 
 
 @bp.route("/connect/meta", methods=["POST"])

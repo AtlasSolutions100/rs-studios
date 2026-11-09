@@ -72,6 +72,8 @@ class FakeGoogleAds:
         self.mutates = 0             # successful googleAds:mutate calls
         self._ids = itertools.count(20000000001)
         self._tok = itertools.count(1)
+        self.scope_of = {}           # sub -> granted scope string (the Data Manager API checks its scope)
+        self.ingested = []           # Data Manager events:ingest bodies that were accepted
 
     # ------------------------------------------------------------ test controls
     def customer(self, cid, name, currency="USD", tz="America/Chicago", manager=False, test=False, status="ENABLED",
@@ -85,7 +87,24 @@ class FakeGoogleAds:
                              "scope": scope or "openid https://www.googleapis.com/auth/userinfo.email "
                                                "https://www.googleapis.com/auth/adwords"}
         self.access_of[sub] = list(access)
+        self.scope_of[sub] = self.grants[code]["scope"]
         return self
+
+    def grant(self, refresh_token, sub, access=(), scope=None):
+        """A refresh token as if a connect had already happened (tests that seed ad_connections directly)."""
+        self.refresh[refresh_token] = sub
+        self.access_of[sub] = list(access)
+        self.scope_of[sub] = scope or ("openid https://www.googleapis.com/auth/userinfo.email "
+                                       "https://www.googleapis.com/auth/adwords")
+        return self
+
+    def conversion_action(self, cid, name, typ="WEBPAGE", category="SUBMIT_LEAD_FORM", status="ENABLED", primary=True):
+        """An existing conversion action on customer `cid` (made in the Google Ads UI, or by an earlier sync)."""
+        oid = str(next(self._ids))
+        rn = f"customers/{cid}/conversionActions/{oid}"
+        self.store[rn] = {"kind": "conversion_action", "id": oid, "rn": rn, "customer": cid, "name": name, "type": typ,
+                          "category": category, "status": status, "primary": primary}
+        return self.store[rn]
 
     def fail(self, suffix, response, times=1):
         self.failures.append([suffix, response, times])
@@ -136,6 +155,8 @@ class FakeGoogleAds:
             if u.netloc == "oauth2.googleapis.com":
                 return self._oauth(u.path, call["data"])
             sub = self._auth(call["headers"])
+            if u.netloc == "datamanager.googleapis.com":
+                return self._datamanager(sub, u.path, method, call)
             path = u.path[len(f"/{V}"):] if u.path.startswith(f"/{V}") else u.path
             if path == "/customers:listAccessibleCustomers" and method == "GET":
                 return adhttp.Response(200, {}, {"resourceNames": [f"customers/{c}" for c in self.access_of.get(sub, [])]})
@@ -191,6 +212,41 @@ class FakeGoogleAds:
         if sub is None:
             raise Refuse("google/error_oauth_token_expired.json")
         return sub
+
+    # ------------------------------------------------------------ Data Manager API (events:ingest)
+    def _datamanager(self, sub, path, method, call):
+        """POST /v1/events:ingest as the Data Manager API reference describes it (read 2026-11-09, not yet against
+        a live account): the datamanager scope, destinations the login can reach, HEX-encoded SHA-256 identifiers,
+        and an UPLOAD_CLICKS conversion action as productDestinationId."""
+        assert method == "POST" and path == "/v1/events:ingest", path
+        if "https://www.googleapis.com/auth/datamanager" not in (self.scope_of.get(sub) or "").split():
+            raise Refuse("google/datamanager_error_scope.json")
+        body = call["data"]
+        bad = lambda why: Refuse((400, {"error": {"code": 400, "message": why, "status": "INVALID_ARGUMENT"}}))  # noqa: E731
+        if body.get("encoding") != "HEX" or not body.get("destinations") or not body.get("events"):
+            raise bad("encoding, destinations and events are required")
+        for d in body["destinations"]:
+            op, login = d["operatingAccount"], (d.get("loginAccount") or {}).get("accountId")
+            if op.get("accountType") != "GOOGLE_ADS" or not re.fullmatch(r"\d{10}", op.get("accountId") or ""):
+                raise bad("operatingAccount must be a GOOGLE_ADS customer id")
+            self._access(sub, op["accountId"], login)
+            ca = self.store.get(f"customers/{op['accountId']}/conversionActions/{d.get('productDestinationId')}")
+            if not ca or ca["kind"] != "conversion_action":
+                raise Refuse("google/datamanager_error_destination.json")
+            if ca["type"] != "UPLOAD_CLICKS":
+                raise bad("The conversion action can't receive imported conversions.")
+        for ev in body["events"]:
+            if not ev.get("transactionId") or not re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", ev.get("eventTimestamp") or ""):
+                raise bad("transactionId and eventTimestamp are required")
+            ids = (ev.get("userData") or {}).get("userIdentifiers") or []
+            if not ids and not (ev.get("adIdentifiers") or {}).get("gclid"):
+                raise bad("An event needs user identifiers or a click identifier.")
+            for i in ids:
+                (k, v), = i.items()
+                assert k in ("emailAddress", "phoneNumber") and re.fullmatch(r"[0-9a-f]{64}", v), "HEX SHA-256 only"
+        if not body.get("validateOnly"):
+            self.ingested.append(body)
+        return adhttp.Response(200, {}, fixture("google/datamanager_ingest_ok.json"))
 
     def _tree(self, root):
         out = []

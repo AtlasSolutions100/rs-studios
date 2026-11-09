@@ -2860,6 +2860,8 @@ import adplatforms  # noqa: E402
 app.register_blueprint(product_routes.bp)
 app.register_blueprint(google_auth.bp)
 app.register_blueprint(adconnect_routes.bp)   # /app/settings/ad-accounts, /connect/meta (AD_LAUNCH, default off)
+import conversion_routes  # noqa: E402  conversion tracking on members' pages (CONVERSIONS_API)
+app.register_blueprint(conversion_routes.bp)   # /app/settings/conversions (CONVERSIONS_API + AD_LAUNCH, default off)
 app.register_blueprint(launch_routes.bp)   # /app/campaigns/<id>/launch/meta, /app/launches/<id> (AD_LAUNCH, default off)
 app.register_blueprint(login_security.bp)   # /forgot, /reset, /m (login hardening)
 app.jinja_env.globals["google_signin"] = google_auth.configured   # the Continue with Google button

@@ -647,6 +647,51 @@ CREATE TABLE IF NOT EXISTS ad_objects (
     created_at TEXT NOT NULL,
     UNIQUE (platform, external_id));
 CREATE INDEX IF NOT EXISTS idx_adobj_launch ON ad_objects(launch_id);
+-- Conversion tracking on members' own pages and forms (conversions.py, site_events.py; roadmap M3.4).
+-- page_events: the first-party collector. One row per page view sent server side and per form lead, with the
+-- UUID the browser pixels fire with. No IP address, no raw email or phone: hashes_json holds SHA-256 values only.
+CREATE TABLE IF NOT EXISTS page_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    page_id INTEGER, form_id INTEGER, submission_id INTEGER,
+    name TEXT NOT NULL,                      -- PageView | Lead
+    event_id TEXT NOT NULL UNIQUE,           -- a UUID (version 4)
+    path TEXT,                               -- no query string
+    click_type TEXT, click_id TEXT,          -- gclid | fbclid | ttclid of the visit, when it had one
+    hashes_json TEXT,                        -- Lead: {"google": {"email": sha256, ...}} for the Google tag's user_data
+    browser_at TEXT,                         -- when the thank-you page fired the browser copy (once)
+    created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_page_events_ws ON page_events(workspace_id, name, created_at);
+-- ws_conversion_queue: the server-side copies, one row per destination and event id, sent once, retried by the
+-- worker. dest_id: pixels.id (meta, tiktok) or conversion_actions.id (google). payload: hashed identifiers only.
+CREATE TABLE IF NOT EXISTS ws_conversion_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    platform TEXT NOT NULL,                  -- meta | tiktok | google
+    dest_id INTEGER NOT NULL,
+    event TEXT NOT NULL, event_id TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending | sending | sent | failed | dropped
+    attempts INTEGER NOT NULL DEFAULT 0, error TEXT,
+    created_at TEXT NOT NULL, sent_at TEXT,
+    UNIQUE (platform, dest_id, event_id));
+CREATE INDEX IF NOT EXISTS idx_wsconv_status ON ws_conversion_queue(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_wsconv_dest ON ws_conversion_queue(workspace_id, platform, dest_id, id);
+-- conversion_actions: Google Ads conversion actions on a connected customer (filled by M3.5's
+-- ConversionActionService sync). kind lead (tag on pages), lead_server (Data Manager uploads), purchase.
+CREATE TABLE IF NOT EXISTS conversion_actions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    connection_id INTEGER NOT NULL,
+    customer_id TEXT NOT NULL,
+    kind TEXT NOT NULL,                      -- lead | lead_server | purchase
+    external_id TEXT NOT NULL, resource_name TEXT, name TEXT,
+    status TEXT,                             -- ENABLED | REMOVED | HIDDEN
+    tag_id TEXT,                             -- AW-123456789 (tag-based kinds)
+    label TEXT,                              -- the conversion label: send_to is AW-123456789/<label>
+    created_by_us INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+    UNIQUE (connection_id, kind));
 """
 
 # Columns added after the first release: (table, column, definition).
@@ -772,6 +817,11 @@ COLUMNS = [
     ("free_plans", "fingerprint", "TEXT"),
     ("free_plans", "email_norm", "TEXT"),
     ("free_plans", "status", "TEXT"),          # running | ready | failed (NULL: made before this column)
+    # conversion tracking on members' pages and forms (conversions.py, M3.4): the owner's measurement setting
+    # ('us': visitors in the US who send no GPC / Do Not Track; 'off': never), and per pixel the Test Events code
+    ("pages", "measurement", "TEXT NOT NULL DEFAULT 'us'"),
+    ("forms", "measurement", "TEXT NOT NULL DEFAULT 'us'"),
+    ("pixels", "test_code", "TEXT"),
 ]
 
 
