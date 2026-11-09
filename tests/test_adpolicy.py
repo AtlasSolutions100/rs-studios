@@ -215,7 +215,7 @@ for kw, rule, lvl, what in (
     check(match and match[0].level == lvl and match[0].message and match[0].where is not None,
           f"validator: {what} -> {rule} ({lvl})")
 check(not adspec.validate(spec(objective="traffic", conversion=None)), "a traffic campaign needs no pixel")
-g = dict(type="search", keywords=["soy candles"], headlines=["Soy candles", "Cedar and smoke", "40 hour burn"],
+g = dict(type="search", final_url="https://embercandle.example/", keywords=["soy candles"], headlines=["Soy candles", "Cedar and smoke", "40 hour burn"],
          descriptions=["Hand poured in Austin.", "Ships in 2 days."])
 check(not adspec.validate(spec(platform="google", objective="traffic", conversion=None, google=g, creatives=[])),
       "a Google search campaign with 3 headlines and 2 descriptions passes")

@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}Create a paused Google campaign · Campaignify{% endblock %}
+{% block body %}
+{# Google Launch page (launch_routes._render_google, roadmap M3.2 and M3.3): the spec in plain words on the left
+   (editable), the approval card on the right, as on the Meta page. Search: keywords and a responsive search ad.
+   Performance Max: brand (business name, logos) and one asset group. #}
+<style>
+.ln{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:22px;align-items:start;margin-top:18px}
+.ln-card{position:sticky;top:18px}
+.ln-card h2{margin:0 0 4px}
+.ln-lines{list-style:none;padding:0;margin:14px 0}
+.ln-lines li{padding:10px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
+.ln-lines li:first-child{border-top:0}
+.ln-two{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.ln-row{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:8px;align-items:end}
+.ln-row label{margin:8px 0 4px}
+.ln-ad{display:grid;grid-template-columns:96px minmax(0,1fr);gap:14px;padding:14px 0;border-top:1px solid var(--line)}
+.ln-ad img{width:96px;height:96px;object-fit:cover;border-radius:10px;background:var(--field)}
+.ln-use{display:flex;gap:8px;align-items:center;margin:0;color:var(--ink);font-weight:700}
+.ln-use input{width:auto}
+.ln-issues{list-style:none;padding:0;margin:12px 0}
+.ln-issues li{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 8px}
+.ln-issues li.block{border-color:rgba(255,107,107,.5)}
+.ln-issues li.warn{border-color:rgba(248,193,62,.5)}
+.ln-issues b{display:block}
+.ln-checks{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:6px}
+.ln-checks label{display:flex;gap:6px;align-items:center;margin:0;font-weight:500;color:var(--ink)}
+.ln-checks input{width:auto}
+.ln-note{background:var(--field);border-radius:12px;padding:10px 12px;margin:10px 0}
+.ln-go{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}
+.ln-types{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}
+.ln-logos{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px}
+.ln-logos label{display:flex;flex-direction:column;gap:6px;align-items:flex-start;margin:0;font-weight:500;color:var(--ink);max-width:120px}
+.ln-logos img{width:80px;height:80px;object-fit:contain;background:#fff;border-radius:10px;border:1px solid var(--line)}
+.ln-logos input{width:auto}
+@media (max-width:1100px){.ln{grid-template-columns:1fr}.ln-card{position:static}}
+@media (max-width:560px){.ln-two,.ln-row{grid-template-columns:1fr}.ln-ad{grid-template-columns:72px minmax(0,1fr)}.ln-ad img{width:72px;height:72px}.ln-go .btn{width:100%}}
+</style>
+{% set pmax = gs.type == 'pmax' %}
+<div class="page full">
+  <p style="margin:0 0 14px"><a href="{{ url_for('campaigns.show', cid=c.id) }}#kit-google">← Back to the plan</a></p>
+  <p class="eyebrow">Launch on Google · beta</p>
+  <h1>Create a paused Google campaign</h1>
+  <p class="muted">Campaignify makes the campaign on your own Google Ads account, PAUSED. Nothing runs and nothing is spent until you turn it on in Google Ads. Check the card, then approve it.</p>
+  {% if latest %}<p class="small"><a href="{{ url_for('launch.status', lid=latest.id) }}">Last Google launch of this plan: {{ {'queued': 'waiting to start', 'launching': 'in progress', 'paused': 'created, PAUSED', 'failed': 'stopped', 'rolled_back': 'stopped and undone'}[latest.status] }} →</a></p>{% endif %}
+
+  {% if not conn_row %}
+  <div class="panel" style="margin-top:18px">
+    <h2>Connect your Google Ads account first</h2>
+    <p class="muted">Campaignify creates the campaign on your own Google Ads account. Connect it in Settings, then come back here.</p>
+    <a class="btn" href="{{ url_for('adconnect.settings') }}">Go to Ad accounts</a>
+  </div>
+  {% endif %}
+
+  <div class="ln">
+    <form class="panel" method="post" action="{{ url_for('launch.google_page', cid=c.id) }}" data-ln-form>
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="card" value="{{ card_row.id }}"><input type="hidden" name="form" value="1">
+      <h2 style="margin-top:0">The campaign</h2>
+      <fieldset style="border:0;padding:0;margin:0"><legend class="small muted">Campaign type</legend>
+        <div class="ln-types">{% for k, w in types.items() %}<label class="ln-use"><input type="radio" name="gtype" value="{{ k }}" {{ 'checked' if gs.type == k }}> {{ w }}</label>{% endfor %}</div>
+        <p class="small muted" style="margin:6px 0 0">{% if pmax %}Performance Max shows your images and text across Google, chosen by Google for each person.{% else %}Search shows a text ad to people searching for your keywords on Google.{% endif %} Switch the type and update the card to see the other one.</p>
+      </fieldset>
+      <label for="ln-name">Name</label>
+      <input type="text" id="ln-name" name="name" value="{{ spec.name }}" maxlength="200">
+      <div class="ln-two">
+        <div><label for="ln-obj">Goal</label>
+          <select id="ln-obj" name="objective">{% for k, w in objectives.items() %}<option value="{{ k }}" {{ 'selected' if spec.objective == k }}>{{ w }}</option>{% endfor %}</select></div>
+        <div><label for="ln-budget">Daily budget ({{ spec.currency }})</label>
+          <input type="number" id="ln-budget" name="daily_budget" min="1" step="1" value="{{ '%g'|format(spec.daily_budget_minor / minor_factor) }}" inputmode="decimal" aria-describedby="ln-budget-h">
+          <span class="small muted" id="ln-budget-h">{% if ceiling %}Your {{ plan_name }} plan allows up to {{ ceiling_text }} a day.{% endif %}</span></div>
+        <div><label for="ln-start">Start</label><input type="date" id="ln-start" name="start" value="{{ (spec.start_at or '')[:10] }}"></div>
+        <div><label for="ln-end">End <span class="dim">(optional)</span></label><input type="date" id="ln-end" name="end" value="{{ (spec.end_at or '')[:10] }}"></div>
+        {% if not pmax %}<div><label for="ln-bid">Bidding</label>
+          <select id="ln-bid" name="bidding">{% for k, w in biddings.items() %}<option value="{{ k }}" {{ 'selected' if gs.bidding == k }}>{{ w }}</option>{% endfor %}</select></div>{% endif %}
+        <div><label for="ln-lang">Language</label>
+          <select id="ln-lang" name="language">{% for k, w in languages.items() %}<option value="{{ k }}" {{ 'selected' if (gs.language or 'en') == k }}>{{ w }}</option>{% endfor %}</select></div>
+      </div>
+
+      <h3 style="margin:22px 0 0">Where</h3>
+      <label for="ln-geo">Countries</label><input type="text" id="ln-geo" name="countries" value="{{ (spec.geo.countries or [])|join(', ') }}" aria-describedby="ln-geo-h"><span class="small muted" id="ln-geo-h">2-letter codes, like US, CA. Ads show to people in these countries. Narrow it to a city or radius in Google Ads before you turn it on.</span>
+      {% if not pmax %}<div class="ln-checks" style="margin-top:10px"><label><input type="checkbox" name="partners" value="1" {{ 'checked' if gs.search_partners != False }}> Also show on Google's search partner sites</label></div>{% endif %}
+
+      <h3 style="margin:22px 0 0">Where people land</h3>
+      <label for="ln-landing">Landing page</label>
+      <input type="text" id="ln-landing" name="landing" inputmode="url" placeholder="https://" value="{{ gs.final_url or '' }}">
+
+      <h3 style="margin:22px 0 0">What you advertise</h3>
+      <label for="ln-vert">Category</label>
+      <select id="ln-vert" name="vertical" aria-describedby="ln-vert-h">{% for k, w in verticals.items() %}<option value="{{ k }}" {{ 'selected' if spec.vertical == k }}>{{ w }}</option>{% endfor %}</select>
+      <span class="small muted" id="ln-vert-h">Google has extra rules for some categories. The checks on the right follow this.</span>
+      <fieldset style="border:0;padding:0;margin:12px 0 0"><legend class="small muted">Restricted categories</legend>
+        <div class="ln-checks">{% for k, w in (('housing', 'Housing'), ('credit', 'Credit and loans'), ('employment', 'Jobs'), ('social_issues', 'Politics or elections')) %}<label><input type="checkbox" name="special" value="{{ k }}" {{ 'checked' if k in spec.special_ad_categories }}> {{ w }}</label>{% endfor %}</div></fieldset>
+      <div class="ln-checks" style="margin-top:12px"><label><input type="checkbox" name="claims" value="1" {{ 'checked' if spec.claims_substantiated }}> I can back up every result claim in these ads</label></div>
+
+      {% if not pmax %}
+      <h3 style="margin:22px 0 4px">Keywords</h3>
+      <p class="small muted" style="margin:0 0 6px">One per line, the way Google writes them: <b>[exact match]</b>, <b>"phrase match"</b>, or broad match with no marks. The list comes from your plan.</p>
+      <textarea id="ln-kw" name="keywords" rows="8" aria-label="Keywords">{{ keyword_lines(gs.keywords) }}</textarea>
+      <label for="ln-neg">Negative keywords <span class="dim">(searches the ad never shows for)</span></label>
+      <textarea id="ln-neg" name="negatives" rows="3">{{ keyword_lines(gs.negative_keywords) }}</textarea>
+      {% endif %}
+
+      <h3 style="margin:22px 0 4px">{{ 'Text' if pmax else 'The ad' }}</h3>
+      <p class="small muted" style="margin:0 0 6px">{% if pmax %}From the copy studio. Google mixes these with your images.{% else %}A responsive search ad: Google shows 2 or 3 headlines and 1 or 2 descriptions at a time. Pin only what must always show.{% endif %}</p>
+      {% set hs = gs.headlines or [] %}{% set hp = gs.headline_pins or [] %}{% set hn = [hs|length + 3, 15]|min %}
+      <input type="hidden" name="head_n" value="{{ hn }}">
+      {% for i in range(hn) %}
+      <div class="ln-row"><div><label for="h-{{ i }}">Headline {{ i + 1 }} <span class="dim">(30 characters)</span></label><input type="text" id="h-{{ i }}" name="h_{{ i }}" value="{{ hs[i] if i < hs|length else '' }}" maxlength="60"></div>
+        {% if not pmax %}<div><label for="hp-{{ i }}" class="small muted">Position</label><select id="hp-{{ i }}" name="hpin_{{ i }}">{% set pv = hp[i] if i < hp|length else 0 %}{% for v, w in ((0, 'Any'), (1, 'Pin to 1'), (2, 'Pin to 2'), (3, 'Pin to 3')) %}<option value="{{ v }}" {{ 'selected' if pv == v }}>{{ w }}</option>{% endfor %}</select></div>{% endif %}</div>
+      {% endfor %}
+      {% if pmax %}
+      {% set lh = gs.long_headlines or [] %}{% set ln_ = [lh|length + 1, 5]|min %}
+      <input type="hidden" name="long_n" value="{{ ln_ }}">
+      {% for i in range(ln_) %}<label for="lh-{{ i }}">Long headline {{ i + 1 }} <span class="dim">(90 characters)</span></label><input type="text" id="lh-{{ i }}" name="lh_{{ i }}" value="{{ lh[i] if i < lh|length else '' }}" maxlength="180">{% endfor %}
+      {% endif %}
+      {% set ds = gs.descriptions or [] %}{% set dp = gs.description_pins or [] %}{% set dn = [ds|length + 1, 5 if pmax else 4]|min %}
+      <input type="hidden" name="desc_n" value="{{ dn }}">
+      {% for i in range(dn) %}
+      <div class="ln-row"><div><label for="d-{{ i }}">Description {{ i + 1 }} <span class="dim">(90 characters)</span></label><input type="text" id="d-{{ i }}" name="d_{{ i }}" value="{{ ds[i] if i < ds|length else '' }}" maxlength="180"></div>
+        {% if not pmax %}<div><label for="dp-{{ i }}" class="small muted">Position</label><select id="dp-{{ i }}" name="dpin_{{ i }}">{% set pv = dp[i] if i < dp|length else 0 %}{% for v, w in ((0, 'Any'), (1, 'Pin to 1'), (2, 'Pin to 2')) %}<option value="{{ v }}" {{ 'selected' if pv == v }}>{{ w }}</option>{% endfor %}</select></div>{% endif %}</div>
+      {% endfor %}
+      {% if not pmax %}
+      <div class="ln-two"><div><label for="p1">Display path 1 <span class="dim">(optional, 15)</span></label><input type="text" id="p1" name="path1" value="{{ gs.path1 or '' }}"></div>
+        <div><label for="p2">Display path 2 <span class="dim">(optional, 15)</span></label><input type="text" id="p2" name="path2" value="{{ gs.path2 or '' }}"></div></div>
+      {% else %}
+      <h3 style="margin:22px 0 4px">Brand</h3>
+      <label for="ln-biz">Business name <span class="dim">(25 characters)</span></label>
+      <input type="text" id="ln-biz" name="business" value="{{ gs.business_name or '' }}" maxlength="60">
+      <input type="hidden" name="logos_form" value="1">
+      <fieldset style="border:0;padding:0;margin:12px 0 0"><legend class="small muted">Logos (1 to 5): square or 4:1. Others are padded to a square on white.</legend>
+        {% if logos %}<div class="ln-logos">{% for l in logos %}<label><img src="{{ url_for('photo', pid=l.id) }}" alt="{{ l.name }}" loading="lazy"><span><input type="checkbox" name="logo" value="{{ l.id }}" {{ 'checked' if l.id in (gs.logos or []) }} {{ '' if l.kind else 'disabled' }}> {{ l.name }}{% if not l.kind %} <span class="small dim">(too small)</span>{% elif l.padded %} <span class="small dim">(padded)</span>{% endif %}</span></label>{% endfor %}</div>
+        {% else %}<p class="small muted">This plan's product has no photos to use as a logo. Add your logo to the product's photos on the Products page.</p>{% endif %}
+      </fieldset>
+      <h3 style="margin:22px 0 4px">Images</h3>
+      <p class="small muted" style="margin:0 0 6px">Finished image ads from this plan. Each goes up as a landscape (1.91:1) and a square (1:1) crop, centred, like the launch kit's exports.</p>
+      {% for r in rows %}{% set n = r.a.asset_id %}
+      <div class="ln-ad"><img src="{{ url_for('media', oid=n) }}" alt="Image ad: {{ r.a.angle }}" loading="lazy">
+        <label class="ln-use"><input type="checkbox" name="use_{{ n }}" value="1" {{ 'checked' if r.used }}> {{ r.a.angle or 'Image' }}</label></div>
+      {% else %}<p class="muted">This plan has no finished image ads yet. Make them under Ads to make on the plan page.</p>{% endfor %}
+      {% endif %}
+      <div class="ln-go"><button class="btn dark">Update the card</button><span class="small muted" data-ln-dirty hidden>You changed something. Update the card before you approve it.</span></div>
+    </form>
+
+    <aside class="panel ln-card" id="card" aria-labelledby="card-h">
+      <p class="eyebrow" style="margin:0 0 6px">Approval card</p>
+      <h2 id="card-h">What Campaignify will create on Google</h2>
+      {% if card %}
+      <p class="small muted" style="margin:0">{{ card.account }}{% if card.page %} · {{ card.page }}{% endif %}</p>
+      <ul class="ln-lines" data-card-lines>
+        {% for line in card.lines %}<li>{{ line }}</li>{% endfor %}
+        <li>{{ card.schedule }}</li>
+        <li>{{ card.disclosure }}</li>
+      </ul>
+      <p class="ln-note"><b>{{ card.footer }}</b> {% if card.uploads %}The {{ card.uploads }} image{{ 's' if card.uploads != 1 }} also go{{ 'es' if card.uploads == 1 }} into the account's asset library.{% endif %}</p>
+      {% endif %}
+
+      {% if blocks %}
+      <h3 style="margin:16px 0 0">Fix before you can approve</h3>
+      <ul class="ln-issues">{% for i in blocks %}<li class="block"><b class="bad">{{ i.message }}</b>{% if i.fix %}<span class="small muted">{{ i.fix }}</span>{% endif %}</li>{% endfor %}</ul>
+      {% endif %}
+      {% if warns %}
+      <h3 style="margin:16px 0 0">Worth a look</h3>
+      <ul class="ln-issues">{% for i in warns %}<li class="warn"><b class="warnc">{{ i.message }}</b>{% if i.fix %}<span class="small muted">{{ i.fix }}</span>{% endif %}</li>{% endfor %}</ul>
+      {% endif %}
+      {% if not blocks and not warns %}<p class="small"><span class="tag ok">Checks passed</span> Google's limits and its ad policies, as far as Campaignify can check them.</p>{% endif %}
+
+      <form method="post" action="{{ url_for('launch.google_approve', cid=c.id) }}" class="ln-go" data-ln-approve>
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="card" value="{{ card_row.id }}"><input type="hidden" name="hash" value="{{ card_row.spec_hash }}">
+        {% if not owner %}
+        <button class="btn" disabled aria-describedby="ln-own">Create paused campaign</button>
+        <span class="small muted" id="ln-own">Only the workspace owner can approve. Send them this page.</span>
+        {% elif blocks or not card %}
+        <button class="btn" disabled aria-describedby="ln-fix">Create paused campaign</button>
+        <span class="small muted" id="ln-fix">Fix the items above first.</span>
+        {% else %}
+        <button class="btn">Create paused campaign</button>
+        <span class="small muted">You approve exactly this card.</span>
+        {% endif %}
+      </form>
+      <details style="margin-top:14px"><summary class="small muted">The card as text</summary><pre class="small" style="white-space:pre-wrap;margin:8px 0 0">{{ text }}</pre></details>
+    </aside>
+  </div>
+</div>
+<script>
+(function(){
+  var f = document.querySelector('[data-ln-form]'), a = document.querySelector('[data-ln-approve] button'), note = document.querySelector('[data-ln-dirty]');
+  if(!f || !a) return;
+  var mark = function(){ if(a.disabled) return; a.disabled = true; a.setAttribute('aria-describedby', 'ln-dirty-n'); if(note){ note.hidden = false; note.id = 'ln-dirty-n'; } };
+  f.addEventListener('input', mark); f.addEventListener('change', mark);
+})();
+</script>
+{% endblock %}
