@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
 
+import campaign_budget
 import catalog
 import compliance
 import credits as credit_holds
@@ -81,6 +82,12 @@ def index():
                  (("offer", 300), ("audience", 200), ("goal", 20), ("budget", 80), ("dates", 120), ("tone", 40),
                   ("link", 300), ("notes", 1500))}
         brief["platforms"] = [p for p in f.getlist("platforms") if p in platforms.PLATFORMS][:6]
+        if f.get("budget_amount") is not None:   # UX-6: a number, a currency and a period (the form); text from older clients
+            money, err = campaign_budget.parse(f)
+            if err:
+                flash(err)
+                return redirect(url_for("campaigns.index"))
+            brief.update(money or {"budget": ""})
         if service_path.on():   # M5.2: the service area (UX-16), and whether this is a service business
             brief["area"] = (f.get("area") or "").strip()[:120]
             with db.connect() as conn:
@@ -115,7 +122,7 @@ def index():
         rows = conn.execute("SELECT * FROM campaigns WHERE workspace_id=? ORDER BY id DESC LIMIT 50", (g.ws["id"],)).fetchall()
         svc = service_path.on() and service_path.is_service(products.get_product(conn, g.ws["id"], pid) if pid else None)
         site = service_path.site_info(products.get_product(conn, g.ws["id"], pid)) if svc else {}
-    return render_template("campaigns.html", campaigns=[_unstale(c) for c in rows], b=brand(pid), pid=pid,
+    return render_template("campaigns.html", campaigns=[_unstale(c) for c in rows], b=brand(pid), pid=pid, money=campaign_budget,
                            cap=planner.cap_credits(), ai_on=llm.anthropic_ready(), service_on=service_path.on(),
                            svc=svc, area=", ".join(site.get("area") or []))
 
@@ -144,7 +151,7 @@ def show(cid):
     c = _get(cid)
     ads, jobs, outs, photos = _ads(cid)
     brief, plan = json.loads(c["brief_json"] or "{}"), json.loads(c["plan_json"] or "{}")
-    return render_template("campaign.html", c=c, brief=brief,
+    return render_template("campaign.html", c=c, brief=brief, money=campaign_budget,
                            plan=plan, steps=json.loads(c["steps_json"] or "[]"),
                            ads=ads, jobs=jobs, outs=outs, photos=photos, templates=catalog.TEMPLATE_BY_ID,
                            ai_on=llm.anthropic_ready(), cap=planner.cap_credits(),
@@ -173,8 +180,12 @@ def launch_tick(cid):
     kit = _kit(c, json.loads(c["brief_json"] or "{}"), json.loads(c["plan_json"] or "{}"), ads, jobs, outs)
     if not kit or item not in kit["keys"]:
         abort(404)
+    want = request.form.get("done")
     with db.connect() as conn:
-        done = launch_kit.toggle(conn, g.ws["id"], g.user["id"], cid, item)
+        if want in ("0", "1"):   # L-11: the page sends the state it wants, so a retry or a double send is harmless
+            done = launch_kit.set_tick(conn, g.ws["id"], g.user["id"], cid, item, want == "1")
+        else:
+            done = launch_kit.toggle(conn, g.ws["id"], g.user["id"], cid, item)
     if request.accept_mimetypes.best == "application/json" or request.headers.get("X-Requested-With") == "fetch":
         return jsonify({"ok": True, "item": item, "done": done})
     return redirect(url_for("campaigns.show", cid=cid) + "#launch")

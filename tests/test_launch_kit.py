@@ -185,6 +185,26 @@ check(re.search(rf'<li class="lk-item done" id="lk-hub-meta-{create}">', html), 
 r = c.post(f"/app/campaigns/{cid}/launch", data={"csrf": csrf(c), "item": "c2"},
            headers={"Accept": "application/json", "X-Requested-With": "fetch"})
 check(r.get_json()["done"] is False, "ticking again unticks")
+print("== on: a tick sends the state it wants (re-audit L-11)")
+J = {"Accept": "application/json", "X-Requested-With": "fetch"}
+html = c.get(f"/app/campaigns/{cid}").get_data(as_text=True)
+check('name="item" value="c2"><input type="hidden" name="done" value="1">' in html,
+      "the kit's form for an open item asks for done=1")
+for _ in range(2):
+    r = c.post(f"/app/campaigns/{cid}/launch", data={"csrf": csrf(c), "item": "c2", "done": "1"}, headers=J)
+    check(r.get_json()["done"] is True, "done=1 sent twice (a retry or a double click) stays ticked")
+html = c.get(f"/app/campaigns/{cid}").get_data(as_text=True)
+check('name="item" value="c2"><input type="hidden" name="done" value="0">' in html, "a ticked item's form asks for done=0")
+for _ in range(2):
+    r = c.post(f"/app/campaigns/{cid}/launch", data={"csrf": csrf(c), "item": "c2", "done": "0"}, headers=J)
+    check(r.get_json()["done"] is False, "done=0 sent twice stays unticked")
+for _ in range(2):
+    r = c.post(f"/app/campaigns/{cid}/launch", data={"csrf": csrf(c), "item": f"hub:meta:{create}", "done": "1"}, headers=J)
+    check(r.get_json()["done"] is True, "a hub step with done=1 twice stays ticked")
+with db.connect() as conn:
+    check(conn.execute("SELECT COUNT(*) FROM adhub_progress WHERE workspace_id=? AND platform='meta' AND step=?",
+                       (ws_id, create)).fetchone()[0] == 1, "one row, no duplicate")
+check("f.querySelector('[name=done]').value = d.done ? '0' : '1';" in html, "the page flips the form's next state after each answer")
 for bad in ("hub:meta:99", "hub:tiktok:0", "c9", "anything", ""):
     check(c.post(f"/app/campaigns/{cid}/launch", data={"csrf": csrf(c), "item": bad}).status_code == 404,
           f"only this plan's items can be ticked ({bad or 'empty'!r} is 404)")

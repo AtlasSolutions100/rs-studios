@@ -4,7 +4,7 @@
 {% macro tick(it) -%}
 <li class="lk-item {{ 'done' if it.done }}" id="lk-{{ it.key|replace(':', '-') }}">
   <form method="post" action="{{ url_for('campaigns.launch_tick', cid=c.id) }}" data-lk-tick>
-    <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="item" value="{{ it.key }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="item" value="{{ it.key }}"><input type="hidden" name="done" value="{{ '0' if it.done else '1' }}">
     <button class="lk-box" aria-pressed="{{ 'true' if it.done else 'false' }}" aria-label="{{ 'Mark not done' if it.done else 'Mark done' }}: {{ it.title }}">{{ '✓' if it.done }}</button>
   </form>
   <div class="lk-it"><span><b>{{ it.title }}</b>{% if it.shared %} <span class="small dim">· shared with the setup guide</span>{% endif %}</span>
@@ -73,6 +73,7 @@
     fetch(f.action, {method: 'POST', body: new FormData(f), headers: {'Accept': 'application/json', 'X-Requested-With': 'fetch'}})
       .then(function(r){ if(!r.ok) throw r; return r.json(); }).then(function(d){
         li.classList.toggle('done', d.done); b.setAttribute('aria-pressed', d.done ? 'true' : 'false'); b.textContent = d.done ? '✓' : '';
+        f.querySelector('[name=done]').value = d.done ? '0' : '1';
         b.setAttribute('aria-label', (d.done ? 'Mark not done' : 'Mark done') + ': ' + li.querySelector('b').textContent);
         var all = kit.querySelectorAll('.lk-item').length, done = kit.querySelectorAll('.lk-item.done').length, n = kit.querySelector('[data-lk-count]');
         if(n) n.textContent = done + ' of ' + all + ' done';

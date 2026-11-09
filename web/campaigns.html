@@ -1,6 +1,4 @@
-{% extends "base.html" %}{% from "_macros.html" import product_picker with context %}{% block title %}Campaigns · Campaignify{% if service_on %}<script>(function(){ var g = document.getElementById('goal'), a = document.querySelector('[data-area]');
-  if(!g || !a) return; function t(){ a.hidden = g.value !== 'leads'; } g.addEventListener('change', t); t(); })();</script>{% endif %}
-{% endblock %}
+{% extends "base.html" %}{% from "_macros.html" import product_picker with context %}{% block title %}Campaigns · Campaignify{% endblock %}
 {% block body %}
 <div class="page">
   <section>
@@ -17,18 +15,30 @@
         <div><label for="audience">Who is it for?</label><input id="audience" type="text" name="audience" maxlength="200" value="{{ b.audience }}" placeholder="Be specific"></div>
         <div><label for="goal">Goal</label><select id="goal" name="goal"><option value="sales">Sales</option><option value="leads" {{ 'selected' if svc }}>Leads / sign-ups</option><option value="traffic">Traffic to a page</option><option value="awareness">Awareness</option><option value="engagement">Engagement</option><option value="installs">App installs</option></select></div>
       </div>
-      <div class="two-col">
-        <div><label for="budget">Budget</label><input id="budget" type="text" name="budget" maxlength="80" placeholder="e.g. $300 for the first two weeks"></div>
-        <div><label for="dates">Timing <span class="dim">(optional)</span></label><input id="dates" type="text" name="dates" maxlength="120" placeholder="e.g. launches Nov 15"></div>
-      </div>
+      {# UX-6: the budget as a number with a currency and a period, so the plan can say "$600 total over 14 days"
+         and split it in money. #}
+      <fieldset class="budgetset">
+        <legend>Ad budget <span class="dim">(optional; what you'll spend on the platforms, not in Campaignify)</span></legend>
+        <div class="budgetrow">
+          <div class="bamt"><label for="budget_currency" class="sr">Currency</label><select id="budget_currency" name="budget_currency">{% for code, sym in money.CURRENCIES.items() %}<option value="{{ code }}">{{ code }}</option>{% endfor %}</select>
+            <label for="budget" class="sr">Amount</label><input id="budget" type="number" name="budget_amount" min="1" max="10000000" step="any" inputmode="decimal" placeholder="600"></div>
+          <div><label for="budget_period" class="sr">Per day or total</label><select id="budget_period" name="budget_period">{% for k, v in money.PERIODS.items() %}<option value="{{ k }}">{{ v|first_upper }}</option>{% endfor %}</select></div>
+          <div class="bdays"><label for="budget_days" class="sr">Test length in days</label><input id="budget_days" type="number" name="budget_days" min="1" max="365" step="1" inputmode="numeric" value="{{ money.DEFAULT_DAYS }}"><span class="small muted">day test</span></div>
+        </div>
+      </fieldset>
+      <label for="dates">Timing <span class="dim">(optional)</span></label><input id="dates" type="text" name="dates" maxlength="120" placeholder="e.g. launches Nov 15">
       {% if service_on %}<div data-area {{ 'hidden' if not svc }}><label for="area">Service area <span class="dim">(city or radius, for local ads)</span></label><input id="area" type="text" name="area" maxlength="120" value="{{ area }}" placeholder="e.g. Plano and Allen, or 20 miles around Plano"></div>{% endif %}
       <label>Platforms</label>
-      <div class="choices">{% for k in ['meta','tiktok','youtube','google','x','linkedin','pinterest','snapchat','reddit'] %}<label class="choice chk"><input type="checkbox" name="platforms" value="{{ k }}" {{ 'checked' if k in (('meta','google') if svc else ('meta','tiktok')) }}>{{ PLATFORMS[k].short }}</label>{% endfor %}</div>
+      {% set start = money.platforms_for('leads' if svc else 'sales') %}
+      <div class="choices" data-goal-platforms='{{ money.GOAL_PLATFORMS|tojson|forceescape }}'>{% for k in ['meta','google','tiktok','youtube','x','linkedin','pinterest','snapchat','reddit'] %}<label class="choice chk"><input type="checkbox" name="platforms" value="{{ k }}" {{ 'checked' if k in start }}>{{ PLATFORMS[k].short }}</label>{% endfor %}</div>
+      <p class="small muted" style="margin:6px 0 0" data-goal-note>Picked for your goal. Add or remove any.</p>
       <label for="link">{{ 'Your website or landing page' if svc else 'Landing page or store link' }} <span class="dim">(optional)</span></label><input id="link" type="text" name="link" maxlength="300" placeholder="https://">
       <label for="notes">Anything else <span class="dim">(optional)</span></label><textarea id="notes" name="notes" maxlength="1500" style="min-height:90px" placeholder="What makes it different, what you've tried, what to avoid…"></textarea>
-      {% if b.claims %}<p class="small muted" style="margin-top:16px">Claims the plan may use (approved on the product): <span class="gold">{{ b.claims[:200] }}</span></p>{% else %}<p class="small muted" style="margin-top:16px">No approved claims on <a href="{{ url_for('products.edit', pid=pid) if pid else url_for('brand_kit') }}">this product</a>, so the plan won't make product claims.</p>{% endif %}
+      {% set claims = (b.claims or '').split('\n')|map('trim')|select|list %}
+      {% if claims %}<p class="small muted" style="margin:16px 0 4px">Claims the plan may use (approved on the product):</p>
+      <ul class="claimlist small">{% for cl in claims[:8] %}<li>{{ cl }}</li>{% endfor %}</ul>{% if claims|length > 8 %}<p class="small dim" style="margin:0">and {{ claims|length - 8 }} more on the product</p>{% endif %}{% else %}<p class="small muted" style="margin-top:16px">No approved claims on <a href="{{ url_for('products.edit', pid=pid) if pid else url_for('brand_kit') }}">this product</a>, so the plan won't make product claims.</p>{% endif %}
       <div class="go">
-        <span class="muted small">Planning uses up to <b>{{ cap }}</b> credits (you pay what it actually uses, usually less). Ads are priced separately and only made when you confirm them. You have {{ '{:,}'.format(balance()) }}.</span>
+        <span class="muted small">Planning uses up to <b>{{ '{:,}'.format(cap) }}</b> credits (you pay what it actually uses, usually less). Ads are priced separately and only made when you confirm them. You have {{ balance()|credits }}.</span>
         <button class="btn" {{ 'disabled' if not ai_on }}>Plan my campaign</button>
       </div>
     </form>
@@ -37,9 +47,21 @@
     <div class="panel">
       <h2>Your campaigns</h2>
       {% for c in campaigns %}
-      <a class="runrow" href="{{ url_for('campaigns.show', cid=c.id) }}"><b>{{ c.name }}</b><span class="small"><span class="status {{ {'planning':'running','ready':'done','failed':'failed'}[c.status] }}"><span class="dot"></span>{{ {'planning':'Planning','ready':'Ready','failed':'Failed'}[c.status] }}</span></span><span class="small dim">{{ c.created_at|localtime('date') }} · {{ c.credits }} credits</span></a>
+      <a class="runrow" href="{{ url_for('campaigns.show', cid=c.id) }}"><b>{{ c.name }}</b><span class="small"><span class="status {{ {'planning':'running','ready':'done','failed':'failed'}[c.status] }}"><span class="dot"></span>{{ {'planning':'Planning','ready':'Ready','failed':'Failed'}[c.status] }}</span></span><span class="small dim">{{ c.created_at|localtime('date') }} · {{ c.credits|credits }}</span></a>
       {% else %}<div class="empty">No campaigns yet.</div>{% endfor %}
     </div>
   </aside>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>(function(){ /* UX-7: the platform chips follow the goal until you pick your own */
+  var g = document.getElementById('goal'), box = document.querySelector('[data-goal-platforms]'); if(!g || !box) return;
+  var map = JSON.parse(box.getAttribute('data-goal-platforms')), mine = false;
+  box.addEventListener('change', function(){ mine = true; });
+  g.addEventListener('change', function(){ if(mine) return; var want = map[g.value] || map.sales;
+    box.querySelectorAll('input[name=platforms]').forEach(function(i){ i.checked = want.indexOf(i.value) >= 0; }); });
+})();</script>
+{% if service_on %}<script>(function(){ var g = document.getElementById('goal'), a = document.querySelector('[data-area]');
+  if(!g || !a) return; function t(){ a.hidden = g.value !== 'leads'; } g.addEventListener('change', t); t(); })();</script>{% endif %}
 {% endblock %}
