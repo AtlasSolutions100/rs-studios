@@ -48,7 +48,17 @@ from adspec import Issue
 
 log = logging.getLogger("campaignify.launches")
 
-CEILINGS = {"starter": 20000, "growth": 100000, "scale": 500000}   # D3: daily budget, minor units of the account currency
+# D3: the daily budget a plan can create, in US dollars; converted to the ad account's currency with
+# UNITS_PER_USD so the limit is worth about the same everywhere (Koby, Nov 8). It is a safety net, not
+# billing, so approximate rates are fine; a currency not listed keeps the same number.
+CEILINGS_USD = {"starter": 200, "growth": 1000, "scale": 5000}
+UNITS_PER_USD = {  # approximate, Nov 2026; refresh now and then
+    "USD": 1, "EUR": 0.92, "GBP": 0.78, "CAD": 1.38, "AUD": 1.52, "NZD": 1.68, "CHF": 0.88, "SEK": 10.6,
+    "NOK": 10.8, "DKK": 6.9, "PLN": 3.9, "CZK": 23, "HUF": 370, "RON": 4.6, "ISK": 137, "MXN": 18.5,
+    "BRL": 5.4, "CLP": 950, "COP": 4100, "PEN": 3.7, "CRC": 510, "PYG": 7800, "INR": 84, "JPY": 150,
+    "KRW": 1380, "TWD": 32, "HKD": 7.8, "SGD": 1.34, "MYR": 4.5, "THB": 34, "PHP": 58, "IDR": 16000,
+    "VND": 25000, "ZAR": 18, "AED": 3.67, "SAR": 3.75, "QAR": 3.64, "ILS": 3.7, "PKR": 280, "KES": 129,
+}
 SUPPORT_EMAIL = "hello@campaignify.ai"
 DEFAULT_DAILY = 2000              # 20.00 a day when the plan has no budget in money
 STEP_ATTEMPTS = 3                 # tries per step for errors worth retrying (network, Meta 5xx / transient)
@@ -118,12 +128,48 @@ def on(ws, user=None) -> bool:
 
 def money(minor: int, currency: str) -> str:
     import campaign_budget
-    return campaign_budget.money(minor / 100, currency) if currency in campaign_budget.CURRENCIES \
-        else f"{minor / 100:,.2f} {currency}"
+    f = adspec.minor_factor(currency)
+    return campaign_budget.money(minor / f, currency) if currency in campaign_budget.CURRENCIES \
+        else f"{minor / f:,.{2 if f == 100 else 0}f} {currency}"
 
 
-def ceiling(ws) -> int | None:
-    return CEILINGS.get(plans.plan_code(ws))
+def _two_sig(x: float) -> float:
+    """Round to two significant figures (184.0 -> 180, 3700 -> 3700, 150000 -> 150000)."""
+    if x <= 0:
+        return 0
+    from math import floor, log10
+    p = 10 ** (floor(log10(x)) - 1)
+    return round(x / p) * p
+
+
+def paid_plan_code(ws) -> str:
+    """D2: the plan the workspace pays for. A comp (comp_plan) or an operator's plan_override is not a
+    payment, so it doesn't unlock launching (Koby, Nov 8); a subscription does, discount codes included."""
+    if ws is None:
+        return "free"
+    d = {k: ws[k] for k in ws.keys()}
+    d["plan_override"], d["comp_plan"] = None, None
+    return plans.plan_code(d)
+
+
+def launch_plan_code(ws, operator: bool = False) -> str:
+    """The plan launching goes by: the paid plan; an operator (admin) testing in a comped workspace gets
+    the workspace's plan in force so the beta can be tried before anyone pays."""
+    code = paid_plan_code(ws)
+    if code == "free" and operator:
+        code = plans.plan_code(ws)
+    return code
+
+
+def ceiling(ws, currency: str | None = "USD", operator: bool = False) -> int | None:
+    """The plan's daily budget limit in minor units of `currency` (None when the plan can't launch)."""
+    usd = CEILINGS_USD.get(launch_plan_code(ws, operator))
+    if not usd:
+        return None
+    cur = (currency or "USD").upper()
+    rate = UNITS_PER_USD.get(cur)
+    amount = _two_sig(usd * rate) if rate else usd
+    return int(round(amount * adspec.minor_factor(cur)))
 
 
 def connection(conn, ws_id: int):
@@ -198,7 +244,7 @@ def _copy_for(plan: dict, angle: str) -> dict:
     return out
 
 
-def _daily_from_brief(brief: dict, plan: dict) -> int:
+def _daily_from_brief(brief: dict, plan: dict, currency: str = "USD") -> int:
     import campaign_budget
     if not campaign_budget.structured(brief):
         return DEFAULT_DAILY
@@ -211,7 +257,7 @@ def _daily_from_brief(brief: dict, plan: dict) -> int:
     amount = float(brief["budget_amount"]) * share / 100
     if brief.get("budget_period") != "day":
         amount /= max(1, int(brief.get("budget_days") or campaign_budget.DEFAULT_DAYS))
-    return max(adspec.MIN_DAILY["meta"], int(round(amount)) * 100)
+    return max(adspec.MIN_DAILY["meta"], int(round(amount)) * adspec.minor_factor(currency))
 
 
 def _local_today(tz_name: str | None) -> date:
@@ -243,7 +289,8 @@ def draft(conn, ws, c, conn_row) -> dict:
                           "destination_url": link, "utm": UTM,
                           "aspect": _aspect((a["path"] + ".jpg") if a["kind"] == "video" else a["path"])})
     d = {"objective": objective, "platform": "meta", "name": (c["name"] or "Campaignify campaign")[:120],
-            "daily_budget_minor": _daily_from_brief(brief, plan),
+            "daily_budget_minor": _daily_from_brief(brief, plan, (conn_row["currency"] if conn_row and conn_row["currency"]
+                                                                  else "USD")),
             "currency": (conn_row["currency"] if conn_row and conn_row["currency"] else "USD"),
             "start_at": start.isoformat(), "end_at": (start + timedelta(days=days)).isoformat() if days else None,
             "geo": {"countries": ["US"]}, "audience": {"age_min": 18, "age_max": 65, "genders": ["all"]},
@@ -277,7 +324,8 @@ def apply_form(base: dict, form, all_ads: list) -> dict:
         d["objective"] = g("objective")
     if g("daily_budget") is not None:
         try:
-            d["daily_budget_minor"] = int(round(float((g("daily_budget") or "0").replace(",", "")) * 100))
+            d["daily_budget_minor"] = int(round(float((g("daily_budget") or "0").replace(",", ""))
+                                                * adspec.minor_factor(d.get("currency"))))
         except ValueError:
             d["daily_budget_minor"] = 0
     for k, f in (("start_at", "start"), ("end_at", "end")):
@@ -340,20 +388,20 @@ def apply_form(base: dict, form, all_ads: list) -> dict:
 
 # ---------------------------------------------------------------- review: issues and the approval card
 
-def launch_issues(conn, ws, spec, conn_row, assets: dict, prov: dict) -> list:
+def launch_issues(conn, ws, spec, conn_row, assets: dict, prov: dict, operator: bool = False) -> list:
     """The launch rules on top of adpolicy.preflight: plan (D2), budget ceiling (D3), the connection, library
     assets only (I-7), the pixel."""
     out = []
     add = lambda *a: out.append(Issue(*a))  # noqa: E731
-    code = plans.plan_code(ws)
+    code = launch_plan_code(ws, operator)
     if code == "free":
-        add("block", "launch.paid_plan", "Creating campaigns from Campaignify needs a paid plan.",
+        add("block", "launch.paid_plan", "Creating campaigns from Campaignify needs an active subscription.",
             "Pick a plan on the Billing page. You can still launch by hand with the launch kit.", "plan")
     import billing_holds
     if billing_holds.reason(ws):
         add("block", "launch.billing_hold", "This workspace is on hold, so nothing new can be launched.",
             "See the banner at the top of the page.", "plan")
-    cap = CEILINGS.get(code)
+    cap = ceiling(ws, spec.currency, operator)
     if cap and spec.daily_budget_minor > cap:
         add("block", "launch.budget_ceiling",
             f"Your {plans.PLANS[code]['name']} plan creates campaigns up to {money(cap, spec.currency)} a day.",
@@ -397,7 +445,7 @@ def launch_issues(conn, ws, spec, conn_row, assets: dict, prov: dict) -> list:
     return out
 
 
-def review(conn, ws, spec_dict: dict, conn_row) -> tuple:
+def review(conn, ws, spec_dict: dict, conn_row, operator: bool = False) -> tuple:
     """(spec or None, issues, card, steps) for a spec dict. The spec's AI flags are forced from the library
     (adpolicy.apply_provenance). steps are the adapter's exact calls; the card is written from them."""
     spec, issues = adspec.from_dict(spec_dict)
@@ -407,7 +455,7 @@ def review(conn, ws, spec_dict: dict, conn_row) -> tuple:
     ids = [c.asset_id for c in spec.creatives if c.asset_id]
     prov = adpolicy.provenance(conn, ws["id"], ids)
     assets = assets_for(conn, ws["id"], ids)
-    issues += launch_issues(conn, ws, spec, conn_row, assets, prov)
+    issues += launch_issues(conn, ws, spec, conn_row, assets, prov, operator)
     steps = adplatforms.adapter("meta").plan_steps(spec, conn_row, assets) if conn_row is not None else []
     return spec, issues, make_card(conn, ws, spec, conn_row, steps, prov), steps
 

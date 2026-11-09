@@ -41,6 +41,16 @@ TEXT_LIMITS = {
     "snapchat": {"primary_text": (None, None), "headline": (34, 34), "description": (None, None)},
     "google": {"primary_text": (90, 90), "headline": (30, 30), "description": (90, 90)},
 }
+# Currencies the ad platforms take with no minor unit (Meta's "offset 1" currencies): a budget of
+# 5,000 JPY is sent as 5000, not 500000. Everything else is sent in cents.
+ZERO_DECIMAL = frozenset({"CLP", "COP", "CRC", "HUF", "ISK", "IDR", "JPY", "KRW", "PYG", "TWD", "VND"})
+
+
+def minor_factor(currency: str | None) -> int:
+    """How many minor units make one unit of `currency` as the platforms count them (1 or 100)."""
+    return 1 if (currency or "").upper() in ZERO_DECIMAL else 100
+
+
 # Smallest daily budget we let through, in minor units of USD-like currencies (platform minimums
 # vary by currency and objective; these are the common floors).
 MIN_DAILY = {"meta": 100, "google": 100, "tiktok": 2000, "snapchat": 500}

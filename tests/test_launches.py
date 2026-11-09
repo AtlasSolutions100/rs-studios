@@ -51,6 +51,7 @@ import adhttp  # noqa: E402
 import adplatforms  # noqa: E402
 import db  # noqa: E402
 import launch_routes  # noqa: E402
+import adspec  # noqa: E402
 import launches  # noqa: E402
 from adfake import FakeTransport  # noqa: E402
 from adplatforms import meta  # noqa: E402
@@ -114,7 +115,7 @@ def signup(email, plan="growth"):
     assert r.status_code == 302, r.status_code
     with db.connect() as conn:
         u = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
-        conn.execute("UPDATE workspaces SET plan_override=? WHERE id=?", (plan, u["workspace_id"]))
+        conn.execute("UPDATE workspaces SET plan=?, plan_status='active' WHERE id=?", (plan, u["workspace_id"]))
         conn.execute("UPDATE users SET email_verified_at=? WHERE id=?", (db.now(), u["id"]))
         conn.commit()
     return c, u
@@ -329,7 +330,8 @@ spec_ok = dict(spec0)
 def review_with(ws_id=WS, plan=None, **changes):
     if plan:
         with db.connect() as conn:
-            conn.execute("UPDATE workspaces SET plan_override=? WHERE id=?", (plan, ws_id))
+            conn.execute("UPDATE workspaces SET plan=?, plan_status='active', plan_override=NULL, comp_plan=NULL "
+                         "WHERE id=?", (plan, ws_id))
             conn.commit()
     d = json.loads(json.dumps(spec_ok))
     d.update(changes)
@@ -347,6 +349,44 @@ for plan, ok_minor, over_minor in (("starter", 20000, 20100), ("growth", 100000,
           f"D3: {plan} allows {ok_minor // 100:,} a day and blocks more, with the ask-us path")
 b_free, _, _, _ = review_with(plan="free")
 check("launch.paid_plan" in b_free, "D2: a free workspace can't launch (paid plan needed)")
+# D2 (Koby, Nov 8): a comp or an operator's plan override is not a payment
+with db.connect() as conn:
+    conn.execute("UPDATE workspaces SET plan='free', plan_status=NULL, plan_override='scale' WHERE id=?", (WS,))
+    conn.commit()
+b_ovr, _, _, _ = review_with()
+check("launch.paid_plan" in b_ovr, "D2: an operator plan_override (no payment) can't launch")
+with db.connect() as conn:
+    conn.execute("UPDATE workspaces SET plan_override=NULL, comp_plan='growth', comp_until='2099-01-01T00:00:00+00:00' "
+                 "WHERE id=?", (WS,))
+    conn.commit()
+b_comp, _, _, _ = review_with()
+check("launch.paid_plan" in b_comp, "D2: a comped plan (comp_plan) can't launch until the workspace subscribes")
+with db.connect() as conn:
+    row = conn.execute("SELECT * FROM ad_connections WHERE id=?", (CONN_ID,)).fetchone()
+    _, iss_op, _, _ = launches.review(conn, ws(WS), json.loads(json.dumps(spec_ok)), row, operator=True)
+check("launch.paid_plan" not in {i.rule_id for i in iss_op}, "an operator testing a comped workspace can launch")
+check(launches.paid_plan_code(ws(WS)) == "free" and launches.launch_plan_code(ws(WS), True) == "growth",
+      "paid plan free, operator sees the comped plan")
+with db.connect() as conn:
+    conn.execute("UPDATE workspaces SET comp_plan=NULL, comp_until=NULL WHERE id=?", (WS,))
+    conn.commit()
+# D3 in the ad account's currency (Koby, Nov 8): about the same money everywhere
+review_with(plan="starter")
+w = ws(WS)
+check(launches.ceiling(w, "USD") == 20000, "Starter in USD: 200.00 a day (20,000 cents)")
+check(launches.ceiling(w, "EUR") == 18000, "Starter in EUR: about 180 a day")
+check(launches.ceiling(w, "GBP") == 16000, "Starter in GBP: about 160 a day")
+check(launches.ceiling(w, "MXN") == 370000, "Starter in MXN: about 3,700 a day")
+check(launches.ceiling(w, "JPY") == 30000, "Starter in JPY: about 30,000 yen a day, no minor unit")
+check(launches.ceiling(w, "XYZ") == 20000, "an unlisted currency keeps the same number")
+check(launches.money(30000, "JPY") == "30,000 JPY" and launches.money(370000, "MXN") == "3,700.00 MXN",
+      "amounts read in the right units")
+review_with(plan="growth")
+check(launches.apply_form(dict(json.loads(json.dumps(spec_ok)), currency="JPY"), {"daily_budget": "5,000"}, [])["daily_budget_minor"] == 5000,
+      "a 5,000 yen budget is sent as 5000, not 500000")
+check(launches.apply_form(dict(json.loads(json.dumps(spec_ok)), currency="USD"), {"daily_budget": "25"}, [])["daily_budget_minor"] == 2500,
+      "a 25 dollar budget is sent as 2500 cents")
+check(adspec.minor_factor("KRW") == 1 and adspec.minor_factor("EUR") == 100, "zero-decimal currencies")
 review_with(plan="growth")
 d_noasset = json.loads(json.dumps(spec_ok))
 d_noasset["creatives"][0]["asset_id"] = None

@@ -54,8 +54,8 @@
         <div><label for="ln-obj">Goal</label>
           <select id="ln-obj" name="objective">{% for k, w in objectives.items() %}<option value="{{ k }}" {{ 'selected' if spec.objective == k }}>{{ w }}</option>{% endfor %}</select></div>
         <div><label for="ln-budget">Daily budget ({{ spec.currency }})</label>
-          <input type="number" id="ln-budget" name="daily_budget" min="1" step="1" value="{{ '%g'|format(spec.daily_budget_minor / 100) }}" inputmode="decimal" aria-describedby="ln-budget-h">
-          <span class="small muted" id="ln-budget-h">{% if ceiling %}Your {{ plan_name }} plan allows up to {{ '{:,}'.format(ceiling // 100) }} {{ spec.currency }} a day.{% endif %}</span></div>
+          <input type="number" id="ln-budget" name="daily_budget" min="1" step="1" value="{{ '%g'|format(spec.daily_budget_minor / minor_factor) }}" inputmode="decimal" aria-describedby="ln-budget-h">
+          <span class="small muted" id="ln-budget-h">{% if ceiling %}Your {{ plan_name }} plan allows up to {{ ceiling_text }} a day.{% endif %}</span></div>
         <div><label for="ln-start">Start</label><input type="date" id="ln-start" name="start" value="{{ (spec.start_at or '')[:10] }}"></div>
         <div><label for="ln-end">End <span class="dim">(optional)</span></label><input type="date" id="ln-end" name="end" value="{{ (spec.end_at or '')[:10] }}"></div>
       </div>

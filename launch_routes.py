@@ -43,13 +43,18 @@ def _plan(conn, cid):
     return c
 
 
+def _operator() -> bool:
+    """An operator (admin) may try launching in a comped workspace; customers need a paid plan (D2)."""
+    return bool(g.get("user")) and bool(g.user["is_admin"])
+
+
 def _owner_ok() -> bool:
     return is_owner() and not g.get("viewing")
 
 
 def _render(conn, c, card_row, conn_row):
     spec_d = json.loads(card_row["spec_json"])
-    spec, issues, card, steps = launches.review(conn, g.ws, spec_d, conn_row)
+    spec, issues, card, steps = launches.review(conn, g.ws, spec_d, conn_row, _operator())
     ads = launches.plan_ads(conn, g.ws["id"], c["id"])
     picked = {cr.get("asset_id"): cr for cr in spec_d.get("creatives") or []}
     rows = []
@@ -62,7 +67,11 @@ def _render(conn, c, card_row, conn_row):
     latest = launches.latest_for_plan(conn, g.ws["id"], c["id"])
     return render_template("launch_meta.html", c=c, card_row=card_row, spec=spec_d, card=card, blocks=blocks,
                            warns=warns, rows=rows, conn_row=conn_row, pixels=pxs, owner=_owner_ok(),
-                           ceiling=launches.ceiling(g.ws), plan_name=plans.plan(g.ws)["name"],
+                           ceiling=launches.ceiling(g.ws, spec_d.get("currency"), _operator()),
+                           ceiling_text=(launches.money(launches.ceiling(g.ws, spec_d.get("currency"), _operator()), spec_d.get("currency") or "USD")
+                                         if launches.ceiling(g.ws, spec_d.get("currency"), _operator()) else ""),
+                           minor_factor=adspec.minor_factor(spec_d.get("currency")),
+                           plan_name=plans.PLANS[launches.launch_plan_code(g.ws, _operator())]["name"],
                            text=launches.card_text(card) if card else "", latest=latest, adspec=adspec,
                            cta_words=launches.CTA_WORDS, verticals=launches.VERTICAL_WORDS,
                            objectives=launches.OBJECTIVE_WORDS, steps=steps)
@@ -87,7 +96,7 @@ def page(cid):
                                         (int(request.form["card"]), g.ws["id"], cid)).fetchone()
             base = json.loads(base_row["spec_json"]) if base_row else launches.draft(conn, g.ws, c, conn_row)
             spec_d = launches.apply_form(base, request.form, launches.plan_ads(conn, g.ws["id"], cid))
-            spec, issues, card, _ = launches.review(conn, g.ws, spec_d, conn_row)
+            spec, issues, card, _ = launches.review(conn, g.ws, spec_d, conn_row, _operator())
             if spec is None:
                 for i in issues[:3]:
                     flash(f"{i.message} {i.fix}".strip())
@@ -100,7 +109,7 @@ def page(cid):
             if card_row is None:
                 abort(404)
         if card_row is None:
-            spec, issues, card, _ = launches.review(conn, g.ws, launches.draft(conn, g.ws, c, conn_row), conn_row)
+            spec, issues, card, _ = launches.review(conn, g.ws, launches.draft(conn, g.ws, c, conn_row), conn_row, _operator())
             if spec is None:          # a plan whose draft doesn't fit the spec at all (shouldn't happen): show why
                 for i in issues[:3]:
                     flash(i.message)
@@ -186,7 +195,7 @@ def retry(lid):
         # The same checks as the first approval: plan, ceiling, connection, library, policy.
         conn_row = conn.execute("SELECT * FROM ad_connections WHERE id=? AND workspace_id=?",
                                 (L["connection_id"], g.ws["id"])).fetchone()
-        spec, issues, _, _ = launches.review(conn, g.ws, json.loads(L["spec_json"]), conn_row)
+        spec, issues, _, _ = launches.review(conn, g.ws, json.loads(L["spec_json"]), conn_row, _operator())
         if spec is None or adpolicy.blocking(issues):
             first = next((i for i in issues if i.level == "block"), None)
             flash(first.message if first else "The launch has problems to fix first.")
