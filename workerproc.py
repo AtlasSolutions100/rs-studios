@@ -36,7 +36,8 @@ log = logging.getLogger("campaignify.workerproc")
 
 WORKER_LEASE_S = 90.0
 LOOP_MODULES = ("worker", "tasks", "alerts", "flows_engine", "conversions", "storage", "credits", "adplatforms",
-                "launches", "admanage", "adinsights", "backup", "nudges", "planner", "competitors", "paywall_routes")
+                "launches", "admanage", "adinsights", "backup", "nudges", "planner", "competitors", "paywall_routes",
+                "wsdelete")
 _stop = threading.Event()
 _ok = []
 
