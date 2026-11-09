@@ -103,6 +103,12 @@ name: Deploy Campaignify (campaignify.ai)
 #                          https://campaignify.ai/connect/google/callback. No developer token: Google retired them
 #                          on 2026-09-09; access follows the Cloud project
 #   GOOGLE_ADS_CLIENT_SECRET optional secret: that client's secret; unset = GOOGLE_OAUTH_CLIENT_SECRET
+#   CONVERSIONS_API        optional variable: 1 turns conversion tracking on members' Campaignify pages and forms
+#                          on (conversions.py, roadmap M3.4): browser pixels and server events with one event id
+#                          to the workspace's Meta pixel (Conversions API), TikTok pixel (Events API) and Google Ads
+#                          (Data Manager API, leads). On top of AD_LAUNCH. Default off
+#   META_CAPI_USE_CONNECTION_TOKEN optional variable: 1 lets a Meta pixel without its own Conversions API token use
+#                          the Meta connection's token. Set it only after tools/conversions_check.py shows Meta takes it
 #   TOKEN_KEYS_OLD         only while rotating TOKEN_KEY: the previous key(s), comma separated, still read.
 #                          To rotate: (1) set TOKEN_KEYS_OLD to the current TOKEN_KEY, (2) set TOKEN_KEY to a new
 #                          key, (3) deploy, (4) on the server run `python3 secretsbox.py rotate` in the app
@@ -260,6 +266,9 @@ jobs:
           GOOGLE_ADS: ${{ vars.GOOGLE_ADS }}
           GOOGLE_ADS_CLIENT_ID: ${{ vars.GOOGLE_ADS_CLIENT_ID }}
           GOOGLE_ADS_CLIENT_SECRET: ${{ secrets.GOOGLE_ADS_CLIENT_SECRET }}
+          # Conversion tracking on members' pages (conversions.py, M3.4/M3.5): off until CONVERSIONS_API is set.
+          CONVERSIONS_API: ${{ vars.CONVERSIONS_API }}
+          META_CAPI_USE_CONNECTION_TOKEN: ${{ vars.META_CAPI_USE_CONNECTION_TOKEN }}
           # Kill switches and opt-ins (repo variables; see the list at the top). Unset = not sent.
           BILLING_HOLD: ${{ vars.BILLING_HOLD }}
           CREDIT_HOLDS: ${{ vars.CREDIT_HOLDS }}
@@ -311,6 +320,7 @@ jobs:
                                              "AD_LAUNCH", "AD_LAUNCH_WORKSPACES", "AD_RATE_TIER", "META_APP_ID",
                                              "META_APP_SECRET", "META_LOGIN_CONFIG_ID", "TOKEN_KEY", "TOKEN_KEYS_OLD",
                                              "GOOGLE_ADS", "GOOGLE_ADS_CLIENT_ID", "GOOGLE_ADS_CLIENT_SECRET",
+                                             "CONVERSIONS_API", "META_CAPI_USE_CONNECTION_TOKEN",
                                              # kill switches and opt-ins (N15)
                                              "BILLING_HOLD", "CREDIT_HOLDS", "PLAN_PENDING", "RENEWAL_PAUSE", "HF_RETRY",
                                              "RS_LOGIN_HARDENING", "RS_SIGNUP_CONFIRM", "RS_NEXT_STEPS", "RS_STORAGE_QUOTAS",

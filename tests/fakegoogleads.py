@@ -72,6 +72,8 @@ class FakeGoogleAds:
         self.mutates = 0             # successful googleAds:mutate calls
         self._ids = itertools.count(20000000001)
         self._tok = itertools.count(1)
+        self.scope_of = {}           # sub -> granted scope string (the Data Manager API checks its scope)
+        self.ingested = []           # Data Manager events:ingest bodies that were accepted
 
     # ------------------------------------------------------------ test controls
     def customer(self, cid, name, currency="USD", tz="America/Chicago", manager=False, test=False, status="ENABLED",
@@ -85,7 +87,30 @@ class FakeGoogleAds:
                              "scope": scope or "openid https://www.googleapis.com/auth/userinfo.email "
                                                "https://www.googleapis.com/auth/adwords"}
         self.access_of[sub] = list(access)
+        self.scope_of[sub] = self.grants[code]["scope"]
         return self
+
+    def grant(self, refresh_token, sub, access=(), scope=None):
+        """A refresh token as if a connect had already happened (tests that seed ad_connections directly)."""
+        self.refresh[refresh_token] = sub
+        self.access_of[sub] = list(access)
+        self.scope_of[sub] = scope or ("openid https://www.googleapis.com/auth/userinfo.email "
+                                       "https://www.googleapis.com/auth/adwords")
+        return self
+
+    def tracking(self, cid, owner=None, terms=False, ec_leads=False):
+        """customer.conversion_tracking_setting: `owner` a manager that manages this customer's conversions
+        (cross-account conversion tracking), the customer data terms and enhanced conversions for leads."""
+        self.customers[cid].update(conv_owner=owner, terms=terms, ec_leads=ec_leads)
+        return self
+
+    def conversion_action(self, cid, name, typ="WEBPAGE", category="SUBMIT_LEAD_FORM", status="ENABLED", primary=True):
+        """An existing conversion action on customer `cid` (made in the Google Ads UI, or by an earlier sync)."""
+        oid = str(next(self._ids))
+        rn = f"customers/{cid}/conversionActions/{oid}"
+        self.store[rn] = {"kind": "conversion_action", "id": oid, "rn": rn, "customer": cid, "name": name, "type": typ,
+                          "category": category, "status": status, "primary": primary}
+        return self.store[rn]
 
     def fail(self, suffix, response, times=1):
         self.failures.append([suffix, response, times])
@@ -136,10 +161,13 @@ class FakeGoogleAds:
             if u.netloc == "oauth2.googleapis.com":
                 return self._oauth(u.path, call["data"])
             sub = self._auth(call["headers"])
+            if u.netloc == "datamanager.googleapis.com":
+                return self._datamanager(sub, u.path, method, call)
             path = u.path[len(f"/{V}"):] if u.path.startswith(f"/{V}") else u.path
             if path == "/customers:listAccessibleCustomers" and method == "GET":
                 return adhttp.Response(200, {}, {"resourceNames": [f"customers/{c}" for c in self.access_of.get(sub, [])]})
-            m = re.fullmatch(r"/customers/(\d{10})/(googleAds:search|googleAds:mutate|assets:mutate|campaigns:mutate)", path)
+            m = re.fullmatch(r"/customers/(\d{10})/(googleAds:search|googleAds:mutate|assets:mutate|campaigns:mutate|"
+                             r"conversionActions:mutate)", path)
             if not m or method != "POST":
                 raise AssertionError(f"no fake Google answer for {method} {u.path}")
             cid, op = m.groups()
@@ -150,6 +178,8 @@ class FakeGoogleAds:
                 return adhttp.Response(200, {}, self._mutate(cid, call["data"]))
             if op == "assets:mutate":
                 return adhttp.Response(200, {}, self._assets(cid, call["data"]))
+            if op == "conversionActions:mutate":
+                return adhttp.Response(200, {}, self._conversion_actions(cid, call["data"]))
             return adhttp.Response(200, {}, self._campaigns(cid, call["data"]))
         except Refuse as e:
             return self._answer(e.answer)
@@ -191,6 +221,41 @@ class FakeGoogleAds:
         if sub is None:
             raise Refuse("google/error_oauth_token_expired.json")
         return sub
+
+    # ------------------------------------------------------------ Data Manager API (events:ingest)
+    def _datamanager(self, sub, path, method, call):
+        """POST /v1/events:ingest as the Data Manager API reference describes it (read 2026-11-09, not yet against
+        a live account): the datamanager scope, destinations the login can reach, HEX-encoded SHA-256 identifiers,
+        and an UPLOAD_CLICKS conversion action as productDestinationId."""
+        assert method == "POST" and path == "/v1/events:ingest", path
+        if "https://www.googleapis.com/auth/datamanager" not in (self.scope_of.get(sub) or "").split():
+            raise Refuse("google/datamanager_error_scope.json")
+        body = call["data"]
+        bad = lambda why: Refuse((400, {"error": {"code": 400, "message": why, "status": "INVALID_ARGUMENT"}}))  # noqa: E731
+        if body.get("encoding") != "HEX" or not body.get("destinations") or not body.get("events"):
+            raise bad("encoding, destinations and events are required")
+        for d in body["destinations"]:
+            op, login = d["operatingAccount"], (d.get("loginAccount") or {}).get("accountId")
+            if op.get("accountType") != "GOOGLE_ADS" or not re.fullmatch(r"\d{10}", op.get("accountId") or ""):
+                raise bad("operatingAccount must be a GOOGLE_ADS customer id")
+            self._access(sub, op["accountId"], login)
+            ca = self.store.get(f"customers/{op['accountId']}/conversionActions/{d.get('productDestinationId')}")
+            if not ca or ca["kind"] != "conversion_action":
+                raise Refuse("google/datamanager_error_destination.json")
+            if ca["type"] != "UPLOAD_CLICKS":
+                raise bad("The conversion action can't receive imported conversions.")
+        for ev in body["events"]:
+            if not ev.get("transactionId") or not re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", ev.get("eventTimestamp") or ""):
+                raise bad("transactionId and eventTimestamp are required")
+            ids = (ev.get("userData") or {}).get("userIdentifiers") or []
+            if not ids and not (ev.get("adIdentifiers") or {}).get("gclid"):
+                raise bad("An event needs user identifiers or a click identifier.")
+            for i in ids:
+                (k, v), = i.items()
+                assert k in ("emailAddress", "phoneNumber") and re.fullmatch(r"[0-9a-f]{64}", v), "HEX SHA-256 only"
+        if not body.get("validateOnly"):
+            self.ingested.append(body)
+        return adhttp.Response(200, {}, fixture("google/datamanager_ingest_ok.json"))
 
     def _tree(self, root):
         out = []
@@ -244,7 +309,14 @@ class FakeGoogleAds:
             c = self.customers[cid]
             rows.append({"customer": {"resourceName": f"customers/{cid}", "id": cid, "descriptiveName": c["name"],
                                       "currencyCode": c["currency"], "timeZone": c["tz"], "manager": c["manager"],
-                                      "testAccount": c["test"], "status": c["status"]}})
+                                      "testAccount": c["test"], "status": c["status"],
+                                      "conversionTrackingSetting": {
+                                          "conversionTrackingId": str(self._conv_id(cid)),
+                                          "googleAdsConversionCustomer": f"customers/{c.get('conv_owner') or cid}",
+                                          **({"crossAccountConversionTrackingId": str(self._conv_id(c['conv_owner']))}
+                                             if c.get("conv_owner") else {}),
+                                          "acceptedCustomerDataTerms": bool(c.get("terms")),
+                                          "enhancedConversionsForLeadsEnabled": bool(c.get("ec_leads"))}}})
         elif res == "customer_client":
             for kid, level in self._tree(cid):
                 k = self.customers[kid]
@@ -275,6 +347,10 @@ class FakeGoogleAds:
                                               "servingStatus": "SERVING"},
                                  "assetGroup": {"resourceName": ag["rn"], "id": ag["id"], "name": ag["name"],
                                                 "status": ag["status"], "primaryStatus": "PENDING"}})
+        elif res == "conversion_action":
+            for a in self._mine(cid, "conversion_action"):
+                if ok({"conversion_action.status": a["status"], "conversion_action.name": a["name"]}):
+                    rows.append({"conversionAction": self._action_row(a)})
         elif res == "asset":
             for a in self._mine(cid, "asset"):
                 if ok({"asset.name": a.get("name") or "", "asset.resource_name": a["rn"]}):
@@ -413,6 +489,51 @@ class FakeGoogleAds:
                                        ("SQUARE_MARKETING_IMAGE", 1, "square_marketing_image")):
                     if fs.count(field) < n:
                         raise Refuse(f"google/error_not_enough_{name}.json")
+
+    # ------------------------------------------------------------ conversion actions (ConversionActionService)
+    def _conv_id(self, cid):
+        return 900000000 + int(cid) % 99999999
+
+    def _action_row(self, a):
+        """A conversion_action GAQL row the way v25 REST answers it; WEBPAGE actions carry tag_snippets in Google's
+        format (the Google tag plus an event snippet with send_to AW-<conversion tracking id>/<label>)."""
+        row = {"resourceName": a["rn"], "id": a["id"], "name": a["name"], "status": a["status"], "type": a["type"],
+               "category": a["category"], "primaryForGoal": a["primary"]}
+        if a["type"] == "WEBPAGE":
+            aw = f"AW-{self._conv_id(a['customer'])}"
+            label = a.setdefault("label", "Lb" + base64.urlsafe_b64encode(a["id"].encode()).decode().rstrip("=")[-14:])
+            gst = (f"<!-- Google tag (gtag.js) -->\n<script async src=\"https://www.googletagmanager.com/gtag/js?id={aw}\">"
+                   f"</script>\n<script>\n  window.dataLayer = window.dataLayer || [];\n  function gtag(){{dataLayer.push(arguments);}}"
+                   f"\n  gtag('js', new Date());\n\n  gtag('config', '{aw}');\n</script>\n")
+            extra = "\n      'value': 1.0,\n      'currency': 'USD'," if a["category"] == "PURCHASE" else ""
+            ev = (f"<!-- Event snippet for {a['name']} conversion page -->\n<script>\n  gtag('event', 'conversion', {{\n"
+                  f"      'send_to': '{aw}/{label}',{extra}\n      'transaction_id': ''\n  }});\n</script>\n")
+            row["tagSnippets"] = [{"type": "WEBPAGE", "pageFormat": "HTML", "globalSiteTag": gst, "eventSnippet": ev},
+                                  {"type": "WEBPAGE", "pageFormat": "AMP", "globalSiteTag": "<amp-analytics/>",
+                                   "eventSnippet": "<amp-analytics/>"},
+                                  {"type": "WEBPAGE_ONCLICK", "pageFormat": "HTML", "globalSiteTag": gst,
+                                   "eventSnippet": ev.replace("conversion page", "click")}]
+        return row
+
+    def _conversion_actions(self, cid, body):
+        """ConversionActionService.MutateConversionActions: creates only, all or nothing, unique names."""
+        taken = {a["name"] for a in self._mine(cid, "conversion_action") if a["status"] != "REMOVED"}
+        made = []
+        for i, op in enumerate(body["operations"]):
+            c = op["create"]
+            assert c["type"] in ("WEBPAGE", "UPLOAD_CLICKS") and c["status"] == "ENABLED" and c["category"]
+            assert c["countingType"] in ("ONE_PER_CLICK", "MANY_PER_CLICK") and isinstance(c["primaryForGoal"], bool)
+            if c["name"] in taken:
+                raise Refuse(gerr(400, "INVALID_ARGUMENT", "conversionActionError", "DUPLICATE_NAME",
+                                  "Conversion action names must be unique.", i))
+            taken.add(c["name"])
+            made.append(c)
+        out = []
+        for c in made:
+            a = self.conversion_action(cid, c["name"], typ=c["type"], category=c["category"], primary=c["primaryForGoal"])
+            a["fields"] = c
+            out.append({"resourceName": a["rn"]})
+        return {"results": out}
 
     def _assets(self, cid, body):
         (op,) = body["operations"]

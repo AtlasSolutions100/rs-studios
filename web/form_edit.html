@@ -47,6 +47,14 @@
       <label for="cts" class="sr">Text consent wording</label><textarea id="cts" name="consent_sms_text" maxlength="600" style="min-height:90px;margin-top:8px">{{ fm.consent_sms_text or default_sms_consent }}</textarea>
       <p class="small dim">{brand} becomes your brand name. Keep the text-message wording's parts: recurring automated texts, consent isn't a condition of purchase, frequency, rates, HELP and STOP.</p>
     </div>
+    {% if conv_on %}
+    <div class="panel" data-measurement>
+      <h3>Ad results</h3>
+      <input type="hidden" name="measure_form" value="1">
+      <label class="choice" style="display:inline-flex;gap:8px"><input type="checkbox" name="measurement" value="us" {{ 'checked' if fm.measurement != 'off' }}>Measure ad results on this form's own page</label>
+      <p class="small muted">Sends views of {{ base }}f/{{ fm.code }} and its leads to the pixels and Google Ads account in <a href="{{ url_for('conversions.settings') }}">Conversion tracking</a>, for visitors in the US only. Emails and phone numbers leave only as one-way hashes. Visitors who turn on Global Privacy Control or Do Not Track are skipped. On a page, the page's own setting counts.</p>
+    </div>
+    {% endif %}
     <div class="panel">
       <h3>Webhook</h3>
       <p class="small muted">Each submission is POSTed as JSON to this https address, signed with HMAC-SHA256 in the <code>X-Campaignify-Signature</code> header (<code>sha256=</code> + hex of the body). Use it to send answers to your CRM, a spreadsheet or a chat channel.</p>

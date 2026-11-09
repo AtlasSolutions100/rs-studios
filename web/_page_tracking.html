@@ -1,0 +1,4 @@
+{# Conversion tracking (conversions.tracking): only on a measured visit with a connected pixel. The config holds
+   pixel ids and this render's event ids; static/pagepx.js does the rest under this response's CSP nonce. #}
+{% if px and px.browser %}<script type="application/json" id="cfy-px" nonce="{{ px.nonce }}">{{ px.browser|tojson }}</script>
+<script src="{{ url_for('static', filename='pagepx.js') }}" nonce="{{ px.nonce }}" defer></script>{% endif %}

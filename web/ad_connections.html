@@ -28,6 +28,7 @@
         </div>{% endif %}
       </li>{% endfor %}</ul>
       {% else %}<p class="muted">No ad account connected yet.</p>{% endif %}
+      {% if conv_on %}<p class="small" style="margin-top:12px" data-conversions-link>Send page views and leads from your Campaignify pages to these accounts: <a href="{{ url_for('conversions.settings') }}">Conversion tracking</a>.</p>{% endif %}
       {% if paused %}
         <p class="small muted" style="margin-top:16px" data-connect-paused>Connecting ad accounts is paused right now. You can still disconnect the ones above, which deletes Campaignify's access.</p>
       {% elif owner %}
