@@ -535,6 +535,16 @@ def run(rid: int) -> str:
 def start(rid: int):
     if os.environ.get("RS_WORKER", "1") != "1":
         return run(rid)
+    import worker
+    if worker.mode() == "process":          # the worker process runs it (tasks.py, M7.2); this request returns now
+        import tasks
+        with db.connect() as conn:
+            r = conn.execute("SELECT workspace_id, inputs_json FROM competitor_reports WHERE id=?", (rid,)).fetchone()
+        hold = (json.loads(r["inputs_json"] or "{}").get("hold") if r else None)
+        tasks.enqueue("competitors", {"rid": rid, "hold_id": hold}, r["workspace_id"] if r else None, f"competitor:{rid}")
+        if hold:
+            credit_holds._done(int(hold))   # the worker keeps it alive from its claim on
+        return "running"
     threading.Thread(target=_safe_run, args=(rid,), name=f"competitors-{rid}", daemon=True).start()
     return "running"
 

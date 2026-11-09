@@ -224,8 +224,10 @@ RETRY_TICK_S = 60
 
 
 def start(app):
-    """The background loop (daemon thread), unless RS_NUDGE_LOOP=0 (tests)."""
-    if os.environ.get("RS_NUDGE_LOOP", "1") != "1":
+    """The background loop (daemon thread), unless RS_NUDGE_LOOP=0 (tests). In process mode (M7.2) it runs in the
+    worker process only."""
+    import worker
+    if os.environ.get("RS_NUDGE_LOOP", "1") != "1" or not worker.background_here():
         return
 
     def loop():

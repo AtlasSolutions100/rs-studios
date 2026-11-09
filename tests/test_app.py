@@ -3275,3 +3275,5 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_create_polish.py")], check=True)
     # Accessibility pass (M5.6): light-theme status colours, skip link, input labels, h1s, focus ring, hero alt.
     subprocess.run([sys.executable, os.path.join(HERE, "test_a11y.py")], check=True)
+    # The worker as its own process (workerproc.py, tasks.py, M7.2): the queue, /health per release, the lease, SIGTERM.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_worker_process.py")], check=True)

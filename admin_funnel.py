@@ -150,7 +150,23 @@ def health(conn) -> dict:
                        ("Meta", bool(px["meta"]), px["meta"]), ("TikTok", bool(px["tiktok"]), px["tiktok"]),
                        ("Reddit", bool(px["reddit"]), px["reddit"]), ("X", bool(px["x"]), px["x"])],
             "server_side": server, "warn": warn, "imports": imports(conn), "backup": _backup_status(),
-            "mail": _mail_status(conn)}
+            "mail": _mail_status(conn), "worker": _worker_status(conn)}
+
+
+def _worker_status(conn) -> dict:
+    """Where the background loop runs and the queued AI runs (roadmap M7.2)."""
+    import alerts
+    import tasks
+    import worker
+    out = {"mode": worker.mode(), "state": {}, "tasks": {}}
+    try:
+        out["state"] = alerts.worker_state(conn)
+        out["tasks"] = tasks.counts(conn)
+        lease = conn.execute("SELECT holder, until FROM worker_leases WHERE name='worker'").fetchone()
+        out["lease"] = dict(lease) if lease else None
+    except Exception:  # noqa: BLE001
+        pass
+    return out
 
 
 def _mail_status(conn) -> dict:

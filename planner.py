@@ -590,6 +590,14 @@ def run(cid: int, notes: str | None = None, hold=None, free: bool = False):
 def start(cid: int, notes: str | None = None, hold=None):
     if os.environ.get("RS_WORKER", "1") != "1":
         return run(cid, notes, hold)
+    import worker
+    if worker.mode() == "process":          # the worker process runs it (tasks.py, M7.2); this request returns now
+        import tasks
+        with db.connect() as conn:
+            ws_id = (conn.execute("SELECT workspace_id FROM campaigns WHERE id=?", (cid,)).fetchone() or [None])[0]
+        tasks.enqueue("planner", {"cid": cid, "notes": notes, "hold": tasks.hold_fields(hold)}, ws_id, f"campaign:{cid}")
+        tasks.handoff(hold)
+        return "planning"
     threading.Thread(target=_safe_run, args=(cid, notes, hold), name=f"planner-{cid}", daemon=True).start()
     return "planning"
 
