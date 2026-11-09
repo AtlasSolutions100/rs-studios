@@ -633,7 +633,7 @@ def _record(conn, L, s, res: dict):
                      "name, status, created_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(platform, external_id) DO UPDATE "
                      "SET status=excluded.status, launch_id=excluded.launch_id",
                      (L["id"], L["workspace_id"], L["platform"], kind, ext, parent, s["name"],
-                      "PAUSED" if kind != "video" else "UPLOADED", db.now()))
+                      {"video": "UPLOADED", "creative": "CREATED"}.get(kind, "PAUSED"), db.now()))
     if s["kind"] == "campaign":
         conn.execute("UPDATE launches SET external_campaign_id=? WHERE id=?", (ext, L["id"]))
     conn.commit()
@@ -854,7 +854,7 @@ def view(conn, L) -> dict:
     conn_row = conn.execute("SELECT * FROM ad_connections WHERE id=?", (L["connection_id"],)).fetchone()
     account = conn_row["external_account_id"] if conn_row else ""
     labels = {"pending": "Waiting", "running": "Working", "done": "Done", "failed": "Failed",
-              "compensated": "Removed", "kept": "Kept, PAUSED"}
+              "compensated": "Removed", "kept": "Kept"}
     return {"launch": L, "card": json.loads(card["after_json"]) if card and card["after_json"] else None,
             "steps": [{"label": step_label(s), "status": s["status"], "word": labels.get(s["status"], s["status"]),
                        "error": s["error"] if s["status"] in ("failed",) or (s["error"] and s["status"] == "done") else None,
