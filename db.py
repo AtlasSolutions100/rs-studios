@@ -593,7 +593,7 @@ CREATE TABLE IF NOT EXISTS approval_cards (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workspace_id INTEGER NOT NULL,
     launch_id INTEGER,                       -- set once approved and the launch exists
-    kind TEXT NOT NULL,                      -- launch | budget_change | status_change | pause_all
+    kind TEXT NOT NULL,                      -- launch | budget_change | status_change (admanage.py, M2.4) | pause_all
     campaign_id INTEGER, connection_id INTEGER,
     spec_json TEXT, spec_hash TEXT,          -- the CampaignSpec the card was made from (adspec.to_dict)
     before_json TEXT, after_json TEXT,       -- after_json: the card itself (lines, objects, issues)
@@ -829,6 +829,16 @@ COLUMNS = [
     ("free_plans", "fingerprint", "TEXT"),
     ("free_plans", "email_norm", "TEXT"),
     ("free_plans", "status", "TEXT"),          # running | ready | failed (NULL: made before this column)
+    # Manage a launched campaign (admanage.py, M2.4): a status_change / budget_change card is applied after approval,
+    # by the request and then the worker when Meta says wait (the 30 s edit slot, the rate budget).
+    ("approval_cards", "apply_state", "TEXT"),        # queued | applying | waiting | done | failed (change cards only)
+    ("approval_cards", "next_at", "TEXT"),            # when a waiting change may try again
+    ("approval_cards", "lease_at", "TEXT"),           # a run applying it holds it until this is LEASE old
+    ("approval_cards", "attempts", "INTEGER NOT NULL DEFAULT 0"),
+    # what Meta last said about a launched object (read when a card is drafted, approved or applied)
+    ("ad_objects", "effective_status", "TEXT"),       # Meta's effective_status (ACTIVE, CAMPAIGN_PAUSED, DISAPPROVED...)
+    ("ad_objects", "daily_budget_minor", "INTEGER"),  # campaigns: the daily budget in the account's minor units
+    ("ad_objects", "synced_at", "TEXT"),
     # conversion tracking on members' pages and forms (conversions.py, M3.4): the owner's measurement setting
     # ('us': visitors in the US who send no GPC / Do Not Track; 'off': never), and per pixel the Test Events code
     ("pages", "measurement", "TEXT NOT NULL DEFAULT 'us'"),

@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}{{ s.name }} · Ad campaigns · Campaignify{% endblock %}
+{% block body %}
+{# One launched campaign (manage_routes.show; roadmap M2.4): turn it or its ads on or off, change the daily budget.
+   Each change is drafted as a card (admanage.draft) that the owner approves (admanage.approve). #}
+{% set L = s.launch %}{% set p = s.pending %}{% set b = s.busy %}
+<style>
+.mc-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;margin-top:18px;align-items:start}
+.mc-top .panel h2,.mc-panel h2{margin:0 0 10px;font-size:18px}
+.mc-big{font-size:22px;font-weight:800;margin:4px 0 2px}
+.mc-acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;align-items:center}
+.mc-acts form{margin:0}
+.mc-budget{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:12px}
+.mc-budget label{margin:0 0 4px;display:block}
+.mc-budget input{width:160px}
+.mc-card{margin-top:18px;border:2px solid rgba(var(--accent-rgb),.45)}
+.mc-card h2{margin:0 0 4px}
+.mc-lines{list-style:none;padding:0;margin:12px 0}
+.mc-lines li{padding:9px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
+.mc-lines li:first-child{border-top:0}
+.mc-issues{list-style:none;padding:0;margin:12px 0}
+.mc-issues li{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 8px}
+.mc-issues li.block{border-color:rgba(255,107,107,.5)}
+.mc-issues li.warn{border-color:rgba(248,193,62,.5)}
+.mc-issues b{display:block}
+.mc-confirm{display:flex;gap:8px;align-items:flex-start;margin:10px 0 0;font-weight:600;color:var(--ink)}
+.mc-confirm input{width:auto;margin-top:3px}
+.mc-ads{list-style:none;padding:0;margin:0}
+.mc-ads li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.mc-ads li:first-child{border-top:0}
+.mc-ads form{margin:0}
+.mc-hist{list-style:none;padding:0;margin:0}
+.mc-hist li{padding:10px 0;border-top:1px solid var(--line)}
+.mc-hist li:first-child{border-top:0}
+.mc-panel{margin-top:18px}
+.mc-ads .tag,.mc-hist .tag,.mc-big .tag{justify-self:start;white-space:nowrap}
+.page .tag:not(.ok):not(.warn):not(.bad){background:var(--chipbg);border:1px solid var(--line);color:var(--muted)}
+@media (max-width:900px){.mc-top{grid-template-columns:1fr}}
+@media (max-width:560px){.mc-ads li{grid-template-columns:1fr auto}.mc-ads li .mc-ad-name{grid-column:1/-1}.mc-acts .btn,.mc-acts form{flex:1 1 auto}.mc-acts form .btn{width:100%}.mc-budget input{width:100%}.mc-budget>div{flex:1 1 100%}}
+</style>
+<div class="page full">
+  <p style="margin:0 0 14px"><a href="{{ url_for('manage.index') }}">← All ad campaigns</a></p>
+  <p class="eyebrow">Campaign on Meta · beta</p>
+  <h1 style="overflow-wrap:anywhere">{{ s.name }}</h1>
+  <p class="muted">On {{ s.conn_row.account_name if s.conn_row else 'your ad account' }}{% if s.conn_row %} (act_{{ s.conn_row.external_account_id }}){% endif %}. {{ s.ads }} ad{{ '' if s.ads == 1 else 's' }}.{% if s.synced_at %} Status read from Meta {{ s.synced_at|localtime }}.{% endif %}</p>
+  {% if sync_error %}<div class="flash warn">{{ sync_error }}</div>{% endif %}
+  {% if viewing %}<div class="flash warn">Viewing as admin is read-only: nothing can be changed here.</div>{% endif %}
+
+  <div class="mc-top">
+    <div class="panel">
+      <h2>Status</h2>
+      <p class="mc-big"><span class="tag {{ s.tag }}" style="font-size:14px;padding:5px 12px">{{ s.word }}</span></p>
+      <p class="small muted">{% if s.on %}Meta shows its ads and charges your Meta payment method.{% else %}Nothing runs and nothing is spent while it's paused.{% endif %}</p>
+      {% if not viewing %}
+      <div class="mc-acts">
+        <form method="post" action="{{ url_for('manage.change', lid=L.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="target" value="campaign">
+          {% if s.on %}<input type="hidden" name="action" value="off"><button class="btn dark" {{ 'disabled' if b }}>Pause campaign</button>
+          {% else %}<input type="hidden" name="action" value="on"><button class="btn" {{ 'disabled' if b }}>Turn on campaign</button>{% endif %}</form>
+        {% if s.manager %}<a class="btn dark" href="{{ s.manager }}" target="_blank" rel="noopener noreferrer">Open in Ads Manager ↗</a>{% endif %}
+      </div>
+      {% endif %}
+      {% if ai_kinds and not s.on %}<p class="small muted" style="margin:12px 0 0">Some ads use AI. Turning the campaign on asks you to tick Meta's AI label on them in Ads Manager first.</p>{% endif %}
+    </div>
+    <div class="panel" id="budget">
+      <h2>Daily budget</h2>
+      <p class="mc-big">{{ s.budget_text or 'Not set' }}</p>
+      <p class="small muted">For the whole campaign, in {{ s.currency }}, the ad account's currency.{% if cap_text %} Your {{ plan_name }} plan allows up to {{ cap_text }} a day from Campaignify.{% endif %}</p>
+      {% if not viewing %}
+      <form class="mc-budget" method="post" action="{{ url_for('manage.change', lid=L.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="budget">
+        <div><label for="mc-new" class="small">New daily budget ({{ s.currency }})</label>
+          <input type="number" id="mc-new" name="budget" min="1" step="{{ '0.01' if minor_factor == 100 else '1' }}" inputmode="decimal" required value="{{ '%g'|format(s.budget / minor_factor) if s.budget is not none else '' }}"></div>
+        <button class="btn dark" {{ 'disabled' if b }}>Check the change</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if b %}
+  <div class="panel mc-card" id="card" aria-live="polite" data-mc-busy data-src="{{ url_for('manage.state_json', lid=L.id) }}">
+    <h2>{{ b.card.title }}</h2>
+    <p class="muted"><span class="spinner" style="display:inline-block;width:14px;height:14px;margin:0 6px -2px 0"></span>{{ b.state_word }}. {% if b.state == 'waiting' %}Meta allows one change per item every 30 seconds and limits how fast apps can call it, so Campaignify finishes this in a moment. You can leave this page.{% else %}This takes a few seconds.{% endif %}</p>
+    <ul class="mc-lines">{% for c in b.card.changes %}<li>{{ '✓ ' if c.done }}{{ b.card.lines[loop.index0] }}</li>{% endfor %}</ul>
+  </div>
+  {% elif p %}
+  <form class="panel mc-card" id="card" method="post" action="{{ url_for('manage.approve', card_id=p.id) }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="hash" value="{{ p.hash }}">
+    <p class="eyebrow" style="margin-bottom:6px">Approval card</p>
+    <h2>{{ p.card.title }}</h2>
+    <p class="small muted">What Campaignify will change on Meta, in {{ p.card.account }}. Asked for by {{ p.created_by or 'a teammate' }}, {{ p.created_at|localtime }}.</p>
+    <ul class="mc-lines">{% for line in p.card.lines %}<li>{{ line }}</li>{% endfor %}{% for n in p.card.notes %}<li class="small muted">{{ n }}</li>{% endfor %}</ul>
+    {% set blocks = p.card.issues|selectattr('level', 'equalto', 'block')|list %}{% set warns = p.card.issues|rejectattr('level', 'equalto', 'block')|list %}
+    {% if blocks or warns %}<ul class="mc-issues">{% for i in blocks %}<li class="block"><b>{{ i.message }}</b><span class="small muted">{{ i.fix }}</span></li>{% endfor %}{% for i in warns %}<li class="warn"><b>{{ i.message }}</b>{% if i.fix %}<span class="small muted">{{ i.fix }}</span>{% endif %}</li>{% endfor %}</ul>{% endif %}
+    {% if p.card.ai and not blocks %}
+    <div class="flash warn" style="margin:12px 0 0">{{ p.card.ai_text }} {% if p.card.manager %}<a href="{{ p.card.manager }}" target="_blank" rel="noopener noreferrer">Open Ads Manager ↗</a>{% endif %}</div>
+    <label class="mc-confirm"><input type="checkbox" name="confirm_ai" value="1" required {{ 'disabled' if not owner }}> The AI label is ticked on {{ 'that ad' if p.card.ai_count == 1 else 'those ads' }} in Ads Manager.</label>
+    {% endif %}
+    {% if p.card.big and not blocks %}<label class="mc-confirm"><input type="checkbox" name="confirm_big" value="1" required {{ 'disabled' if not owner }}> Yes, raise it by more than half.</label>{% endif %}
+    <div class="mc-acts">
+      {% if owner and not blocks %}<button class="btn">Approve and change on Meta</button>
+      {% elif not blocks %}<button class="btn" disabled aria-describedby="mc-own">Approve and change on Meta</button><span class="small muted" id="mc-own">Only the workspace owner can approve. They see this card here.</span>
+      {% else %}<span class="small muted">Fix what's above, then make the change again.</span>{% endif %}
+      {% if not viewing %}<button class="btn dark" formaction="{{ url_for('manage.discard', card_id=p.id) }}" formnovalidate>Drop it</button>{% endif %}
+    </div>
+  </form>
+  {% endif %}
+
+  <div class="panel mc-panel">
+    <h2>Ads</h2>
+    <ul class="mc-ads">
+    {% for a in ads %}
+      <li>
+        <span class="mc-ad-name"><b>Ad {{ a.n }}</b> {{ a.name }}{% if ai_kinds.get(a.n) %} <span class="tag warn">{{ 'AI presenter or voice' if ai_kinds[a.n] == 'presenter' else 'AI-made media' }}</span>{% endif %}<br><span class="small dim">id {{ a.row.external_id }}</span></span>
+        <span class="tag {{ a.word[1] }}">{{ a.word[0] }}</span>
+        {% if not viewing %}<form method="post" action="{{ url_for('manage.change', lid=L.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="target" value="{{ a.row.external_id }}">
+          {% if a.row.status == 'ACTIVE' %}<input type="hidden" name="action" value="off"><button class="btn sm dark" {{ 'disabled' if b }}>Pause ad</button>
+          {% else %}<input type="hidden" name="action" value="on"><button class="btn sm dark" {{ 'disabled' if b }}>Turn on ad</button>{% endif %}</form>{% else %}<span></span>{% endif %}
+      </li>
+    {% else %}<li><span class="muted">No ads left on Meta.</span></li>{% endfor %}
+    </ul>
+  </div>
+
+  <div class="panel mc-panel" id="history">
+    <h2>Changes</h2>
+    {% if hist %}
+    <ul class="mc-hist">{% for h in hist %}
+      <li><b>{{ h.card.title }}</b> <span class="tag {{ {'done': 'ok', 'failed': 'bad', 'waiting': 'warn', 'queued': 'warn', 'applying': 'warn'}.get(h.state, '') if h.decision == 'approved' else '' }}">{{ h.state_word if h.decision == 'approved' else 'Dropped' }}</span><br>
+        <span class="small muted">Asked for by {{ h.created_by or 'a teammate' }}, {{ h.created_at|localtime }}.{% if h.decision == 'approved' %} Approved by {{ h.decided_by }}, {{ h.decided_at|localtime }}.{% else %} Dropped by {{ h.decided_by }}.{% endif %}{% if h.applied_at %} Changed on Meta {{ h.applied_at|localtime }}.{% endif %}</span>
+        {% if h.error %}<div class="flash bad" style="margin:8px 0 0">{{ h.error }}</div>{% for c in h.card.changes if c.error %}<details><summary class="small muted">What Meta said</summary><span class="small muted">{{ c.error }}</span></details>{% endfor %}{% endif %}
+      </li>{% endfor %}
+    </ul>
+    {% else %}<p class="muted">No changes from Campaignify yet. Changes made in Ads Manager show in the status above.</p>{% endif %}
+  </div>
+</div>
+<script>
+(function(){
+  var box = document.querySelector('[data-mc-busy]'); if(!box || !window.fetch) return;
+  var poll = function(){ fetch(box.dataset.src, {headers: {'Accept': 'application/json'}}).then(function(r){ return r.json(); })
+    .then(function(d){ if(d.busy) setTimeout(poll, 4000); else location.reload(); }).catch(function(){ setTimeout(poll, 8000); }); };
+  setTimeout(poll, 4000);
+})();
+</script>
+{% endblock %}

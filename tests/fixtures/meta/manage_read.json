@@ -1,0 +1,15 @@
+{
+ "23850000000003": {
+  "id": "23850000000003",
+  "name": "Ember Candle [cfy:1:campaign]",
+  "status": "PAUSED",
+  "effective_status": "PAUSED",
+  "daily_budget": "4000"
+ },
+ "23850000000004": {
+  "id": "23850000000004",
+  "name": "Ember Candle · ad set [cfy:1:adset]",
+  "status": "PAUSED",
+  "effective_status": "CAMPAIGN_PAUSED"
+ }
+}

@@ -306,7 +306,10 @@ def _classify(platform, resp, secrets):
         if sub == 4841018:
             return RateLimited(platform, scrub(msg, secrets), retry_after=EDIT_LOCK_S, **kw), True
         if code in META_TRANSIENT or err.get("is_transient") or resp.status >= 500:
-            return RateLimited(platform, scrub(msg, secrets), retry_after=60, **kw) if code in (4, 17, 32, 613) \
+            # 4, 17, 32, 613 and the business use case limits 80000 to 80014 (80000 ads insights, 80004 ads
+            # management) mean "slow down": a wait, not a failed try.
+            return RateLimited(platform, scrub(msg, secrets), retry_after=60, **kw) \
+                if code in (4, 17, 32, 613) or (isinstance(code, int) and 80000 <= code <= 80014) \
                 else AdHttpError(platform, scrub(msg, secrets), **kw), True
         return AdHttpError(platform, scrub(msg, secrets), **kw), False
     if platform == "google":

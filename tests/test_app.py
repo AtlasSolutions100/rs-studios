@@ -3243,6 +3243,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_adpolicy.py")], check=True)
     # The launch saga, the approval card and the Meta launch steps (launches.py, launch_routes.py; M2.3): fake Graph.
     subprocess.run([sys.executable, os.path.join(HERE, "test_launches.py")], check=True)
+    # Manage a launched campaign (admanage.py, manage_routes.py; M2.4): on/off, budget, approval cards, fake Graph.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_manage.py")], check=True)
     # Google Ads connect (adplatforms/google.py, GOOGLE_ADS; M3.1): OAuth, the customer picker, errors (Google faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_google_connect.py")], check=True)
     # Google Ads launch (launch_google.py; M3.2 Search, M3.3 Performance Max): one mutate, saga, errors (Google faked).

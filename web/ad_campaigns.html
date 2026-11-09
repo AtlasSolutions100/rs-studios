@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Ad campaigns · Campaignify{% endblock %}
+{% block body %}
+{# The Campaigns page for launched campaigns (manage_routes.index, admanage.listed; roadmap M2.4). #}
+<style>
+.ac-list{list-style:none;padding:0;margin:18px 0 0;display:grid;gap:12px}
+.ac-row{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) auto;gap:14px;align-items:center}
+.ac-row h2{font-size:17px;margin:0 0 4px;overflow-wrap:anywhere}
+.ac-row h2 a{color:var(--ink);text-decoration:none}
+.ac-row h2 a:hover{text-decoration:underline}
+.ac-k{display:block;font-size:12px;color:var(--muted);margin-bottom:2px}
+.ac-go{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.ac-row .tag{white-space:nowrap}
+.ac-row .tag:not(.ok):not(.warn):not(.bad){background:var(--chipbg);border:1px solid var(--line);color:var(--muted)}
+.ac-note{grid-column:1/-1;margin:0;padding:8px 12px;border-radius:10px;background:var(--field)}
+@media (max-width:820px){.ac-row{grid-template-columns:1fr 1fr}.ac-row .ac-name{grid-column:1/-1}.ac-go{grid-column:1/-1;justify-content:flex-start}}
+@media (max-width:560px){.ac-go .btn{flex:1 1 auto;text-align:center}}
+</style>
+<div class="page full">
+  <p class="eyebrow">Launch on Meta · beta</p>
+  <h1>Ad campaigns</h1>
+  <p class="muted">The campaigns Campaignify created on your Meta ad account. Turn them on or pause them and change the daily budget here. Every change shows you a card first, and the workspace owner approves it.</p>
+
+  {% if not rows %}
+  <div class="panel" style="margin-top:18px">
+    <h2 style="margin-top:0">No campaigns yet</h2>
+    <p class="muted">Open a ready plan and use Create paused campaign in its launch kit. The campaign shows up here once it's on Meta.</p>
+    <p class="row" style="gap:10px;flex-wrap:wrap"><a class="btn" href="{{ url_for('campaigns.index') }}">Go to your plans</a>{% if not connected %} <a class="btn dark" href="{{ url_for('adconnect.settings') }}">Connect your Meta ad account</a>{% endif %}</p>
+  </div>
+  {% else %}
+  <ul class="ac-list">
+  {% for r in rows %}
+    {% set L = r.launch %}
+    <li class="panel ac-row">
+      <div class="ac-name">
+        <h2>{% if r.manageable %}<a href="{{ url_for('manage.show', lid=L.id) }}">{{ r.name }}</a>{% else %}<a href="{{ url_for('launch.status', lid=L.id) }}">{{ r.name }}</a>{% endif %}</h2>
+        <span class="small muted">{% if r.plan %}From the plan {{ r.plan }} · {% endif %}{{ r.ads }} ad{{ '' if r.ads == 1 else 's' }}{% if r.conn_row %} · {{ r.conn_row.account_name or 'Ad account' }}{% endif %}</span>
+      </div>
+      <div><span class="ac-k">Status</span><span class="tag {{ r.tag }}">{{ r.word }}</span></div>
+      <div><span class="ac-k">Daily budget</span><b>{{ r.budget_text or 'Not set' }}</b></div>
+      <div class="ac-go">
+        {% if r.manageable %}<a class="btn sm" href="{{ url_for('manage.show', lid=L.id) }}">Manage</a>{% else %}<a class="btn sm dark" href="{{ url_for('launch.status', lid=L.id) }}">See the launch</a>{% endif %}
+        {% if r.manager and r.manageable %}<a class="btn sm dark" href="{{ r.manager }}" target="_blank" rel="noopener noreferrer">Ads Manager ↗</a>{% endif %}
+      </div>
+      {% if r.busy %}<p class="ac-note small">{{ r.busy.card.title }}: {{ r.busy.state_word|lower }}.</p>
+      {% elif r.pending %}<p class="ac-note small">Waiting for approval: {{ r.pending.card.title }}. {% if owner %}<a href="{{ url_for('manage.show', lid=L.id) }}#card">Check the card</a>{% else %}The workspace owner approves it.{% endif %}</p>{% endif %}
+    </li>
+  {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endblock %}
