@@ -1,0 +1,183 @@
+{% extends "public_base.html" %}
+{# Use Campaignify in Claude: what to ask, a walkthrough and setup (the MCP server, mcp_tools.py). #}
+{% block robots %}<meta name="robots" content="{{ 'index, follow, max-image-preview:large' if on else 'noindex' }}">{% endblock %}
+{% block pubhead %}
+<style>
+.lp-sec>.lp-wrap>h2{font-size:clamp(28px,3.6vw,42px);line-height:1.1;margin:0 0 12px}
+.cl-prompts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px;margin-top:28px}
+.cl-prompt{border:1px solid var(--line);border-radius:var(--r);background:var(--card);padding:16px;display:flex;flex-direction:column;gap:10px}
+.cl-prompt .k{font:600 11px var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--gold2)}
+.cl-prompt q{quotes:none;font-size:16px;line-height:1.45}
+.cl-prompt button{align-self:flex-start;background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:6px 10px;font:500 12px var(--body);cursor:pointer}
+.cl-prompt button:hover{color:var(--ink)}
+.cl-steps{counter-reset:s;display:grid;gap:14px;margin-top:28px;max-width:880px}
+.cl-step{border:1px solid var(--line);border-radius:var(--r);background:var(--card);padding:20px 20px 20px 64px;position:relative}
+.cl-step::before{counter-increment:s;content:counter(s);position:absolute;left:20px;top:20px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--on-accent);font:700 14px/28px var(--body);text-align:center}
+.cl-step h3{margin:0 0 6px;font-size:18px}
+.cl-step>p{margin:0;color:var(--muted)}
+.cl-chat{display:grid;gap:8px;margin-top:12px}
+.cl-msg{border-radius:12px;padding:10px 12px;font-size:15px;line-height:1.5;max-width:62ch}
+.cl-msg b{display:block;font:600 11px var(--body);letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px;color:var(--muted)}
+.cl-msg.you{justify-self:end;background:rgba(var(--accent-rgb),.10);border:1px solid rgba(var(--accent-rgb),.28)}
+.cl-msg.ai{background:var(--panel);border:1px solid var(--line)}
+.cl-msg .tool{display:block;margin-top:6px;font:500 12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--link)}
+.cl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px;margin-top:28px}
+.cl-card{border:1px solid var(--line);border-radius:var(--r);background:var(--card);padding:20px}
+.cl-card h3{margin:0 0 8px;font-size:17px}
+.cl-card p{margin:0;color:var(--muted);font-size:15px}
+.cl-card ol{margin:10px 0 0;padding-left:20px}
+.cl-card li{margin:7px 0}
+.cl-card pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:10px 0}
+.cl-fine{margin-top:22px;max-width:80ch}
+@media (max-width:560px){.cl-step{padding:56px 14px 16px}.cl-step::before{left:14px;top:16px}.cl-msg{max-width:100%}}
+</style>
+{% endblock %}
+{% block main %}
+<section class="lp-hero lp-hero-sm">
+  <div class="lp-wrap">
+    <p class="eyebrow">Campaignify in Claude</p>
+    <h1>Make your ads from a chat.</h1>
+    <p class="lp-lede">Connect Campaignify to Claude and just ask. Price and make image ads and AI presenter videos, write ad copy, plan a campaign or size up your competitors. Claude shows you the credit total first, and nothing is made until you agree.</p>
+    {% if not on %}<p class="muted"><b>Coming soon.</b> The Claude connection isn't open on this site yet. This page shows how it will work.</p>{% endif %}
+    <div class="lp-cta">
+      <a class="btn lg" href="#setup">Connect in 2 minutes</a>
+      <a class="lp-textlink" href="{{ url_for('mcp_docs') }}">Read the docs →</a>
+    </div>
+  </div>
+</section>
+
+<section class="lp-sec" id="ask">
+  <div class="lp-wrap">
+    <p class="eyebrow">What you can ask</p>
+    <h2>Plain words work.</h2>
+    <p class="lp-lede">Claude picks the right Campaignify tool. These are good places to start.</p>
+    <div class="cl-prompts">
+      {% for kind, text in prompts %}
+      <div class="cl-prompt"><span class="k">{{ kind }}</span><q>{{ text }}</q><button type="button" data-copy="{{ text }}">Copy</button></div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="lp-sec" id="walkthrough">
+  <div class="lp-wrap">
+    <p class="eyebrow">Walkthrough</p>
+    <h2>From a product to finished ads.</h2>
+    <p class="lp-lede">A real session looks like this. The tool names show what Claude calls behind the scenes; you never have to type them.</p>
+    <div class="cl-steps">
+      <div class="cl-step">
+        <h3>Pick the product</h3>
+        <p>Claude reads your brands and products, with their approved claims and photos.</p>
+        <div class="cl-chat">
+          <div class="cl-msg you"><b>You</b>What products do I have set up?</div>
+          <div class="cl-msg ai"><b>Claude</b>You have 13 brands. For The Morning Upgrade there's "MCT Coffee with L-Theanine, One Scoop", with 1 photo and 7 approved claims.<span class="tool">list_brands_products · get_product</span></div>
+        </div>
+      </div>
+      <div class="cl-step">
+        <h3>Get the price first</h3>
+        <p>Every image ad and video is priced before anything is made.</p>
+        <div class="cl-chat">
+          <div class="cl-msg you"><b>You</b>Price image ads for it with the headline "One scoop. Your whole morning." in square and vertical.</div>
+          <div class="cl-msg ai"><b>Claude</b>That's 2 image ads at 22 credits each, 44 credits in all. You have 11,888. Want me to make them?<span class="tool">quote_ad_batch</span></div>
+        </div>
+      </div>
+      <div class="cl-step">
+        <h3>Make them when you say so</h3>
+        <p>Claude passes the exact total you agreed to. If the price changed, nothing is made.</p>
+        <div class="cl-chat">
+          <div class="cl-msg you"><b>You</b>Yes, make them.</div>
+          <div class="cl-msg ai"><b>Claude</b>Started batch 27 for 44 credits. I'll tell you when both are ready.<span class="tool">generate_image_ads · get_batch</span></div>
+        </div>
+      </div>
+      <div class="cl-step">
+        <h3>Write the copy and plan the launch</h3>
+        <p>Copy and plans are charged at what they use, up to a cap Claude can show you first.</p>
+        <div class="cl-chat">
+          <div class="cl-msg you"><b>You</b>Write 3 Meta ad variants for it, then plan a 2-week test at $30 a day on Meta and TikTok.</div>
+          <div class="cl-msg ai"><b>Claude</b>Here are 3 variants, each checked against your approved claims. The plan is started too (up to 150 credits); it splits the budget, lists the ads to make and gives you a day-by-day test plan.<span class="tool">generate_ad_copy · start_campaign_plan · get_campaign_plan</span></div>
+        </div>
+      </div>
+      <div class="cl-step">
+        <h3>Download and launch</h3>
+        <p>Grab the files and run them in each platform's ads manager. Campaignify makes the creative; it doesn't post or run ads for you.</p>
+        <div class="cl-chat">
+          <div class="cl-msg you"><b>You</b>Give me download links for the two new ads.</div>
+          <div class="cl-msg ai"><b>Claude</b>Here they are. Each link works for one hour.<span class="tool">list_assets · get_asset_download_url</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="lp-sec" id="control">
+  <div class="lp-wrap">
+    <p class="eyebrow">You stay in control</p>
+    <h2>Nothing is made until you agree.</h2>
+    <div class="cl-grid">
+      <div class="cl-card"><h3>Credits shown first</h3><p>Image ads and videos are made only with the exact total from the quote you saw.</p></div>
+      <div class="cl-card"><h3>Same checks as the app</h3><p>Your plan's tools, your credits and the same compliance checks on every brief and piece of copy.</p></div>
+      <div class="cl-card"><h3>AI people are labeled</h3><p>AI presenters are generated people, never real ones. Videos need a confirmed email, as in the app.</p></div>
+      <div class="cl-card"><h3>Read only if you like</h3><p>Connect read only to look around without spending anything, or block single tools in Claude.</p></div>
+      <div class="cl-card"><h3>Turn it off any time</h3><p>Disconnect in Campaignify under Settings, API and Claude, or remove the connector in Claude.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="lp-sec" id="setup">
+  <div class="lp-wrap">
+    <p class="eyebrow">Set it up</p>
+    <h2>Two minutes, no code.</h2>
+    <p class="lp-lede">You need a Campaignify account and Claude on any plan. On the Free plan, Claude allows one custom connector.</p>
+    <div class="cl-grid">
+      <div class="cl-card">
+        <h3>Claude on the web, desktop or phone</h3>
+        <ol>
+          <li>In Claude, open <b>Customize</b>, then <b>Connectors</b>.</li>
+          <li>Click <b>+ Add</b>, then <b>Add custom connector</b>.</li>
+          <li>Name it <b>Campaignify</b>, paste <code>{{ url }}</code> and click <b>Continue</b>.</li>
+          <li>Keep the settings Claude detects and click <b>Add</b>.</li>
+          <li>Log in to Campaignify and choose <b>read only</b> or <b>read and write</b> (read and write can spend credits).</li>
+          <li>In a chat, click <b>+</b>, then <b>Connectors</b>, and switch Campaignify on.</li>
+        </ol>
+      </div>
+      <div class="cl-card">
+        <h3>Claude Team or Enterprise</h3>
+        <ol>
+          <li>An owner opens <b>Organization settings</b>, then <b>Connectors</b>.</li>
+          <li>Click <b>Add</b>, then <b>Custom</b>, then <b>Web</b>, and paste <code>{{ url }}</code>.</li>
+          <li>Each member then finds Campaignify under <b>Customize</b>, <b>Connectors</b> and clicks <b>Connect</b> to log in with their own Campaignify account.</li>
+        </ol>
+      </div>
+      <div class="cl-card">
+        <h3>Claude Code</h3>
+        <p>Add it, then run <code>/mcp</code> and pick Campaignify to log in:</p>
+        <pre><code>claude mcp add --transport http campaignify {{ url }}</code></pre>
+        <p>Prefer a key? Make one under Settings, API and Claude, and see the <a href="{{ url_for('mcp_docs') }}">docs</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="lp-sec" id="faq">
+  <div class="lp-wrap lp-faq">
+    <div><p class="eyebrow">Questions</p><h2>Good to know.</h2></div>
+    <div>
+      <details><summary>Does it cost extra?</summary><p>No. Ads, copy and plans made from Claude use the same credits as in the app, and looking at your products and assets is free.</p></details>
+      <details><summary>Can Claude spend my credits without asking?</summary><p>Image ads and videos need the exact total from a quote, and Claude asks you before it makes them. You can also connect read only, or block single tools in Claude under Customize, Connectors.</p></details>
+      <details><summary>Can it run my ads?</summary><p>No. Campaignify makes the creative, copy and plan. You launch the ads in each platform's ads manager.</p></details>
+      <details><summary>Which apps does it work with?</summary><p>Claude on the web, desktop and phone, Claude Code, and other apps that support remote MCP servers. Setup for each is in the <a href="{{ url_for('mcp_docs') }}">docs</a>.</p></details>
+      <details><summary>The logo or tools look out of date in Claude.</summary><p>Claude saves a connector's details when you add it. Remove the connector and add it again to refresh them.</p></details>
+    </div>
+  </div>
+  <div class="lp-wrap"><p class="small dim cl-fine">Claude is made by Anthropic. Campaignify is an independent app that connects to Claude through the Model Context Protocol (MCP), and isn't made or endorsed by Anthropic.</p></div>
+</section>
+<script>
+document.querySelectorAll('[data-copy]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var t = b.getAttribute('data-copy');
+    try { navigator.clipboard.writeText(t).then(function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }); }
+    catch (e) { b.textContent = 'Select and copy'; }
+  });
+});
+</script>
+{% endblock %}
