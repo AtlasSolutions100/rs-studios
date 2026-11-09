@@ -21,6 +21,9 @@ nothing serves before that. Every name ends in "[cfy:<launch id>:<step>]": a run
 already (a lost answer, a crash) finds its campaign with GAQL instead of making a second one, and Google
 refuses a second campaign with the same name anyway (DUPLICATE_CAMPAIGN_NAME). Status comes from GAQL.
 
+Report: pull_insights reads daily campaign numbers with one GAQL search (campaign by segments.date: cost,
+impressions, clicks, conversions and their value) for adinsights.py, which stores them in ad_insights_daily.
+
 Access (research B2, Google's developer-token page as of 2026-11-08): developer tokens were sunset on
 2026-09-09. The API ignores the developer-token header, and the access level (Test, Explorer, Basic,
 Standard) belongs to the Google Cloud project that owns the OAuth client below. So no developer token is
@@ -325,10 +328,13 @@ class Google:
     def upload_asset(self, ctx: dict, step: dict) -> dict:
         return _upload(step, ctx)
 
-    def _later(self, *a, **kw):
-        raise NotImplementedError("manage and report for Google arrive after M3.3")
+    def pull_insights(self, ctx: dict, objects, day_range) -> list:
+        return pull_insights(ctx, objects, day_range)
 
-    validate = set_status = update_budget = pull_insights = _later
+    def _later(self, *a, **kw):
+        raise NotImplementedError("manage for Google arrives after M3.3")
+
+    validate = set_status = update_budget = _later
 
 
 ADAPTER = Google()
@@ -843,6 +849,45 @@ def verify(step: dict, ctx: dict) -> bool:
     if not rows:
         return False
     return res == "asset" or str((rows[0].get("campaign") or {}).get("status") or "") != "REMOVED"
+
+
+# ---------------------------------------------------------------- report (adinsights.py)
+
+def pull_insights(ctx: dict, objects, day_range) -> list:
+    """Daily numbers for the launched campaigns, one GAQL search on campaign by segments.date, as rows in the
+    ad_insights_daily shape (campaign level). ctx: token (the refresh token), account (customer id), login, currency.
+    day_range: (first, last) in the customer's own dates (Google's segments.date is the account's time zone).
+    cost_micros is in the account's currency; conversions and their value are Google's primary conversions."""
+    ids = sorted({re.sub(r"\D", "", str(o.get("external_id") or "")) for o in objects if o.get("kind") == "campaign"}
+                 - {""})
+    if not ids:
+        return []
+    first, last = (str(d)[:10] for d in day_range)
+    if not (re.fullmatch(r"\d{4}-\d{2}-\d{2}", first) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", last)):
+        raise ValueError("day_range must be two YYYY-MM-DD dates")
+    cur = ctx.get("currency") or "USD"
+    per_minor = 1_000_000 // adspec.minor_factor(cur)
+    q = ("SELECT campaign.id, segments.date, metrics.cost_micros, metrics.impressions, metrics.clicks, "
+         "metrics.conversions, metrics.conversions_value FROM campaign "
+         f"WHERE campaign.id IN ({', '.join(ids)}) AND segments.date BETWEEN '{first}' AND '{last}'")
+    out = []
+    for r in search(_ctx_access(ctx), ctx["account"], q, login=ctx.get("login"),
+                    max_wait=float(ctx.get("max_wait") or 0)):
+        c, seg, m = r.get("campaign") or {}, r.get("segments") or {}, r.get("metrics") or {}
+
+        def num(k, d=0.0):
+            try:
+                return float(m.get(k) if m.get(k) not in (None, "") else d)
+            except (TypeError, ValueError):
+                return d
+        out.append({"platform": "google", "external_object_id": str(c.get("id") or ""), "level": "campaign",
+                    "day": str(seg.get("date") or "")[:10], "currency": cur,
+                    "spend_minor": int(num("costMicros")) // per_minor, "impressions": int(num("impressions")),
+                    "clicks": int(num("clicks")), "link_clicks": int(num("clicks")),
+                    "conversions": int(round(num("conversions"))),
+                    "conversion_value_minor": int(round(num("conversionsValue") * adspec.minor_factor(cur))),
+                    "raw_json": json.dumps(m, separators=(",", ":"))[:2000]})
+    return out
 
 
 # ---------------------------------------------------------------- errors in plain words

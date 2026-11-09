@@ -782,26 +782,34 @@ def summary(conn, L) -> dict:
     cur = (conn_row["currency"] if conn_row is not None else None) or spec.get("currency") or "USD"
     plan = conn.execute("SELECT name FROM campaigns WHERE id=? AND workspace_id=?", (L["plan_id"] or 0,
                                                                                      L["workspace_id"])).fetchone()
+    meta = L["platform"] == "meta"
+    pword = launches.PLATFORM_WORDS.get(L["platform"], "the platform")
     if L["status"] == "paused" and camp is not None:
-        word, tag = status_word(camp)
+        # Meta's status is read back (sync); the other platforms' campaigns are made paused and turned on there
+        word, tag = status_word(camp) if meta else ("Created paused", "")
     else:
         word, tag = {"queued": ("Being created", "warn"), "launching": ("Being created", "warn"),
                      "failed": ("Launch stopped", "bad"), "rolled_back": ("Launch stopped", "bad")}.get(
-            L["status"], ("Not on Meta", ""))
+            L["status"], (f"Not on {pword}", ""))
     budget = budget_of(L, camp)
     live = busy(conn, L)
     return {"launch": L, "name": (camp["name"] if camp is not None else None) or spec.get("name") or "Campaign",
             "plan": plan["name"] if plan else None, "word": word, "tag": tag, "on": camp is not None and
-            camp["status"] == "ACTIVE", "manageable": L["status"] == "paused" and camp is not None,
+            camp["status"] == "ACTIVE", "manageable": meta and L["status"] == "paused" and camp is not None,
+            # numbers are pulled for every platform (adinsights.py); only Meta's are changed from here
+            "reported": L["status"] == "paused" and camp is not None,
+            "platform": L["platform"], "platform_word": pword,
+            "manager_word": launches.MANAGER_WORDS.get(L["platform"], "Ads manager"),
             "budget": budget, "budget_text": f"{money(budget, cur)} a day" if budget is not None else "",
             "currency": cur, "ads": len(obj["ads"]), "objects": obj, "conn_row": conn_row,
-            "manager": launches.ads_manager_url(conn_row["external_account_id"], L["external_campaign_id"])
+            "manager": launches.manager_url(L["platform"], conn_row["external_account_id"], L["external_campaign_id"])
             if conn_row is not None else None,
             "busy": card_view(conn, live) if live else None, "pending": pending(conn, L),
             "synced_at": camp["synced_at"] if camp is not None else None}
 
 
 def listed(conn, ws_id: int) -> list:
-    """Every launch of the workspace, newest first, as the Campaigns page lists them."""
-    return [summary(conn, L) for L in conn.execute("SELECT * FROM launches WHERE workspace_id=? AND platform='meta' "
-                                                   "ORDER BY id DESC", (int(ws_id),)).fetchall()]
+    """Every launch of the workspace on every platform, newest first, as the Campaigns page lists them (only Meta's
+    are manageable here; the others link to their own ads manager)."""
+    return [summary(conn, L) for L in conn.execute("SELECT * FROM launches WHERE workspace_id=? ORDER BY id DESC",
+                                                   (int(ws_id),)).fetchall()]

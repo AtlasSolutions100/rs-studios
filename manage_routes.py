@@ -1,9 +1,10 @@
 """The Campaigns page for launched campaigns (roadmap M2.4; admanage.py does the work).
 
-    GET  /app/ad-campaigns                       every launch with its status on Meta, budget, pending changes
+    GET  /app/ad-campaigns                       every launch on every platform with its status, budget, results and
+                                                 pending changes (Meta's are managed here; the others link out)
     GET  /app/ad-campaigns/<lid>                 one campaign: its ads, turn on or pause, the daily budget, the card
     GET  /app/ad-campaigns/<lid>.json            the state of a change being made (the page polls while it waits)
-    POST /app/ad-campaigns/refresh               "Update now": pull Meta's numbers soon (adinsights.refresh, M2.5)
+    POST /app/ad-campaigns/refresh               "Update now": pull every platform's numbers soon (adinsights.refresh)
     POST /app/ad-campaigns/<lid>/change          draft a change card: action=on|off|budget, target=campaign|<ad id>
     POST /app/ad-cards/<card_id>/approve         the owner approves the card shown (hash, confirm_big, confirm_ai)
     POST /app/ad-cards/<card_id>/discard         drop an undecided card (the owner, or who drafted it)
@@ -89,8 +90,8 @@ def refresh():
         abort(403, "Viewing as admin is read-only.")
     with db.connect() as conn:
         moved = adinsights.refresh(conn, g.ws["id"])
-    flash("Getting the latest numbers from Meta. They show here within a few minutes." if moved else
-          "The numbers were updated in the last 15 minutes. Meta itself updates them every few hours.")
+    flash("Getting the latest numbers from your ad accounts. They show here within a few minutes." if moved else
+          "The numbers were updated in the last 15 minutes. The ad platforms update them every few hours.")
     return redirect(request.form.get("next") if (request.form.get("next") or "").startswith("/app/ad-campaigns")
                     else url_for("manage.index"))
 

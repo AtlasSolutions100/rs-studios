@@ -138,7 +138,7 @@
         {% else %}<td colspan="7" class="muted">Nothing shown in this range.</td>{% endif %}<td>{{ '{:,}'.format(nl) }}</td><td>{{ money(cpl, s.currency) if cpl is not none else 'None yet' }}</td></tr>{% endfor %}</tbody>
     </table></div>
     {% endif %}
-    {{ af.updated(ins) }}
+    {{ af.updated(ins, "Meta") }}
   </section>
 
   {% if fat.tired %}
