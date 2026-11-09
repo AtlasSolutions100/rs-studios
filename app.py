@@ -282,6 +282,7 @@ def _hold_banner():
 
 
 CSRF_EXEMPT = {"static", "stripe_webhook", "site_event", "forms.public", "messaging.resend_webhook", "messaging.unsubscribe",
+               "manage.weekly_unsub",   # the weekly report's one-click unsubscribe (signed token, no login; M4.4)
                "sms.inbound", "sms.status",
                "cpools.partner_asset_url", "cpools.partner_event",  # Crowdcut's server calls, HMAC-signed (creator_pools.py)  # public forms carry their own signed token
                # MCP clients (mcpserver.py): Bearer tokens or OAuth client credentials, never cookies

@@ -16,7 +16,7 @@ of what was shown; what is applied is the stored card, re-checked against Meta a
 """
 import logging
 
-from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, Response, abort, current_app, flash, g, jsonify, redirect, render_template, request, url_for
 
 import adfatigue
 import adinsights
@@ -26,6 +26,7 @@ import adspec
 import db
 import launches
 import plans
+import weekly_report
 from core import is_owner, login_required
 
 log = logging.getLogger("campaignify.manage")
@@ -73,7 +74,9 @@ def index():
         other_leads = adleads.unmatched(conn, g.ws["id"], key, conn_row["timezone"] if conn_row else None)
         totals = adinsights.workspace_totals(conn, g.ws["id"], key)
         ins = adinsights.status(conn, g.ws["id"])
+    weekly_on = weekly_report.enabled() and not g.user["weekly_report_off"]
     return render_template("ad_campaigns.html", rows=rows, connected=connected, owner=_owner_ok(), totals=totals, ins=ins,
+                           weekly_on=weekly_on, weekly_enabled=weekly_report.enabled(),
                            key=key, ranges=adinsights.RANGES, money=launches.money, other_leads=other_leads,
                            platform_words=adleads.PLATFORM_WORDS)
 
@@ -90,6 +93,37 @@ def refresh():
           "The numbers were updated in the last 15 minutes. Meta itself updates them every few hours.")
     return redirect(request.form.get("next") if (request.form.get("next") or "").startswith("/app/ad-campaigns")
                     else url_for("manage.index"))
+
+
+@bp.route("/app/ad-campaigns/weekly-report", methods=["POST"])
+@login_required
+def weekly_toggle():
+    """The owner's weekly report email on or off (weekly_report.py, M4.4)."""
+    _on()
+    if g.get("viewing"):
+        abort(403, "Viewing as admin is read-only.")
+    off = request.form.get("weekly") != "on"
+    with db.connect() as conn:
+        weekly_report.set_off(conn, g.user["id"], off)
+    flash("Weekly report emails are off." if off else "Weekly report emails are on. The next one comes on Monday "
+          "when your campaigns have something to report.")
+    return redirect(url_for("manage.index") + "#weekly")
+
+
+@bp.route("/u/weekly/<token>", methods=["GET", "POST"])
+def weekly_unsub(token):
+    """One-click unsubscribe from the weekly report: the List-Unsubscribe-Post header or the button. No login."""
+    with db.connect() as conn:
+        u = weekly_report.user_of_token(conn, current_app.secret_key, token)
+        if u is None:
+            abort(404)
+        done = bool(u["weekly_report_off"])
+        if request.method == "POST":
+            weekly_report.set_off(conn, u["id"], True)
+            if not request.form.get("confirm"):      # mail apps' one-click POST
+                return Response("Unsubscribed.", mimetype="text/plain")
+            done = True
+    return render_template("weekly_unsub.html", token=token, done=done)
 
 
 @bp.route("/app/ad-campaigns/<int:lid>")

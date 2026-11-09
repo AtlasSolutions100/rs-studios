@@ -3261,6 +3261,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_lead_attribution.py")], check=True)
     # Creative fatigue (adfatigue.py, M4.2): the flag on fixtures, the winning angle, Create's refresh hint, no auto-spend.
     subprocess.run([sys.executable, os.path.join(HERE, "test_fatigue.py")], check=True)
+    # The weekly report email (weekly_report.py, M4.4): when, the fixture render, nurture budget, unsubscribe, switches.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_weekly_report.py")], check=True)
     # Conversion tracking on members' pages and forms (conversions.py, M3.4): event ids, pixels, CAPI, Events API, Data Manager.
     subprocess.run([sys.executable, os.path.join(HERE, "test_conversions.py")], check=True)
     # Google Ads conversion actions and the Google tag on members' pages (conversion_actions.py, M3.5; Google faked).

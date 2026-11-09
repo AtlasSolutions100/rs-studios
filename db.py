@@ -690,6 +690,14 @@ CREATE TABLE IF NOT EXISTS lead_sources (
     created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_lead_sources_launch ON lead_sources(workspace_id, launch_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_lead_sources_contact ON lead_sources(workspace_id, contact_id);
+-- weekly_reports (weekly_report.py, roadmap M4.4): one row per workspace, person and report week (the Monday it was
+-- due), written before the send so nobody is mailed twice. status: sending | sent | failed | nothing (no numbers).
+CREATE TABLE IF NOT EXISTS weekly_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL, user_id INTEGER NOT NULL, week TEXT NOT NULL,
+    status TEXT NOT NULL, subject TEXT, error TEXT,
+    created_at TEXT NOT NULL, sent_at TEXT,
+    UNIQUE (workspace_id, user_id, week));
 -- Conversion tracking on members' own pages and forms (conversions.py, site_events.py; roadmap M3.4).
 -- page_events: the first-party collector. One row per page view sent server side and per form lead, with the
 -- UUID the browser pixels fire with. No IP address, no raw email or phone: hashes_json holds SHA-256 values only.
@@ -886,6 +894,7 @@ COLUMNS = [
     ("ad_connections", "insights_at", "TEXT"),        # the last pull that worked
     ("ad_connections", "insights_next_at", "TEXT"),   # when the next pull is due (a rate limit pushes it out)
     ("ad_connections", "insights_error", "TEXT"),     # the last pull's problem, in plain words
+    ("users", "weekly_report_off", "TEXT"),           # when they stopped the weekly report email (weekly_report.py, M4.4)
     # conversion tracking on members' pages and forms (conversions.py, M3.4): the owner's measurement setting
     # ('us': visitors in the US who send no GPC / Do Not Track; 'off': never), and per pixel the Test Events code
     ("pages", "measurement", "TEXT NOT NULL DEFAULT 'us'"),
