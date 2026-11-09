@@ -675,6 +675,21 @@ CREATE TABLE IF NOT EXISTS ad_insights_daily (
     UNIQUE (platform, external_object_id, day));
 CREATE INDEX IF NOT EXISTS idx_insights_launch ON ad_insights_daily(launch_id, day);
 CREATE INDEX IF NOT EXISTS idx_insights_ws ON ad_insights_daily(workspace_id, day);
+-- lead_sources (adleads.py, roadmap M4.1): which ad brought each form lead. One row per sent form that carried ad
+-- tags or a click id; the ad and its launch when they match this workspace's launched objects.
+CREATE TABLE IF NOT EXISTS lead_sources (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL,
+    contact_id INTEGER, submission_id INTEGER UNIQUE, form_id INTEGER, page_slug TEXT,
+    platform TEXT,                           -- meta | google | tiktok | snapchat (NULL: tags without an ad platform)
+    launch_id INTEGER,                       -- the Campaignify launch of the ad, when matched
+    campaign_external_id TEXT, ad_external_id TEXT,
+    matched TEXT NOT NULL DEFAULT 'none',    -- ad | campaign | platform | none
+    utm_source TEXT, utm_medium TEXT, utm_campaign TEXT, utm_content TEXT, utm_term TEXT,
+    click_type TEXT, click_id TEXT,          -- gclid | fbclid | ttclid (only when the page or form measures visitors)
+    created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_lead_sources_launch ON lead_sources(workspace_id, launch_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_lead_sources_contact ON lead_sources(workspace_id, contact_id);
 -- Conversion tracking on members' own pages and forms (conversions.py, site_events.py; roadmap M3.4).
 -- page_events: the first-party collector. One row per page view sent server side and per form lead, with the
 -- UUID the browser pixels fire with. No IP address, no raw email or phone: hashes_json holds SHA-256 values only.

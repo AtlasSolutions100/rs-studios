@@ -11,6 +11,7 @@ from flask import (Blueprint, abort, flash, g, make_response, redirect, render_t
                    url_for)
 
 import adhub
+import adleads
 import compliance
 import conversions
 import copywriter
@@ -324,7 +325,9 @@ def _render_public(p, preview=False, track=None):
                                          dims=dims, share=share, share_text=pages.share_text(p, blocks),
                                          faq_items=pages.faq_items, lines=pages.lines, preview=preview, forms=forms,
                                          form_css=formsmod.logic_css, px=track,
-                                         px_form=(lambda: conversions.form_fields(request)) if track else None))
+                                         px_form=(lambda: conversions.form_fields(request)) if track else None,
+                                         lead_fields=None if preview else (lambda: adleads.hidden_fields(
+                                             request.args, measured=p["measurement"] != "off"))))
     resp.headers["Content-Security-Policy"] = pages.csp(track)
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"

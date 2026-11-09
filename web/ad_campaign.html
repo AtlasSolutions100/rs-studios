@@ -39,7 +39,7 @@
 .mc-bars li{flex:1;height:100%;display:flex;align-items:flex-end}
 .mc-bars .bar{display:block;width:100%;min-height:2px;background:var(--accent);border-radius:4px 4px 0 0}
 .mc-bars-ax{display:flex;justify-content:space-between}
-.mc-table{min-width:720px;margin-top:12px}
+.mc-table{min-width:880px;margin-top:12px}
 .mc-table th,.mc-table td{text-align:right;padding:8px 10px;white-space:nowrap}
 .mc-table th:first-child{text-align:left;white-space:normal}
 .mc-table tbody th{text-transform:none;letter-spacing:0;font-weight:600;color:var(--ink)}
@@ -121,22 +121,33 @@
     </div>
     {{ af.range_tabs(key, ranges, url_for('manage.show', lid=L.id)) }}
     {{ af.tiles(fig, fig.cur or s.currency, money, full=True) }}
+    {{ af.our_leads(leads, fig, fig.cur or s.currency, money) }}
     {% set top = days|map(attribute=1)|max %}
     <figure class="mc-bars" aria-labelledby="mc-bars-cap">
       <figcaption id="mc-bars-cap" class="small muted">Spent per day, last 14 days</figcaption>
       <ol>{% for d, sp, res in days %}<li title="{{ d }}: {{ money(sp, s.currency) }}, {{ res }} {{ fig.words[0]|lower }}"><span class="bar" style="height:{{ (sp * 100 / top)|round(1) if top else 0 }}%"></span><span class="sr">{{ d }}: {{ money(sp, s.currency) }} spent, {{ res }} {{ fig.words[0]|lower }}</span></li>{% endfor %}</ol>
       <div class="small dim mc-bars-ax"><span>{{ days[0][0] }}</span><span>Today</span></div>
     </figure>
-    {% if ad_fig %}
+    {% if ad_fig or leads.by_ad %}
     <div class="scrollx"><table class="mc-table">
-      <thead><tr><th scope="col">Ad</th><th scope="col">Spent</th><th scope="col">Times shown</th><th scope="col">Link clicks</th><th scope="col">Click rate</th><th scope="col">Cost per click</th><th scope="col">{{ fig.words[0] }}</th><th scope="col">{{ fig.words[1] }}</th></tr></thead>
-      <tbody>{% for a in ads %}{% set f = ad_fig.get(a.row.external_id) %}<tr><th scope="row">Ad {{ a.n }} <span class="dim">{{ a.name }}</span></th>
+      <thead><tr><th scope="col">Ad</th><th scope="col">Spent</th><th scope="col">Times shown</th><th scope="col">Link clicks</th><th scope="col">Click rate</th><th scope="col">Cost per click</th><th scope="col">{{ fig.words[0] }}</th><th scope="col">{{ fig.words[1] }}</th><th scope="col">Form leads</th><th scope="col">Cost per form lead</th></tr></thead>
+      <tbody>{% for a in ads %}{% set f = ad_fig.get(a.row.external_id) %}{% set nl = leads.by_ad.get(a.row.external_id, 0) %}{% set cpl = leads.ad_cpl.get(a.row.external_id) %}<tr><th scope="row">Ad {{ a.n }} <span class="dim">{{ a.name }}</span></th>
         {% if f %}<td>{{ money(f.spend, s.currency) }}</td><td>{{ '{:,}'.format(f.imp) }}</td><td>{{ '{:,}'.format(f.link) }}</td><td>{{ '%.2f'|format(f.ctr) ~ '%' if f.ctr is not none else 'None yet' }}</td><td>{{ money(f.cpc, s.currency) if f.cpc is not none else 'None yet' }}</td><td>{{ '{:,}'.format(f.results) }}</td><td>{{ money(f.cpr, s.currency) if f.cpr is not none else 'None yet' }}</td>
-        {% else %}<td colspan="7" class="muted">Nothing shown in this range.</td>{% endif %}</tr>{% endfor %}</tbody>
+        {% else %}<td colspan="7" class="muted">Nothing shown in this range.</td>{% endif %}<td>{{ '{:,}'.format(nl) }}</td><td>{{ money(cpl, s.currency) if cpl is not none else 'None yet' }}</td></tr>{% endfor %}</tbody>
     </table></div>
     {% endif %}
     {{ af.updated(ins) }}
   </section>
+
+  {% if recent %}{% set adn = {} %}{% for a in ads %}{% set _ = adn.update({a.row.external_id: a}) %}{% endfor %}
+  <section class="panel mc-panel" aria-labelledby="mc-leads">
+    <h2 id="mc-leads">Latest leads from this campaign</h2>
+    <p class="small muted" style="margin:0 0 6px">People who sent one of your forms after clicking these ads. Your flows send them their texts and emails as usual.</p>
+    <ul class="mc-hist">{% for r in recent %}{% set a = adn.get(r.ad_external_id) %}
+      <li><b>{% if r.contact_id and r.cemail %}<a href="{{ url_for('forms.contact', cid=r.contact_id) }}">{{ r.cname or r.cemail }}</a>{% else %}A lead without an email{% endif %}</b>
+        <span class="small muted">· {% if a %}Ad {{ a.n }} {{ a.name }}{% elif r.ad_external_id %}Ad id {{ r.ad_external_id }}{% else %}Ad not in the link{% endif %} · {{ r.created_at|localtime }}{% if r.page_slug %} · /p/{{ r.page_slug }}{% endif %}</span></li>{% endfor %}</ul>
+  </section>
+  {% endif %}
 
   <div class="panel mc-panel">
     <h2>Ads</h2>

@@ -7,6 +7,7 @@
   {% if ctx.link %}<input type="hidden" name="_l" value="{{ ctx.link }}">{% endif %}
   {% for k in ('utm_source', 'utm_medium', 'utm_campaign') %}{% if ctx[k] %}<input type="hidden" name="{{ k }}" value="{{ ctx[k] }}">{% endif %}{% endfor %}
   {% for k, v in (ctx.track or {}).items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+  {% for k, v in (ctx.attr or {}).items() if k not in ('utm_source', 'utm_medium', 'utm_campaign') or not ctx[k] %}{% if k not in (ctx.track or {}) %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
   <div class="pp-hp" aria-hidden="true"><label for="{{ fid }}-website">Website</label><input id="{{ fid }}-website" type="text" name="website" tabindex="-1" autocomplete="off"></div>
   {% for f in fields %}{% set nm = 'f_' ~ f.key %}{% set iid = fid ~ '-' ~ f.key %}
   <div class="fld fld-{{ f.key }}">
