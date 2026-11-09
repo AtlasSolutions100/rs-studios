@@ -1,6 +1,11 @@
 """End-to-end checks on a throwaway database with the generation API faked.
 
-    python tests/test_app.py
+    python tests/test_app.py          # every suite, each in its own process (tests/run_all.py)
+    RS_TEST_ONE=1 python tests/test_app.py   # only this file's own checks
+
+Run as a script, this file hands over to tests/run_all.py, which runs this file's checks and then every other
+suite, keeps going when one fails and reports them all at the end (roadmap M7.6). The `__main__` block at the
+bottom is the list of suites, in order, with what each covers; run_all.py reads it.
 """
 import io
 import os
@@ -10,6 +15,10 @@ import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+if __name__ == "__main__" and not os.environ.get("RS_TEST_ONE"):
+    sys.path.insert(0, HERE)
+    import run_all  # noqa: E402
+    sys.exit(run_all.main(sys.argv[1:]))
 sys.path.insert(0, os.path.dirname(HERE))
 TMP = tempfile.mkdtemp(prefix="rs_test_")
 os.environ.setdefault("RS_SIGNUP_CONFIRM", "0")  # sign-ups here go straight in; test_login.py checks the emailed-link step
@@ -3170,7 +3179,9 @@ check(">Save</a>" not in html and 'class="mtop-cr"' in html, "library cards say 
 
 print(f"\nall {passed} checks passed ({TMP})")
 
-if __name__ == "__main__":
+if __name__ == "__main__" and not os.environ.get("RS_TEST_ONE"):
+    # Not reached when run as a script (the top of this file hands over to tests/run_all.py, which runs these
+    # in this order, each even when an earlier one failed). Kept as the ordered list of suites run_all.py reads.
     # Brands & products, the creation flow and the setup assistant run in their
     # own process (their own throwaway database).
     import subprocess
