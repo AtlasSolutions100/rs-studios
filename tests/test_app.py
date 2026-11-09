@@ -3225,6 +3225,8 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_email_priority.py")], check=True)
     # Vendor retry, idempotent resubmits, timeouts canceled at the vendor, the Cancel button (hf.py, worker.py; HTTP faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_vendor_retry.py")], check=True)
+    # The worker as its own process (workerproc.py, tasks.py, M7.2): the queue, /health per release, the lease, SIGTERM.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_worker_process.py")], check=True)
     # Refunds and disputes (billing_holds.py): credits voided, downloads-only hold, dispute won, event-id dedupe.
     subprocess.run([sys.executable, os.path.join(HERE, "test_billing_holds.py")], check=True)
     # Plans on only when paid (pending), a paid period kept to its end, a failed renewal paused with credits kept.
@@ -3275,5 +3277,3 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_create_polish.py")], check=True)
     # Accessibility pass (M5.6): light-theme status colours, skip link, input labels, h1s, focus ring, hero alt.
     subprocess.run([sys.executable, os.path.join(HERE, "test_a11y.py")], check=True)
-    # The worker as its own process (workerproc.py, tasks.py, M7.2): the queue, /health per release, the lease, SIGTERM.
-    subprocess.run([sys.executable, os.path.join(HERE, "test_worker_process.py")], check=True)

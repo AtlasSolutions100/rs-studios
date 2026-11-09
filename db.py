@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 DATA = os.environ.get("RS_DATA", os.path.join(os.path.dirname(os.path.abspath(__file__)), "data"))
 DB_PATH = os.environ.get("RS_DB", os.path.join(DATA, "rs.db"))
@@ -930,6 +930,7 @@ def now() -> str:
 def lease(conn, name: str, holder: str, ttl_s: float = 90.0, info: str | None = None) -> bool:
     """Take or renew the lease `name` for `holder` until ttl_s from now (Crowdcut's db.lease). True when `holder` has
     it: it was free, expired, or already ours. One atomic upsert, so two processes never both get True."""
+    from datetime import timedelta
     ts = datetime.now(timezone.utc)
     until = (ts + timedelta(seconds=ttl_s)).isoformat()
     cur = conn.execute(

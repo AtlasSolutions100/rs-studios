@@ -140,7 +140,8 @@ def health(conn) -> dict:
     if live and live.get("ok") is False:
         warn.append(f"The last {live.get('misses') or 1} talking-video estimate(s) were unreadable: they started at "
                     "our table price (not blocked).")
-    return {"configured": hf.configured(), "probe": probe or "not checked yet",
+    return {"worker": _worker_status(conn),       # where the background loop runs (M7.2)
+            "configured": hf.configured(), "probe": probe or "not checked yet",
             "jobs_24h": dict(day), "last_fail": dict(last_fail) if last_fail else None,
             "check_at": check.get("at"), "check_answered": sum(r.get("vendor") is not None for r in rows),
             "check_total": len(rows), "live": live, "tolerance": worker.PRICE_TOLERANCE,
@@ -150,7 +151,7 @@ def health(conn) -> dict:
                        ("Meta", bool(px["meta"]), px["meta"]), ("TikTok", bool(px["tiktok"]), px["tiktok"]),
                        ("Reddit", bool(px["reddit"]), px["reddit"]), ("X", bool(px["x"]), px["x"])],
             "server_side": server, "warn": warn, "imports": imports(conn), "backup": _backup_status(),
-            "mail": _mail_status(conn), "worker": _worker_status(conn)}
+            "mail": _mail_status(conn)}
 
 
 def _worker_status(conn) -> dict:

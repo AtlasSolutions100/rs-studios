@@ -119,6 +119,11 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # /health answers 503 when the worker loop's last beat is older than this many seconds (keep it over 120,
 # the deploy hook's wait after the switch). Long vendor calls beat every 10 s for up to RS_HEALTH_BUSY_MAX_S.
 # RS_HEALTH_WORKER_MAX_AGE=180   RS_HEALTH_BUSY_MAX_S=900
+# The worker process (roadmap M7.2). docker-compose runs the background loop in its own container ("worker",
+# python worker_main.py) and the web only serves requests; RS_WORKER_MODE=process is set by the compose file.
+# RS_WORKER_PROCESS=off      kill switch: the loop goes back into the app container as a thread; the worker idles
+# RS_TASK_THREADS=4          planning and research runs the worker runs at once
+# RS_WORKER_STOP_S=40        on stop, how long the worker waits for running AI runs before marking them interrupted
 # JSON logs with request and workspace ids (RS_LOG_JSON=0 for plain logs; RS_ACCESS_LOG=0 drops request lines).
 # RS_LOG_JSON=1
 # ---- Off-site backups (backup.py, tools/restore.sh). Nightly: rs.db snapshot + media folders to one Cloudflare
@@ -169,9 +174,3 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # Token box key (secretsbox.py): 32 random bytes, base64. Old keys stay readable from TOKEN_KEYS_OLD
 # (comma separated) until `python3 secretsbox.py rotate` re-seals every token under TOKEN_KEY.
 # TOKEN_KEY=
-
-# The worker process (roadmap M7.2). docker-compose runs the background loop in its own container ("worker",
-# python worker_main.py) and the web only serves requests; RS_WORKER_MODE=process is set by the compose file.
-# RS_WORKER_PROCESS=off      kill switch: the loop goes back into the app container as a thread; the worker idles
-# RS_TASK_THREADS=4          planning and research runs the worker runs at once
-# RS_WORKER_STOP_S=40        on stop, how long the worker waits for running AI runs before marking them interrupted
