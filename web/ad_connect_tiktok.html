@@ -1,0 +1,44 @@
+{% extends "base.html" %}{% block title %}Connect TikTok · Campaignify{% endblock %}
+{% block body %}
+{# Connect TikTok (adconnect_routes._pick_tiktok and identity, roadmap M6.2): the advertiser account, then the custom
+   identity the ads show (pick one, or Campaignify makes one with the name typed here). #}
+<div class="page">
+  <p class="eyebrow">Settings · Connect TikTok</p>
+  {% if step == 'account' %}
+  <h1>Pick the TikTok ad account</h1>
+  {% if d.user_name %}<p class="muted">Signed in on TikTok as {{ d.user_name }}.</p>{% endif %}
+  {% set usable = d.accounts|selectattr('usable')|list %}
+  {% if usable %}
+  <form method="post" class="panel"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <fieldset style="border:0;padding:0;margin:0"><legend><h2>Ad account</h2></legend>
+    <p class="small muted">The ad accounts you shared with Campaignify on TikTok's screen.</p>
+    {% set first = usable[0].id %}
+    {% for a in d.accounts %}<p><label><input type="radio" name="account" value="{{ a.id }}" {{ 'checked' if (pre == a.id) or (not pre and a.id == first) }} {{ '' if a.usable else 'disabled' }} required>
+      <b>{{ a.name }}</b> <span class="small muted">{{ a.id }}{% if a.currency %} · {{ a.currency }}{% endif %}{% if a.status != 'Active' %} · {{ a.status }}{% endif %}</span></label></p>{% endfor %}
+    </fieldset>
+    <p style="margin-top:16px"><button class="btn">Next: the identity</button></p>
+  </form>
+  {% else %}
+  <div class="panel">
+    <h2>No ad account to pick</h2>
+    <p class="muted">{% if d.accounts %}The ad accounts you shared aren't active yet. {% endif %}Create a TikTok ad account, or ask its admin to add you, then connect again and tick it on TikTok's screen.</p>
+    <ol class="checks">{% for t, dd, link in checklist %}<li><b>{{ t }}</b><br><span class="small muted">{{ dd }}</span>{% if link %}<br><a class="small" href="{{ link }}" target="_blank" rel="noopener">Open on TikTok</a>{% endif %}</li>{% endfor %}</ol>
+    <a class="btn sm" href="{{ url_for('adconnect.settings') }}">Back to connections</a>
+  </div>
+  {% endif %}
+  {% else %}
+  <h1>Pick the identity your ads show</h1>
+  <p class="muted">A TikTok ad shows a name and picture above the ad text. Pick the one for {{ row.account_name }}, or make one now.</p>
+  <form method="post" class="panel"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <fieldset style="border:0;padding:0;margin:0"><legend><h2>Identity</h2></legend>
+    {% for i in d.identities %}<p><label><input type="radio" name="identity" value="{{ i.id }}" {{ 'checked' if loop.first }}> <b>{{ i.name }}</b></label></p>{% endfor %}
+    <p><label><input type="radio" name="identity" value="new" {{ 'checked' if not d.identities }}> Make a new one</label></p>
+    <label for="tt-name">Name the ads show <span class="dim">(up to 40 characters)</span></label>
+    <input type="text" id="tt-name" name="display_name" maxlength="40" value="{{ d.brand }}">
+    <p class="small muted">Campaignify makes it on your TikTok ad account. Add its picture later in TikTok Ads Manager.</p>
+    </fieldset>
+    <p style="margin-top:16px"><button class="btn">Use this identity</button></p>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

@@ -6,7 +6,7 @@ What it does for each call:
   * a timeout (TIMEOUT seconds) on every request;
   * retries with jittered backoff on network errors, 5xx and the platforms' rate-limit and
     "temporary" error codes (Meta 1, 2, 4, 17, 32, 341, 613, 80000 to 80014; Google
-    RESOURCE_EXHAUSTED, INTERNAL_ERROR, TRANSIENT_ERROR, CONCURRENT_MODIFICATION; TikTok 40100), at most
+    RESOURCE_EXHAUSTED, INTERNAL_ERROR, TRANSIENT_ERROR, CONCURRENT_MODIFICATION; TikTok 40100, 40133, 50000, 50002), at most
     RETRIES attempts;
   * Google Ads errors (a GoogleAdsFailure in error.details) come back with `code` set to
     "<category>.<ENUM>", e.g. "authenticationError.OAUTH_TOKEN_EXPIRED", and the request id as `trace`;
@@ -68,7 +68,14 @@ META_PERMISSION = {10, 200, 294}
 # 15,000 operations a day per Cloud project; research B2), not Meta's ad-account score.
 PLATFORM_CAPS = {"google": 600.0,
                  # Snapchat: 20 requests a second per app and 10 per token (research B4); this stays far under it.
-                 "snapchat": 900.0}
+                 "snapchat": 900.0,
+                 # TikTok: per app and per advertiser, 1-minute windows, "often lower" than 600/min (research B3).
+                 "tiktok": 600.0}
+# TikTok answers HTTP 200 with its own code: 40100 too many requests, 40102 / 40104 / 40105 the access token is
+# expired, missing or revoked, 50000 / 50002 its side failed (sandbox: confirm against the return code page).
+TIKTOK_RATE = {40100, 40133}
+TIKTOK_AUTH = {40102, 40104, 40105}
+TIKTOK_TRANSIENT = {50000, 50002}
 GOOGLE_TRANSIENT = {"internalError.INTERNAL_ERROR", "internalError.TRANSIENT_ERROR", "internalError.DEADLINE_EXCEEDED",
                     "databaseError.CONCURRENT_MODIFICATION", "quotaError.RESOURCE_TEMPORARILY_EXHAUSTED",
                     "quotaError.RESOURCE_EXHAUSTED"}
@@ -255,7 +262,7 @@ def _read_usage(platform, account, headers):
 # ---------------------------------------------------------------- errors
 
 def _word(platform) -> str:
-    return {"meta": "Meta", "google": "Google", "snapchat": "Snapchat"}.get(platform, "The ad platform")
+    return {"meta": "Meta", "google": "Google", "snapchat": "Snapchat", "tiktok": "TikTok"}.get(platform, "The ad platform")
 
 
 def _google_failure(body: dict):
@@ -375,6 +382,15 @@ def _classify(platform, resp, secrets):
         return None, False
     text = json.dumps(body)[:400] if body else (resp.text or "")[:400]
     msg = scrub(f"{platform} {resp.status}: {text}", secrets)
+    if platform == "tiktok":
+        code = body.get("code")
+        kw = dict(status=resp.status, code=code, trace=body.get("request_id"),
+                  user_message=scrub(str(body.get("message") or ""), secrets))
+        if resp.status == 401 or code in TIKTOK_AUTH:
+            return TokenInvalid(platform, msg, **kw), False
+        if resp.status == 429 or code in TIKTOK_RATE:
+            return RateLimited(platform, msg, retry_after=60, **kw), True
+        return AdHttpError(platform, msg, **kw), resp.status >= 500 or code in TIKTOK_TRANSIENT
     if resp.status == 401:
         return TokenInvalid(platform, msg, status=resp.status), False
     if resp.status == 429 or "RESOURCE_EXHAUSTED" in text or body.get("code") == 40100:

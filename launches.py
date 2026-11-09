@@ -27,7 +27,8 @@ Google (M3.2 Search, M3.3 Performance Max; launch_google.py has its draft, rules
 same card, approval, ledger, saga and compensation, behind GOOGLE_ADS as well: one mutate makes the whole
 campaign (Google applies all of it or none), then a GAQL check reads it back. Its daily budget follows the
 same D3 ceilings. Snapchat (M6.1; launch_video.py has its draft, rules and card, adplatforms/snapchat.py the
-steps) does too, behind SNAPCHAT_ADS: uploads, creatives, the campaign, the ad squad, the ads, all PAUSED.
+steps) does too, behind SNAPCHAT_ADS: uploads, creatives, the campaign, the ad squad, the ads, all PAUSED. So does
+TikTok (M6.2, adplatforms/tiktok.py, behind TIKTOK_ADS): uploads, the campaign (off), the ad group, the ads.
 
 Rules (Koby's decisions): launching needs a paid plan (D2); a campaign's daily budget is capped per plan
 (D3: Starter 200, Growth 1,000, Scale 5,000 a day, in the ad account's currency; "ask us" above); every
@@ -80,8 +81,8 @@ FINISHED = ("paused", "failed", "rolled_back")
 
 KIND_WORDS = {"upload": "Upload", "creative": "Ad creative", "campaign": "Campaign", "adset": "Ad set", "ad": "Ad",
               "adgroup": "Ad group", "assetgroup": "Asset group", "check": "Check", "adsquad": "Ad squad"}
-PLATFORM_WORDS = {"meta": "Meta", "google": "Google", "snapchat": "Snapchat"}
-ADSET_KINDS = ("adset", "adsquad")       # the ad set of a launch, by platform (its step key is "adset" on each)
+PLATFORM_WORDS = {"meta": "Meta", "google": "Google", "snapchat": "Snapchat", "tiktok": "TikTok"}
+ADSET_KINDS = ("adset", "adsquad", "adgroup")       # the ad set of a launch, by platform (its step key is "adset" on each)
 OBJECTIVE_WORDS = {"sales": "Sales", "leads": "Leads", "traffic": "Traffic", "awareness": "Awareness"}
 GOAL_TO_OBJECTIVE = {"sales": "sales", "leads": "leads", "traffic": "traffic", "awareness": "awareness",
                      "engagement": "traffic", "installs": "traffic"}
@@ -703,6 +704,8 @@ def _retryable(err) -> bool:
     if isinstance(err, adhttp.NetworkError):
         return True
     if isinstance(err, adhttp.AdHttpError) and not isinstance(err, (adhttp.TokenInvalid, adhttp.PermissionDenied)):
+        if err.platform == "tiktok":
+            return (err.status or 0) >= 500 or err.code in adhttp.TIKTOK_TRANSIENT
         return (err.status or 0) >= 500 or err.code in adhttp.META_TRANSIENT or err.code in adhttp.GOOGLE_TRANSIENT
     return False
 
@@ -723,6 +726,7 @@ def _record(conn, L, s, res: dict):
                      "name, status, created_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(platform, external_id) DO UPDATE "
                      "SET status=excluded.status, launch_id=excluded.launch_id",
                      (L["id"], L["workspace_id"], L["platform"], kind, ext, parent, s["name"],
+                      res.get("status") if res.get("status") in ("ENABLED", "PAUSED") else
                       {"video": "UPLOADED", "creative": "CREATED"}.get(kind, "PAUSED"), db.now()))
     if s["kind"] == "campaign":
         conn.execute("UPDATE launches SET external_campaign_id=? WHERE id=?", (ext, L["id"]))
@@ -943,7 +947,7 @@ def maybe_tick():
 
 STEP_WORDS = {"upload": "Upload {what}", "creative": "Create the ad creative for {what}", "campaign": "Create the campaign",
               "adset": "Create the ad set", "ad": "Create {what}", "check": "Check it on Google",
-              "adsquad": "Create the ad squad"}
+              "adsquad": "Create the ad squad", "adgroup": "Create the ad group"}
 
 
 def step_label(s) -> str:
