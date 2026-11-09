@@ -30,7 +30,18 @@ CTAS = ("SHOP_NOW", "LEARN_MORE", "SIGN_UP", "BOOK_NOW", "CONTACT_US", "GET_QUOT
 EVENTS = ("Purchase", "Lead", "CompleteRegistration", "AddToCart", "InitiateCheckout", "Contact", "Schedule",
           "SubmitApplication", "ViewContent")
 PLACEMENTS = ("feed", "stories", "reels", "right_column", "search", "explore", "audience_network", "messenger",
-              "in_stream", "tiktok_feed", "snap_stories", "youtube", "discover")
+              "in_stream", "tiktok_feed", "snap_stories", "youtube", "discover",
+              # Meta, one app at a time (M6.3): the Launch page's placement choices
+              "facebook_feed", "facebook_stories", "facebook_reels", "instagram_feed", "instagram_stories",
+              "instagram_reels")
+# Meta placements the Launch page offers, in its order, with their words (roadmap M6.3).
+META_CHOICES = (("facebook_feed", "Facebook Feed"), ("facebook_stories", "Facebook Stories"),
+                ("facebook_reels", "Facebook Reels"), ("instagram_feed", "Instagram Feed"),
+                ("instagram_stories", "Instagram Stories"), ("instagram_reels", "Instagram Reels"))
+INSTAGRAM_PLACEMENTS = frozenset({"instagram_feed", "instagram_stories", "instagram_reels", "feed", "stories", "reels",
+                                  "explore"})
+VERTICAL_PLACEMENTS = frozenset({"stories", "reels", "facebook_stories", "facebook_reels", "instagram_stories",
+                                 "instagram_reels"})
 
 # Platform constraints (sources: research B1 to B4 and the platforms' ad specs, as of 2026-11-07).
 # hard: the platform refuses it. soft: it runs, but gets cut off or delivers worse.
@@ -278,6 +289,9 @@ def validate(spec: CampaignSpec, now: datetime = None) -> list:
         add("block", "meta.special_ad_categories", "Meta needs the special ad categories field.", "", "special_ad_categories")
     if spec.placements != "auto" and p == "snapchat" and spec.placements and set(spec.placements) - {"snap_stories"}:
         add("block", "snapchat.placements", "Snapchat ads run in Stories only here.", "Use automatic placements.", "placements")
+    if p == "meta" and isinstance(spec.placements, list) and not spec.placements:
+        add("block", "meta.placements_none", "No placement is picked.", "Tick at least one, or use automatic placements.",
+            "placements")
 
     # creatives
     if p != "google" or (spec.google or {}).get("type") != "search":
@@ -307,7 +321,7 @@ def validate(spec: CampaignSpec, now: datetime = None) -> list:
             add("block", f"{p}.aspect", f"{p} doesn't take {c.aspect} ads.", f"Export it at {ASPECTS_OK[p][0]}.", f"{w}.aspect")
         elif p == "tiktok" and c.aspect != "9:16":
             add("warn", "tiktok.aspect_not_vertical", "TikTok ads do best full-screen at 9:16.", "Export it at 9:16.", f"{w}.aspect")
-        if p == "meta" and isinstance(spec.placements, list) and {"stories", "reels"} & set(spec.placements) \
+        if p == "meta" and isinstance(spec.placements, list) and VERTICAL_PLACEMENTS & set(spec.placements) \
                 and c.aspect not in ("9:16",):
             add("warn", "meta.aspect_stories", "Stories and Reels show 9:16; this ad gets bars or a crop.",
                 "Add a 9:16 version.", f"{w}.aspect")

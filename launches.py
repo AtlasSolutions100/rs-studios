@@ -352,6 +352,11 @@ def apply_form(base: dict, form, all_ads: list) -> dict:
         aud["genders"] = [g("genders")]
     if g("vertical") in adspec.VERTICALS:
         d["vertical"] = g("vertical")
+    if g("form") == "1" and g("placement_mode") in ("auto", "choose"):
+        # Meta (M6.3): automatic, or the ticked apps and spots (Instagram Feed, Stories, Reels; Facebook's too)
+        keys = dict(adspec.META_CHOICES)
+        d["placements"] = "auto" if g("placement_mode") == "auto" else \
+            [k for k in keys if k in form.getlist("place")]
     if g("form") == "1":
         d["special_ad_categories"] = [s for s in form.getlist("special") if s in adspec.SPECIAL_AD_CATEGORIES]
         d["claims_substantiated"] = g("claims") == "1"
@@ -429,6 +434,16 @@ def launch_issues(conn, ws, spec, conn_row, assets: dict, prov: dict, operator: 
         if not conn_row["page_id"]:
             add("block", "launch.no_page", "Ads on Meta run from a Facebook Page, and none is picked.",
                 "Reconnect the ad account and pick your Page.", "connection")
+        # M6.3: Instagram placements run as the Page's Instagram account (instagram_user_id on each creative).
+        ig = isinstance(spec.placements, list) and set(spec.placements) & adspec.INSTAGRAM_PLACEMENTS
+        if ig and not conn_row["instagram_actor_id"]:
+            add("block", "launch.no_instagram", "Instagram placements need the Instagram account linked to your Page, "
+                "and none is picked.", "Link it to the Page on Meta and reconnect, or untick the Instagram placements.",
+                "placements")
+        elif spec.placements == "auto" and not conn_row["instagram_actor_id"]:
+            add("warn", "launch.auto_no_instagram", "Automatic placements include Instagram, and no Instagram account is "
+                "linked to the Page.", "Link one on Meta and reconnect so Instagram shows your own account, or pick "
+                "Facebook placements only.", "placements")
         scopes = set((conn_row["scopes"] or "").split())
         miss = [s for s in ("ads_management", "pages_manage_ads") if scopes and s not in scopes]
         if miss:
@@ -500,7 +515,9 @@ def make_card(conn, ws, spec, conn_row, steps: list, prov: dict) -> dict:
     aud, geo = spec.audience or {}, spec.geo or {}
     genders = {"women": "women", "men": "men"}.get((aud.get("genders") or ["all"])[0], "all genders")
     where = ", ".join(geo.get("countries") or []) or "no location"
-    place = "automatic placements" if spec.placements == "auto" else "placements: " + ", ".join(spec.placements)
+    words = dict(adspec.META_CHOICES)
+    place = "automatic placements" if spec.placements == "auto" else \
+        "placements: " + ", ".join(words.get(p, p.replace("_", " ")) for p in spec.placements)
     px_name = None
     conv = spec.conversion or {}
     if conn_row is not None and conv.get("pixel_id"):
