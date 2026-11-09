@@ -22,6 +22,13 @@ name: Deploy Campaignify (campaignify.ai)
 #   ANTHROPIC_MODEL        optional repo variable (default claude-sonnet-4-6)
 #   GROQ_API_KEY           optional fallback writing key; GROQ_MODEL optional variable
 #   STRIPE_PORTAL_CONFIG   optional repo variable: Customer Portal configuration id
+#   Live ids (liveids.py, roadmap M7.4): each optional repo variable overrides today's production value, which
+#   liveids.PRODUCTION keeps as the fallback. STRIPE_PLAN_PRICE_STARTER/_GROWTH/_SCALE,
+#   STRIPE_PLAN_PRODUCT_STARTER/_GROWTH/_SCALE, STRIPE_PRICE_STARTER/_PRO/_STUDIO (credit packs),
+#   TWILIO_SECONDARY_POLICY_SID, TWILIO_A2P_POLICY_SID, INDEXNOW_KEY (plus STRIPE_PORTAL_CONFIG, GADS_TAG_ID,
+#   GOOGLE_OAUTH_CLIENT_ID, RS_POSTAL_ADDRESS listed here). RS_LIVE_IDS=settings drops the fallback (a staging copy).
+#   RS_OWNER_INVITES       optional secret: owner setup links, "email:sha256-of-code,..." (SEC-9: no owner email or
+#                          code hash in the source any more; unset = no owner setup links)
 #   RS_MARKUP              optional repo variable, default 2.0
 #   RS_STARTER_CREDITS     optional repo variable; default = 2 image ads (44 credits)
 #   SIGNUP_CREDITS_ADS     optional repo variable: starter credits for sign-ups whose first touch is a paid ad
@@ -308,6 +315,20 @@ jobs:
           RS_DISK_MIN_GB: ${{ vars.RS_DISK_MIN_GB }}
           RS_HEALTH_WORKER_MAX_AGE: ${{ vars.RS_HEALTH_WORKER_MAX_AGE }}
           RS_HEALTH_BUSY_MAX_S: ${{ vars.RS_HEALTH_BUSY_MAX_S }}
+          STRIPE_PLAN_PRICE_STARTER: ${{ vars.STRIPE_PLAN_PRICE_STARTER }}
+          STRIPE_PLAN_PRICE_GROWTH: ${{ vars.STRIPE_PLAN_PRICE_GROWTH }}
+          STRIPE_PLAN_PRICE_SCALE: ${{ vars.STRIPE_PLAN_PRICE_SCALE }}
+          STRIPE_PLAN_PRODUCT_STARTER: ${{ vars.STRIPE_PLAN_PRODUCT_STARTER }}
+          STRIPE_PLAN_PRODUCT_GROWTH: ${{ vars.STRIPE_PLAN_PRODUCT_GROWTH }}
+          STRIPE_PLAN_PRODUCT_SCALE: ${{ vars.STRIPE_PLAN_PRODUCT_SCALE }}
+          STRIPE_PRICE_STARTER: ${{ vars.STRIPE_PRICE_STARTER }}
+          STRIPE_PRICE_PRO: ${{ vars.STRIPE_PRICE_PRO }}
+          STRIPE_PRICE_STUDIO: ${{ vars.STRIPE_PRICE_STUDIO }}
+          TWILIO_SECONDARY_POLICY_SID: ${{ vars.TWILIO_SECONDARY_POLICY_SID }}
+          TWILIO_A2P_POLICY_SID: ${{ vars.TWILIO_A2P_POLICY_SID }}
+          INDEXNOW_KEY: ${{ vars.INDEXNOW_KEY }}
+          RS_LIVE_IDS: ${{ vars.RS_LIVE_IDS }}
+          RS_OWNER_INVITES: ${{ secrets.RS_OWNER_INVITES }}
         run: |
           git archive --format=tar.gz -o /tmp/app.tgz HEAD
           python3 - <<'PY'
@@ -345,7 +366,14 @@ jobs:
                                              "RS_JOB_CANCEL", "RS_STORAGE_PURGE_DELETED", "RS_SERVICE_PATH", "OPS_ALERTS", "BACKUPS",
                                              "RS_CARD_REQUIRED", "RS_PLAN_PAYWALL", "RS_CARD_STARTS_PER_HOUR",
                                              "BACKUP_MEDIA", "RS_DISK_MIN_GB", "RS_HEALTH_WORKER_MAX_AGE", "RS_LAUNCH_KIT",
-                                             "RS_HEALTH_BUSY_MAX_S")
+                                             "RS_HEALTH_BUSY_MAX_S",
+                                             # live ids (liveids.py, M7.4) and owner setup links (SEC-9)
+                                             "STRIPE_PLAN_PRICE_STARTER", "STRIPE_PLAN_PRICE_GROWTH",
+                                             "STRIPE_PLAN_PRICE_SCALE", "STRIPE_PLAN_PRODUCT_STARTER",
+                                             "STRIPE_PLAN_PRODUCT_GROWTH", "STRIPE_PLAN_PRODUCT_SCALE",
+                                             "STRIPE_PRICE_STARTER", "STRIPE_PRICE_PRO", "STRIPE_PRICE_STUDIO",
+                                             "TWILIO_SECONDARY_POLICY_SID", "TWILIO_A2P_POLICY_SID", "INDEXNOW_KEY",
+                                             "RS_LIVE_IDS", "RS_OWNER_INVITES")
                       if os.environ.get(k)}
           print("settings sent:", ", ".join(settings) or "none")
           body = {"commit": os.environ["GITHUB_SHA"], "settings": settings,

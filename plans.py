@@ -19,6 +19,8 @@ by hand. A workspace's plan is its active Stripe subscription, an admin
 import os
 from datetime import datetime, timezone
 
+import liveids
+
 # Order matters: each plan includes everything in the ones before it.
 ORDER = ["free", "starter", "growth", "scale"]
 
@@ -27,21 +29,23 @@ PLANS = {
              "brands": 1, "seats": 1, "pages": 0,
              "line": "Your starter credits and the ad studio. Top up with credit packs."},
     "starter": {"code": "starter", "name": "Starter", "usd": 39, "credits": 2000,
-                "price_id": "price_1UVh8lRskSkrZOvObNaCGh46", "product_id": "prod_VWkeMnQ8iKsPWt",
+                "price_id": None, "product_id": None,
                 "brands": 1, "seats": 1, "pages": 1,
                 "line": "For one seller running their own campaigns."},
     "growth": {"code": "growth", "name": "Growth", "usd": 99, "credits": 6000,
-               "price_id": "price_1UVh8mRskSkrZOvOmLkZYfr5", "product_id": "prod_VWkeGs9w4vH9Sq",
+               "price_id": None, "product_id": None,
                "brands": 3, "seats": 3, "pages": None,
                "line": "For small teams and a few brands."},
     "scale": {"code": "scale", "name": "Scale", "usd": 249, "credits": 18000,
-              "price_id": "price_1UVh8nRskSkrZOvO55rLZ8lD", "product_id": "prod_VWkewxw2bUDvyd",
+              "price_id": None, "product_id": None,
               "brands": None, "seats": 10, "pages": None,
               "line": "For agencies and teams running many brands."},
 }
+# The Stripe ids are settings (liveids.py, M7.4): STRIPE_PLAN_PRICE_<CODE> and STRIPE_PLAN_PRODUCT_<CODE>.
 for _code, _p in PLANS.items():
-    if _p["price_id"]:
-        _p["price_id"] = os.environ.get(f"STRIPE_PLAN_PRICE_{_code.upper()}", _p["price_id"])
+    if _code != "free":
+        _p["price_id"] = liveids.get(f"STRIPE_PLAN_PRICE_{_code.upper()}")
+        _p["product_id"] = liveids.get(f"STRIPE_PLAN_PRODUCT_{_code.upper()}")
 PAID = [PLANS[c] for c in ORDER if c != "free"]
 BY_PRICE = {p["price_id"]: p for p in PAID}
 

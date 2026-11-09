@@ -3275,3 +3275,5 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, os.path.join(HERE, "test_create_polish.py")], check=True)
     # Accessibility pass (M5.6): light-theme status colours, skip link, input labels, h1s, focus ring, hero alt.
     subprocess.run([sys.executable, os.path.join(HERE, "test_a11y.py")], check=True)
+    # Live ids are settings (liveids.py, M7.4; SEC-9): one place, a setting wins, RS_LIVE_IDS=settings, no owner emails.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_liveids.py")], check=True)

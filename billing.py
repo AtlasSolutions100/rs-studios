@@ -28,12 +28,14 @@ import time
 
 import requests
 
+import liveids
+
 API = "https://api.stripe.com/v1"
 APP_TAG = "campaignify"
 TOLERANCE = 300  # seconds a webhook signature stays valid
 # The Customer Portal configuration made for Campaignify: our three plans only,
 # upgrades invoiced right away, downgrades and cancellations at period end.
-PORTAL_CONFIG = os.environ.get("STRIPE_PORTAL_CONFIG", "bpc_1UVhC6RskSkrZOvOuWBouu50")
+PORTAL_CONFIG = liveids.get("STRIPE_PORTAL_CONFIG")   # a setting (liveids.py, M7.4)
 
 
 class BillingError(RuntimeError):

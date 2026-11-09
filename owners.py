@@ -1,23 +1,16 @@
 """Owner accounts: one-time setup links for the owners (Koby and Travis).
 
-Only the SHA-256 of each code lives here; the codes themselves were handed to
-Koby. A code works once, only with its own email, and makes that person an
-admin of the "Rector & Stull" workspace. RS_OWNER_INVITES ("email:sha256,...")
-replaces the list (the tests use it).
+A code works once, only with its own email, and makes that person an admin of
+the "Rector & Stull" workspace. The list is the setting RS_OWNER_INVITES
+("email:sha256-of-code,..."; only the SHA-256 of each code, never the code).
+No owner email or code hash lives in the source (SEC-9, roadmap M7.4): unset,
+there are no owner setup links.
 """
 import hashlib
 import os
 
-DEFAULT = {
-    "ef32ab7259dbb618cf9736b1bc3c65eee4fba6e58b6a68640b67be59f53fdf30": "koby@rectorandstull.com",
-    "7eab982314d92a8341cf5da0116d408a801e496b24e11d1c5963bb552a10eb95": "travis@rectorandstull.com",
-}
-
-
 def table() -> dict:
-    env = os.environ.get("RS_OWNER_INVITES")
-    if env is None:
-        return DEFAULT
+    env = os.environ.get("RS_OWNER_INVITES") or ""
     out = {}
     for part in env.split(","):
         if ":" in part:
