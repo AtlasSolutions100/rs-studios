@@ -10,7 +10,7 @@ main{background:var(--panel);border:1px solid var(--line);border-radius:18px;pad
 h1{font-size:22px;margin:0 0 8px}p{color:var(--muted);margin:0 0 16px}
 button{font:600 15px inherit;border:0;border-radius:12px;padding:12px 18px;background:var(--btn);color:var(--btnink);cursor:pointer;width:100%}
 small{color:var(--muted)}
-</style></head>
+</style>{% if ui_v2 %}<style>{% include "v2/_solo.css" %}</style>{% endif %}</head>
 <body><main>
 {% if done %}
   <h1>Weekly reports stopped</h1>

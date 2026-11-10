@@ -1,8 +1,9 @@
 {% extends "public_base.html" %}
 {% block pubhead %}
-<link rel="preload" as="image" href="{{ url_for('static', filename=hero[1].poster) }}" fetchpriority="high">
+{% if not ui_v2 %}<link rel="preload" as="image" href="{{ url_for('static', filename=hero[1].poster) }}" fetchpriority="high">{% endif %}
 {% endblock %}
 {% block main %}
+{% if ui_v2 %}{% include "v2/landing.html" %}{% else %}
 {% set r = rates() %}
 {% set so = signup_offer() %}{% set sc = so.credits %}
 {% macro plan_tag(key) -%}{% set f = plans.FEATURES[key] %}<span class="tag {{ 'ok' if f.plan == 'free' else '' }}">{{ f.name }} · {{ 'every account' if f.plan == 'free' else plans.PLANS[f.plan].name ~ '+' }}</span>{%- endmacro %}
@@ -145,4 +146,5 @@
     <a class="btn lg" href="{{ url_for('signup') }}" data-cta="closing">Start free</a>
   </div>
 </section>
+{% endif %}
 {% endblock %}

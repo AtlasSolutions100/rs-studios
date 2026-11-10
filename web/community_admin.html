@@ -17,7 +17,7 @@
     <div class="panel" id="members"><h2>Members</h2>
       <form method="post" action="{{ url_for('community.admin_add', what='members') }}" class="row"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
         <input type="email" name="email" required placeholder="email@example.com" style="flex:1;min-width:160px"><input type="text" name="name" placeholder="Name" style="width:120px">
-        <select name="role" style="width:auto"><option value="member">Member</option><option value="admin">Admin</option></select><button class="btn sm">Invite</button></form>
+        <select name="role" style="width:auto" aria-label="Role"><option value="member">Member</option><option value="admin">Admin</option></select><button class="btn sm">Invite</button></form>
       <p class="small muted">You get a one-time invite link to send them (there's no email sending yet).</p>
       <div class="scrollx"><table>{% for m in members %}<tr><td><b>{{ m.name or m.email }}</b><br><span class="small muted">{{ m.email }}</span></td><td class="small">{{ m.role|first_upper }}{% if m.status == 'invited' %} · <span class="muted">invited</span>{% endif %}</td>
         <td>{% if m.role != 'owner' and not m.user_id %}<div class="row">{% if m.status == 'invited' and m.invite_code %}<code class="small">{{ base }}c/{{ c.slug }}/join/{{ m.invite_code }}</code>{% endif %}

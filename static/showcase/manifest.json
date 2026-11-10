@@ -1,0 +1,14 @@
+{
+  "_about": "The home page's gallery (public_site.showcase). Only real Campaignify outputs go here: no stock photos, no other companies' ads, no mock-ups. Put each file in this folder and add one entry to items. Until items has entries the page shows neutral tiles.",
+  "_shape": {
+    "file": "name-of-the-file-in-this-folder.jpg",
+    "kind": "image or video",
+    "preset": "the preset id that made it, e.g. hero, clean-headline, offer, marketplace, ugc, voiceover, product_video",
+    "caption": "one short line shown under the tile",
+    "alt": "what the picture or clip shows, for screen readers",
+    "poster": "videos only: a still in this folder, shown before the clip loads",
+    "aspect": "videos only: 9:16, 4:5, 1:1 or 16:9 (images are measured)"
+  },
+  "_sizes": "Images: JPEG or WebP, 1080 px on the short side (1080x1350 for 4:5, 1080x1920 for 9:16, 1080x1080 for 1:1), under 400 KB. Videos: MP4 (H.264, no audio needed), 720x1280, 5 to 10 seconds, under 3 MB, each with a poster. 8 to 12 items in a mix of shapes fills the grid best; at most 12 are shown.",
+  "items": []
+}

@@ -1,0 +1,19 @@
+/* Members' public pages and forms in the neutral look (M15; added to static/page.css while the new look is on).
+   The member's own button colour (--pp-accent) stays: this only brings the page's own parts onto the tokens. */
+.pp-light{--pp-bg:#FFFFFF;--pp-bg2:#F7F7F5;--pp-ink:#141414;--pp-muted:#585856;--pp-line:rgba(20,20,20,.1);--pp-bad:#B3261E}
+.pp-dark{--pp-bg:#0E0E0E;--pp-bg2:#161616;--pp-ink:#EDEDEB;--pp-muted:#A8A8A5;--pp-line:rgba(255,255,255,.1);--pp-bad:#FF7A72}
+html.pp,html.pp body{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;font-feature-settings:"cv11","ss01"}
+.pp h1,.pp h2{font-family:inherit;font-weight:600;letter-spacing:-.03em;text-wrap:balance}
+.pp h1{font-size:clamp(34px,5.4vw,56px);line-height:1.05}
+.pp h2{font-size:clamp(24px,3.2vw,34px);line-height:1.12}
+.pp .pp-btn{border-radius:10px;box-shadow:none;font-weight:600;padding:13px 22px}
+.pp .pp-btn:hover{filter:none;opacity:.9}
+.pp .pp-media,.pp .pp-embed{border-radius:12px}
+.pp .pp-benefits li{border-radius:12px;background:none}
+.pp .pp-benefits li::before{border-left-width:2px;border-bottom-width:2px;border-color:var(--pp-ink)}
+.pp .pp-form,.pp .pp-ok{border-radius:12px}
+.pp .pp-form input,.pp .pp-form textarea,.pp .pp-form select{border-radius:10px}
+.pp .pp-err{color:var(--pp-bad);font-weight:500}
+.pp :focus-visible{outline:2px solid var(--pp-ink);outline-offset:2px}
+.pp .pp-preview{font-weight:500}
+.pp .pp-form input,.pp .pp-form textarea,.pp .pp-form select{border-color:color-mix(in srgb,var(--pp-ink) 28%,transparent)}

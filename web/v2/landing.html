@@ -1,0 +1,129 @@
+{# The home page in the neutral look (M15), included by web/landing.html while the new look is on.
+   One promise, how it works in three steps, real outputs (public_site.showcase: the manifest in static/showcase, or
+   neutral tiles while it is empty), the plans from the billing config, the same FAQ the page's FAQPage data lists,
+   and one call to action. Every number is rates(), signup_offer(), plans or packs: none is typed in. #}
+{% set r = rates() %}{% set so = signup_offer() %}{% set sc = so.credits %}{% set shots = showcase() %}
+<section class="lv-hero">
+  <div class="lv-wrap">
+    <h1>Turn your product page into finished ads.</h1>
+    <p class="lv-lede">Paste the link. Campaignify reads the page and makes image ads, presenter videos and product videos from your own photos. You see the price before anything is made.</p>
+    <form class="lv-try" action="{{ url_for('signup') }}" method="get" data-try>
+      <label class="sr" for="lv-url">Your product page (optional)</label>
+      <div class="lv-try-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/></svg>
+        <input id="lv-url" name="url" type="text" inputmode="url" autocomplete="url" maxlength="300" placeholder="yourstore.com/products/name">
+        <button class="btn lg" data-cta="hero">{{ so.cta }}</button>
+      </div>
+    </form>
+    <p class="lv-terms">{{ so.body }}</p>
+    <dl class="lv-rates" aria-label="What each ad costs">
+      <div><dt>Image ad</dt><dd>{{ r.image|credits }}</dd></div>
+      <div><dt>Product video, 5 seconds</dt><dd>{{ r.video5|credits }}</dd></div>
+      <div><dt>Voiceover or presenter video, 8 seconds</dt><dd>{{ r.talk8|credits }}</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="lv-sec" id="journey" aria-labelledby="lv-how">
+  <div class="lv-wrap">
+    <h2 id="lv-how">How it works</h2>
+    <ol class="lv-steps">
+      <li>
+        <div class="lv-art" aria-hidden="true">
+          <span class="lv-a-url"><i></i><b></b></span>
+          <span class="lv-a-prod"><i></i><span><b></b><em></em></span><u>Read</u></span>
+        </div>
+        <h3>Paste your product page</h3>
+        <p>Campaignify reads the name, the photos and what the page says. Reading it costs nothing, and you approve the claims your ads may make.</p>
+      </li>
+      <li>
+        <div class="lv-art" aria-hidden="true">
+          <span class="lv-a-row"><span>{{ so.images }} image ad{{ '' if so.images == 1 else 's' }}</span><b>{{ (so.images * r.image)|credits }}</b></span>
+          <span class="lv-a-row dim"><span>Your credits</span><b>{{ sc|credits }}</b></span>
+          <span class="lv-a-btn">Make {{ 'it' if so.images == 1 else 'them' }}</span>
+        </div>
+        <h3>See the price first</h3>
+        <p>Pick what to make and write the words. Every ad shows its price in credits, and nothing is made until you confirm it.</p>
+      </li>
+      <li>
+        <div class="lv-art tiles" aria-hidden="true"><i class="a4x5"></i><i class="a9x16"></i><i class="a1x1"></i></div>
+        <h3>Download finished ads</h3>
+        <p>Image ads take one to three minutes, videos a few more. Each is sized for the feed, for stories or for a listing, and a render that fails is refunded automatically.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section class="lv-sec" id="gallery" aria-labelledby="lv-made">
+  <div class="lv-wrap">
+    {% if shots %}
+    <h2 id="lv-made">Made in Campaignify</h2>
+    <p class="lv-sub">Real ads from real product photos. Each one names the preset that made it.</p>
+    <div class="lv-show" data-showcase="{{ shots|length }}">
+      {% for it in shots %}
+      <figure class="lv-shot">
+        {% if it.kind == 'video' %}<video class="a{{ (it.aspect or '9:16')|replace(':', 'x') }}" data-inview muted loop playsinline preload="none" {% if it.poster %}data-poster="{{ url_for('static', filename=it.poster) }}"{% endif %} width="{{ it.width }}" height="{{ it.height }}" aria-label="{{ it.alt }}"><source src="{{ url_for('static', filename=it.src) }}"></video>
+        {% else %}<img src="{{ url_for('static', filename=it.src) }}" alt="{{ it.alt }}" width="{{ it.width }}" height="{{ it.height }}" loading="lazy" decoding="async">{% endif %}
+        <figcaption>{% if it.preset_name %}<b>{{ it.preset_name }}</b>{% endif %}{% if it.caption %}<span>{{ it.caption }}</span>{% endif %}</figcaption>
+      </figure>
+      {% endfor %}
+    </div>
+    {% else %}
+    <h2 id="lv-made">What you get</h2>
+    <p class="lv-sub">Every ad is made from your own product photo, in the shapes the feeds, stories and listings ask for.</p>
+    <div class="lv-show is-empty" data-showcase="0">
+      {% for label, aspect in showcase_shapes %}<div class="lv-shot ph"><i class="a{{ aspect|replace(':', 'x') }}"></i><p><b>{{ label }}</b><span>{{ aspect }}</span></p></div>{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="lv-sec" id="more" aria-labelledby="lv-rest">
+  <div class="lv-wrap lv-split">
+    <div>
+      <h2 id="lv-rest">The rest of the campaign, when you want it</h2>
+      <p class="lv-sub">The free studio makes ads. A plan adds the tools around them, and each one says which plan it comes with.</p>
+      <p><a href="{{ url_for('features') }}">See every feature</a></p>
+    </div>
+    <ul class="lv-list">
+      {% for s in journey if s.id != 'make' %}{% set k = (s.features|select('in', plans.FEATURES)|list)[0] %}{% set f = plans.FEATURES[k] %}
+      <li><a href="{{ url_for('features') }}#step-{{ s.id }}">{{ s.title }}</a><span>{{ s.body.split('. ')[0].rstrip('.') }}.</span><em>{{ 'Every account' if f.plan == 'free' else plans.PLANS[f.plan].name ~ ' and up' }}</em></li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="lv-wrap" id="reps"><p class="lv-reps">Selling as an independent rep? <a href="{{ url_for('for_reps') }}">Compliance checks at every step</a>: income, recruiting, health and discount claims are blocked before an ad goes out.</p></div>
+</section>
+
+<section class="lv-sec" id="pricing" aria-labelledby="lv-price">
+  <div class="lv-wrap">
+    <h2 id="lv-price">Pricing</h2>
+    <p class="lv-sub">Start free. Buy a credit pack when you only want ads, or pick a plan for monthly credits and the campaign tools.</p>
+    {% include "_pricing.html" %}
+    <p class="pr-note"><a href="{{ url_for('pricing') }}">Pricing in full</a></p>
+  </div>
+</section>
+
+<section class="lv-sec" id="faq" aria-labelledby="lv-q">
+  <div class="lv-wrap lv-split">
+    <div><h2 id="lv-q">Questions</h2></div>
+    <div class="lv-faq">
+      {% for q, a in faq %}<details><summary>{{ q }}</summary><p>{{ faq_answer(a) }}</p></details>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="lv-end" aria-labelledby="lv-go">
+  <div class="lv-wrap">
+    <h2 id="lv-go">See it on your own product.</h2>
+    <p>{{ so.body }}</p>
+    <a class="btn lg" href="{{ url_for('signup') }}" data-cta="closing">{{ so.cta }}</a>
+  </div>
+</section>
+<script>
+// A product page typed here waits in this browser for the sign-up steps (nothing is sent anywhere with it).
+(function(){ var f = document.querySelector('[data-try]'); if(!f) return; var i = f.querySelector('input[name=url]');
+  f.addEventListener('submit', function(){ var v = i.value.trim(); try { if(v) localStorage.setItem('cfy_first_url', v.slice(0, 300)); } catch(e){} if(!v) i.disabled = true; });
+  window.addEventListener('pageshow', function(){ i.disabled = false; });
+})();
+</script>
