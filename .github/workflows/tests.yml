@@ -30,6 +30,11 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install --require-hashes -r requirements.txt
+      # ffmpeg: the keyframe-first video tests stitch tiny real clips (tests/test_keyframe_video.py). The runner
+      # image has none; without it those checks (and the older watermark and export ones) skip themselves, so a
+      # mirror that is down only costs coverage, never the run.
+      - name: ffmpeg for the stitching tests
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg || echo "no ffmpeg; the stitching checks will be skipped"
       - name: python tests/test_app.py
         env:
           # The tests' data folder is a throwaway; the disk guard (storage.py, default 5 GB

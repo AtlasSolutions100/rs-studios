@@ -1,0 +1,796 @@
+{
+ "configs": {
+  "car-talk": {
+   "jobs": [
+    {
+     "brief": "Meet the mug. It keeps drinks hot for 6 hours.",
+     "cost_usd": 3.6976,
+     "credits": 740,
+     "inputs": {
+      "aspect_ratio": "9:16",
+      "bitrate_mode": "high",
+      "duration": 8,
+      "generate_audio": true,
+      "image_urls": [
+       "https://files.example/snap1"
+      ],
+      "prompt": "Vertical selfie-style UGC video filmed on a phone. A man in his late 20s, wavy hair, denim jacket, friendly grin, in the driver's seat of a parked everyday car, is sitting back in the seat, seatbelt off, hands in their lap, with the Trail Mug standing on the top of the dashboard at the bottom of the frame in clear view, its label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a casual, chatty male voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+      "resolution": "720p"
+     },
+     "params": {
+      "ad_type": "ugc",
+      "aspect": "9:16",
+      "duration": 8,
+      "hook": "Meet the mug. It keeps drinks hot for 6 hours.",
+      "label": "Theo \u00b7 Car \u00b7 9:16",
+      "line": "0:theo:9:16",
+      "photo_ids": [
+       1
+      ],
+      "presenter": "theo",
+      "preset": "car-talk",
+      "product": "Trail Mug",
+      "resolution": "720p",
+      "setting": "",
+      "situation": "car",
+      "voice": "chatty_m"
+     },
+     "template_id": "car-talk",
+     "tool": "ugc_video"
+    }
+   ],
+   "lines": [
+    [
+     "0:theo:9:16",
+     "Theo \u00b7 Car \u00b7 9:16",
+     740
+    ]
+   ],
+   "quote": {
+    "count": 1,
+    "each": 740,
+    "total": 740
+   }
+  },
+  "founder-story at 30 s": {
+   "jobs": [
+    {
+     "brief": "Meet the mug. It keeps drinks hot for 6 hours.",
+     "cost_usd": 13.866,
+     "credits": 2774,
+     "inputs": {
+      "aspect_ratio": "9:16",
+      "bitrate_mode": "high",
+      "duration": 30,
+      "generate_audio": true,
+      "image_urls": [
+       "https://files.example/snap1"
+      ],
+      "prompt": "Short product video of the Trail Mug. Quiet shots of it where it is made and packed: on a workbench among plain tools and unprinted boxes, then close on its label, then on a shelf beside others like it. Hands may pack in the background, never a face. Warm, plain light. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. A narrator, never seen on camera, says in a deep, smooth narrator voice: \"Meet the mug. It keeps drinks hot for 6 hours.\" The narration is clear and matches the pacing of the shots. No on-screen text, no subtitles, no music.",
+      "resolution": "720p"
+     },
+     "params": {
+      "ad_type": "voiceover",
+      "aspect": "9:16",
+      "duration": 30,
+      "hook": "Meet the mug. It keeps drinks hot for 6 hours.",
+      "label": "Narrator, deep \u00b7 9:16",
+      "line": "0:narrator_deep:9:16",
+      "photo_ids": [
+       1
+      ],
+      "preset": "founder-story",
+      "product": "Trail Mug",
+      "resolution": "720p",
+      "setting": "",
+      "voice": "narrator_deep"
+     },
+     "template_id": "founder-story",
+     "tool": "ugc_video"
+    }
+   ],
+   "lines": [
+    [
+     "0:narrator_deep:9:16",
+     "Narrator, deep \u00b7 9:16",
+     2774
+    ]
+   ],
+   "quote": {
+    "count": 1,
+    "each": 2774,
+    "total": 2774
+   }
+  },
+  "hands-only-demo": {
+   "jobs": [
+    {
+     "brief": "Meet the mug. It keeps drinks hot for 6 hours.",
+     "cost_usd": 6.933,
+     "credits": 1387,
+     "inputs": {
+      "aspect_ratio": "9:16",
+      "bitrate_mode": "high",
+      "duration": 15,
+      "generate_audio": true,
+      "image_urls": [
+       "https://files.example/snap1"
+      ],
+      "prompt": "Short product video of the Trail Mug. One wide, steady shot from above and slightly in front of a plain table: two hands pick it up with a simple grip, use it the way it is meant to be used, and set it down with its label facing the camera. Only hands and forearms are in frame, never a face. The moves are slow, one at a time. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. A narrator, never seen on camera, says in a deep, smooth narrator voice: \"Meet the mug. It keeps drinks hot for 6 hours.\" The narration is clear and matches the pacing of the shots. No on-screen text, no subtitles, no music.",
+      "resolution": "720p"
+     },
+     "params": {
+      "ad_type": "voiceover",
+      "aspect": "9:16",
+      "duration": 15,
+      "hook": "Meet the mug. It keeps drinks hot for 6 hours.",
+      "label": "Narrator, deep \u00b7 9:16",
+      "line": "0:narrator_deep:9:16",
+      "photo_ids": [
+       1
+      ],
+      "preset": "hands-only-demo",
+      "product": "Trail Mug",
+      "resolution": "720p",
+      "setting": "",
+      "voice": "narrator_deep"
+     },
+     "template_id": "hands-only-demo",
+     "tool": "ugc_video"
+    }
+   ],
+   "lines": [
+    [
+     "0:narrator_deep:9:16",
+     "Narrator, deep \u00b7 9:16",
+     1387
+    ]
+   ],
+   "quote": {
+    "count": 1,
+    "each": 1387,
+    "total": 1387
+   }
+  },
+  "pov-unboxing": {
+   "jobs": [
+    {
+     "brief": "Meet the mug. It keeps drinks hot for 6 hours.",
+     "cost_usd": 6.933,
+     "credits": 1387,
+     "inputs": {
+      "aspect_ratio": "9:16",
+      "bitrate_mode": "high",
+      "duration": 15,
+      "generate_audio": true,
+      "image_urls": [
+       "https://files.example/snap1"
+      ],
+      "prompt": "Short product video of the Trail Mug. First-person view looking down at a table: two hands open a plain, unprinted cardboard box, fold back plain tissue paper and lift it out, turn it so its label faces the camera and stand it on the table. Only hands and forearms are in frame, never a face. The box and the paper carry no print. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. A narrator, never seen on camera, says in a deep, smooth narrator voice: \"Meet the mug. It keeps drinks hot for 6 hours.\" The narration is clear and matches the pacing of the shots. No on-screen text, no subtitles, no music.",
+      "resolution": "720p"
+     },
+     "params": {
+      "ad_type": "voiceover",
+      "aspect": "9:16",
+      "duration": 15,
+      "hook": "Meet the mug. It keeps drinks hot for 6 hours.",
+      "label": "Narrator, deep \u00b7 9:16",
+      "line": "0:narrator_deep:9:16",
+      "photo_ids": [
+       1
+      ],
+      "preset": "pov-unboxing",
+      "product": "Trail Mug",
+      "resolution": "720p",
+      "setting": "",
+      "voice": "narrator_deep"
+     },
+     "template_id": "pov-unboxing",
+     "tool": "ugc_video"
+    }
+   ],
+   "lines": [
+    [
+     "0:narrator_deep:9:16",
+     "Narrator, deep \u00b7 9:16",
+     1387
+    ]
+   ],
+   "quote": {
+    "count": 1,
+    "each": 1387,
+    "total": 1387
+   }
+  },
+  "season-gift-clip": {
+   "jobs": [
+    {
+     "brief": "A present they will actually use.",
+     "cost_usd": 3.6976,
+     "credits": 740,
+     "inputs": {
+      "aspect_ratio": "9:16",
+      "bitrate_mode": "high",
+      "duration": 8,
+      "generate_audio": true,
+      "image_urls": [
+       "https://files.example/snap1"
+      ],
+      "prompt": "Short product video of the Trail Mug. It stands on a wooden table among three parcels wrapped in plain brown paper and twine, a sprig of greenery beside it and warm lights softly out of focus behind. The camera drifts slowly towards it and settles on its label. No people and no hands in frame. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. A narrator, never seen on camera, says in a deep, smooth narrator voice: \"A present they will actually use.\" The narration is clear and matches the pacing of the shots. No on-screen text, no subtitles, no music.",
+      "resolution": "720p"
+     },
+     "params": {
+      "ad_type": "voiceover",
+      "aspect": "9:16",
+      "duration": 8,
+      "hook": "A present they will actually use.",
+      "label": "Narrator, deep \u00b7 9:16",
+      "line": "0:narrator_deep:9:16",
+      "photo_ids": [
+       1
+      ],
+      "preset": "season-gift-clip",
+      "product": "Trail Mug",
+      "resolution": "720p",
+      "setting": "",
+      "voice": "narrator_deep"
+     },
+     "template_id": "season-gift-clip",
+     "tool": "ugc_video"
+    }
+   ],
+   "lines": [
+    [
+     "0:narrator_deep:9:16",
+     "Narrator, deep \u00b7 9:16",
+     740
+    ]
+   ],
+   "quote": {
+    "count": 1,
+    "each": 740,
+    "total": 740
+   }
+  },
+  "talk-to-camera": {
+   "jobs": [
+    {
+     "brief": "Meet the mug. It keeps drinks hot for 6 hours.",
+     "cost_usd": 3.6976,
+     "credits": 740,
+     "inputs": {
+      "aspect_ratio": "9:16",
+      "bitrate_mode": "high",
+      "duration": 8,
+      "generate_audio": true,
+      "image_urls": [
+       "https://files.example/snap1"
+      ],
+      "prompt": "Vertical selfie-style UGC video filmed on a phone. A woman in her late 20s, curly dark hair, warm smile, casual knit sweater, in a bright, lived-in kitchen, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a warm, friendly female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+      "resolution": "720p"
+     },
+     "params": {
+      "ad_type": "ugc",
+      "aspect": "9:16",
+      "duration": 8,
+      "hook": "Meet the mug. It keeps drinks hot for 6 hours.",
+      "label": "Maya \u00b7 9:16",
+      "line": "0:maya:9:16",
+      "photo_ids": [
+       1
+      ],
+      "presenter": "maya",
+      "preset": "talk-to-camera",
+      "product": "Trail Mug",
+      "resolution": "720p",
+      "setting": "",
+      "voice": "warm_f"
+     },
+     "template_id": "talk-to-camera",
+     "tool": "ugc_video"
+    }
+   ],
+   "lines": [
+    [
+     "0:maya:9:16",
+     "Maya \u00b7 9:16",
+     740
+    ]
+   ],
+   "quote": {
+    "count": 1,
+    "each": 740,
+    "total": 740
+   }
+  },
+  "ugc": {
+   "jobs": [
+    {
+     "brief": "Meet the mug. It keeps drinks hot for 6 hours. Try it today.",
+     "cost_usd": 4.622,
+     "credits": 925,
+     "inputs": {
+      "aspect_ratio": "9:16",
+      "bitrate_mode": "high",
+      "duration": 10,
+      "generate_audio": true,
+      "image_urls": [
+       "https://files.example/snap1"
+      ],
+      "prompt": "Vertical selfie-style UGC video filmed on a phone. A woman in her late 20s, curly dark hair, warm smile, casual knit sweater, in a bright, lived-in kitchen, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a warm, friendly female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+      "resolution": "720p"
+     },
+     "params": {
+      "ad_type": "ugc",
+      "aspect": "9:16",
+      "duration": 10,
+      "hook": "Meet the mug. It keeps drinks hot for 6 hours.",
+      "label": "Maya \u00b7 9:16",
+      "line": "0:maya:9:16",
+      "photo_ids": [
+       1
+      ],
+      "presenter": "maya",
+      "product": "Trail Mug",
+      "resolution": "720p",
+      "setting": "",
+      "voice": "warm_f"
+     },
+     "template_id": null,
+     "tool": "ugc_video"
+    }
+   ],
+   "lines": [
+    [
+     "0:maya:9:16",
+     "Maya \u00b7 9:16",
+     925
+    ]
+   ],
+   "quote": {
+    "count": 1,
+    "each": 925,
+    "total": 925
+   }
+  },
+  "ugc holding, 1080p": {
+   "jobs": [
+    {
+     "brief": "Meet the mug. It keeps drinks hot for 6 hours.",
+     "cost_usd": 9.0976,
+     "credits": 1274,
+     "inputs": {
+      "aspect_ratio": "9:16",
+      "bitrate_mode": "high",
+      "duration": 8,
+      "generate_audio": true,
+      "image_urls": [
+       "https://files.example/snap1"
+      ],
+      "prompt": "Vertical selfie-style UGC video filmed on a phone. A woman in her late 20s, curly dark hair, warm smile, casual knit sweater, in a bright, lived-in kitchen, holds the Trail Mug up to the camera and talks directly to the viewer in a natural, unscripted tone with an upbeat, energetic female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+      "resolution": "1080p"
+     },
+     "params": {
+      "ad_type": "ugc",
+      "aspect": "9:16",
+      "duration": 8,
+      "hook": "Meet the mug. It keeps drinks hot for 6 hours.",
+      "label": "Maya \u00b7 9:16 \u00b7 1080p",
+      "line": "0:maya:9:16",
+      "photo_ids": [
+       1
+      ],
+      "placement": "holding",
+      "presenter": "maya",
+      "product": "Trail Mug",
+      "resolution": "1080p",
+      "setting": "",
+      "voice": "upbeat_f"
+     },
+     "template_id": null,
+     "tool": "ugc_video"
+    }
+   ],
+   "lines": [
+    [
+     "0:maya:9:16",
+     "Maya \u00b7 9:16 \u00b7 1080p",
+     1274
+    ]
+   ],
+   "quote": {
+    "count": 1,
+    "each": 1274,
+    "total": 1274
+   }
+  },
+  "ugc two presenters, two shapes": {
+   "jobs": [
+    {
+     "brief": "Meet the mug. It keeps drinks hot for 6 hours.",
+     "cost_usd": 3.6976,
+     "credits": 740,
+     "inputs": {
+      "aspect_ratio": "9:16",
+      "bitrate_mode": "high",
+      "duration": 8,
+      "generate_audio": true,
+      "image_urls": [
+       "https://files.example/snap1"
+      ],
+      "prompt": "Vertical selfie-style UGC video filmed on a phone. A man in his early 30s, short beard, plain t-shirt, relaxed posture, in a quiet porch at dusk, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a casual, chatty male voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+      "resolution": "720p"
+     },
+     "params": {
+      "ad_type": "ugc",
+      "aspect": "9:16",
+      "duration": 8,
+      "hook": "Meet the mug. It keeps drinks hot for 6 hours.",
+      "label": "Jordan \u00b7 9:16",
+      "line": "0:jordan:9:16",
+      "photo_ids": [
+       1
+      ],
+      "presenter": "jordan",
+      "product": "Trail Mug",
+      "resolution": "720p",
+      "setting": "a quiet porch at dusk",
+      "voice": "chatty_m"
+     },
+     "template_id": null,
+     "tool": "ugc_video"
+    },
+    {
+     "brief": "Meet the mug. It keeps drinks hot for 6 hours.",
+     "cost_usd": 3.6976,
+     "credits": 740,
+     "inputs": {
+      "aspect_ratio": "1:1",
+      "bitrate_mode": "high",
+      "duration": 8,
+      "generate_audio": true,
+      "image_urls": [
+       "https://files.example/snap1"
+      ],
+      "prompt": "Vertical selfie-style UGC video filmed on a phone. A man in his early 30s, short beard, plain t-shirt, relaxed posture, in a quiet porch at dusk, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a casual, chatty male voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+      "resolution": "720p"
+     },
+     "params": {
+      "ad_type": "ugc",
+      "aspect": "1:1",
+      "duration": 8,
+      "hook": "Meet the mug. It keeps drinks hot for 6 hours.",
+      "label": "Jordan \u00b7 1:1",
+      "line": "0:jordan:1:1",
+      "photo_ids": [
+       1
+      ],
+      "presenter": "jordan",
+      "product": "Trail Mug",
+      "resolution": "720p",
+      "setting": "a quiet porch at dusk",
+      "voice": "chatty_m"
+     },
+     "template_id": null,
+     "tool": "ugc_video"
+    },
+    {
+     "brief": "Meet the mug. It keeps drinks hot for 6 hours.",
+     "cost_usd": 3.6976,
+     "credits": 740,
+     "inputs": {
+      "aspect_ratio": "9:16",
+      "bitrate_mode": "high",
+      "duration": 8,
+      "generate_audio": true,
+      "image_urls": [
+       "https://files.example/snap1"
+      ],
+      "prompt": "Vertical selfie-style UGC video filmed on a phone. A man in his mid 60s, grey crew cut, trimmed white beard, plaid flannel shirt, in a quiet porch at dusk, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a steady, slightly gravelly older male voice, unhurried, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+      "resolution": "720p"
+     },
+     "params": {
+      "ad_type": "ugc",
+      "aspect": "9:16",
+      "duration": 8,
+      "hook": "Meet the mug. It keeps drinks hot for 6 hours.",
+      "label": "Walt \u00b7 9:16",
+      "line": "0:walt:9:16",
+      "photo_ids": [
+       1
+      ],
+      "presenter": "walt",
+      "product": "Trail Mug",
+      "resolution": "720p",
+      "setting": "a quiet porch at dusk",
+      "voice": "steady_m60"
+     },
+     "template_id": null,
+     "tool": "ugc_video"
+    },
+    {
+     "brief": "Meet the mug. It keeps drinks hot for 6 hours.",
+     "cost_usd": 3.6976,
+     "credits": 740,
+     "inputs": {
+      "aspect_ratio": "1:1",
+      "bitrate_mode": "high",
+      "duration": 8,
+      "generate_audio": true,
+      "image_urls": [
+       "https://files.example/snap1"
+      ],
+      "prompt": "Vertical selfie-style UGC video filmed on a phone. A man in his mid 60s, grey crew cut, trimmed white beard, plaid flannel shirt, in a quiet porch at dusk, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a steady, slightly gravelly older male voice, unhurried, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+      "resolution": "720p"
+     },
+     "params": {
+      "ad_type": "ugc",
+      "aspect": "1:1",
+      "duration": 8,
+      "hook": "Meet the mug. It keeps drinks hot for 6 hours.",
+      "label": "Walt \u00b7 1:1",
+      "line": "0:walt:1:1",
+      "photo_ids": [
+       1
+      ],
+      "presenter": "walt",
+      "product": "Trail Mug",
+      "resolution": "720p",
+      "setting": "a quiet porch at dusk",
+      "voice": "steady_m60"
+     },
+     "template_id": null,
+     "tool": "ugc_video"
+    }
+   ],
+   "lines": [
+    [
+     "0:jordan:9:16",
+     "Jordan \u00b7 9:16",
+     740
+    ],
+    [
+     "0:jordan:1:1",
+     "Jordan \u00b7 1:1",
+     740
+    ],
+    [
+     "0:walt:9:16",
+     "Walt \u00b7 9:16",
+     740
+    ],
+    [
+     "0:walt:1:1",
+     "Walt \u00b7 1:1",
+     740
+    ]
+   ],
+   "quote": {
+    "count": 4,
+    "each": 740,
+    "total": 2960
+   }
+  },
+  "ugc with a situation": {
+   "jobs": [
+    {
+     "brief": "Meet the mug. It keeps drinks hot for 6 hours.",
+     "cost_usd": 6.933,
+     "credits": 1387,
+     "inputs": {
+      "aspect_ratio": "9:16",
+      "bitrate_mode": "high",
+      "duration": 15,
+      "generate_audio": true,
+      "image_urls": [
+       "https://files.example/snap1"
+      ],
+      "prompt": "Vertical selfie-style UGC video filmed on a phone. A woman in her early 30s, shoulder-length twists, small gold hoops, fitted tee, in a plain home desk by a window, is sitting at the desk, forearms resting on it, with the Trail Mug standing on the desk in front of them in clear view, its label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a smooth, self-assured female voice in a lower register, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+      "resolution": "720p"
+     },
+     "params": {
+      "ad_type": "ugc",
+      "aspect": "9:16",
+      "duration": 15,
+      "hook": "Meet the mug. It keeps drinks hot for 6 hours.",
+      "label": "Nia \u00b7 Desk \u00b7 9:16",
+      "line": "0:nia:9:16",
+      "photo_ids": [
+       1
+      ],
+      "presenter": "nia",
+      "product": "Trail Mug",
+      "resolution": "720p",
+      "setting": "",
+      "situation": "desk",
+      "voice": "smooth_f"
+     },
+     "template_id": null,
+     "tool": "ugc_video"
+    }
+   ],
+   "lines": [
+    [
+     "0:nia:9:16",
+     "Nia \u00b7 Desk \u00b7 9:16",
+     1387
+    ]
+   ],
+   "quote": {
+    "count": 1,
+    "each": 1387,
+    "total": 1387
+   }
+  },
+  "vo-product-shots": {
+   "jobs": [
+    {
+     "brief": "Meet the mug. It keeps drinks hot for 6 hours.",
+     "cost_usd": 6.933,
+     "credits": 1387,
+     "inputs": {
+      "aspect_ratio": "9:16",
+      "bitrate_mode": "high",
+      "duration": 15,
+      "generate_audio": true,
+      "image_urls": [
+       "https://files.example/snap1"
+      ],
+      "prompt": "Short product video of the Trail Mug. Three unhurried shots of it resting on a table in a real home, cut together: a slow push-in from the front, a close pass across the label, then the whole product again from slightly above. No people and no hands in frame. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. A narrator, never seen on camera, says in a bright, clear narrator voice: \"Meet the mug. It keeps drinks hot for 6 hours.\" The narration is clear and matches the pacing of the shots. No on-screen text, no subtitles, no music.",
+      "resolution": "720p"
+     },
+     "params": {
+      "ad_type": "voiceover",
+      "aspect": "9:16",
+      "duration": 15,
+      "hook": "Meet the mug. It keeps drinks hot for 6 hours.",
+      "label": "Narrator, bright \u00b7 9:16",
+      "line": "0:narrator_bright:9:16",
+      "photo_ids": [
+       1
+      ],
+      "preset": "vo-product-shots",
+      "product": "Trail Mug",
+      "resolution": "720p",
+      "setting": "",
+      "voice": "narrator_bright"
+     },
+     "template_id": "vo-product-shots",
+     "tool": "ugc_video"
+    }
+   ],
+   "lines": [
+    [
+     "0:narrator_bright:9:16",
+     "Narrator, bright \u00b7 9:16",
+     1387
+    ]
+   ],
+   "quote": {
+    "count": 1,
+    "each": 1387,
+    "total": 1387
+   }
+  },
+  "voiceover": {
+   "jobs": [
+    {
+     "brief": "Meet the mug. It keeps drinks hot for 6 hours.",
+     "cost_usd": 4.622,
+     "credits": 925,
+     "inputs": {
+      "aspect_ratio": "9:16",
+      "bitrate_mode": "high",
+      "duration": 10,
+      "generate_audio": true,
+      "image_urls": [
+       "https://files.example/snap1"
+      ],
+      "prompt": "Short product video of the Trail Mug. Clean, well-lit close-ups and hands using it in a real home; smooth, simple camera moves. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. A narrator, never seen on camera, says in a deep, smooth narrator voice: \"Meet the mug. It keeps drinks hot for 6 hours.\" The narration is clear and matches the pacing of the shots. No on-screen text, no subtitles, no music.",
+      "resolution": "720p"
+     },
+     "params": {
+      "ad_type": "voiceover",
+      "aspect": "9:16",
+      "duration": 10,
+      "hook": "Meet the mug. It keeps drinks hot for 6 hours.",
+      "label": "Narrator, deep \u00b7 9:16",
+      "line": "0:narrator_deep:9:16",
+      "photo_ids": [
+       1
+      ],
+      "product": "Trail Mug",
+      "resolution": "720p",
+      "setting": "",
+      "voice": "narrator_deep"
+     },
+     "template_id": null,
+     "tool": "ugc_video"
+    }
+   ],
+   "lines": [
+    [
+     "0:narrator_deep:9:16",
+     "Narrator, deep \u00b7 9:16",
+     925
+    ]
+   ],
+   "quote": {
+    "count": 1,
+    "each": 925,
+    "total": 925
+   }
+  }
+ },
+ "hidden": {
+  "green-screen-product-page": [
+   "Over the product page isn't available yet. Pick another preset.",
+   0,
+   "Over the product page is a presenter video preset. Pick that ad type for it.",
+   0
+  ],
+  "how-to-steps": [
+   "How-to in three steps is a voiceover preset. Pick that ad type for it.",
+   0,
+   "How-to in three steps isn't available yet. Pick another preset.",
+   0
+  ],
+  "offer-promo": [
+   "Offer, no countdown is a voiceover preset. Pick that ad type for it.",
+   0,
+   "Offer, no countdown isn't available yet. Pick another preset.",
+   0
+  ],
+  "problem-solution": [
+   "Problem, then solution isn't available yet. Pick another preset.",
+   0,
+   "Problem, then solution is a presenter video preset. Pick that ad type for it.",
+   0
+  ],
+  "show-your-app": [
+   "Show your app isn't available yet. Pick another preset.",
+   0,
+   "Show your app is a presenter video preset. Pick that ad type for it.",
+   0
+  ],
+  "street-interview": [
+   "Street interview isn't available yet. Pick another preset.",
+   0,
+   "Street interview is a presenter video preset. Pick that ad type for it.",
+   0
+  ],
+  "talking-head-cutaways": [
+   "Talking head with cutaways isn't available yet. Pick another preset.",
+   0,
+   "Talking head with cutaways is a presenter video preset. Pick that ad type for it.",
+   0
+  ],
+  "three-reasons-video": [
+   "Three reasons is a voiceover preset. Pick that ad type for it.",
+   0,
+   "Three reasons isn't available yet. Pick another preset.",
+   0
+  ]
+ },
+ "offered_recipes": [
+  "vo-product-shots",
+  "hands-only-demo",
+  "pov-unboxing",
+  "talk-to-camera",
+  "car-talk",
+  "season-gift-clip",
+  "founder-story"
+ ],
+ "pipelines": [
+  "single_take"
+ ],
+ "recipes_for": [
+  "vo-product-shots",
+  "hands-only-demo",
+  "pov-unboxing",
+  "talk-to-camera",
+  "car-talk",
+  "season-gift-clip",
+  "founder-story"
+ ]
+}

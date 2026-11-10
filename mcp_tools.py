@@ -126,6 +126,10 @@ def _preset_row(ctx, p) -> dict:
                  beats=[{k: b[k] for k in ("beat", "seconds", "shot", "say", "text")} for b in p.beats])
         if not presets.runnable(p):
             d["not_available_yet"] = p.needs
+        # how it is made now (one take, or from a keyframe in beats) and whether it shows the member's own screens
+        d["made_as"] = presets.pipeline_for(p)
+        if presets.screens_needed(p):
+            d["needs_screens"] = presets.SCREEN_NEEDS[presets.screens_needed(p)]
     return d
 
 
@@ -241,7 +245,8 @@ def _ad_config(args):
                      ("duration", "duration"), ("aspects", "aspects"), ("resolution", "resolution"),
                      ("versions", "versions"), ("photo_ids", "photos"), ("subline", "subline"), ("cta", "cta"),
                      ("setting", "setting"), ("placement", "placement"), ("audio", "audio"), ("only", "lines"),
-                     ("preset", "preset"), ("situation", "situation"), ("layers", "layers")):
+                     ("preset", "preset"), ("situation", "situation"), ("layers", "layers"),
+                     ("screen_photo_ids", "screens"), ("captions", "captions")):
         if args.get(src) not in (None, "", []):
             d[dst] = args[src]
     if args.get("presenter") and not d.get("presenters"):        # one presenter (with `situation`), or the list
@@ -358,6 +363,12 @@ def _ad_schema(kinds, generating):
                       "description": "ugc: where the product is. table (default): beside the presenter, hands off. "
                                      "holding: the presenter holds it up."},
         "audio": {"type": "boolean", "description": "product_video: add sound."},
+        "screen_photo_ids": {"type": "array", "maxItems": 4, "items": {"type": "integer"},
+                             "description": "Video presets that show your own screens (over the product page, show "
+                                            "your app): photo ids of the screenshots, uploaded with the product's "
+                                            "photos. They are shown as they are; nothing of them is generated."},
+        "captions": {"type": "boolean", "description": "Video presets made in beats: burn the spoken words in as "
+                                                       "captions (default: the preset's own choice)."},
         "only": {"type": "array", "maxItems": 12, "items": {"type": "string", "maxLength": 40},
                  "description": "Make only these line keys from the quote (default: all)."},
     }
@@ -572,11 +583,13 @@ LIB_OPTIONS = {"type": "object", "additionalProperties": False, "properties": {
 LIB_PROPS = {
     "kind": {"type": "string", "enum": list(library.KINDS),
              "description": "demo_products (packshots of the demo brand), presenter_stills, presenter_voices, "
-                            "preset_examples (images) or preset_videos."},
+                            "preset_examples (images), preset_videos, or keyframe_tests (one small paid run of the "
+                            "keyframe-first video pipeline at its cheapest: 480p, four-second beats)."},
     "ids": {"type": "array", "minItems": 1, "maxItems": 150, "items": {"type": "string", "maxLength": 80},
             "description": "presenter_stills: \"maya\" (all her situations) or \"maya:kitchen\"; presenter_voices: "
-                           "presenter ids; preset_*: preset ids; demo_products: mug, candle, skincare, coffee, tote, "
-                           "greens, app. [\"all\"] for everything of that kind."},
+                           "presenter ids; preset_*: preset ids; keyframe_tests: video preset ids (talking-head-cutaways "
+                           "shows the most, talk-to-camera is the cheapest); demo_products: mug, candle, skincare, "
+                           "coffee, tote, greens, app. [\"all\"] for everything of that kind."},
     "options": LIB_OPTIONS}
 
 PRODUCT = {"type": "integer", "minimum": 1}
