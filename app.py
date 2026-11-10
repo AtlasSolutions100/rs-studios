@@ -1061,7 +1061,9 @@ def _made_context(conn, batches, made_id):
             "done": [j for j in jobs if j["status"] == "done"], "eta": jobs_routes.eta_minutes(conn),
             "verdicts": jobs_routes.verdicts(conn, [j["id"] for j in jobs]), "first_batch": first_batch,
             "is_video": cfg.get("type") != "image", "video_unlock": verify.needs(conn, g.ws, g.user, "photo_to_video"),
-            "full_price": catalog.price_credits("ugc_video", duration=preview.SECONDS) if cfg.get("type") == "ugc" else 0}
+            "full_price": catalog.price_credits("ugc_video", duration=preview.SECONDS)
+            if cfg.get("type") in ("ugc", "voiceover") and any(json.loads(j["params_json"] or "{}").get("preview") for j in jobs)
+            else 0}
 
 
 def _first_ad_context(conn, form):
@@ -1071,7 +1073,7 @@ def _first_ad_context(conn, form):
     Everyone starts on image ads (2 at once when the free credits cover them: the
     first thing people should see is the form, not a confirm-your-email wall).
     Ad-grant accounts (adoffer.py, 500 credits) are offered the 5-second product
-    video first, since the grant covers it. The free talking-video preview stays
+    video first, since the grant covers it. The free video preview (a voiceover over the product) stays
     as a later choice, "after you confirm your email"."""
     pv = preview.status(conn, g.ws, g.user["email"], g.user)
     photos = conn.execute("SELECT * FROM photos WHERE workspace_id=? ORDER BY id DESC LIMIT 12",
@@ -1079,7 +1081,8 @@ def _first_ad_context(conn, form):
     ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone() or g.ws
     bal = db.balance(ws)
     price = catalog.price_credits("ad_image", batch=1)
-    two = catalog.price_credits("ad_image", batch=2)
+    # Two free image ads are two different templates (two single-ad jobs, see start()), not two versions of one.
+    two = 2 * price
     n_images = 2 if bal >= two else 1
     images_price = two if n_images == 2 else price
     video_price = catalog.price_credits("photo_to_video", duration=5)
@@ -1098,7 +1101,6 @@ def _first_ad_context(conn, form):
             "price": price, "n_images": n_images, "images_price": images_price, "video_on": video_on,
             "video_price": video_price, "grant": grant, "bal": bal,
             "free_images": n_images == 2 and bal <= catalog.starter_credits(),   # the 2 free ads of a plain sign-up
-            "presenters": [p for p in presenter_stills.with_photos(url_for) if p["id"] in preview.PRESENTERS],
             "line": form.get("line") or "", "default_line": preview.DEFAULT_LINE, "pick": form.get("template") or
             tpls[0]["id"], "seconds": preview.SECONDS, "scene": FIRST_VIDEO_SCENE,
             "max_words": int(catalog.max_words(preview.SECONDS) * 1.2), "verify_email": g.user["email"],
@@ -1373,7 +1375,7 @@ def start():
     (optional) and one photo (uploaded, or the one the page import found), then
     one of: image ads from a template (2 at once when the free credits cover
     them), the 5-second product video (ad-grant accounts), or the free
-    talking-video preview. Fills the product as a side effect and goes back to
+    video preview (voiceover). Fills the product as a side effect and goes back to
     Home, which shows the ads rendering."""
     if request.method == "GET":
         return redirect(url_for("studio"))
@@ -1414,7 +1416,7 @@ def start():
         site = service_path.site_info(act) if service_path.is_service(act) else {}
         tpl = next(t for t in service_path.templates(product, site) if t["id"] == tpl["id"])
     if kind == "preview":
-        presenter = f.get("presenter") if f.get("presenter") in preview.PRESENTERS else preview.PRESENTERS[0]
+        # The free preview is a voiceover over the product (preview.py): no presenter, no lips to sync, no hands.
         line = " ".join((f.get("line") or "").split())[:300] or preview.line_for(product)
         line = catalog.fill(line, b)
         if len(line.split()) > int(catalog.max_words(preview.SECONDS) * 1.2):
@@ -1440,7 +1442,7 @@ def start():
         if not check["ok"]:
             return again(" ".join(check["blocks"]))
     fs = request.files.get("photo")
-    photo_id, path = None, None
+    photo_id, path, pair = None, None, []
     with db.connect() as conn:
         mine = {r["id"] for r in conn.execute("SELECT id FROM photos WHERE workspace_id=?", (g.ws["id"],))}
         if kind == "preview" and not preview.status(conn, g.ws, g.user["email"], g.user)["ok"]:
@@ -1483,26 +1485,39 @@ def start():
             conn.execute("UPDATE products SET primary_photo_id=COALESCE(primary_photo_id, ?) WHERE id=?", (photo_id, pid))
             conn.commit()
         if kind == "preview":
-            cfg = {"type": "ugc", "product": pid, "angle": {"title": "First look"}, "items": [line], "body": "",
-                   "presenters": [presenter], "duration": preview.SECONDS, "aspects": ["9:16"], "photos": [photo_id]}
+            cfg = {"type": preview.AD_TYPE, "product": pid, "angle": {"title": "First look"}, "items": [line], "body": "",
+                   "voices": [preview.VOICE], "duration": preview.SECONDS, "aspects": ["9:16"], "photos": [photo_id]}
             title = "Your free preview"
         elif kind == "video":
             cfg = {"type": "product_video", "product": pid, "angle": {"title": "First look"}, "items": [scene],
                    "duration": 5, "photos": [photo_id]}
             title = "Your free video ad"
         else:
+            # Two free ads = two different templates (the pick, then one that suits the product), one job each.
+            pair = []
+            if n_images > 1 and not service:
+                prow = products.get_product(conn, g.ws["id"], pid) if pid else None
+                info = {"product": product, "description": (prow["description"] if prow is not None else "") or "",
+                        "tags": (prow["tags"] if prow is not None else "") or ""}
+                for t2 in catalog.first_run_category(info):
+                    t2 = catalog.TEMPLATE_BY_ID[t2]
+                    brief2 = catalog.fill(t2["brief"], b)
+                    if t2["id"] != tpl["id"] and compliance.check(brief2, audience, product, brand_name)["ok"]:
+                        pair = [(tpl, brief), (t2, brief2)]
+                        break
             cfg = {"type": "image", "product": pid, "angle": {"title": tpl["name"]}, "items": [], "body": brief,
-                   "aspects": [tpl.get("aspect") or "9:16"], "versions": n_images,
-                   "photos": [photo_id] if photo_id else []}
+                   "aspects": [tpl.get("aspect") or "9:16"], "versions": 1 if pair else n_images,
+                   "photos": [photo_id] if photo_id else [],
+                   **({"templates": [t["id"] for t, _ in pair]} if pair else {})}
             title = "Your first ads" if n_images > 1 else "Your first ad"
         bid = conn.execute("INSERT INTO batches (workspace_id, user_id, product_id, ad_type, title, config_json, credits, "
                            "created_at) VALUES (?,?,?,?,?,?,?,?)",
                            (g.ws["id"], g.user["id"], pid, cfg["type"], title, json.dumps(cfg), 0, db.now())).lastrowid
         if kind == "preview":
-            params = {"photo_ids": [photo_id], "ad_type": "ugc", "product": product, "duration": preview.SECONDS,
-                      "aspect": "9:16", "presenter": presenter, "voice": create_routes._default_voice(presenter),
-                      "resolution": preview.RESOLUTION, "preview": True, "label": "Free preview · 480p",
-                      "hook": line[:200]}
+            params = {"photo_ids": [photo_id], "ad_type": preview.AD_TYPE, "product": product,
+                      "duration": preview.SECONDS, "aspect": "9:16", "voice": preview.VOICE,
+                      "placement": preview.PLACEMENT, "resolution": preview.RESOLUTION, "preview": True,
+                      "label": "Free preview · 480p", "hook": line[:200]}
             jid = _queue_job(conn, "ugc_video", None, line, params, preview.cost_usd(), 0, product_id=pid,
                              batch_id=bid)
             if jid and not preview.claim(conn, g.ws["id"], g.user["email"], client_ip(), jid, db.now()):
@@ -1510,7 +1525,7 @@ def start():
                 conn.execute("DELETE FROM ledger WHERE job_id=?", (jid,))
                 jid = None
             if jid:
-                conn.execute("UPDATE ledger SET reason='free talking-video preview' WHERE job_id=?", (jid,))
+                conn.execute("UPDATE ledger SET reason='free video preview' WHERE job_id=?", (jid,))
             conn.commit()
         elif kind == "video":
             params = {"photo_ids": [photo_id], "duration": 5, "audio": False, "resolution": catalog.DEFAULT_RESOLUTION,
@@ -1520,15 +1535,30 @@ def start():
             if jid:
                 conn.execute("UPDATE batches SET credits=? WHERE id=?", (ctx["video_price"], bid))
                 conn.commit()
+        elif pair:
+            one, spent, jid = catalog.price_credits("ad_image", batch=1), 0, None
+            for t, tbrief in pair:
+                params = {"photo_ids": [photo_id] if photo_id else [], "batch": 1, "aspect": t.get("aspect") or "9:16",
+                          "audience": audience or t.get("audience") or "", "niche": "", "label": t["name"]}
+                j = _queue_job(conn, "ad_image", t["id"], tbrief, params, catalog.cost_usd("ad_image", batch=1), one,
+                               quiet=jid is not None, product_id=pid, batch_id=bid)
+                if not j and jid is None:
+                    break               # the first one was refused (credits, or the email): don't try the second
+                if j:
+                    jid, spent = jid or j, spent + one
+            if jid:
+                conn.execute("UPDATE batches SET credits=? WHERE id=?", (spent, bid))
+                conn.commit()
         else:
+            one_job = catalog.price_credits("ad_image", batch=n_images)     # a service, or one ad: a single job
             params = {"photo_ids": [photo_id] if photo_id else [], "batch": n_images,
                       "aspect": tpl.get("aspect") or "9:16",
                       "audience": audience or tpl.get("audience") or "", "niche": "", "label": tpl["name"],
                       **({"service": True} if service else {})}
             jid = _queue_job(conn, "ad_image", None if service else tpl["id"], brief, params, catalog.cost_usd("ad_image", batch=n_images),
-                             img_price, product_id=pid, batch_id=bid)
+                             one_job, product_id=pid, batch_id=bid)
             if jid:
-                conn.execute("UPDATE batches SET credits=? WHERE id=?", (img_price, bid))
+                conn.execute("UPDATE batches SET credits=? WHERE id=?", (one_job, bid))
                 conn.commit()
         if not jid:
             conn.execute("DELETE FROM batches WHERE id=?", (bid,))
@@ -1636,6 +1666,11 @@ def media(oid):
             return send_file(p, conditional=True, max_age=86400)
         abort(404)
     if o["path"] and os.path.exists(o["path"]):
+        if request.args.get("download") == "1" and not request.headers.get("Range", "").strip().lower().startswith(
+                tuple(f"bytes={d}" for d in "123456789")):   # one row per download, not one per resumed chunk
+            with db.connect() as conn:
+                site_events.on_asset(conn, "asset_download",
+                                     conn.execute("SELECT * FROM jobs WHERE id=?", (o["job_id"],)).fetchone(), request)
         return send_file(o["path"], as_attachment=request.args.get("download") == "1",
                          download_name=os.path.basename(o["path"]), conditional=True)
     if not o["url"]:

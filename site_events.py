@@ -35,6 +35,11 @@ Events, in funnel order (FUNNEL):
                  preview); a product page read into it; the confirm-email code box opened; the first finished
                  ad shown on Home
     verify_completed  server: the sign-up's email confirmed (code box, link or the nudge email's magic link), once
+    asset_download, asset_export, more_like_this
+                 server, logged in: a finished ad downloaded (/media/<id>?download=1), exported in a platform's
+                 size (/app/export/...), or "Make more like this" opened from its batch. One row per action;
+                 detail = <ad type>:<template id or "none">:job<job id>[:<platform>/<format> on an export], so
+                 first-render acceptance can be counted per ad type and template (on_asset)
     checkout     server: a Stripe Checkout Session created for a plan or a credit pack
     paid         server: from the Stripe webhook, a credit pack paid (once per purchase) or a plan's
                  first invoice paid (billing_reason subscription_create, once per invoice)
@@ -83,8 +88,10 @@ CLIENT_EVENTS = ("lp_view", "cta_click", "signup_view",
                  "first_run_viewed", "first_run_kind_chosen", "first_run_imported", "verify_box_opened",
                  "first_output_viewed",
                  "first_run_sells")   # "What do you sell?" answered (detail = product / service; RS_SERVICE_PATH)
+ASSET_EVENTS = ("asset_download", "asset_export", "more_like_this")   # per job, with its ad type and template
 SERVER_EVENTS = ("signup", "first_ad", "checkout", "paid",
-                 "verify_completed")   # the email confirmed (code, link or magic link), once per workspace
+                 "verify_completed",   # the email confirmed (code, link or magic link), once per workspace
+                 ) + ASSET_EVENTS
 # Client events that carry a detail label.
 DETAIL_EVENTS = {"cta_click", "first_run_viewed", "first_run_kind_chosen", "first_run_imported", "verify_box_opened",
                  "first_output_viewed", "first_run_sells"}
@@ -287,6 +294,33 @@ def on_workspace_step(conn, name: str, workspace_id: int, req=None, detail=None,
             except Exception:  # noqa: BLE001
                 path = None
         return record(conn, name, vid=vid, path=path, attr=attr, detail=detail, workspace_id=workspace_id)
+    except Exception as e:  # noqa: BLE001
+        log.warning("site event %s not recorded: %s", name, str(e)[:120])
+        return None
+
+
+def asset_detail(job, extra: str = "") -> str:
+    """<ad type>:<template or none>:job<id>[:extra] for a jobs row (the ad type from its params first)."""
+    import catalog
+    typ = catalog.job_ad_type(job["tool"], job["params_json"])
+    tpl = (job["template_id"] if "template_id" in job.keys() else None) or "none"
+    return f"{typ}:{tpl}:job{job['id']}" + (f":{extra}" if extra else "")
+
+
+def on_asset(conn, name: str, job, req=None, extra: str = "") -> int | None:
+    """asset_download / asset_export / more_like_this for one job (a jobs row). Never raises."""
+    if name not in ASSET_EVENTS or job is None:
+        return None
+    try:
+        vid, attr = _workspace_attr(conn, job["workspace_id"], req)
+        path = None
+        if req is not None:
+            try:
+                path = req.path
+            except Exception:  # noqa: BLE001
+                path = None
+        return record(conn, name, vid=vid, path=path, attr=attr, detail=asset_detail(job, extra),
+                      workspace_id=job["workspace_id"])
     except Exception as e:  # noqa: BLE001
         log.warning("site event %s not recorded: %s", name, str(e)[:120])
         return None

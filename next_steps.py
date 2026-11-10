@@ -85,7 +85,8 @@ def state(conn, ws, product_name: str = "") -> dict:
 
 
 def made_counts(made) -> dict:
-    """UX-2: count ads, not jobs. The 2 free ads are one job with 2 versions (params batch=2)."""
+    """UX-2: count ads, not jobs. The 2 free ads are two single-ad jobs (two templates); a job made with
+    versions > 1 (params batch) still counts once per version."""
     if not made:
         return {"ready": 0, "planned": 0}
     ready = sum(len(made["outs"].get(j["id"]) or []) for j in made["jobs"] if j["status"] == "done")

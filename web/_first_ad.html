@@ -68,24 +68,21 @@
     {% elif k == 'image' %}
     <label class="fa-kind"><input type="radio" name="kind" value="image" {{ 'checked' if first.kind == 'image' }}>
       <span class="thumb"><img src="{{ url_for('static', filename='previews/ad_image.jpg') }}" alt="" loading="lazy"{% if first.service_on %} data-src-product="{{ url_for('static', filename='previews/ad_image.jpg') }}" data-src-service="{{ url_for('static', filename='previews/svc-logo.jpg') }}"{% endif %}></span>
-      <span><b>{{ '2 image ads' if first.n_images > 1 else 'Image ad' }} <em class="tag {{ 'ok' if first.free_images }}">{{ 'free' if first.free_images else first.images_price|credits }}</em></b><span class="small muted">{{ 'Two finished ad images' if first.n_images > 1 else 'A finished ad image' }} with a headline, from a template. Ready in about a minute. You have {{ first.bal|credits }}.</span></span></label>
+      <span><b>{{ '2 image ads' if first.n_images > 1 else 'Image ad' }} <em class="tag {{ 'ok' if first.free_images }}">{{ 'free' if first.free_images else first.images_price|credits }}</em></b><span class="small muted">{{ 'Two finished ad images in two different looks' if first.n_images > 1 else 'A finished ad image' }} with a headline, from a template. Ready in about a minute. You have {{ first.bal|credits }}.</span></span></label>
     {% else %}
     <label class="fa-kind" data-kind-label="preview"><input type="radio" name="kind" value="preview" {{ 'checked' if first.kind == 'preview' }}>
-      <span class="thumb"><img src="{{ url_for('static', filename='site/ugc-coffee.jpg') }}" alt="" loading="lazy"><span class="chip motion">Speaks</span></span>
-      <span><b>Talking video preview <em class="tag {{ 'ok' if not first.needs.preview }}">{{ 'after you confirm your email' if first.needs.preview else 'Free, once' }}</em></b><span class="small muted">A presenter holds your product and says one line. {{ first.seconds }} seconds, 480p, with a PREVIEW watermark, so you can see it before you pay.</span></span></label>
+      <span class="thumb"><img src="{{ url_for('static', filename='site/show-amber.jpg') }}" alt="" loading="lazy"><span class="chip motion">Voiceover</span></span>
+      <span><b>Video preview with a voiceover <em class="tag {{ 'ok' if not first.needs.preview }}">{{ 'after you confirm your email' if first.needs.preview else 'Free, once' }}</em></b><span class="small muted">A narrator says one line over shots of your product. {{ first.seconds }} seconds, 480p, with a PREVIEW watermark, so you can see it before you pay.</span></span></label>
     {% endif %}
     {% endfor %}
   </fieldset>
 
   {% if pv_on %}
   <div class="fa-opt" data-for="preview">
-    <label for="line">What they say <span class="dim">(about {{ first.max_words - 4 }} words; checked against the rules)</span></label>
+    <label for="line">What the narrator says <span class="dim">(about {{ first.max_words - 4 }} words; checked against the rules)</span></label>
     <input id="line" type="text" name="line" maxlength="200" value="{{ first.line }}" data-default="{{ first.default_line }}" placeholder="{{ first.default_line|replace('{product}', 'your product') }}">
     <p class="small muted" data-words style="margin:6px 0 0"></p>
-    <label style="margin-top:14px">Presenter <span class="dim">(AI, never a real person)</span></label>
-    <div class="fa-pres" role="radiogroup" aria-label="Presenter">
-      {% for p in first.presenters %}<label class="choice"><input type="radio" name="presenter" value="{{ p.id }}" {{ 'checked' if (F.get('presenter') or first.presenters[0].id) == p.id }}>{% if p.photo %}<img class="fa-ava" src="{{ p.photo }}" alt="">{% endif %}{{ p.name }} <span class="cf-chipp">{{ p.vibe }}</span></label>{% endfor %}
-    </div>
+    <p class="small muted" style="margin:10px 0 0">Your product stays on screen the whole time, exactly as in your photo.</p>
   </div>
   {% endif %}
   {% if first.video_on %}
@@ -108,6 +105,7 @@
       </label>
       {% endfor %}
     </div>
+    {% if first.n_images > 1 %}<p class="small muted" style="margin:8px 0 0"{% if first.service_on %} data-for-sells="product" {{ 'hidden' if first.sells == 'service' }}{% endif %}>You get two different looks: the template you pick, plus a second one that suits your product.</p>{% endif %}
     {% if first.service_on %}
     <div class="fr-tpls" data-for-sells="service" {{ 'hidden' if first.sells != 'service' }}>
       {% for t in first.svc_tpls %}
@@ -166,7 +164,7 @@
     form.querySelectorAll('[data-svc]').forEach(function(e){ var t = e.dataset[s]; if(t != null) e.textContent = t; });
     form.querySelectorAll('[data-ph-' + s + ']').forEach(function(e){ e.placeholder = e.getAttribute('data-ph-' + s); });
     form.querySelectorAll('[data-src-' + s + ']').forEach(function(e){ e.src = e.getAttribute('data-src-' + s); });
-    form.querySelectorAll('.fr-tpls[data-for-sells]').forEach(function(e){ e.hidden = e.dataset.forSells !== s; });
+    form.querySelectorAll('[data-for-sells]').forEach(function(e){ e.hidden = e.dataset.forSells !== s; });
     form.querySelectorAll('[data-kind-label]').forEach(function(l){ l.hidden = s === 'service'; });
     if(s === 'service'){ var im = form.querySelector('input[name=kind][value=image]'); if(im && !im.checked){ im.checked = true; kind(); } }
     var site = form.querySelector('[data-site]'); if(site && s !== 'service') site.hidden = true;

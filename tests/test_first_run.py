@@ -5,7 +5,7 @@
   * "Paste your product page" reads the store with the existing importer (no AI, nothing charged) and hands the
     form name, brand and photo; a store that refuses apps gets a by-hand message
   * ad-grant accounts (500 credits) get the 5-second product video pre-selected, behind the inline code box
-  * the first submit makes 2 image ads (one 43-credit job), Home shows them rendering with the unlock-video box
+  * the first submit makes 2 image ads (two templates, one job each), Home shows them rendering with the unlock-video box
   * first-run events are whitelisted in /e and verify_completed is written once
   * nudge emails at 10 minutes and 24 hours with a magic link (/m) that logs in and confirms; FIRST_RUN_NUDGES=0
 
@@ -42,7 +42,7 @@ passed = 0
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 STARTER = catalog.starter_credits()
 R = catalog.rates()
-TWO = catalog.price_credits("ad_image", batch=2)
+TWO = 2 * catalog.price_credits("ad_image", batch=1)   # two different templates, one single-ad job each
 
 
 def check(cond, msg):
@@ -189,12 +189,13 @@ check(r.status_code == 302 and r.headers["Location"].startswith("/app?made="), "
 with db.connect() as conn:
     jobs = conn.execute("SELECT * FROM jobs WHERE workspace_id=?", (ws1["id"],)).fetchall()
     prods = conn.execute("SELECT * FROM products WHERE workspace_id=?", (ws1["id"],)).fetchall()
-check(len(jobs) == 1 and jobs[0]["tool"] == "ad_image" and jobs[0]["credits"] == TWO
-      and json.loads(jobs[0]["params_json"])["batch"] == 2 and jobs[0]["product_id"] == prods[0]["id"] and len(prods) == 1,
-      f"one job for 2 image ads ({TWO} credits) on the imported product (no duplicate product)")
+check(len(jobs) == 2 and all(j["tool"] == "ad_image" and json.loads(j["params_json"])["batch"] == 1 for j in jobs)
+      and sum(j["credits"] for j in jobs) == TWO and jobs[0]["template_id"] == "hero" and jobs[1]["template_id"] != "hero"
+      and jobs[0]["batch_id"] == jobs[1]["batch_id"] and jobs[0]["product_id"] == prods[0]["id"] and len(prods) == 1,
+      f"2 image ads in two different templates ({TWO} credits) on the imported product (no duplicate product)")
 check(ws_of("first@example.com")["credits"] == STARTER - TWO, "paid from the starter credits")
 home = c.get(r.headers["Location"]).get_data(as_text=True)
-check("data-made" in home and 'data-live-cards="batch"' in home and "Making 1 of 1" in home and "about a minute" in home,
+check("data-made" in home and 'data-live-cards="batch"' in home and "Making 2 of 2" in home and "about a minute" in home,
       "Home shows the batch rendering, live")
 check("Confirm your email to unlock video ads" in home and "data-verify-open" in home and "data-first-run" not in home,
       "the 'confirm your email to unlock video' box sits under the progress; the form is gone")

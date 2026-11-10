@@ -260,6 +260,10 @@ check(res["isError"] and "ad_type" in text(res), "generate_video_ads won't make 
 print("== videos: confirmed email and credits, same as the app")
 ugc = {"ad_type": "ugc", "product_id": pid, "lines": ["I take this mug on every hike."], "presenters": ["maya"],
        "duration": 8, "aspects": ["9:16"]}
+res = call(rkey, "quote_ad_batch", ugc)
+check(res["isError"] and "speak as customers" in text(res),
+      "a presenter script in a customer's voice ('I take this mug on every hike.') is refused at the quote")
+ugc["lines"] = ["Take this mug on every hike."]
 q = call(rkey, "quote_ad_batch", ugc)["structuredContent"]
 check(q["videos"] and q["total_credits"] == catalog.price_credits("ugc_video", duration=8, resolution="720p"),
       "a presenter video is priced before anything is made")
@@ -309,6 +313,16 @@ with db.connect() as conn:
     conn.commit()
 a = call(rkey, "list_assets", {"status": "done"})["structuredContent"]
 check(a["total"] == 1 and a["assets"][0]["outputs"][0]["output_id"] == oid, "list_assets")
+# a voiceover shares the presenter video's tool: its type comes from the job's params, as get_batch's ad_type does
+vo = dict(ugc, ad_type="voiceover", voices=["narrator_deep"])
+vo.pop("presenters")
+vq = call(rkey, "quote_ad_batch", vo)["structuredContent"]
+vres = call(wkey, "generate_video_ads", dict(vo, confirm_total_credits=vq["total_credits"]))
+vb = call(rkey, "get_batch", {"batch_id": vres["structuredContent"]["batch_id"]})["structuredContent"]
+check(vb["ad_type"] == "voiceover" and [x["type"] for x in vb["assets"]] == ["voiceover"],
+      "a voiceover batch's assets say voiceover (not ugc)")
+every = call(rkey, "list_assets", {})["structuredContent"]["assets"]
+check(sorted(x["type"] for x in every) == ["image", "ugc", "voiceover"], "list_assets types: image, ugc, voiceover")
 link = call(rkey, "get_asset_download_url", {"output_id": oid})["structuredContent"]
 r = anon.get(urlsplit(link["url"]).path)
 check(r.status_code == 200 and r.data == b"\x89PNG made", "the signed link downloads with no login")

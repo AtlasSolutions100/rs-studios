@@ -56,7 +56,7 @@
     <script>(function(){ var b = document.querySelector('[data-first-output]'); if(b && b.dataset.firstOutput && window.cfyEvent && !sessionStorage.getItem('cfy_fov')){ try{ sessionStorage.setItem('cfy_fov','1'); }catch(e){} window.cfyEvent('first_output_viewed', 'load'); }
       if(b && !b.dataset.firstOutput){ var seen = false, t = setInterval(function(){ if(seen) return clearInterval(t); if(b.querySelector('[data-job][data-status="done"]')){ seen = true; clearInterval(t); try{ sessionStorage.setItem('cfy_fov','1'); }catch(e){} if(window.cfyEvent) window.cfyEvent('first_output_viewed', 'live'); } }, 3000); } })();</script>
     {% endif %}
-    {% if preview_ok %}<a class="firstrun" href="{{ url_for('studio', preview=1) }}"><span class="lp-num">✦</span><div><b>Your free talking-video preview is waiting</b><span class="muted small">A presenter says one line about your product: {{ preview_seconds }} seconds, watermarked, free once.</span></div><span class="btn sm{{ ' dark' if nsteps_on }}">Make it</span></a>{% endif %}
+    {% if preview_ok %}<a class="firstrun" href="{{ url_for('studio', preview=1) }}"><span class="lp-num">✦</span><div><b>Your free video preview is waiting</b><span class="muted small">A narrator says one line over shots of your product: {{ preview_seconds }} seconds, watermarked, free once.</span></div><span class="btn sm{{ ' dark' if nsteps_on }}">Make it</span></a>{% endif %}
     {% if not configured %}<div class="flash">Generation isn't switched on yet. Set up your products now; making ads starts once the admin connects the service.</div>{% endif %}
     {% if nprod == 0 %}
     <div class="panel empty-cta">

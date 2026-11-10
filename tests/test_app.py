@@ -447,13 +447,16 @@ r = vc.post("/app/start", data={"csrf": csrf(vc), "kind": "image", "product_name
 with db.connect() as conn:
     vjobs = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (vws["id"],)).fetchone()[0]
     vbal = conn.execute("SELECT credits FROM workspaces WHERE id=?", (vws["id"],)).fetchone()[0]
-check(r.status_code == 302 and "/app?made=" in r.headers["Location"] and vjobs == 1 and vbal == STARTER - 43,
+check(r.status_code == 302 and "/app?made=" in r.headers["Location"] and vjobs == 2 and vbal == STARTER - 44,
       "unconfirmed: the 2 free image ads go straight through on the starter credits, back to Home")
 vhome = vc.get(r.headers["Location"]).get_data(as_text=True)
-check("data-made" in vhome and "Making 1 of 1" in vhome and "Confirm your email to unlock video ads" in vhome
+check("data-made" in vhome and "Making 2 of 2" in vhome and "Confirm your email to unlock video ads" in vhome
       and 'data-live-cards="batch"' in vhome, "Home shows the ads rendering with the unlock-video box under them")
 check(verify.unverified_credits() == 250, "unconfirmed accounts may spend up to 250 credits on non-video by default")
 os.environ["RS_UNVERIFIED_CREDITS"] = "22"
+with db.connect() as conn:      # the 2 free ads used every starter credit: one more ad's worth, to reach the cap check
+    conn.execute("UPDATE workspaces SET credits=credits+22 WHERE id=?", (vws["id"],))
+    conn.commit()
 vimg = {"type": "image", "product": vpid, "angle": {"title": "Desk"}, "items": [], "body": "Tea on a sunny desk",
         "aspects": ["9:16"], "versions": 1, "photos": [vphoto]}
 vq = vc.post("/app/create/quote", json=vimg, headers={"X-CSRF": csrf(vc)}).get_json()
@@ -461,9 +464,12 @@ r = vc.post("/app/create/generate", json=dict(vimg, total=vq["total"]), headers=
 with db.connect() as conn:
     vjobs = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (vws["id"],)).fetchone()[0]
 check(r.status_code == 403 and r.get_json()["reason"] == "cap" and r.get_json()["error"].startswith(
-      "Confirm your email to keep making ads") and vjobs == 1,
+      "Confirm your email to keep making ads") and vjobs == 2,
       "past the unconfirmed allowance (RS_UNVERIFIED_CREDITS), image ads wait for the code too")
 os.environ.pop("RS_UNVERIFIED_CREDITS")
+with db.connect() as conn:
+    conn.execute("UPDATE workspaces SET credits=credits-22 WHERE id=?", (vws["id"],))
+    conn.commit()
 # The code box: opening it doesn't send another email while the signup code still works.
 r = vc.post("/app/verify/code/send", json={"auto": True}, headers={"X-CSRF": csrf(vc)})
 check(r.status_code == 200 and r.get_json()["ok"] and not r.get_json()["sent"] and len(vmail) == 1,
@@ -536,7 +542,7 @@ r = vc.post("/app/generate", data={"csrf": csrf(vc), "tool": "ad_image", "brief"
 with db.connect() as conn:
     vjobs = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=?", (vws["id"],)).fetchone()[0]
     vbal = conn.execute("SELECT credits FROM workspaces WHERE id=?", (vws["id"],)).fetchone()[0]
-check(r.status_code == 302 and vjobs == 1 and vbal == STARTER - 43,
+check(r.status_code == 302 and vjobs == 2 and vbal == STARTER - 44,
       "confirmed: the 2 free ads used the starter credits; a third waits for a pack (nothing charged)")
 # Paying workspaces never wait for the email.
 pc = client()
@@ -658,27 +664,30 @@ r = n.post("/app/start", data={"csrf": csrf(n), "product_name": "GlowSerum", "br
            content_type="multipart/form-data")
 check(r.status_code == 302 and "/app?made=" in r.headers["Location"], "first ads queued from one form; back to Home, rendering")
 html = n.get(r.headers["Location"]).get_data(as_text=True)
-check("While it renders" in html and "Making 1 of 1" in html and "about a minute" in html and "Approve what's on the label" in html
+check("While it renders" in html and "Making 2 of 2" in html and "about a minute" in html and "Approve what's on the label" in html
       and "data-verify-unlock" not in html, "Home shows the batch rendering and what to do meanwhile (confirmed: no unlock box)")
 bhtml = n.get(f"/app/create/batch/{r.headers['Location'].rsplit('=', 1)[1]}").get_data(as_text=True)
 check("While it renders" in bhtml and "Write the caption" in bhtml and "landing page" in bhtml,
       "the batch page still shows what to do while it renders")
 with db.connect() as conn:
     nws = conn.execute("SELECT * FROM workspaces WHERE id=?", (nws["id"],)).fetchone()
-    nj = conn.execute("SELECT * FROM jobs WHERE workspace_id=?", (nws["id"],)).fetchone()
+    nj = conn.execute("SELECT * FROM jobs WHERE workspace_id=? ORDER BY id", (nws["id"],)).fetchone()
+    nj2 = conn.execute("SELECT * FROM jobs WHERE workspace_id=? ORDER BY id DESC", (nws["id"],)).fetchone()
     nph = conn.execute("SELECT COUNT(*) FROM photos WHERE workspace_id=?", (nws["id"],)).fetchone()[0]
 check(nws["product_name"] == "GlowSerum" and nws["brand_name"] == "Glow Co" and nws["audience"] == "Women 30-50" and nph == 1,
       "brand kit filled as a side effect (name, brand, audience, photo)")
-check(nj["tool"] == "ad_image" and nj["template_id"] == "hero" and "GlowSerum" in nj["brief"] and nj["credits"] == 43
-      and json.loads(nj["params_json"])["batch"] == 2, "the first ads are one 43-credit job for 2 image ads with the product in the brief")
-check(nws["credits"] == STARTER - 43, "the starter credits cover both")
+check(nj["tool"] == "ad_image" and nj["template_id"] == "hero" and "GlowSerum" in nj["brief"] and nj["credits"] == 22
+      and json.loads(nj["params_json"])["batch"] == 1 and nj2["id"] != nj["id"] and nj2["template_id"] not in (None, "hero")
+      and "GlowSerum" in nj2["brief"] and nj2["credits"] == 22 and nj2["batch_id"] == nj["batch_id"],
+      "the first ads are two 22-credit jobs, two different templates, with the product in each brief")
+check(nws["credits"] == STARTER - 44, "the starter credits cover both")
 worker.tick()
-model, inputs = calls["submit"][-1]
+model, inputs = next(c for c in calls["submit"] if "GlowSerum" in str(c[1].get("prompt")) and c[1].get("aspect_ratio") == "4:5")
 check(model == "higgsfield/ads-studio/v1.0" and "GlowSerum" in inputs["prompt"] and inputs["aspect_ratio"] == "4:5",
       "first ad submitted with the template's shape")
 check(b"data-first-run" not in n.get("/app").data, "first-ad form goes away after the first ad")
 
-print("== free talking-video preview (phase 2, D2)")
+print("== free video preview: a voiceover over the product (phase 2, D2)")
 import shutil as _sh  # noqa: E402
 import subprocess  # noqa: E402
 import preview  # noqa: E402
@@ -704,9 +713,10 @@ with db.connect() as conn:
     pled = conn.execute("SELECT * FROM ledger WHERE job_id=?", (pj["id"],)).fetchall()
 pparams = json.loads(pj["params_json"])
 check(pj["tool"] == "ugc_video" and pj["credits"] == 0 and abs(pj["cost_usd"] - 8 * 0.2056) < 0.001
-      and pparams["resolution"] == "480p" and pparams["preview"] and pparams["duration"] == 8 and pparams["presenter"] == "jordan"
+      and pparams["resolution"] == "480p" and pparams["preview"] and pparams["duration"] == 8 and "presenter" not in pparams
+      and pparams["ad_type"] == "voiceover" and pparams["placement"] == "product_only"
       and pj["brief"].startswith("Meet Glow Drops.") and pws["credits"] == STARTER,
-      "free preview: 8 s talking video at 480p, the default line, nothing charged (starter credits kept)")
+      "free preview: 8 s voiceover video at 480p (no presenter), the default line, nothing charged (starter credits kept)")
 check(fp and fp["email_norm"] == "patpreview@gmail.com" and fp["job_id"] == pj["id"] and len(pled) == 1 and pled[0]["delta"] == 0
       and "preview" in pled[0]["reason"], "the preview is recorded against the workspace and the normalised email")
 html = pv.get(r.headers["Location"]).get_data(as_text=True)
@@ -3297,3 +3307,6 @@ if __name__ == "__main__" and not os.environ.get("RS_TEST_ONE"):
     subprocess.run([sys.executable, os.path.join(HERE, "test_a11y.py")], check=True)
     # Workspace deletion with a 7-day grace (wsdelete.py, M7.5; SEC-7, SEC-12): owner only, plan check, vendor copies.
     subprocess.run([sys.executable, os.path.join(HERE, "test_wsdelete.py")], check=True)
+    # Quality wave 1 (M12): no invented links, MCP types and snapshot names, product-on-the-table presenter prompt, the
+    # fidelity line, two-template first ads, voiceover preview, customer voice, hook types, asset events, ready email.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_quality_wave1.py")], check=True)

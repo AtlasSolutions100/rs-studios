@@ -86,6 +86,31 @@ def before_after_time(text: str, end: int) -> bool:
     return bool(_BA_TIME.match(text[end:end + 60]))
 
 
+# First-person customer voice: an AI presenter saying it owns, uses or was changed by the product. Wider than results
+# verbs: "I've been using this for a month", "I take this mug on every hike", "my skin", "changed my life", "I swear
+# by it". Habitual use needs the product as the object ("this", "it", "mine", "my ...") AND a how-often word, so "I'll
+# show you this" or "I use a kettle" stay fine. "We" is left to the results verbs only: a brand may say "we use".
+_USE = (r"(?:take|use|drink|wear|bring|carry|keep|pack|apply|eat|grab|put|throw|toss|reach for|rely on|cook with|"
+        r"sleep (?:on|with)|start (?:my|every|each))")
+_OFTEN = (r"(?:every(?:day|where)?|each|daily|always|all the time|whenever|nightly|twice a|once a|"
+          r"(?:first|last) thing)")
+_OBJ = r"(?:this|it|these|them|mine|my)"
+CUSTOMER_VOICE_RX = "|".join([
+    r"\b(i|we) (lost|gained|felt|noticed)\b|\bmy results\b",
+    r"\bi(?:['\u2019]ve| have) (?:been |now |only |just |never |always )*(?:using|taking|drinking|wearing|trying|"
+    r"tried|used|taken|worn|owned|had (?:this|it|these|mine|my)|bought|ordered|switched|loved|relied)\b",
+    r"\bi(?:['\u2019]ve| have) been on (?:this|it|these)\b",
+    r"\bi (?:always |still |only |now |just |never )?" + _USE + r" " + _OBJ + r"\b[^.!?\n]{0,60}\b" + _OFTEN + r"\b",
+    r"\b" + _OFTEN + r"\b[^.!?\n]{0,30}\bi (?:always |still |only |now |just )?" + _USE + r" " + _OBJ + r"\b",
+    r"\bi (?:always|never|still) " + _USE + r" " + _OBJ + r"\b",
+    r"\bmy (?:skin|hair|face|scalp|body|gut|sleep|energy|joints?|life|own results|experience with)\b",
+    r"\bchanged my (?:life|skin|hair|mornings?|routine|mind)\b|\bi swear by\b|\bi can['\u2019]?t live without\b|"
+    r"\bi(?:['\u2019]m| am) (?:obsessed|hooked|a (?:customer|convert|believer|fan))\b|"
+    r"\bi (?:bought|ordered|purchased|own|switched to|started (?:using|taking|drinking|wearing)|"
+    r"tried (?:this|it|these)|(?:honestly |really |absolutely )?love (?:this|it|these|mine|my))\b|"
+    r"\b(?:game[- ]changer|life[- ]saver) for me\b|\bworked for me\b|\bas a (?:customer|user|mom who uses)\b",
+])
+
 RULES = [
     # (level, pattern, message[, flags])
     ("block", r"\b(los[et]|losing|drop|shed|burn|melt(s|ed|ing)?)\b[^.]{0,30}\b(weight|pounds|lbs|kilos?|fat|inches|belly)\b|"
@@ -119,8 +144,7 @@ RULES = [
      "No recruiting or business-opportunity content in product creatives."),
     ("warn", r"\b(guarantee[ds]?|clinically|proven|miracle|instant results)\b",
      "Avoid promise words unless they are printed on the label.", "benign"),
-    ("warn", r"\b(i|we) (lost|gained|felt|noticed)\b|\bmy results\b",
-     "AI presenters can't speak as customers or claim results."),
+    ("warn", CUSTOMER_VOICE_RX, "AI presenters can't speak as customers or claim results."),
 ]
 
 # Everyday senses of the health and promise words: "treat yourself", "dog treats", "lawn treatment",

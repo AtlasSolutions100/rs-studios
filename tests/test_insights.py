@@ -84,7 +84,10 @@ for name in ("", "campaignify", "werkzeug", "urllib3"):
     lg.addHandler(CAP)
     lg.setLevel(logging.DEBUG)
 
-T = [time.time()]
+# The fake clock starts at 15:00 UTC today, not at the real time: the pull test moves it on 6 hours, and from the
+# real time that crossed midnight in the ad account's time zone (America/Chicago) between 00:00 and 06:00 UTC, which
+# shifted every "n days ago" and failed the suite for those six hours of each day.
+T = [int(time.time()) // 86400 * 86400 + 15 * 3600.0]
 adhttp.CLOCK = launches.CLOCK = admanage.CLOCK = adinsights.CLOCK = lambda: T[0]
 adhttp.SLEEP = lambda s: T.__setitem__(0, T[0] + max(0.0, s))
 adhttp.BACKOFF = 0.01

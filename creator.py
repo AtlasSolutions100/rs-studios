@@ -153,9 +153,50 @@ def angles(b: dict, ad_type: str, n: int = 5, avoid=(), usage: llm.Usage | None 
     return res[:n]
 
 
+# The hook types a spoken script's opening lines are written as (id: name, what it is). The writer is asked for a
+# different type per hook and says which each one is, so the member picks between kinds of opening, not rewordings.
+HOOK_TYPES = {
+    "problem_callout": ("Problem callout", "names a specific annoyance the viewer has right now"),
+    "bold_claim": ("Bold claim", "a confident statement about the product, from the approved claims only"),
+    "question": ("Question", "a direct question the viewer answers in their head"),
+    "pov": ("POV", "\"POV:\" or \"when you...\": drops the viewer into a moment of use"),
+    "before_after": ("Then and now", "the old way of doing it against the way with the product; a routine or a "
+                                     "step, never a body, health or results change"),
+    "social_proof": ("Social proof", "why people are talking about it or switching; no invented numbers, reviews "
+                                     "or testimonials"),
+    "curiosity_gap": ("Curiosity gap", "holds back one detail so they keep watching for it"),
+    "demo_first": ("Demo first", "starts on what the product is doing, then explains"),
+}
+
+
+def hook_type_name(type_id: str) -> str:
+    return (HOOK_TYPES.get(type_id) or ("",))[0]
+
+
+def hook_types_text() -> str:
+    return "; ".join(f"{k} ({name}: {what})" for k, (name, what) in HOOK_TYPES.items())
+
+
+def _split_hooks(raw) -> tuple[list, list]:
+    """(texts, types) from the writer's hooks: objects {type, text}, or bare strings from an older reply."""
+    texts, types = [], []
+    for h in raw or []:
+        if isinstance(h, dict):
+            t, typ = " ".join(str(h.get("text") or "").split())[:200], str(h.get("type") or "")
+        else:
+            t, typ = " ".join(str(h or "").split())[:200], ""
+        texts.append(t)
+        types.append(typ if typ in HOOK_TYPES else "")
+    return texts, types
+
+
 SCRIPT_SCHEMA = {
     "spoken": {"type": "object", "properties": {
-        "hooks": {"type": "array", "items": {"type": "string"}, "description": "Alternative opening lines"},
+        "hooks": {"type": "array", "description": "Alternative opening lines, each a different hook type",
+                  "items": {"type": "object", "properties": {
+                      "type": {"type": "string", "enum": list(HOOK_TYPES), "description": "Which hook type this is"},
+                      "text": {"type": "string", "description": "The opening line, as spoken"}},
+                      "required": ["type", "text"]}},
         "body": {"type": "string", "description": "The rest of the spoken script, after the hook"},
         "on_screen": {"type": "array", "items": {"type": "string"}, "description": "Short on-screen captions"}},
         "required": ["hooks", "body"]},
@@ -219,7 +260,9 @@ def script(b: dict, ad_type: str, angle: dict, duration: int = 10, n: int = 3,
         bud = catalog.word_budget(duration)
         who = "a narrator over product shots" if ad_type == "voiceover" else "an on-camera presenter, selfie-style"
         prompt = (head + f"\nWrite a {duration}-second spoken script for {who}. Give {n} alternative hooks and one "
-                  f"body that follows any of them. Hook + body together must be at most {bud['total']} words, said "
+                  f"body that follows any of them. Make each hook a different hook type and say which it is. The "
+                  f"types: {hook_types_text()}. Every type still follows the rules: no customer voice, no results. "
+                  f"Hook + body together must be at most {bud['total']} words, said "
                   "out loud at a natural pace.\n" + budget_text(duration) + "\nEnd with a simple call to action. "
                   "Plain spoken English, no stage directions, no emojis, no hashtags. Also give 2-3 short on-screen "
                   "captions.")
@@ -236,8 +279,11 @@ def script(b: dict, ad_type: str, angle: dict, duration: int = 10, n: int = 3,
                          images=[photo] if sees and kind != "spoken" else None)
     clean = (lambda x: " ".join(str(x or "").split()))
     spoken = kind == "spoken"
+    typed = {}
     if kind == "spoken":
-        items, body = [clean(h)[:200] for h in out.get("hooks") or []], clean(out.get("body"))[:1200]
+        items, types = _split_hooks(out.get("hooks"))
+        typed, first_types = dict(zip(items, types)), types
+        body = clean(out.get("body"))[:1200]
     elif kind == "image":
         items = [clean(h)[:120] for h in out.get("headlines") or []]
         body = catalog.scene_only(clean(out.get("concept"))[:1500], forbid=compliance_claims(b))
@@ -245,7 +291,11 @@ def script(b: dict, ad_type: str, angle: dict, duration: int = 10, n: int = 3,
         items, body = [clean(s)[:900] for s in out.get("scenes") or []], ""
     if body and not ok(body, spoken):
         body = ""
-    items = [i for i in items if i and ok(i, spoken)][:max(1, n)]
+    kept = [i for i, x in enumerate(items) if x and ok(x, spoken)][:max(1, n)]
+    if spoken:
+        first_types = [first_types[i] for i in kept]
+    items = [items[i] for i in kept]
+    before = len(items)
     if spoken and (items or body) and over_budget(items, body, duration):
         # Too long for the length: one tightening call with the overage, then a
         # sentence-boundary trim, so a written script never trips the length check.
@@ -253,7 +303,12 @@ def script(b: dict, ad_type: str, angle: dict, duration: int = 10, n: int = 3,
     elif spoken:
         items, body = catalog.fit_spoken(items, body, duration)
     on_screen = [clean(t)[:80] for t in out.get("on_screen") or [] if ok(clean(t))][:4]
-    return {"items": items, "body": body, "on_screen": on_screen}
+    res = {"items": items, "body": body, "on_screen": on_screen}
+    if spoken:
+        # one type per hook, in order: by position when tightening kept every hook, else by its exact words
+        ids = first_types if len(items) == before else [typed.get(i, "") for i in items]
+        res["hook_types"] = [{"id": t, "name": hook_type_name(t)} for t in ids]
+    return res
 
 
 def shorten(b: dict, ad_type: str, hooks: list, body: str, duration: int, usage: llm.Usage | None = None) -> dict:

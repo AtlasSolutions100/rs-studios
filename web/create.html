@@ -376,8 +376,10 @@
     // Don't rebuild the list under someone typing in it (a remove button having focus doesn't count).
     if(ae && ae.matches && ae.matches('[data-item]') && ol.contains(ae)) { count(); return; }
     if(!S.items.length) S.items = [''];
+    var ht = S.hookTypes || [];
     ol.innerHTML = S.items.map(function(it, i){ return '<li><label class="sr" for="cf-it' + i + '">' + noun() + ' ' + (i+1) + '</label>' +
-      (k === 'scene' ? '<textarea id="cf-it' + i + '" data-item rows="3" maxlength="900">' + esc(it) + '</textarea>' : '<input id="cf-it' + i + '" type="text" data-item maxlength="200" value="' + esc(it) + '" placeholder="' + (k === 'spoken' ? 'e.g. I stopped paying $7 for my afternoon coffee.' : 'e.g. Your afternoon cup, in 30 seconds.') + '">') +
+      (k === 'spoken' && ht[i] && ht[i].name && it ? '<em class="tag" data-hook-type style="flex:none;align-self:center;white-space:nowrap">' + esc(ht[i].name) + '</em>' : '') +
+      (k === 'scene' ? '<textarea id="cf-it' + i + '" data-item rows="3" maxlength="900">' + esc(it) + '</textarea>' : '<input id="cf-it' + i + '" type="text" data-item maxlength="200" value="' + esc(it) + '" placeholder="' + (k === 'spoken' ? 'e.g. Still paying $7 for an afternoon coffee?' : 'e.g. Your afternoon cup, in 30 seconds.') + '">') +
       '<button type="button" class="btn dark sm" data-del-item="' + i + '" aria-label="Remove ' + noun() + ' ' + (i+1) + '">×</button></li>'; }).join('');
     $('[data-add-item]').hidden = S.items.length >= B.max_items;
     if(document.activeElement !== $('[data-body]')) $('[data-body]').value = S.body;
@@ -507,7 +509,7 @@
     var gt = t.closest('[data-goto]'); if(gt){ go(gt.dataset.goto); return; }
     if(t.closest('[data-bar-go]')){ if(S.step === 'review'){ var gs = $('.cf-go'); gs.scrollIntoView({behavior: 'smooth', block: 'center'}); return; } var err = ''; var st = steps(); for(var i = st.indexOf(S.step); i < st.indexOf('review') && !err; i++){ err = check(st[i]); } if(err){ toast(err); return; } go('review'); return; }
     if(t.closest('[data-add-item]')){ readItems(); if(S.items.length < B.max_items){ S.items.push(''); var a = document.activeElement; a && a.blur(); renderScript(); var l = $$('[data-item]'); l[l.length-1].focus(); dirty(); summaries(); side(); liveQuote(); } return; }
-    var d = t.closest('[data-del-item]'); if(d){ e.preventDefault(); readItems(); var di = +d.dataset.delItem; S.items.splice(di, 1);
+    var d = t.closest('[data-del-item]'); if(d){ e.preventDefault(); readItems(); var di = +d.dataset.delItem; S.items.splice(di, 1); if(S.hookTypes) S.hookTypes.splice(di, 1);
       if(S.flags && S.flags.items){ S.flags.items.splice(di, 1); S.flags.items.forEach(function(x, j){ x.i = j; }); }
       var da = document.activeElement; da && da.blur(); clearToast(); dirty(); renderScript(); summaries(); side(); liveQuote(); runCheck();
       var rest = $$('[data-del-item]'); if(rest.length) rest[Math.min(di, rest.length - 1)].focus(); return; }
@@ -542,7 +544,7 @@
     if(t.matches('[data-photo]')){ S.photos = $$('[data-photo]:checked').map(function(x){ return +x.value; }); summaries(); liveQuote(); }
     if(t.matches('[data-line]')){ S.lines = $$('[data-line]:checked').map(function(x){ return x.value; }); S.many = false; t.closest('li').classList.toggle('off', !t.checked); quote(true); }
     if(t.matches('[data-many]')){ S.many = t.checked; quote(true); }
-    if(t.matches('[data-saved]') && t.value){ var s = S.product.scripts.filter(function(x){ return String(x.id) === t.value; })[0]; if(s){ S.items = (s.items && s.items.length ? s.items : [s.hook]).slice(0, B.max_items); S.body = s.items && s.items.length && s.body !== s.items[0] ? s.body : ''; dirty(); renderScript(); liveQuote(); runCheck(); } }
+    if(t.matches('[data-saved]') && t.value){ var s = S.product.scripts.filter(function(x){ return String(x.id) === t.value; })[0]; if(s){ S.hookTypes = []; S.items = (s.items && s.items.length ? s.items : [s.hook]).slice(0, B.max_items); S.body = s.items && s.items.length && s.body !== s.items[0] ? s.body : ''; dirty(); renderScript(); liveQuote(); runCheck(); } }
   });
   // Editing a line clears its old error (and the step's banner) at once; the free check runs again after a pause.
   var editT = null;
@@ -571,7 +573,7 @@
     post(B.urls.script, {product: S.product.id, type: S.type, angle: S.angle, duration: S.duration, n: 3, photos: S.photos}).then(function(r){
       busy(btn, false); setBal(r.balance);
       if(r.error && !(r.items||[]).length){ toast(r.error); return; }
-      S.items = r.items; S.body = r.body || ''; dirty(); var a = document.activeElement; a && a.blur(); renderScript(); summaries(); side(); liveQuote(); runCheck();
+      S.items = r.items; S.hookTypes = r.hook_types || []; S.body = r.body || ''; dirty(); var a = document.activeElement; a && a.blur(); renderScript(); summaries(); side(); liveQuote(); runCheck();
       var e2 = est(); if(e2 && S.items.length > 1) toast('Wrote ' + S.items.length + ' ' + noun() + 's. Each one makes its own ' + (isVideo() ? 'video' : 'ad') + ': ' + formula(e2) + '. Remove the ones you don\'t want with ×.');
     }).catch(function(){ busy(btn, false); toast('Something went wrong. Try again.'); });
   }
@@ -581,6 +583,7 @@
     post(B.urls.shorten, {product: S.product.id, type: S.type, items: S.items.filter(Boolean), body: S.body, duration: S.duration}).then(function(r){
       busy(btn, false); if(r.balance != null) setBal(r.balance);
       if(r.error){ toast(r.error); return; }
+      S.hookTypes = [];
       S.items = (r.items && r.items.length) ? r.items : (S.items.filter(Boolean).length ? S.items : ['']); S.body = r.body || '';
       dirty(); clearToast(); var a = document.activeElement; a && a.blur(); renderScript(); summaries(); side(); liveQuote(); runCheck();
       toast(r.changed ? 'Shortened to fit ' + S.duration + ' seconds' + (r.charged ? ' (' + cr(r.charged) + ')' : '') + '. Read it over before you go on.' : 'It already fits ' + S.duration + ' seconds.');
