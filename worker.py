@@ -65,6 +65,66 @@ def _remote_url(conn, table: str, row) -> str:
     return url
 
 
+STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+_UPLOAD_TYPES = {".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                 ".mp3": "audio/mpeg", ".wav": "audio/wav"}
+
+
+def _static_remote(conn, path: str) -> str:
+    """A committed library file (a presenter's approved still or voice sample, under static/) as a URL the models
+    can read: uploaded once per version of the file, the URL kept in meta."""
+    full = os.path.realpath(path if os.path.isabs(path) else os.path.join(STATIC, path))
+    if not full.startswith(os.path.realpath(STATIC) + os.sep) or not os.path.isfile(full):
+        raise hf.GenError("A library file this needs isn't there.")
+    st = os.stat(full)
+    key = f"upload:{os.path.relpath(full, STATIC)}:{int(st.st_mtime)}:{st.st_size}"
+    row = conn.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
+    if row and row["value"]:
+        return row["value"]
+    with open(full, "rb") as f:
+        data = f.read()
+    url = hf.upload(data, _UPLOAD_TYPES.get(os.path.splitext(full)[1].lower(), "application/octet-stream"))
+    conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (key, url))
+    conn.commit()
+    return url
+
+
+def _job_output_url(conn, job, ref_job) -> str:
+    """The first picture of another finished job of the SAME workspace, as a URL the models can read (the still a
+    "same person, new situation" still starts from). Its saved file is uploaded again, so the link never depends on
+    how long the vendor keeps its own; with no file left, the vendor's link is used."""
+    o = conn.execute("SELECT o.url, o.path FROM outputs o JOIN jobs j ON j.id=o.job_id WHERE o.job_id=? AND "
+                     "j.workspace_id=? AND j.status='done' AND o.kind='image' ORDER BY o.id LIMIT 1",
+                     (ref_job, job["workspace_id"])).fetchone()
+    if not o:
+        raise hf.GenError("The still this one starts from isn't there.")
+    if o["path"] and os.path.exists(o["path"]):
+        with open(o["path"], "rb") as f:
+            data = f.read()
+        return hf.upload(data, mimetypes.guess_type(o["path"])[0] or "image/png")
+    if o["url"]:
+        return o["url"]
+    raise hf.GenError("The still this one starts from isn't there.")
+
+
+def waits_on(conn, job) -> str | None:
+    """A job that starts from another job's picture (params.ref_job, library.py): "wait" while that one is still
+    being made, "failed" when it ended without a picture, None when this one may start."""
+    raw = job["params_json"] or ""
+    if '"ref_job"' not in raw:
+        return None
+    try:
+        ref = json.loads(raw).get("ref_job")
+    except (ValueError, TypeError):
+        return None
+    if not ref:
+        return None
+    r = conn.execute("SELECT status FROM jobs WHERE id=? AND workspace_id=?", (ref, job["workspace_id"])).fetchone()
+    if r is None or r["status"] == "failed":
+        return "failed"
+    return "wait" if r["status"] in ("pending", "running") else None
+
+
 def image_prompt(conn, job, p: dict | None = None) -> str:
     """The image model's prompt for an image ad job: the scene from the brief
     plus a strict list of the only words allowed on the image (the member's
@@ -125,18 +185,76 @@ def build_inputs(conn, job) -> dict:
         return {"prompt": catalog.with_fidelity(job["brief"] or ""), "image_url": urls[0],
                 "duration": int(p.get("duration") or 5),
                 "resolution": p.get("resolution") or "720p", "bitrate_mode": "high", "generate_audio": bool(p.get("audio"))}
+    if tool == "library_still":
+        # The library's own still (catalog.INTERNAL_TOOLS, queued only by library.py): text-to-image, or an edit
+        # from references: first the still of the same person (the "same person, new situation" path), then any
+        # product photos.
+        refs = list(urls[:4])
+        if p.get("ref_job"):
+            refs.insert(0, _job_output_url(conn, job, p["ref_job"]))
+        elif p.get("ref_static"):
+            refs.insert(0, _static_remote(conn, p["ref_static"]))
+        inp = {"prompt": job["brief"] or "", "resolution": p.get("resolution") or catalog.LIBRARY_STILL_DEFAULT[1],
+               "aspect_ratio": p.get("aspect") or "9:16", "quality": p.get("quality") or catalog.LIBRARY_STILL_DEFAULT[0],
+               "enhance_prompt": False}
+        if refs:
+            inp["image_urls"] = refs
+        return inp
+    if tool == "ugc_video" and p.get("voice_sample"):
+        # A presenter's voice sample (library.py): a few seconds of them talking, from their still, no product.
+        still = _job_output_url(conn, job, p["ref_job"]) if p.get("ref_job") else \
+            _static_remote(conn, p["ref_static"]) if p.get("ref_static") else None
+        if not still:
+            raise hf.GenError("A voice sample starts from the presenter's still.")
+        return {"prompt": catalog.voice_sample_prompt(p.get("presenter") or "", p.get("voice") or "",
+                                                      p.get("situation") or "", job["brief"] or ""),
+                "image_urls": [still], "duration": int(p.get("duration") or 6), "aspect_ratio": p.get("aspect") or "9:16",
+                "resolution": p.get("resolution") or "480p", "bitrate_mode": "high", "generate_audio": True}
     if tool == "ugc_video":
         if not urls:
             raise hf.GenError("Pick a product photo first.")
+        import presenters
+        import presets
         prod = conn.execute("SELECT name FROM products WHERE id=?", (job["product_id"],)).fetchone() \
             if "product_id" in job.keys() and job["product_id"] else None
-        prompt = catalog.talking_prompt(p.get("ad_type") or "ugc", p.get("product") or (prod["name"] if prod else ""),
+        typ = p.get("ad_type") or "ugc"
+        pre = presets.get(p.get("preset"))
+        rec = pre if pre is not None and pre.kind == "recipe" else None     # a fixed video format (presets.RECIPES)
+        still = voice = None
+        sid = p.get("situation") or ""
+        if typ == "ugc":
+            who = p.get("presenter") or ""
+            if not sid and presenters.stills_on() and not (p.get("setting") or "").strip() and \
+                    presenters.still_path(who, presenters.default_situation(who)):
+                # PRESENTER_STILLS with no place picked (the older pages don't send one) and none typed: the
+                # presenter's first situation, when its still is approved
+                sid = presenters.default_situation(who)
+            if p.get("ref_job"):                    # a library job that names the still it starts from
+                still = _job_output_url(conn, job, p["ref_job"])
+            elif p.get("ref_static"):
+                still = _static_remote(conn, p["ref_static"])
+            elif presenters.stills_on() and presenters.still_path(who, sid):
+                # PRESENTER_STILLS: the approved still of this presenter in this situation is the first reference
+                still = _static_remote(conn, presenters.still_path(who, sid))
+            if presenters.voice_ref_on() and presenters.voice_path(who) and \
+                    (p.get("voice") or presenters.voice_of(who)) == presenters.voice_of(who):
+                # PRESENTER_VOICE_REF: their voice sample as the audio reference (not when the member picked another voice)
+                voice = _static_remote(conn, presenters.voice_path(who))
+        prompt = catalog.talking_prompt(typ, p.get("product") or (prod["name"] if prod else ""),
                                         job["brief"] or "", p.get("presenter") or "", p.get("voice") or "",
-                                        p.get("setting") or "", p.get("placement") or "")
-        return {"prompt": prompt, "image_urls": urls[:4], "duration": int(p.get("duration") or 10),
-                "aspect_ratio": p.get("aspect") or "9:16", "resolution": p.get("resolution") or "720p",
-                "bitrate_mode": "high",
-                "generate_audio": True}
+                                        p.get("setting") or "",
+                                        p.get("placement") or (rec.extra.get("placement") if rec else "") or "",
+                                        situation=sid,
+                                        direction=(rec.extra.get("direction") if rec else "") or "",
+                                        still=bool(still), voice_ref=bool(voice))
+        inp = {"prompt": prompt, "image_urls": ([still] if still else []) + urls[:4],
+               "duration": int(p.get("duration") or 10),
+               "aspect_ratio": p.get("aspect") or "9:16", "resolution": p.get("resolution") or "720p",
+               "bitrate_mode": "high",
+               "generate_audio": True}
+        if voice:
+            inp["audio_urls"] = [voice]
+        return inp
     if tool == "video_upscale":
         src = conn.execute("SELECT o.url FROM outputs o JOIN jobs j ON j.id=o.job_id WHERE o.job_id=? AND j.workspace_id=? "
                            "AND o.kind='video' ORDER BY o.id LIMIT 1", (p.get("source_job"), job["workspace_id"])).fetchone()
@@ -546,8 +664,9 @@ def _submit_one(conn, job):
         return False
     try:
         inputs = build_inputs(conn, job)
-        model = catalog.TOOLS[job["tool"]]["model"]
-        if job["tool"] == "ugc_video" and not price_ok(conn, job, model, inputs):
+        model = catalog.model_for(job["tool"])
+        # a talking video, and the library's token-priced still: refused when the vendor's own estimate has moved
+        if job["tool"] in ("ugc_video", "library_still") and not price_ok(conn, job, model, inputs):
             raise hf.GenError("This format's price changed and it couldn't start. We've been told.")
         # uploads and the price check can take a while: renew the claim right before the call
         _set(conn, job["id"], claimed_at=db.now())
@@ -619,6 +738,13 @@ def tick() -> int:
                 changed += 1
                 continue
             if not _due(job):       # waiting out a backoff: let the jobs behind it go first
+                continue
+            held = waits_on(conn, job)
+            if held == "wait":      # it starts from another job's picture that isn't finished yet
+                continue
+            if held == "failed":
+                _fail(conn, job, "The still this one starts from wasn't made, so this one wasn't started.")
+                changed += 1
                 continue
             tried += 1
             with _busy("vendor submit"):   # upload + submit with retries: minutes when the vendor is slow (N2)

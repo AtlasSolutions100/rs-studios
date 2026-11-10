@@ -1,0 +1,78 @@
+{% extends "base.html" %}{% block title %}Library assets · Admin · Campaignify{% endblock %}
+{% block body %}
+<div class="page full">
+<p class="eyebrow"><a href="{{ url_for('admin') }}">Admin</a></p><h1>Library <span class="gold">assets</span></h1>
+<p class="muted">The presenters' stills and voice samples, the demo products and the presets' examples, made through our own pipeline as ordinary jobs in this workspace. Price first: nothing starts until you confirm the quoted total. Approve the ones to keep on their cards, download the export, then run <code>python tools/import_library_assets.py &lt;folder&gt;</code> to put them under <code>static/</code>.</p>
+<div class="grid" style="gap:24px">
+<div class="panel" id="status">
+  <h2>What exists</h2>
+  <p class="small">{{ info.presenters }} presenters, {{ info.situations }} situations: <b>{{ info.stills_in_static }}</b> stills and <b>{{ info.voices_in_static }}</b> voice samples are in <code>static/presenters</code>. {{ info.image_presets }} image presets and {{ info.video_presets }} video presets ({{ info.video_presets_today }} can be made today): <b>{{ info.examples_in_static }}</b> have an example in <code>static/presets</code>. {{ info.made_here }} library jobs in this workspace.</p>
+  <p class="small muted">Switches: PRESENTER_STILLS <span class="tag {{ 'ok' if stills_on else 'warn' }}">{{ 'on' if stills_on else 'off' }}</span> · PRESENTER_VOICE_REF <span class="tag {{ 'ok' if voice_ref_on else 'warn' }}">{{ 'on' if voice_ref_on else 'off' }}</span> · still model <code>{{ still_model }}</code> (our estimate: {% for k, v in still_usd.items() %}{{ k[0] }}/{{ k[1] }} ${{ '%.3f'|format(v) }}{{ ', ' if not loop.last }}{% endfor %} a still; +$0.015 with a reference) · balance {{ '{:,}'.format(credits_left) }} credits.</p>
+</div>
+<div class="panel" id="make">
+  <h2>Quote, then generate</h2>
+  {% if error %}<p class="flash" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="{{ url_for('create.library_admin') }}#make">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <div class="row" style="gap:12px;flex-wrap:wrap">
+      <div><label for="l-kind">Kind</label><select id="l-kind" name="kind" style="width:auto">{% for k in kinds %}<option value="{{ k }}" {{ 'selected' if kind == k }}>{{ k.replace('_', ' ') }}</option>{% endfor %}</select></div>
+      <div><label for="l-q">Still quality</label><select id="l-q" name="quality" style="width:auto">{% for q in ('high', 'medium', 'low') %}<option {{ 'selected' if options.quality == q }}>{{ q }}</option>{% endfor %}</select></div>
+      <div><label for="l-r">Still size</label><select id="l-r" name="resolution" style="width:auto">{% for r in ('1k', '2k') %}<option {{ 'selected' if options.resolution == r }}>{{ r }}</option>{% endfor %}</select></div>
+      <div><label for="l-p">Presenter <span class="dim">(video examples)</span></label><select id="l-p" name="presenter" style="width:auto"><option value="">Maya</option>{% for p in roster %}<option value="{{ p.id }}" {{ 'selected' if options.presenter == p.id }}>{{ p.name }}</option>{% endfor %}</select></div>
+    </div>
+    <label for="l-ids">Ids, separated by spaces <span class="dim">(or <code>all</code>)</span></label>
+    <textarea id="l-ids" name="ids" maxlength="4000" style="min-height:70px" placeholder="maya nia:desk walt        offer shelf season-autumn        mug candle">{{ ids }}</textarea>
+    <p class="small muted">Presenter stills: <code>maya</code> (all of Maya's) or <code>maya:kitchen</code>; the first situation is made first and the others start from it as the same person. Preset examples and videos: preset ids. Demo products: {% for k in demo %}<code>{{ k }}</code>{{ ' ' if not loop.last }}{% endfor %}.</p>
+    <p><label class="check"><input type="checkbox" name="anchor_only" value="1" {{ 'checked' if options.anchor_only }}> Only each presenter's first still (look at the face before making the rest)</label>
+       <label class="check"><input type="checkbox" name="only_missing" value="1" {{ 'checked' if options.only_missing }}> Skip presets that already have an example in static</label></p>
+    <p style="margin-top:12px"><button class="btn sm" name="do" value="quote">Get the price</button></p>
+    {% if quote %}
+    <div class="panel" style="margin-top:14px" id="quote">
+      <h3 style="margin-top:0">{{ quote.count }} job{{ '' if quote.count == 1 else 's' }}: {{ '{:,}'.format(quote.total_credits) }} credits, about ${{ '%.2f'|format(quote.vendor_usd) }} at the vendor</h3>
+      <p class="small muted">Dollars are {{ quote.vendor_usd_basis }}. This workspace has {{ '{:,}'.format(quote.credits_available) }} credits{% if quote.short_by %}: <b>{{ '{:,}'.format(quote.short_by) }} short</b>{% endif %}.</p>
+      <table><tr><th>What</th><th>Tool</th><th>Credits</th><th>USD</th><th>Starts from</th></tr>
+      {% for l in quote.lines %}<tr><td>{{ l.label }} <span class="dim small">{{ l.key }}</span></td><td class="small">{{ l.tool }}</td><td>{{ l.credits }}</td><td>${{ '%.3f'|format(l.usd) }}</td><td class="small muted">{{ l.starts_from or '' }}</td></tr>{% endfor %}</table>
+      <input type="hidden" name="total" value="{{ quote.total_credits }}">
+      {% if not quote.short_by %}<p style="margin-top:12px"><button class="btn sm" name="do" value="generate">Generate for {{ '{:,}'.format(quote.total_credits) }} credits</button></p>{% endif %}
+    </div>
+    {% endif %}
+  </form>
+</div>
+<div class="panel scrollx" id="made">
+  <h2>Made here ({{ rows|length }})</h2>
+  <p class="small muted">Show: <a href="{{ url_for('create.library_admin') }}#made">all</a>{% for k in kinds %} · <a href="{{ url_for('create.library_admin', show=k) }}#made">{{ k.replace('_', ' ') }}</a>{% endfor %} · <a href="{{ url_for('create.library_export') }}">Download the export (.zip)</a> <span class="dim">one file per tag: the approved one, else the newest; rejected ones are left out</span></p>
+  {% if rows %}
+  <div class="row" style="gap:14px;flex-wrap:wrap;align-items:flex-start">
+  {% for a in rows %}<div style="width:150px">
+    {% set o = a.outputs[0] if a.outputs else none %}
+    {% if o and o.kind == 'video' %}<a href="{{ url_for('media', oid=o.output_id) }}"><img src="{{ url_for('media', oid=o.output_id, poster=1) }}" alt="" loading="lazy" style="width:150px;border-radius:8px"></a>
+    {% elif o %}<a href="{{ url_for('media', oid=o.output_id) }}"><img src="{{ url_for('media', oid=o.output_id) }}" alt="" loading="lazy" style="width:150px;border-radius:8px"></a>
+    {% else %}<div style="width:150px;height:200px;border-radius:8px;border:1px solid var(--line, #444);display:flex;align-items:center;justify-content:center"><span class="status {{ a.status }}">{{ a.status }}</span></div>{% endif %}
+    <div class="small"><b>{{ a.presenter or a.preset or a.demo }}</b>{% if a.situation %} · {{ a.situation }}{% endif %}</div>
+    <div class="small muted">{{ a.kind.replace('_', ' ') }} · job {{ a.job_id }} · {{ a.credits }} cr{% if a.verdict %} · {{ a.verdict }}{% endif %}</div>
+    {% if o %}<div class="small"><a href="{{ url_for('media', oid=o.output_id, download=1) }}">Download</a> <span class="dim">{{ o.filename }}</span></div>{% endif %}
+    {% if a.error %}<div class="small dim">{{ a.error }}</div>{% endif %}
+    {% if a.batch_id %}<div class="small"><a href="{{ url_for('create.batch', bid=a.batch_id) }}">Batch (approve or reject)</a></div>{% endif %}
+  </div>{% endfor %}
+  </div>
+  {% else %}<p class="small muted">Nothing yet.</p>{% endif %}
+</div>
+<div class="panel scrollx" id="roster">
+  <h2>Presenters ({{ roster|length }})</h2>
+  <table><tr><th>Id</th><th>Name</th><th>Age</th><th>Voice</th><th>Situations <span class="dim">(✓ = still in static)</span></th></tr>
+  {% for p in roster %}<tr><td><code>{{ p.id }}</code></td><td>{{ p.name }}</td><td class="small">{{ p.age_band }}, {{ p.gender }}</td><td class="small">{{ p.voice }}</td><td class="small">{% for s in p.situations %}{{ s.id }}{{ ' ✓' if still_file(p.id, s.id) }}{{ ', ' if not loop.last }}{% endfor %}</td></tr>{% endfor %}</table>
+</div>
+<div class="panel scrollx" id="presets">
+  <h2>Presets ({{ still_presets|length }})</h2>
+  <table><tr><th>Id</th><th>Name</th><th>Kind</th><th>Use</th><th>Example</th></tr>
+  {% for p in still_presets %}<tr><td><code>{{ p.id }}</code></td><td>{{ p.name }}</td><td class="small">{{ p.kind }} · {{ p.format }}{% if not runnable(p) %} · <span class="tag warn">needs {{ p.needs }}</span>{% endif %}</td><td class="small">{{ p.use|join(', ') }}</td><td class="small">{{ 'image ✓' if example_url(p.id) }} {{ 'video ✓' if example_video_url(p.id) }}</td></tr>{% endfor %}</table>
+</div>
+<div class="panel scrollx" id="vendor">
+  <h2>The vendor's own presets</h2>
+  <p class="small muted">The vendor can run some of its presets by id through the API. The ids are per account and change, so they are read here (a free call), never hard-coded. Nothing in Campaignify uses one yet.</p>
+  <form method="post" action="{{ url_for('create.library_admin') }}#vendor"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="btn dark sm" name="do" value="vendor_presets">Read the catalog</button></form>
+  {% if vendor_presets %}<table style="margin-top:10px"><tr><th>Id</th><th>Type</th><th>Name</th></tr>{% for v in vendor_presets['items'] %}<tr><td><code>{{ v.id }}</code></td><td>{{ v.type }}</td><td>{{ v.name }}</td></tr>{% endfor %}</table><p class="small dim">{{ vendor_presets['items']|length }} of {{ vendor_presets.total or '?' }}</p>{% endif %}
+</div>
+</div>
+</div>
+{% endblock %}

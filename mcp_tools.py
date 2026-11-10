@@ -20,10 +20,13 @@ import competitors
 import copywriter
 import core
 import db
+import library
 import mcpserver
 import planner
 import platforms
 import plans
+import presenters
+import presets
 import products
 from mcpserver import PAGE_PROPS, Tool, ToolError, paginate
 
@@ -97,19 +100,58 @@ def get_product(ctx, args):
     return st
 
 
+def _site_admin(ctx) -> bool:
+    """Is this token's user one of Campaignify's own admins? Read from the users table on every call (adapter.enter
+    never gives a token admin powers in the app: g.user.is_admin stays 0)."""
+    with db.connect() as conn:
+        r = conn.execute("SELECT is_admin FROM users WHERE id=? AND workspace_id=?",
+                         (ctx.user_id, ctx.account_id)).fetchone()
+    return bool(r and r["is_admin"])
+
+
+def _preset_row(ctx, p) -> dict:
+    """One preset for list_ad_options: what it is for, its tags, its price and its example."""
+    url = lambda u: (ctx.base_url + u) if u else None  # noqa: E731
+    d = {"id": p.id, "name": p.name, "what_for": p.what_for, "kind": p.kind, "format": p.format,
+         "ad_type": p.ad_type, "aspect": p.aspect or None,
+         "tags": {"category": list(p.category), "use": list(p.use)}, "from_credits": p.price_credits(),
+         "example_image": url(presets.example_url(p.id)), "example_video": url(presets.example_video_url(p.id)),
+         "needs": list(p.inputs)}
+    if p.layout:
+        d["layers"] = [{k: f[k] for k in ("id", "label", "type", "n", "max", "required", "hint") if k in f}
+                       for f in p.fields]
+    if p.kind == "recipe":
+        d.update(seconds=p.price.get("duration"), situation=p.extra.get("situation") or None,
+                 script=(p.extra.get("script") or {}).get("shape"),
+                 beats=[{k: b[k] for k in ("beat", "seconds", "shot", "say", "text")} for b in p.beats])
+        if not presets.runnable(p):
+            d["not_available_yet"] = p.needs
+    return d
+
+
 def options(ctx, args):
     with ctx.as_user():
         types = [{"id": a["id"], "name": a["name"], "what": a["line"]} for a in catalog.ad_types() if a["id"] != "motion"]
     tools = {t: {"aspects": catalog.TOOLS[t].get("aspects"), "durations": catalog.TOOLS[t].get("durations"),
                  "resolutions": list(catalog.resolutions(t)) or None} for t in ("ad_image", "ugc_video", "photo_to_video")}
+    url = lambda u: (ctx.base_url + u) if u else None  # noqa: E731
+    roster = [dict(p, portrait=url(p["portrait"]), voice_sample=url(p["voice_sample"]),
+                   situations=[dict(x, still=url(x["still"])) for x in p["situations"]]) for p in presenters.roster()]
     return {"ad_types": types, "formats": {"image": tools["ad_image"], "ugc": tools["ugc_video"],
                                            "voiceover": tools["ugc_video"], "product_video": tools["photo_to_video"]},
             "presenters": [{"id": p["id"], "name": p["name"], "vibe": p["vibe"], "look": p["look"]}
-                           for p in catalog.PRESENTERS],
+                           for p in presenters.all_presenters()],
             "voices": [{"id": v["id"], "name": v["name"], "who": v["who"]} for v in catalog.VOICES],
+            # m15: the preset library (each with its tags and example) and the presenter roster (with situations)
+            "presets": [_preset_row(ctx, p) for p in presets.offered(None, everything=_site_admin(ctx))
+                        if p.tool != "motion_copy"],
+            "preset_uses": presets.USES,
+            "roster": roster,
+            "situations": [{"id": k, "label": v["label"]} for k, v in presenters.SITUATIONS.items()],
             "copy_kinds": list(platforms.KINDS), "copy_platforms": list(platforms.PLATFORMS),
             "note": "AI presenters are generated people, never real ones. Words per video: about "
-                    f"{catalog.max_words(10)} for 10 seconds."}
+                    f"{catalog.max_words(10)} for 10 seconds. A preset is passed to quote_ad_batch and the generate "
+                    "tools as `preset`; a presenter video also takes `presenter` (or `presenters`) and `situation`."}
 
 
 def quote_ai(ctx, args):
@@ -191,16 +233,48 @@ def _ad_config(args):
     for src, dst in (("body", "body"), ("presenters", "presenters"), ("voices", "voices"), ("voice", "voice"),
                      ("duration", "duration"), ("aspects", "aspects"), ("resolution", "resolution"),
                      ("versions", "versions"), ("photo_ids", "photos"), ("subline", "subline"), ("cta", "cta"),
-                     ("setting", "setting"), ("placement", "placement"), ("audio", "audio"), ("only", "lines")):
+                     ("setting", "setting"), ("placement", "placement"), ("audio", "audio"), ("only", "lines"),
+                     ("preset", "preset"), ("situation", "situation"), ("layers", "layers")):
         if args.get(src) not in (None, "", []):
             d[dst] = args[src]
+    if args.get("presenter") and not d.get("presenters"):        # one presenter (with `situation`), or the list
+        d["presenters"] = [args["presenter"]]
     if args.get("title"):
         d["angle"] = {"title": args["title"]}
     return d
 
 
+def _with_preset(ctx, d: dict) -> dict:
+    """A config that names a preset, completed from the preset's own record: an image preset brings its scene and
+    shape (the caller still writes the headline), a video preset its length. The route validates the rest."""
+    if not d.get("preset"):
+        return d
+    pre = presets.get(d["preset"])
+    if pre is None or pre.kind == "type":
+        raise ToolError("Unknown preset. list_ad_options lists them.")
+    if pre.kind == "recipe":
+        if not presets.runnable(pre):
+            raise ToolError(f"{pre.name} isn't available yet.")
+        if d["type"] != pre.ad_type:
+            raise ToolError(f"{pre.name} is made with ad_type {pre.ad_type}.")
+        d.setdefault("duration", pre.price.get("duration") or 8)
+    elif pre.tool == "ad_image":
+        if d["type"] != "image":
+            raise ToolError(f"{pre.name} is an image preset: use ad_type image.")
+        with ctx.as_user():
+            try:
+                fill = catalog.template_prefill(pre.as_template(), core.brand(d.get("product")))
+            except Exception:  # noqa: BLE001 — an unknown product: the route says so
+                fill = {}
+        d.setdefault("body", fill.get("body") or "")
+        d.setdefault("aspects", fill.get("aspects") or ([pre.aspect] if pre.aspect else []))
+    else:
+        d.pop("preset")          # an older video template: its scene is the line the caller wrote
+    return d
+
+
 def quote_batch(ctx, args):
-    q = ctx.must("POST", "/app/create/quote", json_body=_ad_config(args)).data
+    q = ctx.must("POST", "/app/create/quote", json_body=_with_preset(ctx, _ad_config(args))).data
     if q.get("error"):
         raise ToolError(q["error"])
     pack = q.get("pack")
@@ -216,7 +290,7 @@ def quote_batch(ctx, args):
 def generate(ctx, args, kinds):
     if args["ad_type"] not in kinds:
         raise ToolError(f"ad_type must be one of {', '.join(kinds)} for this tool.")
-    d = _ad_config(args)
+    d = _with_preset(ctx, _ad_config(args))
     d["total"] = args["confirm_total_credits"]
     if args.get("confirm_many_videos"):
         d["confirm_many"] = True
@@ -246,6 +320,18 @@ def _ad_schema(kinds, generating):
         "title": {"type": "string", "maxLength": 80, "description": "A name for the batch (the angle)."},
         "presenters": {"type": "array", "maxItems": 4, "items": {"type": "string", "enum": list(catalog.PRESENTER_BY_ID)},
                        "description": "ugc: 1 to 4 AI presenters (from list_ad_options)."},
+        "presenter": {"type": "string", "enum": list(catalog.PRESENTER_BY_ID),
+                      "description": "ugc: one AI presenter (instead of `presenters`). From list_ad_options' roster."},
+        "situation": {"type": "string", "enum": list(presenters.SITUATIONS),
+                      "description": "ugc: where the presenter is (kitchen, car, outdoor, desk, sofa, bathroom-mirror, "
+                                     "gym, shop-floor). The roster lists each presenter's own."},
+        "preset": {"type": "string", "maxLength": 60,
+                   "description": "A preset id from list_ad_options (an image preset with ad_type image; a video "
+                                  "preset with its own ad_type). It supplies the scene or the shot; you write the "
+                                  "lines."},
+        "layers": {"type": "object",
+                   "description": "Image presets with a text layer: their extra words, keyed by the preset's "
+                                  "`layers` ids in list_ad_options (for example {\"badge\": \"$24\"})."},
         "voices": {"type": "array", "maxItems": 4, "items": {"type": "string", "enum": list(catalog.VOICE_BY_ID)},
                    "description": "voiceover: narrator voices."},
         "voice": {"type": "string", "enum": list(catalog.VOICE_BY_ID), "description": "ugc: override the presenter's voice."},
@@ -412,6 +498,68 @@ def snapshot_competitors(inputs_json, report_json) -> list:
     return [n for n in (c.get("name") or c.get("website") or c.get("url") for c in rows) if n]
 
 
+# ---------------------------------------------------------------- the library's own assets (site admins only)
+
+def _admin_only(ctx):
+    if not _site_admin(ctx):
+        raise ToolError("This tool is for Campaignify's own admins.")
+
+
+def _lib(ctx, args, fn, *extra):
+    _admin_only(ctx)
+    with ctx.as_user() as conn:
+        try:
+            return fn(conn, g.ws, args["kind"], args["ids"], args.get("options") or {}, *extra)
+        except library.LibraryError as e:
+            raise ToolError(str(e)) from None
+
+
+def library_quote(ctx, args):
+    q = _lib(ctx, args, library.quote)
+    q["next"] = ("To make these, call generate_library_assets with the same kind, ids and options and "
+                 f"confirm_total_credits={q['total_credits']}. Ask the user first.")
+    return q
+
+
+def library_generate(ctx, args):
+    r = _lib(ctx, args, library.generate, args["confirm_total_credits"])
+    r["note"] = "Queued. Stills take about a minute, clips a few minutes. list_library_assets shows them."
+    r["url"] = f"{ctx.base_url}/admin/library"
+    return r
+
+
+def library_list(ctx, args):
+    _admin_only(ctx)
+    with ctx.as_user() as conn:
+        rows = library.assets(conn, ctx.account_id, args.get("kind"))
+    for a in rows:
+        for o in a["outputs"]:
+            o["download_url"] = ctx.file_link("output", o["output_id"])["url"]
+    res = paginate(rows, args, default=50, most=100, key="assets")
+    res["note"] = ("Each file's `filename` is its tag name. Save the downloads under those names in one folder and run "
+                   "tools/import_library_assets.py <folder> to put them under static/. Links last 1 hour.")
+    return res
+
+
+LIB_OPTIONS = {"type": "object", "additionalProperties": False, "properties": {
+    "quality": {"type": "string", "enum": ["low", "medium", "high"], "description": "Stills: default high."},
+    "resolution": {"type": "string", "enum": ["1k", "2k"], "description": "Stills: default 1k."},
+    "demo": {"type": "string", "enum": list(library.DEMO_IDS), "description": "Preset examples: which demo product."},
+    "presenter": {"type": "string", "enum": list(presenters.IDS), "description": "Video examples: who presents."},
+    "situation": {"type": "string", "enum": list(presenters.SITUATIONS)},
+    "voice": {"type": "string", "enum": list(catalog.VOICE_BY_ID)},
+    "anchor_only": {"type": "boolean", "description": "Presenter stills: only each presenter's first still."},
+    "only_missing": {"type": "boolean", "description": "Preset examples: skip presets that already have one."}}}
+LIB_PROPS = {
+    "kind": {"type": "string", "enum": list(library.KINDS),
+             "description": "demo_products (packshots of the demo brand), presenter_stills, presenter_voices, "
+                            "preset_examples (images) or preset_videos."},
+    "ids": {"type": "array", "minItems": 1, "maxItems": 150, "items": {"type": "string", "maxLength": 80},
+            "description": "presenter_stills: \"maya\" (all her situations) or \"maya:kitchen\"; presenter_voices: "
+                           "presenter ids; preset_*: preset ids; demo_products: mug, candle, skincare, coffee, tote, "
+                           "greens, app. [\"all\"] for everything of that kind."},
+    "options": LIB_OPTIONS}
+
 PRODUCT = {"type": "integer", "minimum": 1}
 
 TOOLS = [
@@ -423,8 +571,9 @@ TOOLS = [
     Tool("get_product", "Product details",
          "One product: price, approved claims, audience, photo ids, saved angles and scripts, and the image templates "
          "that fit it.", _obj({"product_id": PRODUCT}, ["product_id"]), get_product),
-    Tool("list_ad_options", "Ad types, presenters, voices",
-         "What Create can make: ad types, shapes, lengths, the AI presenters and voices, and copy kinds.",
+    Tool("list_ad_options", "Ad types, presets, presenters, voices",
+         "What Create can make: ad types, shapes, lengths, the preset library (each preset with its tags, price and "
+         "example), the AI presenter roster with each presenter's situations and voice, the voices, and copy kinds.",
          _obj({}), options),
     Tool("quote_ai_tasks", "Credit estimates for AI writing",
          "The most ad copy, a campaign plan and a competitor snapshot can use, in credits. Nothing is charged.",
@@ -489,6 +638,24 @@ TOOLS = [
          _obj({"snapshot_id": {"type": "integer", "minimum": 1}}, ["snapshot_id"]), get_snapshot),
     Tool("list_competitor_snapshots", "List competitor snapshots", "Competitor snapshots in the workspace, newest first.",
          _obj(dict(PAGE_PROPS)), list_snapshots),
+    # ---- Campaignify's own admins only: hidden from everyone else in tools/list and refused when called
+    Tool("quote_library_assets", "Price library assets (admin)",
+         "Admin only. Prices a run of Campaignify's own library assets (presenter stills and voice samples, demo "
+         "product packshots, preset examples) before anything is made: total credits, our estimate of the vendor's "
+         "cost in USD, and each line. Nothing is made or charged.",
+         _obj(LIB_PROPS, ["kind", "ids"]), library_quote, visible=_site_admin),
+    Tool("generate_library_assets", "Make library assets (admin, spends credits)",
+         "Admin only. SPENDS CREDITS. Makes the library assets quote_library_assets priced, as ordinary jobs in this "
+         "workspace. Needs confirm_total_credits equal to that quote; otherwise nothing is made. Ask the user first.",
+         _obj(dict(LIB_PROPS, confirm_total_credits={"type": "integer", "minimum": 0,
+                                                     "description": "The total_credits quote_library_assets returned "
+                                                                    "for these exact arguments."}),
+              ["kind", "ids", "confirm_total_credits"]), library_generate, scope="write", visible=_site_admin),
+    Tool("list_library_assets", "List library assets (admin)",
+         "Admin only. The library assets made in this workspace, newest first: asset ids, the presenter, situation "
+         "or preset each belongs to, status, and a private download link per file.",
+         _obj(dict(PAGE_PROPS, kind={"type": "string", "enum": list(library.KINDS)})), library_list,
+         visible=_site_admin),
 ]
 
 

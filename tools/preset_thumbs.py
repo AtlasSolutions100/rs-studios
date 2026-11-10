@@ -44,6 +44,31 @@ SAMPLE = {"clean-headline": {"headline": "Your headline, in real type", "subline
                                                             "right": ["Quick", "Simple", "Costs less"]}}}
 PLACE = {"callouts": (0.70, 0.60), "review": (0.50, 0.34), "compare": (0.50, 0.33), "offer": (0.44, 0.60),
          "headline": (0.50, 0.64), "none": (0.50, 0.52)}
+# m15: the seasonal statics and the rest of presets.STATICS_M15 (sample words by preset, else by layout), and a
+# plain placeholder for each video recipe until its real example is imported (static/presets/<id>.webp).
+TONES.update({"season-winter-gift": ((70, 54, 44), (36, 28, 26)), "season-fresh-start": ((240, 244, 248), (206, 216, 226)),
+              "season-spring": ((236, 244, 226), (206, 224, 186)), "season-summer": ((250, 232, 170), (150, 196, 120)),
+              "season-autumn": ((206, 150, 96), (120, 74, 44)), "season-back-to-routine": ((222, 214, 200), (170, 160, 150)),
+              "season-gift-for-them": ((246, 226, 226), (226, 196, 200)), "season-offer": ((40, 84, 64), (24, 56, 44)),
+              "problem-answer": ((232, 230, 226), (200, 196, 190)), "three-reasons": ((226, 234, 240), (190, 204, 216)),
+              "how-it-works": ((236, 232, 222), (204, 196, 180)), "then-now": ((228, 232, 226), (196, 204, 192)),
+              "app-screen": ((220, 224, 230), (176, 184, 196))})
+SAMPLE.update({
+    "season-winter-gift": {"headline": "A gift they will use", "cta": "Shop gifts"},
+    "season-fresh-start": {"headline": "A calmer start", "cta": "Shop now"},
+    "season-spring": {"headline": "Open the windows", "cta": "Shop now"},
+    "season-summer": {"headline": "Take it outside", "cta": "Shop now"},
+    "season-autumn": {"headline": "Slow afternoons", "cta": "Shop now"},
+    "season-back-to-routine": {"headline": "Back in the bag", "cta": "Shop now"},
+    "season-gift-for-them": {"headline": "For them", "cta": "Shop gifts"},
+    "season-offer": {"headline": "This season", "badge": "Your offer", "cta": "Get yours"},
+    "problem-answer": {"headline": "The problem, as a question?", "subline": "Your answer, in one line.", "cta": "See how"},
+    "three-reasons": {"headline": "Three reasons", "callouts": ["Reason one", "Reason two", "Reason three"]},
+    "how-it-works": {"headline": "How it works", "callouts": ["Step one", "Step two", "Step three"]},
+    "then-now": {"headline": "The switch", "compare": {"left_title": "The old way", "right_title": "With yours",
+                                                             "left": ["How it was", "In your words", "Plainly"],
+                                                             "right": ["How it is", "Only what's true", "Simply"]}},
+    "app-screen": {"headline": "Your screen, your headline", "cta": "Try it"}})
 
 
 def scene(size, tones, at=(0.5, 0.6), scale=0.34):
@@ -81,7 +106,7 @@ def make(p) -> Image.Image:
         d = ImageDraw.Draw(im)
         if p.id != "marketplace":
             f = textlayer._font("sans", "bold", int(size[0] * 0.05))
-            label = "Example"
+            label = "Video preset" if p.kind == "recipe" else "Example"
             d.text(((size[0] - f.getlength(label)) / 2, size[1] * 0.08), label, font=f, fill=(255, 255, 255))
     im.thumbnail((480, 640), Image.LANCZOS)
     return im
@@ -89,7 +114,7 @@ def make(p) -> Image.Image:
 
 def main(force: bool = False) -> list:
     made = []
-    for p in presets.SCENES + presets.LAYERED:
+    for p in presets.SCENES + presets.LAYERED + presets.STATICS_M15 + presets.RECIPES:
         out = os.path.join(OUT, p.preview + ".jpg")
         if force or not os.path.exists(out):
             make(p).save(out, "JPEG", quality=78, optimize=True)
