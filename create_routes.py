@@ -8,7 +8,7 @@ saw has changed. Angle and script writing are small AI calls charged at cost.
 """
 import json
 
-from flask import Blueprint, abort, g, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, Response, abort, flash, g, jsonify, redirect, render_template, request, url_for
 
 import adfatigue
 import admanage
@@ -21,9 +21,10 @@ import db
 import llm
 import platforms
 import presenter_stills
+import presenters
 import presets
 import products
-from core import brand, hold_check, login_required, queue_job, reserve_ai, verify_block, verify_json
+from core import admin_required, brand, hold_check, login_required, queue_job, reserve_ai, verify_block, verify_json
 
 bp = Blueprint("create", __name__)
 MAX_BATCH = 12
@@ -129,6 +130,8 @@ def index():
         tpl = catalog.TEMPLATE_BY_ID.get(request.args.get("template") or "")
         if tpl and tpl.get("layout") and not presets.text_layers_on():
             tpl = None
+        if tpl and tpl.get("recipe") and not presets.runnable(presets.get(tpl["id"])):
+            tpl = None          # a video preset that waits for the keyframe-first pipeline can't be started from a link
         if tpl and not prefill:
             prefill = catalog.template_prefill(tpl, brand(pid if _product_row(conn, pid) is not None else None))
         if request.args.get("type") in catalog.AD_TYPE_BY_ID:
@@ -157,8 +160,9 @@ def index():
             # the preset library (presets.py): every template and static, each with its one-line "what it's for"
             # and a thumbnail; the page lists the ones that fit the product picked (product.templates)
             "templates": [presets.card(x, url_for) for x in presets.OLD_TEMPLATES + presets.SCENES
-                          + (presets.LAYERED if presets.text_layers_on() else [])],
-            "layouts": {x.id: presets.layout_spec(x) for x in presets.LAYERED} if presets.text_layers_on() else {},
+                          + (presets.layered() if presets.text_layers_on() else [])],
+            "layouts": {x.id: presets.layout_spec(x) for x in presets.layered()} if presets.text_layers_on() else {},
+            # the claims check costs a member nothing (m15: we absorb about $0.004 a script)
             "claims_check": claims_check.on() and llm.anthropic_ready(), "quote_claims": claims_check.estimate(),
             "refs": [{"id": r["id"], "title": r["title"], "seconds": r["seconds"], "url": url_for("ref_video", rid=r["id"])}
                      for r in refs],
@@ -494,9 +498,30 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
         (aspects_ok[:1] if aspects_ok else [None])
     base = {"photo_ids": photo_ids, "ad_type": typ, "product": p["name"]}
     if kind == "spoken":
-        dur = int(d.get("duration") or 10)
+        # A fixed video format (presets.RECIPES): it owns the shot, the place and the length it starts at.
+        rec = presets.get(d.get("preset")) if d.get("preset") else None
+        if d.get("preset") and (rec is None or rec.kind != "recipe"):
+            raise ConfigError("That preset isn't a video preset. Pick another, or none.", "type")
+        if rec is not None and rec.ad_type != typ:
+            raise ConfigError(f"{rec.name} is a {'presenter video' if rec.ad_type == 'ugc' else 'voiceover'} preset. "
+                              "Pick that ad type for it.", "type")
+        if rec is not None and not presets.runnable(rec):
+            raise ConfigError(f"{rec.name} isn't available yet. Pick another preset.", "type")
+        try:
+            dur = int(d.get("duration") or (rec.price.get("duration") if rec is not None else 0) or 10)
+        except (TypeError, ValueError):
+            dur = 0
         if dur not in catalog.TOOLS[tool]["durations"]:
             raise ConfigError("Pick a length.", "script")
+        sit_in = d.get("situation")
+
+        def place(who):
+            """The situation of one presenter: the preset's own, else the one picked (one for all, or per presenter)."""
+            s = (rec.extra.get("situation") if rec is not None else "") or \
+                (sit_in.get(who) if isinstance(sit_in, dict) else sit_in) or ""
+            if s and str(s) not in presenters.SITUATIONS:
+                raise ConfigError("Pick one of the places on the list.", "cast")
+            return str(s)
         limit = catalog.hard_words(dur)
         if typ == "ugc":
             cast = list(dict.fromkeys(x for x in d.get("presenters") or [] if x in catalog.PRESENTER_BY_ID))
@@ -527,9 +552,16 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
                         if d.get("placement") == "holding":     # the old look: the presenter holds the product
                             params["placement"] = "holding"
                         label = f"{catalog.PRESENTER_BY_ID[who]['name']} · {asp}{hd}"
+                        where = place(who)
+                        if where:                               # m15: the presenter's situation (and its still)
+                            params["situation"] = where
+                            label = (f"{catalog.PRESENTER_BY_ID[who]['name']} · "
+                                     f"{presenters.SITUATIONS[where]['label']} · {asp}{hd}")
                     else:
                         params.update(voice=who)
                         label = f"{catalog.VOICE_BY_ID[who]['name']} · {asp}{hd}"
+                    if rec is not None:
+                        params["preset"] = rec.id
                     jobs.append({"tool": tool, "brief": said, "params": params, "credits": credits, "usd": usd,
                                  "label": label, "hook": item, "key": f"{i}:{who}:{asp}"})
     elif kind == "image":
@@ -581,6 +613,8 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
                     params.update(layout=layered.layout, layers=layers)
                     if layers.get("attest"):
                         params["review_attested_by"] = g.user["id"]
+                    if layers.get("true"):                # "both columns are true" (the honest before and after)
+                        params["attested_by"] = g.user["id"]
                 jobs.append({"tool": tool, "brief": brief_txt[:2000], "params": params, "credits": credits, "usd": usd,
                              "label": f"{asp} · {n} version{'s' if n > 1 else ''}", "hook": item, "key": f"{i}::{asp}"})
     elif tool == "photo_to_video":
@@ -711,8 +745,9 @@ def _claims_state(conn, d, p, b):
 @login_required
 def claims():
     """The claims check for the script step (CLAIMS_CHECK): every factual sentence must trace back to an approved
-    claim, the product's saved details or its page. One AI call, charged at cost; the result is kept so Generate
-    doesn't pay again. {"status": ok | flagged | skipped | off, "flags": [{line, sentence, why}]}."""
+    claim, the product's saved details or its page. One AI call, free to the member (m15; "charged" is always 0);
+    the result is kept, so the same words are never checked twice, and a daily cap bounds what we spend.
+    {"status": ok | flagged | skipped | off, "flags": [{line, sentence, why}]}."""
     return claims_for(_json())
 
 
@@ -731,19 +766,21 @@ def claims_for(d):
             return jsonify(dict(have, charged=0, balance=_bal(), cached=True))
         if not llm.anthropic_ready():
             return jsonify({"status": "skipped", "flags": [], "charged": 0, "balance": _bal()})
-        hold, busy = _ai_hold(claims_check.estimate(), "AI claims check")
-        if busy:
-            return busy
         usage = llm.Usage()
-        try:
-            res = claims_check.check(lines, b, claims_check.page_text_of(p), usage)
-        except llm.LLMError:
-            # the check couldn't run: the script goes through on the fixed rules alone, as it did before
+        if claims_check.over_cap(conn, g.ws["id"]):
+            # today's safety cap is used (the check is free to members, so it is capped): the script goes through on
+            # the fixed rules alone, exactly as when the model is down
             res = {"status": "skipped", "flags": [], "facts": 0, "supported": 0}
-        taken = _settle(hold, usage)
+        else:
+            try:
+                res = claims_check.check(lines, b, claims_check.page_text_of(p), usage)
+            except llm.LLMError:
+                # the check couldn't run: the script goes through on the fixed rules alone, as it did before
+                res = {"status": "skipped", "flags": [], "facts": 0, "supported": 0}
+        # m15: free to the member. We pay what the call cost (usage.usd, kept on the row for the admin's numbers).
         claims_check.save(conn, g.ws["id"], p["id"], h, res, round(usage.usd, 6))
         conn.commit()
-    return jsonify(dict(res, charged=taken, balance=_bal()))
+    return jsonify(dict(res, charged=0, balance=_bal()))
 
 
 @bp.route("/app/create/generate", methods=["POST"])
@@ -789,7 +826,7 @@ def generate_for(d):
         save_script(conn, p["id"], meta["type"]["id"], d.get("items"), d.get("body"), angle.get("title"), aid)
         cfg = {k: d.get(k) for k in ("type", "angle", "items", "body", "presenters", "voices", "voice", "duration",
                                      "aspects", "platforms", "versions", "ref", "photos", "setting", "audio", "resolution",
-                                     "subline", "cta", "placement", "preset", "layers")}
+                                     "subline", "cta", "placement", "preset", "layers", "situation")}
         cfg["made"] = [j["key"] for j in jobs]
         cfg["every"] = meta["every"]
         cfg["product"] = p["id"]
@@ -847,3 +884,77 @@ def batch(bid):
                            at=catalog.AD_TYPE_BY_ID.get(b["ad_type"]) or {}, templates=catalog.TEMPLATE_BY_ID,
                            first_batch=first, nphotos=nphotos, is_preview=bool(previews), full_price=full_price,
                            verdicts=verdicts, prices=prices, eta=eta, names=names)
+
+
+# ---------------------------------------------------------------- the library's own assets (m15, site admins only)
+
+def _own_workspace():
+    """The library is made in the admin's OWN workspace: not while they are looking at someone else's."""
+    if g.get("viewing"):
+        abort(403, "Go back to your own workspace first: library assets are made there.")
+
+
+def _library_form():
+    f = request.form
+    ids = [x for x in (f.get("ids") or "").replace(",", " ").split() if x]
+    options = {k: f.get(k) for k in ("quality", "resolution", "demo", "presenter", "situation", "voice") if f.get(k)}
+    for k in ("anchor_only", "only_missing"):
+        if f.get(k):
+            options[k] = True
+    return (f.get("kind") or ""), ids, options
+
+
+@bp.route("/admin/library", methods=["GET", "POST"])
+@admin_required
+def library_admin():
+    """Make, review and export the library's assets: presenter stills and voice samples, the demo products' packshots
+    and preset examples. Quote first; Generate needs the quoted total (library.py)."""
+    import hf
+    import library
+    _own_workspace()
+    quote = error = None
+    kind, ids, options = _library_form() if request.method == "POST" else (request.args.get("kind") or "", [], {})
+    vendor_presets = None
+    with db.connect() as conn:
+        ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone()
+        if request.method == "POST":
+            do = request.form.get("do")
+            try:
+                if do == "vendor_presets":
+                    vendor_presets = hf.vendor_presets()          # a free read of the vendor's own preset catalog
+                elif do == "generate":
+                    res = library.generate(conn, ws, kind, ids, options, request.form.get("total"))
+                    flash(f"Started {res['queued']} job(s) for {res['credits_charged']:,} credits.", "ok")
+                    return redirect(url_for("create.library_admin", kind=kind) + "#made")
+                else:
+                    quote = library.quote(conn, ws, kind, ids, options)
+            except library.LibraryError as e:
+                error = str(e)
+            except hf.GenError as e:
+                error = f"The vendor refused: {e}"
+        rows = library.assets(conn, g.ws["id"], request.args.get("show") or None)
+        info = library.overview(conn, g.ws["id"])
+    return render_template("admin_library.html", rows=rows, info=info, quote=quote, error=error, kind=kind,
+                           ids=" ".join(ids), options=options, kinds=library.KINDS, demo=library.DEMO,
+                           roster=presenters.all_presenters(), situations=presenters.SITUATIONS,
+                           still_presets=[x for x in presets.LIBRARY if x.kind != "type"],
+                           runnable=presets.runnable, example_url=presets.example_url,
+                           example_video_url=presets.example_video_url, vendor_presets=vendor_presets,
+                           stills_on=presenters.stills_on(), voice_ref_on=presenters.voice_ref_on(),
+                           still_file=presenters.still_path,
+                           credits_left=db.balance(ws), still_model=catalog.model_for("library_still"),
+                           still_usd=catalog.LIBRARY_STILL_USD)
+
+
+@bp.route("/admin/library/export.zip")
+@admin_required
+def library_export():
+    """The finished assets (the approved one of each, else the newest), named by their tags, for
+    tools/import_library_assets.py."""
+    import library
+    _own_workspace()
+    with db.connect() as conn:
+        data = library.export_zip(conn, g.ws["id"], request.args.get("kind") or None)
+    return Response(data, mimetype="application/zip",
+                    headers={"Content-Disposition": "attachment; filename=campaignify-library.zip",
+                             "Cache-Control": "private, no-store"})
