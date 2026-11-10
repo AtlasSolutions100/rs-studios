@@ -250,12 +250,27 @@ finally:
     appmod.app.jinja_env.globals["rates"] = _rates
 
 print("== the showcase shows only what the manifest lists")
-check('data-showcase="0"' in home and home.count('class="lv-shot ph"') == len(public_site.SHOWCASE_SHAPES)
-      and "site/ugc-" not in home and "site/show-" not in home and "<video" not in home,
-      "an empty manifest: neutral tiles, none of the old invented examples, no media at all")
-check(json.load(open(os.path.join(ROOT, "static", "showcase", "manifest.json")))["items"] == [],
-      "the manifest in the repo starts empty")
 real_dir = public_site.SHOWCASE_DIR
+empty = os.path.join(TMP, "showcase_empty")
+os.makedirs(empty)
+json.dump({"items": []}, open(os.path.join(empty, "manifest.json"), "w"))
+public_site.SHOWCASE_DIR = empty
+public_site._showcase.update(key=None, items=[])
+try:
+    home0 = client().get("/").get_data(as_text=True)
+finally:
+    public_site.SHOWCASE_DIR = real_dir
+    public_site._showcase.update(key=None, items=[])
+check('data-showcase="0"' in home0 and home0.count('class="lv-shot ph"') == len(public_site.SHOWCASE_SHAPES)
+      and "site/ugc-" not in home0 and "site/show-" not in home0 and "<video" not in home0,
+      "an empty manifest: neutral tiles, none of the old invented examples, no media at all")
+shipped = json.load(open(os.path.join(ROOT, "static", "showcase", "manifest.json")))["items"]
+check(len(public_site.showcase()) == min(len(shipped), public_site.SHOWCASE_MAX)
+      and all(os.path.isfile(os.path.join(ROOT, "static", "showcase", i["file"])) and i.get("alt") and i.get("caption")
+              and presets.get(i["preset"]) and os.path.getsize(os.path.join(ROOT, "static", "showcase", i["file"])) <= 400 * 1024
+              for i in shipped)
+      and f'data-showcase="{min(len(shipped), public_site.SHOWCASE_MAX)}"' in home,
+      "every item the repo's manifest lists is a real file under 400 KB from a real preset, with a caption and alt text, and the home page shows them")
 show = os.path.join(TMP, "showcase")
 os.makedirs(show)
 open(os.path.join(show, "hero.png"), "wb").write(png(800, 1000).getvalue())
@@ -415,6 +430,9 @@ check({r["gender"] for r in rows} >= {"female", "male"} and len({r["age_band"] f
 import presenter_stills  # noqa: E402
 _photo = presenter_stills.photo_url
 presenter_stills.photo_url = lambda pid, url_for: f"/static/presenters/{pid}.jpg" if pid == "maya" else None
+_roster = presenters.roster
+# the repo now ships real portraits, so blank them here to exercise the fallback
+presenters.roster = lambda: [dict(r, portrait=None) for r in _roster()]
 try:
     with appmod.app.test_request_context("/app"):
         by = {r["id"]: r for r in studio_v2.roster()}
@@ -422,6 +440,11 @@ try:
           "a presenter without a portrait falls back to the sample still it has (presenter_stills), else a neutral tile")
 finally:
     presenter_stills.photo_url = _photo
+    presenters.roster = _roster
+with appmod.app.test_request_context("/app"):
+    shipped_faces = [r for r in studio_v2.roster() if r["portrait"]]
+check(len(shipped_faces) >= 20 and all("/static/presenters/" in r["portrait"] for r in shipped_faces),
+      "the portraits shipped in static/presenters are what the picker shows")
 with appmod.app.test_request_context("/app"):
     sys.modules["presenters"] = None           # "import presenters" raises ImportError, as on a branch without it
     try:
@@ -533,8 +556,10 @@ with appmod.app.test_request_context("/app"):
           and waiting.id not in byid, "the video presets that can run today are in More; the ones that can't are not")
     check(byid[vo.id]["shape"] and byid[vo.id]["from"] == vo.price_credits() and byid[ugc.id]["badge"] == "Presenter preset",
           "each recipe carries its script shape, its from-price and what it is pinned on")
-    check(all(not x["example"] and x["preview"] and not x["video"] for x in gal),
-          "no example assets yet: every card keeps its placeholder")
+    check(all(x["preview"] for x in gal)
+          and all(bool(x["example"]) == bool(presets.example_url(x["id"])) for x in gal if not x["id"].startswith("type:"))
+          and all(not x["example"] for x in gal if not x["id"].startswith("type:") and not presets.example_url(x["id"])),
+          "a card shows its real example when static/presets has one and keeps its placeholder when it has none")
     uses = studio_v2.gallery_uses(gal)
     check(all(x["uses"] for x in gal if not x["id"].startswith("type:")) and {"offer", "social-proof", "marketplace", "talking-head"} <= {u["id"] for u in uses}
           and all(u["label"] == presets.USES[u["id"]] and u["n"] >= 1 for u in uses)
