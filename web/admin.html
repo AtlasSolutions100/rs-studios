@@ -34,7 +34,7 @@
   <tr><th>Sign-ups (30 days)</th><td>{{ funnel.signups }} · {{ funnel.verified }} confirmed · {{ funnel.paid_source }} from ads ({{ funnel.ad_grant }} got the ad credits) · {{ funnel.made }} made something · {{ funnel.paying }} paying · <a href="{{ url_for('admin_signups') }}">See sign-ups</a></td></tr>
   {% set qw = quality_stats() if quality_stats is defined else None %}{% if qw %}<tr id="quality"><th>Ad quality (30 days)</th><td>
     Text layers <span class="tag {{ 'ok' if qw.text_layers else 'warn' }}">{{ 'on' if qw.text_layers else 'off' }}</span> ·
-    Claims check <span class="tag {{ 'ok' if qw.claims_check else 'warn' }}">{{ 'on' if qw.claims_check else 'off' }}</span> (about ${{ '%.3f'|format(qw.claims_usd) }} a script, charged to the member at cost) ·
+    Claims check <span class="tag {{ 'ok' if qw.claims_check else 'warn' }}">{{ 'on' if qw.claims_check else 'off' }}</span> (about ${{ '%.3f'|format(qw.claims_usd) }} a script, paid by us: free to the member) ·
     Image QA <span class="tag {{ 'ok' if qw.image_qa else 'warn' }}">{{ 'on' if qw.image_qa else 'off' }}</span> (about ${{ '%.3f'|format(qw.qa_cost.check_usd) }} a picture, ${{ '%.3f'|format(qw.qa_cost.retry_usd) }} more for a silent retry; ours) ·
     Free fix <span class="tag {{ 'ok' if qw.free_fix else 'warn' }}">{{ 'on' if qw.free_fix else 'off' }}</span> (${{ '%.3f'|format(qw.fix_cost.fix_usd) }} a fix, up to {{ qw.fix_cost.monthly_cap }} a workspace a month; ours).
     <div class="small muted">Free fixes: {{ qw.fixes.fixes }} in {{ qw.fixes.workspaces }} workspace{{ 's' if qw.fixes.workspaces != 1 }}, ${{ '%.2f'|format(qw.fixes.usd) }}.{% if not qw.acceptance %} No pictures checked yet.{% endif %}</div>
@@ -49,6 +49,10 @@
   {% if vendor %}<div class="scrollx"><table><tr><th>Format</th><th>Sample</th><th>We assume</th><th>Vendor now</th><th>We charge</th></tr>
   {% for r in vendor.rows %}<tr><td>{{ r.name }}</td><td class="small muted">{{ r.setting }}</td><td>${{ '%.3f'|format(r.ours) }}</td><td>{% if r.vendor is not none %}${{ '%.3f'|format(r.vendor) }}{% if r.vendor > r.ours * 1.05 %} <span class="tag bad">higher</span>{% endif %}{% if r.how and r.how != 'field usd' %}<div class="small dim">read from {{ r.how }}</div>{% endif %}{% else %}<span class="muted">no answer</span>{% if r.why %}<div class="small dim" style="max-width:420px;word-break:break-word">{{ r.model }} · {{ r.why }}</div>{% endif %}{% endif %}</td><td>{{ r.credits }} credits</td></tr>{% endfor %}
   </table></div><p class="small dim">Checked {{ vendor.at|localtime }}</p>{% endif %}
+</div>
+<div class="panel" id="library">
+  <h2>Library assets</h2>
+  <p class="small muted">Presenter stills and voice samples, the demo products and preset examples, made through our own pipeline with a price shown first. <a href="{{ url_for('create.library_admin') }}">Open the library →</a></p>
 </div>
 <div class="panel scrollx" id="presenters">
   <h2>Presenter samples</h2>

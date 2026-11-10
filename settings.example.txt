@@ -54,9 +54,13 @@ RS_MAIL_DOMAIN=mail.campaignify.ai
 # extra vendor cost. 0 hides them.
 # TEXT_LAYERS=1
 # CLAIMS_CHECK (default off): one fast-model call per script that ties every factual sentence to an approved
-# claim, the product's saved details or its page text, and blocks Generate while a line has no source. Charged to
-# the member at cost like other AI writing: about $0.004 of model cost, 1 to 2 credits a script.
+# claim, the product's saved details or its page text, and blocks Generate while a line has no source. Free to the
+# member (m15): we pay about $0.004 of model cost a script. Results are cached, and two daily caps bound the spend:
+# CLAIMS_CHECK_DAILY_MAX checks a day across the site (default 3000, about $12) and CLAIMS_CHECK_WS_DAILY_MAX a day
+# for one workspace (default 150); past either the check is skipped until midnight UTC.
 # CLAIMS_CHECK=1
+# CLAIMS_CHECK_DAILY_MAX=3000
+# CLAIMS_CHECK_WS_DAILY_MAX=150
 # IMAGE_QA (default off): a vision check of every finished image ad against the product photo; a failed picture
 # is made again once, silently, and refunded if it fails twice. Our cost, not the member's: about $0.004 a
 # picture, plus $0.111 for each silent retry. IMAGE_QA_DAILY_MAX caps the checks a day (default 2000, about $8);
@@ -69,6 +73,19 @@ RS_MAIL_DOMAIN=mail.campaignify.ai
 # workspace a month); a workspace's own number, when set, is workspaces.free_fix_cap.
 # FREE_FIX=1
 # FREE_FIX_MONTHLY_CAP=10
+# m15 library (presets.py, presenters.py, library.py; README "m15 library").
+# PRESENTER_STILLS (default off): when a presenter + situation has an approved still under static/presenters/, a
+# presenter video passes it to the video model as its first reference image, so the face holds from video to video.
+# No extra vendor cost (a reference image is not billed). Off, a presenter video sends exactly what it always sent.
+# PRESENTER_STILLS=1
+# PRESENTER_VOICE_REF (default off): when a presenter has static/presenters/<id>/voice.mp3, it is sent as the video
+# model's audio reference (audio_urls) and the prompt says to speak in that voice. What the vendor does with an audio
+# reference is not documented: run the paid test in the README before switching it on.
+# PRESENTER_VOICE_REF=1
+# The admin library's own image model (never sold to members) and, when the vendor's price for it is known, what one
+# still costs us in dollars (default: our table in catalog.LIBRARY_STILL_USD, $0.20 for a high-quality 1k still).
+# RS_LIBRARY_STILL_MODEL=marketing-studio/image/sunburst
+# RS_LIBRARY_STILL_USD=0.20
 # Admin outreach emails (/admin/outreach) come from "Koby Stull" <hello@RS_MAIL_DOMAIN> unless set;
 # replies go to hello@ the From's domain.
 # RS_OUTREACH_FROM="Koby Stull" <hello@campaignify.ai>

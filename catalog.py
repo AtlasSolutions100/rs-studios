@@ -10,6 +10,7 @@ import os
 import re
 
 import liveids
+import presenters
 import presets
 
 MARKUP = float(os.environ.get("RS_MARKUP", "2.0"))
@@ -100,15 +101,71 @@ if UPSCALE_MODEL and UPSCALE_USD_PER_SECOND > 0:
     TOOLS["video_upscale"] = UPSCALE_TOOL
 
 
+# ---------------------------------------------------------------- internal tools (never sold to members)
+# The library's own image model (m15, library.py): a general text-to-image model that also edits from reference
+# images, used by a site admin to make presenter stills ("same person, new situation" passes the first still as its
+# reference) and the demo products' packshots. It is NOT in TOOLS: Create, the planner, the price pages and
+# offered_tools() never see it, and only library.py queues jobs for it.
+#
+# Model: the vendor's "Marketing Studio Image 2.5 Sunburst" (GPT Image 2.5 behind it; `prompt`, optional
+# `image_urls` to edit from, `resolution` 1k/2k/4k, `aspect_ratio`, `quality`). Chosen because the owner's paid test
+# showed a GPT Image still keeps a product label exactly and holds a face from a reference. The vendor bills it by
+# tokens ($0.0107 to $0.6136 an image across its settings) and publishes no per-setting table, so the dollars here
+# are our estimates; the quote asks the vendor's free estimate first and the worker refuses a still whose live
+# estimate is over PRICE_TOLERANCE x what was quoted. RS_LIBRARY_STILL_MODEL / RS_LIBRARY_STILL_USD override.
+LIBRARY_STILL_USD = {("low", "1k"): 0.015, ("medium", "1k"): 0.055, ("high", "1k"): 0.20,
+                     ("low", "2k"): 0.022, ("medium", "2k"): 0.085, ("high", "2k"): 0.33}
+LIBRARY_STILL_REF_USD = 0.015        # each reference image read by the model (image input tokens)
+LIBRARY_STILL_DEFAULT = ("high", "1k")
+LIBRARY_STILL_ASPECTS = ("9:16", "3:4", "1:1", "2:3", "4:3", "16:9")       # the vendor's list has no 4:5
+INTERNAL_TOOLS = {
+    "library_still": {
+        "preview": "ad_image", "name": "Library still", "kind": "image", "hidden": True, "internal": True,
+        "blurb": "A still for the library: a presenter in a situation, or a demo product's packshot.",
+        "model": os.environ.get("RS_LIBRARY_STILL_MODEL", "").strip() or "marketing-studio/image/sunburst",
+        "usd": LIBRARY_STILL_USD, "max_photos": 4},
+}
+# Library clips (a presenter's voice sample) run on the talking-video model at the cheapest setting the vendor has;
+# members are never offered 480p (preview.py uses the same rate for the watermarked free preview).
+LIBRARY_USD_PER_SECOND_480P = float(os.environ.get("RS_VIDEO_USD_PER_SECOND_480P", "0.2056"))
+
+
+def any_tool(tool: str) -> dict | None:
+    """A tool's record whether it is sold (TOOLS) or internal (INTERNAL_TOOLS)."""
+    return TOOLS.get(tool) or INTERNAL_TOOLS.get(tool)
+
+
+def model_for(tool: str) -> str:
+    """The vendor model a job of this tool is sent to (the worker)."""
+    t = any_tool(tool)
+    if t is None:
+        raise KeyError(tool)
+    return t["model"]
+
+
+def library_still_usd(quality: str = "", resolution: str = "", refs: int = 0) -> float:
+    """Our estimate of one library still's vendor cost at these settings, with `refs` reference images."""
+    env = os.environ.get("RS_LIBRARY_STILL_USD", "").strip()
+    q, r = (quality or LIBRARY_STILL_DEFAULT[0]), (resolution or LIBRARY_STILL_DEFAULT[1])
+    if (q, r) not in LIBRARY_STILL_USD:
+        raise KeyError(f"{q}/{r}")
+    try:
+        base = float(env) if env else LIBRARY_STILL_USD[(q, r)]
+    except ValueError:
+        base = LIBRARY_STILL_USD[(q, r)]
+    return round(base + LIBRARY_STILL_REF_USD * max(0, int(refs or 0)), 4)
+
+
 class _DisplayTools(dict):
-    """TOOLS for templates: also knows tools that are switched off now (an old upscale job still renders)."""
+    """TOOLS for templates: also knows tools that are switched off now (an old upscale job still renders) and the
+    internal ones (a library still shows in the admin's own Library like any image)."""
 
     def __missing__(self, key):
-        return TOOLS.get(key) or (UPSCALE_TOOL if key == "video_upscale" else
-                                  {"name": key, "kind": "video", "preview": "photo_to_video"})
+        return TOOLS.get(key) or INTERNAL_TOOLS.get(key) or (
+            UPSCALE_TOOL if key == "video_upscale" else {"name": key, "kind": "video", "preview": "photo_to_video"})
 
     def __contains__(self, key):
-        return key in TOOLS or key == "video_upscale"
+        return key in TOOLS or key in INTERNAL_TOOLS or key == "video_upscale"
 
 
 DISPLAY_TOOLS = _DisplayTools()
@@ -133,7 +190,10 @@ def markup_for(tool: str, resolution: str = "") -> float:
 
 
 def cost_usd(tool: str, *, batch: int = 1, duration: float = 5, ref_seconds: float = 0,
-             resolution: str = DEFAULT_RESOLUTION) -> float:
+             resolution: str = DEFAULT_RESOLUTION, quality: str = "", refs: int = 0) -> float:
+    if tool == "library_still":      # internal (INTERNAL_TOOLS): `resolution` is 1k or 2k here, never a video size
+        res = resolution if resolution in ("1k", "2k") else ""
+        return library_still_usd(quality, res, refs) * max(1, batch)
     t = TOOLS[tool]
     if tool == "ad_image":
         return t["usd_each"] * max(1, batch)
@@ -205,31 +265,15 @@ def from_prices() -> dict:
             "motion_copy": price_credits("motion_copy", ref_seconds=5)}
 
 
-# AI presenters: described, never real people. Each video draws its presenter
-# from the description, so two videos with the same presenter look alike but
-# not identical.
-PRESENTERS = [
-    {"id": "maya", "name": "Maya", "look": "woman in her late 20s, curly dark hair, warm smile, casual knit sweater",
-     "vibe": "Warm, casual", "setting": "a bright, lived-in kitchen", "hue": 28},
-    {"id": "jordan", "name": "Jordan", "look": "man in his early 30s, short beard, plain t-shirt, relaxed posture",
-     "vibe": "Easygoing", "setting": "a sunny living room with plants", "hue": 200},
-    {"id": "priya", "name": "Priya", "look": "woman in her mid 30s, long straight black hair, minimal makeup, linen shirt",
-     "vibe": "Calm, expert", "setting": "a tidy home office with soft daylight", "hue": 300},
-    {"id": "sam", "name": "Sam", "look": "person in their mid 20s, short bleached hair, oversized hoodie, energetic",
-     "vibe": "Upbeat, Gen Z", "setting": "a bedroom with fairy lights", "hue": 140},
-    {"id": "elena", "name": "Elena", "look": "woman in her 50s, silver bob haircut, glasses, cardigan",
-     "vibe": "Trusted, grounded", "setting": "a cozy reading nook", "hue": 15},
-    {"id": "marcus", "name": "Marcus", "look": "man in his 40s, close-cropped hair, button-up shirt with sleeves rolled",
-     "vibe": "Straight-talking", "setting": "a modern kitchen island", "hue": 220},
-    {"id": "lena", "name": "Lena", "look": "woman in her early 20s, freckles, messy bun, gym clothes",
-     "vibe": "Sporty, quick", "setting": "a bright home gym corner", "hue": 90},
-    {"id": "theo", "name": "Theo", "look": "man in his late 20s, wavy hair, denim jacket, friendly grin",
-     "vibe": "Friendly, chatty", "setting": "a cafe table by the window", "hue": 260},
-]
-PRESENTER_BY_ID = {p["id"]: p for p in PRESENTERS}
-# Each presenter's default voice (default_voice() below). Every presenter has one: tests check the map is complete.
-PRESENTER_VOICE = {"maya": "warm_f", "priya": "warm_f", "elena": "warm_f", "sam": "upbeat_f", "lena": "upbeat_f",
-                   "jordan": "chatty_m", "theo": "chatty_m", "marcus": "calm_m"}
+# AI presenters: described, never real people. They live in presenters.py now (m15: the roster, with situations and
+# one voice each). PRESENTERS is the eight Campaignify has always had, the same dicts as before: Create, the old Home
+# and the planner list these. PRESENTER_BY_ID knows the whole roster, so a job, a saved batch or an MCP call naming
+# any presenter resolves. Without an approved still (PRESENTER_STILLS) each video draws its presenter from the
+# description, so two videos with the same presenter look alike but not identical.
+PRESENTERS = presenters.classic_presenters()
+PRESENTER_BY_ID = {p["id"]: presenters.classic(p) for p in presenters.all_presenters()}
+# Each presenter's one voice (default_voice() below). Every presenter has one: tests check the map is complete.
+PRESENTER_VOICE = {p["id"]: p["voice"] for p in presenters.all_presenters()}
 
 VOICES = [
     {"id": "warm_f", "name": "Warm & friendly", "desc": "a warm, friendly female voice, natural American accent", "who": "female"},
@@ -239,7 +283,9 @@ VOICES = [
     {"id": "narrator_deep", "name": "Narrator, deep", "desc": "a deep, smooth narrator voice", "who": "narrator"},
     {"id": "narrator_bright", "name": "Narrator, bright", "desc": "a bright, clear narrator voice", "who": "narrator"},
 ]
-VOICE_BY_ID = {v["id"]: v for v in VOICES}
+# VOICES is what a member can pick (a narrator, or another voice for a presenter). The newer presenters' own voices
+# (presenters.VOICES) resolve by id as well, so a job that names one says the right descriptor.
+VOICE_BY_ID = {v["id"]: v for v in VOICES + presenters.VOICES}
 WORDS_PER_SECOND = 2.4
 
 
@@ -376,33 +422,72 @@ def with_fidelity(scene: str) -> str:
 
 
 def talking_prompt(ad_type: str, product: str, script: str, presenter_id: str = "", voice_id: str = "",
-                   setting: str = "", placement: str = "") -> str:
-    """The prompt for a talking video (built by the worker from the job's params)."""
+                   setting: str = "", placement: str = "", *, situation: str = "", direction: str = "",
+                   still: bool = False, voice_ref: bool = False) -> str:
+    """The prompt for a talking video (built by the worker from the job's params).
+
+    The keyword arguments are m15's and all default to "as before":
+      situation   one of presenters.SITUATIONS: where the presenter is, when the member typed no setting
+      direction   a video preset's own shot (presets.RECIPES): what the camera sees in a voiceover, or what the
+                  presenter does in a presenter video ("{product}" is filled in)
+      still       the first reference image is the presenter's approved still (PRESENTER_STILLS): keep that person
+      voice_ref   audio 1 is the presenter's voice sample (PRESENTER_VOICE_REF): speak in that voice"""
     product = product or "the product"
     voice = VOICE_BY_ID.get(voice_id) or VOICES[0]
     say = " ".join((script or "").split())
+    direction = " ".join((direction or "").split()).replace("{product}", product)
     keep = (f"The {product} looks exactly as in the reference photos: same packaging, label, text and colors; never "
             "invent other branding.")
     if ad_type == "voiceover":
-        shots = ("Slow, simple camera moves over the product resting on a table in a real home: a push-in, a gentle "
-                 "pan, a close-up of the label. No people and no hands in frame."
-                 if placement == "product_only" else
-                 "Clean, well-lit close-ups and hands using it in a real home; smooth, simple camera moves.")
+        shots = direction or (
+            "Slow, simple camera moves over the product resting on a table in a real home: a push-in, a gentle "
+            "pan, a close-up of the label. No people and no hands in frame."
+            if placement == "product_only" else
+            "Clean, well-lit close-ups and hands using it in a real home; smooth, simple camera moves.")
         return (f"Short product video of the {product}. {shots} "
                 f"{keep} A narrator, never seen on camera, says in {voice['desc']}: "
                 f"\"{say}\" The narration is clear and matches the pacing of the shots. No on-screen text, no subtitles, "
                 "no music.")
     pr = PRESENTER_BY_ID.get(presenter_id) or PRESENTERS[0]
-    where = setting or pr["setting"]
-    if placement == "holding":
+    sit = presenters.situation(pr["id"], situation) if situation else None
+    where = setting or (sit["place"] if sit else pr["setting"])
+    if direction:
+        does = direction.rstrip(".")
+    elif placement == "holding":
         does = f"holds the {product} up to the camera and talks"
+    elif sit:
+        does = (f"is {sit['pose']}, with the {product} standing on {sit['surface']} in clear view, its label facing "
+                "the camera, and talks. Their hands stay off the product")
     else:
         does = (f"sits with the {product} standing on the table beside them, in clear view, label facing the camera, "
                 "and talks. Their hands stay off the product")
+    extra = ""
+    if still:
+        extra += ("The presenter is the person in the first reference image: keep their face, hair, age, build and "
+                  "clothes exactly as in that image. ")
+        keep = (f"The {product} looks exactly as in its own reference photos (every reference image after the first): "
+                "same packaging, label, text and colors; never invent other branding.")
+    if voice_ref:
+        extra += ("Their voice is the voice heard in audio 1: the same timbre, pitch, pace and accent. Audio 1 is only "
+                  "a sample of the voice: never repeat its words and never play it. ")
     return (f"Vertical selfie-style UGC video filmed on a phone. A {pr['look']}, in {where}, {does} directly to the "
             f"viewer in a natural, unscripted tone with {voice['desc']}. They say: "
-            f"\"{say}\" Lip movements match the speech exactly. {keep} {UNPOLISHED} Natural light, slight handheld "
+            f"\"{say}\" Lip movements match the speech exactly. {extra}{keep} {UNPOLISHED} Natural light, slight handheld "
             "movement, no on-screen text, no subtitles, no music.")
+
+
+def voice_sample_prompt(presenter_id: str, voice_id: str, situation: str, line: str) -> str:
+    """The prompt for a presenter's voice sample (library.py): them, from their still, saying one neutral line. No
+    product: the clip is kept for its sound."""
+    pr = PRESENTER_BY_ID.get(presenter_id) or PRESENTERS[0]
+    voice = VOICE_BY_ID.get(voice_id) or VOICE_BY_ID[default_voice(pr["id"])]
+    sit = presenters.situation(pr["id"], situation) if situation else None
+    say = " ".join((line or "").split())
+    return (f"Vertical selfie-style video filmed on a phone. A {pr['look']}, in {sit['place'] if sit else pr['setting']}, "
+            f"talks directly to the viewer in a natural, unhurried tone with {voice['desc']}. They say: \"{say}\" "
+            "Lip movements match the speech exactly. The presenter is the person in the reference image: keep their "
+            f"face, hair, age, build and clothes exactly as in that image. {UNPOLISHED} Natural light, slight handheld "
+            "movement, a quiet room with no background noise, no on-screen text, no subtitles, no music.")
 
 
 def default_voice(presenter_id: str) -> str:
@@ -620,6 +705,14 @@ def template_prefill(t: dict, b: dict) -> dict:
     typ = TOOL_AD_TYPE.get(t["tool"], "image")
     out = {"type": typ, "angle": {"title": t["name"], "hook": "", "insight": t["line"], "audience": t.get("audience") or ""},
            "step": "script", "template": t["id"]}
+    if t.get("recipe"):
+        # A video preset (presets.RECIPES): the member writes the words; the preset owns the shot, the place and
+        # the length. Its brief is a direction for the camera, never a script.
+        out.update(type=t.get("ad_type") or typ, items=[], body="", preset=t["id"], duration=t.get("duration") or 8,
+                   aspects=[t.get("aspect") or "9:16"])
+        if t.get("situation"):
+            out["situation"] = t["situation"]
+        return out
     if t.get("layout"):
         # A static with a text layer (presets.py): the member writes the words; the brief is only the scene.
         # The marketplace image has no words, so its one line is just a label.
