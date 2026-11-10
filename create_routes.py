@@ -460,7 +460,8 @@ def save():
 
 def expand(conn, d) -> tuple[dict, list[dict]]:
     """Validate a flow config and turn it into the jobs it would make:
-    [{tool, brief, params, credits, usd, label}]. Raises ConfigError."""
+    [{tool, brief, params, credits, usd, label}]. Raises ConfigError. `d["label"]` (optional, 60 characters)
+    names the jobs' cards; see the end of this function."""
     typ = d.get("type")
     at = next((a for a in catalog.ad_types() if a["id"] == typ), None)
     if not at:
@@ -640,6 +641,14 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
                 raise ConfigError(f"Scene {i + 1}: " + " ".join(chk["blocks"]), "script")
             jobs.append({"tool": tool, "brief": item, "params": dict(base, ref_id=ref["id"]), "credits": credits,
                          "usd": usd, "label": ref["title"], "hook": item, "key": f"{i}::"})
+    # A name for these jobs' cards (Studio's "Gift idea", a Workflow pack's part): d["label"] replaces what the
+    # card says before its shape, so nothing has to rename a job after it is queued. An image ad reads
+    # "<name> · 4:5", anything else "<name> · <its own label>". The line keys and the prices are unchanged.
+    name = " ".join(str(d.get("label") or "").split())[:60]
+    if name:
+        for j in jobs:
+            asp = j["params"].get("aspect")
+            j["label"] = f"{name} · {asp}" if (kind == "image" and asp) else f"{name} · {j['label']}"
     every, alljobs = len(jobs), list(jobs)
     if isinstance(d.get("lines"), list):
         want = {str(x) for x in d["lines"]}
@@ -826,7 +835,7 @@ def generate_for(d):
         save_script(conn, p["id"], meta["type"]["id"], d.get("items"), d.get("body"), angle.get("title"), aid)
         cfg = {k: d.get(k) for k in ("type", "angle", "items", "body", "presenters", "voices", "voice", "duration",
                                      "aspects", "platforms", "versions", "ref", "photos", "setting", "audio", "resolution",
-                                     "subline", "cta", "placement", "preset", "layers", "situation")}
+                                     "subline", "cta", "placement", "preset", "layers", "situation", "label")}
         cfg["made"] = [j["key"] for j in jobs]
         cfg["every"] = meta["every"]
         cfg["product"] = p["id"]
@@ -897,7 +906,8 @@ def _own_workspace():
 def _library_form():
     f = request.form
     ids = [x for x in (f.get("ids") or "").replace(",", " ").split() if x]
-    options = {k: f.get(k) for k in ("quality", "resolution", "demo", "presenter", "situation", "voice") if f.get(k)}
+    options = {k: f.get(k) for k in ("quality", "resolution", "demo", "presenter", "situation", "voice",
+                                     "video_seconds", "video_resolution", "voice_seconds") if (f.get(k) or "").strip()}
     for k in ("anchor_only", "only_missing"):
         if f.get(k):
             options[k] = True
@@ -932,7 +942,7 @@ def library_admin():
                 error = str(e)
             except hf.GenError as e:
                 error = f"The vendor refused: {e}"
-        rows = library.assets(conn, g.ws["id"], request.args.get("show") or None)
+        rows = library.listing(conn, g.ws["id"], request.args.get("show") or None)
         info = library.overview(conn, g.ws["id"])
     return render_template("admin_library.html", rows=rows, info=info, quote=quote, error=error, kind=kind,
                            ids=" ".join(ids), options=options, kinds=library.KINDS, demo=library.DEMO,
@@ -943,7 +953,26 @@ def library_admin():
                            stills_on=presenters.stills_on(), voice_ref_on=presenters.voice_ref_on(),
                            still_file=presenters.still_path,
                            credits_left=db.balance(ws), still_model=catalog.model_for("library_still"),
-                           still_usd=catalog.LIBRARY_STILL_USD)
+                           still_usd=catalog.LIBRARY_STILL_USD, video_resolutions=library.VIDEO_RESOLUTIONS,
+                           voice_range=library.VOICE_SECONDS_RANGE, voice_default=library.VOICE_SECONDS,
+                           usd_480p=catalog.LIBRARY_USD_PER_SECOND_480P)
+
+
+@bp.route("/admin/library/file/<int:oid>")
+@admin_required
+def library_file(oid):
+    """One file of a library job, downloaded under its export name (the name it has in the zip), so the files can be
+    fetched one by one."""
+    import library
+    from flask import send_file
+    _own_workspace()
+    with db.connect() as conn:
+        found = library.export_name(conn, g.ws["id"], oid)
+    if found is None:
+        abort(404)
+    resp = send_file(found[0], as_attachment=True, download_name=found[1], conditional=True)
+    resp.headers["Cache-Control"] = "private, no-store"
+    return resp
 
 
 @bp.route("/admin/library/export.zip")

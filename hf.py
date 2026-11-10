@@ -218,6 +218,22 @@ def outputs(result: dict) -> list[dict]:
     return out
 
 
+def refusal(result) -> str:
+    """Why the vendor refused or failed a request, in its own words, when its status reply says so ("" when it
+    doesn't). For our own admin pages and logs only: members see our plain message, never the vendor's."""
+    if not isinstance(result, dict):
+        return ""
+    for k in ("error", "detail", "message", "reason", "failure_reason", "nsfw_reason", "status_message", "moderation"):
+        v = result.get(k)
+        if isinstance(v, dict):
+            v = next((v[x] for x in ("message", "detail", "reason", "code", "category") if v.get(x)), None)
+        if isinstance(v, list):
+            v = ", ".join(str(x) for x in v[:6] if isinstance(x, (str, int, float)))
+        if isinstance(v, (str, int, float)) and not isinstance(v, bool) and str(v).strip():
+            return " ".join(str(v).split())[:300]
+    return ""
+
+
 def upload(data: bytes, content_type: str) -> str:
     """Upload bytes; returns a public URL the models can read."""
     url, body = f"{BASE}/files/generate-upload-url", {"content_type": content_type}

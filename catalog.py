@@ -560,27 +560,42 @@ NO_EXTRA_TEXT = ("No other text of any kind anywhere in the image: no extra slog
                  "percentages, discounts, hashtags, URLs, watermarks or extra logos.")
 
 
+# A static with a text layer gets its words from textlayer.py afterwards, so its picture has to come back with none.
+# The image model is an ad model and writes copy of its own when it can: it has painted invented claims into such a
+# picture ("30 servings...", "Everyday carry, redefined"), which is a compliance problem and not only a looks one.
+# So the text-free prompt says it plainly more than once, and the picture is checked before any layer is drawn
+# (image_qa: "no extra text" always runs on these, whatever IMAGE_QA says; worker._finish_images).
+TEXT_FREE = ("No words, letters, numbers, captions, logos or graphics anywhere in the picture except what is already "
+             "printed on the product's own packaging in the photos. No infographic elements: no icons, arrows, callout "
+             "lines, charts, panels, banners, frames, ribbons or stickers. It is a plain photograph, not a finished ad.")
+
+
 def image_ad_prompt(scene: str, headline: str = "", subline: str = "", cta: str = "", brand: str = "",
-                    product: str = "", forbid=(), service: bool = False) -> str:
+                    product: str = "", forbid=(), service: bool = False, text_free: bool = False) -> str:
     """The prompt the image model gets for one image ad. It names every word
     allowed on the image (headline, optional subline and button, brand name)
     and forbids all others; product claims in `forbid` (the product's approved
     and suggested claims) never enter it unless the member put that exact text
-    in the headline, subline or button."""
+    in the headline, subline or button. `text_free`: a static with a text layer
+    (presets.py), whose picture carries no words at all (TEXT_FREE above)."""
     clean = lambda s, k: " ".join(str(s or "").split())[:TEXT_LIMITS[k]].replace('"', "'")  # noqa: E731
     headline, subline, cta = clean(headline, "headline"), clean(subline, "subline"), clean(cta, "cta")
     brand = " ".join(str(brand or "").split())[:80].replace('"', "'")
+    if text_free:
+        headline = subline = cta = brand = ""
     product = " ".join(str(product or "").split())[:80] or "product"
     allowed = [x for x in (headline, subline, cta, brand) if x]
     scene = scene_only(scene, allowed, forbid) or f"Clean, premium product shot of the {product}."
+    opener = "Product photograph with no text on it. " if text_free else "Advertising image. "
     if service:   # a service business (service_path.py): the references are its logo or site photos, not packaging
         import service_path
-        lines = [f"Advertising image. Scene: {scene}"] + service_path.image_lines(product)
+        lines = [f"{opener}Scene: {scene}"] + service_path.image_lines(product)
     else:
-        lines = [f"Advertising image. Scene: {scene}",
+        lines = [f"{opener}Scene: {scene}",
                  f"The product is the {product} exactly as in the reference photos: same shape, packaging, label, printed "
                  "text and colors. Don't redraw, change or add to its label."]
-    lines.append("Text on the image: only the words listed here, each shown once and spelled exactly as written.")
+    lines.append("Text on the image: none at all." if text_free else
+                 "Text on the image: only the words listed here, each shown once and spelled exactly as written.")
     if headline:
         lines.append(f'- Headline (the main text, large and easy to read): "{headline}"')
     if subline:
@@ -591,6 +606,9 @@ def image_ad_prompt(scene: str, headline: str = "", subline: str = "", cta: str 
         lines.append(f'- Brand name (optional, small): "{brand}"')
     if not (headline or subline or cta):
         lines.append("- No headline: add no words at all.")
+    if text_free:
+        lines.append(TEXT_FREE.replace("printed on the product's own packaging in the photos", "in the logo") if service
+                     else TEXT_FREE)
     lines.append("The only other text allowed is what is already in the logo." if service else
                  "The only other text allowed is what is already printed on the product's own packaging in the photos.")
     lines.append(NO_EXTRA_TEXT + (" Exactly one button, with the text above, and no other call to action." if cta else

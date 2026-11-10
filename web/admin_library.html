@@ -20,6 +20,12 @@
       <div><label for="l-r">Still size</label><select id="l-r" name="resolution" style="width:auto">{% for r in ('1k', '2k') %}<option {{ 'selected' if options.resolution == r }}>{{ r }}</option>{% endfor %}</select></div>
       <div><label for="l-p">Presenter <span class="dim">(video examples)</span></label><select id="l-p" name="presenter" style="width:auto"><option value="">Maya</option>{% for p in roster %}<option value="{{ p.id }}" {{ 'selected' if options.presenter == p.id }}>{{ p.name }}</option>{% endfor %}</select></div>
     </div>
+    <div class="row" style="gap:12px;flex-wrap:wrap">
+      <div><label for="l-vs">Video seconds <span class="dim">(preset videos)</span></label><input id="l-vs" name="video_seconds" type="number" min="1" max="120" step="1" inputmode="numeric" style="width:9em" placeholder="the preset's own" value="{{ options.video_seconds or '' }}"></div>
+      <div><label for="l-vr">Video size <span class="dim">(preset videos)</span></label><select id="l-vr" name="video_resolution" style="width:auto"><option value="">720p (default)</option>{% for r in video_resolutions %}<option value="{{ r }}" {{ 'selected' if options.video_resolution == r }}>{{ r }}{{ ' (library only)' if r == '480p' }}</option>{% endfor %}</select></div>
+      <div><label for="l-vo">Voice seconds <span class="dim">(voice samples)</span></label><input id="l-vo" name="voice_seconds" type="number" min="{{ voice_range[0] }}" max="{{ voice_range[1] }}" step="1" inputmode="numeric" style="width:9em" placeholder="{{ voice_default }}" value="{{ options.voice_seconds or '' }}"></div>
+    </div>
+    <p class="small muted">Video seconds: a presenter or voiceover preset takes 4 to 30, a product-video preset 5 or 10; anything else is moved to the nearest. A shorter example says a shorter line. 480p costs ${{ '%.4f'|format(usd_480p) }} a second at the vendor and is never offered to members. Voice samples are {{ voice_range[0] }} to {{ voice_range[1] }} seconds at 480p.</p>
     <label for="l-ids">Ids, separated by spaces <span class="dim">(or <code>all</code>)</span></label>
     <textarea id="l-ids" name="ids" maxlength="4000" style="min-height:70px" placeholder="maya nia:desk walt        offer shelf season-autumn        mug candle">{{ ids }}</textarea>
     <p class="small muted">Presenter stills: <code>maya</code> (all of Maya's) or <code>maya:kitchen</code>; the first situation is made first and the others start from it as the same person. Preset examples and videos: preset ids. Demo products: {% for k in demo %}<code>{{ k }}</code>{{ ' ' if not loop.last }}{% endfor %}.</p>
@@ -30,8 +36,8 @@
     <div class="panel" style="margin-top:14px" id="quote">
       <h3 style="margin-top:0">{{ quote.count }} job{{ '' if quote.count == 1 else 's' }}: {{ '{:,}'.format(quote.total_credits) }} credits, about ${{ '%.2f'|format(quote.vendor_usd) }} at the vendor</h3>
       <p class="small muted">Dollars are {{ quote.vendor_usd_basis }}. This workspace has {{ '{:,}'.format(quote.credits_available) }} credits{% if quote.short_by %}: <b>{{ '{:,}'.format(quote.short_by) }} short</b>{% endif %}.</p>
-      <table><tr><th>What</th><th>Tool</th><th>Credits</th><th>USD</th><th>Starts from</th></tr>
-      {% for l in quote.lines %}<tr><td>{{ l.label }} <span class="dim small">{{ l.key }}</span></td><td class="small">{{ l.tool }}</td><td>{{ l.credits }}</td><td>${{ '%.3f'|format(l.usd) }}</td><td class="small muted">{{ l.starts_from or '' }}</td></tr>{% endfor %}</table>
+      <table><tr><th>What</th><th>Tool</th><th>Length</th><th>Credits</th><th>USD</th><th>Starts from</th></tr>
+      {% for l in quote.lines %}<tr><td>{{ l.label }} <span class="dim small">{{ l.key }}</span></td><td class="small">{{ l.tool }}</td><td class="small">{% if l.seconds %}{{ l.seconds }} s · {{ l.resolution }}{% endif %}</td><td>{{ l.credits }}</td><td>${{ '%.3f'|format(l.usd) }}</td><td class="small muted">{{ l.starts_from or '' }}</td></tr>{% endfor %}</table>
       <input type="hidden" name="total" value="{{ quote.total_credits }}">
       {% if not quote.short_by %}<p style="margin-top:12px"><button class="btn sm" name="do" value="generate">Generate for {{ '{:,}'.format(quote.total_credits) }} credits</button></p>{% endif %}
     </div>
@@ -40,7 +46,7 @@
 </div>
 <div class="panel scrollx" id="made">
   <h2>Made here ({{ rows|length }})</h2>
-  <p class="small muted">Show: <a href="{{ url_for('create.library_admin') }}#made">all</a>{% for k in kinds %} · <a href="{{ url_for('create.library_admin', show=k) }}#made">{{ k.replace('_', ' ') }}</a>{% endfor %} · <a href="{{ url_for('create.library_export') }}">Download the export (.zip)</a> <span class="dim">one file per tag: the approved one, else the newest; rejected ones are left out</span></p>
+  <p class="small muted">Show: <a href="{{ url_for('create.library_admin') }}#made">all</a>{% for k in kinds %} · <a href="{{ url_for('create.library_admin', show=k) }}#made">{{ k.replace('_', ' ') }}</a>{% endfor %} · <a href="{{ url_for('create.library_export') }}">Download the export (.zip)</a> <span class="dim">one file per tag: the approved one, else the newest; rejected ones are left out. Each file below downloads under the same name it has in the zip; its output id is what the <code>get_asset_download_url</code> tool takes.</span></p>
   {% if rows %}
   <div class="row" style="gap:14px;flex-wrap:wrap;align-items:flex-start">
   {% for a in rows %}<div style="width:150px">
@@ -49,9 +55,11 @@
     {% elif o %}<a href="{{ url_for('media', oid=o.output_id) }}"><img src="{{ url_for('media', oid=o.output_id) }}" alt="" loading="lazy" style="width:150px;border-radius:8px"></a>
     {% else %}<div style="width:150px;height:200px;border-radius:8px;border:1px solid var(--line, #444);display:flex;align-items:center;justify-content:center"><span class="status {{ a.status }}">{{ a.status }}</span></div>{% endif %}
     <div class="small"><b>{{ a.presenter or a.preset or a.demo }}</b>{% if a.situation %} · {{ a.situation }}{% endif %}</div>
-    <div class="small muted">{{ a.kind.replace('_', ' ') }} · job {{ a.job_id }} · {{ a.credits }} cr{% if a.verdict %} · {{ a.verdict }}{% endif %}</div>
-    {% if o %}<div class="small"><a href="{{ url_for('media', oid=o.output_id, download=1) }}">Download</a> <span class="dim">{{ o.filename }}</span></div>{% endif %}
+    <div class="small muted">{{ a.kind.replace('_', ' ') }} · job {{ a.job_id }} · {{ a.credits }} cr{% if a.verdict %} · {{ a.verdict }}{% endif %}{% if a.in_export %} · <span class="tag ok">in export</span>{% endif %}</div>
+    {% for f in a.outputs %}<div class="small"><a href="{{ url_for('create.library_file', oid=f.output_id) }}">Download</a> <span class="dim">{{ f.filename }} · output {{ f.output_id }}</span></div>{% endfor %}
     {% if a.error %}<div class="small dim">{{ a.error }}</div>{% endif %}
+    {% if a.vendor_reason %}<div class="small dim">Vendor said: {{ a.vendor_reason }}</div>{% endif %}
+    {% if a.softened %}<div class="small dim">{{ 'Made on' if a.status == 'done' else 'Tried again with' }} the softer prompt after a content-filter refusal</div>{% endif %}
     {% if a.batch_id %}<div class="small"><a href="{{ url_for('create.batch', bid=a.batch_id) }}">Batch (approve or reject)</a></div>{% endif %}
   </div>{% endfor %}
   </div>

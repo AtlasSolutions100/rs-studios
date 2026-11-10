@@ -698,6 +698,25 @@ ZONES = {
     "none": "",
 }
 
+# A layered static is the product alone: a person in it is where the words go (the image model has drawn a man
+# holding the product for "the product centred on a clean surface"). Said after the scene and the calm zone, for
+# every layered preset whose record doesn't set "people": True (none does today).
+NO_PEOPLE = "No people, no hands, no faces and no body parts anywhere in the picture."
+
+
+def product_only(preset_id) -> bool:
+    """Is this a static with a text layer whose picture shows the product and nobody (all of them today)?"""
+    p = BY_ID.get(str(preset_id or ""))
+    return p is not None and bool(p.layout) and not p.extra.get("people")
+
+
+def layered_scene(scene: str, layout: str, preset_id=None) -> str:
+    """What the image model is asked to draw for a static with a text layer: the scene, where to leave calm space
+    for the words, and that nobody is in it (worker.image_prompt; an unknown preset is treated as product-only)."""
+    nobody = NO_PEOPLE if (str(preset_id or "") not in BY_ID or product_only(preset_id)) else ""
+    return " ".join(x for x in ((scene or "").strip(), ZONES.get(layout, ""), nobody) if x)
+
+
 # ---------------------------------------------------------------- the contract parts the old records never said
 IMAGE_QA = ("product_present", "label_matches", "no_extra_text", "no_deformed_hands_faces")
 VIDEO_QA = ("five_tells", "lip_sync")          # named in the quality bar; not automated yet (image_qa.VIDEO_CHECKS)
@@ -898,8 +917,8 @@ def _from_layered(d: dict) -> Preset:
                   params={"language": "English", "text": "none: set afterwards by textlayer.py"},
                   beats=({"beat": "one frame", "shot": d["line"]},), text_layers=d["text_layers"], layout=d["layout"],
                   fields=tuple(d["fields"]), qa=IMAGE_QA, price={"batch": 1}, preview=d["preview"],
-                  extra={k: d[k] for k in ("line", "items_label", "items_hint", "item_max", "ai_items", "headline")
-                         if k in d},
+                  extra={k: d[k] for k in ("line", "items_label", "items_hint", "item_max", "ai_items", "headline",
+                                           "people") if k in d},
                   fits=d.get("fits", "any"), category=_category(d.get("fits", "any")),
                   use=tuple(d.get("use") or _USE.get(d["id"]) or ()), season=d.get("season") or "")
 

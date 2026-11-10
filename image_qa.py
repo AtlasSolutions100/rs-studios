@@ -1,5 +1,10 @@
 """Automatic QA of a finished picture against the product photo (quality wave 2). Switch: IMAGE_QA, default off.
 
+One part of it is not behind the switch (m15): the text-free picture of a static with a text layer is ALWAYS checked
+for words the image model painted in by itself and for a person in it (LAYERED_CHECKS), before any of our own layers
+is drawn; a failure is made again once, silently, and refunded when it fails twice. Invented copy in a picture is a
+compliance problem, so it doesn't wait for a member-facing switch. That costs us one check ($0.004) a layered picture.
+
 One vision call per picture (llm.structured, the fast model unless IMAGE_QA_MODEL names another) is shown the
 member's product photo and the finished picture and answers plain questions. The verdict is then worked out
 HERE from those answers, never taken from the model as a yes or no:
@@ -10,6 +15,8 @@ HERE from those answers, never taken from the model as a yes or no:
                                brand name; none at all for a picture that gets its words from textlayer.py)
                                and what is printed on the product itself; nothing garbled
     no_deformed_hands_faces    no malformed hands or faces
+    no_people                  (statics with a text layer that show the product alone, presets.product_only)
+                               nobody is in the picture: a person there is where the words go
     (keyframe only) one clear presenter face, the product not covering it
 
 What the worker does with the verdict (worker._finish_images): a picture that fails is never shown. The first
@@ -35,6 +42,11 @@ import llm
 
 log = logging.getLogger("campaignify")
 FAIL_TEXT = "We couldn't get this one right — credits returned."
+# What the text-free picture of a static with a text layer is always checked for, with or without IMAGE_QA (the
+# worker runs the check before any layer is drawn, so our own words are never what it reads): words the image model
+# painted in by itself, which have been invented claims, and a person standing where the words go. The other
+# checks (product, label, hands) stay the member-facing switch's.
+LAYERED_CHECKS = ("no_extra_text", "no_people")
 DEFAULT_DAILY_MAX = 2000
 TOKENS = (2600, 250)            # per check: two images and the questions in, the answers out
 CHECKS = {
@@ -64,8 +76,8 @@ SCHEMA = {"type": "object", "properties": {
     "deformed_faces": {"type": "boolean", "description": "A visible face is distorted or malformed."},
     "one_clear_face": {"type": "boolean", "description": "Exactly one person's face is clearly visible and unobstructed."},
     "notes": {"type": "string", "description": "One short sentence on the worst problem, or empty."}},
-    "required": ["product_present", "label_matches", "label_legible", "other_text", "garbled_text", "deformed_hands",
-                 "deformed_faces"]}
+    "required": ["product_present", "label_matches", "label_legible", "other_text", "garbled_text", "people",
+                 "deformed_hands", "deformed_faces"]}
 
 
 def on() -> bool:
@@ -111,8 +123,12 @@ def extra_text(found, allowed) -> list:
     return out
 
 
-def judge(ans: dict, allowed=(), kind: str = "image") -> dict:
-    """{"pass", "reasons", "checks"} from the model's answers. A missing answer counts as the strict one."""
+def judge(ans: dict, allowed=(), kind: str = "image", no_people: bool = False, only=None) -> dict:
+    """{"pass", "reasons", "checks"} from the model's answers. A missing answer counts as the strict one.
+    `no_people`: the picture is meant to show the product alone (a static with a text layer), so one the model
+    says has people in it fails (only on a plain yes: this answer isn't taken as strict when it is missing).
+    `only`: the checks that decide (LAYERED_CHECKS when IMAGE_QA is off); the others are still recorded in
+    "checks" but neither fail the picture nor give a reason."""
     ans = ans if isinstance(ans, dict) else {}
     extra = extra_text(ans.get("other_text"), allowed)
     has_label = ans.get("photo_has_label", True) is not False
@@ -120,22 +136,27 @@ def judge(ans: dict, allowed=(), kind: str = "image") -> dict:
               "label_matches": ans.get("label_matches") is True and (not has_label or ans.get("label_legible") is True),
               "no_extra_text": not extra and ans.get("garbled_text") is False,
               "no_deformed_hands_faces": ans.get("deformed_hands") is False and ans.get("deformed_faces") is False}
-    reasons = []
+    why = {}                                    # check -> its reason, in the order they are told
     if not checks["product_present"]:
-        reasons.append("The product isn't in the picture.")
+        why["product_present"] = "The product isn't in the picture."
     elif not checks["label_matches"]:
-        reasons.append("The label or logo doesn't match the product photo." if ans.get("label_matches") is not True
-                       else "The label can't be read.")
+        why["label_matches"] = ("The label or logo doesn't match the product photo." if ans.get("label_matches") is not True
+                                else "The label can't be read.")
     if extra:
-        reasons.append("Extra text: " + "; ".join(extra[:4]))
+        why["no_extra_text"] = "Extra text: " + "; ".join(extra[:4])
     elif not checks["no_extra_text"]:
-        reasons.append("Garbled text.")
+        why["no_extra_text"] = "Garbled text."
     if not checks["no_deformed_hands_faces"]:
-        reasons.append("A hand or a face is malformed.")
+        why["no_deformed_hands_faces"] = "A hand or a face is malformed."
     if kind == "keyframe":
         checks["keyframe"] = ans.get("one_clear_face") is True
         if not checks["keyframe"]:
-            reasons.append("The presenter's face isn't clear.")
+            why["keyframe"] = "The presenter's face isn't clear."
+    if no_people:
+        checks["no_people"] = ans.get("people") is not True
+        if not checks["no_people"]:
+            why["no_people"] = "A person is in a picture that is meant to show the product alone."
+    reasons = [r for k, r in why.items() if only is None or k in only]
     return {"pass": not reasons, "reasons": reasons, "checks": checks}
 
 
@@ -153,7 +174,7 @@ def _small(src, side: int):
 
 
 def inspect(image, product_photo, allowed_text=(), kind: str = "image", product: str = "",
-            usage: llm.Usage | None = None) -> dict:
+            usage: llm.Usage | None = None, no_people: bool = False, only=None) -> dict:
     """Look at one picture. `image` and `product_photo` are file paths or bytes. Returns judge()'s dict plus
     {"answers", "model", "usd"}. Raises llm.LLMError when the check can't run (the caller delivers unchecked)."""
     usage = usage if usage is not None else llm.Usage()
@@ -170,7 +191,7 @@ def inspect(image, product_photo, allowed_text=(), kind: str = "image", product:
     before = usage.usd
     ans = llm.structured(system=SYSTEM, prompt=prompt, schema=SCHEMA, name="report", max_tokens=TOKENS[1] + 150,
                          usage=usage, temperature=0, model_id=model_id(), images=[ref, pic])
-    out = judge(ans, allowed, kind)
+    out = judge(ans, allowed, kind, no_people, only)
     out.update(answers=ans, model=model_id(), usd=round(usage.usd - before, 6))
     return out
 
@@ -216,9 +237,10 @@ def record(conn, job, p: dict, attempt: int, idx: int, verdict: str, reasons=(),
          model, usd, url, path, db.now())).lastrowid
 
 
-def check_output(conn, job, p: dict, attempt: int, idx: int, url: str, path: str | None) -> dict:
+def check_output(conn, job, p: dict, attempt: int, idx: int, url: str, path: str | None, only=None) -> dict:
     """Check one finished picture of a job and write its asset_qa row. {"verdict": pass | fail | skipped,
-    "reasons", "row"}. Never raises: when the check can't run the picture counts as skipped (delivered)."""
+    "reasons", "row"}. Never raises: when the check can't run the picture counts as skipped (delivered).
+    `only`: the checks that may fail it (see judge)."""
     why = ""
     if not path or not os.path.exists(path):
         why = "no local copy to look at"
@@ -235,7 +257,9 @@ def check_output(conn, job, p: dict, attempt: int, idx: int, url: str, path: str
         return {"verdict": "skipped", "reasons": [why],
                 "row": record(conn, job, p, attempt, idx, "skipped", [why], url=url, path=path)}
     try:
-        res = inspect(path, ref, allowed_text(conn, job, p), product=p.get("product") or "")
+        import presets
+        res = inspect(path, ref, allowed_text(conn, job, p), product=p.get("product") or "",
+                      no_people=bool(p.get("layout")) and presets.product_only(p.get("preset")), only=only)
     except Exception as e:  # noqa: BLE001 — QA never holds an ad hostage
         log.warning("image check for job %s could not run: %s", job["id"], str(e)[:160])
         why = "the check couldn't run"

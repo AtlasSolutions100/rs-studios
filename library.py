@@ -18,6 +18,19 @@ params.library = {kind, presenter, situation, preset, demo}, and assets() / expo
 tags (presenter__maya__kitchen.png, preset__offer.png, voice__maya.mp4 ...), which is what
 tools/import_library_assets.py reads to put the approved ones under static/.
 
+Options that make a run cheaper (the quote follows them, in credits and in vendor dollars):
+
+    video_seconds      preset_videos: the clip's length. Default: the preset's own. Kept inside what the vendor's
+                       model takes (4 to 30 whole seconds for a presenter or voiceover preset) and what the ad type
+                       offers (5 or 10 for a product-video preset). A spoken example's words are cut to fit.
+    video_resolution   preset_videos: 480p, 720p (the default) or 1080p. 480p is the library's own, like the free
+                       preview: members are never offered it.
+    voice_seconds      presenter_voices: 4 to 8, default 6.
+
+Which product a job carries: a presenter's still or voice sample is about no product (params.no_product, so
+core.queue_job never tags it with the workspace's active one); a preset's example carries its demo product; a demo
+product's packshot carries the demo product once that exists in the workspace (it is set up from the packshot).
+
 Admin only: the routes (create_routes: /admin/library) are behind admin_required, the MCP tools are hidden from and
 refused to everyone else (mcp_tools). Nothing here runs by itself: an admin asks for a quote, then confirms it.
 """
@@ -42,7 +55,9 @@ TAG = {"demo_products": "demo_product", "presenter_stills": "presenter_still", "
        "preset_examples": "preset_example", "preset_videos": "preset_video"}
 MAX_JOBS = 120                 # one generate call
 VOICE_SECONDS = 6
+VOICE_SECONDS_RANGE = (4, 8)
 VOICE_RESOLUTION = "480p"
+VIDEO_RESOLUTIONS = ("480p", "720p", "1080p")      # 480p: library jobs only (the vendor's cheapest setting)
 ESTIMATE_TTL = 900             # a live vendor estimate is reused for 15 minutes, so a quote and its generate agree
 
 
@@ -118,43 +133,49 @@ def packshot_prompt(demo_id: str) -> str:
     return _APP_SCREEN if d.get("screen") else _PACKSHOT.format(what=d["what"])
 
 
-# The words of each example (only what the demo product's saved details back; the review card shows a placeholder
-# that says it is one, never a made-up review).
-_WORDS = {
-    "clean-headline": {"headline": "Made for the trail", "subline": "The Dapplewood Trail Mug", "cta": "Shop now"},
-    "offer": {"headline": "The mug that goes with you", "cta": "Get yours", "layers": {"badge": "$24"}},
-    "callouts": {"headline": "What you get", "cta": "See more",
+# One brief per example: the demo product it is shown on AND the words it carries, in one place, so an example's copy
+# can never be about another product (the first run put the mug's "One mug, not a stack of cups" on the candle).
+# Only what the demo product's saved details back; the review card shows a placeholder that says it is one, never
+# a made-up review. A preset with no entry (the scenes whose headline the image model sets from the preset's own
+# brief, which names no product) is shown on the demo product of its category (demo_for).
+_EXAMPLES = {
+    "clean-headline": {"demo": "mug", "headline": "Made for the trail", "subline": "The Dapplewood Trail Mug",
+                       "cta": "Shop now"},
+    "offer": {"demo": "mug", "headline": "The mug that goes with you", "cta": "Get yours", "layers": {"badge": "$24"}},
+    "callouts": {"demo": "mug", "headline": "What you get", "cta": "See more",
                  "layers": {"callouts": ["Double-wall steel", "12 oz", "Press-fit lid"]}},
-    "review": {"headline": "Your customer's real review goes here, word for word. We never write one.",
+    "review": {"demo": "mug", "headline": "Your customer's real review goes here, word for word. We never write one.",
                "layers": {"reviewer": "Their name", "stars": 0, "attest": True}},
-    "compare": {"headline": "One mug, every day",
+    "compare": {"demo": "mug", "headline": "One mug, every day",
                 "layers": {"left_title": "A paper cup", "right_title": "Trail Mug",
                            "left": ["Used once", "No lid that stays on", "Another one tomorrow"],
                            "right": ["Yours to keep", "Press-fit lid", "Steel, 12 oz"]}},
-    "marketplace": {},
-    "season-winter-gift": {"headline": "For the one who is always out early", "cta": "Shop gifts"},
-    "season-fresh-start": {"headline": "A calmer start", "cta": "Shop now"},
-    "season-spring": {"headline": "Open the windows", "cta": "Shop now"},
-    "season-summer": {"headline": "Take it outside", "cta": "Shop now"},
-    "season-autumn": {"headline": "Made for slow afternoons", "cta": "Shop now"},
-    "season-back-to-routine": {"headline": "Back in the bag", "cta": "Shop now"},
-    "season-gift-for-them": {"headline": "For them", "cta": "Shop gifts"},
-    "season-offer": {"headline": "A free lid, this season", "cta": "Get yours", "layers": {"badge": "Free lid"}},
-    "problem-answer": {"headline": "Lid gone missing again?", "subline": "This one presses in and stays.",
+    "marketplace": {"demo": "mug"},
+    "season-winter-gift": {"demo": "mug", "headline": "For the one who is always out early", "cta": "Shop gifts"},
+    "season-fresh-start": {"demo": "greens", "headline": "A calmer start", "cta": "Shop now"},
+    "season-spring": {"demo": "skincare", "headline": "Open the windows", "cta": "Shop now"},
+    "season-summer": {"demo": "tote", "headline": "Take it outside", "cta": "Shop now"},
+    "season-autumn": {"demo": "candle", "headline": "Made for slow afternoons", "cta": "Shop now"},
+    "season-back-to-routine": {"demo": "tote", "headline": "Back in the bag", "cta": "Shop now"},
+    "season-gift-for-them": {"demo": "candle", "headline": "For them", "cta": "Shop gifts"},
+    "season-offer": {"demo": "mug", "headline": "A free lid, this season", "cta": "Get yours",
+                     "layers": {"badge": "Free lid"}},
+    "problem-answer": {"demo": "mug", "headline": "Lid gone missing again?", "subline": "This one presses in and stays.",
                        "cta": "See the mug"},
-    "three-reasons": {"headline": "Three reasons", "cta": "See more",
+    "three-reasons": {"demo": "mug", "headline": "Three reasons", "cta": "See more",
                       "layers": {"callouts": ["Double-wall steel", "Press-fit lid", "12 oz, fits a bag"]}},
-    "how-it-works": {"headline": "How it works", "cta": "See more",
+    "how-it-works": {"demo": "mug", "headline": "How it works", "cta": "See more",
                      "layers": {"callouts": ["Fill it", "Press the lid in", "Take it with you"]}},
-    "then-now": {"headline": "One mug, not a stack of cups",
+    "then-now": {"demo": "mug", "headline": "One mug, not a stack of cups",
                  "layers": {"left_title": "The old way", "right_title": "With Trail Mug",
                             "left": ["A paper cup a day", "Lids in every drawer", "Nothing to carry it in"],
                             "right": ["One steel mug", "One press-fit lid", "12 oz, fits a bag"], "true": True}},
-    "app-screen": {"headline": "Your week, on one screen", "cta": "Try it free"},
+    "app-screen": {"demo": "app", "headline": "Your week, on one screen", "cta": "Try it free"},
 }
-_DEMO_OF = {"season-autumn": "candle", "season-winter-gift": "mug", "season-spring": "skincare",
-            "season-gift-for-them": "candle", "season-back-to-routine": "tote", "season-fresh-start": "greens",
-            "season-summer": "tote", "app-screen": "app"}
+# Words that belong to one demo product only: an example shown on another product may not use them (tests).
+DEMO_WORDS = {"mug": ("mug", "lid", "steel"), "candle": ("candle", "wick", "wax", "cedar"),
+              "skincare": ("moisturizer", "fragrance"), "coffee": ("coffee", "roast", "instant"),
+              "tote": ("tote", "canvas"), "greens": ("greens", "servings", "unflavoured"), "app": ("planner", "app")}
 # What each video example says (within its length; the presenter explains, never "I bought it").
 _SCRIPTS = {
     "vo-product-shots": ("mug", "Meet the Dapplewood Trail Mug. Double-wall stainless steel, twelve ounces, with a lid "
@@ -171,13 +192,42 @@ _SCRIPTS = {
                                 "what we make."),
     "turn": ("mug", ""), "swap": ("coffee", ""), "label": ("coffee", ""), "how": ("coffee", ""),
 }
+# The same examples at a few seconds (`video_seconds`): one short line each, said in full instead of a long one rushed.
+_SHORT_SCRIPTS = {
+    "vo-product-shots": "Meet the Dapplewood Trail Mug. Find it at Dapplewood.",
+    "hands-only-demo": "The Dapplewood Trail Mug. Fill it and go.",
+    "pov-unboxing": "This is the Dapplewood Cedar Candle. Eight ounces.",
+    "talk-to-camera": "Quick one about the Dapplewood Trail Mug.",
+    "car-talk": "Okay, quick thing: the Dapplewood Trail Mug.",
+    "season-gift-clip": "The Dapplewood Cedar Candle. A present they will use.",
+    "founder-story": "We make Dapplewood candles: one plain, well-made thing.",
+}
 VOICE_DEMO = "mug"
 
 
+def example_script(preset_id: str, seconds: int) -> str:
+    """What a video example says at this length: its script when that fits the seconds at a natural pace, else its
+    short line, else either one cut to fit on a sentence."""
+    full = (_SCRIPTS.get(preset_id) or ("", ""))[1]
+    room = catalog.max_words(seconds)
+    if not full or catalog.words(full) <= room:
+        return full
+    short = _SHORT_SCRIPTS.get(preset_id) or ""
+    if short and catalog.words(short) <= room:
+        return short
+    return catalog.trim_words(short or full, room)
+
+
+def example_words(preset_id: str) -> dict:
+    """The words of a preset's example (headline, subline, cta, layers), without its demo product; {} for none."""
+    return {k: v for k, v in (_EXAMPLES.get(preset_id) or {}).items() if k != "demo"}
+
+
 def demo_for(p) -> str:
-    """Which demo product a preset's example is shown on."""
-    if p.id in _DEMO_OF:
-        return _DEMO_OF[p.id]
+    """Which demo product a preset's example is shown on: the one its own brief names (its words are about that
+    product), else its video script's, else the demo product of its category."""
+    if p.id in _EXAMPLES:
+        return _EXAMPLES[p.id]["demo"]
     if p.id in _SCRIPTS:
         return _SCRIPTS[p.id][0]
     if p.fits == "coffee":
@@ -239,15 +289,48 @@ def assets(conn, ws_id: int, kind: str | None = None, limit: int = 600) -> list[
         if tag is None or (want and tag["kind"] != want):
             continue
         files = []
-        for o in outs.get(r["id"], []):
+        for n, o in enumerate(outs.get(r["id"], []), start=1):
             ext = os.path.splitext(o["path"] or "")[1].lower() or (".mp4" if o["kind"] == "video" else ".png")
-            files.append({"output_id": o["id"], "kind": o["kind"], "filename": filename(tag, ext)})
+            # the first file has the tag's own name (the one the export zip and the import script use); a job with
+            # more than one file numbers the rest, so every file can be saved under its own name
+            name = filename(tag, ext) if n == 1 else filename(tag, f"__{n}{ext}")
+            files.append({"output_id": o["id"], "kind": o["kind"], "filename": name})
+        prm = _params(r)
         out.append({"job_id": r["id"], "kind": tag["kind"], "presenter": tag.get("presenter"),
                     "situation": tag.get("situation"), "preset": tag.get("preset"), "demo": tag.get("demo"),
                     "status": r["status"], "credits": r["credits"], "usd": r["cost_usd"], "created_at": r["created_at"],
                     "error": r["error"] if r["status"] == "failed" else None, "verdict": verdicts.get(r["id"]),
-                    "batch_id": r["batch_id"], "outputs": files})
+                    # what the vendor said when it refused or failed this one (admins only), and whether the still
+                    # was made on its second, softer prompt after a content-filter refusal (worker._soften)
+                    "vendor_reason": prm.get("vendor_reason") or None, "softened": bool(prm.get("softened")),
+                    "batch_id": r["batch_id"], "outputs": files,
+                    # the first file again, flat: its id (get_asset_download_url takes it) and its export name
+                    "output_id": files[0]["output_id"] if files else None,
+                    "filename": files[0]["filename"] if files else None})
     return out
+
+
+def listing(conn, ws_id: int, kind: str | None = None) -> list[dict]:
+    """assets() for the admin page and list_library_assets: each row also says whether it is the one the export zip
+    takes for its tag (`in_export`), so the same files can be fetched one by one."""
+    rows = assets(conn, ws_id, kind)
+    chosen = {a["job_id"] for a in picks(conn, ws_id, kind)}
+    for a in rows:
+        a["in_export"] = a["job_id"] in chosen
+    return rows
+
+
+def export_name(conn, ws_id: int, output_id: int) -> tuple[str, str] | None:
+    """(path on disk, export file name) of one file of a library job of this workspace, or None."""
+    o = conn.execute("SELECT o.job_id, o.kind, o.path, j.params_json FROM outputs o JOIN jobs j ON j.id=o.job_id "
+                     "WHERE o.id=? AND j.workspace_id=? AND j.deleted_at IS NULL", (output_id, ws_id)).fetchone()
+    tag = tag_of(o) if o is not None else None
+    if tag is None or not o["path"] or not os.path.exists(o["path"]):
+        return None
+    order = [r["id"] for r in conn.execute("SELECT id FROM outputs WHERE job_id=? ORDER BY id", (o["job_id"],))]
+    n = order.index(output_id) + 1
+    ext = os.path.splitext(o["path"])[1].lower() or (".mp4" if o["kind"] == "video" else ".png")
+    return o["path"], (filename(tag, ext) if n == 1 else filename(tag, f"__{n}{ext}"))
 
 
 def picks(conn, ws_id: int, kind: str | None = None) -> list[dict]:
@@ -320,7 +403,7 @@ def ensure_demo(conn, ws, demo_id: str):
             pid = products.create_product(conn, ws, bid, {k: d[k] for k in ("name", "description", "price", "offer",
                                                                                 "claims", "tags", "category")})
         else:
-            pid = row["id"]
+            pid, bid = row["id"], row["brand_id"]
     except products.ProductError as e:
         raise LibraryError(f"The demo brand ({DEMO_BRAND}) couldn't be added to this workspace: {e} The library needs "
                            "room for one more brand here: give this workspace a plan with more brands on the Admin "
@@ -332,6 +415,10 @@ def ensure_demo(conn, ws, demo_id: str):
     shutil.copyfile(src["path"], dst)
     ctype = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}.get(ext, "image/png")
     products.add_photo(conn, ws["id"], pid, dst, f"{demo_id}-packshot{ext}", ctype)
+    # the packshot's own job now has a product to carry (it was queued with none: the product didn't exist yet)
+    conn.execute("UPDATE jobs SET product_id=?, brand_id=? WHERE id=? AND workspace_id=? AND product_id IS NULL",
+                 (pid, bid, shot["job_id"], ws["id"]))
+    conn.commit()
     return conn.execute("SELECT * FROM products WHERE id=?", (pid,)).fetchone()
 
 
@@ -343,6 +430,57 @@ def _still_settings(options: dict) -> tuple[str, str]:
     if (q, r) not in catalog.LIBRARY_STILL_USD:
         raise LibraryError("quality is low, medium or high; resolution is 1k or 2k.")
     return q, r
+
+
+def _whole(options: dict, name: str) -> int | None:
+    """A whole-number option, or None when it wasn't given."""
+    v = options.get(name)
+    if v in (None, ""):
+        return None
+    try:
+        n = float(str(v).strip())
+    except ValueError:
+        raise LibraryError(f"{name} is a whole number of seconds.") from None
+    if n != int(n) or n <= 0:
+        raise LibraryError(f"{name} is a whole number of seconds.")
+    return int(n)
+
+
+def voice_seconds(options: dict) -> int:
+    """How long a voice sample is: `voice_seconds`, kept to 4 to 8; 6 when it isn't given."""
+    n = _whole(options, "voice_seconds")
+    lo, hi = VOICE_SECONDS_RANGE
+    return VOICE_SECONDS if n is None else max(lo, min(hi, n))
+
+
+def video_seconds(p, want: int | None) -> int:
+    """How long a preset's video example is: the preset's own length unless `video_seconds` asks for another, kept
+    inside what the vendor's model takes in one generation (4 to 30 whole seconds for a talking video) and what the
+    ad type offers (a product video is 5 or 10)."""
+    own = int(p.price.get("duration") or (8 if p.tool == "ugc_video" else 5))
+    if want is None:
+        return own
+    if p.tool == "ugc_video":
+        return max(catalog.TALKING_MIN_SECONDS, min(catalog.TALKING_MAX_SECONDS, want))
+    return min(catalog.TOOLS[p.tool].get("durations") or [own], key=lambda d: (abs(d - want), d))
+
+
+def video_resolution(options: dict) -> str:
+    """`video_resolution`, or "" when it wasn't given (the preset is then made as a member would make it)."""
+    r = str(options.get("video_resolution") or "").strip().lower()
+    if r and r not in VIDEO_RESOLUTIONS:
+        raise LibraryError(f"video_resolution is one of: {', '.join(VIDEO_RESOLUTIONS)}.")
+    return r
+
+
+def video_price(tool: str, seconds: int, resolution: str) -> tuple[float, int]:
+    """(vendor dollars, credits) of a library clip. 720p and 1080p are the member's own table; 480p is the vendor's
+    cheapest rate at the usual markup (what a voice sample is priced at)."""
+    if resolution == "480p":
+        usd = round(catalog.LIBRARY_USD_PER_SECOND_480P * seconds, 4)
+        return usd, _credits(usd)
+    return (catalog.cost_usd(tool, duration=seconds, resolution=resolution),
+            catalog.price_credits(tool, duration=seconds, resolution=resolution))
 
 
 def _still_usd(conn, q: str, r: str, refs: int, aspect: str) -> tuple[float, bool]:
@@ -401,8 +539,9 @@ def _demo_items(conn, ws, ids, options) -> list[dict]:
         if did not in DEMO:
             raise LibraryError(f"Unknown demo product {did!r}. Use: {', '.join(DEMO_IDS)}.")
         d = DEMO[did]
+        row = demo_product(conn, ws, did)       # a packshot made again carries the demo product it belongs to
         out.append(_still_item(conn, did, d["name"], packshot_prompt(did), {"kind": "demo_product", "demo": did},
-                               q, r, d["aspect"]))
+                               q, r, d["aspect"], **({"product_id": row["id"]} if row is not None else {})))
     return out
 
 
@@ -469,7 +608,8 @@ def _presenter_still_ref(conn, ws, pid: str, sid: str) -> dict:
 
 def _voice_items(conn, ws, ids, options) -> list[dict]:
     out = []
-    usd = round(catalog.LIBRARY_USD_PER_SECOND_480P * VOICE_SECONDS, 4)
+    secs = voice_seconds(options)
+    usd = round(catalog.LIBRARY_USD_PER_SECOND_480P * secs, 4)
     for pid in _ids(ids, presenters.IDS, "presenters"):
         p = presenters.record(pid)
         if p is None:
@@ -479,18 +619,18 @@ def _voice_items(conn, ws, ids, options) -> list[dict]:
         if not ref:
             raise LibraryError(f"{p['name']} needs their first still ({sid}) before a voice sample: the clip starts "
                                "from it.")
-        params = dict(ref, ad_type="ugc", presenter=pid, voice=p["voice"], situation=sid, duration=VOICE_SECONDS,
+        params = dict(ref, ad_type="ugc", presenter=pid, voice=p["voice"], situation=sid, duration=secs,
                       aspect="9:16", resolution=VOICE_RESOLUTION, photo_ids=[], voice_sample=True,
                       library={"kind": "presenter_voice", "presenter": pid, "situation": sid},
                       label=f"{p['name']} · voice sample")
-        out.append({"key": pid, "label": params["label"], "tool": "ugc_video", "brief": presenters.voice_line(pid),
+        out.append({"key": pid, "label": params["label"], "tool": "ugc_video", "brief": presenters.voice_line(pid, secs),
                     "usd": usd, "credits": _credits(usd), "live": False, "params": params})
     return out
 
 
 def _example_config(p, prod, brief: dict, options: dict) -> dict:
     """The Create config that makes this preset's example on the demo product."""
-    w = _WORDS.get(p.id, {})
+    w = example_words(p.id)
     if p.tool == "ad_image":
         fill = catalog.template_prefill(p.as_template(), brief)
         return {"type": "image", "product": prod["id"], "preset": p.id, "versions": 1,
@@ -536,6 +676,8 @@ def _preset_items(conn, ws, ids, options, video: bool, make: bool = False) -> li
     pool = [p for p in presets.LIBRARY if p.kind != "type" and p.tool != "motion_copy"
             and (p.tool != "ad_image") == video and presets.runnable(p)]
     by_id = {p.id: p for p in pool}
+    want_secs, want_res = (_whole(options, "video_seconds"), video_resolution(options)) if video else (None, "")
+    custom = want_secs is not None or bool(want_res)      # neither given: exactly as a member would make it
     out = []
     for pid in _ids(ids, by_id, "presets"):
         p = by_id.get(pid)
@@ -547,12 +689,19 @@ def _preset_items(conn, ws, ids, options, video: bool, make: bool = False) -> li
         if options.get("only_missing") and (presets.example_video_url(pid) if video else presets.example_url(pid)):
             continue
         demo = str(options.get("demo") or demo_for(p))
+        if demo != demo_for(p) and (example_words(p.id) or (_SCRIPTS.get(p.id) or ("", ""))[1]):
+            # its words are written for one demo product: on another they would be about the wrong thing
+            raise LibraryError(f"{p.name}'s example is written for {DEMO[demo_for(p)]['name']}: leave `demo` out for it.")
         prod = _ready_demo(conn, ws, demo, make)
         tag = {"kind": "preset_video" if video else "preset_example", "preset": p.id, "demo": demo}
+        secs, res = (video_seconds(p, want_secs), want_res or catalog.DEFAULT_RESOLUTION) if custom else (None, "")
+        label = f"{p.name} · example" + (f" · {secs}s · {res}" if custom else "")
         if prod is None:
             # a quote before the demo product is set up: the preset's own table price (what expand() gives too)
-            out.append({"key": pid, "label": f"{p.name} · example", "tool": p.tool, "brief": "", "usd": round(p.cost_usd(), 4),
-                        "credits": p.price_credits(), "live": False, "params": {"library": tag}, "template": p.id})
+            usd, credits = video_price(p.tool, secs, res) if custom else (p.cost_usd(), p.price_credits())
+            out.append({"key": pid, "label": label, "tool": p.tool, "brief": "", "usd": round(usd, 4),
+                        "credits": credits, "live": False, "template": p.id,
+                        "params": dict({"library": tag}, **({"duration": secs, "resolution": res} if custom else {}))})
             continue
         cfg = _example_config(p, prod, products.brief_for(conn, ws, prod["id"]), options)
         try:
@@ -560,11 +709,19 @@ def _preset_items(conn, ws, ids, options, video: bool, make: bool = False) -> li
         except create_routes.ConfigError as e:
             raise LibraryError(f"{p.name}: {e}") from None
         j = jobs[0]
-        params = dict(j["params"], preset=p.id, label=f"{p.name} · example", hook=j["hook"][:200], library=tag)
+        params = dict(j["params"], preset=p.id, label=label, hook=j["hook"][:200], library=tag)
+        brief, usd, credits = j["brief"], j["usd"], j["credits"]
+        if custom:
+            # the library's own length and size: the same job, repriced, and a spoken example says what fits
+            params.update(duration=secs, resolution=res)
+            usd, credits = video_price(p.tool, secs, res)
+            if p.kind == "recipe" and secs < int(p.price.get("duration") or secs):
+                brief = example_script(p.id, secs) or brief
+                params["hook"] = brief[:200]
         if video and params.get("presenter"):
             params.update(_presenter_still_ref(conn, ws, params["presenter"], params.get("situation") or ""))
-        out.append({"key": pid, "label": params["label"], "tool": j["tool"], "brief": j["brief"], "usd": j["usd"],
-                    "credits": j["credits"], "live": False, "params": params, "template": p.id,
+        out.append({"key": pid, "label": params["label"], "tool": j["tool"], "brief": brief, "usd": usd,
+                    "credits": credits, "live": False, "params": params, "template": p.id,
                     "product_id": prod["id"]})
     return out
 
@@ -603,7 +760,10 @@ def quote(conn, ws, kind: str, ids, options=None) -> dict:
             "credits_available": bal, "short_by": max(0, total - bal),
             "lines": [{"key": i["key"], "label": i["label"], "tool": i["tool"], "credits": i["credits"],
                        "usd": i["usd"], "starts_from": i.get("after") or i["params"].get("ref_static")
-                       or (f"job {i['params']['ref_job']}" if i["params"].get("ref_job") else None)} for i in its]}
+                       or (f"job {i['params']['ref_job']}" if i["params"].get("ref_job") else None),
+                       # a clip's length and size, as it will be made (video_seconds, video_resolution, voice_seconds)
+                       **({"seconds": i["params"]["duration"], "resolution": i["params"].get("resolution")
+                           or catalog.DEFAULT_RESOLUTION} if i["params"].get("duration") else {})} for i in its]}
 
 
 def generate(conn, ws, kind: str, ids, options=None, confirm_total_credits=None) -> dict:
@@ -633,6 +793,10 @@ def generate(conn, ws, kind: str, ids, options=None, confirm_total_credits=None)
             if i["after"] not in made:          # the first still wasn't queued: don't start the ones that need it
                 continue
             params["ref_job"] = made[i["after"]]
+        if not i.get("product_id"):
+            # a presenter's still or voice, or a packshot whose demo product isn't set up yet: no product at all
+            # (core.queue_job would otherwise tag it with the workspace's active one)
+            params["no_product"] = True
         jid = core.queue_job(conn, i["tool"], i.get("template"), i["brief"], params, i["usd"], i["credits"], quiet=True,
                              product_id=i.get("product_id"), batch_id=bid)
         if not jid:
