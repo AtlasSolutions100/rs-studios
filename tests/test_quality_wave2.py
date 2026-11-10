@@ -415,7 +415,7 @@ try:
                                              and cards[i]["from"] > 0 for i in listed),
           f"Create offers {len(listed)} presets for this product, each with a one-line \"what it's for\", a thumbnail and a price")
     check(all(c.get(cards[i]["preview"]).status_code == 200 for i in listed), "every listed thumbnail is served")
-    check("Or start from a preset" in page and "data-presets" in page and set(boot["layouts"]) == {
+    check("Or start from a preset" in page and "data-presets" in page and set(boot["layouts"]) >= {
         "clean-headline", "offer", "callouts", "review", "compare", "marketplace"} and boot["claims_check"] is False,
         "the page carries the preset list and the layered presets' fields; the claims check is off by default")
     pf = c.get(f"/app/create?product={PID}&template=offer").get_data(as_text=True)
@@ -528,8 +528,9 @@ try:
           "one call: the backed fact passes; a 'supported' verdict whose quote isn't in the sources is flagged anyway")
     check(use.calls == 1 and body["model"] == llm.fast_model() and "Keeps drinks hot for 6 hours" in body["messages"][0]["content"]
           and "Dishwasher safe" in body["messages"][0]["content"] and body["temperature"] == 0
-          and 1 <= use.credits <= claims_check.estimate() == 2,
-          "it is one fast-model call through the llm wrapper, given the approved claims and the page text, priced by the same table")
+          and 1 <= use.credits <= 2 and claims_check.estimate() == 0 and 0 < claims_check.cost_usd() < 0.02,
+          "it is one fast-model call through the llm wrapper, given the approved claims and the page text; it costs us "
+          "about a cent's fraction and the member nothing (m15)")
 
     spoken = {"product": PID, "type": "voiceover", "items": ["Still drinking cold coffee by ten?"],
               "body": "The Trail Mug keeps drinks hot for 6 hours. It is made from recycled ocean plastic. Grab yours today.",
@@ -549,8 +550,8 @@ try:
         {"line": 1, "sentence": "It is made from recycled ocean plastic.", "supported": False, "source": "none", "quote": ""}]})
     r = post(c, "/app/create/claims", spoken).get_json()
     check(r["status"] == "flagged" and len(r["flags"]) == 1 and r["flags"][0]["sentence"] == "It is made from recycled ocean plastic."
-          and 1 <= r["charged"] <= 2 and r["balance"] == bal0 - r["charged"],
-          f"the script step's check flags the unsupported line and costs {r['charged']} credit(s)")
+          and r["charged"] == 0 and r["balance"] == bal0 == db.balance(ws_row(WS)),
+          "the script step's check flags the unsupported line and takes no credits (m15: the claims check is free)")
     n_calls = len(model_calls)
     again = post(c, "/app/create/claims", spoken).get_json()
     check(again["status"] == "flagged" and again.get("cached") and again["charged"] == 0 and len(model_calls) == n_calls,

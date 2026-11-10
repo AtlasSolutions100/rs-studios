@@ -1,0 +1,3237 @@
+{
+ "catalog_presenters": [
+  {
+   "hue": 28,
+   "id": "maya",
+   "look": "woman in her late 20s, curly dark hair, warm smile, casual knit sweater",
+   "name": "Maya",
+   "setting": "a bright, lived-in kitchen",
+   "vibe": "Warm, casual"
+  },
+  {
+   "hue": 200,
+   "id": "jordan",
+   "look": "man in his early 30s, short beard, plain t-shirt, relaxed posture",
+   "name": "Jordan",
+   "setting": "a sunny living room with plants",
+   "vibe": "Easygoing"
+  },
+  {
+   "hue": 300,
+   "id": "priya",
+   "look": "woman in her mid 30s, long straight black hair, minimal makeup, linen shirt",
+   "name": "Priya",
+   "setting": "a tidy home office with soft daylight",
+   "vibe": "Calm, expert"
+  },
+  {
+   "hue": 140,
+   "id": "sam",
+   "look": "person in their mid 20s, short bleached hair, oversized hoodie, energetic",
+   "name": "Sam",
+   "setting": "a bedroom with fairy lights",
+   "vibe": "Upbeat, Gen Z"
+  },
+  {
+   "hue": 15,
+   "id": "elena",
+   "look": "woman in her 50s, silver bob haircut, glasses, cardigan",
+   "name": "Elena",
+   "setting": "a cozy reading nook",
+   "vibe": "Trusted, grounded"
+  },
+  {
+   "hue": 220,
+   "id": "marcus",
+   "look": "man in his 40s, close-cropped hair, button-up shirt with sleeves rolled",
+   "name": "Marcus",
+   "setting": "a modern kitchen island",
+   "vibe": "Straight-talking"
+  },
+  {
+   "hue": 90,
+   "id": "lena",
+   "look": "woman in her early 20s, freckles, messy bun, gym clothes",
+   "name": "Lena",
+   "setting": "a bright home gym corner",
+   "vibe": "Sporty, quick"
+  },
+  {
+   "hue": 260,
+   "id": "theo",
+   "look": "man in his late 20s, wavy hair, denim jacket, friendly grin",
+   "name": "Theo",
+   "setting": "a cafe table by the window",
+   "vibe": "Friendly, chatty"
+  }
+ ],
+ "order": [
+  "ugc",
+  "voiceover",
+  "image",
+  "product_video",
+  "motion",
+  "hero",
+  "routine",
+  "flatlay",
+  "inhand",
+  "gift",
+  "turn",
+  "swap",
+  "label",
+  "how",
+  "two-pm",
+  "iced",
+  "cost",
+  "gym",
+  "copy-trend",
+  "shelf",
+  "closeup",
+  "doorstep",
+  "table",
+  "counter",
+  "vanity",
+  "pastel",
+  "outfit",
+  "street",
+  "nightstand",
+  "cozy",
+  "windowsill",
+  "desk",
+  "inuse",
+  "clean-headline",
+  "offer",
+  "callouts",
+  "review",
+  "compare",
+  "marketplace"
+ ],
+ "presenters": {
+  "elena": {
+   "holding": "Vertical selfie-style UGC video filmed on a phone. A woman in her 50s, silver bob haircut, glasses, cardigan, in a cozy reading nook, holds the Trail Mug up to the camera and talks directly to the viewer in a natural, unscripted tone with a warm, friendly female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "setting": "Vertical selfie-style UGC video filmed on a phone. A woman in her 50s, silver bob haircut, glasses, cardigan, in a quiet porch at dusk, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a warm, friendly female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "table": "Vertical selfie-style UGC video filmed on a phone. A woman in her 50s, silver bob haircut, glasses, cardigan, in a cozy reading nook, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a warm, friendly female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "voice": "warm_f"
+  },
+  "jordan": {
+   "holding": "Vertical selfie-style UGC video filmed on a phone. A man in his early 30s, short beard, plain t-shirt, relaxed posture, in a sunny living room with plants, holds the Trail Mug up to the camera and talks directly to the viewer in a natural, unscripted tone with a casual, chatty male voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "setting": "Vertical selfie-style UGC video filmed on a phone. A man in his early 30s, short beard, plain t-shirt, relaxed posture, in a quiet porch at dusk, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a warm, friendly female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "table": "Vertical selfie-style UGC video filmed on a phone. A man in his early 30s, short beard, plain t-shirt, relaxed posture, in a sunny living room with plants, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a casual, chatty male voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "voice": "chatty_m"
+  },
+  "lena": {
+   "holding": "Vertical selfie-style UGC video filmed on a phone. A woman in her early 20s, freckles, messy bun, gym clothes, in a bright home gym corner, holds the Trail Mug up to the camera and talks directly to the viewer in a natural, unscripted tone with an upbeat, energetic female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "setting": "Vertical selfie-style UGC video filmed on a phone. A woman in her early 20s, freckles, messy bun, gym clothes, in a quiet porch at dusk, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a warm, friendly female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "table": "Vertical selfie-style UGC video filmed on a phone. A woman in her early 20s, freckles, messy bun, gym clothes, in a bright home gym corner, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with an upbeat, energetic female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "voice": "upbeat_f"
+  },
+  "marcus": {
+   "holding": "Vertical selfie-style UGC video filmed on a phone. A man in his 40s, close-cropped hair, button-up shirt with sleeves rolled, in a modern kitchen island, holds the Trail Mug up to the camera and talks directly to the viewer in a natural, unscripted tone with a calm, assured male voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "setting": "Vertical selfie-style UGC video filmed on a phone. A man in his 40s, close-cropped hair, button-up shirt with sleeves rolled, in a quiet porch at dusk, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a warm, friendly female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "table": "Vertical selfie-style UGC video filmed on a phone. A man in his 40s, close-cropped hair, button-up shirt with sleeves rolled, in a modern kitchen island, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a calm, assured male voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "voice": "calm_m"
+  },
+  "maya": {
+   "holding": "Vertical selfie-style UGC video filmed on a phone. A woman in her late 20s, curly dark hair, warm smile, casual knit sweater, in a bright, lived-in kitchen, holds the Trail Mug up to the camera and talks directly to the viewer in a natural, unscripted tone with a warm, friendly female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "setting": "Vertical selfie-style UGC video filmed on a phone. A woman in her late 20s, curly dark hair, warm smile, casual knit sweater, in a quiet porch at dusk, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a warm, friendly female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "table": "Vertical selfie-style UGC video filmed on a phone. A woman in her late 20s, curly dark hair, warm smile, casual knit sweater, in a bright, lived-in kitchen, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a warm, friendly female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "voice": "warm_f"
+  },
+  "priya": {
+   "holding": "Vertical selfie-style UGC video filmed on a phone. A woman in her mid 30s, long straight black hair, minimal makeup, linen shirt, in a tidy home office with soft daylight, holds the Trail Mug up to the camera and talks directly to the viewer in a natural, unscripted tone with a warm, friendly female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "setting": "Vertical selfie-style UGC video filmed on a phone. A woman in her mid 30s, long straight black hair, minimal makeup, linen shirt, in a quiet porch at dusk, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a warm, friendly female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "table": "Vertical selfie-style UGC video filmed on a phone. A woman in her mid 30s, long straight black hair, minimal makeup, linen shirt, in a tidy home office with soft daylight, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a warm, friendly female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "voice": "warm_f"
+  },
+  "sam": {
+   "holding": "Vertical selfie-style UGC video filmed on a phone. A person in their mid 20s, short bleached hair, oversized hoodie, energetic, in a bedroom with fairy lights, holds the Trail Mug up to the camera and talks directly to the viewer in a natural, unscripted tone with an upbeat, energetic female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "setting": "Vertical selfie-style UGC video filmed on a phone. A person in their mid 20s, short bleached hair, oversized hoodie, energetic, in a quiet porch at dusk, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a warm, friendly female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "table": "Vertical selfie-style UGC video filmed on a phone. A person in their mid 20s, short bleached hair, oversized hoodie, energetic, in a bedroom with fairy lights, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with an upbeat, energetic female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "voice": "upbeat_f"
+  },
+  "theo": {
+   "holding": "Vertical selfie-style UGC video filmed on a phone. A man in his late 20s, wavy hair, denim jacket, friendly grin, in a cafe table by the window, holds the Trail Mug up to the camera and talks directly to the viewer in a natural, unscripted tone with a casual, chatty male voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "setting": "Vertical selfie-style UGC video filmed on a phone. A man in his late 20s, wavy hair, denim jacket, friendly grin, in a quiet porch at dusk, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a warm, friendly female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "table": "Vertical selfie-style UGC video filmed on a phone. A man in his late 20s, wavy hair, denim jacket, friendly grin, in a cafe table by the window, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a casual, chatty male voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "voice": "chatty_m"
+  }
+ },
+ "presets": {
+  "callouts": {
+   "ad_type": "image",
+   "aspect": "4:5",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "Up to four short features beside the product"
+    }
+   ],
+   "card": {
+    "aspect": "4:5",
+    "format": "image",
+    "from": 22,
+    "id": "callouts",
+    "kind": "static",
+    "layers": [
+     "headline",
+     "callouts",
+     "cta",
+     "logo"
+    ],
+    "layout": "callouts",
+    "line": "Up to four short features beside the product",
+    "name": "Feature callouts",
+    "preview": "previews/preset-callouts.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For showing what it has: up to four short features pointed out beside the product."
+   },
+   "credits": 22,
+   "fields": [
+    {
+     "hint": "A few words each. Only things that are true of this product.",
+     "id": "callouts",
+     "label": "Features",
+     "max": 36,
+     "n": 4,
+     "required": true,
+     "type": "list"
+    }
+   ],
+   "fits": "any",
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline",
+    "callouts"
+   ],
+   "kind": "static",
+   "layout": "callouts",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Feature callouts",
+   "params": {
+    "language": "English",
+    "text": "none: set afterwards by textlayer.py"
+   },
+   "preview": "preset-callouts",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: The Trail Mug standing on the right half of the frame on a clean surface, soft even light, the left half of the frame plain and empty. Packaging, label and colors exactly as in the photo. Keep the top third and the left half of the frame calm, plain and uncluttered.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- No headline: add no words at all.\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "The {product} standing on the right half of the frame on a clean surface, soft even light, the left half of the frame plain and empty. Packaging, label and colors exactly as in the photo.",
+   "template": {
+    "aspect": "4:5",
+    "audience": "",
+    "brief": "The {product} standing on the right half of the frame on a clean surface, soft even light, the left half of the frame plain and empty. Packaging, label and colors exactly as in the photo.",
+    "fits": "any",
+    "id": "callouts",
+    "layout": "callouts",
+    "line": "Up to four short features beside the product",
+    "name": "Feature callouts",
+    "preset": true,
+    "preview": "preset-callouts",
+    "tool": "ad_image"
+   },
+   "text_layers": [
+    "headline",
+    "callouts",
+    "cta",
+    "logo"
+   ],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For showing what it has: up to four short features pointed out beside the product."
+  },
+  "clean-headline": {
+   "ad_type": "image",
+   "aspect": "4:5",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "Your headline in real type over a clean product shot"
+    }
+   ],
+   "card": {
+    "aspect": "4:5",
+    "format": "image",
+    "from": 22,
+    "id": "clean-headline",
+    "kind": "static",
+    "layers": [
+     "headline",
+     "subhead",
+     "cta",
+     "logo"
+    ],
+    "layout": "headline",
+    "line": "Your headline in real type over a clean product shot",
+    "name": "Clean headline",
+    "preview": "previews/preset-clean-headline.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For any message: your headline set in real type, so it is never misspelt."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": "any",
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "static",
+   "layout": "headline",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Clean headline",
+   "params": {
+    "language": "English",
+    "text": "none: set afterwards by textlayer.py"
+   },
+   "preview": "preset-clean-headline",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: Premium product shot: the Trail Mug in the lower half of the frame on a clean surface, soft directional light and a subtle shadow. Packaging, label and colors exactly as in the photo. Keep the top third of the frame calm, plain and uncluttered.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- No headline: add no words at all.\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "Premium product shot: the {product} in the lower half of the frame on a clean surface, soft directional light and a subtle shadow. Packaging, label and colors exactly as in the photo.",
+   "template": {
+    "aspect": "4:5",
+    "audience": "",
+    "brief": "Premium product shot: the {product} in the lower half of the frame on a clean surface, soft directional light and a subtle shadow. Packaging, label and colors exactly as in the photo.",
+    "fits": "any",
+    "id": "clean-headline",
+    "layout": "headline",
+    "line": "Your headline in real type over a clean product shot",
+    "name": "Clean headline",
+    "preset": true,
+    "preview": "preset-clean-headline",
+    "tool": "ad_image"
+   },
+   "text_layers": [
+    "headline",
+    "subhead",
+    "cta",
+    "logo"
+   ],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For any message: your headline set in real type, so it is never misspelt."
+  },
+  "closeup": {
+   "ad_type": "image",
+   "aspect": "1:1",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "Tight on the detail and finish"
+    }
+   ],
+   "card": {
+    "aspect": "1:1",
+    "format": "image",
+    "from": 22,
+    "id": "closeup",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Tight on the detail and finish",
+    "name": "Close-up",
+    "preview": "previews/preset-closeup.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For texture, finish and detail the wide shot hides."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": "any",
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Close-up",
+   "params": {
+    "language": "English"
+   },
+   "preview": "preset-closeup",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: Tight close-up of the Trail Mug filling most of the frame on a plain surface, soft raking light that shows its texture and finish, the background softly blurred. The label stays sharp and unchanged.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Look closer.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "Tight close-up of the {product} filling most of the frame on a plain surface, soft raking light that shows its texture and finish, the background softly blurred. The label stays sharp and unchanged. Headline: \"Look closer.\"",
+   "template": {
+    "aspect": "1:1",
+    "audience": "",
+    "brief": "Tight close-up of the {product} filling most of the frame on a plain surface, soft raking light that shows its texture and finish, the background softly blurred. The label stays sharp and unchanged. Headline: \"Look closer.\"",
+    "fits": "any",
+    "id": "closeup",
+    "line": "Tight on the detail and finish",
+    "name": "Close-up",
+    "preset": true,
+    "preview": "preset-closeup",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For texture, finish and detail the wide shot hides."
+  },
+  "compare": {
+   "ad_type": "image",
+   "aspect": "4:5",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "The usual way against yours, in three rows"
+    }
+   ],
+   "card": {
+    "aspect": "4:5",
+    "format": "image",
+    "from": 22,
+    "id": "compare",
+    "kind": "static",
+    "layers": [
+     "headline",
+     "compare",
+     "logo"
+    ],
+    "layout": "compare",
+    "line": "The usual way against yours, in three rows",
+    "name": "Comparison",
+    "preview": "previews/preset-compare.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For a switch: two columns, the usual way against yours, in up to three short rows."
+   },
+   "credits": 22,
+   "fields": [
+    {
+     "default": "The usual way",
+     "id": "left_title",
+     "label": "Left column",
+     "max": 24
+    },
+    {
+     "default": "{product}",
+     "id": "right_title",
+     "label": "Right column",
+     "max": 24
+    },
+    {
+     "hint": "Don't name another brand.",
+     "id": "left",
+     "label": "The usual way",
+     "max": 34,
+     "n": 3,
+     "required": true,
+     "type": "list"
+    },
+    {
+     "hint": "Only things that are true of this product.",
+     "id": "right",
+     "label": "With yours",
+     "max": 34,
+     "n": 3,
+     "required": true,
+     "type": "list"
+    }
+   ],
+   "fits": "any",
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline",
+    "compare"
+   ],
+   "kind": "static",
+   "layout": "compare",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Comparison",
+   "params": {
+    "language": "English",
+    "text": "none: set afterwards by textlayer.py"
+   },
+   "preview": "preset-compare",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: The Trail Mug in the upper half of the frame on a clean, softly lit surface, the lower half of the frame plain and empty. Packaging, label and colors exactly as in the photo. Keep the top fifth and the lower half of the frame calm, plain and uncluttered.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- No headline: add no words at all.\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "The {product} in the upper half of the frame on a clean, softly lit surface, the lower half of the frame plain and empty. Packaging, label and colors exactly as in the photo.",
+   "template": {
+    "aspect": "4:5",
+    "audience": "",
+    "brief": "The {product} in the upper half of the frame on a clean, softly lit surface, the lower half of the frame plain and empty. Packaging, label and colors exactly as in the photo.",
+    "fits": "any",
+    "id": "compare",
+    "layout": "compare",
+    "line": "The usual way against yours, in three rows",
+    "name": "Comparison",
+    "preset": true,
+    "preview": "preset-compare",
+    "tool": "ad_image"
+   },
+   "text_layers": [
+    "headline",
+    "compare",
+    "logo"
+   ],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For a switch: two columns, the usual way against yours, in up to three short rows."
+  },
+  "copy-trend": {
+   "ad_type": "motion",
+   "aspect": "",
+   "aspects": [],
+   "beats": [
+    {
+     "beat": "one shot",
+     "seconds": "up to 15",
+     "shot": "Your product in a trending video's moves"
+    }
+   ],
+   "card": {
+    "aspect": "",
+    "format": "video",
+    "from": 100,
+    "id": "copy-trend",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Your product in a trending video's moves",
+    "name": "Copy a trending video",
+    "preview": "previews/copy-trend.jpg",
+    "tool": "motion_copy",
+    "type": "motion",
+    "what_for": "For coffee: your bag in a trending video's moves."
+   },
+   "credits": 100,
+   "fields": [],
+   "fits": "coffee",
+   "format": "video",
+   "inputs": [
+    "product_photo",
+    "scene",
+    "reference_clip"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/genjutsu-light/motion-transfer/v1.0",
+   "name": "Copy a trending video",
+   "params": {
+    "bitrate_mode": "high",
+    "resolution": "720p"
+   },
+   "preview": "copy-trend",
+   "price": {
+    "ref_seconds": 5
+   },
+   "prompt": "Same moves and timing as the reference video, with the Trail Mug bag as the hero product. Keep the label and bag colors exactly as in the photo.",
+   "qa": [
+    "five_tells"
+   ],
+   "recipe": "Same moves and timing as the reference video, with the {product} bag as the hero product. Keep the label and bag colors exactly as in the photo.",
+   "template": {
+    "brief": "Same moves and timing as the reference video, with the {product} bag as the hero product. Keep the label and bag colors exactly as in the photo.",
+    "fits": "coffee",
+    "id": "copy-trend",
+    "line": "Your product in a trending video's moves",
+    "name": "Copy a trending video",
+    "overlay": "",
+    "preview": "copy-trend",
+    "tool": "motion_copy"
+   },
+   "text_layers": [],
+   "tool": "motion_copy",
+   "usd": 0.5,
+   "what_for": "For coffee: your bag in a trending video's moves."
+  },
+  "cost": {
+   "ad_type": "image",
+   "aspect": "1:1",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "Caf\u00e9 cup vs. your cup at home"
+    }
+   ],
+   "card": {
+    "aspect": "1:1",
+    "format": "image",
+    "from": 22,
+    "id": "cost",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Caf\u00e9 cup vs. your cup at home",
+    "name": "Cost per cup",
+    "preview": "previews/cost.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For coffee: your cup against the cafe's."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": "coffee",
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Cost per cup",
+   "params": {
+    "language": "English"
+   },
+   "preview": "cost",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: Split layout: a $7 caf\u00e9 cup on the left, a mug made with Trail Mug on the right with the bag behind it.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Skip the caf\u00e9 line, keep the caf\u00e9 taste.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "Split layout: a $7 caf\u00e9 cup on the left, a mug made with {product} on the right with the bag behind it. Headline: \"Skip the caf\u00e9 line, keep the caf\u00e9 taste.\"",
+   "template": {
+    "aspect": "1:1",
+    "audience": "Budget-minded daily coffee drinkers",
+    "brief": "Split layout: a $7 caf\u00e9 cup on the left, a mug made with {product} on the right with the bag behind it. Headline: \"Skip the caf\u00e9 line, keep the caf\u00e9 taste.\"",
+    "fits": "coffee",
+    "id": "cost",
+    "line": "Caf\u00e9 cup vs. your cup at home",
+    "name": "Cost per cup",
+    "preview": "cost",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For coffee: your cup against the cafe's."
+  },
+  "counter": {
+   "ad_type": "image",
+   "aspect": "9:16",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "Morning light on the counter"
+    }
+   ],
+   "card": {
+    "aspect": "9:16",
+    "format": "image",
+    "from": 22,
+    "id": "counter",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Morning light on the counter",
+    "name": "Kitchen counter",
+    "preview": "previews/preset-counter.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For daily food, drink and supplements: the morning counter."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": [
+    "food_drink",
+    "supplement"
+   ],
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Kitchen counter",
+   "params": {
+    "language": "English"
+   },
+   "preview": "preset-counter",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: A bright kitchen counter in the morning: the Trail Mug beside a clean glass and a wooden board, daylight from a window, no hands in frame. The label stays sharp and unchanged.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Start here.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "A bright kitchen counter in the morning: the {product} beside a clean glass and a wooden board, daylight from a window, no hands in frame. The label stays sharp and unchanged. Headline: \"Start here.\"",
+   "template": {
+    "aspect": "9:16",
+    "audience": "",
+    "brief": "A bright kitchen counter in the morning: the {product} beside a clean glass and a wooden board, daylight from a window, no hands in frame. The label stays sharp and unchanged. Headline: \"Start here.\"",
+    "fits": [
+     "food_drink",
+     "supplement"
+    ],
+    "id": "counter",
+    "line": "Morning light on the counter",
+    "name": "Kitchen counter",
+    "preset": true,
+    "preview": "preset-counter",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For daily food, drink and supplements: the morning counter."
+  },
+  "cozy": {
+   "ad_type": "image",
+   "aspect": "4:5",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "Side table, armchair, a folded blanket"
+    }
+   ],
+   "card": {
+    "aspect": "4:5",
+    "format": "image",
+    "from": 22,
+    "id": "cozy",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Side table, armchair, a folded blanket",
+    "name": "Cozy corner",
+    "preview": "previews/preset-cozy.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For home goods: yours in a lived-in corner."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": [
+    "home"
+   ],
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Cozy corner",
+   "params": {
+    "language": "English"
+   },
+   "preview": "preset-cozy",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: A cozy living-room corner: the Trail Mug on a side table next to an armchair with a folded blanket, warm late-afternoon light. The Trail Mug exactly as in the photo.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Makes the room.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "A cozy living-room corner: the {product} on a side table next to an armchair with a folded blanket, warm late-afternoon light. The {product} exactly as in the photo. Headline: \"Makes the room.\"",
+   "template": {
+    "aspect": "4:5",
+    "audience": "",
+    "brief": "A cozy living-room corner: the {product} on a side table next to an armchair with a folded blanket, warm late-afternoon light. The {product} exactly as in the photo. Headline: \"Makes the room.\"",
+    "fits": [
+     "home"
+    ],
+    "id": "cozy",
+    "line": "Side table, armchair, a folded blanket",
+    "name": "Cozy corner",
+    "preset": true,
+    "preview": "preset-cozy",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For home goods: yours in a lived-in corner."
+  },
+  "desk": {
+   "ad_type": "image",
+   "aspect": "4:5",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "A tidy desk, laptop and notebook"
+    }
+   ],
+   "card": {
+    "aspect": "4:5",
+    "format": "image",
+    "from": 22,
+    "id": "desk",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "A tidy desk, laptop and notebook",
+    "name": "On the desk",
+    "preview": "previews/preset-desk.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For apps and services: yours at the centre of a working desk."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": [
+    "app_service"
+   ],
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "On the desk",
+   "params": {
+    "language": "English"
+   },
+   "preview": "preset-desk",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: A tidy desk seen from a slight angle: an open laptop, a notebook and a cup, with the Trail Mug shown exactly as in the photo as the clear focus, soft daylight.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Built for your workday.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "A tidy desk seen from a slight angle: an open laptop, a notebook and a cup, with the {product} shown exactly as in the photo as the clear focus, soft daylight. Headline: \"Built for your workday.\"",
+   "template": {
+    "aspect": "4:5",
+    "audience": "",
+    "brief": "A tidy desk seen from a slight angle: an open laptop, a notebook and a cup, with the {product} shown exactly as in the photo as the clear focus, soft daylight. Headline: \"Built for your workday.\"",
+    "fits": [
+     "app_service"
+    ],
+    "id": "desk",
+    "line": "A tidy desk, laptop and notebook",
+    "name": "On the desk",
+    "preset": true,
+    "preview": "preset-desk",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For apps and services: yours at the centre of a working desk."
+  },
+  "doorstep": {
+   "ad_type": "image",
+   "aspect": "4:5",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "Fresh out of the shipping box"
+    }
+   ],
+   "card": {
+    "aspect": "4:5",
+    "format": "image",
+    "from": 22,
+    "id": "doorstep",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Fresh out of the shipping box",
+    "name": "Just arrived",
+    "preview": "previews/preset-doorstep.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For the moment it arrives: straight out of the box."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": "any",
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Just arrived",
+   "params": {
+    "language": "English"
+   },
+   "preview": "preset-doorstep",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: The Trail Mug sitting on top of an open, plain cardboard shipping box with kraft paper, on a doormat by a front door in morning light. The box is blank. Packaging exactly as in the photo.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"It's here.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "The {product} sitting on top of an open, plain cardboard shipping box with kraft paper, on a doormat by a front door in morning light. The box is blank. Packaging exactly as in the photo. Headline: \"It's here.\"",
+   "template": {
+    "aspect": "4:5",
+    "audience": "",
+    "brief": "The {product} sitting on top of an open, plain cardboard shipping box with kraft paper, on a doormat by a front door in morning light. The box is blank. Packaging exactly as in the photo. Headline: \"It's here.\"",
+    "fits": "any",
+    "id": "doorstep",
+    "line": "Fresh out of the shipping box",
+    "name": "Just arrived",
+    "preset": true,
+    "preview": "preset-doorstep",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For the moment it arrives: straight out of the box."
+  },
+  "flatlay": {
+   "ad_type": "image",
+   "aspect": "4:5",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "Overhead flat lay with a few props"
+    }
+   ],
+   "card": {
+    "aspect": "4:5",
+    "format": "image",
+    "from": 22,
+    "id": "flatlay",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Overhead flat lay with a few props",
+    "name": "Flat lay",
+    "preview": "previews/tpl-flatlay.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For a calm, styled look from above with a few props."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": "any",
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Flat lay",
+   "params": {
+    "language": "English"
+   },
+   "preview": "tpl-flatlay",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: Overhead flat lay on a soft neutral surface: the Trail Mug in the centre, a few simple everyday props around it with plenty of breathing room, soft even daylight. Packaging, label and colors exactly as in the photo.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Made for your day.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "Overhead flat lay on a soft neutral surface: the {product} in the centre, a few simple everyday props around it with plenty of breathing room, soft even daylight. Packaging, label and colors exactly as in the photo. Headline: \"Made for your day.\"",
+   "template": {
+    "aspect": "4:5",
+    "audience": "",
+    "brief": "Overhead flat lay on a soft neutral surface: the {product} in the centre, a few simple everyday props around it with plenty of breathing room, soft even daylight. Packaging, label and colors exactly as in the photo. Headline: \"Made for your day.\"",
+    "fits": "any",
+    "id": "flatlay",
+    "line": "Overhead flat lay with a few props",
+    "name": "Flat lay",
+    "preview": "tpl-flatlay",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For a calm, styled look from above with a few props."
+  },
+  "gift": {
+   "ad_type": "image",
+   "aspect": "1:1",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "Gift moment, ribbon and card"
+    }
+   ],
+   "card": {
+    "aspect": "1:1",
+    "format": "image",
+    "from": 22,
+    "id": "gift",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Gift moment, ribbon and card",
+    "name": "Gift idea",
+    "preview": "previews/tpl-gift.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For gifting seasons: your product as an easy present."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": "any",
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Gift idea",
+   "params": {
+    "language": "English"
+   },
+   "preview": "tpl-gift",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: Warm gifting scene: the Trail Mug next to a ribbon and a blank card on a wooden table, cozy evening light. Packaging exactly as in the photo.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"An easy gift.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "Warm gifting scene: the {product} next to a ribbon and a blank card on a wooden table, cozy evening light. Packaging exactly as in the photo. Headline: \"An easy gift.\"",
+   "template": {
+    "aspect": "1:1",
+    "audience": "",
+    "brief": "Warm gifting scene: the {product} next to a ribbon and a blank card on a wooden table, cozy evening light. Packaging exactly as in the photo. Headline: \"An easy gift.\"",
+    "fits": "any",
+    "id": "gift",
+    "line": "Gift moment, ribbon and card",
+    "name": "Gift idea",
+    "preview": "tpl-gift",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For gifting seasons: your product as an easy present."
+  },
+  "gym": {
+   "ad_type": "image",
+   "aspect": "9:16",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "Packed for the early gym"
+    }
+   ],
+   "card": {
+    "aspect": "9:16",
+    "format": "image",
+    "from": 22,
+    "id": "gym",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Packed for the early gym",
+    "name": "Gym bag",
+    "preview": "previews/gym.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For coffee: packed for the early gym."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": "coffee",
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Gym bag",
+   "params": {
+    "language": "English"
+   },
+   "preview": "gym",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: Gym bag packed for an early morning: shaker, towel, earbuds and the Trail Mug bag. Morning light through a window.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Packed the night before.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "Gym bag packed for an early morning: shaker, towel, earbuds and the {product} bag. Morning light through a window. Headline: \"Packed the night before.\"",
+   "template": {
+    "aspect": "9:16",
+    "audience": "Gym-goers 22-35",
+    "brief": "Gym bag packed for an early morning: shaker, towel, earbuds and the {product} bag. Morning light through a window. Headline: \"Packed the night before.\"",
+    "fits": "coffee",
+    "id": "gym",
+    "line": "Packed for the early gym",
+    "name": "Gym bag",
+    "preview": "gym",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For coffee: packed for the early gym."
+  },
+  "hero": {
+   "ad_type": "image",
+   "aspect": "4:5",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "Clean studio shot, headline on top"
+    }
+   ],
+   "card": {
+    "aspect": "4:5",
+    "format": "image",
+    "from": 22,
+    "id": "hero",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Clean studio shot, headline on top",
+    "name": "Product hero",
+    "preview": "previews/tpl-hero.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For a first ad or a launch: the product alone, looking its best."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": "any",
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Product hero",
+   "params": {
+    "language": "English"
+   },
+   "preview": "tpl-hero",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: Premium studio product shot: the Trail Mug centred on a clean surface, soft directional light, a subtle shadow and plenty of empty space for a headline. Packaging, label and colors exactly as in the photo.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Trail Mug\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "Premium studio product shot: the {product} centred on a clean surface, soft directional light, a subtle shadow and plenty of empty space for a headline. Packaging, label and colors exactly as in the photo. Headline: \"{product}\" in clean, modern type.",
+   "template": {
+    "aspect": "4:5",
+    "audience": "",
+    "brief": "Premium studio product shot: the {product} centred on a clean surface, soft directional light, a subtle shadow and plenty of empty space for a headline. Packaging, label and colors exactly as in the photo. Headline: \"{product}\" in clean, modern type.",
+    "fits": "any",
+    "id": "hero",
+    "line": "Clean studio shot, headline on top",
+    "name": "Product hero",
+    "preview": "tpl-hero",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For a first ad or a launch: the product alone, looking its best."
+  },
+  "how": {
+   "ad_type": "product_video",
+   "aspect": "",
+   "aspects": [],
+   "beats": [
+    {
+     "beat": "one shot",
+     "seconds": "10",
+     "shot": "Real-time how-to, first sip"
+    }
+   ],
+   "card": {
+    "aspect": "",
+    "format": "video",
+    "from": 925,
+    "id": "how",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Real-time how-to, first sip",
+    "name": "How to make it",
+    "preview": "previews/how.jpg",
+    "tool": "photo_to_video",
+    "type": "product_video",
+    "what_for": "For coffee: the whole how-to in ten seconds."
+   },
+   "credits": 925,
+   "fields": [],
+   "fits": "coffee",
+   "format": "video",
+   "inputs": [
+    "product_photo",
+    "scene"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "bytedance/seedance-2.5/image-to-video",
+   "name": "How to make it",
+   "params": {
+    "bitrate_mode": "high",
+    "resolution": "720p"
+   },
+   "preview": "how",
+   "price": {
+    "duration": 10
+   },
+   "prompt": "Real-time how-to: one scoop of Trail Mug into a mug, hot water poured from a kettle, a quick stir, first sip. Bright, clean kitchen. Product label unchanged. Keep the product, its label and its logo exactly as in the reference photo.",
+   "qa": [
+    "five_tells"
+   ],
+   "recipe": "Real-time how-to: one scoop of {product} into a mug, hot water poured from a kettle, a quick stir, first sip. Bright, clean kitchen. Product label unchanged.",
+   "template": {
+    "brief": "Real-time how-to: one scoop of {product} into a mug, hot water poured from a kettle, a quick stir, first sip. Bright, clean kitchen. Product label unchanged.",
+    "duration": 10,
+    "fits": "coffee",
+    "id": "how",
+    "line": "Real-time how-to, first sip",
+    "name": "How to make it",
+    "overlay": "No machine, no pods",
+    "preview": "how",
+    "tool": "photo_to_video"
+   },
+   "text_layers": [],
+   "tool": "photo_to_video",
+   "usd": 4.622,
+   "what_for": "For coffee: the whole how-to in ten seconds."
+  },
+  "iced": {
+   "ad_type": "image",
+   "aspect": "4:5",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "Iced coffee, sunny patio"
+    }
+   ],
+   "card": {
+    "aspect": "4:5",
+    "format": "image",
+    "from": 22,
+    "id": "iced",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Iced coffee, sunny patio",
+    "name": "Iced",
+    "preview": "previews/iced.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For coffee: the iced version on a sunny day."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": "coffee",
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Iced",
+   "params": {
+    "language": "English"
+   },
+   "preview": "iced",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: Tall glass of iced coffee on a sunny patio table next to the Trail Mug bag. Ice, condensation, a few coffee beans.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Iced in 30 seconds.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "Tall glass of iced coffee on a sunny patio table next to the {product} bag. Ice, condensation, a few coffee beans. Headline: \"Iced in 30 seconds.\"",
+   "template": {
+    "aspect": "4:5",
+    "audience": "Women 22-40 who love iced coffee",
+    "brief": "Tall glass of iced coffee on a sunny patio table next to the {product} bag. Ice, condensation, a few coffee beans. Headline: \"Iced in 30 seconds.\"",
+    "fits": "coffee",
+    "id": "iced",
+    "line": "Iced coffee, sunny patio",
+    "name": "Iced",
+    "preview": "iced",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For coffee: the iced version on a sunny day."
+  },
+  "image": {
+   "ad_type": "image",
+   "aspect": "9:16",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "the scene from the brief, the product as photographed"
+    }
+   ],
+   "card": null,
+   "credits": 22,
+   "fields": [],
+   "fits": "any",
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "type",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Image ad",
+   "params": {
+    "language": "English"
+   },
+   "preview": "previews/ad_image",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "catalog.image_ad_prompt",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "catalog.image_ad_prompt",
+   "template": null,
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For feeds and stories: a finished ad image with your headline, in up to three shapes."
+  },
+  "inhand": {
+   "ad_type": "image",
+   "aspect": "9:16",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "A hand holding it, outdoors"
+    }
+   ],
+   "card": {
+    "aspect": "9:16",
+    "format": "image",
+    "from": 22,
+    "id": "inhand",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "A hand holding it, outdoors",
+    "name": "In hand",
+    "preview": "previews/tpl-inhand.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For anything carried or held: scale and a sense of taking it along."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": "any",
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "In hand",
+   "params": {
+    "language": "English"
+   },
+   "preview": "tpl-inhand",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: A hand holds the Trail Mug up against a bright, softly blurred outdoor background, natural light, no face in frame. The label faces the camera, sharp and unchanged.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Take it with you.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "A hand holds the {product} up against a bright, softly blurred outdoor background, natural light, no face in frame. The label faces the camera, sharp and unchanged. Headline: \"Take it with you.\"",
+   "template": {
+    "aspect": "9:16",
+    "audience": "",
+    "brief": "A hand holds the {product} up against a bright, softly blurred outdoor background, natural light, no face in frame. The label faces the camera, sharp and unchanged. Headline: \"Take it with you.\"",
+    "fits": "any",
+    "id": "inhand",
+    "line": "A hand holding it, outdoors",
+    "name": "In hand",
+    "preview": "tpl-inhand",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For anything carried or held: scale and a sense of taking it along."
+  },
+  "inuse": {
+   "ad_type": "image",
+   "aspect": "9:16",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "On a phone in a bright cafe"
+    }
+   ],
+   "card": {
+    "aspect": "9:16",
+    "format": "image",
+    "from": 22,
+    "id": "inuse",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "On a phone in a bright cafe",
+    "name": "In use",
+    "preview": "previews/preset-inuse.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For apps: yours on a phone, in someone's hand."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": [
+    "app_service"
+   ],
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "In use",
+   "params": {
+    "language": "English"
+   },
+   "preview": "preset-inuse",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: A hand holding a phone in a bright cafe with the Trail Mug shown on its screen exactly as in the reference photo, nothing added or changed, the background softly blurred and no face in frame.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Right when you need it.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "A hand holding a phone in a bright cafe with the {product} shown on its screen exactly as in the reference photo, nothing added or changed, the background softly blurred and no face in frame. Headline: \"Right when you need it.\"",
+   "template": {
+    "aspect": "9:16",
+    "audience": "",
+    "brief": "A hand holding a phone in a bright cafe with the {product} shown on its screen exactly as in the reference photo, nothing added or changed, the background softly blurred and no face in frame. Headline: \"Right when you need it.\"",
+    "fits": [
+     "app_service"
+    ],
+    "id": "inuse",
+    "line": "On a phone in a bright cafe",
+    "name": "In use",
+    "preset": true,
+    "preview": "preset-inuse",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For apps: yours on a phone, in someone's hand."
+  },
+  "label": {
+   "ad_type": "product_video",
+   "aspect": "",
+   "aspects": [],
+   "beats": [
+    {
+     "beat": "one shot",
+     "seconds": "5",
+     "shot": "Slow pan across the label"
+    }
+   ],
+   "card": {
+    "aspect": "",
+    "format": "video",
+    "from": 463,
+    "id": "label",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Slow pan across the label",
+    "name": "Label read",
+    "preview": "previews/label.jpg",
+    "tool": "photo_to_video",
+    "type": "product_video",
+    "what_for": "For coffee: letting the ingredient panel speak."
+   },
+   "credits": 463,
+   "fields": [],
+   "fits": "coffee",
+   "format": "video",
+   "inputs": [
+    "product_photo",
+    "scene"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "bytedance/seedance-2.5/image-to-video",
+   "name": "Label read",
+   "params": {
+    "bitrate_mode": "high",
+    "resolution": "720p"
+   },
+   "preview": "label",
+   "price": {
+    "duration": 5
+   },
+   "prompt": "Slow, steady camera pan across the Trail Mug bag's ingredient panel on a wooden counter. Shallow depth of field, warm light. The label text stays sharp and unchanged. Keep the product, its label and its logo exactly as in the reference photo.",
+   "qa": [
+    "five_tells"
+   ],
+   "recipe": "Slow, steady camera pan across the {product} bag's ingredient panel on a wooden counter. Shallow depth of field, warm light. The label text stays sharp and unchanged.",
+   "template": {
+    "brief": "Slow, steady camera pan across the {product} bag's ingredient panel on a wooden counter. Shallow depth of field, warm light. The label text stays sharp and unchanged.",
+    "duration": 5,
+    "fits": "coffee",
+    "id": "label",
+    "line": "Slow pan across the label",
+    "name": "Label read",
+    "overlay": "What's in it, as printed on the bag",
+    "preview": "label",
+    "tool": "photo_to_video"
+   },
+   "text_layers": [],
+   "tool": "photo_to_video",
+   "usd": 2.311,
+   "what_for": "For coffee: letting the ingredient panel speak."
+  },
+  "marketplace": {
+   "ad_type": "image",
+   "aspect": "1:1",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "The product alone on pure white, no words"
+    }
+   ],
+   "card": {
+    "aspect": "1:1",
+    "format": "image",
+    "from": 22,
+    "id": "marketplace",
+    "kind": "static",
+    "layers": [],
+    "layout": "none",
+    "line": "The product alone on pure white, no words",
+    "name": "Marketplace image",
+    "preview": "previews/preset-marketplace.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For Amazon, Etsy or a shop listing: the product alone on pure white, with no words at all."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": "any",
+   "format": "image",
+   "inputs": [
+    "product_photo"
+   ],
+   "kind": "static",
+   "layout": "none",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Marketplace image",
+   "params": {
+    "language": "English",
+    "text": "none: set afterwards by textlayer.py"
+   },
+   "preview": "preset-marketplace",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: The Trail Mug alone, centred and filling most of the frame, on a pure white seamless background with a soft natural shadow under it. No props, no people, no surface texture. Packaging, label and colors exactly as in the photo.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- No headline: add no words at all.\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "The {product} alone, centred and filling most of the frame, on a pure white seamless background with a soft natural shadow under it. No props, no people, no surface texture. Packaging, label and colors exactly as in the photo.",
+   "template": {
+    "aspect": "1:1",
+    "audience": "",
+    "brief": "The {product} alone, centred and filling most of the frame, on a pure white seamless background with a soft natural shadow under it. No props, no people, no surface texture. Packaging, label and colors exactly as in the photo.",
+    "fits": "any",
+    "id": "marketplace",
+    "layout": "none",
+    "line": "The product alone on pure white, no words",
+    "name": "Marketplace image",
+    "preset": true,
+    "preview": "preset-marketplace",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For Amazon, Etsy or a shop listing: the product alone on pure white, with no words at all."
+  },
+  "motion": {
+   "ad_type": "motion",
+   "aspect": "",
+   "aspects": [],
+   "beats": [
+    {
+     "beat": "the reference clip's own beats",
+     "seconds": "up to 15"
+    }
+   ],
+   "card": null,
+   "credits": 100,
+   "fields": [],
+   "fits": "any",
+   "format": "video",
+   "inputs": [
+    "product_photo",
+    "scene",
+    "reference_clip"
+   ],
+   "kind": "type",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/genjutsu-light/motion-transfer/v1.0",
+   "name": "Copy a video's motion",
+   "params": {
+    "resolution": "720p"
+   },
+   "preview": "previews/motion_copy",
+   "price": {
+    "ref_seconds": 5
+   },
+   "prompt": "the brief as typed",
+   "qa": [
+    "five_tells"
+   ],
+   "recipe": "the brief as typed",
+   "template": null,
+   "text_layers": [],
+   "tool": "motion_copy",
+   "usd": 0.5,
+   "what_for": "For riding a trend: your product in the moves and timing of a reference clip."
+  },
+  "nightstand": {
+   "ad_type": "image",
+   "aspect": "4:5",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "Lamp light, a glass of water, a book"
+    }
+   ],
+   "card": {
+    "aspect": "4:5",
+    "format": "image",
+    "from": 22,
+    "id": "nightstand",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Lamp light, a glass of water, a book",
+    "name": "Nightstand",
+    "preview": "previews/preset-nightstand.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For evening products: yours on the bedside table."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": [
+    "supplement",
+    "home"
+   ],
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Nightstand",
+   "params": {
+    "language": "English"
+   },
+   "preview": "preset-nightstand",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: A calm bedside table in the evening: the Trail Mug beside a glass of water and a closed book, warm lamp light. The label stays sharp and unchanged.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Part of the evening.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "A calm bedside table in the evening: the {product} beside a glass of water and a closed book, warm lamp light. The label stays sharp and unchanged. Headline: \"Part of the evening.\"",
+   "template": {
+    "aspect": "4:5",
+    "audience": "",
+    "brief": "A calm bedside table in the evening: the {product} beside a glass of water and a closed book, warm lamp light. The label stays sharp and unchanged. Headline: \"Part of the evening.\"",
+    "fits": [
+     "supplement",
+     "home"
+    ],
+    "id": "nightstand",
+    "line": "Lamp light, a glass of water, a book",
+    "name": "Nightstand",
+    "preset": true,
+    "preview": "preset-nightstand",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For evening products: yours on the bedside table."
+  },
+  "offer": {
+   "ad_type": "image",
+   "aspect": "4:5",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "A price or offer badge and a button"
+    }
+   ],
+   "card": {
+    "aspect": "4:5",
+    "format": "image",
+    "from": 22,
+    "id": "offer",
+    "kind": "static",
+    "layers": [
+     "headline",
+     "subhead",
+     "badge",
+     "cta",
+     "logo"
+    ],
+    "layout": "offer",
+    "line": "A price or offer badge and a button",
+    "name": "Offer",
+    "preview": "previews/preset-offer.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For a price or an offer you already run: a badge, your headline and a button."
+   },
+   "credits": 22,
+   "fields": [
+    {
+     "hint": "The price or the offer saved on this product, in its words. Nothing else can go here.",
+     "id": "badge",
+     "label": "Badge",
+     "max": 28,
+     "required": true
+    }
+   ],
+   "fits": "any",
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline",
+    "badge"
+   ],
+   "kind": "static",
+   "layout": "offer",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Offer",
+   "params": {
+    "language": "English",
+    "text": "none: set afterwards by textlayer.py"
+   },
+   "preview": "preset-offer",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: The Trail Mug centred, slightly low in the frame, on a clean softly lit surface with a plain single-colour backdrop. Packaging, label and colors exactly as in the photo. Keep the top third of the frame and the area to the right of the product calm, plain and uncluttered.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- No headline: add no words at all.\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "The {product} centred, slightly low in the frame, on a clean softly lit surface with a plain single-colour backdrop. Packaging, label and colors exactly as in the photo.",
+   "template": {
+    "aspect": "4:5",
+    "audience": "",
+    "brief": "The {product} centred, slightly low in the frame, on a clean softly lit surface with a plain single-colour backdrop. Packaging, label and colors exactly as in the photo.",
+    "fits": "any",
+    "id": "offer",
+    "layout": "offer",
+    "line": "A price or offer badge and a button",
+    "name": "Offer",
+    "preset": true,
+    "preview": "preset-offer",
+    "tool": "ad_image"
+   },
+   "text_layers": [
+    "headline",
+    "subhead",
+    "badge",
+    "cta",
+    "logo"
+   ],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For a price or an offer you already run: a badge, your headline and a button."
+  },
+  "outfit": {
+   "ad_type": "image",
+   "aspect": "4:5",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "Laid out with a simple outfit"
+    }
+   ],
+   "card": {
+    "aspect": "4:5",
+    "format": "image",
+    "from": 22,
+    "id": "outfit",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Laid out with a simple outfit",
+    "name": "With the outfit",
+    "preview": "previews/preset-outfit.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For apparel and accessories: styled with a simple outfit."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": [
+    "apparel"
+   ],
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "With the outfit",
+   "params": {
+    "language": "English"
+   },
+   "preview": "preset-outfit",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: The Trail Mug laid out with a simple outfit on a made bed: folded clothes in neutral colors, natural window light, seen from above at a slight angle. The Trail Mug is the clear focus, exactly as in the photo.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Goes with everything.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "The {product} laid out with a simple outfit on a made bed: folded clothes in neutral colors, natural window light, seen from above at a slight angle. The {product} is the clear focus, exactly as in the photo. Headline: \"Goes with everything.\"",
+   "template": {
+    "aspect": "4:5",
+    "audience": "",
+    "brief": "The {product} laid out with a simple outfit on a made bed: folded clothes in neutral colors, natural window light, seen from above at a slight angle. The {product} is the clear focus, exactly as in the photo. Headline: \"Goes with everything.\"",
+    "fits": [
+     "apparel"
+    ],
+    "id": "outfit",
+    "line": "Laid out with a simple outfit",
+    "name": "With the outfit",
+    "preset": true,
+    "preview": "preset-outfit",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For apparel and accessories: styled with a simple outfit."
+  },
+  "pastel": {
+   "ad_type": "image",
+   "aspect": "1:1",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "Pastel surface, leaf shadows"
+    }
+   ],
+   "card": {
+    "aspect": "1:1",
+    "format": "image",
+    "from": 22,
+    "id": "pastel",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Pastel surface, leaf shadows",
+    "name": "Soft shadows",
+    "preview": "previews/preset-pastel.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For beauty: a light, airy studio look."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": [
+    "beauty"
+   ],
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Soft shadows",
+   "params": {
+    "language": "English"
+   },
+   "preview": "preset-pastel",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: The Trail Mug lying on a smooth pastel surface with soft shadows of leaves falling across it, bright airy light and lots of clean space. The label stays sharp and unchanged.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Simple, on purpose.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "The {product} lying on a smooth pastel surface with soft shadows of leaves falling across it, bright airy light and lots of clean space. The label stays sharp and unchanged. Headline: \"Simple, on purpose.\"",
+   "template": {
+    "aspect": "1:1",
+    "audience": "",
+    "brief": "The {product} lying on a smooth pastel surface with soft shadows of leaves falling across it, bright airy light and lots of clean space. The label stays sharp and unchanged. Headline: \"Simple, on purpose.\"",
+    "fits": [
+     "beauty"
+    ],
+    "id": "pastel",
+    "line": "Pastel surface, leaf shadows",
+    "name": "Soft shadows",
+    "preset": true,
+    "preview": "preset-pastel",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For beauty: a light, airy studio look."
+  },
+  "product_video": {
+   "ad_type": "product_video",
+   "aspect": "",
+   "aspects": [],
+   "beats": [
+    {
+     "beat": "one shot",
+     "seconds": "5 or 10",
+     "shot": "the product photo brought to life"
+    }
+   ],
+   "card": null,
+   "credits": 463,
+   "fields": [],
+   "fits": "any",
+   "format": "video",
+   "inputs": [
+    "product_photo",
+    "scene"
+   ],
+   "kind": "type",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "bytedance/seedance-2.5/image-to-video",
+   "name": "Product video",
+   "params": {
+    "bitrate_mode": "high",
+    "resolution": "720p"
+   },
+   "preview": "previews/photo_to_video",
+   "price": {
+    "duration": 5
+   },
+   "prompt": "catalog.with_fidelity",
+   "qa": [
+    "five_tells"
+   ],
+   "recipe": "catalog.with_fidelity",
+   "template": null,
+   "text_layers": [],
+   "tool": "photo_to_video",
+   "usd": 2.311,
+   "what_for": "For showing the product itself: one photo brought to life for 5 or 10 seconds."
+  },
+  "review": {
+   "ad_type": "image",
+   "aspect": "4:5",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "A real review you paste, with stars"
+    }
+   ],
+   "card": {
+    "aspect": "4:5",
+    "format": "image",
+    "from": 22,
+    "id": "review",
+    "kind": "static",
+    "layers": [
+     "review",
+     "cta",
+     "logo"
+    ],
+    "layout": "review",
+    "line": "A real review you paste, with stars",
+    "name": "Review card",
+    "preview": "previews/preset-review.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For social proof: a real customer review you paste, with its stars, under the product. Never written by AI."
+   },
+   "credits": 22,
+   "fields": [
+    {
+     "hint": "The name as it appears with the review, or leave empty.",
+     "id": "reviewer",
+     "label": "Reviewer",
+     "max": 40
+    },
+    {
+     "id": "stars",
+     "label": "Stars the customer gave",
+     "type": "stars"
+    },
+    {
+     "id": "attest",
+     "label": "These are real reviews from real customers, word for word, and I may use them in ads.",
+     "required": true,
+     "type": "confirm"
+    }
+   ],
+   "fits": "any",
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "review",
+    "attest"
+   ],
+   "kind": "static",
+   "layout": "review",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Review card",
+   "params": {
+    "language": "English",
+    "text": "none: set afterwards by textlayer.py"
+   },
+   "preview": "preset-review",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: The Trail Mug in the upper half of the frame on a clean, softly lit surface, the lower third of the frame plain and empty. Packaging, label and colors exactly as in the photo. Keep the lower third of the frame calm, plain and uncluttered.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- No headline: add no words at all.\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "The {product} in the upper half of the frame on a clean, softly lit surface, the lower third of the frame plain and empty. Packaging, label and colors exactly as in the photo.",
+   "template": {
+    "aspect": "4:5",
+    "audience": "",
+    "brief": "The {product} in the upper half of the frame on a clean, softly lit surface, the lower third of the frame plain and empty. Packaging, label and colors exactly as in the photo.",
+    "fits": "any",
+    "id": "review",
+    "layout": "review",
+    "line": "A real review you paste, with stars",
+    "name": "Review card",
+    "preset": true,
+    "preview": "preset-review",
+    "tool": "ad_image"
+   },
+   "text_layers": [
+    "review",
+    "cta",
+    "logo"
+   ],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For social proof: a real customer review you paste, with its stars, under the product. Never written by AI."
+  },
+  "routine": {
+   "ad_type": "image",
+   "aspect": "9:16",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "Your product in an everyday moment"
+    }
+   ],
+   "card": {
+    "aspect": "9:16",
+    "format": "image",
+    "from": 22,
+    "id": "routine",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Your product in an everyday moment",
+    "name": "Daily routine",
+    "preview": "previews/tpl-routine.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For everyday products: yours as part of a morning."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": "any",
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Daily routine",
+   "params": {
+    "language": "English"
+   },
+   "preview": "tpl-routine",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: Everyday lifestyle scene in a bright, tidy kitchen: the Trail Mug on the counter as part of someone's morning routine, hands in frame, no faces. Natural window light. The label stays sharp and unchanged.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Part of the morning.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "Everyday lifestyle scene in a bright, tidy kitchen: the {product} on the counter as part of someone's morning routine, hands in frame, no faces. Natural window light. The label stays sharp and unchanged. Headline: \"Part of the morning.\"",
+   "template": {
+    "aspect": "9:16",
+    "audience": "",
+    "brief": "Everyday lifestyle scene in a bright, tidy kitchen: the {product} on the counter as part of someone's morning routine, hands in frame, no faces. Natural window light. The label stays sharp and unchanged. Headline: \"Part of the morning.\"",
+    "fits": "any",
+    "id": "routine",
+    "line": "Your product in an everyday moment",
+    "name": "Daily routine",
+    "preview": "tpl-routine",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For everyday products: yours as part of a morning."
+  },
+  "shelf": {
+   "ad_type": "image",
+   "aspect": "4:5",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "At eye level on a tidy shelf"
+    }
+   ],
+   "card": {
+    "aspect": "4:5",
+    "format": "image",
+    "from": 22,
+    "id": "shelf",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "At eye level on a tidy shelf",
+    "name": "On the shelf",
+    "preview": "previews/preset-shelf.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For anything that lives on display: yours among everyday things."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": "any",
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "On the shelf",
+   "params": {
+    "language": "English"
+   },
+   "preview": "preset-shelf",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: The Trail Mug on a tidy open shelf at eye level among a few plain, unbranded everyday objects, soft daylight from the side, shallow depth of field with the Trail Mug sharpest. Packaging, label and colors exactly as in the photo.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Worth the shelf space.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "The {product} on a tidy open shelf at eye level among a few plain, unbranded everyday objects, soft daylight from the side, shallow depth of field with the {product} sharpest. Packaging, label and colors exactly as in the photo. Headline: \"Worth the shelf space.\"",
+   "template": {
+    "aspect": "4:5",
+    "audience": "",
+    "brief": "The {product} on a tidy open shelf at eye level among a few plain, unbranded everyday objects, soft daylight from the side, shallow depth of field with the {product} sharpest. Packaging, label and colors exactly as in the photo. Headline: \"Worth the shelf space.\"",
+    "fits": "any",
+    "id": "shelf",
+    "line": "At eye level on a tidy shelf",
+    "name": "On the shelf",
+    "preset": true,
+    "preview": "preset-shelf",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For anything that lives on display: yours among everyday things."
+  },
+  "street": {
+   "ad_type": "image",
+   "aspect": "9:16",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "On the street, no face in frame"
+    }
+   ],
+   "card": {
+    "aspect": "9:16",
+    "format": "image",
+    "from": 22,
+    "id": "street",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "On the street, no face in frame",
+    "name": "Out and about",
+    "preview": "previews/preset-street.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For apparel and accessories: worn out in the city, no face shown."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": [
+    "apparel"
+   ],
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Out and about",
+   "params": {
+    "language": "English"
+   },
+   "preview": "preset-street",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: Street-level city scene in soft afternoon light: the Trail Mug worn or carried by a person seen from the shoulders down, no face in frame, the background softly blurred. The Trail Mug exactly as in the photo, its logo sharp.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Made to be out.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "Street-level city scene in soft afternoon light: the {product} worn or carried by a person seen from the shoulders down, no face in frame, the background softly blurred. The {product} exactly as in the photo, its logo sharp. Headline: \"Made to be out.\"",
+   "template": {
+    "aspect": "9:16",
+    "audience": "",
+    "brief": "Street-level city scene in soft afternoon light: the {product} worn or carried by a person seen from the shoulders down, no face in frame, the background softly blurred. The {product} exactly as in the photo, its logo sharp. Headline: \"Made to be out.\"",
+    "fits": [
+     "apparel"
+    ],
+    "id": "street",
+    "line": "On the street, no face in frame",
+    "name": "Out and about",
+    "preset": true,
+    "preview": "preset-street",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For apparel and accessories: worn out in the city, no face shown."
+  },
+  "swap": {
+   "ad_type": "product_video",
+   "aspect": "",
+   "aspects": [],
+   "beats": [
+    {
+     "beat": "one shot",
+     "seconds": "5",
+     "shot": "One scoop, hot water, 30 seconds"
+    }
+   ],
+   "card": {
+    "aspect": "",
+    "format": "video",
+    "from": 463,
+    "id": "swap",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "One scoop, hot water, 30 seconds",
+    "name": "The swap",
+    "preview": "previews/swap.jpg",
+    "tool": "photo_to_video",
+    "type": "product_video",
+    "what_for": "For coffee: the 30-second swap from the machine to a scoop."
+   },
+   "credits": 463,
+   "fields": [],
+   "fits": "coffee",
+   "format": "video",
+   "inputs": [
+    "product_photo",
+    "scene"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "bytedance/seedance-2.5/image-to-video",
+   "name": "The swap",
+   "params": {
+    "bitrate_mode": "high",
+    "resolution": "720p"
+   },
+   "preview": "swap",
+   "price": {
+    "duration": 5
+   },
+   "prompt": "Morning kitchen, soft window light. A hand slides a drip coffee maker aside, scoops Trail Mug from the bag into a mug of hot water and stirs. Steam rises. The bag stays in frame with its label facing camera, unchanged. Keep the product, its label and its logo exactly as in the reference photo.",
+   "qa": [
+    "five_tells"
+   ],
+   "recipe": "Morning kitchen, soft window light. A hand slides a drip coffee maker aside, scoops {product} from the bag into a mug of hot water and stirs. Steam rises. The bag stays in frame with its label facing camera, unchanged.",
+   "template": {
+    "brief": "Morning kitchen, soft window light. A hand slides a drip coffee maker aside, scoops {product} from the bag into a mug of hot water and stirs. Steam rises. The bag stays in frame with its label facing camera, unchanged.",
+    "duration": 5,
+    "fits": "coffee",
+    "id": "swap",
+    "line": "One scoop, hot water, 30 seconds",
+    "name": "The swap",
+    "overlay": "One scoop. Hot water. 30 seconds.",
+    "preview": "swap",
+    "tool": "photo_to_video"
+   },
+   "text_layers": [],
+   "tool": "photo_to_video",
+   "usd": 2.311,
+   "what_for": "For coffee: the 30-second swap from the machine to a scoop."
+  },
+  "table": {
+   "ad_type": "image",
+   "aspect": "4:5",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "In the middle of a table set for two"
+    }
+   ],
+   "card": {
+    "aspect": "4:5",
+    "format": "image",
+    "from": 22,
+    "id": "table",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "In the middle of a table set for two",
+    "name": "On the table",
+    "preview": "previews/preset-table.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For food and drink: yours in the middle of a meal."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": [
+    "food_drink"
+   ],
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "On the table",
+   "params": {
+    "language": "English"
+   },
+   "preview": "preset-table",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: A casual table set for two seen from a low angle: the Trail Mug in the middle between simple plates and glasses, warm evening light, no people's faces. The label faces the camera, sharp and unchanged.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Bring it to the table.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "A casual table set for two seen from a low angle: the {product} in the middle between simple plates and glasses, warm evening light, no people's faces. The label faces the camera, sharp and unchanged. Headline: \"Bring it to the table.\"",
+   "template": {
+    "aspect": "4:5",
+    "audience": "",
+    "brief": "A casual table set for two seen from a low angle: the {product} in the middle between simple plates and glasses, warm evening light, no people's faces. The label faces the camera, sharp and unchanged. Headline: \"Bring it to the table.\"",
+    "fits": [
+     "food_drink"
+    ],
+    "id": "table",
+    "line": "In the middle of a table set for two",
+    "name": "On the table",
+    "preset": true,
+    "preview": "preset-table",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For food and drink: yours in the middle of a meal."
+  },
+  "turn": {
+   "ad_type": "product_video",
+   "aspect": "",
+   "aspects": [],
+   "beats": [
+    {
+     "beat": "one shot",
+     "seconds": "5",
+     "shot": "Slow turn on a clean surface"
+    }
+   ],
+   "card": {
+    "aspect": "",
+    "format": "video",
+    "from": 463,
+    "id": "turn",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Slow turn on a clean surface",
+    "name": "Slow turn",
+    "preview": "previews/photo_to_video.jpg",
+    "tool": "photo_to_video",
+    "type": "product_video",
+    "what_for": "For a short clip that shows every side of the product."
+   },
+   "credits": 463,
+   "fields": [],
+   "fits": "any",
+   "format": "video",
+   "inputs": [
+    "product_photo",
+    "scene"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "bytedance/seedance-2.5/image-to-video",
+   "name": "Slow turn",
+   "params": {
+    "bitrate_mode": "high",
+    "resolution": "720p"
+   },
+   "preview": "photo_to_video",
+   "price": {
+    "duration": 5
+   },
+   "prompt": "The Trail Mug on a clean surface, the camera slowly circles it in soft studio light. The label and colors stay sharp and unchanged. Keep the product, its label and its logo exactly as in the reference photo.",
+   "qa": [
+    "five_tells"
+   ],
+   "recipe": "The {product} on a clean surface, the camera slowly circles it in soft studio light. The label and colors stay sharp and unchanged.",
+   "template": {
+    "brief": "The {product} on a clean surface, the camera slowly circles it in soft studio light. The label and colors stay sharp and unchanged.",
+    "duration": 5,
+    "fits": "any",
+    "id": "turn",
+    "line": "Slow turn on a clean surface",
+    "name": "Slow turn",
+    "overlay": "",
+    "preview": "photo_to_video",
+    "tool": "photo_to_video"
+   },
+   "text_layers": [],
+   "tool": "photo_to_video",
+   "usd": 2.311,
+   "what_for": "For a short clip that shows every side of the product."
+  },
+  "two-pm": {
+   "ad_type": "image",
+   "aspect": "9:16",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "The afternoon-slump desk shot"
+    }
+   ],
+   "card": {
+    "aspect": "9:16",
+    "format": "image",
+    "from": 22,
+    "id": "two-pm",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "The afternoon-slump desk shot",
+    "name": "The 2 PM moment",
+    "preview": "previews/two-pm.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For coffee: the afternoon slump at a desk."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": "coffee",
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "The 2 PM moment",
+   "params": {
+    "language": "English"
+   },
+   "preview": "two-pm",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: Afternoon desk scene: laptop, notebook, a fresh mug of coffee beside the Trail Mug bag, warm 2 PM light.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Your afternoon cup, in 30 seconds.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "Afternoon desk scene: laptop, notebook, a fresh mug of coffee beside the {product} bag, warm 2 PM light. Headline: \"Your afternoon cup, in 30 seconds.\" Clean, premium, no people's faces.",
+   "template": {
+    "aspect": "9:16",
+    "audience": "Remote workers and office workers 25-45",
+    "brief": "Afternoon desk scene: laptop, notebook, a fresh mug of coffee beside the {product} bag, warm 2 PM light. Headline: \"Your afternoon cup, in 30 seconds.\" Clean, premium, no people's faces.",
+    "fits": "coffee",
+    "id": "two-pm",
+    "line": "The afternoon-slump desk shot",
+    "name": "The 2 PM moment",
+    "preview": "two-pm",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For coffee: the afternoon slump at a desk."
+  },
+  "ugc": {
+   "ad_type": "ugc",
+   "aspect": "9:16",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one take",
+     "seconds": "8-30",
+     "shot": "presenter to camera, the product on the table beside them, hands off it"
+    }
+   ],
+   "card": null,
+   "credits": 740,
+   "fields": [],
+   "fits": "any",
+   "format": "talking",
+   "inputs": [
+    "product_photo",
+    "script",
+    "presenter"
+   ],
+   "kind": "type",
+   "layout": "",
+   "locks": [
+    "product",
+    "presenter_still",
+    "voice"
+   ],
+   "model": "bytedance/seedance-2.5/reference-to-video",
+   "name": "UGC presenter",
+   "params": {
+    "bitrate_mode": "high",
+    "generate_audio": true,
+    "resolution": "720p"
+   },
+   "preview": "site/ugc-coffee",
+   "price": {
+    "duration": 8
+   },
+   "prompt": "Vertical selfie-style UGC video filmed on a phone. A woman in her late 20s, curly dark hair, warm smile, casual knit sweater, in a bright, lived-in kitchen, sits with the Trail Mug standing on the table beside them, in clear view, label facing the camera, and talks. Their hands stay off the product directly to the viewer in a natural, unscripted tone with a warm, friendly female voice, natural American accent. They say: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" Lip movements match the speech exactly. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. Unpolished, real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp focus, an ordinary lived-in room, handheld phone framing. No slow motion, no studio lighting, no beauty filter. Natural light, slight handheld movement, no on-screen text, no subtitles, no music.",
+   "qa": [
+    "keyframe",
+    "five_tells",
+    "lip_sync"
+   ],
+   "recipe": "catalog.talking_prompt",
+   "template": null,
+   "text_layers": [],
+   "tool": "ugc_video",
+   "usd": 3.6976,
+   "what_for": "For explaining the product person to person: a presenter says your script to camera."
+  },
+  "vanity": {
+   "ad_type": "image",
+   "aspect": "9:16",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "By the mirror, with a towel and a plant"
+    }
+   ],
+   "card": {
+    "aspect": "9:16",
+    "format": "image",
+    "from": 22,
+    "id": "vanity",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "By the mirror, with a towel and a plant",
+    "name": "Bathroom shelf",
+    "preview": "previews/preset-vanity.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For beauty and wellness: yours by the bathroom mirror."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": [
+    "beauty",
+    "supplement"
+   ],
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "Bathroom shelf",
+   "params": {
+    "language": "English"
+   },
+   "preview": "preset-vanity",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: A clean bathroom shelf by a mirror: the Trail Mug next to a folded towel and a small plant, soft diffused light, a few water droplets on the surface. Packaging, label and colors exactly as in the photo.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Made for your shelf.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "A clean bathroom shelf by a mirror: the {product} next to a folded towel and a small plant, soft diffused light, a few water droplets on the surface. Packaging, label and colors exactly as in the photo. Headline: \"Made for your shelf.\"",
+   "template": {
+    "aspect": "9:16",
+    "audience": "",
+    "brief": "A clean bathroom shelf by a mirror: the {product} next to a folded towel and a small plant, soft diffused light, a few water droplets on the surface. Packaging, label and colors exactly as in the photo. Headline: \"Made for your shelf.\"",
+    "fits": [
+     "beauty",
+     "supplement"
+    ],
+    "id": "vanity",
+    "line": "By the mirror, with a towel and a plant",
+    "name": "Bathroom shelf",
+    "preset": true,
+    "preview": "preset-vanity",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For beauty and wellness: yours by the bathroom mirror."
+  },
+  "voiceover": {
+   "ad_type": "voiceover",
+   "aspect": "9:16",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one take",
+     "seconds": "8-30",
+     "shot": "slow moves over the product while a narrator reads the script; no lip-sync"
+    }
+   ],
+   "card": null,
+   "credits": 740,
+   "fields": [],
+   "fits": "any",
+   "format": "talking",
+   "inputs": [
+    "product_photo",
+    "script",
+    "voice"
+   ],
+   "kind": "type",
+   "layout": "",
+   "locks": [
+    "product",
+    "voice"
+   ],
+   "model": "bytedance/seedance-2.5/reference-to-video",
+   "name": "Product video + voiceover",
+   "params": {
+    "bitrate_mode": "high",
+    "generate_audio": true,
+    "resolution": "720p"
+   },
+   "preview": "site/show-amber",
+   "price": {
+    "duration": 8
+   },
+   "prompt": "Short product video of the Trail Mug. Clean, well-lit close-ups and hands using it in a real home; smooth, simple camera moves. The Trail Mug looks exactly as in the reference photos: same packaging, label, text and colors; never invent other branding. A narrator, never seen on camera, says in a deep, smooth narrator voice: \"Meet the mug. It keeps drinks hot for 6 hours. Try it today.\" The narration is clear and matches the pacing of the shots. No on-screen text, no subtitles, no music.",
+   "qa": [
+    "five_tells"
+   ],
+   "recipe": "catalog.talking_prompt",
+   "template": null,
+   "text_layers": [],
+   "tool": "ugc_video",
+   "usd": 3.6976,
+   "what_for": "For when the label has to be right: the product on screen while a narrator reads."
+  },
+  "windowsill": {
+   "ad_type": "image",
+   "aspect": "9:16",
+   "aspects": [
+    "9:16",
+    "1:1",
+    "4:5",
+    "16:9"
+   ],
+   "beats": [
+    {
+     "beat": "one frame",
+     "shot": "Sunny windowsill, long shadows"
+    }
+   ],
+   "card": {
+    "aspect": "9:16",
+    "format": "image",
+    "from": 22,
+    "id": "windowsill",
+    "kind": "template",
+    "layers": [],
+    "layout": "",
+    "line": "Sunny windowsill, long shadows",
+    "name": "By the window",
+    "preview": "previews/preset-windowsill.jpg",
+    "tool": "ad_image",
+    "type": "image",
+    "what_for": "For home goods: morning light on the windowsill."
+   },
+   "credits": 22,
+   "fields": [],
+   "fits": [
+    "home"
+   ],
+   "format": "image",
+   "inputs": [
+    "product_photo",
+    "headline"
+   ],
+   "kind": "template",
+   "layout": "",
+   "locks": [
+    "product"
+   ],
+   "model": "higgsfield/ads-studio/v1.0",
+   "name": "By the window",
+   "params": {
+    "language": "English"
+   },
+   "preview": "preset-windowsill",
+   "price": {
+    "batch": 1
+   },
+   "prompt": "Advertising image. Scene: The Trail Mug on a sunny windowsill with a small plant beside it, light curtains softly blurred, long morning shadows. The Trail Mug exactly as in the photo.\nThe product is the Trail Mug exactly as in the reference photos: same shape, packaging, label, printed text and colors. Don't redraw, change or add to its label.\nText on the image: only the words listed here, each shown once and spelled exactly as written.\n- Headline (the main text, large and easy to read): \"Right where you'll see it.\"\n- Brand name (optional, small): \"Northwind\"\nThe only other text allowed is what is already printed on the product's own packaging in the photos.\nNo other text of any kind anywhere in the image: no extra slogans, taglines, claims, benefit callouts, feature lists, bullet points, labels, badges, seals, stickers, star ratings, reviews, prices, numbers, percentages, discounts, hashtags, URLs, watermarks or extra logos. No buttons and no call to action.",
+   "qa": [
+    "product_present",
+    "label_matches",
+    "no_extra_text",
+    "no_deformed_hands_faces"
+   ],
+   "recipe": "The {product} on a sunny windowsill with a small plant beside it, light curtains softly blurred, long morning shadows. The {product} exactly as in the photo. Headline: \"Right where you'll see it.\"",
+   "template": {
+    "aspect": "9:16",
+    "audience": "",
+    "brief": "The {product} on a sunny windowsill with a small plant beside it, light curtains softly blurred, long morning shadows. The {product} exactly as in the photo. Headline: \"Right where you'll see it.\"",
+    "fits": [
+     "home"
+    ],
+    "id": "windowsill",
+    "line": "Sunny windowsill, long shadows",
+    "name": "By the window",
+    "preset": true,
+    "preview": "preset-windowsill",
+    "tool": "ad_image"
+   },
+   "text_layers": [],
+   "tool": "ad_image",
+   "usd": 0.1071,
+   "what_for": "For home goods: morning light on the windowsill."
+  }
+ },
+ "talking_prices": {
+  "10:1080p": 1593,
+  "10:720p": 925,
+  "15:1080p": 2389,
+  "15:720p": 1387,
+  "20:1080p": 3185,
+  "20:720p": 1849,
+  "25:1080p": 3981,
+  "25:720p": 2311,
+  "30:1080p": 4777,
+  "30:720p": 2774,
+  "8:1080p": 1274,
+  "8:720p": 740
+ },
+ "tools": {
+  "ad_image": {
+   "kind": "image",
+   "model": "higgsfield/ads-studio/v1.0"
+  },
+  "motion_copy": {
+   "kind": "video",
+   "model": "higgsfield/genjutsu-light/motion-transfer/v1.0"
+  },
+  "photo_to_video": {
+   "kind": "video",
+   "model": "bytedance/seedance-2.5/image-to-video"
+  },
+  "ugc_video": {
+   "kind": "video",
+   "model": "bytedance/seedance-2.5/reference-to-video"
+  }
+ },
+ "voices": [
+  {
+   "desc": "a warm, friendly female voice, natural American accent",
+   "id": "warm_f",
+   "name": "Warm & friendly",
+   "who": "female"
+  },
+  {
+   "desc": "an upbeat, energetic female voice, natural American accent",
+   "id": "upbeat_f",
+   "name": "Upbeat",
+   "who": "female"
+  },
+  {
+   "desc": "a calm, assured male voice, natural American accent",
+   "id": "calm_m",
+   "name": "Calm & assured",
+   "who": "male"
+  },
+  {
+   "desc": "a casual, chatty male voice, natural American accent",
+   "id": "chatty_m",
+   "name": "Casual & chatty",
+   "who": "male"
+  },
+  {
+   "desc": "a deep, smooth narrator voice",
+   "id": "narrator_deep",
+   "name": "Narrator, deep",
+   "who": "narrator"
+  },
+  {
+   "desc": "a bright, clear narrator voice",
+   "id": "narrator_bright",
+   "name": "Narrator, bright",
+   "who": "narrator"
+  }
+ ]
+}

@@ -12,6 +12,11 @@ that knows it. API shape (from the vendor's official SDKs):
 
     POST {BASE}/requests/{id}/cancel        202 canceled | 400 already started | 404 unknown
 
+Models in use (catalog.TOOLS and catalog.INTERNAL_TOOLS hold the ids). Reference-to-video (talking videos) takes
+`image_urls`, `video_urls` and `audio_urls`: the worker sends product photos, and behind PRESENTER_STILLS the
+presenter's approved still first, behind PRESENTER_VOICE_REF their voice sample as audio_urls[0]. The image model
+of the library (marketing-studio/image/sunburst) takes `prompt` and, to edit from references, `image_urls`.
+
 Auth header: "Key <api_key>:<api_secret>" (one HF_KEY or HF_API_KEY + HF_API_SECRET).
 Failed and nsfw results are not charged by the vendor.
 
@@ -226,6 +231,34 @@ def upload(data: bytes, content_type: str) -> str:
     if put.status_code >= 400:
         raise GenError(f"upload failed: {put.status_code}")
     return j["public_url"]
+
+
+# ---------------------------------------------------------------- the vendor's own presets (read only, free)
+#
+# The vendor can run some of ITS Marketing Studio presets by id through this API: POST {BASE}/marketing-studio/image
+# with enhance_prompt=true, a preset_id and one product image (10% dearer than a plain request). The ids are per
+# account and change, and its docs say to read them from the catalog below at run time and never to hard-code them
+# (open.higgsfield.ai, "Marketing Studio Image" API reference, read 2026-11-09). Nothing in Campaignify sends a
+# preset_id yet: presets.Preset.vendor_preset is the slot for one, and this call is how an admin sees what the
+# account has (the library admin page).
+
+def vendor_presets(size: int = 50, cursor: str | None = None) -> dict:
+    """One page of the vendor's preset catalog for our account: {"items": [{id, type, name}], "cursor", "total"}.
+    A free GET. Raises GenError when the vendor refuses or can't be reached."""
+    params = {"size": max(1, min(100, int(size or 50)))}
+    if cursor:
+        params["cursor"] = cursor
+    try:
+        r = _check(requests.get(f"{BASE}/marketing-studio/image/presets", params=params, headers=_headers(),
+                                timeout=20))
+        j = r.json()
+    except requests.RequestException as e:
+        raise GenError(f"The generation service didn't answer ({type(e).__name__}).") from e
+    except ValueError as e:
+        raise GenError("The preset catalog couldn't be read.") from e
+    items = [{"id": str(i.get("id") or ""), "type": str(i.get("type") or ""), "name": str(i.get("name") or "")}
+             for i in (j.get("items") or []) if isinstance(i, dict) and i.get("id")]
+    return {"items": items, "cursor": j.get("cursor"), "total": j.get("total")}
 
 
 # ---------------------------------------------------------------- price estimates

@@ -259,7 +259,8 @@ the token so it works logged out. Stop sharing (or deleting the ad) makes the li
 - **Claims check** (`claims_check.py`, `CLAIMS_CHECK`, default off): one fast-model call per script maps every factual
   sentence to an approved claim, the product's saved details or its page text (kept at import). A "supported" verdict
   only stands when its quote really is in the source. Create shows flagged lines with "edit or remove" and Generate
-  refuses while one is left. Charged to the member at cost (1 to 2 credits; about $0.004 of model cost).
+  refuses while one is left. Free to the member since m15: we pay about $0.004 of model cost a script, results are
+  cached, and `CLAIMS_CHECK_DAILY_MAX` / `CLAIMS_CHECK_WS_DAILY_MAX` cap a day's checks (below).
 - **Image QA** (`image_qa.py`, `IMAGE_QA`, default off): a vision check of each finished image against the product
   photo (product present, label matches and is legible, no extra or garbled text, no malformed hands or faces). A
   failed picture is made again once, silently; one that fails twice is refunded automatically ("We couldn't get this
@@ -268,6 +269,98 @@ the token so it works logged out. Stop sharing (or deleting the ad) makes the li
 - **Free fix** (`free_fix.py`, `FREE_FIX`, default off): one free "fix it" per delivered image with the member's note,
   `FREE_FIX_MONTHLY_CAP` a workspace a month (default 10; `workspaces.free_fix_cap` overrides it for one workspace).
   Our cost: $0.1071 a fix. No price changes.
+
+## m15 library: our own presets, the presenter roster and their example assets
+
+**Presets** (`presets.py`). 67 records: the 5 ad types and 62 ad presets. New in m15, each with the same full
+contract plus a `category` tag (the product categories it fits) and a `use` tag (`presets.USES`: offer, social-proof,
+problem-solution, unboxing-pov, hands-only-demo, talking-head-cutaways, green-screen-product-page, comparison,
+marketplace, seasonal, founder-story, how-to, before-after-honest, testimonial-real-only ...); the older 39 got tags
+and nothing else (`tests/fixtures/presets_m15_snapshot.json` holds their prompts, prices and cards from before):
+
+- 13 statics on the text layer (`STATICS_M15`): eight seasonal ones (winter gifting, fresh start, spring, summer,
+  autumn, back to routine, a gift for them, seasonal offer), problem-then-answer, three reasons, how it works, the
+  honest switch ("the old way, the new way": never for food, supplements or skincare, and the house rule against
+  before-and-after wording still applies to every line) and an app-screen hero.
+- 15 fixed video formats (`RECIPES`), each with explicit beats of 6 to 8 seconds (shot, what is said, on-screen
+  text, where its first frame comes from) and an end card. Seven run today as one take through the talking-video
+  path (`needs` is ""): voiceover over product shots, hands-only demo, POV unboxing, talk to camera, car talk,
+  seasonal gift moment, founder story (narrated; no AI person plays the founder). Eight need the keyframe-first
+  pipeline that renders beat by beat and stitches (`needs: "keyframe_video"`): talking head with cutaways,
+  problem-solution, over the product page, show your app, street interview (labelled "AI presenter" throughout),
+  three reasons, offer with no countdown, how-to in three steps. Until that pipeline is in `presets.PIPELINES` they
+  are hidden from members (`presets.offered`, `recipes_for`) and refused by Create. The stitcher is not built here.
+- House rules every recipe is written to: no invented reviews (the review card only takes a review the member pastes
+  and attests to), no countdowns or made-up urgency, no before/after health or body claims, no real people or
+  lookalikes, and an AI presenter never speaks as a customer.
+- `presets.example_url(id)` / `example_video_url(id)` give `static/presets/<id>.webp` / `.mp4` once imported, else
+  None. Create and Studio list the new statics; the video recipes are offered through `presets.recipes_for()` and
+  MCP (the pages can't send a video preset yet).
+- The vendor's own presets: its API can run some of them by id (`POST marketing-studio/image` with
+  `enhance_prompt=true` and a `preset_id`, 10% dearer), but the ids are per account, change, and must be read from
+  its catalog at run time (`hf.vendor_presets()`, a free call, shown on the admin library page). None is referenced
+  by a record yet (`Preset.vendor_preset` is the slot).
+
+**Presenters** (`presenters.py`). 20 fictional, AI-generated presenters: the eight Campaignify always had (same ids,
+looks, settings and voices, so old jobs resolve to the same words) and twelve new ones, varied in age band and
+gender, each with 3 or 4 situations out of kitchen, car, outdoor, desk, sofa, bathroom-mirror, gym and shop-floor
+(a wardrobe per situation) and one voice. `presenters.roster()` / `get(id)` are what the front end reads: `id, name,
+age_band, gender, look, voice {id, label}, portrait, voice_sample, situations [{id, label, still}]`, with a url only
+when the file exists under `static/presenters/<id>/` (`portrait.webp`, `<situation>.webp`, `voice.mp3`).
+`catalog.PRESENTERS` stays the eight (old Create, the planner); `catalog.PRESENTER_BY_ID` knows all twenty.
+
+**Switches** (all optional, in `deploy.yml`'s sync list):
+
+| Switch | Default | What it does |
+|---|---|---|
+| `PRESENTER_STILLS` | off | A presenter video whose presenter + situation has an approved still passes it to the video model as the first reference image and says to keep that person. Off: exactly what was sent before. No extra vendor cost. |
+| `PRESENTER_VOICE_REF` | off | A presenter with a `voice.mp3` gets it sent as `audio_urls[0]` with "speak in that voice" (not when the member picked another voice). Needs the paid test below first. |
+| `CLAIMS_CHECK` | off | Unchanged, but free to members now. |
+| `CLAIMS_CHECK_DAILY_MAX` / `CLAIMS_CHECK_WS_DAILY_MAX` | 3000 / 150 | Checks a day for the site / one workspace; past either the check is "skipped" (about $12 a day at most). |
+| `RS_LIBRARY_STILL_MODEL` | `marketing-studio/image/sunburst` | The library's own image model (internal, `catalog.INTERNAL_TOOLS`; never in `TOOLS`). |
+| `RS_LIBRARY_STILL_USD` | our table | One still's vendor cost, once it is known (default table: $0.20 high/1k, $0.055 medium/1k, $0.33 high/2k; +$0.015 per reference image). |
+
+Voice reference, what is known: the vendor's Seedance 2.5 reference-to-video takes `audio_urls` (its API reference
+lists the field with no limits or meaning; other hosts of the model say MP3 or WAV, a few seconds each, alongside at
+least one image). Whether it holds a voice's timbre for generated speech is documented nowhere. The paid test before
+switching `PRESENTER_VOICE_REF` on: one presenter, their still and a 6-second voice sample, two 8-second videos with
+different scripts (about $7.40), plus the same two without the sample; check that the voice matches the sample in
+both, that it differs from the control, and that the sample's own words are never spoken or played.
+
+**Library assets** (`library.py`, `/admin/library`, admin-only MCP tools). A site admin makes presenter stills, voice
+samples, the demo brand's packshots and preset examples as ordinary jobs in their own workspace, price first:
+`quote_library_assets(kind, ids, options)` returns total credits and our estimate of the vendor's bill in USD
+(the vendor's free estimate when it answers, else our table); `generate_library_assets(..., confirm_total_credits)`
+starts nothing unless that total matches; `list_library_assets(kind)` lists what was made with the tags and a download
+link per file. The three tools are hidden from non-admins in `tools/list` and refused server-side; the page is 403 for
+them. Kinds: `demo_products`, `presenter_stills` (`"maya"`, `"maya:kitchen"`; a presenter's first situation is text to
+image and the others are made from it as the same person: they wait for it, and are refunded if it fails),
+`presenter_voices`, `preset_examples`, `preset_videos`. Every job carries `params.library = {kind, presenter,
+situation, preset, demo}`. The demo brand is fictional (`library.DEMO`: Dapplewood mug, candle, moisturizer, coffee,
+tote, greens, planner app); its products are set up in the admin's workspace from their packshots on first use (the
+workspace needs room for one more brand). Approve or reject on the batch page, download the export zip from the page
+(one file per tag, named `presenter__<id>__<situation>.png`, `preset__<id>.png|.mp4`, `voice__<id>.mp4`), then:
+
+    python tools/import_library_assets.py <folder>     # WebP of at most 200 KB (9:16 or 4:5), mp4, voice.mp3 under static/
+
+Vendor cost per preset at the default settings (720p, one version) and what a member pays; none costs us more than
+its price (the markup is 2x):
+
+| Presets | Vendor cost | Member price |
+|---|---|---|
+| Every image preset (42: templates, scene statics, text-layer statics, the m15 statics) | $0.1071 | 22 credits |
+| Slow turn, The swap, Label read (5 s) | $2.31 | 463 |
+| How to make it (10 s) | $4.62 | 925 |
+| Copy a trending video (per 5 s of reference) | $0.50 | 100 |
+| Talk to camera, Car talk, Seasonal gift moment (8 s); Offer, no countdown (8 s, later) | $3.70 | 740 |
+| Voiceover over product shots, Hands-only demo, POV unboxing (15 s); Over the product page, Show your app, Street interview (15 s, later) | $6.93 | 1,387 |
+| Founder story (20 s); Talking head with cutaways, Problem-solution, Three reasons, How-to in three steps (20 s, later) | $9.24 | 1,849 |
+
+What we absorb with no price at all: the claims check ($0.004 a script), and, as before, an IMAGE_QA check and silent
+retry and a free fix. The stitched recipes will add one or two keyframes each (about $0.11 to $0.20) inside the same
+price. Library runs, at our table: all 70 presenter stills 2,950 credits (about $14.75), the 7 demo packshots 280
+(about $1.40), all 42 image examples 924 ($4.50), six video examples 6,381 ($31.89), 20 voice samples 4,940 ($24.67).
+Tests: `tests/test_m15_library.py`.
 
 ## The neutral look, Studio and onboarding (`ui_v2.py`, `studio_v2.py`, `onboarding.py`; `UI_V2`, default off)
 
@@ -443,6 +536,7 @@ are refunded on failure. `CREDIT_HOLDS=off` goes back to charging after the run.
 - `accounts.py` self-serve account creation (the sign-up form and Google share it); `google_auth.py` Continue with Google (OIDC with `requests`, no SDK)
 - `billing.py` Stripe Checkout and webhook signatures (no SDK)
 - `catalog.py` tools, prices, templates (the playbook's angles)
+- `presets.py` the preset library; `presenters.py` the presenter roster; `library.py` the admin's library assets
 - `compliance.py` brief checks (weight-loss, health, discount, income, recruiting), run on every brief, the first-ad flow and brand-kit saves
 - `worker.py` submits, polls, saves results, refunds failures
 - `hf.py` the generation API client (the only file that knows the vendor)

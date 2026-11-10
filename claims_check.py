@@ -14,10 +14,13 @@ really is in the sources and shares enough words with the sentence (verify()). E
                        flagged line with "edit or remove"); Generate refuses while one is left
 
 Create runs it when the member leaves the script step and Generate requires a clean result for the same words
-(claims_checks keeps the last result per product and text, so Generate doesn't pay again). It is charged like
-every AI call here: what the tokens cost x the markup, usually 1 to 2 credits a script (estimate() is the most it
-can hold). That is one more paid call than a script costs today, which is why the switch ships off: turning it
-on adds about $0.004 of model cost (cost_usd()) and 1 to 2 credits to each checked script.
+(claims_checks keeps the last result per product and text, so the same words are never checked twice).
+
+It is FREE to members (m15): no credits are held or taken, and estimate() is 0. We absorb the model cost, about
+$0.004 a script (cost_usd()); each row keeps what its call cost us. Because nobody pays per check, two daily caps
+bound the spend: CLAIMS_CHECK_DAILY_MAX checks a day across the site (default 3000, about $12) and
+CLAIMS_CHECK_WS_DAILY_MAX a day for one workspace (default 150). Past either, the check answers "skipped" until
+midnight UTC. The switch still ships off.
 
 When the check can't run (no key, the model is down) the script is let through and the result says "skipped":
 the regex rules in compliance.py still apply, as they do today.
@@ -53,9 +56,43 @@ def on() -> bool:
     return os.environ.get("CLAIMS_CHECK", "0").strip().lower() in ("1", "on", "true", "yes")
 
 
+DEFAULT_DAILY_MAX, DEFAULT_WS_DAILY_MAX = 3000, 150
+
+
 def estimate() -> int:
-    """The most credits one check can cost a member (what is held while it runs)."""
-    return llm.estimate_credits(*TOKENS, model_id=llm.fast_model())
+    """What one check costs a member, in credits: nothing (m15). Our own cost is cost_usd()."""
+    return 0
+
+
+def _cap(name: str, default: int) -> int:
+    try:
+        return max(0, int(os.environ.get(name, str(default))))
+    except ValueError:
+        return default
+
+
+def daily_max() -> int:
+    return _cap("CLAIMS_CHECK_DAILY_MAX", DEFAULT_DAILY_MAX)
+
+
+def ws_daily_max() -> int:
+    return _cap("CLAIMS_CHECK_WS_DAILY_MAX", DEFAULT_WS_DAILY_MAX)
+
+
+def checks_today(conn, ws_id: int | None = None) -> int:
+    """Checks that really ran today (UTC): the whole site's, or one workspace's."""
+    from datetime import datetime, timezone
+    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    q, args = "SELECT COUNT(*) FROM claims_checks WHERE created_at >= ? AND status != 'skipped'", [day]
+    if ws_id is not None:
+        q += " AND workspace_id=?"
+        args.append(ws_id)
+    return conn.execute(q, args).fetchone()[0]
+
+
+def over_cap(conn, ws_id: int) -> bool:
+    """Is today's safety cap used, for the site or for this workspace? Then the check is skipped (never charged)."""
+    return checks_today(conn) >= daily_max() or checks_today(conn, ws_id) >= ws_daily_max()
 
 
 def cost_usd() -> float:
