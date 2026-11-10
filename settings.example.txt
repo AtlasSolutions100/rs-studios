@@ -48,6 +48,27 @@ RS_MAIL_DOMAIN=mail.campaignify.ai
 # "Your ads are ready": one email to a member when their first batch finishes (ready_email.py).
 # ADS_READY_EMAIL=0 switches it off.
 # ADS_READY_EMAIL=1
+# Quality wave 2 (presets.py, textlayer.py, claims_check.py, image_qa.py, free_fix.py).
+# TEXT_LAYERS (default on): the image presets whose words are set as real type after the picture is made (clean
+# headline, offer, feature callouts, review card, comparison, marketplace image). Same price as an image ad, no
+# extra vendor cost. 0 hides them.
+# TEXT_LAYERS=1
+# CLAIMS_CHECK (default off): one fast-model call per script that ties every factual sentence to an approved
+# claim, the product's saved details or its page text, and blocks Generate while a line has no source. Charged to
+# the member at cost like other AI writing: about $0.004 of model cost, 1 to 2 credits a script.
+# CLAIMS_CHECK=1
+# IMAGE_QA (default off): a vision check of every finished image ad against the product photo; a failed picture
+# is made again once, silently, and refunded if it fails twice. Our cost, not the member's: about $0.004 a
+# picture, plus $0.111 for each silent retry. IMAGE_QA_DAILY_MAX caps the checks a day (default 2000, about $8);
+# IMAGE_QA_MODEL names another vision model (default: the fast model).
+# IMAGE_QA=1
+# IMAGE_QA_DAILY_MAX=2000
+# FREE_FIX (default off): one free "fix it" per delivered image, with the member's note. Our cost: $0.1071 a fix
+# (one image generation; $0.111 with IMAGE_QA on, up to twice that if the fix needs its silent retry).
+# FREE_FIX_MONTHLY_CAP is the most fixes a workspace gets a month (default 10, so at most about $1.07 a
+# workspace a month); a workspace's own number, when set, is workspaces.free_fix_cap.
+# FREE_FIX=1
+# FREE_FIX_MONTHLY_CAP=10
 # Admin outreach emails (/admin/outreach) come from "Koby Stull" <hello@RS_MAIL_DOMAIN> unless set;
 # replies go to hello@ the From's domain.
 # RS_OUTREACH_FROM="Koby Stull" <hello@campaignify.ai>

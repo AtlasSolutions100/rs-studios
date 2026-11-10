@@ -220,6 +220,43 @@ def _hd_offer(job):
 app.jinja_env.globals["hd_offer"] = _hd_offer
 
 
+def _free_fix_offer(job):
+    """For an ad's card: {"output", "left", "cap"} when its one free fix can still be asked for (FREE_FIX), else None."""
+    import free_fix
+    if not free_fix.on() or not free_fix.fixable(job):
+        return None
+    try:
+        with db.connect() as conn:
+            return free_fix.offer(conn, conn.execute("SELECT * FROM workspaces WHERE id=?", (job["workspace_id"],)).fetchone(),
+                                  job)
+    except Exception:  # noqa: BLE001 — a card never fails over an offer
+        return None
+
+
+app.jinja_env.globals["free_fix_offer"] = _free_fix_offer
+
+
+def _quality_stats():
+    """For the admin page: the quality switches, what each costs us, and the last 30 days' numbers."""
+    import claims_check
+    import free_fix
+    import image_qa
+    import presets
+    out = {"text_layers": presets.text_layers_on(), "claims_check": claims_check.on(), "image_qa": image_qa.on(),
+           "free_fix": free_fix.on(), "qa_cost": image_qa.cost(), "fix_cost": free_fix.cost(),
+           "claims_usd": claims_check.cost_usd(), "acceptance": [], "fixes": {"fixes": 0, "usd": 0, "workspaces": 0}}
+    try:
+        with db.connect() as conn:
+            out["acceptance"] = image_qa.acceptance(conn)[:12]
+            out["fixes"] = free_fix.stats(conn)
+    except Exception:  # noqa: BLE001 — the admin page never fails over a statistic
+        pass
+    return out
+
+
+app.jinja_env.globals["quality_stats"] = _quality_stats
+
+
 def _consent_texts(fm):
     import forms_routes as _fr
     return _fr.consent_texts(fm)

@@ -3310,3 +3310,8 @@ if __name__ == "__main__" and not os.environ.get("RS_TEST_ONE"):
     # Quality wave 1 (M12): no invented links, MCP types and snapshot names, product-on-the-table presenter prompt, the
     # fidelity line, two-template first ads, voiceover preview, customer voice, hook types, asset events, ready email.
     subprocess.run([sys.executable, os.path.join(HERE, "test_quality_wave1.py")], check=True)
+    # Quality wave 2 (M13): the preset library (old types and templates unchanged, by snapshot), the text and logo
+    # layer for statics, the claims check, automatic image QA with a silent retry and refund, one free fix per asset.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_quality_wave2.py")], check=True)
+    # The text layer keeps off the product (textlayer.py): the locator, moving a part, re-composing, wrapping.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_textlayer_fit.py")], check=True)

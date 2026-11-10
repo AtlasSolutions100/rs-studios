@@ -242,6 +242,33 @@ Any finished output can get a private share link (`/s/<token>`, `share_routes.py
 noindex page with just the file, the product's name and a "Made with Campaignify" link; the file is served through
 the token so it works logged out. Stop sharing (or deleting the ad) makes the link 404; sharing again makes a new token.
 
+## Presets, the text layer, the claims check, image QA and the free fix (quality wave 2)
+
+- **Presets** (`presets.py`): one record per thing Create can make, each with the same contract: format, shapes,
+  what the member supplies, the prompt recipe, the model and its settings, the beats, the text layers, the QA
+  checks and the price. The 5 ad types and the 14 older templates are built from it and are word for word what they
+  were (`tests/fixtures/presets_snapshot.json`, made by `tools/presets_snapshot.py` before the move). New: 14 scene
+  statics so every product category has its own, and 6 statics with a text layer. Create lists the presets that fit
+  the product with a one-line "what it's for" and a thumbnail (`tools/preset_thumbs.py` draws placeholders).
+- **Text and logo layer** (`textlayer.py`, `TEXT_LAYERS`, default on): for the layered statics the image model makes a
+  picture with no words, then Pillow sets the headline, subhead, price or offer badge, button, feature callouts,
+  review card, comparison and the brand's logo in the brand kit's colours and font (Brand page > Look). Safe areas per
+  shape, auto-fit, and a 4.5:1 contrast check with a panel when the picture is too busy. A badge can only show the
+  product's saved price or offer; a review card needs the member's word that the review is real and is never
+  written by AI. Fonts: Poppins and DM Serif Display (OFL, `static/fonts/ads`).
+- **Claims check** (`claims_check.py`, `CLAIMS_CHECK`, default off): one fast-model call per script maps every factual
+  sentence to an approved claim, the product's saved details or its page text (kept at import). A "supported" verdict
+  only stands when its quote really is in the source. Create shows flagged lines with "edit or remove" and Generate
+  refuses while one is left. Charged to the member at cost (1 to 2 credits; about $0.004 of model cost).
+- **Image QA** (`image_qa.py`, `IMAGE_QA`, default off): a vision check of each finished image against the product
+  photo (product present, label matches and is legible, no extra or garbled text, no malformed hands or faces). A
+  failed picture is made again once, silently; one that fails twice is refunded automatically ("We couldn't get this
+  one right — credits returned."). Every picture gets an `asset_qa` row; the admin page shows first-pass rates per
+  preset. Our cost: about $0.004 a picture, $0.111 more for a silent retry; `IMAGE_QA_DAILY_MAX` caps it.
+- **Free fix** (`free_fix.py`, `FREE_FIX`, default off): one free "fix it" per delivered image with the member's note,
+  `FREE_FIX_MONTHLY_CAP` a workspace a month (default 10; `workspaces.free_fix_cap` overrides it for one workspace).
+  Our cost: $0.1071 a fix. No price changes.
+
 ## MCP server for Claude (`mcpserver.py`, `mcp_tools.py`, `/docs/mcp`)
 
 `MCP_SERVER=on` (default off) opens a remote MCP server at `/mcp` (Streamable HTTP, one JSON answer per POST,

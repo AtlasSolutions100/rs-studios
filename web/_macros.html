@@ -43,7 +43,8 @@
   {% if pr.hook %}<p class="brief">“{{ pr.hook[:120] }}”</p>{% else %}<p class="brief">{{ (j.brief or '')[:110] }}{{ '…' if (j.brief or '')|length > 110 }}</p>{% endif %}
   {% if ctx == 'library' and j.product_id in names %}<p class="small dim" style="margin:4px 0 0">{{ names[j.product_id] }}</p>{% endif %}
   {% if j.status == 'failed' %}
-    {% if not pr.preview %}
+    {% if pr.free_fix %}<p class="small muted" style="margin:8px 0 0">This free fix didn't count. Ask for it again on the original ad.</p>
+    {% elif not pr.preview %}
     {# UX-12: most failures are the brief or the photo (a content filter, a rule), so the first action is to
        change it. "Try again" with the same brief leads only when the failure was on our side. #}
     {% set ours = j.error and j.error[:4] in ('401:', '402:', '403:') %}
@@ -61,6 +62,15 @@
       <form method="post" action="{{ url_for('jobs.review', jid=j.id) }}" data-review><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ back }}"><input type="hidden" name="verdict" value="{{ '' if verdict == 'rejected' else 'rejected' }}"><button class="btn sm {{ 'on bad' if verdict == 'rejected' else 'dark' }} vbtn" aria-pressed="{{ 'true' if verdict == 'rejected' else 'false' }}" data-key="r" title="Reject (R)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg><span class="sr">Reject</span></button></form>
       <button type="button" class="btn dark sm" data-detail-open>Details</button>
     </div>
+    {% set ffo = free_fix_offer(j) if free_fix_offer is defined else None %}{% if ffo %}
+    {# One free fix per delivered picture (free_fix.py, FREE_FIX): the same ad again with the member's note, 0 credits. #}
+    <details class="fixit"><summary class="linkbtn">Not right? Fix it free</summary>
+      <form method="post" action="{{ url_for('jobs.fix', jid=j.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ back }}"><input type="hidden" name="output" value="{{ ffo.output }}">
+        <label class="sr" for="fix-{{ j.id }}">What should be fixed?</label>
+        <textarea id="fix-{{ j.id }}" name="note" maxlength="300" required minlength="4" rows="2" placeholder="What should be fixed? e.g. the cap should be black"></textarea>
+        <div class="row" style="gap:8px;margin-top:6px"><button class="btn sm">Make the fix</button><span class="small muted">Free, once per picture. {{ ffo.left }} of {{ ffo.cap }} left this month.</span></div>
+      </form></details>
+    {% endif %}
     {% set hdo = hd_offer(j) %}{% if hdo %}
     <div class="row cardacts">
       <form method="post" action="{{ url_for('jobs.hd', jid=j.id) }}" data-needs-verify="video" data-confirm="Re-render this in 1080p for {{ hdo.rerender|credits }}?" data-confirm-detail="A new 1080p version with the same settings (+{{ '{:,}'.format(hdo.delta) }} credits vs 720p). This one stays in your library." data-confirm-ok="Re-render in 1080p"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="how" value="rerender"><input type="hidden" name="total" value="{{ hdo.rerender }}"><input type="hidden" name="back" value="{{ back }}"><button class="btn dark sm">1080p · {{ hdo.rerender|credits }}</button></form>
@@ -79,6 +89,7 @@
       <dt>Status</dt><dd>{{ status(j) }}{% if j.error %} <span class="small muted">{{ j.error }}</span>{% endif %}</dd>
       <dt>Credits</dt><dd>{{ '{:,}'.format(j.credits) }}{{ ' (free preview)' if pr.preview }}</dd>
       {% if j.product_id in names %}<dt>Product</dt><dd>{{ names[j.product_id] }}</dd>{% endif %}
+      {% if pr.free_fix %}<dt>Free fix</dt><dd>“{{ pr.fix_note }}”</dd>{% endif %}
       {% if pr.presenter %}<dt>Presenter</dt><dd>{{ pr.presenter|first_upper }}</dd>{% endif %}
       {% if pr.duration %}<dt>Length</dt><dd>{{ pr.duration }} s</dd>{% endif %}
       {% if pr.aspect %}<dt>Shape</dt><dd>{{ pr.aspect }}</dd>{% endif %}

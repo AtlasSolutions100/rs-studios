@@ -85,3 +85,15 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Fonts set on image ads (SIL Open Font License 1.1)
+
+`textlayer.py` draws the words on image ads with two font families bundled in `static/fonts/ads/`. Both are
+licensed under the SIL Open Font License, Version 1.1; the full licence text for each is beside the files.
+
+| Files | Font | Copyright | Licence file |
+|---|---|---|---|
+| `Poppins-Regular.ttf`, `Poppins-Bold.ttf` | Poppins | Copyright 2020 The Poppins Project Authors (https://github.com/itfoundry/Poppins) | `static/fonts/ads/OFL-Poppins.txt` |
+| `DMSerifDisplay-Regular.ttf` | DM Serif Display | Copyright 2014-2018 Adobe, with Reserved Font Name 'Source'; Copyright 2019 Google LLC | `static/fonts/ads/OFL-DMSerifDisplay.txt` |
+
+The font files are unmodified copies from https://github.com/google/fonts (`ofl/poppins`, `ofl/dmserifdisplay`).
