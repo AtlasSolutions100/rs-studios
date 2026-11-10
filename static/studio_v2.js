@@ -246,6 +246,7 @@
       FILTERS.forEach(function(f){
         var key = f[0], names = f[1], vals = [];
         B.presenters.forEach(function(p){ if(p[key] && vals.indexOf(p[key]) < 0) vals.push(p[key]); });
+        if(vals.every(function(v){ return /^\d/.test(v); })) vals.sort(function(a, b){ return parseInt(a, 10) - parseInt(b, 10); });
         var grp = $('[data-pf-group="' + key + '"]'); grp.hidden = vals.length < 2;
         $('[data-pf-pills="' + key + '"]').innerHTML = '<button type="button" aria-pressed="' + (!PF[key]) + '" data-pf="' + key + '" data-pv="">All</button>' + vals.map(function(v){
           return '<button type="button" aria-pressed="' + (PF[key] === v) + '" data-pf="' + key + '" data-pv="' + esc(v) + '">' + esc(names[v] || label(v)) + '</button>'; }).join('');
@@ -269,6 +270,7 @@
         } else if(p.situations.length === 1){ h += '<p class="v2-sit1">' + esc(p.situations[0].label) + '</p>'; }
         return h + '</div>';
       }).join('');
+      box.classList.toggle('nofaces', !B.presenters.some(function(p){ return faceOf(p); }));
       $('[data-pres-none]').hidden = n > 0;
       $('[data-pres-n]').textContent = S.presenters.length + ' of ' + B.max_presenters + ' picked';
     }

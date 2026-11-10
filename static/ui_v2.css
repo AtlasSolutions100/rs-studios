@@ -342,7 +342,12 @@ html[data-ui="v2"][data-surface="app"]:not([data-theme]):root{
   .st-canvas{padding:var(--s4) var(--s4) var(--s5)}
   .st-ghosts{inset:var(--s4) var(--s4) 0;grid-template-columns:repeat(2,1fr);grid-auto-rows:200px;gap:var(--s3)}
   .st-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s5) var(--s3)}
-  .st-empty{margin-top:var(--s4);padding:var(--s4)}
+  .st-ghosts{display:none}
+  .st-empty{margin-top:0;padding:var(--s4)}
+  .st-steps{gap:var(--s2)}
+  .st-steps li{align-items:center}
+  .st-steps span{display:none}
+  .st-steps li::before{grid-row:auto}
   [data-ui="v2"] .shell .st-empty h2{font-size:18px}
   .cmp{padding:var(--s2) var(--s3) var(--s2)}
   .cmp-modes{flex:1}
@@ -403,6 +408,8 @@ dialog.v2-dlg::backdrop{background:var(--v2-scrim)}
 .v2-portrait img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .v2-portrait>b{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;border:1px solid var(--v2-line2);background:var(--v2-raise);font-size:18px;font-weight:600;line-height:1;margin-bottom:auto;color:var(--ink)}
 .v2-look{font-size:12.5px;line-height:1.4;color:var(--muted)}
+.v2-pgrid.nofaces .v2-portrait{aspect-ratio:auto;min-height:148px;gap:var(--s3)}
+.v2-pgrid.nofaces .v2-portrait>b{margin-bottom:0}
 .v2-tick{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--v2-line2);background:var(--v2-raise)}
 .v2-psel[aria-checked="true"] .v2-portrait{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
 .v2-psel[aria-checked="true"] .v2-tick{background:var(--v2-spark);border-color:#141414;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23141414' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4L18 8'/%3E%3C/svg%3E");background-size:14px;background-position:center;background-repeat:no-repeat}
@@ -882,3 +889,15 @@ dialog.price .v2-dlg-f{margin-top:14px}
 [data-ui="v2"] .cm h2{font-size:18px} [data-ui="v2"] .cm h3{font-size:15px}
 [data-ui="v2"] .cm-media,[data-ui="v2"] .cm-embed{border-radius:var(--r-lg)}
 [data-ui="v2"] .cm-text{font-size:16px;line-height:1.65}
+
+/* flows */
+[data-ui="v2"] .fl-card.t-end{opacity:1}
+[data-ui="v2"] .fl-card.t-end .fl-txt span{color:var(--dim)}
+
+/* motion: the look adds none; what the older pages animate stops when the visitor asks for less */
+@media (prefers-reduced-motion:reduce){
+  [data-ui="v2"] .flash-top,[data-ui="v2"] .btn,[data-ui="v2"] .navgrp summary svg,[data-ui="v2"] a.sol-link{transition:none}
+  [data-ui="v2"] .status.running .dot,[data-ui="v2"] .status.pending .dot{animation:none}
+  [data-ui="v2"] .spinner{animation-duration:2.4s}
+}
+[data-ui="v2"] form.panel>.ppick:first-of-type label,[data-ui="v2"] form.panel>input[type=hidden]+label{margin-top:0}
