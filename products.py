@@ -321,11 +321,33 @@ def update_brand(conn, ws_id, bid, form):
     if "brand_name" in vals and not vals["brand_name"]:
         raise ProductError("A brand needs a name.")
     check_fields(vals)
+    vals.update(kit_fields(form))
     if vals:
         conn.execute(f"UPDATE brands SET {', '.join(k + '=?' for k in vals)} WHERE id=? AND workspace_id=?",
                      (*vals.values(), bid, ws_id))
         conn.commit()
     sync_mirror(conn, ws_id)
+
+
+def kit_fields(form) -> dict:
+    """The brand kit's look from a form (quality wave 2, textlayer.py): the two colours and the font a static's
+    text layer is drawn with. Only the keys the form sent; a value that isn't a colour or a known font clears it."""
+    import textlayer
+    out = {}
+    for key in ("kit_primary", "kit_accent"):
+        if key in form:
+            out[key] = textlayer.clean_hex(form.get(key)) or None
+    if "kit_font" in form:
+        out["kit_font"] = form.get("kit_font") if form.get("kit_font") in textlayer.FONTS else None
+    return out
+
+
+def set_logo(conn, ws_id, bid, path):
+    """The brand's own logo file for the text layer (None removes it). Returns the old file's path, if any."""
+    row = conn.execute("SELECT kit_logo FROM brands WHERE id=? AND workspace_id=?", (bid, ws_id)).fetchone()
+    conn.execute("UPDATE brands SET kit_logo=? WHERE id=? AND workspace_id=?", (path, bid, ws_id))
+    conn.commit()
+    return row["kit_logo"] if row else None
 
 
 def create_product(conn, ws, brand_id, form, pending_claims=None, import_json=None) -> int:

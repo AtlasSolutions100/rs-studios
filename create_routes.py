@@ -13,6 +13,7 @@ from flask import Blueprint, abort, g, jsonify, redirect, render_template, reque
 import adfatigue
 import admanage
 import catalog
+import claims_check
 import compliance
 import creator
 import credits as credit_holds
@@ -20,6 +21,7 @@ import db
 import llm
 import platforms
 import presenter_stills
+import presets
 import products
 from core import brand, hold_check, login_required, queue_job, reserve_ai, verify_block, verify_json
 
@@ -83,7 +85,9 @@ def state_for(conn, pid):
             "scripts": [{"id": s["id"], "ad_type": s["ad_type"], "title": s["title"] or "", "hook": s["hook"] or "",
                          "body": s["body"], "items": json.loads(s["on_screen"] or "{}").get("items") or
                          ([s["hook"]] if s["hook"] else [])} for s in scripts],
-            "templates": [t["id"] for t in catalog.templates_for(p)]}
+            "offer": p["offer"] or "",
+            # the presets that fit this product, best fit first (its category's own, then the any-product ones)
+            "templates": [x.id for x in presets.library_for(p)]}
 
 
 @bp.route("/app/create")
@@ -123,6 +127,8 @@ def index():
             prefill = _from_job(conn, request.args.get("retry", type=int)) or prefill
             pid = prefill.get("product") or pid
         tpl = catalog.TEMPLATE_BY_ID.get(request.args.get("template") or "")
+        if tpl and tpl.get("layout") and not presets.text_layers_on():
+            tpl = None
         if tpl and not prefill:
             prefill = catalog.template_prefill(tpl, brand(pid if _product_row(conn, pid) is not None else None))
         if request.args.get("type") in catalog.AD_TYPE_BY_ID:
@@ -148,8 +154,12 @@ def index():
     boot = {"product": st, "prefill": prefill, "types": catalog.ad_types(), "caps": catalog.capabilities(),
             "presenters": presenter_stills.with_photos(url_for), "voices": catalog.VOICES, "prices": prices,
             "from_price": catalog.from_prices(),
-            "templates": [{"id": t["id"], "name": t["name"], "line": t["line"], "tool": t["tool"],
-                           "preview": url_for("static", filename="previews/" + t["preview"] + ".jpg")} for t in catalog.TEMPLATES],
+            # the preset library (presets.py): every template and static, each with its one-line "what it's for"
+            # and a thumbnail; the page lists the ones that fit the product picked (product.templates)
+            "templates": [presets.card(x, url_for) for x in presets.OLD_TEMPLATES + presets.SCENES
+                          + (presets.LAYERED if presets.text_layers_on() else [])],
+            "layouts": {x.id: presets.layout_spec(x) for x in presets.LAYERED} if presets.text_layers_on() else {},
+            "claims_check": claims_check.on() and llm.anthropic_ready(), "quote_claims": claims_check.estimate(),
             "refs": [{"id": r["id"], "title": r["title"], "seconds": r["seconds"], "url": url_for("ref_video", rid=r["id"])}
                      for r in refs],
             "durations": {"ugc_video": catalog.TOOLS["ugc_video"]["durations"], "photo_to_video": [5, 10]},
@@ -165,6 +175,7 @@ def index():
                      "quote": url_for("create.quote"), "generate": url_for("create.generate"),
                      "shorten": url_for("create.shorten"),
                      "check": url_for("create.check_step"), "billing": url_for("billing_page"),
+                     "claims": url_for("create.claims"),
                      "state": url_for("create.product_state"), "new_product": url_for("products.new"),
                      "edit_product": url_for("products.edit", pid=0)}}
     return render_template("create.html", boot=boot, tree=tree, refresh=refresh)
@@ -525,6 +536,25 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
         n = max(1, min(4, int(d.get("versions") or 1)))
         credits, usd = catalog.price_credits(tool, batch=n), catalog.cost_usd(tool, batch=n)
         subline, cta = image_text(d)
+        pre = presets.get(d.get("preset"))
+        pre = pre if pre is not None and pre.tool == "ad_image" and pre.kind != "type" else None
+        layered = pre if pre is not None and pre.layout and presets.text_layers_on() else None
+        if pre is not None and pre.layout and layered is None:
+            raise ConfigError("That preset is switched off right now. Pick another.", "type")
+        layers = {}
+        if layered is not None:
+            try:
+                layers = presets.clean_layers(layered, d.get("layers"), b)
+            except presets.LayerError as e:
+                raise ConfigError(str(e), "script") from None
+            if not photo_ids:
+                raise ConfigError(f"{p['name']} needs a photo first: this preset is built around it.", "format")
+            if layered.extra.get("headline") is False:
+                items, subline, cta = [layered.name], "", ""
+            if "cta" not in layered.text_layers:
+                cta = ""
+            if "subhead" not in layered.text_layers:
+                subline = ""
         if body:
             chk = compliance.check(body)
             if not chk["ok"]:
@@ -533,16 +563,24 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
             chk = compliance.check(txt)
             if txt and not chk["ok"]:
                 raise ConfigError(f"{label}: " + " ".join(chk["blocks"]), "script")
+        noun = "Review" if layered is not None and layered.layout == "review" else "Headline"
         for i, item in enumerate(items):
-            item = item[:catalog.TEXT_LIMITS["headline"]]
+            item = item[:(layered.extra.get("item_max") if layered is not None else 0) or catalog.TEXT_LIMITS["headline"]]
             chk = compliance.check(item)
             if not chk["ok"]:
-                raise ConfigError(f"Headline {i + 1}: " + " ".join(chk["blocks"]), "script")
+                raise ConfigError(f"{noun} {i + 1}: " + " ".join(chk["blocks"]), "script")
+            item = item.replace('"', "'")
             text = f'Headline: "{item}"' + (f' Subline: "{subline}"' if subline else "") + (f' Button: "{cta}"' if cta else "")
             brief_txt = (body[:2000 - len(text) - 1] + " " + text).strip()
             for asp in aspects:
                 params = dict(base, batch=n, aspect=asp, audience=(b.get("audience") or "")[:200], niche="",
                               headline=item, subline=subline, cta=cta)
+                if pre is not None:
+                    params["preset"] = pre.id         # which preset made it (acceptance per preset)
+                if layered is not None:               # its words are set by textlayer.py, not by the image model
+                    params.update(layout=layered.layout, layers=layers)
+                    if layers.get("attest"):
+                        params["review_attested_by"] = g.user["id"]
                 jobs.append({"tool": tool, "brief": brief_txt[:2000], "params": params, "credits": credits, "usd": usd,
                              "label": f"{asp} · {n} version{'s' if n > 1 else ''}", "hook": item, "key": f"{i}::{asp}"})
     elif tool == "photo_to_video":
@@ -578,7 +616,7 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
         raise ConfigError(f"That's {len(jobs)} ads; one batch makes at most {MAX_BATCH}. Untick some below, or pick "
                           "fewer hooks, presenters or shapes.", "review" if every > len(jobs) or d.get("lines") else "cast"
                           if kind == "spoken" else "format")
-    return {"product": p, "type": at, "tool": tool, "every": every, "all": alljobs}, jobs
+    return {"product": p, "type": at, "tool": tool, "every": every, "all": alljobs, "brief": b}, jobs
 
 
 def image_text(d) -> tuple[str, str]:
@@ -645,8 +683,60 @@ def check_step():
     if kind == "image":
         subline, cta = image_text(d)
         text_blocks = compliance.check(subline, cta)["blocks"] if (subline or cta) else []
+    pre = presets.get(d.get("preset")) if kind == "image" else None
+    if pre is not None and pre.layout and presets.text_layers_on():
+        with db.connect() as conn:
+            prow = _product_row(conn, d.get("product"))
+        try:
+            presets.clean_layers(pre, d.get("layers"), brand(prow["id"]) if prow is not None else {})
+        except presets.LayerError as e:
+            text_blocks = list(text_blocks) + [str(e)]
     return jsonify({"items": out, "limit": lim, "hard": hard, "body_blocks": bchk["blocks"], "text_blocks": text_blocks,
                     "ok": not any(x["over"] or x["blocks"] for x in out) and not bchk["blocks"] and not text_blocks})
+
+
+def _claims_state(conn, d, p, b):
+    """(lines, hash, cached result or None) of a config's claims check."""
+    lines = claims_check.lines_of(d)
+    src = claims_check.sources(b, claims_check.page_text_of(p))
+    h = claims_check.text_hash(lines, src)
+    return lines, h, claims_check.cached(conn, g.ws["id"], p["id"], h)
+
+
+@bp.route("/app/create/claims", methods=["POST"])
+@login_required
+def claims():
+    """The claims check for the script step (CLAIMS_CHECK): every factual sentence must trace back to an approved
+    claim, the product's saved details or its page. One AI call, charged at cost; the result is kept so Generate
+    doesn't pay again. {"status": ok | flagged | skipped | off, "flags": [{line, sentence, why}]}."""
+    d = _json()
+    if not claims_check.on():
+        return jsonify({"status": "off", "flags": []})
+    with db.connect() as conn:
+        p = _product_row(conn, d.get("product"))
+        if p is None:
+            abort(404)
+        b = brand(p["id"])
+        lines, h, have = _claims_state(conn, d, p, b)
+        if not lines:
+            return jsonify({"status": "ok", "flags": [], "charged": 0, "balance": _bal()})
+        if have is not None and have.get("status") in ("ok", "flagged"):
+            return jsonify(dict(have, charged=0, balance=_bal(), cached=True))
+        if not llm.anthropic_ready():
+            return jsonify({"status": "skipped", "flags": [], "charged": 0, "balance": _bal()})
+        hold, busy = _ai_hold(claims_check.estimate(), "AI claims check")
+        if busy:
+            return busy
+        usage = llm.Usage()
+        try:
+            res = claims_check.check(lines, b, claims_check.page_text_of(p), usage)
+        except llm.LLMError:
+            # the check couldn't run: the script goes through on the fixed rules alone, as it did before
+            res = {"status": "skipped", "flags": [], "facts": 0, "supported": 0}
+        taken = _settle(hold, usage)
+        claims_check.save(conn, g.ws["id"], p["id"], h, res, round(usage.usd, 6))
+        conn.commit()
+    return jsonify(dict(res, charged=taken, balance=_bal()))
 
 
 @bp.route("/app/create/generate", methods=["POST"])
@@ -659,6 +749,14 @@ def generate():
         except ConfigError as e:
             return jsonify({"error": str(e), "step": e.step}), 400
         total = sum(j["credits"] for j in jobs)
+        if claims_check.on() and llm.anthropic_ready():
+            # CLAIMS_CHECK: the words about to be made need a clean check (the page runs it at the script step)
+            lines, _h, have = _claims_state(conn, d, meta["product"], meta["brief"])
+            if lines and have is None:
+                return jsonify({"error": "Check the claims in this script first.", "step": "script", "claims": True}), 400
+            if lines and have.get("status") == "flagged":
+                return jsonify({"error": "Some lines say things the product page doesn't back up. Edit or remove them.",
+                                "step": "script", "claims": True, "flags": have.get("flags") or []}), 400
         hold_check(conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone())
         blocked = verify_block(conn, meta["tool"], total)
         if blocked:     # video (or past the unconfirmed allowance): the page asks for the code, then sends this again
@@ -679,7 +777,7 @@ def generate():
         save_script(conn, p["id"], meta["type"]["id"], d.get("items"), d.get("body"), angle.get("title"), aid)
         cfg = {k: d.get(k) for k in ("type", "angle", "items", "body", "presenters", "voices", "voice", "duration",
                                      "aspects", "platforms", "versions", "ref", "photos", "setting", "audio", "resolution",
-                                     "subline", "cta", "placement")}
+                                     "subline", "cta", "placement", "preset", "layers")}
         cfg["made"] = [j["key"] for j in jobs]
         cfg["every"] = meta["every"]
         cfg["product"] = p["id"]
@@ -692,7 +790,8 @@ def generate():
         queued = 0
         for j in jobs:
             params = dict(j["params"], label=j["label"], hook=j["hook"][:200], line=j["key"])
-            jid = queue_job(conn, j["tool"], None, j["brief"], params, j["usd"], j["credits"], quiet=True,
+            tpl_id = params.get("preset") if params.get("preset") in catalog.TEMPLATE_BY_ID else None
+            jid = queue_job(conn, j["tool"], tpl_id, j["brief"], params, j["usd"], j["credits"], quiet=True,
                             product_id=p["id"], batch_id=bid)
             if not jid:
                 break

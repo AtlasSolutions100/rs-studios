@@ -466,6 +466,38 @@ def import_photos(pid):
 
 # ---------------------------------------------------------------- brands
 
+def _save_logo(conn, bid):
+    """The brand kit's logo (textlayer.py sets it on statics as the file it is): a PNG, JPEG or WebP up to 5 MB."""
+    old = None
+    fs = request.files.get("kit_logo")
+    if request.form.get("kit_logo_remove"):
+        old = products.set_logo(conn, g.ws["id"], bid, None)
+    elif fs and fs.filename:
+        try:
+            path, _ctype = save_upload(fs, os.path.join(UPLOADS, str(g.ws["id"])), PHOTO_TYPES, 5, ws=g.ws)
+        except ValueError as e:
+            flash(f"Logo: {e}")
+            return
+        old = products.set_logo(conn, g.ws["id"], bid, path)
+    if old and os.path.exists(old) and os.path.dirname(os.path.abspath(old)) == os.path.abspath(
+            os.path.join(UPLOADS, str(g.ws["id"]))):
+        try:
+            os.remove(old)
+        except OSError:
+            pass
+
+
+@bp.route("/app/brands/<int:bid>/logo")
+@login_required
+def brand_logo(bid):
+    with db.connect() as conn:
+        b = products.get_brand(conn, g.ws["id"], bid)
+    if b is None or not b["kit_logo"] or not os.path.exists(b["kit_logo"]):
+        abort(404)
+    from flask import send_file
+    return send_file(b["kit_logo"], conditional=True, max_age=300)
+
+
 @bp.route("/app/brands/<int:bid>/edit", methods=["GET", "POST"])
 @login_required
 def brand_edit(bid):
@@ -478,10 +510,14 @@ def brand_edit(bid):
                 if _locked(conn, bid):
                     raise products.ProductError("That brand is locked on your plan.")
                 products.update_brand(conn, g.ws["id"], bid, request.form)
+                _save_logo(conn, bid)
                 flash("Brand saved.")
                 return redirect(_back(url_for("brand_kit")))
             except products.ProductError as e:
                 flash(str(e))
         rows = products.products(conn, g.ws["id"], bid)
         locked = _locked(conn, bid)
-    return render_template("brand_edit.html", b=b, rows=rows, locked=locked, cap=plans.limit(g.ws, "brands"))
+    import textlayer
+    return render_template("brand_edit.html", b=b, rows=rows, locked=locked, cap=plans.limit(g.ws, "brands"),
+                           kit_fonts=[(k, v["name"]) for k, v in textlayer.FONTS.items()],
+                           kit_default=textlayer.DEFAULT_KIT)

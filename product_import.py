@@ -480,7 +480,10 @@ def build(facts: dict, ai: dict | None) -> dict:
     import products as _products
     form["category"] = _products.guess_category(" ".join([form["tags"], form["name"], form["description"]]))
     return {"form": form, "pending": claims[:12], "brand": str(ai.get("brand") or facts["brand"] or "")[:80],
-            "import": {"url": facts["url"], "images": facts["images"], "own": facts.get("own") or [], "taken": []}}
+            # "text": the page's own words, kept for the claims check (claims_check.py): a script's facts must
+            # trace back to an approved claim or to this
+            "import": {"url": facts["url"], "images": facts["images"], "own": facts.get("own") or [], "taken": [],
+                       "text": " ".join(page_text.split())[:6000]}}
 
 
 def download_image(url: str) -> tuple[bytes, str]:

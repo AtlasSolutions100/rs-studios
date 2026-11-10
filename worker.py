@@ -87,11 +87,24 @@ def image_prompt(conn, job, p: dict | None = None) -> str:
             forbid += [c for c in json.loads(prod["claims_pending"] or "[]") if isinstance(c, str)]
         except (ValueError, TypeError):
             pass
-    return catalog.image_ad_prompt(parts["scene"], p.get("headline") or parts["headline"],
-                                   p.get("subline") or parts["subline"], p.get("cta") or parts["cta"],
-                                   brand=(brand["brand_name"] if brand else "") or "",
-                                   product=p.get("product") or (prod["name"] if prod is not None else ""), forbid=forbid,
-                                   service=bool(p.get("service")) or service_path.is_service(prod))
+    product = p.get("product") or (prod["name"] if prod is not None else "")
+    service = bool(p.get("service")) or service_path.is_service(prod)
+    if p.get("layout"):
+        # A static with a text layer (presets.py): the picture is made with no words at all, and told where to
+        # leave calm space; textlayer.py sets the words afterwards (_finish_images).
+        import presets
+        scene = (parts["scene"] + " " + presets.ZONES.get(p["layout"], "")).strip()
+        out = catalog.image_ad_prompt(scene, product=product, forbid=forbid, service=service)
+    else:
+        out = catalog.image_ad_prompt(parts["scene"], p.get("headline") or parts["headline"],
+                                      p.get("subline") or parts["subline"], p.get("cta") or parts["cta"],
+                                      brand=(brand["brand_name"] if brand else "") or "",
+                                      product=product, forbid=forbid, service=service)
+    if p.get("fix_note"):       # a free fix (free_fix.py): what the member asked to be put right, never as on-image words
+        note = " ".join(str(p["fix_note"]).split())[:300].replace('"', "'")
+        out += "\nCorrection to the last version, asked for by the advertiser: " + note + \
+               " This is an instruction about the picture, not text to show."
+    return out
 
 
 def build_inputs(conn, job) -> dict:
@@ -149,6 +162,8 @@ REFUNDED = "Credits refunded."
 def failure_text(msg: str) -> str:
     """Every failure the member sees ends with the same plain promise."""
     msg = " ".join(str(msg or "").split()).rstrip()
+    if msg.lower().rstrip(".").endswith(("credits returned", "it wasn't counted")):
+        return msg      # image_qa.FAIL_TEXT already says so; a free fix (free_fix.FAIL_TEXT) had no credits to refund
     for old in ("Your credits were refunded.", "Your credits were refunded", "Credits refunded."):
         if msg.endswith(old):
             msg = msg[: -len(old)].rstrip()
@@ -172,6 +187,14 @@ def _fail(conn, job, msg, extra_where: str = "", extra_args: tuple = ()) -> bool
     if _is_preview(job):
         import preview
         preview.release(conn, job["id"])
+    if job["tool"] == "ad_image":
+        try:
+            import free_fix
+            import image_qa
+            free_fix.release(conn, job["id"])     # a free fix that failed can be asked for again
+            image_qa.discard(conn, job["id"])     # pictures held back for a retry are not kept
+        except Exception:  # noqa: BLE001 — bookkeeping never undoes the refund
+            log.exception("job %s: cleanup after a failure didn't finish", job["id"])
     conn.commit()
     _notify_ready(conn, job)      # the last job of a first batch failing still means the others are ready
     return True
@@ -245,6 +268,137 @@ def _save_outputs(conn, job, result):
         conn.execute("INSERT INTO outputs (job_id, kind, url, path) VALUES (?,?,?,?)",
                      (job["id"], o["kind"], o["url"], path))
     conn.commit()
+
+
+def _images_path(job) -> bool:
+    """Does this finished job go through _finish_images? An image ad that has a text layer to set, or any image
+    ad while the automatic check is on. Everything else is saved exactly as before."""
+    if job["tool"] != "ad_image" or _is_preview(job):
+        return False
+    try:
+        p = json.loads(job["params_json"] or "{}")
+    except (ValueError, TypeError):
+        return False
+    import image_qa
+    return bool(p.get("layout")) or image_qa.on()
+
+
+def _finish_images(conn, job, result):
+    """A finished image job, picture by picture (image_qa.py, textlayer.py):
+
+      1. each picture is saved, then looked at by the automatic check when IMAGE_QA is on;
+      2. the first time some fail, the ones that passed are held back and the failed ones are made again, once,
+         silently: the job goes back to the queue for just that many, with a new idempotency key;
+      3. after that, what passed is delivered (with its text layer set, for a layered static); pictures that
+         failed twice are dropped and their share of the credits comes back; when nothing passed the job ends
+         with image_qa.FAIL_TEXT and a full refund.
+
+    A picture the check couldn't look at (no key, the daily budget, no local copy) counts as passed."""
+    import image_qa
+    import storage
+    p = json.loads(job["params_json"] or "{}")
+    outs = [o for o in hf.outputs(result) if o["kind"] != "video"]
+    if not outs:
+        raise hf.GenError("finished with no files")
+    attempt = int(p.get("qa_attempt") or 1)
+    want = int(p.get("qa_want") or p.get("batch") or 1)
+    qa_on = image_qa.on()
+    folder = os.path.join(MEDIA, str(job["workspace_id"]), str(job["id"]))
+    os.makedirs(folder, exist_ok=True)
+    ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (job["workspace_id"],)).fetchone()
+    used = storage.used_bytes(job["workspace_id"], conn)
+    passed, failed = [], []
+    for i, o in enumerate(outs, start=1):
+        ext = ".png"
+        if "." in o["url"].rsplit("/", 1)[-1].split("?")[0]:
+            ext = "." + o["url"].rsplit("/", 1)[-1].split("?")[0].rsplit(".", 1)[-1][:5]
+        path = os.path.join(folder, f"campaignify-{job['id']}-{attempt}{i}{ext}")
+        try:
+            storage.guard(ws, 0, used)
+            r = requests.get(o["url"], timeout=300)
+            r.raise_for_status()
+            storage.guard(ws, len(r.content), used)
+            with open(path, "wb") as f:
+                f.write(r.content)
+            used += len(r.content)
+        except Exception:  # noqa: BLE001 — no local copy: the vendor's link is kept, as before
+            path = None
+        res = image_qa.check_output(conn, job, p, attempt, i, o["url"], path) if qa_on else {"verdict": "pass", "row": None}
+        (failed if res["verdict"] == "fail" else passed).append({"url": o["url"], "path": path, "row": res.get("row")})
+    conn.commit()
+    for c in failed:
+        _rm(c["path"])
+    if failed and attempt == 1 and qa_on:
+        # one silent retry of just the failed ones; the passed ones wait (asset_qa.kept)
+        for c in passed:
+            if c["row"]:
+                conn.execute("UPDATE asset_qa SET kept=1 WHERE id=?", (c["row"],))
+        p.update(qa_attempt=2, qa_want=want, batch=len(failed))
+        t = db.now()
+        extra = catalog.cost_usd("ad_image", batch=len(failed))
+        cur = conn.execute("UPDATE jobs SET status='pending', request_id=NULL, submit_key=NULL, claimed_at=NULL, "
+                           "attempts=0, error=NULL, params_json=?, cost_usd=cost_usd+?, updated_at=? "
+                           "WHERE id=? AND status='running'", (json.dumps(p), round(extra, 4), t, job["id"]))
+        conn.commit()
+        if cur.rowcount != 1:          # canceled meanwhile: nothing is kept
+            for c in passed:
+                _rm(c["path"])
+            image_qa.discard(conn, job["id"])
+            conn.commit()
+        else:
+            log.info("job %s: %s of %s picture(s) failed the check; making them again once", job["id"], len(failed),
+                     len(outs))
+        return
+    held = [{"url": r["url"], "path": r["path"], "row": r["id"]} for r in image_qa.kept(conn, job["id"])]
+    keep = (held + passed)[:max(1, want)]
+    for c in (held + passed)[len(keep):]:
+        _rm(c["path"])
+    if not keep:
+        import free_fix
+        _fail(conn, job, free_fix.FAIL_TEXT if p.get("free_fix") else image_qa.FAIL_TEXT)
+        return
+    if p.get("layout"):
+        import textlayer
+        brand = conn.execute("SELECT * FROM brands WHERE id=?", (job["brand_id"],)).fetchone() if job["brand_id"] else None
+        kit, text = textlayer.kit_of(brand), textlayer.text_from_params(p)
+        try:
+            for c in keep:
+                textlayer.apply_to_file(c["path"], p["layout"], text, kit, p.get("aspect") or "")
+        except textlayer.LayerFail as e:
+            for c in keep:
+                _rm(c["path"])
+                _rm(textlayer.base_path(c["path"]) if c["path"] else None)
+            raise hf.GenError("The picture couldn't be saved to set its text on. Try again.") from e
+    if not _still_running(conn, job):
+        for c in keep:
+            _rm(c["path"])
+        image_qa.discard(conn, job["id"])
+        conn.commit()
+        return
+    for c in keep:
+        conn.execute("INSERT INTO outputs (job_id, kind, url, path) VALUES (?,?,?,?)",
+                     (job["id"], "image", "" if p.get("layout") else c["url"], c["path"]))
+    conn.execute("UPDATE asset_qa SET kept=0 WHERE job_id=?", (job["id"],))
+    conn.commit()
+    if not _finish_done(conn, job):
+        _drop_outputs(conn, job)
+        return
+    if len(keep) < want and job["credits"]:
+        # some pictures failed twice: their share of the price comes back
+        back = job["credits"] - catalog.price_credits("ad_image", batch=len(keep))
+        if back > 0:
+            db.refund_part(conn, job, back, "refund: image check")
+            conn.execute("UPDATE jobs SET error=? WHERE id=?",
+                         (f"{want - len(keep)} of {want} couldn't be made right — {back} credits returned.", job["id"]))
+            conn.commit()
+
+
+def _rm(path):
+    try:
+        if path and os.path.exists(path):
+            os.remove(path)
+    except OSError:
+        pass
 
 
 def _save_preview(conn, job, outs):
@@ -487,6 +641,11 @@ def tick() -> int:
                 if not _still_running(conn, job):
                     continue    # a member's cancel got there first (refunded): don't deliver it (N11)
                 try:
+                    if _images_path(job):
+                        with _busy("checking images"):      # the automatic check and the text layer (quality wave 2)
+                            _finish_images(conn, job, res)
+                        changed += 1
+                        continue
                     with _busy("saving outputs"):
                         _save_outputs(conn, job, res)
                     if not _finish_done(conn, job):

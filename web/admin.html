@@ -32,6 +32,14 @@
     {% if dl.series %}<div class="small muted">By hour (48 h, write lock wait p95 in ms): {% for h in dl.series[-12:] %}{{ h.hour[11:16] }} {{ '%g'|format(h.wait_p95_ms) if h.wait_p95_ms is not none else '-' }}{% if h.locked %} ({{ h.locked }} timeouts){% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</div>{% endif %}
     <div class="small muted">Move to Postgres when the write lock wait p95 is over {{ '%g'|format(dl.threshold.wait_p95_ms) }} ms for a day (at least {{ dl.threshold.min_writes }} writes) or the database is over {{ '%g'|format(dl.threshold.size_gb) }} GB. An operator alert goes out once a day while it is.</div>{% endif %}</td></tr>{% endif %}
   <tr><th>Sign-ups (30 days)</th><td>{{ funnel.signups }} · {{ funnel.verified }} confirmed · {{ funnel.paid_source }} from ads ({{ funnel.ad_grant }} got the ad credits) · {{ funnel.made }} made something · {{ funnel.paying }} paying · <a href="{{ url_for('admin_signups') }}">See sign-ups</a></td></tr>
+  {% set qw = quality_stats() if quality_stats is defined else None %}{% if qw %}<tr id="quality"><th>Ad quality (30 days)</th><td>
+    Text layers <span class="tag {{ 'ok' if qw.text_layers else 'warn' }}">{{ 'on' if qw.text_layers else 'off' }}</span> ·
+    Claims check <span class="tag {{ 'ok' if qw.claims_check else 'warn' }}">{{ 'on' if qw.claims_check else 'off' }}</span> (about ${{ '%.3f'|format(qw.claims_usd) }} a script, charged to the member at cost) ·
+    Image QA <span class="tag {{ 'ok' if qw.image_qa else 'warn' }}">{{ 'on' if qw.image_qa else 'off' }}</span> (about ${{ '%.3f'|format(qw.qa_cost.check_usd) }} a picture, ${{ '%.3f'|format(qw.qa_cost.retry_usd) }} more for a silent retry; ours) ·
+    Free fix <span class="tag {{ 'ok' if qw.free_fix else 'warn' }}">{{ 'on' if qw.free_fix else 'off' }}</span> (${{ '%.3f'|format(qw.fix_cost.fix_usd) }} a fix, up to {{ qw.fix_cost.monthly_cap }} a workspace a month; ours).
+    <div class="small muted">Free fixes: {{ qw.fixes.fixes }} in {{ qw.fixes.workspaces }} workspace{{ 's' if qw.fixes.workspaces != 1 }}, ${{ '%.2f'|format(qw.fixes.usd) }}.{% if not qw.acceptance %} No pictures checked yet.{% endif %}</div>
+    {% for a in qw.acceptance %}<div class="small muted">{{ a.ad_type }}{{ ' / ' ~ a.preset if a.preset }}: {{ a.checked }} checked · {{ a.first_pass }} passed first time{% if a.first_pass_rate is not none %} ({{ '%.0f'|format(a.first_pass_rate * 100) }}%){% endif %} · {{ a.retry_pass }} on the retry · {{ a.refunded }} refunded · {{ a.skipped }} not checked · ${{ '%.2f'|format(a.usd) }}</div>{% endfor %}
+  </td></tr>{% endif %}
   </table>
 </div>
 <div class="panel scrollx">
