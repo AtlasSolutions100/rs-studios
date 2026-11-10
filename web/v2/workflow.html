@@ -63,6 +63,24 @@
       <div class="empty">No packs can be made right now. Make single ads in <a href="{{ url_for('studio_v2.page') }}">Studio</a>.</div>
       {% endif %}
     </section>
+
+    {% if recipes %}
+    <section class="wf-shelf" aria-labelledby="wf-rec-h">
+      <div class="wf-shelf-h">
+        <h2 id="wf-rec-h">Video presets</h2>
+        <p class="wf-sub">Fixed formats for a presenter video or a voiceover: each one owns the shot and the length it starts at. Picking one opens it in Studio, where you write the script and see the price.</p>
+      </div>
+      <ul class="wf-recs">
+        {% for x in recipes %}
+        <li><a class="wf-rec" href="{{ url_for('studio_v2.page', preset=x.id) }}">
+          <span class="wf-rec-top"><b>{{ x.name }}</b><span>{{ 'Presenter' if x.mode == 'presenter' else 'Voiceover' }}{% if x.duration %}, {{ x.duration }} s{% endif %}</span></span>
+          <span class="wf-pack-line">{{ x.what_for }}</span>
+          <span class="wf-pack-from">from {{ x.from|credits }}</span>
+        </a></li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
   </div>
 </div>
 

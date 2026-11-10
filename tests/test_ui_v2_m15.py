@@ -398,17 +398,40 @@ check(gq.get("count") == 1 and "parts" not in gq, "asking for three is an ordina
 check(studio_v2.config_for({"mode": "image", "product": gp, "text": "x", "count": 2, "pair": True}).get("pair") is None,
       "the pair flag never reaches Create's config")
 
-print("== the presenter picker: the fallback, the roster, the situation")
-sys.modules.pop("presenters", None)
+print("== the presenter picker: the roster, the fallback, the situation")
+import presenters  # noqa: E402
+real_presenters = sys.modules["presenters"]
+with appmod.app.test_request_context("/app"):
+    rows = studio_v2.roster()
+keys = {"id", "name", "age_band", "gender", "look", "voice", "portrait", "voice_sample", "situations"}
+check([r["id"] for r in rows] == [r["id"] for r in presenters.roster()] and len(rows) == 20
+      and [r["id"] for r in rows[:8]] == [p["id"] for p in catalog.PRESENTERS],
+      "the picker's roster is presenters.roster(): 20 presenters, the first eight first")
+check(all(keys <= set(r) and set(r["voice"]) == {"id", "label"} and r["voice"]["label"] and r["situations"]
+          and all({"id", "label", "still"} <= set(x) and x["id"] in presenters.SITUATIONS for x in r["situations"]) for r in rows),
+      "each with a voice and its situations; a missing portrait, still or voice sample is an empty value, not an error")
+check({r["gender"] for r in rows} >= {"female", "male"} and len({r["age_band"] for r in rows}) >= 3,
+      "gender and age band come with the roster (the picker's two filters)")
+import presenter_stills  # noqa: E402
+_photo = presenter_stills.photo_url
+presenter_stills.photo_url = lambda pid, url_for: f"/static/presenters/{pid}.jpg" if pid == "maya" else None
+try:
+    with appmod.app.test_request_context("/app"):
+        by = {r["id"]: r for r in studio_v2.roster()}
+    check(by["maya"]["portrait"] == "/static/presenters/maya.jpg" and by["jordan"]["portrait"] == "",
+          "a presenter without a portrait falls back to the sample still it has (presenter_stills), else a neutral tile")
+finally:
+    presenter_stills.photo_url = _photo
 with appmod.app.test_request_context("/app"):
     sys.modules["presenters"] = None           # "import presenters" raises ImportError, as on a branch without it
     try:
         rows = studio_v2.roster()
+        check(studio_v2.situation_for({"situation": "kitchen"}, ["maya"]) is None and studio_v2.situation_labels() == {},
+              "no presenters module: no situations are sent at all")
     finally:
-        sys.modules.pop("presenters", None)
+        sys.modules["presenters"] = real_presenters
 check([r["id"] for r in rows] == [p["id"] for p in catalog.PRESENTERS] and len(rows) == 8,
-      "no presenters module: today's eight presenters")
-keys = {"id", "name", "age_band", "gender", "look", "voice", "portrait", "voice_sample", "situations"}
+      "no presenters module: the first eight presenters")
 check(all(keys <= set(r) and set(r["voice"]) == {"id", "label"} and r["voice"]["label"] and len(r["situations"]) == 1
           and {"id", "label", "still"} <= set(r["situations"][0]) for r in rows),
       "each in the roster's shape: a voice, one situation (the setting they are described in), no portrait needed")
@@ -416,77 +439,129 @@ by = {r["id"]: r for r in rows}
 check(by["maya"]["gender"] == "female" and by["jordan"]["gender"] == "male" and by["sam"]["gender"] == ""
       and by["maya"]["age_band"] == "20s" and by["elena"]["age_band"] == "50s"
       and by["maya"]["voice"]["id"] == catalog.default_voice("maya") and by["maya"]["situations"][0]["label"] == "Bright, lived-in kitchen",
-      "gender and age band are read from the description (none where it doesn't say), the voice is the default one")
+      "there, gender and age band are read from the description (none where it doesn't say)")
 fake = types.ModuleType("presenters")
 fake.roster = lambda: [
-    {"id": "maya", "name": "Maya", "age_band": "young adult", "gender": "female", "look": "curly dark hair",
-     "voice": {"id": "warm_f", "label": "Warm"}, "portrait": "/static/presenters/maya.jpg", "voice_sample": "/static/voices/warm_f.mp3",
-     "situations": [{"id": "kitchen", "label": "Kitchen", "still": "/static/presenters/maya-kitchen.jpg"},
-                    {"id": "car", "label": "In the car", "still": None}, {"label": "no id"}]},
+    {"id": "maya", "name": "Maya", "age_band": "25-34", "gender": "female", "look": "curly dark hair",
+     "voice": {"id": "warm_f", "label": "Warm"}, "portrait": "/static/presenters/maya/portrait.webp",
+     "voice_sample": "/static/presenters/maya/voice.mp3",
+     "situations": [{"id": "kitchen", "label": "Kitchen", "still": "/static/presenters/maya/kitchen.webp"},
+                    {"id": "car", "label": "Car", "still": None}, {"label": "no id"}]},
     {"id": "jordan", "name": "Jordan", "voice": {"id": "chatty_m", "label": "Chatty"}, "situations": []},
     "junk", {"name": "no id"}]
-fake.get = lambda pid: next((r for r in fake.roster() if isinstance(r, dict) and r.get("id") == pid), None)
 sys.modules["presenters"] = fake
 try:
     with appmod.app.test_request_context("/app"):
         rows = studio_v2.roster()
-    check([r["id"] for r in rows] == ["maya", "jordan"] and rows[0]["portrait"].endswith("maya.jpg")
-          and rows[0]["voice_sample"].endswith("warm_f.mp3") and [s["id"] for s in rows[0]["situations"]] == ["kitchen", "car"]
-          and rows[0]["situations"][1]["still"] == "" and rows[1]["portrait"] == "" and rows[1]["situations"] == []
-          and rows[1]["age_band"] == "", "with the module: its roster, portraits, voice samples and situations, cleaned")
-    pb = boot_of(n.get("/app?mode=presenter").get_data(as_text=True))
-    check([p["id"] for p in pb["presenters"]] == ["maya", "jordan"] and pb["presenters"][0]["situations"][0]["still"].endswith("maya-kitchen.jpg"),
-          "Studio's picker gets that roster")
+    check([r["id"] for r in rows] == ["maya", "jordan"] and rows[0]["portrait"].endswith("portrait.webp")
+          and rows[0]["voice_sample"].endswith("voice.mp3") and [x["id"] for x in rows[0]["situations"]] == ["kitchen", "car"]
+          and rows[0]["situations"][0]["still"].endswith("kitchen.webp") and rows[0]["situations"][1]["still"] == ""
+          and rows[1]["portrait"] == "" and rows[1]["situations"] == [] and rows[1]["age_band"] == "",
+          "once assets are imported: portraits, voice samples and situation stills reach the picker; odd rows are dropped")
     fake.roster = lambda: (_ for _ in ()).throw(RuntimeError("down"))
     with appmod.app.test_request_context("/app"):
-        check(len(studio_v2.roster()) == 8, "a roster that fails falls back to today's eight")
+        check(len(studio_v2.roster()) == 8, "a roster that fails falls back to the first eight")
     fake.roster = lambda: []
     with appmod.app.test_request_context("/app"):
         check(len(studio_v2.roster()) == 8, "so does an empty one")
 finally:
-    sys.modules.pop("presenters", None)
+    sys.modules["presenters"] = real_presenters
 hh = n.get("/app?mode=presenter").get_data(as_text=True)
-check(len(boot_of(hh)["presenters"]) == 8 and 'data-pf-pills="gender"' in hh and 'data-pf-pills="age_band"' in hh
-      and "data-pres-none" in hh, "the picker's page has the gender and age filters and an empty state")
-check(all(s in js for s in ("data-voice-play", "role=\"radiogroup\" aria-label=\"Where ", "d.situation =", "d.situations = sits",
-                            "aria-pressed=\"' + (playing === p.id)")),
+pb = boot_of(hh)
+check(len(pb["presenters"]) == 20 and 'data-pf-pills="gender"' in hh and 'data-pf-pills="age_band"' in hh
+      and "data-pres-none" in hh and pb["situation_labels"] == {k: v["label"] for k, v in presenters.SITUATIONS.items()},
+      "Studio's picker gets the 20, with the gender and age filters, an empty state and the places' names")
+check(all(x in js for x in ("data-voice-play", "role=\"radiogroup\" aria-label=\"Where ", "d.situation =", "d.situations = sits",
+                            "aria-pressed=\"' + (playing === p.id)", "nonbinary: 'Nonbinary'")),
       "studio_v2.js draws the voice preview and the situation chips and sends the chosen situation")
+maya = presenters.situation_ids("maya")
+jordan = presenters.situation_ids("jordan")
 cfg = studio_v2.config_for({"mode": "presenter", "product": pid, "text": "one two three", "presenters": ["maya"],
-                            "situation": "kitchen", "situations": {"maya": "kitchen"}})
-check(cfg["presenters"] == ["maya"] and cfg["situation"] == "kitchen" and cfg["situations"] == {"maya": "kitchen"},
+                            "situation": maya[1], "situations": {"maya": maya[1]}})
+check(cfg["presenters"] == ["maya"] and cfg["situation"] == maya[1] and "situations" not in cfg,
       "the chosen presenter and situation go into the generate config as `presenters` and `situation`")
+other = next(x for x in jordan if x != maya[1])
+cfg = studio_v2.config_for({"mode": "presenter", "product": pid, "text": "one two three", "presenters": ["maya", "jordan"],
+                            "situation": maya[1], "situations": {"maya": maya[1], "jordan": other}})
+check(cfg["situation"] == {"maya": maya[1], "jordan": other}, "two presenters in two places: {presenter: situation}")
+nowhere = next(x for x in presenters.SITUATIONS if x not in maya)
+for bad in ({"situation": "a-situation-nobody-knows"}, {"situation": nowhere}, {"situations": {"maya": "nope", "x": 3}},
+            {"situation": {"maya": 7}}, {"situation": ""}):
+    check("situation" not in studio_v2.config_for(dict({"mode": "presenter", "product": pid, "text": "x", "presenters": ["maya"]}, **bad)),
+          f"a situation that isn't one of the presenter's is left out: {bad}")
 talk = {"mode": "presenter", "product": pid, "text": "I light this when I get home.", "presenters": ["maya"]}
 qa = jpost(n, "/app/studio/quote", talk).get_json()
 qb = jpost(n, "/app/studio/quote", dict(talk, situation="a-situation-nobody-knows", situations={"maya": "nope", "x": 3})).get_json()
 check(qa.get("count") == 1 and qb.get("count") == 1 and qa["total"] == qb["total"] and not qb.get("error"),
-      "a situation Create doesn't know changes nothing: the same one video at the same price")
+      "so a situation nobody knows is harmless: the same one video at the same price")
+qc = jpost(n, "/app/studio/quote", dict(talk, situation=maya[1])).get_json()
+check(qc.get("count") == 1 and qc["total"] == qa["total"] and presenters.SITUATIONS[maya[1]]["label"] in qc["lines"][0]["label"],
+      "a real one reaches Create: the line names the place, at the same price")
 
-print("== More: real examples and use tags when the preset records have them")
+print("== video presets (recipes) on a presenter video or a voiceover")
+runnable = presets.recipes_for(None)
+vo = next(p for p in runnable if p.ad_type == "voiceover")
+ugc = next(p for p in runnable if p.ad_type == "ugc")
+waiting = next(p for p in presets.RECIPES if not presets.runnable(p))
+cfg = studio_v2.config_for({"mode": "voiceover", "product": pid, "text": "Meet Ember Candle.", "preset": vo.id})
+check(cfg["preset"] == vo.id and cfg["type"] == "voiceover" and cfg["duration"] == vo.price["duration"],
+      "a voiceover preset is passed to Create as `preset`, at the length it starts at")
+long_script = " ".join(["word"] * (catalog.hard_words(vo.price["duration"]) + 5))
+check(studio_v2.config_for({"mode": "voiceover", "product": pid, "text": long_script, "preset": vo.id})["duration"] > vo.price["duration"],
+      "a longer script still gets the length it needs")
+cfg = studio_v2.config_for({"mode": "presenter", "product": pid, "text": "Hi.", "preset": ugc.id, "presenters": ["maya"], "situation": maya[1]})
+check(cfg["preset"] == ugc.id and (("situation" not in cfg) if ugc.extra.get("situation") else cfg["situation"] == maya[1]),
+      "a presenter preset too; one that owns its place keeps it, another takes the picked one")
+check("preset" not in studio_v2.config_for({"mode": "presenter", "product": pid, "text": "Hi.", "preset": vo.id, "presenters": ["maya"]})
+      and "preset" not in studio_v2.config_for({"mode": "voiceover", "product": pid, "text": "Hi.", "preset": waiting.id})
+      and "preset" not in studio_v2.config_for({"mode": "voiceover", "product": pid, "text": "Hi.", "preset": "hero"}),
+      "a preset of the other ad type, one that can't run yet and an image preset are not sent with a video")
+q = jpost(n, "/app/studio/quote", {"mode": "voiceover", "product": pid, "text": "Meet Ember Candle.", "preset": vo.id}).get_json()
+check(q.get("count") == 1 and q["total"] == catalog.price_credits("ugc_video", duration=vo.price["duration"]),
+      "its quote is Create's price for that length")
+
+print("== More: recipes, real examples and use tags")
 with appmod.app.test_request_context("/app"):
     gal = studio_v2.gallery(None)
-    check(all(not x["example"] and x["preview"] and x["uses"] == [] for x in gal)
-          and [p["by"] for p in studio_v2.gallery_pills(gal)] == ["group"] * 3,
-          "today: every card keeps its placeholder and the pills are the three groups")
-    presets.example_url = lambda pid: {"hero": "/media/examples/hero.jpg", "turn": "/media/examples/turn.mp4"}.get(pid)
-    real_extra = presets.get("offer").extra
-    object.__setattr__(presets.get("offer"), "extra", dict(real_extra, use="offer"))
-    object.__setattr__(presets.get("hero"), "extra", dict(presets.get("hero").extra, use=["launch", "offer"]))
+    byid = {x["id"]: x for x in gal}
+    check({p.id for p in runnable} <= set(byid) and all(byid[p.id]["opens"] == "recipe" and byid[p.id]["group"] == "video"
+                                                        and byid[p.id]["mode"] in ("presenter", "voiceover")
+                                                        and byid[p.id]["duration"] == p.price["duration"] for p in runnable)
+          and waiting.id not in byid, "the video presets that can run today are in More; the ones that can't are not")
+    check(byid[vo.id]["shape"] and byid[vo.id]["from"] == vo.price_credits() and byid[ugc.id]["badge"] == "Presenter preset",
+          "each recipe carries its script shape, its from-price and what it is pinned on")
+    check(all(not x["example"] and x["preview"] and not x["video"] for x in gal),
+          "no example assets yet: every card keeps its placeholder")
+    uses = studio_v2.gallery_uses(gal)
+    check(all(x["uses"] for x in gal if not x["id"].startswith("type:")) and {"offer", "social-proof", "marketplace", "talking-head"} <= {u["id"] for u in uses}
+          and all(u["label"] == presets.USES[u["id"]] and u["n"] >= 1 for u in uses)
+          and [u["id"] for u in uses] == [t for t in presets.USES if t in {u["id"] for u in uses}],
+          "every preset carries use tags; the filter lists them with the library's own words, in its order")
+    real_img, real_vid = presets.example_url, presets.example_video_url
+    presets.example_url = lambda i: {"hero": "/static/presets/hero.webp", vo.id: f"/static/presets/{vo.id}.webp"}.get(i)
+    presets.example_video_url = lambda i: {vo.id: f"/static/presets/{vo.id}.mp4"}.get(i)
     try:
-        gal = studio_v2.gallery(None)
-        byid = {x["id"]: x for x in gal}
-        check(byid["hero"]["preview"] == "/media/examples/hero.jpg" and byid["hero"]["example"] and byid["hero"]["preview_kind"] == "image"
-              and byid["turn"]["preview_kind"] == "video" and not byid["flatlay"]["example"] and byid["flatlay"]["preview"].endswith(".jpg"),
-              "presets.example_url is used where it answers; the others keep their placeholder")
-        check(byid["offer"]["uses"] == ["offer"] and byid["hero"]["uses"] == ["launch", "offer"]
-              and studio_v2.gallery_pills(gal) == [{"by": "use", "id": "launch", "label": "Launch"}, {"by": "use", "id": "offer", "label": "Offer"}],
-              "with use tags on the records, the pills are the uses")
-        presets.example_url = lambda pid: (_ for _ in ()).throw(RuntimeError("x"))
+        byid = {x["id"]: x for x in studio_v2.gallery(None)}
+        check(byid["hero"]["preview"] == "/static/presets/hero.webp" and byid["hero"]["example"] and byid["hero"]["video"] == ""
+              and byid[vo.id]["video"].endswith(".mp4") and byid[vo.id]["preview"].endswith(".webp")
+              and not byid["flatlay"]["example"] and byid["flatlay"]["preview"].endswith(".jpg"),
+              "presets.example_url and example_video_url are used where they answer; the others keep their placeholder")
+        presets.example_url = lambda i: (_ for _ in ()).throw(RuntimeError("x"))
         check(not studio_v2.gallery(None)[0]["example"], "an example lookup that fails keeps the placeholder")
+        del presets.example_url, presets.example_video_url
+        check(not any(x["example"] for x in studio_v2.gallery(None)), "and so does a library without those functions")
     finally:
-        del presets.example_url
-        object.__setattr__(presets.get("offer"), "extra", real_extra)
-        object.__setattr__(presets.get("hero"), "extra", {k: v for k, v in presets.get("hero").extra.items() if k != "use"})
-check("x.uses" in js and "data-gby" in hh, "studio_v2.js filters by use when the pills say so")
+        presets.example_url, presets.example_video_url = real_img, real_vid
+hh = n.get("/app").get_data(as_text=True)
+mb = boot_of(hh)
+check('data-gu="offer"' in hh and 'data-gf="video"' in hh and "galUse" in js and "galKind" in js
+      and [u["id"] for u in mb["gallery_uses"]][:1] == ["product-hero"],
+      "More has both filters: the kind and what the preset is made for")
+pick = boot_of(n.get(f"/app/studio?preset={ugc.id}").get_data(as_text=True))
+check(pick["prefill"] == {"pick": ugc.id} and "x.opens === 'recipe'" in js and "if(recipe()) d.preset = recipe().id;" in js,
+      "a video preset can be opened by link and is sent as the composer's preset")
+check("', free.'" in js and mb["claims_credits"] == 0, "the claims check is free, and the price box says so instead of 'about 0 credits'")
+check(public_site.facts()["presenters"] == len(presenters.roster()) == 20, "the public copy counts the roster's presenters")
 
 print("== Workflow: the planner's box and packs of presets")
 wf = n.get("/app/studio/workflow")
@@ -509,6 +584,9 @@ check(set(packs) == {"launch", "offer", "marketplace"} and packs["launch"]["coun
       "three packs, each from the prices of the presets inside it")
 check(all(x.get("preset") is None or presets.get(x["preset"]) is not None for p in studio_v2.PACKS for x in p["parts"]),
       "every pack is built from presets that exist")
+recs = re.findall(r'<a class="wf-rec" href="([^"]+)">', wh)
+check(recs == ["/app/studio?preset=" + x["id"] for x in boot_of(n.get("/app").get_data(as_text=True))["gallery"] if x["opens"] == "recipe"]
+      and len(recs) >= 5, "Workflow's shelf lists the video presets that fit this product; each opens in Studio with the preset pinned")
 lp = {"pack": "launch", "product": pid, "fields": {"headline": "Your whole evening, in one candle.",
                                                    "script": "Ember Candle. Soy wax with amber and cedar."}}
 q = jpost(n, "/app/studio/quote", lp).get_json()

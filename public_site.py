@@ -69,11 +69,20 @@ def facts() -> dict:
             "talk_lengths": ", ".join(str(d) for d in talk["durations"][:-1]) + f" or {talk['durations'][-1]}",
             "talk_max": talk["durations"][-1], "talk_shapes": ", ".join(talk["aspects"][:-1]) + f" or {talk['aspects'][-1]}",
             "image_shapes": ", ".join(catalog.TOOLS["ad_image"]["aspects"]),
-            "presenters": len(catalog.PRESENTERS), "max_batch": _max_batch(),
+            "presenters": presenter_count(), "max_batch": _max_batch(),
             "platform_list": ", ".join(names[:-1]) + f" and {names[-1]}", "platform_count": len(names),
             "pack_usd": ", ".join(f"${k['usd']}" for k in catalog.PACKS[:-1]) + f" and ${catalog.PACKS[-1]['usd']}",
             "pack_min_usd": catalog.PACKS[0]["usd"], "pack_min_credits": f"{catalog.PACKS[0]['credits']:,}",
             **card_terms()}
+
+
+def presenter_count() -> int:
+    """How many AI presenters a member can pick: the picker's roster (presenters.roster()), else the first eight."""
+    try:
+        import presenters
+        return len(presenters.roster()) or len(catalog.PRESENTERS)
+    except Exception:  # noqa: BLE001
+        return len(catalog.PRESENTERS)
 
 
 def basket(credits: int) -> dict:

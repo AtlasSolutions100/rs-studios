@@ -57,10 +57,13 @@
       voice: P.voice || '', count: Math.max(1, Math.min(B.max_count, +P.count || 1)),
       duration: P.duration ? String(P.duration) : '', aspect: P.aspect || '', resolution: P.resolution || '720p',
       setting: P.setting || '', scene: P.scene || '', subline: P.subline || '', cta: P.cta || '',
-      preset: galBy[P.preset || P.pick] && galBy[P.preset || P.pick].opens === 'preset' ? galBy[P.preset || P.pick] : null,
+      preset: galBy[P.preset || P.pick] && /^(preset|recipe)$/.test(galBy[P.preset || P.pick].opens) ? galBy[P.preset || P.pick] : null,
       layers: P.layers || {}
     };
-    if(S.preset) S.mode = 'image';
+    if(S.preset) S.mode = S.preset.mode;
+    if(S.preset && S.preset.opens === 'recipe' && !S.text && S.preset.starter) S.text = S.preset.starter;
+    if(typeof P.situation === 'string' && P.situation) S.presenters.forEach(function(id){ S.situations[id] = P.situation; });
+    else if(P.situation && typeof P.situation === 'object') S.situations = P.situation;
     if(!S.presenters.length && B.presenters.length) S.presenters = [B.presenters[0].id];
     var text = $('[data-text]'), err = $('[data-err]', root);
 
@@ -68,6 +71,9 @@
     function product(){ return B.products.filter(function(p){ return p.id === S.product; })[0] || null; }
     function spec(){ return S.preset && S.preset.spec ? S.preset.spec : null; }
     function noHeadline(){ var sp = spec(); return !!(sp && sp.headline === false); }
+    // A video preset pinned on a presenter video or a voiceover: it owns the shot, the length it starts at and, for some, the place.
+    function recipe(){ return S.preset && S.preset.opens === 'recipe' && S.preset.mode === S.mode ? S.preset : null; }
+    function ownPlace(){ var r = recipe(); return (r && r.situation) || ''; }
     // First run: two image ads are two different templates (studio_v2.pair_parts), not two versions of one.
     function pairOn(){ return !!B.pair && S.mode === 'image' && S.count === 2; }
     function situationOf(id){ var p = presBy[id]; if(!p || !p.situations.length) return ''; var s = S.situations[id]; return p.situations.some(function(x){ return x.id === s; }) ? s : p.situations[0].id; }
@@ -87,18 +93,21 @@
         var d = {mode: S.mode, product: S.product, text: noHeadline() ? '' : text.value.trim(), resolution: S.resolution};
         if(kind() === 'talk'){
           d.duration = S.duration; d.aspect = S.aspect && B.aspects.talk.indexOf(S.aspect) > -1 ? S.aspect : '9:16';
+          if(recipe()) d.preset = recipe().id;
           if(S.mode === 'presenter'){
             d.presenters = S.presenters; d.setting = S.setting;
-            var sits = {}; S.presenters.forEach(function(id){ var s = situationOf(id); if(s) sits[id] = s; });
-            if(S.presenters.length && sits[S.presenters[0]]) d.situation = sits[S.presenters[0]];
-            d.situations = sits;
+            if(!ownPlace()){              // the place picked with each presenter (a preset with its own place keeps it)
+              var sits = {}; S.presenters.forEach(function(id){ var s = situationOf(id); if(s) sits[id] = s; });
+              if(S.presenters.length && sits[S.presenters[0]]) d.situation = sits[S.presenters[0]];
+              d.situations = sits;
+            }
           } else d.voice = S.voice || (B.voices[0] || {}).id;
         } else if(kind() === 'video'){ d.duration = S.duration === '10' ? '10' : '5'; }
         else {
           var own = S.aspect && B.aspects.image.indexOf(S.aspect) > -1 ? S.aspect : '';
           d.count = S.count; d.aspect = own || (S.preset && S.preset.aspect) || '4:5';
           d.scene = S.scene; d.subline = S.subline; d.cta = S.cta;
-          if(S.preset){ d.preset = S.preset.id; d.layers = S.layers; }
+          if(S.preset && S.preset.opens === 'preset'){ d.preset = S.preset.id; d.layers = S.layers; }
           if(pairOn()){ d.pair = true; d.aspect = own; }      // each look keeps its own shape unless one was chosen
         }
         return d;
@@ -115,7 +124,7 @@
       $$('[data-mode]').forEach(function(b){ var on = b.dataset.mode === S.mode; b.setAttribute('aria-checked', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
       var label = sp && sp.items_label ? 'Review' : m.noun.charAt(0).toUpperCase() + m.noun.slice(1);
       $('[data-text-label]').textContent = label;
-      text.placeholder = noHeadline() ? 'This preset has no words on it' : (sp && sp.items_label ? 'Paste the review exactly as the customer wrote it' : m.placeholder);
+      text.placeholder = noHeadline() ? 'This preset has no words on it' : (sp && sp.items_label ? 'Paste the review exactly as the customer wrote it' : (recipe() && recipe().shape) || m.placeholder);
       text.disabled = noHeadline();
       var pin = $('[data-pin]'); pin.hidden = !S.preset; if(S.preset) $('[data-pin-name]').textContent = S.preset.name;
       var p = product();
@@ -142,6 +151,7 @@
       var el = $('[data-count]'), n = words(text.value);
       if(kind() !== 'talk'){ el.textContent = ''; return; }
       var d = S.duration ? +S.duration : fitSeconds(n);
+      if(d && !S.duration && recipe() && recipe().duration > d) d = recipe().duration;       // a preset's own length is the least
       el.textContent = !n ? '' : plural(n, 'word') + (d ? ', ' + d + ' s' : ', too long');
       el.classList.toggle('over', !!n && (!d || n > B.words[String(d)]));
     }
@@ -196,7 +206,7 @@
 
     function setMode(id, keepPreset){
       if(!modeBy[id]) return;
-      S.mode = id; if(!keepPreset && id !== 'image') S.preset = null;
+      S.mode = id; if(!keepPreset && S.preset && S.preset.mode !== id) S.preset = null;
       if(id !== 'image'){ $('[data-fields]').dataset.for = ''; }
       say(''); render();
     }
@@ -229,7 +239,7 @@
     });
 
     // ---------------------------------------------------------------- presenters: portraits, situations, filters, voice
-    var PF = {gender: '', age_band: ''}, FILTERS = [['gender', {female: 'Women', male: 'Men'}], ['age_band', {}]];
+    var PF = {gender: '', age_band: ''}, FILTERS = [['gender', {female: 'Women', male: 'Men', nonbinary: 'Nonbinary'}], ['age_band', {}]];
     var player = null, playing = '';
     function stopVoice(){ if(player){ player.pause(); } playing = ''; $$('[data-voice-play]').forEach(function(b){ b.setAttribute('aria-pressed', 'false'); }); }
     function playVoice(id){
@@ -263,7 +273,8 @@
           '<span class="v2-pname"><b>' + esc(p.name) + '</b>' + (meta ? '<span>' + esc(meta) + '</span>' : '') + '</span></button>';
         h += '<div class="v2-pmeta">' + (p.voice_sample ? '<button type="button" class="v2-play" data-voice-play="' + esc(p.id) + '" aria-pressed="' + (playing === p.id) + '" aria-label="Play ' + esc(p.name) + '\'s voice"><svg class="pl" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg><svg class="pa" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5.5h3.5v13H7zM13.5 5.5H17v13h-3.5z" fill="currentColor"/></svg></button>' : '') +
           '<span class="v2-pvoice">' + (p.voice.label ? 'Voice: ' + esc(p.voice.label) : 'Voice set with the presenter') + '</span></div>';
-        if(p.situations.length > 1){
+        if(ownPlace()){ h += '<p class="v2-sit1">' + esc((B.situation_labels || {})[ownPlace()] || ownPlace()) + ', set by the preset</p>'; }
+        else if(p.situations.length > 1){
           h += '<div class="v2-sits" role="radiogroup" aria-label="Where ' + esc(p.name) + ' is">' + p.situations.map(function(s){
             var cur = s.id === sid;
             return '<button type="button" role="radio" aria-checked="' + cur + '" tabindex="' + (cur ? 0 : -1) + '" data-sit="' + esc(s.id) + '" data-for="' + esc(p.id) + '">' + (s.still ? '<img src="' + esc(s.still) + '" alt="" loading="lazy">' : '') + '<span>' + esc(s.label) + '</span></button>'; }).join('') + '</div>';
@@ -293,14 +304,14 @@
     roving(dlg('presenter'), '[data-sit]', function(b){ b.click(); });
 
     // ---------------------------------------------------------------- more: ad types and presets
-    var galFilter = '', galBy_ = '';
+    var galKind = '', galUse = '', useLabel = {}; (B.gallery_uses || []).forEach(function(u){ useLabel[u.id] = u.label; });
     function galleryGrid(){
       var q = $('[data-gal-q]').value.trim().toLowerCase(), n = 0;
       $('[data-gal]').innerHTML = B.gallery.filter(function(x){
-        var inPill = !galFilter || (galBy_ === 'use' ? (x.uses || []).indexOf(galFilter) > -1 : x.group === galFilter);
-        return inPill && (!q || (x.name + ' ' + x.what_for + ' ' + x.badge + ' ' + (x.uses || []).join(' ')).toLowerCase().indexOf(q) > -1);
+        var words = x.name + ' ' + x.what_for + ' ' + x.badge + ' ' + (x.uses || []).map(function(u){ return useLabel[u] || u; }).join(' ');
+        return (!galKind || x.group === galKind) && (!galUse || (x.uses || []).indexOf(galUse) > -1) && (!q || words.toLowerCase().indexOf(q) > -1);
       }).map(function(x){ n++;
-        var media = x.preview_kind === 'video' ? '<video src="' + esc(x.preview) + '" muted loop playsinline preload="metadata" data-hover></video>' : '<img src="' + esc(x.preview) + '" alt="" loading="lazy">';
+        var media = x.video ? '<video src="' + esc(x.video) + '" poster="' + esc(x.preview) + '" muted loop playsinline preload="none" data-hover></video>' : '<img src="' + esc(x.preview) + '" alt="" loading="lazy">';
         return '<button type="button" class="v2-gcard" data-gal-id="' + esc(x.id) + '"><span class="v2-gthumb' + (x.example ? ' real' : '') + '">' + media + '</span><span class="v2-gbody"><span class="v2-badge">' + esc(x.badge) + '</span><b>' + esc(x.name) + '</b><span class="v2-gline">' + esc(x.what_for) + '</span><span class="v2-gfrom">' + (x.opens === 'advanced' ? 'Opens in Advanced, ' : '') + 'from ' + credits(x.from) + '</span></span></button>';
       }).join('');
       $('[data-gal-none]').hidden = n > 0;
@@ -311,8 +322,9 @@
     function hoverPlay(e){ var v = e.target.closest && e.target.closest('.v2-gcard'); v = v && $('video[data-hover]', v); if(!v || still) return; if(e.type === 'mouseover' || e.type === 'focusin'){ var p = v.play(); if(p && p.catch) p.catch(function(){}); } else v.pause(); }
     ['mouseover', 'mouseout', 'focusin', 'focusout'].forEach(function(t){ dlg('more').addEventListener(t, hoverPlay); });
     dlg('more').addEventListener('click', function(e){
-      var f = e.target.closest('[data-gf]');
-      if(f){ galFilter = f.dataset.gf; galBy_ = f.dataset.gby; $$('[data-gf]').forEach(function(b){ b.setAttribute('aria-pressed', b === f ? 'true' : 'false'); }); galleryGrid(); return; }
+      var f = e.target.closest('[data-gf]'), u = e.target.closest('[data-gu]');
+      if(f){ galKind = f.dataset.gf; $$('[data-gf]').forEach(function(b){ b.setAttribute('aria-pressed', b === f ? 'true' : 'false'); }); galleryGrid(); return; }
+      if(u){ galUse = u.dataset.gu; $$('[data-gu]').forEach(function(b){ b.setAttribute('aria-pressed', b === u ? 'true' : 'false'); }); galleryGrid(); return; }
       var c = e.target.closest('[data-gal-id]'); if(!c) return;
       pick(galBy[c.dataset.galId]); close(dlg('more')); text.focus();
     });
@@ -321,6 +333,7 @@
       if(x.opens === 'advanced'){ location.href = x.href; return; }
       if(x.opens === 'mode'){ setMode(x.mode); return; }
       if(x.opens === 'scene'){ S.duration = String(x.duration || 5); setMode('product_video'); if(x.scene) text.value = x.scene; render(); return; }
+      if(x.opens === 'recipe'){ S.preset = x; S.duration = ''; if(x.starter && !text.value.trim()) text.value = x.starter; setMode(x.mode, true); return; }
       S.preset = x; S.layers = {}; S.aspect = x.aspect || S.aspect; $('[data-fields]').dataset.for = '';
       if(x.scene) S.scene = x.scene;
       if(x.headline && !text.value.trim()) text.value = x.headline;
@@ -437,7 +450,7 @@
     $('[data-q-after]').textContent = q.short ? 'Not enough' : credits(q.balance - q.total);
     var note = $('[data-q-note]'), notes = [];
     if(B.first_run && !q.short && k === 'image') notes.push('Your free credits cover this.');
-    if(B.claims_check) notes.push('The words are checked against your product\'s claims and page first (about ' + credits(B.claims_credits) + ').');
+    if(B.claims_check) notes.push('The words are checked against your product\'s claims and page first' + (B.claims_credits ? ' (about ' + credits(B.claims_credits) + ').' : ', free.'));
     if(q.videos) notes.push('Failed videos are refunded automatically.');
     note.hidden = !notes.length; note.textContent = notes.join(' ');
     var many = $('[data-q-many-wrap]'); many.hidden = !q.confirm; $('[data-q-many]').checked = false;

@@ -101,15 +101,20 @@
   <footer class="v2-dlg-f"><button type="button" class="btn" data-close>Done</button></footer>
 </dialog>
 
-{# ---- more: every ad type and preset #}
+{# ---- more: every ad type and preset, filtered by kind and by what it is for (the presets' own `use` tags) #}
 <dialog class="v2-dlg wide" data-dlg="more" aria-label="Ad types and presets">
   <header class="v2-dlg-h gal">
     <div class="v2-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><label class="sr" for="gal-q">Search ad types and presets</label><input id="gal-q" type="search" placeholder="Search ad types and presets" autocomplete="off" data-gal-q></div>
-    <div class="v2-pills" role="group" aria-label="Show" data-gal-pills><button type="button" aria-pressed="true" data-gf="" data-gby="">All</button>{% for pill in boot.gallery_pills %}<button type="button" aria-pressed="false" data-gf="{{ pill.id }}" data-gby="{{ pill.by }}">{{ pill.label }}</button>{% endfor %}</div>
     <button type="button" class="v2-x" data-close aria-label="Close">{{ X|safe }}</button>
   </header>
-  <div class="v2-gal" data-gal></div>
-  <p class="v2-gal-none muted" data-gal-none hidden>Nothing matches that search.</p>
+  <div class="v2-pick gal">
+    <div class="v2-filters">
+      <div role="group" aria-labelledby="gf-k"><h3 id="gf-k">Kind</h3><div class="v2-pills" data-gal-pills><button type="button" aria-pressed="true" data-gf="">All</button><button type="button" aria-pressed="false" data-gf="type">Ad types</button><button type="button" aria-pressed="false" data-gf="image">Images</button><button type="button" aria-pressed="false" data-gf="video">Videos</button></div></div>
+      {% if boot.gallery_uses %}<div role="group" aria-labelledby="gf-u"><h3 id="gf-u">Made for</h3><div class="v2-pills" data-gal-uses><button type="button" aria-pressed="true" data-gu="">Anything</button>{% for u in boot.gallery_uses %}<button type="button" aria-pressed="false" data-gu="{{ u.id }}">{{ u.label }}</button>{% endfor %}</div></div>{% endif %}
+    </div>
+    <div class="v2-gal" data-gal></div>
+  </div>
+  <p class="v2-gal-none muted" data-gal-none hidden>Nothing matches. Clear the search or pick another filter.</p>
 </dialog>
 
 {% include "v2/_price_dialog.html" %}

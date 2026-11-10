@@ -23,8 +23,11 @@ M15 adds, on the same two routes and with no new paid path:
                              run's own choice), and the Workflow tab's packs (PACKS). Each part is priced by
                              create_routes.quote_for and started by create_routes.generate_for with its own total, so
                              every rule Create has still applies to each one; the member confirms the sum once.
-    the presenter picker     `roster()` reads presenters.roster() when the module exists and falls back to today's
-                             eight; the chosen presenter and situation ride along as `presenters` and `situation`.
+    the presenter picker     `roster()` reads presenters.roster() (20 presenters, each with situations) and falls
+                             back to the first eight if that module is missing or fails; the chosen presenter and
+                             situation ride along as `presenters` and `situation`.
+    video presets            presets.recipes_for(): fixed video formats, pinned on a presenter video or a voiceover
+                             from "More" and from Workflow's shelf (`preset` in the same config Create takes).
     Workflow                 /app/studio/workflow: a box that hands a description to the campaign planner (its own
                              form and price note, campaign_routes.index) and a shelf of packs built from presets.
 """
@@ -82,6 +85,37 @@ def available_modes() -> list[dict]:
     return [m for m in MODES if m["type"] in have]
 
 
+def recipe(preset_id, typ=None):
+    """The video preset ("recipe") with this id when it can be made today (and, with `typ`, runs as that ad type)."""
+    pre = presets.get(preset_id) if preset_id else None
+    if pre is None or getattr(pre, "kind", "") != "recipe" or (typ is not None and pre.ad_type != typ):
+        return None
+    runnable = getattr(presets, "runnable", None)
+    return pre if (not callable(runnable) or runnable(pre)) else None
+
+
+def situation_for(d: dict, cast: list):
+    """The place picked for the presenters, as Create takes it: one situation id when everyone shares it, else
+    {presenter: id}. Only a place that presenter has (presenters.situation_ids) is kept, so a situation nobody knows
+    changes nothing; with no presenters module there are no situations to send."""
+    try:
+        import presenters
+        ids_of = presenters.situation_ids
+    except (ImportError, AttributeError):
+        return None
+    raw = d.get("situation")
+    one = raw.strip() if isinstance(raw, str) else ""
+    per = d.get("situations") if isinstance(d.get("situations"), dict) else (raw if isinstance(raw, dict) else {})
+    out = {}
+    for pid in cast:
+        want = per.get(pid) or one
+        if isinstance(want, str) and want in ids_of(pid):
+            out[pid] = want
+    if not out:
+        return None
+    return next(iter(out.values())) if len(out) == len(cast) and len(set(out.values())) == 1 else out
+
+
 def config_for(d: dict) -> dict:
     """The Create flow config for what is in the composer. Unknown or missing values fall back to the same
     defaults Create uses; create_routes.expand validates the result."""
@@ -93,21 +127,23 @@ def config_for(d: dict) -> dict:
     aspect = str(d.get("aspect") or "")
     if typ in ("ugc", "voiceover"):
         durations = catalog.TOOLS["ugc_video"]["durations"]
+        rec = recipe(d.get("preset"), typ)          # a fixed video format of this ad type (presets.RECIPES), or None
         dur = d.get("duration")
         if not str(dur or "").isdigit() or int(dur) not in durations:
-            # "Auto": the shortest length the script fits as typed
+            # "Auto": the shortest length the script fits as typed, and never shorter than a preset starts at
             dur = catalog.fits_duration(len(text.split())) or durations[-1]
+            if rec is not None and rec.price.get("duration") in durations:
+                dur = max(int(dur), int(rec.price["duration"]))
         cfg.update(duration=int(dur), aspects=[aspect] if aspect else ["9:16"])
+        if rec is not None:
+            cfg["preset"] = rec.id
         if typ == "ugc":
-            cfg.update(presenters=[x for x in (d.get("presenters") or []) if isinstance(x, str)][:8],
-                       voice=d.get("voice") or "", setting=_clean(d.get("setting"), 120))
-            # the picker's situation (presenters.roster()): an id Create may know; one it doesn't know changes nothing
-            sit = d.get("situation")
-            if isinstance(sit, str) and sit.strip():
-                cfg["situation"] = _clean(sit, 60)
-            sits = d.get("situations")
-            if isinstance(sits, dict):
-                cfg["situations"] = {str(k)[:60]: _clean(v, 60) for k, v in list(sits.items())[:8] if isinstance(v, str)}
+            cast = [x for x in (d.get("presenters") or []) if isinstance(x, str)][:8]
+            cfg.update(presenters=cast, voice=d.get("voice") or "", setting=_clean(d.get("setting"), 120))
+            # the picker's situation: one place for everyone or {presenter: place}; a preset's own place wins
+            where = situation_for(d, cast)
+            if where and not (rec is not None and rec.extra.get("situation")):
+                cfg["situation"] = where
         else:
             cfg.update(voices=[d.get("voice")] if d.get("voice") else [])
     elif typ == "product_video":
@@ -531,6 +567,15 @@ def _setting_label(text: str) -> str:
     return t[:1].upper() + t[1:]
 
 
+def situation_labels() -> dict:
+    """{situation id: its words} for every place a presenter can be in (presenters.SITUATIONS), {} without it."""
+    try:
+        import presenters
+        return {k: str(v.get("label") or k) for k, v in presenters.SITUATIONS.items()}
+    except (ImportError, AttributeError):
+        return {}
+
+
 def fallback_roster() -> list[dict]:
     """Today's eight presenters (catalog.PRESENTERS) in the shape presenters.roster() has: one situation each, the
     setting they are described in; the sample still as the portrait when one exists; no voice sample."""
@@ -568,11 +613,13 @@ def roster() -> list[dict]:
         voice = r.get("voice") if isinstance(r.get("voice"), dict) else {"id": "", "label": str(r.get("voice") or "")}
         sits = [{"id": str(x.get("id")), "label": str(x.get("label") or x.get("id")), "still": x.get("still") or ""}
                 for x in (r.get("situations") or []) if isinstance(x, dict) and x.get("id")]
+        # no portrait yet: the sample still the first eight presenters have had since D12 (presenter_stills), if any
+        portrait = r.get("portrait") or presenter_stills.photo_url(str(r["id"]), url_for) or ""
         out.append({"id": str(r["id"]), "name": str(r.get("name") or r["id"]), "age_band": str(r.get("age_band") or ""),
                     "gender": str(r.get("gender") or ""), "look": str(r.get("look") or ""),
                     "vibe": str(r.get("vibe") or ""),
                     "voice": {"id": str(voice.get("id") or ""), "label": str(voice.get("label") or "")},
-                    "portrait": r.get("portrait") or "", "voice_sample": r.get("voice_sample") or "", "situations": sits})
+                    "portrait": portrait, "voice_sample": r.get("voice_sample") or "", "situations": sits})
     return out
 
 
@@ -592,9 +639,10 @@ def _prefill_from_batch(conn, bid) -> dict:
     out = {"mode": mode, "text": text, "product": b["product_id"], "aspect": (c.get("aspects") or [""])[0] or "",
            "resolution": c.get("resolution") or "", "from_batch": b["id"]}
     if mode == "presenter":
-        out.update(presenters=c.get("presenters") or [], duration=c.get("duration"), setting=c.get("setting") or "")
+        out.update(presenters=c.get("presenters") or [], duration=c.get("duration"), setting=c.get("setting") or "",
+                   preset=c.get("preset") or "", situation=c.get("situation") or "")
     elif mode == "voiceover":
-        out.update(voice=(c.get("voices") or [""])[0], duration=c.get("duration"))
+        out.update(voice=(c.get("voices") or [""])[0], duration=c.get("duration"), preset=c.get("preset") or "")
     elif mode == "product_video":
         out.update(duration=c.get("duration"))
     else:
@@ -603,26 +651,38 @@ def _prefill_from_batch(conn, bid) -> dict:
     return out
 
 
-_VIDEO_EXT = (".mp4", ".webm", ".mov", ".m4v")
+def _ask(name: str, preset_id: str) -> str:
+    """presets.<name>(preset_id) when the library has that function and an answer; "" otherwise, whatever goes wrong."""
+    fn = getattr(presets, name, None)
+    if not callable(fn):
+        return ""
+    try:
+        return str(fn(preset_id) or "")
+    except Exception as e:  # noqa: BLE001
+        log.warning("presets.%s(%s) failed: %s", name, preset_id, str(e)[:120])
+        return ""
+
+
+def _public(p) -> dict:
+    """presets.public(p): the card plus a recipe's length, place and script shape. The plain card if that fails."""
+    fn = getattr(presets, "public", None)
+    if callable(fn):
+        try:
+            return fn(p, url_for)
+        except Exception as e:  # noqa: BLE001
+            log.warning("presets.public(%s) failed: %s", p.id, str(e)[:120])
+    return presets.card(p, url_for)
 
 
 def example_of(preset_id: str, fallback: str) -> dict:
-    """{"preview", "preview_kind"} for a gallery card: a real output of this preset when the library has one
-    (presets.example_url, added by the back end; any failure or an empty answer keeps today's placeholder)."""
-    url = ""
-    fn = getattr(presets, "example_url", None)
-    if callable(fn):
-        try:
-            url = fn(preset_id) or ""
-        except Exception as e:  # noqa: BLE001
-            log.warning("presets.example_url(%s) failed: %s", preset_id, str(e)[:120])
-    url = str(url or "")
-    return {"preview": url or fallback, "example": bool(url),
-            "preview_kind": "video" if url.split("?", 1)[0].lower().endswith(_VIDEO_EXT) else "image"}
+    """{"preview", "example", "video"} for a gallery card: this preset's real example picture (presets.example_url)
+    and clip (presets.example_video_url) once the library has them; until then the placeholder it has today."""
+    img, vid = _ask("example_url", preset_id), _ask("example_video_url", preset_id)
+    return {"preview": img or fallback, "example": bool(img or vid), "video": vid}
 
 
 def uses_of(p) -> list[str]:
-    """A preset's `use` tag or tags ("launch", "offer", ...) when its record has any, as a list."""
+    """A preset's `use` tags ("offer", "social-proof", "talking-head", ...) when its record has any, as a list."""
     use = getattr(p, "use", None) or (getattr(p, "extra", None) or {}).get("use")
     if isinstance(use, str):
         use = [use]
@@ -630,16 +690,20 @@ def uses_of(p) -> list[str]:
 
 
 def use_label(tag: str) -> str:
-    return tag.replace("_", " ").replace("-", " ").strip().capitalize()
+    """The words for a use tag: the library's own (presets.USES), else the tag made readable."""
+    known = getattr(presets, "USES", None) or {}
+    return known.get(tag) or tag.replace("_", " ").replace("-", " ").strip().capitalize()
 
 
 def gallery(product=None) -> list[dict]:
-    """Everything "More" offers: the ad types, then the presets that fit this product. `opens` says what picking
-    it does: "mode" switches the composer, "preset" pins it on an image ad, "scene" fills a product video's
-    scene, "advanced" opens Create (a reference clip can't be picked in the composer). `uses` are the preset's own
-    use tags (the pills filter by them when any preset has one)."""
+    """Everything "More" offers: the ad types, the image presets that fit this product, the older video templates
+    and the video presets ("recipes", presets.recipes_for: only the ones that can run today). `opens` says what
+    picking it does: "mode" switches the composer, "preset" pins it on an image ad, "recipe" pins it on a presenter
+    video or a voiceover, "scene" fills a product video's scene, "advanced" opens Create (a reference clip can't be
+    picked in the composer). `uses` are the preset's own use tags: the dialog filters by them."""
     out = []
     prices = catalog.from_prices()
+    modes = {m["id"] for m in available_modes()}
     for a in catalog.ad_types():
         pre = presets.get(a["id"])
         out.append({"id": "type:" + a["id"], "name": a["name"], "what_for": a["line"], "group": "type",
@@ -666,20 +730,33 @@ def gallery(product=None) -> list[dict]:
             item.update(group="video", badge="Video preset", opens="advanced", mode="",
                         href=url_for("create.index", template=p.id))
         out.append(item)
+    recipes_for = getattr(presets, "recipes_for", None)
+    for p in (recipes_for(product) if callable(recipes_for) else []):
+        mode = MODE_OF_TYPE.get(p.ad_type)
+        if mode not in modes:
+            continue                                # talking videos are switched off (catalog.capabilities)
+        pub = _public(p)
+        script = pub.get("script") or {}
+        out.append({"id": p.id, "name": p.name, "what_for": p.what_for or pub.get("line") or "", "from": pub["from"],
+                    "aspect": p.aspect, "uses": uses_of(p), **example_of(p.id, pub["preview"]),
+                    "group": "video", "badge": "Presenter preset" if mode == "presenter" else "Voiceover preset",
+                    "opens": "recipe", "mode": mode, "duration": pub.get("duration") or p.price.get("duration") or 0,
+                    "situation": pub.get("situation") or "", "shape": script.get("shape") or "",
+                    "starter": catalog.fill(script.get("starter") or "", b) if b else "",
+                    "beats": [x.get("beat") for x in pub.get("beats") or [] if x.get("beat")]})
     return out
 
 
-def gallery_pills(gal) -> list[dict]:
-    """The filter pills over "More": the presets' own use tags when records have them, else the three groups."""
-    tags = []
+def gallery_uses(gal) -> list[dict]:
+    """The "made for" filter over "More": every use tag a card carries, in the library's own order, with how many
+    cards have it. Empty when the preset records carry no tags (the filter then isn't shown)."""
+    n = {}
     for x in gal:
         for u in x.get("uses") or []:
-            if u not in tags:
-                tags.append(u)
-    if tags:
-        return [{"by": "use", "id": t, "label": use_label(t)} for t in tags]
-    return [{"by": "group", "id": "type", "label": "Ad types"}, {"by": "group", "id": "image", "label": "Image presets"},
-            {"by": "group", "id": "video", "label": "Video presets"}]
+            n[u] = n.get(u, 0) + 1
+    order = list(getattr(presets, "USES", None) or {})
+    tags = sorted(n, key=lambda t: (order.index(t) if t in order else len(order), t))
+    return [{"id": t, "label": use_label(t), "n": n[t]} for t in tags]
 
 
 def first_mode(goals, balance: int, modes) -> tuple[str, str]:
@@ -767,7 +844,8 @@ def page():
         "durations": {"talk": talk["durations"], "video": catalog.TOOLS["photo_to_video"]["durations"]},
         "aspects": {"talk": talk.get("aspects") or [], "image": catalog.TOOLS["ad_image"]["aspects"]},
         "resolutions": {"talk": list(catalog.resolutions("ugc_video")), "video": list(catalog.resolutions("photo_to_video"))},
-        "max_count": MAX_COUNT, "gallery": gal, "gallery_pills": gallery_pills(gal), "prefill": prefill,
+        "max_count": MAX_COUNT, "gallery": gal, "gallery_uses": gallery_uses(gal), "prefill": prefill,
+        "situation_labels": situation_labels(),
         # first run: 2 image ads are made as two different templates when the credits cover two single ads
         "pair": first_run and bal >= 2 * one_image,
         "pair_names": [t["name"] for t in pair] if len(pair) == 2 else [],
@@ -826,6 +904,7 @@ def workflow():
         scenes = scene_templates(conn, active["id"], n=2) if active is not None else []
         first_run = _first_run(conn)
     shelf = packs()
+    recipes = [x for x in gallery(active) if x.get("opens") == "recipe"]      # the video presets that can run today
     talk = catalog.TOOLS["ugc_video"]
     offer = ((active["offer"] if "offer" in active.keys() else "") or active["price"] or "") if active is not None else ""
     boot = {
@@ -840,7 +919,7 @@ def workflow():
                  "claims": url_for("studio_v2.claims"), "billing": url_for("billing_page"),
                  "studio": url_for("studio_v2.page")},
     }
-    return render_template("v2/workflow.html", boot=boot, recents=recents, active=active, packs=shelf,
+    return render_template("v2/workflow.html", boot=boot, recents=recents, active=active, packs=shelf, recipes=recipes,
                            plan_cap=planner.cap_credits(), plan_on=llm.anthropic_ready(),
                            plan_platforms=campaign_budget.platforms_for("sales"))
 
