@@ -133,43 +133,49 @@ def packshot_prompt(demo_id: str) -> str:
     return _APP_SCREEN if d.get("screen") else _PACKSHOT.format(what=d["what"])
 
 
-# The words of each example (only what the demo product's saved details back; the review card shows a placeholder
-# that says it is one, never a made-up review).
-_WORDS = {
-    "clean-headline": {"headline": "Made for the trail", "subline": "The Dapplewood Trail Mug", "cta": "Shop now"},
-    "offer": {"headline": "The mug that goes with you", "cta": "Get yours", "layers": {"badge": "$24"}},
-    "callouts": {"headline": "What you get", "cta": "See more",
+# One brief per example: the demo product it is shown on AND the words it carries, in one place, so an example's copy
+# can never be about another product (the first run put the mug's "One mug, not a stack of cups" on the candle).
+# Only what the demo product's saved details back; the review card shows a placeholder that says it is one, never
+# a made-up review. A preset with no entry (the scenes whose headline the image model sets from the preset's own
+# brief, which names no product) is shown on the demo product of its category (demo_for).
+_EXAMPLES = {
+    "clean-headline": {"demo": "mug", "headline": "Made for the trail", "subline": "The Dapplewood Trail Mug",
+                       "cta": "Shop now"},
+    "offer": {"demo": "mug", "headline": "The mug that goes with you", "cta": "Get yours", "layers": {"badge": "$24"}},
+    "callouts": {"demo": "mug", "headline": "What you get", "cta": "See more",
                  "layers": {"callouts": ["Double-wall steel", "12 oz", "Press-fit lid"]}},
-    "review": {"headline": "Your customer's real review goes here, word for word. We never write one.",
+    "review": {"demo": "mug", "headline": "Your customer's real review goes here, word for word. We never write one.",
                "layers": {"reviewer": "Their name", "stars": 0, "attest": True}},
-    "compare": {"headline": "One mug, every day",
+    "compare": {"demo": "mug", "headline": "One mug, every day",
                 "layers": {"left_title": "A paper cup", "right_title": "Trail Mug",
                            "left": ["Used once", "No lid that stays on", "Another one tomorrow"],
                            "right": ["Yours to keep", "Press-fit lid", "Steel, 12 oz"]}},
-    "marketplace": {},
-    "season-winter-gift": {"headline": "For the one who is always out early", "cta": "Shop gifts"},
-    "season-fresh-start": {"headline": "A calmer start", "cta": "Shop now"},
-    "season-spring": {"headline": "Open the windows", "cta": "Shop now"},
-    "season-summer": {"headline": "Take it outside", "cta": "Shop now"},
-    "season-autumn": {"headline": "Made for slow afternoons", "cta": "Shop now"},
-    "season-back-to-routine": {"headline": "Back in the bag", "cta": "Shop now"},
-    "season-gift-for-them": {"headline": "For them", "cta": "Shop gifts"},
-    "season-offer": {"headline": "A free lid, this season", "cta": "Get yours", "layers": {"badge": "Free lid"}},
-    "problem-answer": {"headline": "Lid gone missing again?", "subline": "This one presses in and stays.",
+    "marketplace": {"demo": "mug"},
+    "season-winter-gift": {"demo": "mug", "headline": "For the one who is always out early", "cta": "Shop gifts"},
+    "season-fresh-start": {"demo": "greens", "headline": "A calmer start", "cta": "Shop now"},
+    "season-spring": {"demo": "skincare", "headline": "Open the windows", "cta": "Shop now"},
+    "season-summer": {"demo": "tote", "headline": "Take it outside", "cta": "Shop now"},
+    "season-autumn": {"demo": "candle", "headline": "Made for slow afternoons", "cta": "Shop now"},
+    "season-back-to-routine": {"demo": "tote", "headline": "Back in the bag", "cta": "Shop now"},
+    "season-gift-for-them": {"demo": "candle", "headline": "For them", "cta": "Shop gifts"},
+    "season-offer": {"demo": "mug", "headline": "A free lid, this season", "cta": "Get yours",
+                     "layers": {"badge": "Free lid"}},
+    "problem-answer": {"demo": "mug", "headline": "Lid gone missing again?", "subline": "This one presses in and stays.",
                        "cta": "See the mug"},
-    "three-reasons": {"headline": "Three reasons", "cta": "See more",
+    "three-reasons": {"demo": "mug", "headline": "Three reasons", "cta": "See more",
                       "layers": {"callouts": ["Double-wall steel", "Press-fit lid", "12 oz, fits a bag"]}},
-    "how-it-works": {"headline": "How it works", "cta": "See more",
+    "how-it-works": {"demo": "mug", "headline": "How it works", "cta": "See more",
                      "layers": {"callouts": ["Fill it", "Press the lid in", "Take it with you"]}},
-    "then-now": {"headline": "One mug, not a stack of cups",
+    "then-now": {"demo": "mug", "headline": "One mug, not a stack of cups",
                  "layers": {"left_title": "The old way", "right_title": "With Trail Mug",
                             "left": ["A paper cup a day", "Lids in every drawer", "Nothing to carry it in"],
                             "right": ["One steel mug", "One press-fit lid", "12 oz, fits a bag"], "true": True}},
-    "app-screen": {"headline": "Your week, on one screen", "cta": "Try it free"},
+    "app-screen": {"demo": "app", "headline": "Your week, on one screen", "cta": "Try it free"},
 }
-_DEMO_OF = {"season-autumn": "candle", "season-winter-gift": "mug", "season-spring": "skincare",
-            "season-gift-for-them": "candle", "season-back-to-routine": "tote", "season-fresh-start": "greens",
-            "season-summer": "tote", "app-screen": "app"}
+# Words that belong to one demo product only: an example shown on another product may not use them (tests).
+DEMO_WORDS = {"mug": ("mug", "lid", "steel"), "candle": ("candle", "wick", "wax", "cedar"),
+              "skincare": ("moisturizer", "fragrance"), "coffee": ("coffee", "roast", "instant"),
+              "tote": ("tote", "canvas"), "greens": ("greens", "servings", "unflavoured"), "app": ("planner", "app")}
 # What each video example says (within its length; the presenter explains, never "I bought it").
 _SCRIPTS = {
     "vo-product-shots": ("mug", "Meet the Dapplewood Trail Mug. Double-wall stainless steel, twelve ounces, with a lid "
@@ -212,10 +218,16 @@ def example_script(preset_id: str, seconds: int) -> str:
     return catalog.trim_words(short or full, room)
 
 
+def example_words(preset_id: str) -> dict:
+    """The words of a preset's example (headline, subline, cta, layers), without its demo product; {} for none."""
+    return {k: v for k, v in (_EXAMPLES.get(preset_id) or {}).items() if k != "demo"}
+
+
 def demo_for(p) -> str:
-    """Which demo product a preset's example is shown on."""
-    if p.id in _DEMO_OF:
-        return _DEMO_OF[p.id]
+    """Which demo product a preset's example is shown on: the one its own brief names (its words are about that
+    product), else its video script's, else the demo product of its category."""
+    if p.id in _EXAMPLES:
+        return _EXAMPLES[p.id]["demo"]
     if p.id in _SCRIPTS:
         return _SCRIPTS[p.id][0]
     if p.fits == "coffee":
@@ -283,10 +295,14 @@ def assets(conn, ws_id: int, kind: str | None = None, limit: int = 600) -> list[
             # more than one file numbers the rest, so every file can be saved under its own name
             name = filename(tag, ext) if n == 1 else filename(tag, f"__{n}{ext}")
             files.append({"output_id": o["id"], "kind": o["kind"], "filename": name})
+        prm = _params(r)
         out.append({"job_id": r["id"], "kind": tag["kind"], "presenter": tag.get("presenter"),
                     "situation": tag.get("situation"), "preset": tag.get("preset"), "demo": tag.get("demo"),
                     "status": r["status"], "credits": r["credits"], "usd": r["cost_usd"], "created_at": r["created_at"],
                     "error": r["error"] if r["status"] == "failed" else None, "verdict": verdicts.get(r["id"]),
+                    # what the vendor said when it refused or failed this one (admins only), and whether the still
+                    # was made on its second, softer prompt after a content-filter refusal (worker._soften)
+                    "vendor_reason": prm.get("vendor_reason") or None, "softened": bool(prm.get("softened")),
                     "batch_id": r["batch_id"], "outputs": files,
                     # the first file again, flat: its id (get_asset_download_url takes it) and its export name
                     "output_id": files[0]["output_id"] if files else None,
@@ -614,7 +630,7 @@ def _voice_items(conn, ws, ids, options) -> list[dict]:
 
 def _example_config(p, prod, brief: dict, options: dict) -> dict:
     """The Create config that makes this preset's example on the demo product."""
-    w = _WORDS.get(p.id, {})
+    w = example_words(p.id)
     if p.tool == "ad_image":
         fill = catalog.template_prefill(p.as_template(), brief)
         return {"type": "image", "product": prod["id"], "preset": p.id, "versions": 1,
@@ -673,6 +689,9 @@ def _preset_items(conn, ws, ids, options, video: bool, make: bool = False) -> li
         if options.get("only_missing") and (presets.example_video_url(pid) if video else presets.example_url(pid)):
             continue
         demo = str(options.get("demo") or demo_for(p))
+        if demo != demo_for(p) and (example_words(p.id) or (_SCRIPTS.get(p.id) or ("", ""))[1]):
+            # its words are written for one demo product: on another they would be about the wrong thing
+            raise LibraryError(f"{p.name}'s example is written for {DEMO[demo_for(p)]['name']}: leave `demo` out for it.")
         prod = _ready_demo(conn, ws, demo, make)
         tag = {"kind": "preset_video" if video else "preset_example", "preset": p.id, "demo": demo}
         secs, res = (video_seconds(p, want_secs), want_res or catalog.DEFAULT_RESOLUTION) if custom else (None, "")

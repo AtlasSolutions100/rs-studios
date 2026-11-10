@@ -153,8 +153,8 @@ def image_prompt(conn, job, p: dict | None = None) -> str:
         # A static with a text layer (presets.py): the picture is made with no words at all, and told where to
         # leave calm space; textlayer.py sets the words afterwards (_finish_images).
         import presets
-        scene = (parts["scene"] + " " + presets.ZONES.get(p["layout"], "")).strip()
-        out = catalog.image_ad_prompt(scene, product=product, forbid=forbid, service=service)
+        scene = presets.layered_scene(parts["scene"], p["layout"], p.get("preset"))     # ... and with nobody in it
+        out = catalog.image_ad_prompt(scene, product=product, forbid=forbid, service=service, text_free=True)
     else:
         out = catalog.image_ad_prompt(parts["scene"], p.get("headline") or parts["headline"],
                                       p.get("subline") or parts["subline"], p.get("cta") or parts["cta"],
@@ -318,6 +318,57 @@ def _fail(conn, job, msg, extra_where: str = "", extra_args: tuple = ()) -> bool
     return True
 
 
+def _note_refusal(conn, job, why: str):
+    """Keep what the vendor said about a refused or failed request on the job (params.vendor_reason), for the
+    admin's library page. Never raises; the member's message is ours."""
+    if not why:
+        return
+    try:
+        p = json.loads(job["params_json"] or "{}")
+        p["vendor_reason"] = str(why)[:300]
+        conn.execute("UPDATE jobs SET params_json=? WHERE id=?", (json.dumps(p), job["id"]))
+        conn.commit()
+    except Exception:  # noqa: BLE001 — a note never changes what happens to the job
+        log.exception("job %s: couldn't keep the vendor's reason", job["id"])
+
+
+NO_REASON = "The vendor's content filter refused it and gave no reason."
+
+
+def _soften(conn, job, why: str) -> bool:
+    """A library still of "the same person, somewhere new" that the vendor's content filter refused goes back to the
+    queue ONCE with a softer prompt (presenters.still_prompt(soft=True): the person isn't described again, the
+    clothes lose their adjectives, the place is one phrase). The vendor doesn't charge a refused request, so the
+    job's cost is unchanged. True when it was requeued; False when this isn't that kind of job or it already had
+    its second try (the caller then fails and refunds it)."""
+    if job["tool"] != "library_still":
+        return False
+    try:
+        p = json.loads(job["params_json"] or "{}")
+    except (ValueError, TypeError):
+        return False
+    lib = p.get("library") if isinstance(p.get("library"), dict) else {}
+    if p.get("softened") or lib.get("kind") != "presenter_still" or not (p.get("ref_job") or p.get("ref_static")):
+        return False
+    import presenters
+    try:
+        who, where = lib.get("presenter"), lib.get("situation")
+        brief = presenters.portrait_prompt(who, True, soft=True) if where == "portrait" else \
+            presenters.still_prompt(who, where, same_person=True, soft=True)
+    except KeyError:
+        return False
+    p.update(softened=True, vendor_reason=(why or NO_REASON)[:300])
+    t = db.now()
+    cur = conn.execute("UPDATE jobs SET status='pending', request_id=NULL, submit_key=NULL, claimed_at=NULL, attempts=0, "
+                       "error=NULL, brief=?, params_json=?, updated_at=? WHERE id=? AND status='running'",
+                       (brief, json.dumps(p), t, job["id"]))
+    conn.commit()
+    if cur.rowcount == 1:
+        log.info("job %s: the content filter refused the still (%s); trying once more with a softer prompt",
+                 job["id"], (why or "no reason given")[:120])
+    return cur.rowcount == 1
+
+
 def _is_preview(job) -> bool:
     try:
         return bool(json.loads(job["params_json"] or "{}").get("preview"))
@@ -411,7 +462,14 @@ def _finish_images(conn, job, result):
          failed twice are dropped and their share of the credits comes back; when nothing passed the job ends
          with image_qa.FAIL_TEXT and a full refund.
 
-    A picture the check couldn't look at (no key, the daily budget, no local copy) counts as passed."""
+    A picture the check couldn't look at (no key, the daily budget, no local copy) counts as passed.
+
+    A layered static has one more check on its first try, with or without IMAGE_QA: when the image model drew a
+    person where the words go and no part of the layout can be moved off them (textlayer.words_on_people, a local
+    heuristic), the picture is made again once like a failed one. On the second try that heuristic alone never
+    drops a picture: only the vision check can. That check always runs on a layered static's text-free picture,
+    before any layer is drawn, for two things (image_qa.LAYERED_CHECKS): words the image model painted in by itself
+    and a person in a product-only picture. IMAGE_QA adds the rest (product, label, hands)."""
     import image_qa
     import storage
     p = json.loads(job["params_json"] or "{}")
@@ -421,11 +479,20 @@ def _finish_images(conn, job, result):
     attempt = int(p.get("qa_attempt") or 1)
     want = int(p.get("qa_want") or p.get("batch") or 1)
     qa_on = image_qa.on()
+    # A static with a text layer: its text-free picture is always checked for words the image model painted in and
+    # for a person in it (image_qa.LAYERED_CHECKS), with IMAGE_QA off too; the rest of the check is the switch's.
+    check_on = qa_on or bool(p.get("layout"))
+    only = None if qa_on else image_qa.LAYERED_CHECKS
     folder = os.path.join(MEDIA, str(job["workspace_id"]), str(job["id"]))
     os.makedirs(folder, exist_ok=True)
     ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (job["workspace_id"],)).fetchone()
     used = storage.used_bytes(job["workspace_id"], conn)
     passed, failed = [], []
+    kit = None
+    if p.get("layout") and attempt == 1:
+        import textlayer
+        brow = conn.execute("SELECT * FROM brands WHERE id=?", (job["brand_id"],)).fetchone() if job["brand_id"] else None
+        kit = textlayer.kit_of(brow)
     for i, o in enumerate(outs, start=1):
         ext = ".png"
         if "." in o["url"].rsplit("/", 1)[-1].split("?")[0]:
@@ -441,14 +508,25 @@ def _finish_images(conn, job, result):
             used += len(r.content)
         except Exception:  # noqa: BLE001 — no local copy: the vendor's link is kept, as before
             path = None
-        res = image_qa.check_output(conn, job, p, attempt, i, o["url"], path) if qa_on else {"verdict": "pass", "row": None}
-        (failed if res["verdict"] == "fail" else passed).append({"url": o["url"], "path": path, "row": res.get("row")})
+        if kit is not None and path and _words_on_people(path, p, kit):
+            # a person where the words go, and nothing to move: made again once (no vision call spent on it)
+            res = {"verdict": "fail", "row": image_qa.record(conn, job, p, attempt, i, "fail", [textlayer.PEOPLE_REASON],
+                                                              {"words_clear_of_people": False}, "textlayer", 0.0,
+                                                              o["url"], path)}
+        else:
+            res = image_qa.check_output(conn, job, p, attempt, i, o["url"], path, only) if check_on else \
+                {"verdict": "pass", "row": None}
+        (failed if res["verdict"] == "fail" else passed).append({"url": o["url"], "path": path, "row": res.get("row"),
+                                                                 "idx": i})
     conn.commit()
     for c in failed:
         _rm(c["path"])
-    if failed and attempt == 1 and qa_on:
+    if failed and attempt == 1:
         # one silent retry of just the failed ones; the passed ones wait (asset_qa.kept)
         for c in passed:
+            if not c["row"]:        # IMAGE_QA is off: a picture that waits still needs its row to wait in
+                c["row"] = image_qa.record(conn, job, p, attempt, c["idx"], "skipped", ["not checked"], url=c["url"],
+                                           path=c["path"])
             if c["row"]:
                 conn.execute("UPDATE asset_qa SET kept=1 WHERE id=?", (c["row"],))
         p.update(qa_attempt=2, qa_want=want, batch=len(failed))
@@ -509,6 +587,17 @@ def _finish_images(conn, job, result):
             conn.execute("UPDATE jobs SET error=? WHERE id=?",
                          (f"{want - len(keep)} of {want} couldn't be made right — {back} credits returned.", job["id"]))
             conn.commit()
+
+
+def _words_on_people(path: str, p: dict, kit: dict) -> bool:
+    """textlayer.words_on_people for a job's picture; a check that can't run says no (the picture is kept)."""
+    try:
+        import textlayer
+        return textlayer.words_on_people(path, p.get("layout") or "", textlayer.text_from_params(p), kit,
+                                         p.get("aspect") or "")
+    except Exception:  # noqa: BLE001 — a heuristic never stops an ad
+        log.exception("the words-on-a-person check couldn't run for %s", path)
+        return False
 
 
 def _rm(path):
@@ -782,9 +871,14 @@ def tick() -> int:
                     _fail(conn, job, f"The result couldn't be read: {e}")
                 changed += 1
             elif st == "nsfw":
-                _fail(conn, job, "Blocked by the content filter. Try a different brief or photo.")
+                why = hf.refusal(res)
+                # a library still made from a reference gets one more try with a softer prompt before it is given up
+                if not _soften(conn, job, why):
+                    _note_refusal(conn, job, why or (NO_REASON if job["tool"] == "library_still" else ""))
+                    _fail(conn, job, "Blocked by the content filter. Try a different brief or photo.")
                 changed += 1
             elif st in hf.FINAL:
+                _note_refusal(conn, job, hf.refusal(res))
                 _fail(conn, job, "The generation failed.")
                 changed += 1
             elif job["updated_at"] < _minutes_ago(STUCK_MINUTES * 4):

@@ -58,6 +58,8 @@
     <div class="small muted">{{ a.kind.replace('_', ' ') }} · job {{ a.job_id }} · {{ a.credits }} cr{% if a.verdict %} · {{ a.verdict }}{% endif %}{% if a.in_export %} · <span class="tag ok">in export</span>{% endif %}</div>
     {% for f in a.outputs %}<div class="small"><a href="{{ url_for('create.library_file', oid=f.output_id) }}">Download</a> <span class="dim">{{ f.filename }} · output {{ f.output_id }}</span></div>{% endfor %}
     {% if a.error %}<div class="small dim">{{ a.error }}</div>{% endif %}
+    {% if a.vendor_reason %}<div class="small dim">Vendor said: {{ a.vendor_reason }}</div>{% endif %}
+    {% if a.softened %}<div class="small dim">{{ 'Made on' if a.status == 'done' else 'Tried again with' }} the softer prompt after a content-filter refusal</div>{% endif %}
     {% if a.batch_id %}<div class="small"><a href="{{ url_for('create.batch', bid=a.batch_id) }}">Batch (approve or reject)</a></div>{% endif %}
   </div>{% endfor %}
   </div>

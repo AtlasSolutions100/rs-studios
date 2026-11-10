@@ -465,6 +465,28 @@ try:
     check("720p or 1080p" in r["error"] and "length" in r2["error"] and r3["total"] == 740 and "480p" not in catalog.resolutions("ugc_video")
           and 4 not in catalog.TOOLS["ugc_video"]["durations"],
           "members still can't ask for 480p or a 4-second video, and their price is unchanged")
+    # a name for the jobs' cards, given with the config (Studio and Workflow no longer rename jobs afterwards)
+    img = {"product": PID, "type": "image", "items": ["Hot at noon"], "body": "The Trail Mug on a desk.",
+           "aspects": ["1:1", "4:5"], "versions": 2}
+    plain, named = post(mem, "/app/create/quote", img).get_json(), post(mem, "/app/create/quote", dict(img, label="  Gift   idea ")).get_json()
+    vid = {"product": PID, "type": "ugc", "items": ["Meet the mug."], "presenters": ["maya"], "duration": 8}
+    vnamed = post(mem, "/app/create/quote", dict(vid, label="Pack: hook")).get_json()
+    check([ln["label"] for ln in plain["lines"]] == ["1:1 · 2 versions", "4:5 · 2 versions"]
+          and [ln["label"] for ln in named["lines"]] == ["Gift idea · 1:1", "Gift idea · 4:5"]
+          and [ln["key"] for ln in named["lines"]] == [ln["key"] for ln in plain["lines"]] and named["total"] == plain["total"]
+          and vnamed["lines"][0]["label"] == "Pack: hook · Maya · 9:16" and vnamed["total"] == 740,
+          "a config's `label` names its jobs: an image ad reads '<name> · <shape>', a video '<name> · <its own label>'; "
+          "keys and prices don't change")
+    r = post(mem, "/app/create/generate", dict(img, label="Gift idea", total=named["total"])).get_json()
+    with db.connect() as conn:
+        made = conn.execute("SELECT params_json FROM jobs WHERE batch_id=? ORDER BY id", (r["batch"],)).fetchall()
+        saved = json.loads(conn.execute("SELECT config_json FROM batches WHERE id=?", (r["batch"],)).fetchone()[0])
+        for j in conn.execute("SELECT * FROM jobs WHERE batch_id=?", (r["batch"],)).fetchall():
+            worker._fail(conn, j, worker.CANCELED)
+    check([json.loads(m["params_json"])["label"] for m in made] == ["Gift idea · 1:1", "Gift idea · 4:5"]
+          and saved["label"] == "Gift idea" and len("x" * 80) > 60
+          and post(mem, "/app/create/quote", dict(img, label="x" * 80)).get_json()["lines"][0]["label"] == "x" * 60 + " · 1:1",
+          "the queued jobs carry it, the batch keeps it for 'make more like this', and it is cut at 60 characters")
     tools = {t["name"]: t for t in rpc("tools/list", {}, key=akey).get_json()["result"]["tools"]}
     opts = tools["quote_library_assets"]["inputSchema"]["properties"]["options"]["properties"]
     check({"video_seconds", "video_resolution", "voice_seconds"} <= set(opts) and opts["video_resolution"]["enum"] ==

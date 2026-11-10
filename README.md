@@ -255,7 +255,12 @@ the token so it works logged out. Stop sharing (or deleting the ad) makes the li
   review card, comparison and the brand's logo in the brand kit's colours and font (Brand page > Look). Safe areas per
   shape, auto-fit, and a 4.5:1 contrast check with a panel when the picture is too busy. A badge can only show the
   product's saved price or offer; a review card needs the member's word that the review is real and is never
-  written by AI. Fonts: Poppins and DM Serif Display (OFL, `static/fonts/ads`).
+  written by AI. Fonts: Poppins and DM Serif Display (OFL, `static/fonts/ads`). Since m15 these pictures are asked
+  for as "a product photograph with no text on it" with nobody in them (`catalog.TEXT_FREE`, `presets.NO_PEOPLE`):
+  the image model is an ad model and had painted its own invented copy, and once a man holding the product, into
+  them. Words never go over a face: `textlayer.locate_people` (a local skin-tone heuristic, no model) treats a face
+  like the product, parts that can move are moved off it, and a picture whose words can't be moved off one is made
+  again once, silently.
 - **Claims check** (`claims_check.py`, `CLAIMS_CHECK`, default off): one fast-model call per script maps every factual
   sentence to an approved claim, the product's saved details or its page text (kept at import). A "supported" verdict
   only stands when its quote really is in the source. Create shows flagged lines with "edit or remove" and Generate
@@ -266,6 +271,10 @@ the token so it works logged out. Stop sharing (or deleting the ad) makes the li
   failed picture is made again once, silently; one that fails twice is refunded automatically ("We couldn't get this
   one right — credits returned."). Every picture gets an `asset_qa` row; the admin page shows first-pass rates per
   preset. Our cost: about $0.004 a picture, $0.111 more for a silent retry; `IMAGE_QA_DAILY_MAX` caps it.
+  One part is not behind the switch (m15): the text-free picture of a static with a text layer is always checked,
+  before any layer is drawn, for words the image model painted in and for a person in it
+  (`image_qa.LAYERED_CHECKS`), with the same silent retry and refund on the second failure. Invented claims in a
+  picture are a compliance problem, so that check doesn't wait for the switch; it costs us $0.004 a layered picture.
 - **Free fix** (`free_fix.py`, `FREE_FIX`, default off): one free "fix it" per delivered image with the member's note,
   `FREE_FIX_MONTHLY_CAP` a workspace a month (default 10; `workspaces.free_fix_cap` overrides it for one workspace).
   Our cost: $0.1071 a fix. No price changes.
@@ -371,7 +380,15 @@ What we absorb with no price at all: the claims check ($0.004 a script), and, as
 retry and a free fix. The stitched recipes will add one or two keyframes each (about $0.11 to $0.20) inside the same
 price. Library runs, at our table: all 70 presenter stills 2,950 credits (about $14.75), the 7 demo packshots 280
 (about $1.40), all 42 image examples 924 ($4.50), six video examples 6,381 ($31.89), 20 voice samples 4,940 ($24.67).
-Tests: `tests/test_m15_library.py`, `tests/test_m15_library_options.py`.
+What the first paid runs changed (70 stills, 7 packshots, 42 examples; `tests/test_m15_library_fixes.py`): the
+text-free prompt and the always-on check above; a "same person, somewhere new" still the vendor's content filter
+refuses is tried once more with a softer prompt (`presenters.still_prompt(soft=True)`: the person isn't described
+again, the clothes lose their adjectives, the place is one phrase) before it is given up, and the vendor's own reason
+is kept on the job (`params.vendor_reason`) and shown on `/admin/library` and in `list_library_assets`, never to
+members; the bathroom-mirror situation has a modest wardrobe (crew-neck tee, closed robe or zipped hoodie) and says
+so in its stills; and every example's demo product and words come from one brief (`library._EXAMPLES`), so an
+example can't carry another product's copy (`then-now` is the mug throughout).
+Tests: `tests/test_m15_library.py`, `tests/test_m15_library_options.py`, `tests/test_m15_library_fixes.py`.
 
 ## The neutral look, Studio and onboarding (`ui_v2.py`, `studio_v2.py`, `onboarding.py`; `UI_V2`, default off)
 

@@ -439,6 +439,7 @@ try:
     check(p1["layout"] == "offer" and p1["layers"] == {"badge": "$24"} and p1["preset"] == "offer" and J1["template_id"] == "offer"
           and J1["credits"] == 22, "the job carries its preset, layout and layer words")
     n_calls = len(model_calls)
+    answers.append(dict(GOOD))      # m15: a layered static's text-free picture is always checked for painted-in words
     worker.tick()
     sub = V.submits[-1]
     pr = sub["inputs"]["prompt"]
@@ -457,14 +458,15 @@ try:
     acc = (255, 210, 63)
     check(diff > 300 and any(abs(px[0] - acc[0]) < 12 and abs(px[1] - acc[1]) < 12 and abs(px[2] - acc[2]) < 12
                              for px in pixels(fin.resize((160, 200))))
-          and len(model_calls) == n_calls,
-          "the finished picture has the layer on it, with the badge in the brand kit's accent colour; no model was called "
-          "(IMAGE_QA is off)")
+          and len(model_calls) == n_calls + 1 and answers == [],
+          "the finished picture has the layer on it, with the badge in the brand kit's accent colour; with IMAGE_QA off "
+          "the only model call is the one look at the text-free picture (m15)")
     check(c.get(f"/media/{o1[0]['id']}").status_code == 200, "it is served from disk (the vendor's text-free link is never shown)")
     mk = dict(cfg, preset="marketplace", items=["Marketplace image"], layers={}, aspects=["1:1"], subline="", cta="",
               body=catalog.fill(presets.get("marketplace").recipe, {"product": "Trail Mug"}))
     _mq = post(c, "/app/create/quote", mk).get_json()
     post(c, "/app/create/generate", dict(mk, total=_mq["total"]))
+    answers.append(dict(GOOD))
     worker.tick()
     check("pure white seamless background" in V.submits[-1]["inputs"]["prompt"] and "add no words at all" in V.submits[-1]["inputs"]["prompt"],
           "the marketplace image: pure white, no words")
@@ -763,6 +765,7 @@ try:
           "the fix is a new 0-credit job for one picture with the same settings, tied to the original; no credits move")
     with db.connect() as conn:
         check(conn.execute("SELECT COUNT(*) FROM ledger WHERE job_id=?", (FJ,)).fetchone()[0] == 0, "nothing is written to the ledger for it")
+    answers.append(dict(GOOD))
     worker.tick()
     pr = V.submits[-1]["inputs"]["prompt"]
     check("Correction to the last version, asked for by the advertiser: The cap should be black, not 'silver'" in pr

@@ -158,7 +158,8 @@ name: Deploy Campaignify (campaignify.ai)
 #   TEXT_LAYERS            image presets whose words are set as real type (textlayer.py), default on; "0" hides them
 #   CLAIMS_CHECK           the claims check before Generate (claims_check.py), default off
 #   IMAGE_QA               automatic check of finished images, silent retry, refund (image_qa.py), default off;
-#                          IMAGE_QA_DAILY_MAX (default 2000) and IMAGE_QA_MODEL are its settings
+#                          IMAGE_QA_DAILY_MAX (default 2000) and IMAGE_QA_MODEL are its settings. Off or on, the
+#                          text-free picture of a static with a text layer is always checked for painted-in words
 #   FREE_FIX               one free fix per delivered image (free_fix.py), default off; FREE_FIX_MONTHLY_CAP (default 10)
 #   m15 library (optional variables; README "m15 library"):
 #   PRESENTER_STILLS       a presenter's approved situation still is the video model's first reference image
