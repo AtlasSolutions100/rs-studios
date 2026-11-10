@@ -390,6 +390,108 @@ so in its stills; and every example's demo product and words come from one brief
 example can't carry another product's copy (`then-now` is the mug throughout).
 Tests: `tests/test_m15_library.py`, `tests/test_m15_library_options.py`, `tests/test_m15_library_fixes.py`.
 
+## Keyframe-first video (`keyframe_video.py`, `stitch.py`, `videotext.py`; `KEYFRAME_VIDEO`, default off)
+
+A talking video made from a recipe used to be one long unbroken take. With `KEYFRAME_VIDEO=1` it is built from one
+approved still, in beats, and stitched. Off, nothing about any video changes: the jobs Create queues and what the
+worker sends the vendor are compared with a snapshot taken before the pipeline existed
+(`tests/fixtures/keyframe_off_snapshot.json`, `tools/keyframe_off_snapshot.py`). On, `"keyframe_video"` is in
+`presets.PIPELINES`, the eight recipes that needed it are offered, and every video made from a recipe takes this
+path (a plain presenter video or voiceover with no recipe stays one take). A job remembers how it is made
+(`params.pipeline`), so one queued while the switch was on finishes this way after it is switched off.
+
+1. **Keyframe.** One still from references, by the library's image model (`marketing-studio/image/sunburst`,
+   high / 1k): the presenter's approved situation still (`static/presenters/<id>/<situation>.webp`; without one the
+   person is drawn from the roster's description) and up to two product photos, the product where the recipe puts
+   it (on the situation's surface by default, in hand with `placement: holding`, or on a shelf). A voiceover's
+   keyframe is the product in the scene of its first shot. It is kept on the job (`video_parts`, `/admin/library/keyframe/<job>`).
+2. **Keyframe check.** The image check in keyframe mode (product there, label right, no extra text, hands and face
+   fine, one clear face), whatever `IMAGE_QA` says. One silent retry; a second failure ends the job before any video
+   is paid for, with "We couldn't get this one right — credits returned." and a full refund.
+3. **Beats.** Every spoken beat is one Seedance reference-to-video request with the keyframe as its first image
+   reference (and the presenter's `voice.mp3` as `audio_urls[0]` behind `PRESENTER_VOICE_REF`), its own line of the
+   script and the realism and fidelity lines. The script is cut into one line a beat on sentence ends
+   (`split_script`); the beats are 4 to 8 whole seconds and add up to the length sold (`fit_beats`: another length
+   than the recipe's own scales them, joins ones under 4 s and cuts ones over 8 s in two). All beats go out in one
+   pass, each with its own idempotency key. A beat that fails is made again once; after that the whole job is
+   refunded. Never a partial video. A beat with a `place` is "the same person, a new scene" from the same keyframe.
+4. **Cutaways.** In a presenter recipe a beat that shows the product or hands is still spoken by the presenter, and
+   silent b-roll is laid over part of its picture while their voice carries on: an image-to-video clip from the real
+   product photo while the seconds allow it, else a slow push-in on the packshot itself (free; the label can't
+   change). Recipes that show the member's screens (over the product page, show your app) put their real
+   screenshots full frame with the presenter small in the bottom-left corner; nothing of a page is generated.
+   Without a screenshot those recipes are refused for that product with the reason.
+5. **Stitch** (ffmpeg): every beat at one size and rate with its sound levelled (`loudnorm`), hard cuts (a recipe
+   can ask for a crossfade of 4 to 6 frames: founder story), captions, step tags and the "AI presenter" label as
+   real type inside the safe area, then a 2-second end card from the real packshot and the brand kit (the product's
+   name, its saved price or offer as a badge where the recipe shows one, a button), with a quiet tail. The server
+   needs ffmpeg and ffprobe: without them a job is refused when it starts, before anything is bought (`/admin/library`
+   says whether they are there).
+6. **Frame check** (`VIDEO_QA`, default off): three frames of each beat against the product photo and the keyframe's
+   face; a beat with two bad frames is made again once, then the job is refunded. `VIDEO_QA_DAILY_MAX` (default
+   3000 checks a day, about $15) is counted apart from `IMAGE_QA_DAILY_MAX`.
+
+**Free fix.** With `FREE_FIX` on, a keyframe-first video's fix re-renders only the beat the member points at, from the
+kept keyframe, and stitches again with the other beats as they were: it costs us one beat ($2.77 to $3.70), not the
+video. `FREE_FIX_VIDEO_MONTHLY_CAP` (default 2 a workspace a month) bounds it. Beats are kept for 14 days for this
+while `FREE_FIX` is on, else removed at delivery; the keyframe always stays. The cards that exist only offer the
+image fix; a page that asks "which part?" reads `free_fix.video_offer()` and posts `beat` (1-based) with `note` to
+`/app/jobs/<id>/fix`.
+
+**What the front end passes.** `screens`: photo ids of the member's screenshots (uploaded with the product's photos)
+for the two screen recipes (an app's own photos are used when none is passed); `captions`: true or false to
+override the recipe's choice; `cta`: the end card's button text (else "Shop now", or "Try it free" for an app);
+`placement: holding`. MCP: `screen_photo_ids`, `captions`.
+
+**Costs.** Member prices are unchanged: the per-duration talking-video price. Vendor cost is the beats' seconds plus
+generated cutaway seconds at $0.4622 (720p), the keyframe ($0.20 + $0.015 a reference), the keyframe check and,
+counted here with `VIDEO_QA` on, the frame checks ($0.004 to $0.005 each). `keyframe_video.cost_table()` gives this
+table and a test compares it with the lines below:
+
+| Recipe | Length | Beats | Cutaway | Vendor cost | Member price (credits) | Margin | If the keyframe and a beat are made twice |
+|---|---|---|---|---|---|---|---|
+| Voiceover over product shots | 15 s | 2 | none | $7.18 | 1,387 | 48% | $11.10, 20% **under 30%** |
+| Hands-only demo | 15 s | 2 | none | $7.18 | 1,387 | 48% | $11.10, 20% **under 30%** |
+| POV unboxing | 15 s | 2 | none | $7.18 | 1,387 | 48% | $11.10, 20% **under 30%** |
+| Talk to camera | 8 s | 1 | none | $3.95 | 740 | 47% | $7.88, -6% **negative** |
+| Car talk | 8 s | 1 | none | $3.95 | 740 | 47% | $7.88, -6% **negative** |
+| Seasonal gift moment | 8 s | 1 | none | $3.93 | 740 | 47% | $7.85, -6% **negative** |
+| Founder story, narrated | 20 s | 3 | none | $9.51 | 1,849 | 49% | $12.96, 29.9% **under 30%** |
+| Talking head with cutaways | 20 s | 3 | 5 s generated | $11.84 | 1,849 | 36% | $15.30, 17% **under 30%** |
+| Problem, then solution | 20 s | 3 | 5 s generated + 1 packshot | $11.84 | 1,849 | 36% | $15.30, 17% **under 30%** |
+| Over the product page | 15 s | 2 | none | $7.20 | 1,387 | 48% | $11.13, 20% **under 30%** |
+| Show your app | 15 s | 2 | none | $7.20 | 1,387 | 48% | $11.13, 20% **under 30%** |
+| Street interview | 15 s | 2 | none | $7.20 | 1,387 | 48% | $11.13, 20% **under 30%** |
+| Three reasons | 20 s | 3 | none | $9.51 | 1,849 | 49% | $12.96, 29.9% **under 30%** |
+| Offer, no countdown | 8 s | 1 | none | $3.93 | 740 | 47% | $7.85, -6% **negative** |
+| How-to in three steps | 20 s | 3 | none | $9.51 | 1,849 | 49% | $12.96, 29.9% **under 30%** |
+
+Flags and caps. As planned no recipe is negative or under 30% at 720p. Generated cutaway seconds are capped so the
+plan keeps 30% (about 0.4 x the seconds sold: one 5-second cutaway in a 20-second video, none in a shorter one;
+further cutaways are the packshot). The worst case is flagged: when the frame check sends a beat back and the
+keyframe was also made twice, an 8-second recipe costs about 6% more than it sold for and the others fall to 17 to
+30%. One job's video seconds, second tries included, never pass 1.05 x the markup x the seconds sold (2.1 x at 720p,
+so one beat can always be made again; 1.47 x at 1080p): past that a failing beat is refunded instead. At 1080p every
+recipe is at 27% as planned (the 1080p markup is 1.4, and one take is at 29% today): flagged; its cutaways are never
+generated, and only a 20-second video has the seconds to make a beat again. A beat the vendor fails or refuses is
+not billed, so only a failed frame check costs us a second beat.
+
+**The paid test before switching it on** (`/admin/library`, kind `keyframe_tests`, or `quote_library_assets` /
+`generate_library_assets`): one recipe, one presenter, 480p, four-second beats, quoted first. It runs with
+`KEYFRAME_VIDEO` off. Needs the demo mug's packshot (and uses Maya's kitchen still when it exists). Run
+`kind: keyframe_tests, ids: ["talking-head-cutaways"], options: {"presenter": "maya"}`: three 4-second beats with
+the packshot laid over the middle one, the keyframe and its check: 541 credits ($2.70 at the vendor). It shows the
+keyframe, lip-sync on three lines, the cut to the product and back under one voice, the stitch and the end card.
+With `"video_seconds": 6` (one beat's length here, 4 to 8) the cutaway is a generated clip as well: 993 credits
+($4.96). Smaller: `talk-to-camera` (one beat, 212 credits, $1.06) or `street-interview` (two beats, 373 credits,
+$1.86). Then look at `/admin/library?show=keyframe_tests` (the video and "Its keyframe").
+
+Not there yet: a narrator's voice is only described to each beat, so a voiceover recipe's beats may not sound like
+one person (presenters have `PRESENTER_VOICE_REF`); the recipes' free-form on-screen text slots ("the hook in five
+words") are covered by captions, not written. Deleting a workspace deletes each part's request at the vendor too
+(`wsdelete.py`). Tests: `tests/test_keyframe_video.py` (the stitching
+checks need ffmpeg; `tests.yml` installs it).
+
 ## The neutral look, Studio and onboarding (`ui_v2.py`, `studio_v2.py`, `onboarding.py`; `UI_V2`, default off)
 
 One switch, off by default. Off, nothing changes. `UI_V2=1` (a repo variable, in `deploy.yml`'s sync list) turns it

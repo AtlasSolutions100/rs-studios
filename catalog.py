@@ -490,6 +490,136 @@ def voice_sample_prompt(presenter_id: str, voice_id: str, situation: str, line: 
             "movement, a quiet room with no background noise, no on-screen text, no subtitles, no music.")
 
 
+# ---------------------------------------------------------------- keyframe-first video (m15, keyframe_video.py)
+# One still is made first (the presenter in their place with the real product where the recipe puts it, or the
+# product in its scene for a voiceover), checked, and every beat of the video is then generated from that still as
+# its image reference. The prompts below are the three things sent to the vendor for one such video.
+KEYFRAME_SETTINGS = ("high", "1k")           # the library still model's quality and size for a keyframe
+KEYFRAME_MAX_PHOTOS = 2                      # product photos given beside the presenter's still
+PRODUCT_AT = {
+    "table": "It stands upright on {surface}, in clear view, its label facing the camera, sharp and fully readable. "
+             "Their hands stay off it.",
+    "hand": "They hold it up beside their shoulder in one hand, a simple grip around its body with every finger "
+            "visible and none over the label, the label facing the camera, sharp and fully readable.",
+    "shelf": "It stands on a shelf just behind their shoulder at eye level, in clear view, its label facing the "
+             "camera, sharp and fully readable. Their hands stay off it.",
+}
+KEYFRAME_LOOK = ("Real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp "
+                 "focus, ordinary mixed light from the room, no studio lighting, no beauty filter. The only readable "
+                 "text anywhere is what is printed on the product itself. No captions, no watermark, no border.")
+
+
+def _product_line(product: str, refs: str) -> str:
+    return (f"The product is the {product} from {refs}: the same shape, packaging, label, printed text and colors, "
+            "unchanged. Never invent other branding and never redraw its label.")
+
+
+def keyframe_prompt(ad_type: str, product: str, *, presenter_id: str = "", situation: str = "",
+                    product_at: str = "table", has_still: bool = False, shot: str = "", hands: bool = False,
+                    setting: str = "") -> str:
+    """The prompt for a video's keyframe (the library still model, with image references).
+
+    A presenter video: the person in their place with the product where the recipe puts it (PRODUCT_AT). With
+    `has_still` the first reference image is their approved still of that situation and the person, the room and
+    the clothes are kept from it; without one the person is drawn from the roster's description. The product's
+    photos are the other reference images. A voiceover: the product in the scene of its first shot (`shot`), with
+    two hands when the recipe is shown by hands (`hands`), never a face."""
+    product = product or "the product"
+    if ad_type != "ugc":
+        who = ("Two hands rest on the table beside it, relaxed, every finger visible. Only hands and forearms are in "
+               "frame, never a face." if hands else "No people and no hands in frame.")
+        scene = " ".join((shot or "the product resting on a table in a real home, front on").split()).rstrip(".")
+        return "\n".join([
+            "Photo taken with an ordinary phone, the first frame of a short product video.",
+            f"The shot: {scene}. {who}",
+            _product_line(product, "the reference photos") + " Its label faces the camera, sharp and fully readable.",
+            "An ordinary lived-in home in natural light, slight softness rather than razor-sharp focus, no studio "
+            "lighting. The only readable text anywhere is what is printed on the product itself. No captions, no "
+            "watermark, no border."])
+    pr = presenters.record(presenter_id) or presenters.record(PRESENTERS[0]["id"])
+    sit = presenters.situation(pr["id"], situation) or presenters.situation(pr["id"], presenters.default_situation(pr["id"]))
+    surface = sit["surface"] if sit else "the table beside them"
+    place = PRODUCT_AT.get(product_at, PRODUCT_AT["table"]).format(surface=surface)
+    if has_still:
+        lines = ["Image 1 shows a person in a room. Make a new photo of exactly the same person in the same room: the "
+                 "same face, bone structure, skin, hair, age, build and clothes, the same place, the same light and "
+                 "the same phone framing.",
+                 _product_line(product, "the other reference images"), place]
+    else:
+        wear = f" Wearing {sit['wardrobe']}." if sit and sit["wardrobe"] else ""
+        where = setting or (sit["scene"] if sit else pr["setting"])
+        lines = ["Photo taken with the front camera of an ordinary phone, a little above eye level, as the first frame "
+                 "of a selfie video.",
+                 f"{pr['appearance']}{wear}",
+                 f"The place is {where}." + (f" They are {sit['pose']}." if sit and not setting else ""),
+                 _product_line(product, "the reference photos"), place]
+    lines += ["They look into the lens with a relaxed, friendly expression, the mouth closed, as if about to start "
+              "talking. Framed from the chest up: the whole face is clear and nothing covers it, the product least "
+              "of all.",
+              KEYFRAME_LOOK + " One person only.", presenters.FICTIONAL]
+    return "\n".join(lines)
+
+
+def beat_prompt(ad_type: str, product: str, line: str, *, presenter_id: str = "", voice_id: str = "",
+                shot: str = "", hands: bool = False, product_at: str = "table", new_place: str = "",
+                voice_ref: bool = False, note: str = "") -> str:
+    """The prompt for ONE beat of a keyframe-first video (reference-to-video, native speech). Image 1 is the
+    approved keyframe; the product's own photos follow it.
+
+      shot       what the camera sees in this beat (the recipe's words)
+      new_place  a presenters.SITUATIONS id other than the keyframe's: the same person, somewhere new
+      voice_ref  audio 1 is the presenter's voice sample (PRESENTER_VOICE_REF)
+      note       a free fix's correction for this beat (an instruction about the shot, never words to say or show)"""
+    product = product or "the product"
+    voice = VOICE_BY_ID.get(voice_id) or VOICES[0]
+    say = " ".join((line or "").split()).replace('"', "'")
+    keep = (f"The {product} looks exactly as in the reference images: same packaging, label, text and colors; never "
+            "invent other branding.")
+    fix = ""
+    if note:
+        asked = " ".join(str(note).split())[:300].replace('"', "'").rstrip()
+        fix = (" Correction to the last version, asked for by the advertiser: " + asked
+               + ("" if asked[-1:] in ".!?" else ".") + " This is an instruction about the shot, not words to say or "
+               "show.")
+    shot = " ".join((shot or "").split()).rstrip(".")
+    if ad_type != "ugc":
+        who = "Only hands and forearms are ever in frame, never a face." if hands else "No people and no hands in frame."
+        return (f"Short product video of the {product}, one shot of a longer video. Image 1 is its first frame: the "
+                f"same scene, the same light and the same product where it is. {(shot[:1].upper() + shot[1:] + '. ') if shot else ''}"
+                f"{who} {keep} A narrator, never seen on camera, says in {voice['desc']}: \"{say}\" The narration is "
+                "clear, at an even pace, and ends when the line ends. Slow, simple camera moves, ordinary home light, no "
+                f"studio lighting. No on-screen text, no subtitles, no music.{fix}")
+    pr = PRESENTER_BY_ID.get(presenter_id) or PRESENTERS[0]
+    sit = presenters.situation(pr["id"], new_place) if new_place else None
+    if sit:
+        scene = (f"Image 1 shows the presenter and the product. This shot is the same person (their face, hair, age "
+                 f"and build exactly as in that image) and the same product, now in {sit['place']}: they are "
+                 f"{sit['pose']}, the {product} standing on {sit['surface']}, its label facing the camera.")
+    else:
+        scene = ("Image 1 is its first frame: the same person (their face, hair, age, build and clothes exactly as in "
+                 "that image), the same room and the same product where it is.")
+    hold = "They keep holding it as in image 1, its label never covered." if product_at == "hand" else \
+        "Their hands stay off the product."
+    extra = ""
+    if voice_ref:
+        extra = ("Their voice is the voice heard in audio 1: the same timbre, pitch, pace and accent. Audio 1 is only a "
+                 "sample of the voice: never repeat its words and never play it. ")
+    return (f"Vertical selfie-style UGC video filmed on a phone, one shot of a longer video. {scene} They talk directly "
+            f"to the viewer in a natural, unscripted tone with {voice['desc']}. They say: \"{say}\" Lip movements match "
+            f"the speech exactly, and they stop talking when the line ends. {extra}{keep} {hold} {UNPOLISHED} Natural "
+            "light, slight handheld movement, the framing stays the same from start to end, no on-screen text, no "
+            f"subtitles, no music.{fix}")
+
+
+def broll_prompt(product: str, shot: str) -> str:
+    """The prompt for a silent cutaway made from the member's real product photo (image-to-video): the recipe's
+    shot, a slow steady move, and the keep-the-product line."""
+    product = product or "the product"
+    shot = " ".join((shot or f"close shots of the {product} and its label").split()).rstrip(".")
+    return with_fidelity(f"{shot[:1].upper() + shot[1:]}: the {product} on a clean surface in soft daylight, a slow, "
+                         "steady camera move. No faces, no on-screen text.")
+
+
 def default_voice(presenter_id: str) -> str:
     """The voice a presenter speaks with unless the member picks another (one map: Create, the first run and the
     planner all read it). A presenter without an entry gets the first voice of VOICES."""

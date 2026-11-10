@@ -11,6 +11,9 @@ downloaded and exported like any ad):
                        the presenter's voice sample (voice.mp3)
     preset_examples    an image preset run exactly as a member would run it, on a demo product
     preset_videos      a video preset (one that runs today), the same way
+    keyframe_tests     a recipe made by the keyframe-first pipeline (keyframe_video.py) at the lowest cost: 480p and
+                       four-second beats. It runs whether or not KEYFRAME_VIDEO is on, so the owner can look at one
+                       real result (keyframe, beats, cutaway, stitch, end card) before switching the pipeline on
 
 Price first, like everything else here: quote() says what a run costs in credits and what we estimate the vendor
 charges in dollars; generate() starts nothing unless the total it is given is that quote. Every job carries
@@ -50,9 +53,11 @@ import hf
 import presenters
 import presets
 
-KINDS = ("demo_products", "presenter_stills", "presenter_voices", "preset_examples", "preset_videos")
+KINDS = ("demo_products", "presenter_stills", "presenter_voices", "preset_examples", "preset_videos", "keyframe_tests")
 TAG = {"demo_products": "demo_product", "presenter_stills": "presenter_still", "presenter_voices": "presenter_voice",
-       "preset_examples": "preset_example", "preset_videos": "preset_video"}
+       "preset_examples": "preset_example", "preset_videos": "preset_video", "keyframe_tests": "keyframe_test"}
+KEYFRAME_TEST_RESOLUTION = "480p"      # a keyframe test's defaults: the vendor's cheapest size and shortest beat
+KEYFRAME_TEST_BEAT = 4
 MAX_JOBS = 120                 # one generate call
 VOICE_SECONDS = 6
 VOICE_SECONDS_RANGE = (4, 8)
@@ -191,6 +196,25 @@ _SCRIPTS = {
                                 "the table. We pour soy wax around a cotton wick, eight ounces at a time. Come and see "
                                 "what we make."),
     "turn": ("mug", ""), "swap": ("coffee", ""), "label": ("coffee", ""), "how": ("coffee", ""),
+    # the recipes the keyframe-first pipeline adds (made as examples once KEYFRAME_VIDEO is on, and by keyframe_tests)
+    "talking-head-cutaways": ("mug", "Let me show you the Dapplewood Trail Mug. It is double-wall stainless steel, twelve "
+                                     "ounces, and the lid presses in and stays. If you carry a hot drink every morning, "
+                                     "it is made for you. Find it at Dapplewood."),
+    "problem-solution": ("mug", "Still losing the lid of your travel mug? The Dapplewood Trail Mug has a lid that presses "
+                                "in and stays put. It is double-wall stainless steel and holds twelve ounces. Find it at "
+                                "Dapplewood."),
+    "green-screen-product-page": ("mug", "This is the page for the Dapplewood Trail Mug. It is twenty-four dollars, as "
+                                         "the page says. Scroll down for the photos, and the button is right there."),
+    "show-your-app": ("app", "This is Dapplewood Planner, a simple weekly planner. Tap a day, add a task, and share a "
+                             "list with someone. It is free to start."),
+    "street-interview": ("mug", "What is the Dapplewood Trail Mug? A twelve ounce insulated steel mug with a press-fit "
+                                "lid. It is for anyone who takes a hot drink out the door. Find it at Dapplewood."),
+    "three-reasons-video": ("mug", "Three reasons to try the Dapplewood Trail Mug. One, double-wall stainless steel. Two, "
+                                   "a lid that presses in and stays. Three, twelve ounces that fit a bag. Find it at "
+                                   "Dapplewood."),
+    "offer-promo": ("mug", "The Dapplewood Trail Mug, and right now a free lid with every mug."),
+    "how-to-steps": ("mug", "Here is how to use the Dapplewood Trail Mug. First, fill it. Second, press the lid in until "
+                            "it sits flat. Third, take it with you. Find it at Dapplewood."),
 }
 # The same examples at a few seconds (`video_seconds`): one short line each, said in full instead of a long one rushed.
 _SHORT_SCRIPTS = {
@@ -201,6 +225,14 @@ _SHORT_SCRIPTS = {
     "car-talk": "Okay, quick thing: the Dapplewood Trail Mug.",
     "season-gift-clip": "The Dapplewood Cedar Candle. A present they will use.",
     "founder-story": "We make Dapplewood candles: one plain, well-made thing.",
+    "talking-head-cutaways": "Let me show you the Dapplewood Trail Mug.",
+    "problem-solution": "Lid gone again? The Trail Mug's lid presses in.",
+    "green-screen-product-page": "This is the page for the Dapplewood Trail Mug.",
+    "show-your-app": "This is Dapplewood Planner, a simple weekly planner.",
+    "street-interview": "What is the Dapplewood Trail Mug? An insulated mug.",
+    "three-reasons-video": "Steel, a lid that stays, twelve ounces: the Trail Mug.",
+    "offer-promo": "The Dapplewood Trail Mug, with a free lid.",
+    "how-to-steps": "Fill the Trail Mug, press the lid in, go.",
 }
 VOICE_DEMO = "mug"
 
@@ -258,7 +290,9 @@ def tag_of(job) -> dict | None:
 def filename(tag: dict, ext: str = "") -> str:
     """The export name of an asset from its tags (what tools/import_library_assets.py reads)."""
     k = tag.get("kind")
-    if k == "presenter_still":
+    if k == "keyframe_test":
+        base = f"keyframe_test__{tag.get('preset')}"
+    elif k == "presenter_still":
         base = f"presenter__{tag.get('presenter')}__{tag.get('situation')}"
     elif k == "presenter_voice":
         base = f"voice__{tag.get('presenter')}"
@@ -684,7 +718,8 @@ def _preset_items(conn, ws, ids, options, video: bool, make: bool = False) -> li
         if p is None:
             pre = presets.get(pid)
             if pre is not None and not presets.runnable(pre):
-                raise LibraryError(f"{pre.name} needs the keyframe-first video pipeline, which isn't built yet.")
+                raise LibraryError(f"{pre.name} needs the keyframe-first video pipeline, which is switched off "
+                                   f"(KEYFRAME_VIDEO). To try it first: kind keyframe_tests, ids [\"{pre.id}\"].")
             raise LibraryError(f"{pid!r} isn't {'a video' if video else 'an image'} preset that can be made here.")
         if options.get("only_missing") and (presets.example_video_url(pid) if video else presets.example_url(pid)):
             continue
@@ -699,6 +734,20 @@ def _preset_items(conn, ws, ids, options, video: bool, make: bool = False) -> li
         if prod is None:
             # a quote before the demo product is set up: the preset's own table price (what expand() gives too)
             usd, credits = video_price(p.tool, secs, res) if custom else (p.cost_usd(), p.price_credits())
+            if video and p.kind == "recipe" and presets.pipeline_for(p) == "keyframe_video":
+                # KEYFRAME_VIDEO is on: what it costs us is the plan's (keyframe, beats, cutaways), as it will be
+                # once the demo product exists
+                import keyframe_video
+                who = str(options.get("presenter") or "maya")
+                kp = {"duration": secs or p.price.get("duration"), "resolution": res or catalog.DEFAULT_RESOLUTION}
+                if p.ad_type == "ugc":
+                    kp.update(presenter=who, situation=p.extra.get("situation") or str(options.get("situation") or "")
+                              or presenters.default_situation(who))
+                    kp.update(_presenter_still_ref(conn, ws, who, kp["situation"]))
+                words = example_script(p.id, kp["duration"]) or (_SCRIPTS.get(p.id) or ("", ""))[1]
+                usd = keyframe_video.plan_cost(keyframe_video.plan(p, kp, words, n_photos=1,
+                                                                   has_still=keyframe_video.has_still(kp),
+                                                                   category=DEMO[demo]["category"]))["usd"]
             out.append({"key": pid, "label": label, "tool": p.tool, "brief": "", "usd": round(usd, 4),
                         "credits": credits, "live": False, "template": p.id,
                         "params": dict({"library": tag}, **({"duration": secs, "resolution": res} if custom else {}))})
@@ -720,9 +769,75 @@ def _preset_items(conn, ws, ids, options, video: bool, make: bool = False) -> li
                 params["hook"] = brief[:200]
         if video and params.get("presenter"):
             params.update(_presenter_still_ref(conn, ws, params["presenter"], params.get("situation") or ""))
+        if video and params.get("pipeline") == "keyframe_video":
+            # KEYFRAME_VIDEO is on: the example is made in beats from a keyframe. Planned again here, because the
+            # length, the size, the words or the still it starts from may have changed just above.
+            import keyframe_video
+            params["kf"] = keyframe_video.plan(p, params, brief, n_photos=len(params.get("photo_ids") or []),
+                                               has_still=keyframe_video.has_still(params), category=DEMO[demo]["category"])
+            usd = keyframe_video.plan_cost(params["kf"])["usd"]
         out.append({"key": pid, "label": params["label"], "tool": j["tool"], "brief": brief, "usd": usd,
                     "credits": credits, "live": False, "params": params, "template": p.id,
                     "product_id": prod["id"]})
+    return out
+
+
+def _keyframe_items(conn, ws, ids, options, make: bool = False) -> list[dict]:
+    """A small paid test of the keyframe-first pipeline: one recipe each, one presenter, at the lowest cost (480p,
+    four-second beats unless `video_resolution` / `video_seconds` say otherwise; `video_seconds` is the length of
+    ONE beat here, 4 to 8). The job carries pipeline = "keyframe_video" itself, so it runs with KEYFRAME_VIDEO off."""
+    import keyframe_video
+    import products
+    by_id = {p.id: p for p in presets.RECIPES}
+    res = video_resolution(options) or KEYFRAME_TEST_RESOLUTION
+    beat = _whole(options, "video_seconds")
+    beat = KEYFRAME_TEST_BEAT if beat is None else max(keyframe_video.BEAT_MIN, min(keyframe_video.BEAT_MAX, beat))
+    out = []
+    for pid in _ids(ids, by_id, "video presets"):
+        p = by_id.get(pid)
+        if p is None:
+            raise LibraryError(f"{pid!r} isn't a video preset made in beats. Use one of: {', '.join(by_id)}.")
+        demo, script = _SCRIPTS[p.id]
+        d = DEMO[demo]
+        prod = _ready_demo(conn, ws, demo, make)
+        photos = products.photos_for(conn, ws["id"], prod["id"]) if prod is not None else []
+        n_photos = len(photos) if prod is not None else 1
+        need = presets.screens_needed(p)
+        if need and not (need == "app_screens" and d["category"] == "app_service" and n_photos):
+            raise LibraryError(f"{p.name} needs {presets.SCREEN_NEEDS[need]}, and the demo products have none. Try "
+                               "another recipe (talking-head-cutaways shows the most of the pipeline).")
+        ugc = p.ad_type == "ugc"
+        who = str(options.get("presenter") or "maya")
+        if ugc and presenters.record(who) is None:
+            raise LibraryError(f"Unknown presenter {who!r}.")
+        sid = (p.extra.get("situation") or str(options.get("situation") or "") or presenters.default_situation(who)) if ugc else ""
+        if sid and sid not in presenters.SITUATIONS:
+            raise LibraryError("situation is one of: " + ", ".join(presenters.SITUATIONS) + ".")
+        beats = keyframe_video.fit_beats(p, 0, beat)
+        # each beat's share of the example's script, cut to what four (or so) seconds hold
+        lines = [catalog.trim_words(x, catalog.max_words(beat)) or (_SHORT_SCRIPTS.get(p.id) or script)
+                 for x in keyframe_video.split_script(script, [b["seconds"] for b in beats])]
+        brief = " ".join(lines)
+        tag = {"kind": "keyframe_test", "preset": p.id, "demo": demo, **({"presenter": who, "situation": sid} if ugc else {})}
+        label = f"{p.name} · keyframe test · {len(beats)} x {beat}s · {res}"
+        params = {"photo_ids": [x["id"] for x in photos][:4], "ad_type": p.ad_type, "product": d["name"],
+                  "duration": beat * len(beats), "aspect": "9:16", "setting": "", "resolution": res, "preset": p.id,
+                  "pipeline": keyframe_video.PIPELINE, "beat_seconds": beat, "library": tag, "label": label,
+                  "hook": brief[:200]}
+        if ugc:
+            params.update(presenter=who, voice=catalog.default_voice(who), situation=sid)
+            params.update(_presenter_still_ref(conn, ws, who, sid))
+        else:
+            params["voice"] = str(options.get("voice") or "narrator_bright")
+        plan = keyframe_video.plan(p, params, brief, n_photos=n_photos, has_still=keyframe_video.has_still(params),
+                                   category=d["category"], beat_seconds=beat)
+        for b, line in zip(plan["beats"], lines):
+            b["line"] = line
+        params["kf"] = plan
+        usd = keyframe_video.plan_cost(plan)["usd"]
+        out.append({"key": pid, "label": label, "tool": "ugc_video", "brief": brief, "usd": usd, "credits": _credits(usd),
+                    "live": False, "params": params, "template": p.id,
+                    **({"product_id": prod["id"]} if prod is not None else {})})
     return out
 
 
@@ -738,6 +853,8 @@ def items(conn, ws, kind: str, ids, options=None, make: bool = False) -> list[di
         out = _still_items(conn, ws, ids, options)
     elif kind == "presenter_voices":
         out = _voice_items(conn, ws, ids, options)
+    elif kind == "keyframe_tests":
+        out = _keyframe_items(conn, ws, ids, options, make=make)
     else:
         out = _preset_items(conn, ws, ids, options, video=kind == "preset_videos", make=make)
     if not out:

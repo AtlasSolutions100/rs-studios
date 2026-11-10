@@ -313,6 +313,14 @@ def _fail(conn, job, msg, extra_where: str = "", extra_args: tuple = ()) -> bool
             image_qa.discard(conn, job["id"])     # pictures held back for a retry are not kept
         except Exception:  # noqa: BLE001 — bookkeeping never undoes the refund
             log.exception("job %s: cleanup after a failure didn't finish", job["id"])
+    elif _keyframe_job(job):
+        import free_fix
+        import keyframe_video
+        try:
+            free_fix.release(conn, job["id"])     # a one-beat fix that failed can be asked for again
+        except Exception:  # noqa: BLE001
+            log.exception("job %s: releasing its fix didn't finish", job["id"])
+        keyframe_video.cleanup(conn, job)         # drop what is still being made at the vendor and what was fetched
     conn.commit()
     _notify_ready(conn, job)      # the last job of a first batch failing still means the others are ready
     return True
@@ -367,6 +375,14 @@ def _soften(conn, job, why: str) -> bool:
         log.info("job %s: the content filter refused the still (%s); trying once more with a softer prompt",
                  job["id"], (why or "no reason given")[:120])
     return cur.rowcount == 1
+
+
+def _keyframe_job(job) -> bool:
+    """Is this a keyframe-first video (keyframe_video.py)? A cheap look first: most jobs never import the module."""
+    if job["tool"] != "ugc_video" or '"pipeline"' not in (job["params_json"] or ""):
+        return False
+    import keyframe_video
+    return keyframe_video.is_job(job)
 
 
 def _is_preview(job) -> bool:
@@ -752,6 +768,12 @@ def _submit_one(conn, job):
     if job is None:
         return False
     try:
+        if _keyframe_job(job):
+            # a keyframe-first video: planned here and marked running; its parts (the keyframe, then every beat)
+            # are sent and followed by keyframe_video.advance() on each pass
+            import keyframe_video
+            keyframe_video.start(conn, job)
+            return True
         inputs = build_inputs(conn, job)
         model = catalog.model_for(job["tool"])
         # a talking video, and the library's token-priced still: refused when the vendor's own estimate has moved
@@ -799,6 +821,13 @@ def cancel_job(conn, job) -> tuple[bool, str]:
         return False, "It's starting right now. Try again in a moment."
     if job["status"] != "running":
         return False, "It has already finished."
+    if _keyframe_job(job):
+        import keyframe_video
+        if not keyframe_video.can_cancel(conn, job):         # its beats are at the vendor, and paid for
+            return False, "It's already being made and can't be stopped now."
+        if _fail(conn, job, CANCELED):                        # only its keyframe was started: _fail drops it
+            return True, failure_text(CANCELED)
+        return False, "It has already finished."
     outcome = hf.cancel(job["request_id"]) if job["request_id"] else hf.GONE
     if outcome in (hf.CANCELED, hf.GONE):
         if _fail(conn, job, CANCELED):
@@ -841,6 +870,19 @@ def tick() -> int:
                     changed += 1
         for job in conn.execute("SELECT * FROM jobs WHERE status='running' ORDER BY id LIMIT 20").fetchall():
             _beat()
+            if _keyframe_job(job):
+                # a keyframe-first video has no single request to ask about: one bounded step of its pipeline
+                import keyframe_video
+                try:
+                    with _busy("keyframe video"):
+                        if keyframe_video.advance(conn, job):
+                            changed += 1
+                except hf.GenError as e:
+                    if _fail(conn, job, str(e)):
+                        changed += 1
+                except Exception:  # noqa: BLE001 — again next pass; advance() ends a job that never finishes
+                    log.exception("job %s: its video pipeline step failed", job["id"])
+                continue
             try:
                 with _busy("vendor status"):
                     res = hf.status(job["request_id"])
@@ -987,6 +1029,8 @@ def loop_once():
         alerts.maybe_sweep()   # operator alerts: stuck jobs, vendor errors, disk, backups (never raises)
     import storage
     storage.maybe_purge()  # once a day: temp leftovers and expired exports (never raises)
+    import keyframe_video
+    keyframe_video.maybe_purge()   # once a day: the kept beats of videos whose free fix has lapsed (never raises)
     import credits
     credits.maybe_release_stale()  # holds left by a crashed AI run go back after 30 min (never raises)
     import adplatforms
