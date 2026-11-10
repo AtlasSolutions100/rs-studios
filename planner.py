@@ -86,6 +86,10 @@ and Forms do both), and say which is which.
 
 """ + copywriter.RULES + """
 
+Links: the brief names the one destination link you may use. Never invent a web address or domain, in the summary,
+the offer, the test plan, the checklist or anywhere else. If the brief says no link was given, write [your link] where
+one belongs and add a checklist item telling the member to add their page's address.
+
 Also: never invent statistics, reviews or results. If the budget is small, say so and focus it on one or two
 platforms. Keep text tight; the member reads it on a phone."""
 
@@ -316,8 +320,7 @@ def propose(conn, cid, ws_id, inp, photos, refs):
         pr = inp.get("presenter") if inp.get("presenter") in catalog.PRESENTER_BY_ID else catalog.PRESENTERS[0]["id"]
         aspect = inp.get("aspect") if inp.get("aspect") in catalog.TOOLS["ugc_video"]["aspects"] else "9:16"
         params.update(duration=dur, aspect=aspect, ad_type="ugc", presenter=pr,
-                      voice={"maya": "warm_f", "priya": "warm_f", "elena": "warm_f", "sam": "upbeat_f",
-                             "lena": "upbeat_f", "marcus": "calm_m"}.get(pr, "chatty_m"))
+                      voice=catalog.default_voice(pr))
         credits, usd = catalog.price_credits(tool, duration=dur), catalog.cost_usd(tool, duration=dur)
     elif tool == "photo_to_video":
         dur = 10 if int(inp.get("duration") or 5) == 10 else 5
@@ -343,6 +346,29 @@ def propose(conn, cid, ws_id, inp, photos, refs):
     return out
 
 
+def _own_links(value, ctx):
+    """(value, n) with every web address the member never gave us (not in the brief, the product or the brand)
+    replaced by "[your link]", through nested lists and dicts. The planner must not invent a landing page."""
+    allowed = ctx.get("link_hosts")
+    if allowed is None:
+        allowed = ctx["link_hosts"] = copywriter.allowed_hosts(ctx.get("brand") or {}, ctx.get("brief") or {})
+    n = 0
+
+    def walk(v):
+        nonlocal n
+        if isinstance(v, str):
+            v, k = copywriter.strip_unknown_links(v, allowed)
+            n += k
+            return v
+        if isinstance(v, list):
+            return [walk(x) for x in v]
+        if isinstance(v, dict):
+            return {k: walk(x) for k, x in v.items()}
+        return v
+
+    return walk(value), n
+
+
 def dispatch(name, inp, ctx):
     """Run one tool call. ctx: cid, ws_id, brand, brief, plan, steps, usage, photos, refs, counts."""
     plan, steps = ctx["plan"], ctx["steps"]
@@ -358,6 +384,7 @@ def dispatch(name, inp, ctx):
               " · ".join(a["name"] for a in angles))
         return {"ok": True, "saved": len(angles)}
     if name == "save_creative":
+        inp, _ = _own_links(inp, ctx)
         cr = {"angle": str(inp.get("angle") or "")[:120], "format": str(inp.get("format") or "")[:80],
               "hooks": [str(h)[:200] for h in (inp.get("hooks") or [])][:5],
               "script": str(inp.get("script") or "")[:2500],
@@ -413,6 +440,11 @@ def dispatch(name, inp, ctx):
     if name == "check_compliance":
         return compliance.check(str(inp.get("text") or ""))
     if name == "finish":
+        inp, swapped = _own_links(inp, ctx)
+        if swapped:
+            _step(steps, "note", "Took out a link that wasn't yours",
+                  f"{swapped} web address{'es' if swapped != 1 else ''} not in your brief or product became "
+                  f"{copywriter.LINK_PLACEHOLDER}. Add your page's address before you launch.")
         offer = str(inp.get("offer") or "").strip()[:1500]
         if offer and not compliance.check(offer)["ok"]:
             _step(steps, "note", "Left out the offer paragraph", "It didn't pass the compliance checks.")
@@ -497,7 +529,8 @@ def run(cid: int, notes: str | None = None, hold=None, free: bool = False):
     else:
         src = b or ws
         brand = {"name": src["brand_name"] or "", "product": src["product_name"] or "", "claims": src["claims"] or "",
-                 "audience": src["audience"] or ""}
+                 "audience": src["audience"] or "",
+                 "website": (src["website"] if "website" in src.keys() else "") or ""}
     brief = json.loads(c["brief_json"] or "{}")
     previous = Plan(json.loads(c["plan_json"] or "{}")) if notes else None
     plan, steps = Plan(), json.loads(c["steps_json"] or "[]") if notes else []

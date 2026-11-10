@@ -45,6 +45,9 @@ RS_MAIL_DOMAIN=mail.campaignify.ai
 # magic link to /app (72 hours, logs in and confirms the email). Same From as the account emails.
 # FIRST_RUN_NUDGES=0 switches them off.
 # FIRST_RUN_NUDGES=1
+# "Your ads are ready": one email to a member when their first batch finishes (ready_email.py).
+# ADS_READY_EMAIL=0 switches it off.
+# ADS_READY_EMAIL=1
 # Admin outreach emails (/admin/outreach) come from "Koby Stull" <hello@RS_MAIL_DOMAIN> unless set;
 # replies go to hello@ the From's domain.
 # RS_OUTREACH_FROM="Koby Stull" <hello@campaignify.ai>

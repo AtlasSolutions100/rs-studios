@@ -154,7 +154,7 @@ def list_assets(ctx, args):
     items = []
     for j in jobs:
         prm = json.loads(j["params_json"] or "{}")
-        items.append({"job_id": j["id"], "type": catalog.TOOL_AD_TYPE.get(j["tool"], j["tool"]), "status": j["status"],
+        items.append({"job_id": j["id"], "type": catalog.job_ad_type(j["tool"], prm), "status": j["status"],
                       "label": prm.get("label"), "hook": prm.get("hook"), "product": names.get(j["product_id"]),
                       "batch_id": j["batch_id"], "credits": j["credits"], "created_at": j["created_at"],
                       "error": j["error"] if j["status"] == "failed" else None, "outputs": outs.get(j["id"], [])})
@@ -191,7 +191,7 @@ def _ad_config(args):
     for src, dst in (("body", "body"), ("presenters", "presenters"), ("voices", "voices"), ("voice", "voice"),
                      ("duration", "duration"), ("aspects", "aspects"), ("resolution", "resolution"),
                      ("versions", "versions"), ("photo_ids", "photos"), ("subline", "subline"), ("cta", "cta"),
-                     ("setting", "setting"), ("audio", "audio"), ("only", "lines")):
+                     ("setting", "setting"), ("placement", "placement"), ("audio", "audio"), ("only", "lines")):
         if args.get(src) not in (None, "", []):
             d[dst] = args[src]
     if args.get("title"):
@@ -261,6 +261,9 @@ def _ad_schema(kinds, generating):
                       "description": "Product photos to use (default: the product's photos)."},
         "subline": {"type": "string", "maxLength": 120}, "cta": {"type": "string", "maxLength": 40},
         "setting": {"type": "string", "maxLength": 120, "description": "ugc: where the presenter is."},
+        "placement": {"type": "string", "enum": list(catalog.PLACEMENTS),
+                      "description": "ugc: where the product is. table (default): beside the presenter, hands off. "
+                                     "holding: the presenter holds it up."},
         "audio": {"type": "boolean", "description": "product_video: add sound."},
         "only": {"type": "array", "maxItems": 12, "items": {"type": "string", "maxLength": 40},
                  "description": "Make only these line keys from the quote (default: all)."},
@@ -338,11 +341,13 @@ def get_plan(ctx, args):
     st = ctx.must("GET", f"/app/campaigns/{cid}/status").data          # plan feature + ownership
     with ctx.as_user() as conn:
         c = conn.execute("SELECT * FROM campaigns WHERE id=? AND workspace_id=?", (cid, ctx.account_id)).fetchone()
-        ads = conn.execute("SELECT id, angle, platform, tool, template_id, brief, credits, status, job_id FROM campaign_ads "
+        ads = conn.execute("SELECT id, angle, platform, tool, template_id, brief, credits, status, job_id, params_json "
+                           "FROM campaign_ads "
                            "WHERE campaign_id=? AND workspace_id=? ORDER BY id", (cid, ctx.account_id)).fetchall()
     return {"campaign_id": cid, "name": c["name"], "status": st["status"], "credits_used": c["credits"],
             "error": c["error"], "brief": json.loads(c["brief_json"] or "{}"), "plan": json.loads(c["plan_json"] or "{}"),
-            "proposed_ads": [dict(a, type=catalog.TOOL_AD_TYPE.get(a["tool"], a["tool"])) for a in ads],
+            "proposed_ads": [{**{k: a[k] for k in a.keys() if k != "params_json"},
+                              "type": catalog.job_ad_type(a["tool"], a["params_json"])} for a in ads],
             "note": "Proposed ads are made from the campaign page in the app, or with quote_ad_batch and the generate tools."}
 
 
@@ -387,12 +392,24 @@ def get_snapshot(ctx, args):
 def list_snapshots(ctx, args):
     with ctx.as_user() as conn:
         _need("competitors")
-        rows = conn.execute("SELECT id, status, credits, created_at, inputs_json FROM competitor_reports WHERE "
-                            "workspace_id=? ORDER BY id DESC LIMIT 50", (ctx.account_id,)).fetchall()
+        rows = conn.execute("SELECT id, status, credits, created_at, inputs_json, report_json FROM competitor_reports "
+                            "WHERE workspace_id=? ORDER BY id DESC LIMIT 50", (ctx.account_id,)).fetchall()
     items = [{"snapshot_id": r["id"], "status": r["status"], "credits": r["credits"], "created_at": r["created_at"],
-              "competitors": [c.get("name") or c.get("url") for c in json.loads(r["inputs_json"] or "{}")
-                              .get("competitors", [])]} for r in rows]
+              "competitors": snapshot_competitors(r["inputs_json"], r["report_json"])} for r in rows]
     return paginate(items, args, key="snapshots")
+
+
+def snapshot_competitors(inputs_json, report_json) -> list:
+    """Who a snapshot is about: the names the member typed, else (a "find them for me" run starts with none) the ones
+    the research found, which are only in the report. A row with no name shows its website."""
+    def load(raw):
+        try:
+            d = json.loads(raw or "{}")
+        except (ValueError, TypeError):
+            d = {}
+        return [c for c in (d.get("competitors") if isinstance(d, dict) else None) or [] if isinstance(c, dict)]
+    rows = load(inputs_json) or load(report_json)
+    return [n for n in (c.get("name") or c.get("website") or c.get("url") for c in rows) if n]
 
 
 PRODUCT = {"type": "integer", "minimum": 1}

@@ -101,6 +101,11 @@ def index():
             b = conn.execute("SELECT * FROM batches WHERE id=? AND workspace_id=?",
                              (request.args.get("batch", type=int), g.ws["id"])).fetchone()
             if b:
+                if not request.args.get("rest"):     # "Make more like this" (not "Make the rest" of the same batch)
+                    import site_events
+                    site_events.on_asset(conn, "more_like_this", conn.execute(
+                        "SELECT * FROM jobs WHERE batch_id=? AND workspace_id=? ORDER BY id LIMIT 1",
+                        (b["id"], g.ws["id"])).fetchone(), request)
                 prefill = dict(json.loads(b["config_json"] or "{}"), step="script")
                 pid = b["product_id"] or pid
                 if request.args.get("rest") and prefill.get("made"):
@@ -508,6 +513,8 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
                     params = dict(base, duration=dur, aspect=asp, setting=str(d.get("setting") or "")[:120], resolution=res)
                     if typ == "ugc":
                         params.update(presenter=who, voice=voice or _default_voice(who))
+                        if d.get("placement") == "holding":     # the old look: the presenter holds the product
+                            params["placement"] = "holding"
                         label = f"{catalog.PRESENTER_BY_ID[who]['name']} · {asp}{hd}"
                     else:
                         params.update(voice=who)
@@ -582,9 +589,7 @@ def image_text(d) -> tuple[str, str]:
 
 
 def _default_voice(presenter_id):
-    pr = catalog.PRESENTER_BY_ID.get(presenter_id) or {}
-    return {"maya": "warm_f", "priya": "warm_f", "elena": "warm_f", "sam": "upbeat_f", "lena": "upbeat_f",
-            "jordan": "chatty_m", "theo": "chatty_m", "marcus": "calm_m"}.get(pr.get("id"), "warm_f")
+    return catalog.default_voice(presenter_id)
 
 
 @bp.route("/app/create/quote", methods=["POST"])
@@ -674,7 +679,7 @@ def generate():
         save_script(conn, p["id"], meta["type"]["id"], d.get("items"), d.get("body"), angle.get("title"), aid)
         cfg = {k: d.get(k) for k in ("type", "angle", "items", "body", "presenters", "voices", "voice", "duration",
                                      "aspects", "platforms", "versions", "ref", "photos", "setting", "audio", "resolution",
-                                     "subline", "cta")}
+                                     "subline", "cta", "placement")}
         cfg["made"] = [j["key"] for j in jobs]
         cfg["every"] = meta["every"]
         cfg["product"] = p["id"]

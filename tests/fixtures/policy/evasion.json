@@ -29,7 +29,9 @@
    "expect": [
     "policy.ai_testimonial"
    ],
-   "house": [],
+   "house": [
+    "ai_customer_voice"
+   ],
    "levels": {
     "policy.ai_testimonial": "block"
    }

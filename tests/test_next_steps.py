@@ -123,8 +123,8 @@ def text(fragment):
 print("== off (the default): nothing changes")
 c, made = first_ads("off@example.com")
 home = c.get(made).get_data(as_text=True)
-check("data-next-steps" not in home and "Making 1 of 1." in home and "data-live-done" not in home,
-      "Home after the first submit: no strip, the old 'Making 1 of 1.' line")
+check("data-next-steps" not in home and "Making 2 of 2." in home and "data-live-done" not in home,
+      "Home after the first submit: no strip, the old 'Making 2 of 2.' line")
 check("Make more like this" in home and "Plan the campaign for" not in home, "the first-ads card keeps 'Make more like this'")
 check("data-verify-banner" in home and "Confirm your email to unlock video ads" in home,
       "off: the banner and the inline box both show (as before)")
@@ -154,13 +154,23 @@ worker.tick()
 with db.connect() as conn:
     n_out = conn.execute("SELECT COUNT(*) FROM outputs o JOIN jobs j ON j.id=o.job_id WHERE j.workspace_id=?",
                          (ws["id"],)).fetchone()[0]
-check(n_out == 2, "the fake render made 2 outputs from one job")
+check(n_out == 2, "the fake render made 2 outputs, one per job (two different templates)")
 home = c.get(made).get_data(as_text=True)
 check(re.search(r"<p class=\"small ok\"[^>]*data-live-done ><b>Your 2 ads are ready\.</b>", home), "done: 'Your 2 ads are ready.'")
-check(home.count('alt="Generated ad, version') == 2 and "thumbs2" in home, "the card shows the 2 versions as 2 thumbnails")
+check(len(set(re.findall(r'data-job="(\d+)"', home))) == 2 and "thumbs2" not in home,
+      "the 2 ads are 2 cards, one thumbnail each")
 jid = re.search(r'data-job="(\d+)"', home).group(1)
+with db.connect() as conn:      # a job that made 2 versions (Create's "versions") still shows both on its card
+    o = conn.execute("SELECT * FROM outputs WHERE job_id=?", (jid,)).fetchone()
+    conn.execute("INSERT INTO outputs (job_id, kind, url, path) VALUES (?,?,?,?)", (jid, o["kind"], o["url"], o["path"]))
+    conn.commit()
+home2 = c.get(made).get_data(as_text=True)
+check(home2.count('alt="Generated ad, version') == 2 and "thumbs2" in home2, "a card with 2 versions shows 2 thumbnails")
 cards = c.get(f"/app/jobs/cards?ctx=batch&ids={jid}").get_json()
 check("thumbs2" in cards["cards"][jid]["html"], "the live card (app.js patch) renders the same 2 thumbnails")
+with db.connect() as conn:
+    conn.execute("DELETE FROM outputs WHERE id=(SELECT MAX(id) FROM outputs WHERE job_id=?)", (jid,))
+    conn.commit()
 
 print("== on: the strip after the free ads")
 s = strip(home)

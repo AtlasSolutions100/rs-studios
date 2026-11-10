@@ -16,6 +16,8 @@ RULES = """Rules every line must follow (they're enforced after you write, and a
 - No discounts, percent-off, coupons, promo codes or free-shipping offers unless the brief's offer says so explicitly.
 - No fake testimonials or reviews; never write as a customer describing personal results ("I lost", "my results").
 - No guarantees or "clinically proven" unless that exact wording is in the approved claims.
+- Never invent a web address, domain or email address. The only link you may write is the destination link in the
+  brief. If the brief says there is no link, write [your link] wherever a link belongs.
 - Plain, specific language. No ALL CAPS sentences, at most one exclamation mark per variant."""
 
 SYSTEM = ("You are Campaignify's senior direct-response copywriter. You write short, specific, platform-native "
@@ -71,6 +73,69 @@ VARIANTS_SCHEMA = {
 }
 
 
+LINK_PLACEHOLDER = "[your link]"
+
+# Web addresses in generated text. A full URL, a www. host, or a bare domain on a common ending; an email address is
+# left alone (the part after @ is not a link). A bare domain's ending must be lower case, so a missing space after a
+# full stop ("buy it in the shop.Shop now") is not read as one. Trailing sentence punctuation is not part of the match.
+_TLDS = ("com|net|org|io|co|ai|app|shop|store|biz|info|xyz|online|site|dev|tech|coffee|cafe|studio|blog|club|ly|gg|"
+         "uk|ca|au|de|fr|nl|tv")
+_URL_END = r"[^\s<>\"'\]\[)(]"
+URL_RX = re.compile(
+    r"(?<![@\w.-])(?:(?i:https?://)" + _URL_END + r"+|(?i:www\.)" + _URL_END + r"+|"
+    r"(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+(?:" + _TLDS + r")\b(?![\w@-])(?:/" + _URL_END + r"*)?)")
+# The ad platforms' own sites (a launch checklist may point at Ads Manager) and Campaignify itself are never "invented".
+KNOWN_HOSTS = ("campaignify.ai", "facebook.com", "meta.com", "instagram.com", "tiktok.com", "google.com", "youtube.com",
+               "snapchat.com", "pinterest.com", "linkedin.com", "x.com", "twitter.com", "reddit.com", "threads.net",
+               "stripe.com", "shopify.com")
+
+
+def destination_link(brand: dict, brief: dict) -> str:
+    """The link copy may use: the brief's own, else the product's saved page, else the brand's website ("" = none)."""
+    for v in ((brief or {}).get("link"), (brand or {}).get("url"), (brand or {}).get("website")):
+        v = " ".join(str(v or "").split())
+        if v:
+            return v[:300]
+    return ""
+
+
+def _host(url: str) -> str:
+    h = re.sub(r"^https?://", "", url.strip().lower()).split("/", 1)[0].split("?", 1)[0].split("#", 1)[0]
+    h = h.rsplit("@", 1)[-1].split(":", 1)[0].strip(".")
+    return h[4:] if h.startswith("www.") else h
+
+
+def allowed_hosts(brand: dict, brief: dict) -> set:
+    """Every host the member gave us: in the brief (link, offer, notes...) and in the product and brand details."""
+    out = set(KNOWN_HOSTS)
+    for src in (brief or {}, brand or {}):
+        for v in src.values():
+            if isinstance(v, str):
+                out.update(_host(m.group(0)) for m in URL_RX.finditer(v))
+    out.discard("")
+    return out
+
+
+def strip_unknown_links(text: str, allowed) -> tuple[str, int]:
+    """(text, n): every web address whose host the member never gave us becomes "[your link]". A model that was told
+    there is no link, or that drifts from the one it was given, can't put an invented address in front of a member."""
+    n = 0
+
+    def swap(m):
+        nonlocal n
+        raw = m.group(0)
+        tail = ""
+        while raw and raw[-1] in ".,;:!?":
+            raw, tail = raw[:-1], raw[-1] + tail
+        h = _host(raw)
+        if any(h == a or h.endswith("." + a) for a in allowed):
+            return m.group(0)
+        n += 1
+        return LINK_PLACEHOLDER + tail
+
+    return URL_RX.sub(swap, text or ""), n
+
+
 def brief_text(brand: dict, brief: dict) -> str:
     lines = [f"Brand: {brand.get('name') or '(none)'}",
              f"Product: {brand.get('product') or brief.get('offer') or '(not given)'}",
@@ -82,8 +147,12 @@ def brief_text(brand: dict, brief: dict) -> str:
     if brief.get("email_type") in platforms.EMAIL_TYPES:
         et = platforms.EMAIL_TYPES[brief["email_type"]]
         lines.append(f"Email type: {et['name']}. {et['hint']}")
-    if brief.get("link"):
-        lines.append(f"Destination link: {brief['link']}")
+    link = destination_link(brand, brief)
+    if link:
+        lines.append(f"Destination link (the only web address you may use): {link}")
+    else:
+        lines.append("Destination link: none was given. Do not make one up: wherever a link or web address belongs, "
+                     f"write {LINK_PLACEHOLDER} exactly, and never write any other web address or domain.")
     if brief.get("notes"):
         lines.append(f"Notes from the marketer: {brief['notes']}")
     return "\n".join(lines)
@@ -143,7 +212,19 @@ def write(brand: dict, kind: str, platform: str, brief: dict, n: int = 3, usage:
               + guide(kind, brief))
     data = llm.structured(system=SYSTEM, prompt=prompt, schema=VARIANTS_SCHEMA, name="submit_copy",
                           max_tokens=_max_tokens(n, kind), usage=usage)
-    return [check_variant(v, kind, platform) for v in (data.get("variants") or [])[:n]]
+    allowed = allowed_hosts(brand, brief)
+    out = []
+    for v in (data.get("variants") or [])[:n]:
+        swapped = 0
+        for f in (v.get("fields") or []) if isinstance(v, dict) else []:
+            if isinstance(f, dict) and isinstance(f.get("text"), str):
+                f["text"], k = strip_unknown_links(f["text"], allowed)
+                swapped += k
+        c = check_variant(v, kind, platform)
+        if swapped:      # shown with the variant: a link we couldn't trace to the brief was taken out
+            c["links_replaced"] = swapped
+        out.append(c)
+    return out
 
 
 def check_variant(v: dict, kind: str, platform: str) -> dict:
