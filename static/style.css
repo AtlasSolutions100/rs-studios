@@ -1108,6 +1108,16 @@ dialog.jd::backdrop{background:rgba(0,0,0,.55)}
 .cf-preset img{width:44px;height:56px;object-fit:cover;border-radius:8px;flex:none}
 .cf-preset>span{display:flex;flex-direction:column;gap:2px;min-width:0}
 .cf-preset b{font-size:13.5px}.cf-preset .small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cf-presetgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.cf-preset2{display:flex;gap:12px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--chipbg);text-decoration:none;color:var(--ink)}
+.cf-preset2:hover,.cf-preset2.on{border-color:rgba(var(--accent-rgb),.7)}
+.cf-preset2 img{width:64px;height:80px;object-fit:cover;border-radius:8px;flex:none;aspect-ratio:4/5;background:var(--line)}
+.cf-preset2>span{display:flex;flex-direction:column;gap:3px;min-width:0}
+.cf-preset2 b{font-size:14px}.cf-preset2 .tag{font-style:normal;font-size:11px;margin-left:4px}
+.cf-layers{margin-top:12px}.cf-layers input[type=text]{width:100%}
+.cf-flags{margin:8px 0 0;padding-left:18px}.cf-flags li{margin:4px 0}
+.fixit{margin-top:8px}.fixit summary{cursor:pointer;list-style:none}.fixit summary::-webkit-details-marker{display:none}
+.fixit textarea{width:100%;min-height:54px;margin-top:6px}
 .plan-out{margin:-4px 0 8px;font-weight:600;color:var(--gold2)}
 .plan-per{margin:0 0 8px;color:var(--ink)}.plan-why{margin:8px 0 0}
 .err-actions{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 14px}

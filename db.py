@@ -785,6 +785,31 @@ CREATE TABLE IF NOT EXISTS conversion_setups (
     purchase_snippet TEXT,
     status TEXT,                             -- ready | partial | none | managed_elsewhere | error
     error TEXT, checked_at TEXT);
+-- Quality wave 2. asset_qa (image_qa.py): one row per picture the automatic check looked at (or skipped), kept
+-- for the acceptance numbers. asset_fixes (free_fix.py): the one free fix of a delivered picture.
+-- claims_checks (claims_check.py): the last claims check of a script, so Generate doesn't pay for it twice.
+CREATE TABLE IF NOT EXISTS asset_qa (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, job_id INTEGER NOT NULL,
+    attempt INTEGER NOT NULL DEFAULT 1, idx INTEGER NOT NULL DEFAULT 1, kind TEXT NOT NULL DEFAULT 'image',
+    ad_type TEXT, preset TEXT,
+    verdict TEXT NOT NULL,                   -- pass | fail | skipped
+    reasons_json TEXT, checks_json TEXT, model TEXT, usd REAL NOT NULL DEFAULT 0,
+    url TEXT, path TEXT, kept INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_asset_qa_job ON asset_qa(job_id, attempt);
+CREATE INDEX IF NOT EXISTS idx_asset_qa_at ON asset_qa(created_at);
+CREATE TABLE IF NOT EXISTS asset_fixes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, job_id INTEGER NOT NULL,
+    output_id INTEGER NOT NULL, fix_job_id INTEGER, user_id INTEGER, note TEXT,
+    cost_usd REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'used',     -- used | released (the fix failed on our side: it can be asked for again)
+    created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_asset_fixes_ws ON asset_fixes(workspace_id, created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_asset_fixes_one ON asset_fixes(output_id) WHERE status='used';
+CREATE TABLE IF NOT EXISTS claims_checks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, product_id INTEGER NOT NULL,
+    text_hash TEXT NOT NULL, status TEXT NOT NULL,   -- ok | flagged | skipped
+    result_json TEXT, usd REAL NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_claims_checks ON claims_checks(workspace_id, product_id, text_hash);
 """
 
 # Columns added after the first release: (table, column, definition).
@@ -935,6 +960,13 @@ COLUMNS = [
     ("pages", "measurement", "TEXT NOT NULL DEFAULT 'us'"),
     ("forms", "measurement", "TEXT NOT NULL DEFAULT 'us'"),
     ("pixels", "test_code", "TEXT"),
+    # quality wave 2: the brand kit a static's text layer is drawn with (textlayer.py), and a workspace's own
+    # monthly cap on free fixes (free_fix.py; NULL = the FREE_FIX_MONTHLY_CAP setting)
+    ("brands", "kit_primary", "TEXT"),
+    ("brands", "kit_accent", "TEXT"),
+    ("brands", "kit_font", "TEXT"),
+    ("brands", "kit_logo", "TEXT"),
+    ("workspaces", "free_fix_cap", "INTEGER"),
 ]
 
 
@@ -1218,6 +1250,30 @@ def refund_job(conn, job, reason: str) -> int:
     if rest:
         adjust_credits(conn, job["workspace_id"], rest, reason, job["id"])
     return job["credits"]
+
+
+def refund_part(conn, job, amount: int, reason: str) -> int:
+    """Give back part of a job's credits (some of its pictures failed the automatic check, image_qa.py) and lower
+    the job's own figure by it. Pack credits go back first (they were spent last), the rest to the plan bucket
+    while a plan is on."""
+    amount = max(0, min(int(amount or 0), int(job["credits"] or 0)))
+    if not amount:
+        return 0
+    spent_plan = -(conn.execute("SELECT COALESCE(SUM(plan_delta),0) FROM ledger WHERE job_id=? AND delta<0",
+                                (job["id"],)).fetchone()[0] or 0)
+    spent_plan = max(0, min(spent_plan, job["credits"]))
+    to_pack = min(amount, job["credits"] - spent_plan)
+    to_plan = amount - to_pack
+    ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (job["workspace_id"],)).fetchone()
+    import plans
+    if to_plan and plans.plan_code(ws) == "free":
+        to_pack, to_plan = amount, 0
+    if to_plan:
+        adjust_credits(conn, job["workspace_id"], to_plan, reason, job["id"], bucket="plan")
+    if to_pack:
+        adjust_credits(conn, job["workspace_id"], to_pack, reason, job["id"])
+    conn.execute("UPDATE jobs SET credits = credits - ? WHERE id=?", (amount, job["id"]))
+    return amount
 
 
 def set_plan_credits(conn, workspace_id: int, amount: int, reason: str):

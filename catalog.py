@@ -10,6 +10,7 @@ import os
 import re
 
 import liveids
+import presets
 
 MARKUP = float(os.environ.get("RS_MARKUP", "2.0"))
 # 1080p carries a smaller markup of its own (owner decision D9): the vendor's
@@ -169,20 +170,9 @@ def capabilities() -> dict:
             "lipsync_own_audio": False, "voice_library": False, "fixed_presenter": False}
 
 
-# Ad types in Create, in the order they're offered. `script` says what the
-# script step writes: spoken lines, an image headline + concept, or scenes.
-AD_TYPES = [
-    {"id": "ugc", "name": "UGC presenter", "tool": "ugc_video", "script": "spoken", "presenter": True, "talking": True,
-     "line": "A presenter says your script to camera, selfie-style, with your product beside them.", "preview": "site/ugc-coffee"},
-    {"id": "voiceover", "name": "Product video + voiceover", "tool": "ugc_video", "script": "spoken", "presenter": False,
-     "talking": True, "line": "Your product on screen while a narrator reads the script.", "preview": "site/show-amber"},
-    {"id": "image", "name": "Image ad", "tool": "ad_image", "script": "image",
-     "line": "Finished ad images with a headline, in up to three shapes.", "preview": "previews/ad_image"},
-    {"id": "product_video", "name": "Product video", "tool": "photo_to_video", "script": "scene",
-     "line": "A 5 or 10 second clip that brings one product photo to life.", "preview": "previews/photo_to_video"},
-    {"id": "motion", "name": "Copy a video's motion", "tool": "motion_copy", "script": "scene",
-     "line": "Your product in the moves and timing of a reference clip.", "preview": "previews/motion_copy"},
-]
+# The five ad types and every template live in presets.py now (one record per preset, with the whole contract);
+# AD_TYPES and TEMPLATES are the same dicts as before, built from it.
+AD_TYPES = presets.legacy_types()
 AD_TYPE_BY_ID = {a["id"]: a for a in AD_TYPES}
 TOOL_AD_TYPE = {"ad_image": "image", "photo_to_video": "product_video", "motion_copy": "motion", "ugc_video": "ugc"}
 
@@ -527,77 +517,11 @@ def image_ad_prompt(scene: str, headline: str = "", subline: str = "", cta: str 
 # the workspace's brand kit; members can edit the brief before generating.
 # "fits": "any" works for any product you can photograph; "coffee" templates
 # were written for a coffee product and assume one.
-TEMPLATES = [
-    {"id": "hero", "preview": "tpl-hero", "line": "Clean studio shot, headline on top", "name": "Product hero", "tool": "ad_image",
-     "aspect": "4:5", "fits": "any",
-     "brief": "Premium studio product shot: the {product} centred on a clean surface, soft directional light, a "
-              "subtle shadow and plenty of empty space for a headline. Packaging, label and colors exactly as in "
-              "the photo. Headline: \"{product}\" in clean, modern type.",
-     "audience": ""},
-    {"id": "routine", "preview": "tpl-routine", "line": "Your product in an everyday moment", "name": "Daily routine", "tool": "ad_image",
-     "aspect": "9:16", "fits": "any",
-     "brief": "Everyday lifestyle scene in a bright, tidy kitchen: the {product} on the counter as part of someone's "
-              "morning routine, hands in frame, no faces. Natural window light. The label stays sharp and "
-              "unchanged. Headline: \"Part of the morning.\"",
-     "audience": ""},
-    {"id": "flatlay", "preview": "tpl-flatlay", "line": "Overhead flat lay with a few props", "name": "Flat lay",
-     "tool": "ad_image", "aspect": "4:5", "fits": "any",
-     "brief": "Overhead flat lay on a soft neutral surface: the {product} in the centre, a few simple everyday props "
-              "around it with plenty of breathing room, soft even daylight. Packaging, label and colors exactly as in "
-              "the photo. Headline: \"Made for your day.\"",
-     "audience": ""},
-    {"id": "inhand", "preview": "tpl-inhand", "line": "A hand holding it, outdoors", "name": "In hand", "tool": "ad_image",
-     "aspect": "9:16", "fits": "any",
-     "brief": "A hand holds the {product} up against a bright, softly blurred outdoor background, natural light, no "
-              "face in frame. The label faces the camera, sharp and unchanged. Headline: \"Take it with you.\"",
-     "audience": ""},
-    {"id": "gift", "preview": "tpl-gift", "line": "Gift moment, ribbon and card", "name": "Gift idea", "tool": "ad_image",
-     "aspect": "1:1", "fits": "any",
-     "brief": "Warm gifting scene: the {product} next to a ribbon and a blank card on a wooden table, cozy evening light. "
-              "Packaging exactly as in the photo. Headline: \"An easy gift.\"",
-     "audience": ""},
-    {"id": "turn", "preview": "photo_to_video", "line": "Slow turn on a clean surface", "name": "Slow turn",
-     "tool": "photo_to_video", "duration": 5, "fits": "any",
-     "brief": "The {product} on a clean surface, the camera slowly circles it in soft studio light. The label and colors "
-              "stay sharp and unchanged.",
-     "overlay": ""},
-    {"id": "swap", "fits": "coffee", "preview": "swap", "line": "One scoop, hot water, 30 seconds", "name": "The swap", "tool": "photo_to_video", "duration": 5,
-     "brief": "Morning kitchen, soft window light. A hand slides a drip coffee maker aside, scoops "
-              "{product} from the bag into a mug of hot water and stirs. Steam rises. The bag stays "
-              "in frame with its label facing camera, unchanged.",
-     "overlay": "One scoop. Hot water. 30 seconds."},
-    {"id": "label", "fits": "coffee", "preview": "label", "line": "Slow pan across the label", "name": "Label read", "tool": "photo_to_video", "duration": 5,
-     "brief": "Slow, steady camera pan across the {product} bag's ingredient panel on a wooden "
-              "counter. Shallow depth of field, warm light. The label text stays sharp and unchanged.",
-     "overlay": "What's in it, as printed on the bag"},
-    {"id": "how", "fits": "coffee", "preview": "how", "line": "Real-time how-to, first sip", "name": "How to make it", "tool": "photo_to_video", "duration": 10,
-     "brief": "Real-time how-to: one scoop of {product} into a mug, hot water poured from a kettle, "
-              "a quick stir, first sip. Bright, clean kitchen. Product label unchanged.",
-     "overlay": "No machine, no pods"},
-    {"id": "two-pm", "fits": "coffee", "preview": "two-pm", "line": "The afternoon-slump desk shot", "name": "The 2 PM moment", "tool": "ad_image", "aspect": "9:16",
-     "brief": "Afternoon desk scene: laptop, notebook, a fresh mug of coffee beside the {product} bag, "
-              "warm 2 PM light. Headline: \"Your afternoon cup, in 30 seconds.\" Clean, premium, "
-              "no people's faces.",
-     "audience": "Remote workers and office workers 25-45"},
-    {"id": "iced", "fits": "coffee", "preview": "iced", "line": "Iced coffee, sunny patio", "name": "Iced", "tool": "ad_image", "aspect": "4:5",
-     "brief": "Tall glass of iced coffee on a sunny patio table next to the {product} bag. Ice, "
-              "condensation, a few coffee beans. Headline: \"Iced in 30 seconds.\"",
-     "audience": "Women 22-40 who love iced coffee"},
-    {"id": "cost", "fits": "coffee", "preview": "cost", "line": "Café cup vs. your cup at home", "name": "Cost per cup", "tool": "ad_image", "aspect": "1:1",
-     "brief": "Split layout: a $7 café cup on the left, a mug made with {product} on the right with "
-              "the bag behind it. Headline: \"Skip the café line, keep the café taste.\"",
-     "audience": "Budget-minded daily coffee drinkers"},
-    {"id": "gym", "fits": "coffee", "preview": "gym", "line": "Packed for the early gym", "name": "Gym bag", "tool": "ad_image", "aspect": "9:16",
-     "brief": "Gym bag packed for an early morning: shaker, towel, earbuds and the {product} bag. "
-              "Morning light through a window. Headline: \"Packed the night before.\"",
-     "audience": "Gym-goers 22-35"},
-    {"id": "copy-trend", "fits": "coffee", "preview": "copy-trend", "line": "Your product in a trending video's moves", "name": "Copy a trending video", "tool": "motion_copy",
-     "brief": "Same moves and timing as the reference video, with the {product} bag as the hero "
-              "product. Keep the label and bag colors exactly as in the photo.",
-     "overlay": ""},
-]
+TEMPLATES = presets.legacy_templates()      # the 14 older templates, in their order (Home, the first run, the planner)
 
-TEMPLATE_BY_ID = {t["id"]: t for t in TEMPLATES}
+# Lookups by id also know the newer presets (scene statics for every category and the statics with a text layer),
+# so "?template=<id>", a job's template name and its thumbnail work for all of them.
+TEMPLATE_BY_ID = {t["id"]: t for t in presets.template_dicts()}
 
 
 def fill(text: str, brand: dict) -> str:
@@ -696,7 +620,12 @@ def template_prefill(t: dict, b: dict) -> dict:
     typ = TOOL_AD_TYPE.get(t["tool"], "image")
     out = {"type": typ, "angle": {"title": t["name"], "hook": "", "insight": t["line"], "audience": t.get("audience") or ""},
            "step": "script", "template": t["id"]}
-    if t["tool"] == "ad_image":
+    if t.get("layout"):
+        # A static with a text layer (presets.py): the member writes the words; the brief is only the scene.
+        # The marketplace image has no words, so its one line is just a label.
+        out["items"] = [t["name"]] if t["layout"] == "none" else []
+        out["body"], out["aspects"], out["layout"] = brief, [t.get("aspect") or "4:5"], t["layout"]
+    elif t["tool"] == "ad_image":
         m = re.search(r'Headline:\s*"([^"]+)"', brief)
         out["items"] = [m.group(1)] if m else [t["name"]]
         out["body"] = re.sub(r'\s*Headline:\s*"[^"]+"\.?', "", brief).strip()

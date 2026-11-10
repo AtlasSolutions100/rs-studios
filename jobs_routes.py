@@ -37,7 +37,7 @@ def price_now(conn, job) -> tuple[int, float]:
     p = json.loads(job["params_json"] or "{}")
     tool = job["tool"]
     if tool == "ad_image":
-        kw = {"batch": int(p.get("batch") or 1)}
+        kw = {"batch": int(p.get("qa_want") or p.get("batch") or 1)}   # the versions asked for, not a QA retry's count
     elif tool in ("photo_to_video", "ugc_video"):
         kw = {"duration": int(p.get("duration") or (10 if tool == "ugc_video" else 5))}
         if p.get("resolution") in catalog.resolutions(tool):
@@ -68,7 +68,7 @@ def hd_offer(job) -> dict | None:
 
 def retryable(job) -> bool:
     p = json.loads(job["params_json"] or "{}")
-    return job["status"] == "failed" and not p.get("preview")
+    return job["status"] == "failed" and not p.get("preview") and not p.get("free_fix")
 
 
 def _back(default):
@@ -95,6 +95,12 @@ def retry(jid):
             flash(msg)
             return _back(url_for("library"))
         params = json.loads(j["params_json"] or "{}")
+        if params.get("qa_want"):       # it failed the automatic check: start over with every version and a fresh check
+            params["batch"] = params["qa_want"]
+        for k in ("qa_attempt", "qa_want"):
+            params.pop(k, None)
+        if params.get("free_fix"):      # a free fix is asked for again from the original ad, never bought as a retry
+            abort(400)
         # The failed card makes way, and claiming it first (in the same transaction
         # as the charge) means a double click or a second tab can't retry it twice.
         if conn.execute("UPDATE jobs SET deleted_at=? WHERE id=? AND deleted_at IS NULL", (db.now(), j["id"])).rowcount != 1:
@@ -116,6 +122,35 @@ def retry(jid):
     if _wants_json():
         return jsonify({"ok": True, "job": new})
     flash(f"Trying again for {credits:,} credits.", "ok")
+    return _back(url_for("create.batch", bid=j["batch_id"]) if j["batch_id"] else url_for("library", highlight=new))
+
+
+@bp.route("/app/jobs/<int:jid>/fix", methods=["POST"])
+@login_required
+def fix(jid):
+    """The one free fix of a delivered picture (free_fix.py, FREE_FIX): the same ad made again with the member's
+    note, for 0 credits. Images only; a cap per workspace per month."""
+    import free_fix
+    if not free_fix.on():
+        abort(404)
+    with db.connect() as conn:
+        j = _job(conn, jid)
+        ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone()
+        data = request.get_json(silent=True) or {}
+        oid = request.form.get("output", type=int) or data.get("output")
+        if not oid:
+            st = free_fix.status(conn, ws, j)
+            oid = st["outputs"][0] if st["outputs"] else 0
+        try:
+            new = free_fix.start(conn, ws, g.user["id"], j, int(oid or 0), request.form.get("note") or data.get("note") or "")
+        except free_fix.FixError as e:
+            if _wants_json():
+                return jsonify({"error": str(e)}), 400
+            flash(str(e))
+            return _back(url_for("create.batch", bid=j["batch_id"]) if j["batch_id"] else url_for("library"))
+    if _wants_json():
+        return jsonify({"ok": True, "job": new})
+    flash("Making the fixed version now. It's free.", "ok")
     return _back(url_for("create.batch", bid=j["batch_id"]) if j["batch_id"] else url_for("library", highlight=new))
 
 

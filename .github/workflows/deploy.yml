@@ -152,6 +152,12 @@ name: Deploy Campaignify (campaignify.ai)
 #   RS_STORAGE_PURGE_DELETED  remove files of ads deleted over 30 days ago (storage.py), default off
 #   RS_SERVICE_PATH        the service-business first run, website import, keyword list and lead steps (service_path.py), default off
 #   RS_LAUNCH_KIT          the launch kit on the plan page, ticks saved to the workspace (launch_kit.py), default off
+#   Quality wave 2 (optional variables; costs are in settings.example.txt):
+#   TEXT_LAYERS            image presets whose words are set as real type (textlayer.py), default on; "0" hides them
+#   CLAIMS_CHECK           the claims check before Generate (claims_check.py), default off
+#   IMAGE_QA               automatic check of finished images, silent retry, refund (image_qa.py), default off;
+#                          IMAGE_QA_DAILY_MAX (default 2000) and IMAGE_QA_MODEL are its settings
+#   FREE_FIX               one free fix per delivered image (free_fix.py), default off; FREE_FIX_MONTHLY_CAP (default 10)
 #   OPS_ALERTS             operator alert emails (alerts.py), default on
 #   BACKUPS / BACKUP_MEDIA the nightly off-site backup, and its media folders (backup.py), default on
 #   RS_DISK_MIN_GB         uploads and new files are refused below this much free disk (storage.py), default 5
@@ -327,6 +333,13 @@ jobs:
           RS_STORAGE_PURGE_DELETED: ${{ vars.RS_STORAGE_PURGE_DELETED }}
           RS_SERVICE_PATH: ${{ vars.RS_SERVICE_PATH }}
           RS_LAUNCH_KIT: ${{ vars.RS_LAUNCH_KIT }}
+          TEXT_LAYERS: ${{ vars.TEXT_LAYERS }}
+          CLAIMS_CHECK: ${{ vars.CLAIMS_CHECK }}
+          IMAGE_QA: ${{ vars.IMAGE_QA }}
+          IMAGE_QA_DAILY_MAX: ${{ vars.IMAGE_QA_DAILY_MAX }}
+          IMAGE_QA_MODEL: ${{ vars.IMAGE_QA_MODEL }}
+          FREE_FIX: ${{ vars.FREE_FIX }}
+          FREE_FIX_MONTHLY_CAP: ${{ vars.FREE_FIX_MONTHLY_CAP }}
           OPS_ALERTS: ${{ vars.OPS_ALERTS }}
           BACKUPS: ${{ vars.BACKUPS }}
           BACKUP_MEDIA: ${{ vars.BACKUP_MEDIA }}
@@ -379,6 +392,8 @@ jobs:
                                              "RS_JOB_CANCEL", "RS_STORAGE_PURGE_DELETED", "RS_SERVICE_PATH", "OPS_ALERTS", "BACKUPS",
                                              "RS_CARD_REQUIRED", "RS_PLAN_PAYWALL", "RS_CARD_STARTS_PER_HOUR",
                                              "BACKUP_MEDIA", "RS_DISK_MIN_GB", "RS_HEALTH_WORKER_MAX_AGE", "RS_LAUNCH_KIT",
+                                             "TEXT_LAYERS", "CLAIMS_CHECK", "IMAGE_QA", "IMAGE_QA_DAILY_MAX", "IMAGE_QA_MODEL", "FREE_FIX",
+                                             "FREE_FIX_MONTHLY_CAP",
                                              "RS_WORKER_PROCESS", "RS_TASK_THREADS",
                                              "RS_HEALTH_BUSY_MAX_S")
                       if os.environ.get(k)}

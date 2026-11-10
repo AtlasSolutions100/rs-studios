@@ -42,7 +42,7 @@
             {% endfor %}
           </div>
           {% if not boot.caps.talking %}<p class="small muted">Talking presenter videos are switched off right now.</p>{% endif %}
-          <div class="cf-presets" data-presets-wrap hidden><p class="small muted" style="margin:16px 0 8px">Or start from a template <span class="dim">(fills in the type, shape and a first script)</span></p><div class="cf-presetrow" data-presets></div></div>
+          <div class="cf-presets" data-presets-wrap hidden><h3 style="margin:20px 0 2px;font-size:15px">Or start from a preset</h3><p class="small muted" style="margin:0 0 10px">A ready recipe for <span data-presets-for>your product</span>: it fills in the type, the shape and the scene. You can change anything.</p><div class="cf-presetgrid" data-presets></div></div>
           <div class="cf-next"><button type="button" class="btn" data-next>Next: angle</button></div>
         </div>
       </section>
@@ -90,7 +90,9 @@
             <div><label for="cf-sub">Subline <span class="dim">(optional, smaller text under the headline)</span></label><input id="cf-sub" type="text" maxlength="140" data-subline placeholder="Leave empty for headline only"></div>
             <div><label for="cf-cta">Button text <span class="dim">(optional)</span></label><input id="cf-cta" type="text" maxlength="30" data-cta placeholder="No button"></div>
           </div>
+          <div class="cf-layers" data-layers hidden></div>
           <p class="cf-ierr" data-text-err hidden></p>
+          <div class="flash warn cf-claims" data-claims role="alert" hidden></div>
           <p class="small muted" data-imgtext-note hidden>The only words on the image: your headline, the subline and button if you add them, and the brand name. Nothing else is added.</p>
           <p class="small muted" data-claims-note></p>
           <p class="cf-formula" data-formula aria-live="polite"></p>
@@ -151,7 +153,7 @@
             <div><span class="muted small">Total</span><div class="price" aria-live="polite"><span data-total>–</span></div><span class="muted small">credits · you have <b data-bal>{{ '{:,}'.format(boot.balance) }}</b></span></div>
             <div class="cf-go-btns"><button type="button" class="btn dark" data-one hidden>Make 1 first</button><button type="button" class="btn lg" data-generate disabled>Generate</button></div>
           </div>
-          <p class="dim small" style="margin:12px 0 0">Nothing runs until you press Generate. Failed videos are refunded automatically. Scripts and the angle are saved to the product. “Make 1 first” makes only the first ticked line; the rest wait on the batch page.</p>
+          <p class="dim small" style="margin:12px 0 0">Nothing runs until you press Generate. Failed videos are refunded automatically.{% if boot.claims_check %} Scripts are checked against your product's claims and page first (about {{ boot.quote_claims }} credits).{% endif %} Scripts and the angle are saved to the product. “Make 1 first” makes only the first ticked line; the rest wait on the batch page.</p>
         </div>
       </section>
     </div>
@@ -183,7 +185,8 @@
            duration: P.duration || 10, aspects: P.aspects || [], platforms: P.platforms || [], versions: P.versions || 1,
            ref: P.ref || (B.refs[0] && B.refs[0].id) || null, photos: P.photos || [], audio: !!P.audio, ideas: [],
            step: 'product', from_ad: P.from_ad || null, aiAngle: false, subline: P.subline || '', cta: P.cta || '',
-           lines: null, skip: P.skip || null, many: false, flags: null, resolution: P.resolution || '720p'};
+           lines: null, skip: P.skip || null, many: false, flags: null, resolution: P.resolution || '720p',
+           preset: P.preset || P.template || '', layers: P.layers || {}, claims: null};
   var $ = function(s, r){ return (r||document).querySelector(s); }, $$ = function(s, r){ return [].slice.call((r||document).querySelectorAll(s)); };
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   function n(x){ return Number(x || 0).toLocaleString('en-US'); }
@@ -252,7 +255,8 @@
   function go(step){ S.step = step; render(); var el = document.getElementById('s-' + step); if(el){ el.scrollIntoView({behavior: 'smooth', block: 'start'}); var f = el.querySelector('.cf-b input, .cf-b button, .cf-b select, .cf-b textarea'); if(f) setTimeout(function(){ f.focus({preventScroll:true}); }, 250); } }
   function next(){
     var st = steps(), i = st.indexOf(S.step); var err = check(S.step); if(err){ toast(err); return; }
-    if(S.step === 'script'){ runCheck().then(function(r){ if(r && !r.ok){ toast('Fix the highlighted ' + noun() + ' first.'); return; } go(st[Math.min(st.length-1, i+1)]); }); return; }
+    if(S.step === 'script'){ runCheck().then(function(r){ if(r && !r.ok){ toast((r.text_blocks && r.text_blocks.length && L()) ? r.text_blocks[0] : 'Fix the highlighted ' + noun() + ' first.'); return; }
+      runClaims().then(function(c){ if(c && c.status === 'flagged'){ toast('Edit or remove the lines listed above first.'); return; } if(c && c._status === 402){ toast(c.error); return; } go(st[Math.min(st.length-1, i+1)]); }); }); return; }
     go(st[Math.min(st.length-1, i+1)]);
   }
   function check(step){
@@ -269,7 +273,41 @@
     if(!t){ t = document.createElement('p'); t.className = 'flash warn cf-toast'; t.setAttribute('role','alert'); sec.querySelector('.cf-next').before(t); } t.textContent = m; }
   function clearToast(){ var sec = document.getElementById('s-' + S.step), t = sec && sec.querySelector('.cf-toast'); if(t) t.remove();
     var er = $('[data-err]'); if(er && S.step !== 'review'){ er.hidden = true; er.innerHTML = ''; } }
-  function noun(){ return {spoken:'hook', image:'headline', scene:'scene'}[kind()]; }
+  function noun(){ var l = L(); return l && l.items_label ? 'review' : {spoken:'hook', image:'headline', scene:'scene'}[kind()]; }
+  // The preset picked, when it is a static whose words are set as a text layer (B.layouts): its extra fields.
+  function L(){ return (kind() === 'image' && S.preset && B.layouts[S.preset]) || null; }
+  function hasLayer(n){ var l = L(); return !l || l.layers.indexOf(n) > -1; }
+  function readLayers(){ var l = L(); if(!l || !l.fields.length){ return; } var o = {};
+    l.fields.forEach(function(f){ var els = $$('[data-layer="' + f.id + '"]');
+      if(f.type === 'list') o[f.id] = els.map(function(e){ return e.value.trim(); }).filter(Boolean);
+      else if(f.type === 'confirm') o[f.id] = !!(els[0] && els[0].checked);
+      else if(els[0]) o[f.id] = els[0].value.trim(); });
+    if($('[data-layers]').dataset.for === S.preset) S.layers = o; }
+  function renderLayers(){
+    var box = $('[data-layers]'), l = L(); box.hidden = !l || !l.fields.length;
+    if(box.hidden){ box.innerHTML = ''; box.dataset.for = ''; return; }
+    if(box.dataset.for === S.preset && box.contains(document.activeElement)) return;
+    box.dataset.for = S.preset;
+    box.innerHTML = l.fields.map(function(f){ var v = S.layers[f.id], id = 'cf-ly-' + f.id, hint = f.hint ? ' <span class="dim">(' + esc(f.hint) + ')</span>' : '';
+      if(f.type === 'confirm') return '<label class="choice" style="display:flex;gap:8px;margin-top:12px"><input type="checkbox" data-layer="' + f.id + '"' + (v ? ' checked' : '') + '> <span>' + esc(f.label) + '</span></label>';
+      if(f.type === 'stars') return '<label for="' + id + '">' + esc(f.label) + '</label><select id="' + id + '" data-layer="' + f.id + '">' + [0,5,4,3,2,1].map(function(k){ return '<option value="' + k + '"' + (+v === k ? ' selected' : '') + '>' + (k ? k + ' of 5' : 'Don\'t show stars') + '</option>'; }).join('') + '</select>';
+      if(f.type === 'list'){ var out = '<label>' + esc(f.label) + hint + '</label>'; for(var i = 0; i < f.n; i++) out += '<input type="text" data-layer="' + f.id + '" maxlength="' + f.max + '" value="' + esc((v || [])[i] || '') + '" aria-label="' + esc(f.label) + ' ' + (i + 1) + '" style="margin-bottom:6px">'; return out; }
+      var dv = v != null ? v : (f.id === 'badge' && S.product ? (S.product.price || '') : (f['default'] || '').replace('{product}', S.product ? S.product.name : ''));
+      return '<label for="' + id + '">' + esc(f.label) + hint + '</label><input id="' + id + '" type="text" data-layer="' + f.id + '" maxlength="' + f.max + '" value="' + esc(dv) + '">'; }).join('');
+  }
+  // ---- the claims check (CLAIMS_CHECK): flagged lines are shown here with "edit or remove"
+  function showClaims(){
+    var box = $('[data-claims]'), c = S.claims; box.hidden = !(c && c.flags && c.flags.length);
+    if(box.hidden){ box.innerHTML = ''; return; }
+    box.innerHTML = '<b>' + plural(c.flags.length, 'line') + ' to check.</b> These say something about the product that isn\'t in its approved claims, its details or its page. Edit or remove each one.<ul class="cf-flags">' +
+      c.flags.map(function(f, i){ return '<li><span>“' + esc(f.sentence) + '”</span> <button type="button" class="linkbtn" data-claim-edit="' + i + '">Edit</button> <button type="button" class="linkbtn" data-claim-remove="' + i + '">Remove</button></li>'; }).join('') + '</ul>';
+  }
+  function claimField(f){ var cands = $$('[data-item], [data-body], [data-subline], [data-cta], [data-layer]');
+    return cands.filter(function(e){ return e.value && e.value.indexOf(f.sentence) > -1; })[0] || cands.filter(function(e){ return e.value && e.value.toLowerCase().indexOf(f.sentence.toLowerCase().slice(0, 24)) > -1; })[0]; }
+  function runClaims(){
+    if(!B.claims_check || !S.product) return Promise.resolve({status: 'off'});
+    return post(B.urls.claims, config()).then(function(r){ if(r.balance != null) setBal(r.balance); S.claims = r; showClaims(); return r; }).catch(function(){ return {status: 'skipped'}; });
+  }
   function dirty(){ S.lines = null; S.many = false; }
 
   // ---- step checks: word budget here, compliance on the server (free, no AI)
@@ -290,7 +328,7 @@
   function runCheck(){
     readItems(); var seq = ++checkSeq;
     if(!S.items.filter(Boolean).length) return Promise.resolve(null);
-    return post(B.urls.check, {type: S.type, items: S.items, body: S.body, duration: S.duration, subline: S.subline, cta: S.cta}).then(function(r){
+    return post(B.urls.check, {type: S.type, items: S.items, body: S.body, duration: S.duration, subline: S.subline, cta: S.cta, preset: S.preset, layers: S.layers, product: S.product && S.product.id}).then(function(r){
       if(seq !== checkSeq) return r; S.flags = r; markItems(); return r;
     }).catch(function(){ return null; });
   }
@@ -328,9 +366,11 @@
   }
   function presets(){
     var ids = S.product && S.product.templates || [], box = $('[data-presets]');
-    var list = B.templates.filter(function(t){ return ids.indexOf(t.id) > -1 && (t.tool !== 'ugc_video'); });
+    var list = ids.map(function(id){ return B.templates.filter(function(t){ return t.id === id; })[0]; }).filter(function(t){ return t && t.tool !== 'ugc_video'; });
     $('[data-presets-wrap]').hidden = !list.length;
-    box.innerHTML = list.map(function(t){ return '<a class="cf-preset" href="?template=' + encodeURIComponent(t.id) + '&product=' + S.product.id + '"><img src="' + esc(t.preview) + '" alt="" loading="lazy"><span><b>' + esc(t.name) + '</b><span class="small muted">' + esc(t.line) + '</span></span></a>'; }).join('');
+    if(S.product) $('[data-presets-for]').textContent = S.product.name;
+    // each preset: its example thumbnail (a placeholder drawing for the newer ones), its name, what it's for, its price
+    box.innerHTML = list.map(function(t){ return '<a class="cf-preset2' + (S.preset === t.id ? ' on' : '') + '" href="?template=' + encodeURIComponent(t.id) + '&product=' + S.product.id + '"><img src="' + esc(t.preview) + '" alt="" loading="lazy"><span><b>' + esc(t.name) + (t.layers && t.layers.length ? ' <em class="tag">Real type</em>' : '') + '</b><span class="small muted">' + esc(t.what_for) + '</span><span class="small dim">' + (t.format === 'image' ? 'Image' : 'Video') + ' · from ' + cr(t.from) + '</span></span></a>'; }).join('');
   }
   function summaries(){
     var t = T();
@@ -368,8 +408,15 @@
     $('[data-body-label]').innerHTML = k === 'spoken' ? 'Body <span class="dim">(said after the hook)</span>' : 'Image concept <span class="dim">(the scene behind the headline; words here are never drawn on the image)</span>';
     $('[data-dur-wrap]').hidden = k !== 'spoken';
     $('[data-durs]').innerHTML = (B.durations.ugc_video || []).map(function(d){ return '<label class="choice"><input type="radio" name="cf-dur" value="' + d + '"' + (S.duration == d ? ' checked' : '') + '>' + d + ' s <span class="cf-chipp">' + n(B.prices.ugc_video[d]) + '</span></label>'; }).join('');
-    var img = k === 'image';
-    $('[data-imgtext-wrap]').hidden = !img; $('[data-imgtext-note]').hidden = !img;
+    var img = k === 'image', ly = L(), noHead = !!(ly && ly.headline === false);
+    $('[data-imgtext-wrap]').hidden = !img || noHead || (ly && !hasLayer('cta') && !hasLayer('subhead'));
+    $('[data-subline]').closest('div').hidden = !!ly && !hasLayer('subhead'); $('[data-cta]').closest('div').hidden = !!ly && !hasLayer('cta');
+    $('[data-imgtext-note]').hidden = !img;
+    $('[data-imgtext-note]').textContent = ly ? (noHead ? 'This picture is made with no words on it at all.' : 'These words are set on the finished picture as real type, in your brand\'s colours and font, so they are spelt exactly as you write them.') : 'The only words on the image: your headline, the subline and button if you add them, and the brand name. Nothing else is added.';
+    if(ly && ly.items_label) $('[data-items-label]').innerHTML = esc(ly.items_label) + ' <span class="dim">(' + esc(ly.items_hint) + ')</span>';
+    $('[data-items-label]').hidden = noHead; $('[data-items]').hidden = noHead;
+    $('[data-write]').hidden = !!ly && (ly.ai_items === false || noHead); $('[data-write]').nextElementSibling.hidden = $('[data-write]').hidden;
+    renderLayers(); showClaims();
     if(document.activeElement !== $('[data-subline]')) $('[data-subline]').value = S.subline || '';
     if(document.activeElement !== $('[data-cta]')) $('[data-cta]').value = S.cta || '';
     var ol = $('[data-items]'), ae = document.activeElement;
@@ -381,7 +428,7 @@
       (k === 'spoken' && ht[i] && ht[i].name && it ? '<em class="tag" data-hook-type style="flex:none;align-self:center;white-space:nowrap">' + esc(ht[i].name) + '</em>' : '') +
       (k === 'scene' ? '<textarea id="cf-it' + i + '" data-item rows="3" maxlength="900">' + esc(it) + '</textarea>' : '<input id="cf-it' + i + '" type="text" data-item maxlength="200" value="' + esc(it) + '" placeholder="' + (k === 'spoken' ? 'e.g. Still paying $7 for an afternoon coffee?' : 'e.g. Your afternoon cup, in 30 seconds.') + '">') +
       '<button type="button" class="btn dark sm" data-del-item="' + i + '" aria-label="Remove ' + noun() + ' ' + (i+1) + '">×</button></li>'; }).join('');
-    $('[data-add-item]').hidden = S.items.length >= B.max_items;
+    $('[data-add-item]').hidden = S.items.length >= B.max_items || noHead;
     if(document.activeElement !== $('[data-body]')) $('[data-body]').value = S.body;
     var sel = $('[data-saved]'), sv = (S.product ? S.product.scripts : []).filter(function(s){ return !S.type || s.ad_type === S.type || (B.types.filter(function(t){ return t.id === s.ad_type; })[0] || {}).script === k; });
     sel.innerHTML = '<option value="">' + (sv.length ? 'Load a saved script…' : 'No saved scripts yet') + '</option>' + sv.map(function(s){ return '<option value="' + s.id + '">' + esc((s.title || s.hook || s.body).slice(0, 60)) + '</option>'; }).join('');
@@ -389,7 +436,7 @@
     count(); markItems();
   }
   function readItems(){ S.items = $$('[data-item]').map(function(e){ return e.value.trim(); }); S.body = $('[data-body]').value.trim();
-    S.subline = $('[data-subline]').value.trim(); S.cta = $('[data-cta]').value.trim(); }
+    S.subline = $('[data-subline]').value.trim(); S.cta = $('[data-cta]').value.trim(); readLayers(); }
   // Live counter: words and seconds left for the longest hook + body, and the fixes when it's over.
   function count(){
     var el = $('[data-count]'), fit = $('[data-fit]'); if(kind() !== 'spoken'){ el.textContent = ''; fit.hidden = true; return; }
@@ -461,6 +508,7 @@
       subline: kind() === 'image' ? S.subline : '', cta: kind() === 'image' ? S.cta : '',
       presenters: S.presenters, voices: S.voices, voice: S.voice, setting: S.setting, duration: S.duration, aspects: S.aspects,
       platforms: S.platforms, versions: S.versions, ref: S.ref, photos: S.photos, audio: S.audio, from_ad: S.from_ad,
+      preset: kind() === 'image' ? S.preset : '', layers: L() ? S.layers : undefined,
       resolution: (T() && (T().tool === 'ugc_video' || T().tool === 'photo_to_video')) ? S.resolution : undefined};
     if(S.lines) c.lines = S.lines; return c; }
   var qt = null, lastQuote = null, qseq = 0;
@@ -513,6 +561,11 @@
       if(S.flags && S.flags.items){ S.flags.items.splice(di, 1); S.flags.items.forEach(function(x, j){ x.i = j; }); }
       var da = document.activeElement; da && da.blur(); clearToast(); dirty(); renderScript(); summaries(); side(); liveQuote(); runCheck();
       var rest = $$('[data-del-item]'); if(rest.length) rest[Math.min(di, rest.length - 1)].focus(); return; }
+    var ce = t.closest('[data-claim-edit]'), crm = t.closest('[data-claim-remove]');
+    if(ce || crm){ var fl = S.claims && S.claims.flags[+(ce || crm).dataset[ce ? 'claimEdit' : 'claimRemove']]; if(!fl) return; var el = claimField(fl);
+      if(el && ce){ el.focus(); var at = el.value.indexOf(fl.sentence); if(at > -1 && el.setSelectionRange) el.setSelectionRange(at, at + fl.sentence.length); }
+      if(el && crm){ el.value = el.value.split(fl.sentence).join(' ').replace(/\s+/g, ' ').trim(); readItems(); S.claims.flags.splice(S.claims.flags.indexOf(fl), 1); showClaims(); dirty(); count(); summaries(); side(); liveQuote(); runCheck(); }
+      return; }
     if(t.closest('[data-ideas]')){ ideas(t.closest('[data-ideas]')); return; }
     if(t.closest('[data-write]')){ write(t.closest('[data-write]')); return; }
     if(t.closest('[data-shorten]')){ shorten(t.closest('[data-shorten]')); return; }
@@ -525,7 +578,7 @@
   document.addEventListener('change', function(e){
     var t = e.target;
     if(t.name === 'cf-product'){ fetch(B.urls.state + '?id=' + t.value).then(function(r){ return r.json(); }).then(function(st){ S.product = st; S.photos = []; S.ideas = []; dirty(); render(); }); }
-    if(t.name === 'cf-type'){ S.type = t.value; S.aspects = []; dirty(); if(S.type === 'ugc' && !S.presenters.length) S.presenters = ['maya']; if(S.type === 'product_video') S.duration = 5; else if(kind() === 'spoken' && B.durations.ugc_video.indexOf(+S.duration) < 0) S.duration = 10; render(); }
+    if(t.name === 'cf-type'){ S.type = t.value; S.aspects = []; dirty(); var pt = B.templates.filter(function(x){ return x.id === S.preset; })[0]; if(pt && pt.type !== S.type){ S.preset = ''; S.layers = {}; } if(S.type === 'ugc' && !S.presenters.length) S.presenters = ['maya']; if(S.type === 'product_video') S.duration = 5; else if(kind() === 'spoken' && B.durations.ugc_video.indexOf(+S.duration) < 0) S.duration = 10; render(); }
     if(t.name === 'cf-angle'){ var x = ($('[data-angles]')._list || []).filter(function(y){ return y.key === t.value; })[0]; if(x){ S.angle = x.a; if(x.tag === 'Idea') S.angle.ai = true; render(); } }
     if(t.name === 'cf-dur'){ S.duration = +t.value; dirty(); count(); markItems(); summaries(); liveQuote(); }
     if(t.name === 'cf-vdur'){ S.duration = +t.value; dirty(); renderFormat(); liveQuote(); var vf = $('input[name=cf-vdur][value="' + t.value + '"]'); if(vf) vf.focus(); }
@@ -548,14 +601,15 @@
   });
   // Editing a line clears its old error (and the step's banner) at once; the free check runs again after a pause.
   var editT = null;
-  document.addEventListener('input', function(e){ if(e.target.matches('[data-item], [data-body], [data-subline], [data-cta]')){
+  document.addEventListener('input', function(e){ if(e.target.matches('[data-item], [data-body], [data-subline], [data-cta], [data-layer]')){
+    if(S.claims && S.claims.flags && S.claims.flags.length){ S.claims = null; showClaims(); }
     var f = S.flags;
     if(f){ if(e.target.matches('[data-item]')){ var ix = $$('[data-item]').indexOf(e.target); if(f.items && f.items[ix]) f.items[ix].blocks = []; }
       else if(e.target.matches('[data-body]')){ f.body_blocks = []; if(kind() === 'spoken') (f.items || []).forEach(function(x){ x.blocks = []; }); }
       else f.text_blocks = []; }
     clearToast(); count(); markItems(); showTotals();
     clearTimeout(editT); editT = setTimeout(function(){ runCheck(); }, 600); } });
-  document.addEventListener('focusout', function(e){ if(e.target.matches('[data-item], [data-body], [data-subline], [data-cta]')){ readItems(); dirty(); summaries(); side(); liveQuote(); runCheck(); } });
+  document.addEventListener('focusout', function(e){ if(e.target.matches('[data-item], [data-body], [data-subline], [data-cta], [data-layer]')){ readItems(); dirty(); summaries(); side(); liveQuote(); runCheck(); } });
 
   function busy(btn, on, label){ btn.disabled = on; if(on){ btn.dataset.l = btn.innerHTML; btn.innerHTML = '<span class="spinner sm"></span>' + label; } else if(btn.dataset.l){ btn.innerHTML = btn.dataset.l; } }
   function ideas(btn){
@@ -601,6 +655,7 @@
       if(r.verify && window.cfyVerify && window.CFY_VERIFY){ busy(btn, false);
         window.cfyVerify(r.reason).then(function(yes){ if(yes) generate(btn, one); else { var e2 = $('[data-err]'); e2.hidden = false; e2.textContent = r.error; } }); return; }
       busy(btn, false); var e = $('[data-err]'); e.hidden = false; e.textContent = r.error || 'Couldn\'t start.'; if(r._status === 409 || r.confirm) quote(true);
+      if(r.claims){ go('script'); runClaims().then(function(c){ if(c && c.status !== 'flagged') toast('Claims checked. Go on to review and generate.'); }); }
     }).catch(function(){ busy(btn, false); });
   }
 
