@@ -633,7 +633,11 @@ def _default_voice(presenter_id):
 @bp.route("/app/create/quote", methods=["POST"])
 @login_required
 def quote():
-    d = _json()
+    return quote_for(_json())
+
+
+def quote_for(d):
+    """The price of a flow config, as JSON (Create's quote; the Studio composer sends its config here too)."""
     with db.connect() as conn:
         try:
             meta, jobs = expand(conn, d)
@@ -709,7 +713,10 @@ def claims():
     """The claims check for the script step (CLAIMS_CHECK): every factual sentence must trace back to an approved
     claim, the product's saved details or its page. One AI call, charged at cost; the result is kept so Generate
     doesn't pay again. {"status": ok | flagged | skipped | off, "flags": [{line, sentence, why}]}."""
-    d = _json()
+    return claims_for(_json())
+
+
+def claims_for(d):
     if not claims_check.on():
         return jsonify({"status": "off", "flags": []})
     with db.connect() as conn:
@@ -742,7 +749,12 @@ def claims():
 @bp.route("/app/create/generate", methods=["POST"])
 @login_required
 def generate():
-    d = _json()
+    return generate_for(_json())
+
+
+def generate_for(d):
+    """Start a flow config's jobs. `d["total"]` is the total the member was shown: nothing starts unless it still
+    matches the price worked out here (Create and the Studio composer both end up in this function)."""
     with db.connect() as conn:
         try:
             meta, jobs = expand(conn, d)

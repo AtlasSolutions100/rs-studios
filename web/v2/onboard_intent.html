@@ -1,0 +1,18 @@
+{% extends "v2/onboard_base.html" %}{% block title %}What do you want to make? · Campaignify{% endblock %}
+{% block ob %}
+<p class="ob-step">Step 1 of {{ 3 if card_required() else 2 }}</p>
+<h1>What do you want to make?</h1>
+<p class="ob-sub">Pick everything that fits. It decides where Studio starts you.</p>
+<form method="post" action="{{ url_for('onboarding.intent') }}" class="ob-form">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <fieldset class="ob-card">
+    <legend>Goals</legend>
+    {% for code, label in goals %}
+    <label class="ob-check"><input type="checkbox" name="goals" value="{{ code }}" {{ 'checked' if code in picked }}><span class="ob-box" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span><span>{{ label }}</span></label>
+    {% endfor %}
+    <div class="ob-row"><label for="ob-other">Other</label><input id="ob-other" type="text" name="other" maxlength="200" value="{{ other }}" placeholder="Something else?"></div>
+  </fieldset>
+  <button class="ob-btn">Continue</button>
+  <button class="ob-link ob-skip" name="skip" value="1">Skip for now</button>
+</form>
+{% endblock %}

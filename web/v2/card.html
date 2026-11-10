@@ -1,0 +1,39 @@
+{% extends "v2/onboard_base.html" %}{% block title %}Save a card · Campaignify{% endblock %}
+{# The card step with the new look (card_routes.py, RS_CARD_REQUIRED). Every figure comes from
+   card_on_file.terms(): no trial, no charge date, nothing renews by itself. #}
+{% block ob %}
+{% if new %}<p class="ob-step">Step 3 of 3</p>{% endif %}
+<div class="ob-pay" data-card-step>
+  <h1>{% if new %}Save a card to get your free credits{% else %}Save a card to keep making ads{% endif %}</h1>
+  <p class="ob-sub left">{% if new %}Nothing is charged today, and nothing is charged later unless you choose it.{% else %}Your ads, products and credits are all still here. Nothing is charged today, and nothing later unless you choose it.{% endif %}</p>
+
+  {% if terms.credits %}<p class="ob-chip" data-card-credits><b>{{ '{:,}'.format(terms.credits) }} free credits.</b> Enough for {{ terms.images }} image ad{{ '' if terms.images == 1 else 's' }}. They never expire.</p>{% endif %}
+
+  <ol class="ob-line" aria-label="What happens with your card" data-card-terms>
+    <li class="now"><b>Today, ${{ terms.today_usd }}</b><span>Card saved. Nothing charged.</span></li>
+    <li><b>Right after</b><span>{% if terms.credits %}{{ '{:,}'.format(terms.credits) }} free credits land{% else %}You carry on making ads{% endif %}</span></li>
+    <li><b>Only if you choose</b><span>{% if terms.plan_from %}A plan from ${{ terms.plan_from.usd }} a month{% endif %}{% if terms.plan_from and terms.pack_from %}, or {% endif %}{% if terms.pack_from %}a credit pack from ${{ terms.pack_from.usd }}{% endif %}</span></li>
+  </ol>
+
+  {% if declined %}<p class="ob-alert" role="alert" data-card-declined>Your card wasn't saved, so nothing was charged. Try again or use another card.</p>
+  {% elif canceled %}<p class="ob-alert quiet" role="status" data-card-canceled>No card was saved. Nothing was charged.</p>{% endif %}
+
+  {% if owner %}
+  <form method="post" action="{{ url_for('card.start') }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <button class="ob-btn full" data-card-add><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18"/></svg>Save card, ${{ terms.today_usd }} today</button>
+  </form>
+  <p class="ob-fine"><b>There is no charge date.</b> No trial runs out and no plan starts by itself. You add the card on Stripe's secure page and come straight back here.</p>
+  {% else %}
+  <p class="ob-fine">Ask your workspace owner to save a card. Nothing is charged, and you can keep making ads as soon as it's saved.</p>
+  {% endif %}
+
+  <dl class="ob-why" data-card-why>
+    <div><dt>Why a card</dt><dd>Free credits cost us real money to run. A card keeps one person from opening many free accounts. One set of free credits per person and per card.</dd></div>
+    <div><dt>If you pick a plan later</dt><dd>{% if terms.plan_from %}{{ terms.plan_from.name }} is ${{ terms.plan_from.usd }} a month with {{ '{:,}'.format(terms.plan_from.credits) }} credits. {% endif %}You choose it on Billing, and you can cancel there at any time.</dd></div>
+    <div><dt>If you buy a pack later</dt><dd>{% if terms.pack_from %}{{ terms.pack_from.name }} is ${{ terms.pack_from.usd }} once for {{ '{:,}'.format(terms.pack_from.credits) }} credits. {% endif %}Pack credits never expire.</dd></div>
+  </dl>
+
+  <p class="ob-under">{% if not new %}<a class="ob-link" href="{{ url_for('library') }}">Go to your library</a>{% endif %}<a class="ob-link" href="{{ url_for('billing_page') }}#plans">See plans and packs</a></p>
+</div>
+{% endblock %}

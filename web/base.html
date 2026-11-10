@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en"{% if ui_v2 %} data-ui="v2" data-surface="{{ ui_v2_surface }}"{% endif %}>
 <head>
   <meta name="google-site-verification" content="TaTQ1t3pKtoG4y_te9_Z-e2mTFW8uoyhw4Yw6z6yE8E">
   <meta name="google-site-verification" content="rbYLQRwbrfockDcbnBLH-pYYgBUvzXchP2Ani4Zuw_M">
   <meta name="msvalidate.01" content="97386D3157EE9C0604AE6D8A368F083C">
-<meta charset="utf-8"><script>(function(){try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8">{% if ui_v2 %}<script>(function(){var r=document.documentElement,t=null;try{t=localStorage.getItem('theme');}catch(e){}if(t!=='light'&&t!=='dark'){t=r.getAttribute('data-surface')==='app'?((window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark'):'light';}r.setAttribute('data-theme',t);})();</script>{% else %}<script>(function(){try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>{% endif %}<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{% block title %}Campaignify{% endblock %}</title>
 {% block robots %}<meta name="robots" content="noindex, nofollow">{% endblock %}
 <link rel="icon" type="image/png" sizes="128x128" href="{{ url_for('static', filename='img/campaignify-icon-128.png') }}">
@@ -15,6 +15,7 @@
 <meta name="theme-color" content="#0B0C0E">
 <meta property="og:site_name" content="Campaignify">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+{% if ui_v2 %}<link rel="stylesheet" href="{{ url_for('static', filename='ui_v2.css') }}">{% endif %}
 <script src="{{ url_for('static', filename='app.js') }}" defer></script>
 {% include "_gtag.html" %}
 {% include "_pixels.html" %}
@@ -79,6 +80,13 @@
       <svg class="sw-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg>
     </button>
     {% endif %}
+    {% if ui_v2 %}{% set v2tab = 'brand' if request.endpoint == 'studio_v2.brand' else ('advanced' if request.endpoint in ('create.index', 'create.batch', 'new', 'start') else ('studio' if request.endpoint in ('studio', 'studio_v2.page') else '')) %}
+    <nav class="v2-tabs" aria-label="Make">
+      <a href="{{ url_for('studio') }}" {{ 'aria-current=page' if v2tab == 'studio' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>Studio</a>
+      <a href="{{ url_for('create.index') }}" {{ 'aria-current=page' if v2tab == 'advanced' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 7h9M18 7h1M5 12h2M11 12h8M5 17h10M19 17h0"/><circle cx="16" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg>Advanced</a>
+      <a href="{{ url_for('studio_v2.brand') }}" {{ 'aria-current=page' if v2tab == 'brand' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.9 5.2 3.9 8.5s-1.3 6.1-3.9 8.5c-2.6-2.4-3.9-5.2-3.9-8.5s1.3-6.1 3.9-8.5z"/></svg>Brand</a>
+    </nav>
+    {% block v2_side %}{% endblock %}{% endif %}
     <nav class="navs" aria-label="Main">
     {% set fold = nav_collapse_locked is defined and nav_collapse_locked %}
     {% set locked = namespace(items=[]) %}
@@ -86,10 +94,10 @@
       <a class="nav {{ 'on' if request.endpoint in eps }}" href="{{ url_for(ep) }}" {{ 'aria-current=page' if request.endpoint in eps }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ICONS[icon]|safe }}</svg><span>{{ label }}</span>{% if feat and not has_feature(feat) %}<em class="lock" title="Included in {{ plans.required(feat).name }}">{{ plans.required(feat).name }}</em>{% endif %}</a>
     {%- endmacro %}
     {% for title, items in GROUPS %}
-      {% set shown = [] %}{% for it in items %}{% if (has_endpoint is not defined or has_endpoint(it[0])) %}{% if fold and it[3] and not has_feature(it[3]) and request.endpoint not in it[4] %}{% set _ = locked.items.append(it) %}{% else %}{% set _ = shown.append(it) %}{% endif %}{% endif %}{% endfor %}
+      {% set shown = [] %}{% for it in items %}{% if (has_endpoint is not defined or has_endpoint(it[0])) and not (ui_v2 and it[0] in ('studio', 'create.index')) %}{% if fold and it[3] and not has_feature(it[3]) and request.endpoint not in it[4] %}{% set _ = locked.items.append(it) %}{% else %}{% set _ = shown.append(it) %}{% endif %}{% endif %}{% endfor %}
       {% if shown %}
       {% set ns = namespace(on=false) %}{% for it in shown %}{% if request.endpoint in it[4] %}{% set ns.on = true %}{% endif %}{% endfor %}
-      {% if title %}<details class="navgrp" data-navgrp="{{ title }}" {{ 'open' if ns.on or title in ('Plan', 'Grow', 'Launch', 'Settings') }}><summary>{{ title }}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>{% endif %}
+      {% if title %}<details class="navgrp" data-navgrp="{{ title }}" {{ 'open' if ns.on or (not ui_v2 and title in ('Plan', 'Grow', 'Launch', 'Settings')) }}><summary>{{ title }}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>{% endif %}
       {% for ep, label, icon, feat, eps in shown %}{{ navlink(ep, label, icon, feat, eps) }}{% endfor %}
       {% if title %}</details>{% endif %}
       {% endif %}
@@ -101,12 +109,27 @@
     </nav>
     <div class="grow"></div>
     {% block side_help %}{% if has_endpoint is defined and has_endpoint('assistant.page') and assistant_on() %}<button type="button" class="helpbtn" data-help-open><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.6 4.8L18.5 9l-4.9 1.4L12 15l-1.6-4.6L5.5 9l4.9-1.2z"/><path d="M18 15l.7 1.9 1.8.6-1.8.7L18 20l-.7-1.8-1.8-.7 1.8-.6z"/></svg>Help me<kbd>?</kbd></button>{% endif %}{% endblock %}
+    {% if ui_v2 %}
+    <details class="v2-acct" data-v2-acct>
+      <summary aria-label="Account, credits and settings"><span class="v2-ava" aria-hidden="true">{{ (g.user.name or g.user.email)[:1]|upper }}</span><span class="v2-acct-txt"><b>{{ g.ws.name if g.ws else g.user.email }}</b><span><span data-bal-pill>{{ balance()|credits }}</span>, {{ plans.plan(g.ws).name }} plan</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg></summary>
+      <div class="v2-acct-menu">
+        <p class="v2-acct-mail">{{ g.user.email }}</p>
+        <a href="{{ url_for('billing_page') }}"><span>Credits</span><b>{{ '{:,}'.format(balance()) }}</b></a>
+        <a href="{{ url_for('billing_page') }}#plans"><span>Plan and billing</span><b>{{ plans.plan(g.ws).name }}</b></a>
+        <a href="{{ url_for('team') }}"><span>Team and settings</span></a>
+        <button type="button" data-theme-toggle><span>Light or dark</span></button>
+        {% if ui_v2_can_preview and not ui_v2_global %}<form method="post" action="{{ url_for('ui_v2.set_look') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="look" value="v1"><button><span>Back to the current look</span></button></form>{% endif %}
+        <form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button><span>Log out</span></button></form>
+      </div>
+    </details>
+    {% else %}
     <a class="pill" href="{{ url_for('billing_page') }}" title="Credits left: buy more"><i></i><span data-bal-pill>{{ balance()|credits }}</span></a>
     <a class="planchip" href="{{ url_for('billing_page') }}">{{ plans.plan(g.ws).name }} plan{% if plans.plan_code(g.ws) == 'free' %} · <b>Upgrade</b>{% endif %}</a>
     <div class="side-foot">
       <button type="button" class="theme" data-theme-toggle aria-label="Switch light or dark theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg><span>Theme</span></button>
       <form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn">Log out</button></form>
     </div>
+    {% endif %}
   </aside>
   <div class="scrim" data-nav-close hidden></div>
   <main class="main" id="main">

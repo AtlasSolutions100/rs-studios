@@ -955,6 +955,10 @@ COLUMNS = [
     ("ad_connections", "insights_next_at", "TEXT"),   # when the next pull is due (a rate limit pushes it out)
     ("ad_connections", "insights_error", "TEXT"),     # the last pull's problem, in plain words
     ("users", "weekly_report_off", "TEXT"),           # when they stopped the weekly report email (weekly_report.py, M4.4)
+    # M14 (ui_v2.py, onboarding.py): an admin's own "new look" preview, and what a new account answered at sign-up
+    ("users", "ui_v2", "INTEGER NOT NULL DEFAULT 0"),
+    ("users", "onboarding_json", "TEXT"),               # {"goals": [...], "other", "company", "website"}
+    ("users", "onboarded_at", "TEXT"),                  # finished or skipped the onboarding steps
     # conversion tracking on members' pages and forms (conversions.py, M3.4): the owner's measurement setting
     # ('us': visitors in the US who send no GPC / Do Not Track; 'off': never), and per pixel the Test Events code
     ("pages", "measurement", "TEXT NOT NULL DEFAULT 'us'"),

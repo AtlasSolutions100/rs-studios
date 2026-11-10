@@ -3214,6 +3214,9 @@ if __name__ == "__main__" and not os.environ.get("RS_TEST_ONE"):
     subprocess.run([sys.executable, os.path.join(HERE, "test_service_path.py")], check=True)
     # The next-step thread on Home (next_steps.py, RS_NEXT_STEPS): ads counted, one primary button, the upgrade wall.
     subprocess.run([sys.executable, os.path.join(HERE, "test_next_steps.py")], check=True)
+    # The new look, Studio and onboarding behind UI_V2 (ui_v2.py, studio_v2.py, onboarding.py): the switch, the
+    # admin preview cookie, the price before anything is made, the stored answers, the card step's terms.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_ui_v2.py")], check=True)
     # Continue with Google (google_auth.py): the button, the round trip, new and existing accounts (Google faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_google_auth.py")], check=True)
     # Free-month codes (compcodes.py, /admin/codes): make, redeem without Stripe, single use, expiry, the end of the month.
