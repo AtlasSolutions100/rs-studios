@@ -176,6 +176,16 @@ try:
     check("Your afternoon cup…" in text(grid) and "Flat lay 4:5" in text(grid) and "9:16" in grid,
           "each export thumbnail has a caption")
 
+    print("== a made ad is shown whole, in its own shape")
+    html = c.get("/app/library").get_data(as_text=True)
+    wide = html.split(f'data-job="{d2}"', 1)[1].split("</article>", 1)[0]
+    tall = html.split(f'data-job="{dj}"', 1)[1].split("</article>", 1)[0]
+    check('class="thumb tall r-4x5"' in wide and '<img class="out"' in wide, "a 4:5 ad gets a 4:5 box and is not cropped")
+    check('class="thumb tall"' in tall and "r-9x16" not in tall and '<img class="out"' in tall, "a 9:16 ad keeps the tall box")
+    css = open(os.path.join(ROOT, "static", "style.css")).read()
+    check(".thumb img.out{object-fit:contain}" in css and ".litem .thumb.r-4x5{aspect-ratio:4/5}" in css,
+          "the stylesheet shows the whole picture")
+
     print("== UX-17: Save vs the live page")
     with db.connect() as conn:
         pid = conn.execute("INSERT INTO pages (workspace_id, slug, title, status, blocks_json, created_at, updated_at) "

@@ -166,6 +166,10 @@ hr.line{border:0;border-top:1px solid var(--line);margin:18px 0}
 /* library */
 .lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:22px}
 .litem .thumb{aspect-ratio:9/16}
+/* a made ad is shown whole, in its own shape: a 4:5, square or wide ad is not cut down to 9:16 */
+.thumb img.out{object-fit:contain}
+.litem .thumb.r-4x5{aspect-ratio:4/5}.litem .thumb.r-1x1{aspect-ratio:1/1}.litem .thumb.r-16x9{aspect-ratio:16/9}
+.lgrid{align-items:start}
 .litem.hl .thumb{box-shadow:0 0 0 2px var(--accent)}
 .litem .meta{display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px}
 .litem .brief{font-size:12.5px;color:var(--muted);margin:6px 0 0}
