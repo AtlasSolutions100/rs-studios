@@ -569,7 +569,7 @@ LIB_OPTIONS = {"type": "object", "additionalProperties": False, "properties": {
     "situation": {"type": "string", "enum": list(presenters.SITUATIONS)},
     "voice": {"type": "string", "enum": list(catalog.VOICE_BY_ID)},
     "anchor_only": {"type": "boolean", "description": "Presenter stills: only each presenter's first still."},
-    "only_missing": {"type": "boolean", "description": "Preset examples: skip presets that already have one."},
+    "only_missing": {"type": "boolean", "description": "Preset examples and posters: skip presets that already have one."},
     "video_seconds": {"type": "integer", "minimum": 1, "maximum": 120,
                       "description": "preset_videos: the clip's length in seconds (default: the preset's own). Kept "
                                      "inside what can be made: 4 to 30 for presenter and voiceover presets, 5 or 10 for "
@@ -583,11 +583,12 @@ LIB_OPTIONS = {"type": "object", "additionalProperties": False, "properties": {
 LIB_PROPS = {
     "kind": {"type": "string", "enum": list(library.KINDS),
              "description": "demo_products (packshots of the demo brand), presenter_stills, presenter_voices, "
-                            "preset_examples (images), preset_videos, or keyframe_tests (one small paid run of the "
+                            "preset_examples (images), preset_videos, preset_posters (the one still a video preset "
+                            "opens on, as its thumbnail: no clip), or keyframe_tests (one small paid run of the "
                             "keyframe-first video pipeline at its cheapest: 480p, four-second beats)."},
     "ids": {"type": "array", "minItems": 1, "maxItems": 150, "items": {"type": "string", "maxLength": 80},
             "description": "presenter_stills: \"maya\" (all her situations) or \"maya:kitchen\"; presenter_voices: "
-                           "presenter ids; preset_*: preset ids; keyframe_tests: video preset ids (talking-head-cutaways "
+                           "presenter ids; preset_*: preset ids (preset_posters: video preset ids); keyframe_tests: video preset ids (talking-head-cutaways "
                            "shows the most, talk-to-camera is the cheapest); demo_products: mug, candle, skincare, "
                            "coffee, tote, greens, app. [\"all\"] for everything of that kind."},
     "options": LIB_OPTIONS}
