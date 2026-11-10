@@ -474,6 +474,9 @@ check(len(pb["presenters"]) == 20 and 'data-pf-pills="gender"' in hh and 'data-p
 check(all(x in js for x in ("data-voice-play", "role=\"radiogroup\" aria-label=\"Where ", "d.situation =", "d.situations = sits",
                             "aria-pressed=\"' + (playing === p.id)", "nonbinary: 'Nonbinary'")),
       "studio_v2.js draws the voice preview and the situation chips and sends the chosen situation")
+check(hh.count('class="v2-pills" role="toolbar" aria-labelledby="') == 4 and "function pillStops(row){" in js
+      and "b.tabIndex = b === on ? 0 : -1" in js and "[role=radiogroup],[role=toolbar]" in js,
+      "each row of filters is a labelled toolbar and one tab stop: arrows move along it, the pressed pill is the stop")
 maya = presenters.situation_ids("maya")
 jordan = presenters.situation_ids("jordan")
 cfg = studio_v2.config_for({"mode": "presenter", "product": pid, "text": "one two three", "presenters": ["maya"],

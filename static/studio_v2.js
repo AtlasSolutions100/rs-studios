@@ -33,17 +33,24 @@
       if(e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) close(e.target);
     }
   });
-  // Arrow keys move between the buttons of a radio group (one tab stop for the group).
+  // Arrow keys move between the buttons of a radio group or a row of filters (one tab stop for the group).
   function roving(box, sel, onMove){
     box.addEventListener('keydown', function(e){
       if(['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp', 'Home', 'End'].indexOf(e.key) < 0) return;
       var t = e.target.closest(sel); if(!t) return;
-      var list = $$(sel, t.closest('[role=radiogroup]') || box), i = list.indexOf(t); if(i < 0) return;
+      var list = $$(sel, t.closest('[role=radiogroup],[role=toolbar]') || box), i = list.indexOf(t); if(i < 0) return;
       e.preventDefault();
       var j = e.key === 'Home' ? 0 : e.key === 'End' ? list.length - 1 : (i + (e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length;
       onMove(list[j]);
     });
   }
+  // A row of filter pills is one tab stop, the pressed pill; the others are reached with the arrows.
+  function pillStops(row){
+    if(!row) return;
+    var bs = $$('button', row), on = bs.filter(function(b){ return b.getAttribute('aria-pressed') === 'true'; })[0] || bs[0];
+    bs.forEach(function(b){ b.tabIndex = b === on ? 0 : -1; });
+  }
+  function pillRows(d){ $$('.v2-pills', d).forEach(pillStops); roving(d, '.v2-pills button', function(b){ b.focus(); }); }
 
   // ================================================================ the composer (Studio)
   if(root) (function(){
@@ -260,6 +267,7 @@
         var grp = $('[data-pf-group="' + key + '"]'); grp.hidden = vals.length < 2;
         $('[data-pf-pills="' + key + '"]').innerHTML = '<button type="button" aria-pressed="' + (!PF[key]) + '" data-pf="' + key + '" data-pv="">All</button>' + vals.map(function(v){
           return '<button type="button" aria-pressed="' + (PF[key] === v) + '" data-pf="' + key + '" data-pv="' + esc(v) + '">' + esc(names[v] || label(v)) + '</button>'; }).join('');
+        pillStops($('[data-pf-pills="' + key + '"]'));
       });
     }
     function presenterGrid(){
@@ -302,6 +310,7 @@
       togglePresenter(c.dataset.pres); presenterGrid(); var pb = $('[data-pres="' + c.dataset.pres + '"]'); if(pb) pb.focus(); render();
     });
     roving(dlg('presenter'), '[data-sit]', function(b){ b.click(); });
+    roving(dlg('presenter'), '.v2-pills button', function(b){ b.focus(); });
 
     // ---------------------------------------------------------------- more: ad types and presets
     var galKind = '', galUse = '', useLabel = {}; (B.gallery_uses || []).forEach(function(u){ useLabel[u.id] = u.label; });
@@ -316,6 +325,7 @@
       }).join('');
       $('[data-gal-none]').hidden = n > 0;
     }
+    pillRows(dlg('more'));
     $('[data-more-open]').addEventListener('click', function(){ galleryGrid(); open('more'); $('[data-gal-q]').focus(); });
     $('[data-gal-q]').addEventListener('input', galleryGrid);
     var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -323,8 +333,8 @@
     ['mouseover', 'mouseout', 'focusin', 'focusout'].forEach(function(t){ dlg('more').addEventListener(t, hoverPlay); });
     dlg('more').addEventListener('click', function(e){
       var f = e.target.closest('[data-gf]'), u = e.target.closest('[data-gu]');
-      if(f){ galKind = f.dataset.gf; $$('[data-gf]').forEach(function(b){ b.setAttribute('aria-pressed', b === f ? 'true' : 'false'); }); galleryGrid(); return; }
-      if(u){ galUse = u.dataset.gu; $$('[data-gu]').forEach(function(b){ b.setAttribute('aria-pressed', b === u ? 'true' : 'false'); }); galleryGrid(); return; }
+      if(f){ galKind = f.dataset.gf; $$('[data-gf]').forEach(function(b){ b.setAttribute('aria-pressed', b === f ? 'true' : 'false'); }); pillStops(f.parentNode); galleryGrid(); return; }
+      if(u){ galUse = u.dataset.gu; $$('[data-gu]').forEach(function(b){ b.setAttribute('aria-pressed', b === u ? 'true' : 'false'); }); pillStops(u.parentNode); galleryGrid(); return; }
       var c = e.target.closest('[data-gal-id]'); if(!c) return;
       pick(galBy[c.dataset.galId]); close(dlg('more')); text.focus();
     });

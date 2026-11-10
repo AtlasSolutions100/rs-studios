@@ -90,8 +90,8 @@
   <header class="v2-dlg-h"><h2 id="dr-h">Presenters</h2><span class="small muted" data-pres-n aria-live="polite"></span><button type="button" class="v2-x" data-close aria-label="Close">{{ X|safe }}</button></header>
   <div class="v2-pick">
     <div class="v2-filters" data-pres-filters>
-      <div role="group" aria-labelledby="pf-g" data-pf-group="gender" hidden><h3 id="pf-g">Gender</h3><div class="v2-pills" data-pf-pills="gender"></div></div>
-      <div role="group" aria-labelledby="pf-a" data-pf-group="age_band" hidden><h3 id="pf-a">Age</h3><div class="v2-pills" data-pf-pills="age_band"></div></div>
+      <div data-pf-group="gender" hidden><h3 id="pf-g">Gender</h3><div class="v2-pills" role="toolbar" aria-labelledby="pf-g" data-pf-pills="gender"></div></div>
+      <div data-pf-group="age_band" hidden><h3 id="pf-a">Age</h3><div class="v2-pills" role="toolbar" aria-labelledby="pf-a" data-pf-pills="age_band"></div></div>
       <p class="small muted">Presenters are AI and described, never real people. Each video draws its presenter from the description, so two videos look alike, not identical.</p>
       <p class="small muted">Pick up to {{ boot.max_presenters }}. Each one makes its own video.</p>
     </div>
@@ -109,8 +109,8 @@
   </header>
   <div class="v2-pick gal">
     <div class="v2-filters">
-      <div role="group" aria-labelledby="gf-k"><h3 id="gf-k">Kind</h3><div class="v2-pills" data-gal-pills><button type="button" aria-pressed="true" data-gf="">All</button><button type="button" aria-pressed="false" data-gf="type">Ad types</button><button type="button" aria-pressed="false" data-gf="image">Images</button><button type="button" aria-pressed="false" data-gf="video">Videos</button></div></div>
-      {% if boot.gallery_uses %}<div role="group" aria-labelledby="gf-u"><h3 id="gf-u">Made for</h3><div class="v2-pills" data-gal-uses><button type="button" aria-pressed="true" data-gu="">Anything</button>{% for u in boot.gallery_uses %}<button type="button" aria-pressed="false" data-gu="{{ u.id }}">{{ u.label }}</button>{% endfor %}</div></div>{% endif %}
+      <div><h3 id="gf-k">Kind</h3><div class="v2-pills" role="toolbar" aria-labelledby="gf-k" data-gal-pills><button type="button" aria-pressed="true" data-gf="">All</button><button type="button" aria-pressed="false" data-gf="type">Ad types</button><button type="button" aria-pressed="false" data-gf="image">Images</button><button type="button" aria-pressed="false" data-gf="video">Videos</button></div></div>
+      {% if boot.gallery_uses %}<div><h3 id="gf-u">Made for</h3><div class="v2-pills" role="toolbar" aria-labelledby="gf-u" data-gal-uses><button type="button" aria-pressed="true" data-gu="">Anything</button>{% for u in boot.gallery_uses %}<button type="button" aria-pressed="false" data-gu="{{ u.id }}">{{ u.label }}</button>{% endfor %}</div></div>{% endif %}
     </div>
     <div class="v2-gal" data-gal></div>
   </div>
