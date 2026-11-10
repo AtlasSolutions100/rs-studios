@@ -12,7 +12,7 @@
 <link rel="preload" as="font" type="font/woff2" href="{{ url_for('static', filename='fonts/inter-latin.woff2') }}" crossorigin>
 <link rel="stylesheet" href="{{ url_for('static', filename='fonts.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='page.css') }}">
-<style>:root{--pp-accent:{{ p.accent }}}</style>
+<style>:root{--pp-accent:{{ p.accent }}}</style>{% if ui_v2 %}<style>{% include "v2/_pp.css" %}</style>{% endif %}
 </head>
 <body>
 {% if preview %}<div class="pp-preview">Preview{% if p.status != 'published' %} · this page is a draft and isn't public yet{% endif %}</div>{% endif %}

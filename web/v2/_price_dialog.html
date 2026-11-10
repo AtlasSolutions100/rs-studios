@@ -1,0 +1,15 @@
+{# The price, before anything is made (Studio and Workflow share it; static/studio_v2.js fills it from a quote). #}
+<dialog class="v2-dlg price" data-dlg="price" aria-labelledby="dq-h">
+  <header class="v2-dlg-h"><h2 id="dq-h" data-q-title>Price</h2><button type="button" class="v2-x" data-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+  <ul class="v2-lines" data-q-lines></ul>
+  <dl class="v2-sum">
+    <div><dt>Total</dt><dd data-q-total></dd></div>
+    <div><dt>Your credits</dt><dd data-q-bal></dd></div>
+    <div><dt>Left after this</dt><dd data-q-after></dd></div>
+  </dl>
+  <p class="small muted" data-q-note hidden></p>
+  <label class="v2-many" data-q-many-wrap hidden><input type="checkbox" data-q-many> <span data-q-many-text></span></label>
+  <p class="v2-short" role="alert" data-q-short hidden></p>
+  <p class="cmp-err" role="alert" data-q-err hidden></p>
+  <footer class="v2-dlg-f"><button type="button" class="btn dark" data-close>Cancel</button><button type="button" class="btn" data-confirm-make></button></footer>
+</dialog>

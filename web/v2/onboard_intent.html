@@ -1,6 +1,6 @@
 {% extends "v2/onboard_base.html" %}{% block title %}What do you want to make? · Campaignify{% endblock %}
 {% block ob %}
-<p class="ob-step">Step 1 of {{ 3 if card_required() else 2 }}</p>
+{% set total = 3 if card_required() else 2 %}<p class="ob-step"><span class="ob-dots" aria-hidden="true">{% for i in range(total) %}<i{{ ' class=on' if i < 1 }}></i>{% endfor %}</span>Step 1 of {{ total }}</p>
 <h1>What do you want to make?</h1>
 <p class="ob-sub">Pick everything that fits. It decides where Studio starts you.</p>
 <form method="post" action="{{ url_for('onboarding.intent') }}" class="ob-form">

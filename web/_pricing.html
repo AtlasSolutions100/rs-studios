@@ -1,4 +1,5 @@
 {# Plans + packs, shared by the landing page and /features. Needs r = rates(), sc = the visitor's starter credits (signup_offer().credits). #}
+{% if ui_v2 %}{% include "v2/_pricing.html" %}{% else %}
 <p class="lp-anchor">Talking videos from <b>{{ r.talk8|credits }}</b> · product videos from <b>{{ r.video5|credits }}</b> · image ads from <b>{{ r.image|credits }}</b>. You see the price in credits before anything runs.</p>
 <div class="lp-prices plans">
   <div class="lp-price free">
@@ -42,3 +43,4 @@
 </div>
 {% if not billing_configured() %}<p class="small dim">Pack checkout isn't switched on yet.</p>{% endif %}
 <script>(function(){ if (window.matchMedia && matchMedia('(max-width:760px)').matches) [].forEach.call(document.querySelectorAll('.plan-more'), function(d){ d.open = false; }); })();</script>
+{% endif %}

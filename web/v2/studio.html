@@ -1,53 +1,54 @@
 {% extends "base.html" %}{% from "_macros.html" import card with context %}
 {% block title %}Studio · Campaignify{% endblock %}
 {# Studio (studio_v2.py, M14): the canvas of the latest ads and one composer. Send asks for the price
-   (/app/studio/quote) and opens the confirm box; only its button starts anything (/app/studio/generate). #}
+   (/app/studio/quote) and opens the confirm box; only its button starts anything (/app/studio/generate).
+   The canvas scrolls by itself and the composer sits under it, so the last row of cards is never covered (M15). #}
 {% set ICO = {
   'presenter': '<circle cx="12" cy="9" r="3.5"/><path d="M5 20c.8-3.6 3.5-5.5 7-5.5s6.2 1.9 7 5.5"/>',
   'voiceover': '<rect x="9.5" y="3.5" width="5" height="10" rx="2.5"/><path d="M6 11.5a6 6 0 0012 0M12 17.5v3"/>',
   'product_video': '<rect x="3.5" y="6" width="12" height="12" rx="2.5"/><path d="M15.5 10.5l5-2.5v8l-5-2.5z"/>',
   'image': '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17l4.5-4 3.5 3 3-2.5 5 4"/>',
 } %}
-{% block v2_side %}
-<div class="v2-rec">
-  <a class="v2-new" href="{{ url_for('studio_v2.page') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.5v7M8.5 12h7"/></svg>New ad</a>
-  <h2 class="v2-rec-h" id="rec-h">Recent</h2>
-  {% if recents %}<ul class="v2-rec-list" aria-labelledby="rec-h">
-    {% for b in recents %}<li><a href="{{ url_for('create.batch', bid=b.id) }}"><span>{{ b.title or 'Untitled' }}</span>{% if b.busy %}<i class="v2-dot" title="Being made"></i>{% endif %}</a></li>{% endfor %}
-  </ul>{% else %}<p class="v2-rec-none">Nothing made yet.</p>{% endif %}
-</div>
-{% endblock %}
+{% set X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>' %}
+{% block v2_side %}{% include "v2/_recent.html" %}{% endblock %}
 {% block body %}
 <div class="st" data-studio>
   <header class="st-top">
     <h1 class="st-title">Studio</h1>
     <div class="st-top-r">
       <a class="st-link" href="{{ url_for('library') }}">Library</a>
-      <a class="st-link" href="{{ url_for('create.index') }}">Advanced</a>
+      <a class="st-link" href="{{ url_for('studio_v2.workflow') }}">Workflow</a>
     </div>
   </header>
 
-  <div class="st-canvas">
+  <div class="st-canvas" data-canvas tabindex="0" role="region" aria-label="Your latest ads">
     {% if jobs %}
     <div class="flash" role="status" aria-live="polite" data-live-flash hidden><span class="spinner sm"></span> <span data-live-text></span> This page updates by itself, and you can leave it.</div>
     <div class="lgrid st-grid" data-live-cards="studio">
       {% for j in jobs %}{{ card(j, outs, templates, tools, ctx='studio', verdict=verdicts.get(j.id), price=prices.get(j.id, 0), names=names, eta=eta, hl=(made and j.batch_id == made)) }}{% endfor %}
     </div>
     {% else %}
-    <div class="st-ghosts" aria-hidden="true">{% for _ in range(18) %}<i></i>{% endfor %}</div>
+    <div class="st-ghosts" aria-hidden="true">{% for _ in range(12) %}<i></i>{% endfor %}</div>
     <div class="st-empty">
-      <h2>{% if boot.free_images %}Your first {{ boot.free_images if boot.free_images < 3 else 2 }} image ad{{ '' if boot.free_images == 1 else 's' }} {{ 'is' if boot.free_images == 1 else 'are' }} on us{% else %}Nothing here yet{% endif %}</h2>
-      <p>{% if boot.products %}Write a headline below and press send. You see the price before anything is made.{% else %}Add your product below, write a headline and press send. You see the price before anything is made.{% endif %}</p>
+      <h2>{% if boot.free_images %}Your first {{ boot.free_images if boot.free_images < 3 else 2 }} image ad{{ '' if boot.free_images == 1 else 's' }} {{ 'is' if boot.free_images == 1 else 'are' }} on us{% else %}Nothing made yet{% endif %}</h2>
+      <ol class="st-steps">
+        <li data-empty-step {{ 'class=done' if boot.products }}><b>{{ 'Product added' if boot.products else 'Add your product' }}</b><span>{{ 'Change it any time from the composer.' if boot.products else 'Paste the link to its page. We read the name and photo. It costs nothing.' }}</span></li>
+        <li><b>Write a headline</b><span>The words that go on the ad.</span></li>
+        <li><b>See the price, then make it</b><span>Nothing is made until you confirm.</span></li>
+      </ol>
+      {% if not boot.products %}<button type="button" class="btn" data-empty-add>Add your product</button>{% endif %}
     </div>
     {% endif %}
   </div>
 
   <section class="cmp" aria-label="Make an ad" data-cmp>
     <p class="cmp-note" data-note {{ 'hidden' if not boot.note }}>{{ boot.note }}</p>
-    <div class="cmp-modes" role="radiogroup" aria-label="What to make" data-modes>
-      {% for m in modes %}<button type="button" role="radio" aria-checked="{{ 'true' if m.id == boot.mode else 'false' }}" tabindex="{{ '0' if m.id == boot.mode else '-1' }}" data-mode="{{ m.id }}" title="{{ m.line }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ ICO[m.id]|safe }}</svg><span>{{ m.name }}</span></button>{% endfor %}
-      <span class="cmp-pin" data-pin hidden><span data-pin-name></span><button type="button" data-pin-x aria-label="Remove this preset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg></button></span>
-      <button type="button" class="cmp-more" data-more-open aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>More</span></button>
+    <div class="cmp-top">
+      <div class="cmp-modes" role="radiogroup" aria-label="What to make" data-modes>
+        {% for m in modes %}<button type="button" role="radio" aria-checked="{{ 'true' if m.id == boot.mode else 'false' }}" tabindex="{{ '0' if m.id == boot.mode else '-1' }}" data-mode="{{ m.id }}" title="{{ m.line }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ ICO[m.id]|safe }}</svg><span>{{ m.name }}</span></button>{% endfor %}
+      </div>
+      <span class="cmp-pin" data-pin hidden><span data-pin-name></span><button type="button" data-pin-x aria-label="Remove this preset">{{ X|safe }}</button></span>
+      <button type="button" class="cmp-more" data-more-open aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><path d="M16.75 14v5.5M14 16.75h5.5"/></svg><span>More</span></button>
     </div>
     <div class="cmp-box">
       <label class="sr" for="cmp-text" data-text-label>Headline</label>
@@ -61,70 +62,57 @@
         <span class="cmp-chip sel" data-voice-wrap hidden><label class="sr" for="cmp-voice">Narrator voice</label><select id="cmp-voice" data-voice></select></span>
         <span class="cmp-grow"></span>
         <span class="cmp-count" data-count aria-live="polite"></span>
-        <div class="cmp-step" role="group" aria-label="Versions of each image" data-stepper hidden>
-          <button type="button" data-less aria-label="One fewer version">−</button><output data-n aria-live="polite">1</output><button type="button" data-plus aria-label="One more version">+</button>
+        <div class="cmp-step" role="group" aria-label="How many image ads" data-stepper hidden>
+          <button type="button" data-less aria-label="One fewer">−</button><output data-n aria-live="polite">1</output><button type="button" data-plus aria-label="One more">+</button>
         </div>
         <button type="button" class="cmp-ico" data-settings-open aria-expanded="false" aria-controls="cmp-settings" aria-label="Length, shape and other settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2"/><circle cx="9" cy="16" r="2"/></svg></button>
         <button type="button" class="cmp-send" data-send aria-label="See the price"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
       </div>
     </div>
-    <p class="cmp-foot">Send shows the price first. Nothing is made until you confirm it.</p>
+    <p class="cmp-foot"><span data-pair-hint hidden></span><span data-foot>Send shows the price first. Nothing is made until you confirm it.</span></p>
   </section>
 </div>
 
 {# ---- product picker #}
 <dialog class="v2-dlg" data-dlg="product" aria-labelledby="dp-h">
-  <header class="v2-dlg-h"><h2 id="dp-h">Product</h2><button type="button" class="v2-x" data-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+  <header class="v2-dlg-h"><h2 id="dp-h">Product</h2><button type="button" class="v2-x" data-close aria-label="Close">{{ X|safe }}</button></header>
   <div class="v2-plist" role="radiogroup" aria-label="Your products" data-plist></div>
   <form class="v2-import" data-import>
-    <label for="imp-url">Add product from URL</label>
+    <label for="imp-url">Add a product from its page</label>
     <div class="v2-inrow"><input id="imp-url" type="url" inputmode="url" placeholder="yourstore.com/products/name" value="{{ boot.website }}" autocomplete="url" data-import-url><button class="btn" data-import-go>Add</button></div>
-    <p class="small muted" data-import-msg>We read the name, brand and photo from the page. It costs nothing.</p>
+    <p class="small muted" data-import-msg aria-live="polite">We read the name, brand and photo from the page. It costs nothing.</p>
   </form>
   <p class="small muted v2-dlg-foot">No store page? <a href="{{ url_for('products.new') }}">Add a product by hand</a> with a name and one photo.</p>
 </dialog>
 
-{# ---- presenter picker #}
+{# ---- presenter picker: portraits, situations, filters and a voice preview (studio_v2.roster) #}
 <dialog class="v2-dlg wide" data-dlg="presenter" aria-labelledby="dr-h">
-  <header class="v2-dlg-h"><h2 id="dr-h">Presenters</h2><span class="small muted" data-pres-n></span><button type="button" class="v2-x" data-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+  <header class="v2-dlg-h"><h2 id="dr-h">Presenters</h2><span class="small muted" data-pres-n aria-live="polite"></span><button type="button" class="v2-x" data-close aria-label="Close">{{ X|safe }}</button></header>
   <div class="v2-pick">
-    <div class="v2-filters" role="group" aria-label="Filter presenters">
-      <h3>Voice</h3>
-      <div class="v2-pills"><button type="button" aria-pressed="true" data-pf="">All</button><button type="button" aria-pressed="false" data-pf="female">Female</button><button type="button" aria-pressed="false" data-pf="male">Male</button></div>
-      <p class="small muted">Presenters are AI, described and never real people. Each video draws its presenter from the description, so two videos look alike, not identical.</p>
+    <div class="v2-filters" data-pres-filters>
+      <div role="group" aria-labelledby="pf-g" data-pf-group="gender" hidden><h3 id="pf-g">Gender</h3><div class="v2-pills" data-pf-pills="gender"></div></div>
+      <div role="group" aria-labelledby="pf-a" data-pf-group="age_band" hidden><h3 id="pf-a">Age</h3><div class="v2-pills" data-pf-pills="age_band"></div></div>
+      <p class="small muted">Presenters are AI and described, never real people. Each video draws its presenter from the description, so two videos look alike, not identical.</p>
       <p class="small muted">Pick up to {{ boot.max_presenters }}. Each one makes its own video.</p>
     </div>
     <div class="v2-pgrid" data-pgrid></div>
   </div>
+  <p class="v2-gal-none muted" data-pres-none hidden>No presenter matches those filters.</p>
   <footer class="v2-dlg-f"><button type="button" class="btn" data-close>Done</button></footer>
 </dialog>
 
 {# ---- more: every ad type and preset #}
 <dialog class="v2-dlg wide" data-dlg="more" aria-label="Ad types and presets">
   <header class="v2-dlg-h gal">
-    <div class="v2-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><label class="sr" for="gal-q">Search ad types and presets</label><input id="gal-q" type="search" placeholder="Search" autocomplete="off" data-gal-q></div>
-    <div class="v2-pills" role="group" aria-label="Show" data-gal-pills><button type="button" aria-pressed="true" data-gf="">All</button><button type="button" aria-pressed="false" data-gf="type">Ad types</button><button type="button" aria-pressed="false" data-gf="image">Image presets</button><button type="button" aria-pressed="false" data-gf="video">Video presets</button></div>
-    <button type="button" class="v2-x" data-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="v2-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><label class="sr" for="gal-q">Search ad types and presets</label><input id="gal-q" type="search" placeholder="Search ad types and presets" autocomplete="off" data-gal-q></div>
+    <div class="v2-pills" role="group" aria-label="Show" data-gal-pills><button type="button" aria-pressed="true" data-gf="" data-gby="">All</button>{% for pill in boot.gallery_pills %}<button type="button" aria-pressed="false" data-gf="{{ pill.id }}" data-gby="{{ pill.by }}">{{ pill.label }}</button>{% endfor %}</div>
+    <button type="button" class="v2-x" data-close aria-label="Close">{{ X|safe }}</button>
   </header>
   <div class="v2-gal" data-gal></div>
   <p class="v2-gal-none muted" data-gal-none hidden>Nothing matches that search.</p>
 </dialog>
 
-{# ---- the price, before anything is made #}
-<dialog class="v2-dlg price" data-dlg="price" aria-labelledby="dq-h">
-  <header class="v2-dlg-h"><h2 id="dq-h" data-q-title>Price</h2><button type="button" class="v2-x" data-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
-  <ul class="v2-lines" data-q-lines></ul>
-  <dl class="v2-sum">
-    <div><dt>Total</dt><dd data-q-total></dd></div>
-    <div><dt>Your credits</dt><dd data-q-bal></dd></div>
-    <div><dt>Left after this</dt><dd data-q-after></dd></div>
-  </dl>
-  <p class="small muted" data-q-note hidden></p>
-  <label class="v2-many" data-q-many-wrap hidden><input type="checkbox" data-q-many> <span data-q-many-text></span></label>
-  <p class="v2-short" role="alert" data-q-short hidden></p>
-  <p class="cmp-err" role="alert" data-q-err hidden></p>
-  <footer class="v2-dlg-f"><button type="button" class="btn dark" data-close>Cancel</button><button type="button" class="btn" data-confirm-make></button></footer>
-</dialog>
+{% include "v2/_price_dialog.html" %}
 {% endblock %}
 {% block scripts %}
 <script>window.CFY_STUDIO = {{ boot|tojson }};</script>

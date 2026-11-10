@@ -24,6 +24,24 @@
 {% endblock %}
 {% block shell %}
 <a class="skip" href="#main">Skip to content</a>
+{% if ui_v2 %}
+<header class="lp-nav pv-nav">
+  <div class="lp-wrap lp-nav-in">
+    <a class="lp-logo" href="{{ url_for('index') }}" aria-label="Campaignify home">{% include "_wordmark.svg" %}</a>
+    <nav class="lp-links" aria-label="Main">
+      <a href="{{ url_for('features') }}" {{ 'aria-current=page' if request.endpoint == 'features' }}>Features</a>
+      <a href="{{ url_for('pricing') }}" {{ 'aria-current=page' if request.endpoint == 'pricing' }}>Pricing</a>
+      <a href="{{ url_for('guides') }}" {{ 'aria-current=page' if request.endpoint in ('guides', 'guide') }}>Guides</a>
+      <a href="/mcp" {{ 'aria-current=page' if request.path == '/mcp' }}>MCP</a>
+    </nav>
+    <div class="lp-actions">
+      <button type="button" class="theme icon" data-theme-toggle aria-label="Switch light or dark theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg></button>
+      <a class="lp-login" href="{{ url_for('login') }}">Log in</a>
+      <a class="btn sm" href="{{ url_for('signup') }}" data-cta="nav">Start free</a>
+    </div>
+  </div>
+</header>
+{% else %}
 <header class="lp-nav">
   <div class="lp-wrap lp-nav-in">
     <a class="lp-logo" href="{{ url_for('index') }}" aria-label="Campaignify home">{% include "_wordmark.svg" %}</a>
@@ -43,10 +61,51 @@
     </div>
   </div>
 </header>
+{% endif %}
 <main id="main">
 {% for m in get_flashed_messages() %}<div class="lp-wrap"><div class="flash" style="margin-top:20px">{{ m }}</div></div>{% endfor %}
 {% block main %}{% endblock %}
 </main>
+{% if ui_v2 %}
+<footer class="lp-foot pv-foot">
+  <div class="lp-wrap lp-foot-in">
+    <div class="pv-foot-brand">
+      <a class="lp-logo sm" href="{{ url_for('index') }}" aria-label="Campaignify home">{% include "_wordmark.svg" %}</a>
+      <p class="small muted">Ads from your product page, priced before they are made.</p>
+    </div>
+    <div class="lp-foot-cols">
+      <nav class="lp-foot-links" aria-label="Product">
+        <b>Product</b>
+        <a href="{{ url_for('features') }}">Features</a>
+        <a href="{{ url_for('pricing') }}">Pricing</a>
+        <a href="{{ url_for('index') }}#journey">How it works</a>
+        <a href="{{ url_for('index') }}#faq">FAQ</a>
+        <a href="{{ url_for('for_reps') }}">For reps</a>
+        <a href="/mcp">MCP</a>
+        <a href="{{ url_for('signup') }}" data-cta="footer">Start free</a>
+        <a href="{{ url_for('login') }}">Log in</a>
+      </nav>
+      {% for heading, links in footer_groups() %}<nav class="lp-foot-links" aria-label="{{ heading }}">
+        <b>{{ heading }}</b>
+        {% for href, label in links %}<a href="{{ href }}">{{ label }}</a>
+        {% endfor %}
+      </nav>
+      {% endfor %}
+      <nav class="lp-foot-links" aria-label="Company">
+        <b>Company</b>
+        <a href="{{ url_for('privacy') }}">Privacy</a>
+        <a href="{{ url_for('terms') }}">Terms</a>
+        <a href="{{ url_for('messaging.policy') }}">Messaging policy</a>
+        <a href="mailto:hello@campaignify.ai">Contact</a>
+      </nav>
+    </div>
+  </div>
+  <div class="lp-wrap pv-foot-legal">
+    <p class="small dim lp-legal">Campaignify isn't run, sponsored or endorsed by any direct-sales company. The products in our examples are invented and AI-generated, and the app screens use demo data.</p>
+    <p class="small dim">© 2026 Campaignify</p>
+  </div>
+</footer>
+{% else %}
 <footer class="lp-foot">
   <div class="lp-wrap lp-foot-in">
     <div>
@@ -82,6 +141,7 @@
     <p class="small dim">© 2026 Campaignify</p>
   </div>
 </footer>
+{% endif %}
 <script>
 // Muted loops play only while on screen; nothing is fetched until they get close.
 (function(){

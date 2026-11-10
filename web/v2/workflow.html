@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Workflow · Campaignify{% endblock %}
+{# Workflow (studio_v2.workflow, M15): describe a campaign (it goes to the campaign planner's own route, with the
+   planner's price note shown before it is sent) or start from a pack of presets. A pack is priced by
+   /app/studio/quote and made by /app/studio/generate, exactly like the composer: nothing starts without the total. #}
+{% set X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>' %}
+{% set can_plan = has_feature('planner') %}
+{% block v2_side %}{% include "v2/_recent.html" %}{% endblock %}
+{% block body %}
+<div class="wf" data-wf>
+  <header class="st-top">
+    <h1 class="st-title">Workflow</h1>
+    <div class="st-top-r">
+      <a class="st-link" href="{{ url_for('studio_v2.page') }}">Studio</a>
+      <a class="st-link" href="{{ url_for('library') }}">Library</a>
+    </div>
+  </header>
+
+  <div class="wf-in">
+    <section class="wf-plan" aria-labelledby="wf-plan-h">
+      <h2 id="wf-plan-h">Describe what you want</h2>
+      <p class="wf-sub">The campaign planner turns it into angles, scripts, a line-up of ads with a price on each, and a launch checklist. It plans; nothing is made until you confirm each ad.</p>
+      <form method="post" action="{{ url_for('campaigns.index') }}" class="wf-box" data-plan-form>
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        {% if active %}<input type="hidden" name="product" value="{{ active.id }}">{% endif %}
+        <input type="hidden" name="offer" value="{{ active.name if active else '' }}">
+        <input type="hidden" name="goal" value="sales">
+        {% for k in plan_platforms %}<input type="hidden" name="platforms" value="{{ k }}">{% endfor %}
+        <label class="sr" for="wf-notes">What you want to promote, who it is for and anything to keep in mind</label>
+        <textarea id="wf-notes" name="notes" rows="3" maxlength="1500" placeholder="A two-week launch for the autumn candle, aimed at gift buyers. Keep it calm, no discounts." data-plan-notes></textarea>
+        <div class="wf-box-bar">
+          <span class="wf-for">{% if active %}For <b>{{ active.name }}</b>{% else %}<a href="{{ url_for('studio_v2.brand') }}">Add a product first</a>{% endif %}</span>
+          <a class="wf-quiet" href="{{ url_for('campaigns.index') }}" data-plan-full>Budget, goal and platforms</a>
+          <button type="button" class="btn" data-plan-open {{ 'disabled' if not active }}>Plan it</button>
+        </div>
+      </form>
+      <p class="cmp-err" role="alert" data-plan-err hidden></p>
+    </section>
+
+    <section class="wf-shelf" aria-labelledby="wf-packs-h">
+      <div class="wf-shelf-h">
+        <h2 id="wf-packs-h">Start from a pack</h2>
+        <p class="wf-sub">Several ads from one set of words. You see the price of each one and the total before anything is made.</p>
+      </div>
+      {% if packs %}
+      <ul class="wf-packs">
+        {% for p in packs %}
+        <li>
+          <button type="button" class="wf-pack" data-pack="{{ p.id }}" aria-haspopup="dialog" {{ 'disabled' if not active }}>
+            <span class="wf-pack-art" aria-hidden="true">{% for it in p.inside %}<i class="a{{ it.aspect|replace(':', 'x') }}{{ ' vid' if it.kind == 'video' }}"></i>{% endfor %}</span>
+            <span class="wf-pack-body">
+              <b>{{ p.name }}</b>
+              <span class="wf-pack-n">{{ p.counts }}</span>
+              <span class="wf-pack-line">{{ p.line }}</span>
+              <span class="wf-pack-from">from {{ p.from|credits }}</span>
+            </span>
+          </button>
+        </li>
+        {% endfor %}
+      </ul>
+      {% if not active %}<p class="small muted">Packs start from a product. <a href="{{ url_for('studio_v2.brand') }}">Add yours</a>, then come back.</p>{% endif %}
+      {% else %}
+      <div class="empty">No packs can be made right now. Make single ads in <a href="{{ url_for('studio_v2.page') }}">Studio</a>.</div>
+      {% endif %}
+    </section>
+  </div>
+</div>
+
+{# ---- the planner's price, before it runs (the same note its own form shows) #}
+<dialog class="v2-dlg price" data-dlg="plan" aria-labelledby="dpl-h">
+  <header class="v2-dlg-h"><h2 id="dpl-h">{% if can_plan %}Plan this campaign?{% else %}The planner comes with {{ plans.required('planner').name }}{% endif %}</h2><button type="button" class="v2-x" data-close aria-label="Close">{{ X|safe }}</button></header>
+  {% if can_plan %}
+  <dl class="v2-sum">
+    <div><dt>Planning</dt><dd>up to {{ plan_cap|credits }}</dd></div>
+    <div><dt>Your credits</dt><dd>{{ balance()|credits }}</dd></div>
+  </dl>
+  <p class="small muted">You pay what the planning actually uses, usually less. The ads it proposes are priced one by one and only made when you confirm them.</p>
+  {% if not plan_on %}<p class="v2-short" role="alert">The planner isn't switched on yet, so it can't run right now. Nothing will be charged.</p>{% endif %}
+  <footer class="v2-dlg-f"><button type="button" class="btn dark" data-close>Cancel</button><button type="button" class="btn" data-plan-go {{ 'disabled' if not plan_on }}>Plan it · up to {{ plan_cap|credits }}</button></footer>
+  {% else %}
+  <p class="small muted">Your plan makes ads in Studio and packs here. {{ plans.required('planner').name }} adds the campaign planner. Nothing is charged for looking.</p>
+  <footer class="v2-dlg-f"><button type="button" class="btn dark" data-close>Not now</button><a class="btn" href="{{ url_for('billing_page') }}#plans">See plans</a></footer>
+  {% endif %}
+</dialog>
+
+{# ---- a pack's words, then its price #}
+<dialog class="v2-dlg" data-dlg="pack" aria-labelledby="dk-h">
+  <header class="v2-dlg-h"><h2 id="dk-h" data-pack-title>Pack</h2><button type="button" class="v2-x" data-close aria-label="Close">{{ X|safe }}</button></header>
+  <form class="wf-sheet" data-pack-form novalidate>
+    <p class="small muted" data-pack-line></p>
+    <ul class="wf-inside" data-pack-inside></ul>
+    <div class="wf-fields" data-pack-fields></div>
+    <p class="cmp-err" role="alert" data-err hidden></p>
+    <footer class="v2-dlg-f"><button type="button" class="btn dark" data-close>Cancel</button><button type="submit" class="btn" data-send>See the price</button></footer>
+  </form>
+</dialog>
+
+{% include "v2/_price_dialog.html" %}
+{% endblock %}
+{% block scripts %}
+<script>window.CFY_STUDIO = {{ boot|tojson }};</script>
+<script src="{{ url_for('static', filename='studio_v2.js') }}" defer></script>
+{% endblock %}
