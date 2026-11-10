@@ -127,6 +127,23 @@ def release_pending(conn, ws_id: int) -> int:
     return n
 
 
+def terms(pending_credits: int = 0) -> dict:
+    """What saving a card means in money, read from the billing config (the card step's timeline, web/v2/card.html).
+
+    A card is saved with Stripe Checkout in setup mode: nothing is charged, no trial runs and no charge date is
+    set, so the timeline has no dates. Money moves only when the member picks a plan (plans.PLANS) or buys a
+    pack (catalog.PACKS); the cheapest of each is named so the step can say what "later" would cost."""
+    import catalog
+    paid = sorted((p for p in plans.PLANS.values() if p["usd"] > 0), key=lambda p: p["usd"])
+    packs = sorted(catalog.PACKS, key=lambda p: p["usd"])
+    image = catalog.price_credits("ad_image", batch=1)
+    n = max(0, int(pending_credits or 0))
+    return {"today_usd": 0, "charge_date": None, "trial_days": 0, "auto_renews": False,
+            "credits": n, "images": n // image if image else 0, "image_credits": image,
+            "plan_from": {"name": paid[0]["name"], "usd": paid[0]["usd"], "credits": paid[0]["credits"]} if paid else None,
+            "pack_from": {"name": packs[0]["name"], "usd": packs[0]["usd"], "credits": packs[0]["credits"]} if packs else None}
+
+
 def _had_starter(conn, ws_id: int) -> bool:
     return conn.execute("SELECT 1 FROM ledger WHERE workspace_id=? AND reason LIKE 'starter credits%' AND delta>0 LIMIT 1",
                         (ws_id,)).fetchone() is not None

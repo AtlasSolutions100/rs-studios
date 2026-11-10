@@ -1003,10 +1003,13 @@ users.first_touch TEXT
 users.id INTEGER
 users.is_admin INTEGER
 users.name TEXT
+users.onboarded_at TEXT
+users.onboarding_json TEXT
 users.pw_hash TEXT
 users.role TEXT
 users.session_version INTEGER
 users.signup_pending INTEGER
+users.ui_v2 INTEGER
 users.verify_code_exp INTEGER
 users.verify_code_hash TEXT
 users.verify_code_tries INTEGER

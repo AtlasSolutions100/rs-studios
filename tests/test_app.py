@@ -2640,16 +2640,21 @@ with db.connect() as conn:
     for cid_ in (tx, nx):
         flows_engine.enrol(conn, xws["id"], "tag_added", cid_, {"tags": ["textme"]})
     conn.commit()
-night = _dtm(2026, 11, 10, 3, 30, tzinfo=_tzu.utc)       # 21:30 in Chicago
+# 21:30 in Chicago on a day after today (the enrolment above uses the real clock), and 9:00 the next morning
+from zoneinfo import ZoneInfo as _ZI
+_chi = _ZI("America/Chicago")
+_day = (_dtm.now(_chi) + _tdl(days=2)).date()
+night = _dtm(_day.year, _day.month, _day.day, 21, 30, tzinfo=_chi).astimezone(_tzu.utc)
+_nine = (_dtm(_day.year, _day.month, _day.day, 9, 0, tzinfo=_chi) + _tdl(days=1)).astimezone(_tzu.utc).isoformat()
 flows_engine.tick(now=night)
 with db.connect() as conn:
     tm = conn.execute("SELECT * FROM messages WHERE contact_id=? AND channel='sms'", (tx,)).fetchone()
     nm_ = conn.execute("SELECT * FROM messages WHERE contact_id=? AND channel='sms'", (nx,)).fetchone()
-check(tm["status"] == "queued" and tm["scheduled_at"] == "2026-11-10T15:00:00+00:00", "a text due at 21:30 local waits for 9:00")
+check(tm["status"] == "queued" and tm["scheduled_at"] == _nine, "a text due at 21:30 local waits for 9:00")
 check(nm_["status"] == "skipped" and "consent" in nm_["error"], "no text consent: never sent")
 bal = db.balance(wsrow(xws["id"]))
 n_before = len([c for c in tw_calls if c[1].endswith("/Messages.json")])
-flows_engine.tick(now=_dtm(2026, 11, 10, 15, 0, 5, tzinfo=_tzu.utc))
+flows_engine.tick(now=_dtm.fromisoformat(_nine) + _tdl(seconds=5))
 with db.connect() as conn:
     tm = conn.execute("SELECT * FROM messages WHERE id=?", (tm["id"],)).fetchone()
 sent_body = [c for c in tw_calls if c[1].endswith("/Messages.json")][-1][2]
@@ -3214,6 +3219,9 @@ if __name__ == "__main__" and not os.environ.get("RS_TEST_ONE"):
     subprocess.run([sys.executable, os.path.join(HERE, "test_service_path.py")], check=True)
     # The next-step thread on Home (next_steps.py, RS_NEXT_STEPS): ads counted, one primary button, the upgrade wall.
     subprocess.run([sys.executable, os.path.join(HERE, "test_next_steps.py")], check=True)
+    # The new look, Studio and onboarding behind UI_V2 (ui_v2.py, studio_v2.py, onboarding.py): the switch, the
+    # admin preview cookie, the price before anything is made, the stored answers, the card step's terms.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_ui_v2.py")], check=True)
     # Continue with Google (google_auth.py): the button, the round trip, new and existing accounts (Google faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_google_auth.py")], check=True)
     # Free-month codes (compcodes.py, /admin/codes): make, redeem without Stripe, single use, expiry, the end of the month.

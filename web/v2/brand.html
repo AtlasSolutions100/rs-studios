@@ -1,0 +1,63 @@
+{% extends "base.html" %}{% block title %}Brand · Campaignify{% endblock %}
+{# Brand setup (studio_v2.brand): one input runs the free importer (app.start_import), then the brand's Look. #}
+{% block body %}
+<div class="bs">
+  <section class="bs-hero" aria-labelledby="bs-h">
+    <h1 id="bs-h">{% if b and rows %}Add another product to {{ b.brand_name or 'your brand' }}{% else %}Set up your brand{% endif %}</h1>
+    <p class="bs-sub">Drop your website or a product page. We read the name, the brand and the photos. It costs nothing, and you check everything before it is used.</p>
+    <form class="bs-in" data-bs-import>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.9 5.2 3.9 8.5s-1.3 6.1-3.9 8.5c-2.6-2.4-3.9-5.2-3.9-8.5s1.3-6.1 3.9-8.5z"/></svg>
+      <label class="sr" for="bs-url">Your website or product page</label>
+      <input id="bs-url" type="text" inputmode="url" autocomplete="url" placeholder="yourbrand.com" value="{{ website }}" required data-bs-url>
+      <button class="btn" data-bs-go>Read my site</button>
+    </form>
+    <p class="bs-msg" role="status" aria-live="polite" data-bs-msg></p>
+    <p class="bs-alt"><a href="{{ url_for('products.new') }}">Add a product by hand</a> <span aria-hidden="true">/</span> <a href="{{ url_for('studio') }}">Skip for now</a></p>
+  </section>
+
+  {% if b %}
+  <section class="bs-kit" aria-labelledby="bk-h" id="look">
+    <div class="bs-kit-h">
+      <h2 id="bk-h">{{ b.brand_name or 'Your brand' }}</h2>
+      <a href="{{ url_for('products.brand_edit', bid=b.id) }}">Edit name, tone and audience</a>
+    </div>
+    {% if rows %}
+    <ul class="bs-prods" aria-label="Products">
+      {% for p in rows %}<li><a href="{{ url_for('products.edit', pid=p.id) }}">{% if p.primary_photo_id %}<img src="{{ url_for('photo', pid=p.primary_photo_id) }}" alt="">{% else %}<span class="bs-ph" aria-hidden="true">{{ (p.name or '?')[:1]|upper }}</span>{% endif %}<span><b>{{ p.name }}</b><span class="small muted">{{ p.price or 'No price saved' }}</span></span></a></li>{% endfor %}
+    </ul>
+    {% endif %}
+    <form method="post" action="{{ url_for('products.brand_edit', bid=b.id) }}" enctype="multipart/form-data" class="bs-look">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ url_for('studio_v2.brand') }}">
+      <h3>Look</h3>
+      <p class="small muted">Headlines, badges and buttons on image ads with a text layer are set in these colours and this font, with your logo when you add one.</p>
+      <div class="bs-look-grid">
+        <div><label for="kp">Main colour</label><input id="kp" type="color" name="kit_primary" value="{{ b.kit_primary or kit_default.primary }}" {{ 'disabled' if locked }}></div>
+        <div><label for="ka">Accent colour</label><input id="ka" type="color" name="kit_accent" value="{{ b.kit_accent or kit_default.accent }}" {{ 'disabled' if locked }}></div>
+        <div><label for="kf">Font</label><select id="kf" name="kit_font" {{ 'disabled' if locked }}>{% for code, name in kit_fonts %}<option value="{{ code }}" {{ 'selected' if (b.kit_font or kit_default.font) == code }}>{{ name }}</option>{% endfor %}</select></div>
+        <div><label for="kl">Logo</label><input id="kl" type="file" name="kit_logo" accept="image/png,image/jpeg,image/webp" {{ 'disabled' if locked }}>{% if b.kit_logo %}<img class="bs-logo" src="{{ url_for('products.brand_logo', bid=b.id) }}" alt="Current logo">{% endif %}</div>
+      </div>
+      <div class="bs-look-f">{% if locked %}<span class="small muted">This brand is locked on your plan.</span>{% else %}<button class="btn">Save look</button>{% endif %}<a class="btn dark" href="{{ url_for('studio') }}">Open Studio</a></div>
+    </form>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function(){
+  var f = document.querySelector('[data-bs-import]'); if(!f) return;
+  var msg = document.querySelector('[data-bs-msg]'), go = f.querySelector('[data-bs-go]');
+  f.addEventListener('submit', function(e){
+    e.preventDefault();
+    var url = f.querySelector('[data-bs-url]').value.trim(); if(!url) return;
+    go.disabled = true; go.textContent = 'Reading'; msg.className = 'bs-msg'; msg.textContent = 'Reading the page. This takes a few seconds.';
+    fetch({{ url_for('start_import')|tojson }}, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF': {{ csrf_token()|tojson }}, 'X-Requested-With': 'fetch'}, body: JSON.stringify({url: url})})
+      .then(function(r){ return r.json(); }).then(function(r){
+        if(r.card_required){ location.href = r.url; return; }
+        if(!r.ok){ go.disabled = false; go.textContent = 'Read my site'; msg.className = 'bs-msg bad'; msg.textContent = r.error || 'That page could not be read.'; return; }
+        location.href = {{ url_for('studio_v2.brand')|tojson }} + '?imported=' + r.product_id + '#look';
+      }).catch(function(){ go.disabled = false; go.textContent = 'Read my site'; msg.className = 'bs-msg bad'; msg.textContent = 'Something went wrong. Try again.'; });
+  });
+})();
+</script>
+{% endblock %}

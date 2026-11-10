@@ -13,6 +13,14 @@
   </form>
   {% endif %}
   <div class="grid2">
+{% if ui_v2_can_preview and not ui_v2_global %}
+    {# M14 (ui_v2.py): a site admin's own preview of the new look. Nobody else sees this panel or the look. #}
+    <form method="post" action="{{ url_for('ui_v2.set_look') }}" class="panel" data-look-setting style="grid-column:1/-1;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="look" value="{{ 'v1' if ui_v2 else 'v2' }}">
+      <div><h2 style="margin:0 0 2px">New look (preview)</h2><p class="small muted" style="margin:0">{{ 'On for you.' if ui_v2 else 'Off.' }} Only you see it: the calmer design, the Studio composer and the new sign-up steps. Everyone else stays on the current look until it is switched on for all.</p></div>
+      <button class="btn {{ 'dark' if ui_v2 }}">{{ 'Back to the current look' if ui_v2 else 'Try the new look' }}</button>
+    </form>
+{% endif %}
     <div class="panel scrollx">
       <h2>Members</h2>
       <table><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr>

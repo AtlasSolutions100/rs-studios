@@ -269,6 +269,40 @@ the token so it works logged out. Stop sharing (or deleting the ad) makes the li
   `FREE_FIX_MONTHLY_CAP` a workspace a month (default 10; `workspaces.free_fix_cap` overrides it for one workspace).
   Our cost: $0.1071 a fix. No price changes.
 
+## The neutral look, Studio and onboarding (`ui_v2.py`, `studio_v2.py`, `onboarding.py`; `UI_V2`, default off)
+
+One switch, off by default. Off, nothing changes. `UI_V2=1` (a repo variable, in `deploy.yml`'s sync list) turns it
+on for everyone. Before that, a site admin can try it alone on the live site: open any page with `?ui=v2` (a signed
+cookie keeps it on in that browser for 180 days, logged out too, so the landing page and sign-up can be looked at;
+`?ui=v1` removes it), or use the switch under Settings > Team (kept on the account, `users.ui_v2`). A member's
+`?ui=v2` and a cookie typed by hand do nothing.
+
+- **Look** (`static/ui_v2.css`, loaded after `style.css` only while on; `base.html` adds `data-ui="v2"`): the same
+  tokens `style.css` already uses, redefined, so every page picks it up. Near-black or near-white surfaces, four
+  greys, 1px hairlines, 8 to 12px corners, Inter only, no gradients or glows. Buttons are ink on paper; the lime of
+  the wordmark stays for small marks (what is selected, "today" on the card timeline, focus in dark). Light for the
+  site, log in, sign-up and onboarding; dark by default in the app, light when the browser prefers it, and the
+  member's own toggle wins everywhere.
+- **Studio** (`/app`, `web/v2/studio.html`, `static/studio_v2.js`): the canvas of the latest ads and one composer.
+  Modes: presenter video, voiceover, product video, image ad; "More" is a searchable gallery of every ad type and
+  preset (text-layer presets ask for their extra words in the composer). Product chip with "Add product from URL"
+  (the first run's free importer), presenter picker (the 8 presenters), a versions stepper for images, settings for
+  length, shape and quality. **Send only asks for the price** (`/app/studio/quote`) and opens the confirm box; its
+  button posts the same composer contents plus the shown total to `/app/studio/generate`. Both hand Create's own
+  config to `create_routes.quote_for` / `generate_for`, so the rules, the claims check, the email-confirm step and
+  the "total changed" refusal (409) are Create's. Results are the usual cards (Download, approve, More like this,
+  the free fix when `FREE_FIX` is on). Create stays at `/app/create` as "Advanced"; `/app?classic=1` is the old Home.
+- **Brand** (`/app/studio/brand`): one input, "Drop your website" (the same free importer), then the brand's Look
+  (colours, font, logo), saved through the existing brand form.
+- **Onboarding** (`/app/welcome`, `/app/welcome/profile`): what do you want to make (stored as codes in
+  `users.onboarding_json`), then name, company and website. The first thing they picked that their credits cover is
+  the composer's first mode; the website is already in the import boxes. Then the card step when one is due, with a
+  timeline built from `card_on_file.terms()`: $0 today, no trial, no charge date, and the real cheapest plan and
+  pack as the only later charges. Prices, trial terms and Stripe objects are untouched.
+
+Not there yet: presenter voice previews (there are no audio samples in the repo; making them costs generation), and
+presenter portraits show only where the stills exist (`presenter_stills.py`).
+
 ## MCP server for Claude (`mcpserver.py`, `mcp_tools.py`, `/docs/mcp`)
 
 `MCP_SERVER=on` (default off) opens a remote MCP server at `/mcp` (Streamable HTTP, one JSON answer per POST,
