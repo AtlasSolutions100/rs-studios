@@ -152,6 +152,8 @@ name: Deploy Campaignify (campaignify.ai)
 #   RS_STORAGE_PURGE_DELETED  remove files of ads deleted over 30 days ago (storage.py), default off
 #   RS_SERVICE_PATH        the service-business first run, website import, keyword list and lead steps (service_path.py), default off
 #   RS_LAUNCH_KIT          the launch kit on the plan page, ticks saved to the workspace (launch_kit.py), default off
+#   UI_V2                  the neutral look, the Studio composer and the onboarding steps for everyone (ui_v2.py),
+#                          default off; a site admin can preview it alone with ?ui=v2 or Settings > Team
 #   Quality wave 2 (optional variables; costs are in settings.example.txt):
 #   TEXT_LAYERS            image presets whose words are set as real type (textlayer.py), default on; "0" hides them
 #   CLAIMS_CHECK           the claims check before Generate (claims_check.py), default off
@@ -333,6 +335,7 @@ jobs:
           RS_STORAGE_PURGE_DELETED: ${{ vars.RS_STORAGE_PURGE_DELETED }}
           RS_SERVICE_PATH: ${{ vars.RS_SERVICE_PATH }}
           RS_LAUNCH_KIT: ${{ vars.RS_LAUNCH_KIT }}
+          UI_V2: ${{ vars.UI_V2 }}
           TEXT_LAYERS: ${{ vars.TEXT_LAYERS }}
           CLAIMS_CHECK: ${{ vars.CLAIMS_CHECK }}
           IMAGE_QA: ${{ vars.IMAGE_QA }}
@@ -391,7 +394,7 @@ jobs:
                                              "RS_LOGIN_HARDENING", "RS_SIGNUP_CONFIRM", "RS_NEXT_STEPS", "RS_STORAGE_QUOTAS",
                                              "RS_JOB_CANCEL", "RS_STORAGE_PURGE_DELETED", "RS_SERVICE_PATH", "OPS_ALERTS", "BACKUPS",
                                              "RS_CARD_REQUIRED", "RS_PLAN_PAYWALL", "RS_CARD_STARTS_PER_HOUR",
-                                             "BACKUP_MEDIA", "RS_DISK_MIN_GB", "RS_HEALTH_WORKER_MAX_AGE", "RS_LAUNCH_KIT",
+                                             "BACKUP_MEDIA", "RS_DISK_MIN_GB", "RS_HEALTH_WORKER_MAX_AGE", "RS_LAUNCH_KIT", "UI_V2",
                                              "TEXT_LAYERS", "CLAIMS_CHECK", "IMAGE_QA", "IMAGE_QA_DAILY_MAX", "IMAGE_QA_MODEL", "FREE_FIX",
                                              "FREE_FIX_MONTHLY_CAP",
                                              "RS_WORKER_PROCESS", "RS_TASK_THREADS",

@@ -1034,6 +1034,12 @@ def logout():
 @app.route("/app")
 @login_required
 def studio():
+    import ui_v2
+    if ui_v2.on() and not request.args.get("classic") and not request.args.get("preview") \
+            and not request.args.get("made"):
+        # M14: with the new look on, Home is the Studio composer (studio_v2.py). ?classic=1 keeps the old Home.
+        import studio_v2
+        return studio_v2.page()
     return _studio_page()
 
 
@@ -3005,6 +3011,14 @@ app.register_blueprint(forms_routes.bp)
 app.register_blueprint(community_routes.bp)
 app.register_blueprint(share_routes.bp)
 app.register_blueprint(creator_pool_routes.bp)
+# M14: the neutral look, the Studio composer and the onboarding steps, behind UI_V2 (ui_v2.py, default off).
+# Registered before the card step so a new account answers the questions first, then saves its card.
+import onboarding  # noqa: E402
+import studio_v2  # noqa: E402
+import ui_v2  # noqa: E402
+app.register_blueprint(ui_v2.bp)
+app.register_blueprint(onboarding.bp)
+app.register_blueprint(studio_v2.bp)
 # Card on file at sign-up (RS_CARD_REQUIRED) and the out-of-credits paywall (RS_PLAN_PAYWALL), both default off.
 import card_routes  # noqa: E402
 import paywall_routes  # noqa: E402

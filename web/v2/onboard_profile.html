@@ -1,0 +1,18 @@
+{% extends "v2/onboard_base.html" %}{% block title %}About you · Campaignify{% endblock %}
+{% block ob %}
+<p class="ob-step">Step 2 of {{ 3 if card_required() else 2 }}</p>
+<h1>Tell us a bit about you</h1>
+<p class="ob-sub">Your name goes on your workspace. Your website fills in your brand, so you don't type it twice.</p>
+<form method="post" action="{{ url_for('onboarding.profile') }}" class="ob-form">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <fieldset class="ob-card">
+    <legend>Profile</legend>
+    <div class="ob-row"><label for="ob-first">First name</label><input id="ob-first" type="text" name="first_name" maxlength="40" autocomplete="given-name" value="{{ first }}"></div>
+    <div class="ob-row"><label for="ob-last">Last name</label><input id="ob-last" type="text" name="last_name" maxlength="40" autocomplete="family-name" value="{{ last }}"></div>
+    <div class="ob-row"><label for="ob-co">Company name</label><input id="ob-co" type="text" name="company" maxlength="80" autocomplete="organization" value="{{ company }}"></div>
+    <div class="ob-row"><label for="ob-web">Company website <span class="ob-opt">(optional)</span></label><input id="ob-web" type="text" name="website" maxlength="300" inputmode="url" autocomplete="url" value="{{ website }}" placeholder="https://"></div>
+  </fieldset>
+  <button class="ob-btn">Continue</button>
+  <div class="ob-under"><a class="ob-link" href="{{ url_for('onboarding.intent') }}">Back</a><button class="ob-link" name="skip" value="1">Skip for now</button></div>
+</form>
+{% endblock %}

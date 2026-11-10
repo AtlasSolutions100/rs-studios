@@ -304,7 +304,7 @@ def card_html(conn, j, ctx):
 def cards():
     """Fresh card HTML for jobs whose status changed (the pages patch them in place)."""
     ids = [int(x) for x in (request.args.get("ids") or "").split(",") if x.isdigit()][:50]
-    ctx = "batch" if request.args.get("ctx") == "batch" else "library"
+    ctx = request.args.get("ctx") if request.args.get("ctx") in ("batch", "studio") else "library"
     out = {}
     with db.connect() as conn:
         for jid in ids:

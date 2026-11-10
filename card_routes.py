@@ -24,7 +24,9 @@ ALLOWED = {"logout", "library", "media", "photo", "api_jobs", "jobs.cards", "job
            "billing_page", "subscribe", "checkout", "billing_portal", "billing_code",
            "verify_email", "verify_resend", "verify_code_send", "verify_code_check",
            "adhub.export_page", "adhub.export_file", "share.create", "share.revoke",
-           "admin_view_exit"}
+           "admin_view_exit",
+           # M14: the onboarding questions come before the card step, and an admin can always switch the look
+           "onboarding.intent", "onboarding.profile", "ui_v2.set_look"}
 MESSAGE = card_on_file.CardRequired.description
 
 
@@ -79,7 +81,9 @@ def page():
         return redirect(url_for("studio"))
     n = card_on_file.pending(g.ws)
     r = catalog.rates()
-    return render_template("card.html", new=_new_account(g.ws), credits=n, images=n // max(r["image"], 1),
+    import ui_v2
+    return render_template("v2/card.html" if ui_v2.on() else "card.html", terms=card_on_file.terms(n),
+                           new=_new_account(g.ws), credits=n, images=n // max(r["image"], 1),
                            owner=is_owner(), canceled=request.args.get("canceled") == "1",
                            declined=request.args.get("declined") == "1"), 200
 
