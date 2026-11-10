@@ -1,0 +1,11 @@
+/* The one-card pages that carry their own styles (share links, unsubscribe) on the neutral tokens (M15). */
+:root{--bg:#F7F7F5;--panel:#FFFFFF;--ink:#141414;--fg:#141414;--muted:#585856;--line:rgba(20,20,20,.1);--btn:#141414;--btnink:#FFFFFF}
+@media (prefers-color-scheme: dark){:root{--bg:#0E0E0E;--panel:#161616;--ink:#EDEDEB;--fg:#EDEDEB;--muted:#A8A8A5;--line:rgba(255,255,255,.1);--btn:#EDEDEB;--btnink:#111111}}
+html,body{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+main{border-radius:12px;box-sizing:border-box}
+h1{font-weight:600;letter-spacing:-.02em}
+button{border-radius:10px;font-weight:600}
+input{border-radius:10px;border-color:color-mix(in srgb,var(--ink) 22%,transparent)}
+.ad{border-radius:10px}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+footer a{text-underline-offset:3px;text-decoration-thickness:1px}

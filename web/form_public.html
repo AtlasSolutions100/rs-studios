@@ -4,12 +4,12 @@
 <meta name="robots" content="noindex">
 <link rel="preload" as="font" type="font/woff2" href="{{ url_for('static', filename='fonts/inter-latin.woff2') }}" crossorigin>
 <link rel="stylesheet" href="{{ url_for('static', filename='fonts.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='page.css') }}"><style>:root{--pp-accent:#BDFA25}</style></head>
+<link rel="stylesheet" href="{{ url_for('static', filename='page.css') }}"><style>:root{--pp-accent:#BDFA25}</style>{% if ui_v2 %}<style>{% include "v2/_pp.css" %}</style>{% endif %}</head>
 <body><main class="pp-sec" style="border:0"><div class="pp-wrap pp-center">
   <h1 style="font-size:36px">{{ fm.name }}</h1>
   {% if sent %}<div class="pp-ok">{{ fm.success_message or 'Thanks! We got it.' }}</div>
   {% else %}
-  {% for e in errors %}<p class="pp-note" style="color:#C0392B;font-weight:600">{{ e }}</p>{% endfor %}
+  {% for e in errors %}{% if ui_v2 %}<p class="pp-note pp-err" role="alert">{{ e }}</p>{% else %}<p class="pp-note" style="color:#C0392B;font-weight:600">{{ e }}</p>{% endif %}{% endfor %}
   {% include "_form_fields.html" %}
   {% endif %}
 </div></main>

@@ -10,7 +10,8 @@
 Off, nothing changes: the same templates, the same stylesheet, the same routes. On, base.html adds
 data-ui="v2" and static/ui_v2.css (tokens and component overrides, so every page picks the look up), Home becomes
 the Studio composer (studio_v2.py), new accounts get the onboarding steps (onboarding.py), and the card step
-gets the timeline (web/v2/card.html). The old Create flow stays at /app/create as "Advanced".
+gets the timeline (web/v2/card.html). The old Create flow stays at /app/create as "Advanced". M15 carries the look
+to every page (the public site, the standalone pages, error pages) and adds Studio's Workflow tab.
 
 The cookie is signed with the app's secret, so a cookie value typed by hand turns nothing on; only a logged-in
 admin can get one set.
@@ -129,7 +130,16 @@ def surface() -> str:
 
 @bp.app_context_processor
 def _ctx():
-    if request.endpoint in (None, "static"):
+    # Static files render nothing. A page with no endpoint is an error page (404, 500): it takes the look too, and if
+    # working that out fails there (the error came before the member was known) it falls back to the old one.
+    if request.endpoint == "static":
         return {"ui_v2": False}
-    return {"ui_v2": on(), "ui_v2_surface": surface(), "ui_v2_can_preview": can_preview(g.get("user")),
-            "ui_v2_global": enabled(), "ui_v2_pref": _user_pref(g.get("user"))}
+    try:
+        is_on, where = on(), surface()
+    except Exception:  # noqa: BLE001
+        return {"ui_v2": False}
+    import public_site
+    return {"ui_v2": is_on, "ui_v2_surface": where, "ui_v2_can_preview": can_preview(g.get("user")),
+            "ui_v2_global": enabled(), "ui_v2_pref": _user_pref(g.get("user")),
+            # the home page's gallery of real outputs and its neutral tiles (public_site.showcase, M15)
+            "showcase": public_site.showcase, "showcase_shapes": public_site.SHOWCASE_SHAPES}

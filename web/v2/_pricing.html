@@ -1,0 +1,53 @@
+{# Plans and packs in the neutral look (M15). Shared by the home page, /pricing and /features through web/_pricing.html.
+   Every number is read from the billing config: plans.PLANS / plans.PAID, catalog.PACKS (packs), the rate card
+   (rates()) and the sign-up offer (signup_offer()). Nothing here is typed in. Needs r = rates(), sc = starter credits. #}
+{% set open = billing_configured() %}
+<dl class="pr-rates" aria-label="What each ad costs">
+  <div><dt>Image ad</dt><dd>{{ r.image|credits }}</dd></div>
+  <div><dt>Product video, 5 seconds</dt><dd>{{ r.video5|credits }}</dd></div>
+  <div><dt>Talking video, 8 seconds</dt><dd>{{ r.talk8|credits }}</dd></div>
+  <div class="pr-rates-note"><dt class="sr">How pricing works</dt><dd>You see the price in credits before anything runs.</dd></div>
+</dl>
+<div class="pr-plans" data-plans>
+  <section class="pr-plan" aria-labelledby="pr-free" data-plan="free">
+    <h3 id="pr-free">Free</h3>
+    <p class="pr-amt"><b>$0</b></p>
+    <p class="pr-cr">{{ '{:,}'.format(sc) }} starter credits</p>
+    <p class="pr-makes">{{ sc // r.image }} image ad{{ '' if sc // r.image == 1 else 's' }} on your own product{{ ', or your first video ad' if sc >= r.video5 }}.</p>
+    <p class="pr-for">{{ signup_offer().terms }} Only want ads? Buy a pack; pack credits never expire.</p>
+    <a class="btn" href="{{ url_for('signup') }}" data-cta="pricing-free">Start free</a>
+    <ul class="pr-feats">{% for k, f in plans.FEATURES.items() if f.plan == 'free' and f.shipped %}<li>{{ f.name }}</li>{% endfor %}<li>Credit packs whenever you need more</li></ul>
+  </section>
+  {% for p in plans.PAID %}
+  <section class="pr-plan" aria-labelledby="pr-{{ p.code }}" data-plan="{{ p.code }}">
+    <h3 id="pr-{{ p.code }}">{{ p.name }}</h3>
+    <p class="pr-amt"><b>${{ p.usd }}</b><span> a month</span></p>
+    <p class="pr-cr">{{ '{:,}'.format(p.credits) }} credits every month</p>
+    {% set m = ad_math(p.credits, p.usd) %}<p class="pr-makes">{{ m.counts }}, each month.</p>
+    <p class="pr-for">{{ p.line }}</p>
+    {% if open %}<a class="btn dark" href="{{ url_for('signup') }}" data-cta="pricing-{{ p.code }}">Start {{ p.name }}</a>
+    {% else %}<span class="btn dark disabled" aria-disabled="true">Not open yet</span>{% endif %}
+    {% set prev = plans.ORDER[plans.ORDER.index(p.code) - 1] %}
+    <ul class="pr-feats">
+      <li>{{ 'Up to ' ~ p.seats ~ ' seats' if p.seats and p.seats > 1 else '1 seat' }}, {{ 'unlimited brands' if p.brands is none else (p.brands ~ ' brand' ~ ('s' if p.brands != 1 else '')) }}{% if plans.FEATURES.pages.shipped %}, {{ 'unlimited pages' if p.pages is none else (p.pages ~ ' published page' ~ ('s' if p.pages != 1 else '')) }}{% endif %}</li>
+      <li>{{ 'Everything in the free studio' if prev == 'free' else 'Everything in ' ~ plans.PLANS[prev].name }}</li>
+      {% for f in plans.plan_features(p.code) %}<li>{{ f.name }}</li>{% endfor %}
+    </ul>
+  </section>
+  {% endfor %}
+</div>
+{% if not open %}<p class="pr-note">Plan and pack checkout isn't switched on yet. Start free now; your credits carry over.</p>{% endif %}
+<p class="pr-note">No trial that bills you: nothing is charged until you pick a plan or buy a pack. Cancel any month; the plan runs to the end of the month you paid for. Plan credits reset monthly and are spent before pack credits. Failed generations are refunded automatically.</p>
+
+<h3 class="pr-h3" id="packs">Credit packs</h3>
+<p class="pr-sub">One-time top-ups, on any plan or none. They never expire.</p>
+<div class="pr-packs" data-packs>
+  {% for p in packs %}
+  <section class="pr-pack" aria-labelledby="pr-pack-{{ p.code }}" data-pack="{{ p.code }}">
+    <h4 id="pr-pack-{{ p.code }}">{{ p.name }} pack</h4>
+    <p class="pr-amt sm"><b>${{ p.usd }}</b><span> once</span></p>
+    <p class="pr-cr">{{ '{:,}'.format(p.credits) }} credits{% if p.bonus %} <span class="pr-bonus">includes {{ '{:,}'.format(p.bonus) }} bonus</span>{% endif %}</p>
+    {% set m = ad_math(p.credits, p.usd) %}<p class="pr-makes">{{ m.counts }}.</p>
+  </section>
+  {% endfor %}
+</div>

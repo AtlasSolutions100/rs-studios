@@ -2,7 +2,7 @@
 {# The card step with the new look (card_routes.py, RS_CARD_REQUIRED). Every figure comes from
    card_on_file.terms(): no trial, no charge date, nothing renews by itself. #}
 {% block ob %}
-{% if new %}<p class="ob-step">Step 3 of 3</p>{% endif %}
+{% if new %}<p class="ob-step"><span class="ob-dots" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i></span>Step 3 of 3</p>{% endif %}
 <div class="ob-pay" data-card-step>
   <h1>{% if new %}Save a card to get your free credits{% else %}Save a card to keep making ads{% endif %}</h1>
   <p class="ob-sub left">{% if new %}Nothing is charged today, and nothing is charged later unless you choose it.{% else %}Your ads, products and credits are all still here. Nothing is charged today, and nothing later unless you choose it.{% endif %}</p>

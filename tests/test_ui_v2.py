@@ -320,8 +320,11 @@ check(cfg["preset"] == "marketplace" and cfg["versions"] == studio_v2.MAX_COUNT 
 check({g["id"] for g in boot["gallery"]} >= {"type:ugc", "type:image", "clean-headline", "offer", "callouts", "review", "compare"}
       and {g["group"] for g in boot["gallery"]} == {"type", "image", "video"},
       "More lists the ad types and the wave-2 presets, text-layer ones included, in its three groups")
-check(len(boot["presenters"]) == len(catalog.PRESENTERS) == 8 and all(p["voice"] for p in boot["presenters"]),
-      "the presenter picker has our 8 presenters, each with its voice")
+import presenters  # noqa: E402
+check([p["id"] for p in boot["presenters"]] == [p["id"] for p in presenters.roster()] and len(boot["presenters"]) == 20
+      and [p["id"] for p in boot["presenters"]][:8] == [p["id"] for p in catalog.PRESENTERS]
+      and all(p["voice"]["label"] and p["situations"] for p in boot["presenters"]),
+      "the presenter picker has the roster's 20 presenters (the first 8 first), each with its voice and situations")
 brand = n.get("/app/studio/brand").get_data(as_text=True)
 check('for="bs-url"' in brand and 'name="kit_primary"' in brand and 'name="kit_font"' in brand and "/app/start/import" in brand,
       "the brand screen is one labelled input on the free importer, then the Look kit")
