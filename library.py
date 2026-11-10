@@ -11,6 +11,10 @@ downloaded and exported like any ad):
                        the presenter's voice sample (voice.mp3)
     preset_examples    an image preset run exactly as a member would run it, on a demo product
     preset_videos      a video preset (one that runs today), the same way
+    preset_posters     the still a video preset opens on, as its thumbnail: the keyframe the keyframe-first pipeline
+                       makes for it (the presenter's approved still with the demo product where the recipe puts
+                       it; for a voiceover, the product in the first shot), and nothing else of the video. One
+                       still each, so every video preset has a real picture before any clip is paid for
     keyframe_tests     a recipe made by the keyframe-first pipeline (keyframe_video.py) at the lowest cost: 480p and
                        four-second beats. It runs whether or not KEYFRAME_VIDEO is on, so the owner can look at one
                        real result (keyframe, beats, cutaway, stitch, end card) before switching the pipeline on
@@ -53,9 +57,11 @@ import hf
 import presenters
 import presets
 
-KINDS = ("demo_products", "presenter_stills", "presenter_voices", "preset_examples", "preset_videos", "keyframe_tests")
+KINDS = ("demo_products", "presenter_stills", "presenter_voices", "preset_examples", "preset_videos", "preset_posters",
+         "keyframe_tests")
 TAG = {"demo_products": "demo_product", "presenter_stills": "presenter_still", "presenter_voices": "presenter_voice",
-       "preset_examples": "preset_example", "preset_videos": "preset_video", "keyframe_tests": "keyframe_test"}
+       "preset_examples": "preset_example", "preset_videos": "preset_video", "preset_posters": "preset_poster",
+       "keyframe_tests": "keyframe_test"}
 KEYFRAME_TEST_RESOLUTION = "480p"      # a keyframe test's defaults: the vendor's cheapest size and shortest beat
 KEYFRAME_TEST_BEAT = 4
 MAX_JOBS = 120                 # one generate call
@@ -782,6 +788,85 @@ def _preset_items(conn, ws, ids, options, video: bool, make: bool = False) -> li
     return out
 
 
+def poster_presenter(rec, options: dict | None = None, ready=None) -> tuple[str, str]:
+    """(presenter, situation) a presenter recipe's poster shows. `presenter` in the options is that one; without
+    it the recipes take turns through the roster, so the gallery is not one face: the n-th presenter recipe starts
+    at the n-th third of the roster and takes the first presenter who has a still of the recipe's place (their own
+    first place when the recipe names none). `ready(presenter, situation)` says whether that still exists (default:
+    the approved file under static/)."""
+    options = options or {}
+    ready = ready or (lambda pid, sid: bool(presenters.still_path(pid, sid)))
+    want = rec.extra.get("situation") or str(options.get("situation") or "")
+    if want and want not in presenters.SITUATIONS:
+        raise LibraryError("situation is one of: " + ", ".join(presenters.SITUATIONS) + ".")
+    who = str(options.get("presenter") or "")
+    if who:
+        if presenters.record(who) is None:
+            raise LibraryError(f"Unknown presenter {who!r}.")
+        if want and want not in presenters.situation_ids(who):
+            raise LibraryError(f"{presenters.record(who)['name']} has no situation {want!r}. Theirs: "
+                               f"{', '.join(presenters.situation_ids(who))}.")
+        return who, want or presenters.default_situation(who)
+    ugc = [r.id for r in presets.RECIPES if r.ad_type == "ugc"]
+    ids = list(presenters.IDS)
+    start = (ugc.index(rec.id) * 3) % len(ids) if rec.id in ugc else 0
+    turn = ids[start:] + ids[:start]
+    has = [(pid, want or presenters.default_situation(pid)) for pid in turn
+           if not want or want in presenters.situation_ids(pid)]
+    if not has:
+        raise LibraryError(f"No presenter has the situation {want!r}.")
+    return next(((pid, sid) for pid, sid in has if ready(pid, sid)), has[0])
+
+
+def _poster_items(conn, ws, ids, options, make: bool = False) -> list[dict]:
+    """A video preset's poster: the one still its video would start from, made the way keyframe_video.py makes a
+    keyframe (the same prompt, the same references, the same model and settings) and stopped there. No clip, no
+    voice. `only_missing` skips a preset that already has a picture or a clip under static/."""
+    import keyframe_video
+    import products
+    by_id = {p.id: p for p in presets.RECIPES}
+    q, r = catalog.KEYFRAME_SETTINGS
+    out = []
+    for pid in _ids(ids, by_id, "video presets"):
+        p = by_id.get(pid)
+        if p is None:
+            raise LibraryError(f"{pid!r} isn't a video preset made from a keyframe. Use one of: {', '.join(by_id)}.")
+        if options.get("only_missing") and (presets.example_url(pid) or presets.example_video_url(pid)):
+            continue
+        demo, script = _SCRIPTS[p.id]
+        d = DEMO[demo]
+        prod = _ready_demo(conn, ws, demo, make)
+        photos = products.photos_for(conn, ws["id"], prod["id"]) if prod is not None else []
+        n_photos = len(photos) if prod is not None else 1
+        ugc = p.ad_type == "ugc"
+        params = {"photo_ids": [x["id"] for x in photos][: catalog.KEYFRAME_MAX_PHOTOS], "ad_type": p.ad_type,
+                  "product": d["name"], "duration": p.price.get("duration")}
+        tag = {"kind": "preset_poster", "preset": p.id, "demo": demo}
+        if ugc:
+            who, sid = poster_presenter(p, options, lambda a, b: bool(_presenter_still_ref(conn, ws, a, b)))
+            params.update(presenter=who, situation=sid)
+            params.update(_presenter_still_ref(conn, ws, who, sid))
+            if not (params.get("ref_job") or params.get("ref_static")):
+                # a poster is "this presenter, with the product": without their still it would be a stranger
+                raise LibraryError(f"{presenters.record(who)['name']} has no {sid} still yet. Make it first: kind "
+                                   f"presenter_stills, ids [\"{who}:{sid}\"].")
+            tag.update(presenter=who, situation=sid)
+        kf = keyframe_video.plan(p, params, script, n_photos=n_photos, has_still=keyframe_video.has_still(params),
+                                 category=d["category"])["keyframe"]
+        still = bool(params.get("ref_job") or params.get("ref_static"))
+        prompt = catalog.keyframe_prompt(p.ad_type, d["name"], presenter_id=params.get("presenter") or "",
+                                         situation=params.get("situation") or "", product_at=kf["product_at"],
+                                         has_still=still and kf["kind"] == "presenter", shot=kf["shot"], hands=kf["hands"])
+        refs = (1 if still and kf["kind"] == "presenter" else 0) + min(n_photos, catalog.KEYFRAME_MAX_PHOTOS)
+        name = presenters.record(params["presenter"])["name"] if ugc else ""
+        label = f"{p.name} · poster" + (f" · {name}, {presenters.SITUATIONS[params['situation']]['label']}" if ugc else "")
+        # the job is a plain library still: what it shows is in its tags, and it counts for no preset's numbers
+        keep = {k: params[k] for k in ("photo_ids", "ref_job", "ref_static") if params.get(k)}
+        out.append(_still_item(conn, pid, label, prompt, tag, q, r, "9:16", refs=refs, params=keep,
+                               **({"product_id": prod["id"]} if prod is not None else {})))
+    return out
+
+
 def _keyframe_items(conn, ws, ids, options, make: bool = False) -> list[dict]:
     """A small paid test of the keyframe-first pipeline: one recipe each, one presenter, at the lowest cost (480p,
     four-second beats unless `video_resolution` / `video_seconds` say otherwise; `video_seconds` is the length of
@@ -853,6 +938,8 @@ def items(conn, ws, kind: str, ids, options=None, make: bool = False) -> list[di
         out = _still_items(conn, ws, ids, options)
     elif kind == "presenter_voices":
         out = _voice_items(conn, ws, ids, options)
+    elif kind == "preset_posters":
+        out = _poster_items(conn, ws, ids, options, make=make)
     elif kind == "keyframe_tests":
         out = _keyframe_items(conn, ws, ids, options, make=make)
     else:

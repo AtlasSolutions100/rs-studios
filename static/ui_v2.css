@@ -444,8 +444,11 @@ dialog.v2-dlg::backdrop{background:var(--v2-scrim)}
 .v2-gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));grid-auto-rows:max-content;gap:var(--s3);padding:var(--s4);overflow:auto;align-content:start;flex:1}
 .v2-gcard{display:flex;flex-direction:column;padding:0;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--panel);color:var(--ink);font:inherit;text-align:left;cursor:pointer;overflow:hidden}
 .v2-gcard:hover{border-color:var(--v2-line2)}
-.v2-gthumb{display:block;aspect-ratio:16/10;background:var(--thumb-bg);overflow:hidden;border-bottom:1px solid var(--line)}
+/* the card's picture is 4:5, the shape most examples are made in, and a real example is never cropped: a text-layer
+   preset is its headline and rows, and a wide crop cut them off. A tall one (9:16) keeps its sides clear instead. */
+.v2-gthumb{display:block;aspect-ratio:4/5;background:var(--thumb-bg);overflow:hidden;border-bottom:1px solid var(--line)}
 .v2-gthumb img,.v2-gthumb video{width:100%;height:100%;object-fit:cover;display:block}
+.v2-gthumb.real img,.v2-gthumb.real video{object-fit:contain}
 .v2-gthumb:not(.real) img{filter:saturate(.25) contrast(.95);opacity:.82}
 .v2-gbody{display:flex;flex-direction:column;gap:4px;padding:12px 14px 14px;flex:1}
 .v2-gbody b{font-weight:600;font-size:14.5px;letter-spacing:-.01em}

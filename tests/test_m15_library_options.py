@@ -59,6 +59,7 @@ import app as appmod  # noqa: E402
 import catalog  # noqa: E402
 import db  # noqa: E402
 import hf  # noqa: E402
+import keyframe_video  # noqa: E402
 import library  # noqa: E402
 import presenters  # noqa: E402
 import presets  # noqa: E402
@@ -570,6 +571,61 @@ try:
     check("1 job: 206 credits" in r.get_data(as_text=True) and "5 s · 480p" in r.get_data(as_text=True),
           "and a five-second voice sample is quoted from the page")
     tick_until_idle()
+
+    print("== preset_posters: the still a video preset opens on")
+    res = quote(akey, "preset_posters", ["offer"])
+    check(res["isError"] and "isn't a video preset made from a keyframe" in res["content"][0]["text"],
+          "an image preset has no poster to make")
+    res = quote(akey, "preset_posters", ["talk-to-camera"], presenter="gus")
+    check(res["isError"] and "has no" in res["content"][0]["text"] and "presenter_stills" in res["content"][0]["text"],
+          "a presenter with no still yet is refused, with what to make first (a poster is never a stranger)")
+    n_sub, bal = len(V.submits), db.balance(ws_row(AWS))
+    qp, gp, pj = make(akey, "preset_posters", ["talk-to-camera", "vo-product-shots"], presenter="maya")
+    tick_until_idle()
+    subs = V.submits[n_sub:]
+    talk = next(x for x in subs if len(x["inputs"].get("image_urls") or []) == 2)
+    vo = next(x for x in subs if len(x["inputs"].get("image_urls") or []) == 1)
+    pt, pv = params_of(pj["talk-to-camera"]), params_of(pj["vo-product-shots"])
+    check(qp["count"] == 2 and qp["total_credits"] == 46 + 43 == gp["credits_charged"] == bal - db.balance(ws_row(AWS))
+          and [ln["tool"] for ln in qp["lines"]] == ["library_still"] * 2 and qp["vendor_usd"] == round(0.23 + 0.215, 2),
+          "two posters are two stills: 46 and 43 credits (one more reference picture for the presenter), priced first")
+    check(len(subs) == 2 and all("video" not in x["model"] for x in subs)
+          and all(x["model"] == catalog.model_for("library_still") for x in subs)
+          and all((x["inputs"]["quality"], x["inputs"]["resolution"]) == catalog.KEYFRAME_SETTINGS for x in subs)
+          and all(x["inputs"]["aspect_ratio"] == "9:16" for x in subs),
+          "each is one call to the still model at the keyframe's own settings: no clip, no voice")
+    check(pt["library"] == {"kind": "preset_poster", "preset": "talk-to-camera", "demo": "mug", "presenter": "maya",
+                            "situation": "kitchen"}
+          and pv["library"] == {"kind": "preset_poster", "preset": "vo-product-shots", "demo": "mug"}
+          and pt.get("ref_job") == sj["maya:kitchen"] and "preset" not in pt and "ref_job" not in pv
+          and job_row(pj["talk-to-camera"])["product_id"] == mug["id"] == job_row(pj["vo-product-shots"])["product_id"]
+          and job_row(pj["talk-to-camera"])["tool"] == "library_still" and job_row(pj["talk-to-camera"])["status"] == "done",
+          "the presenter's poster starts from her own still and the demo product's photo; both carry the demo product")
+    rec = presets.get("talk-to-camera")
+    kf = keyframe_video.plan(rec, {"presenter": "maya", "situation": "kitchen", "ref_job": 1}, library._SCRIPTS[rec.id][1],
+                             n_photos=1, has_still=True, category="home")["keyframe"]
+    want = catalog.keyframe_prompt("ugc", "Dapplewood Trail Mug", presenter_id="maya", situation="kitchen",
+                                   product_at=kf["product_at"], has_still=True, shot=kf["shot"], hands=kf["hands"])
+    check(talk["inputs"]["prompt"] == want == job_row(pj["talk-to-camera"])["brief"]
+          and "No people" in vo["inputs"]["prompt"] and "first frame of a short product video" in vo["inputs"]["prompt"],
+          "the prompt is the keyframe's own: the same picture the keyframe-first pipeline would start that video from")
+    lst = {a["job_id"]: a for a in call(akey, "list_library_assets", {"kind": "preset_posters"})["structuredContent"]["assets"]}
+    check(set(lst) == set(pj.values()) and lst[pj["talk-to-camera"]]["outputs"][0]["filename"] == "preset__talk-to-camera.png"
+          and lst[pj["vo-product-shots"]]["outputs"][0]["filename"] == "preset__vo-product-shots.png",
+          "they export under the preset's name, so the import script puts them where a preset's example lives")
+    page = adm.get("/admin/library?show=preset_posters").get_data(as_text=True)
+    check('<option value="preset_posters"' in page and "preset__talk-to-camera.png" in page, "the admin page offers the kind and lists them")
+    open(os.path.join(presets.EXAMPLE_DIR, "talk-to-camera.webp"), "wb").write(b"RIFF")
+    q1 = quote(akey, "preset_posters", ["talk-to-camera", "vo-product-shots"], presenter="maya", only_missing=True)["structuredContent"]
+    check(q1["count"] == 1 and q1["lines"][0]["key"] == "vo-product-shots", "only_missing skips a preset that has its picture")
+    os.remove(os.path.join(presets.EXAMPLE_DIR, "talk-to-camera.webp"))
+    ugc = [r for r in presets.RECIPES if r.ad_type == "ugc"]
+    turn = [library.poster_presenter(r, {}, lambda a, b: True) for r in ugc]
+    check(len({w for w, _s in turn}) == len(ugc) and all(s_ in presenters.situation_ids(w) for w, s_ in turn)
+          and all(not r.extra.get("situation") or s_ == r.extra["situation"] for r, (w, s_) in zip(ugc, turn)),
+          f"with no presenter named, the {len(ugc)} presenter presets take turns through the roster, each in a place they have")
+    check(library.poster_presenter(ugc[0], {"presenter": "nia"}) == ("nia", "desk") and len(library.KINDS) == 7
+          and library.TAG["preset_posters"] == "preset_poster", "a named presenter is used; the kind is one of seven")
 
     print("== no vendor was really called")
     check(leaks == [], "no connection left this machine during the whole suite")
