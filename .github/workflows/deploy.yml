@@ -158,7 +158,8 @@ name: Deploy Campaignify (campaignify.ai)
 #   TEXT_LAYERS            image presets whose words are set as real type (textlayer.py), default on; "0" hides them
 #   CLAIMS_CHECK           the claims check before Generate (claims_check.py), default off
 #   IMAGE_QA               automatic check of finished images, silent retry, refund (image_qa.py), default off;
-#                          IMAGE_QA_DAILY_MAX (default 2000) and IMAGE_QA_MODEL are its settings
+#                          IMAGE_QA_DAILY_MAX (default 2000) and IMAGE_QA_MODEL are its settings. Off or on, the
+#                          text-free picture of a static with a text layer is always checked for painted-in words
 #   FREE_FIX               one free fix per delivered image (free_fix.py), default off; FREE_FIX_MONTHLY_CAP (default 10)
 #   m15 library (optional variables; README "m15 library"):
 #   PRESENTER_STILLS       a presenter's approved situation still is the video model's first reference image
@@ -166,6 +167,12 @@ name: Deploy Campaignify (campaignify.ai)
 #   PRESENTER_VOICE_REF    a presenter's voice sample is sent as the audio reference, default off (needs a paid test first)
 #   CLAIMS_CHECK_DAILY_MAX / CLAIMS_CHECK_WS_DAILY_MAX   the free claims check's daily caps (defaults 3000 and 150)
 #   RS_LIBRARY_STILL_MODEL / RS_LIBRARY_STILL_USD        the admin library's own image model and our estimate of its price
+#   KEYFRAME_VIDEO         videos made from a recipe are built from one approved still, in beats, and stitched
+#                          (keyframe_video.py; README "Keyframe-first video"), default off. Run the paid test first
+#                          (/admin/library, kind keyframe_tests)
+#   VIDEO_QA               three frames of every beat are checked; a failing beat is made again once, default off;
+#                          VIDEO_QA_DAILY_MAX (default 3000) caps the keyframe and frame checks a day
+#   FREE_FIX_VIDEO_MONTHLY_CAP  with FREE_FIX on: one-beat video fixes a workspace a month (default 2)
 #   OPS_ALERTS             operator alert emails (alerts.py), default on
 #   BACKUPS / BACKUP_MEDIA the nightly off-site backup, and its media folders (backup.py), default on
 #   RS_DISK_MIN_GB         uploads and new files are refused below this much free disk (storage.py), default 5
@@ -355,6 +362,10 @@ jobs:
           CLAIMS_CHECK_WS_DAILY_MAX: ${{ vars.CLAIMS_CHECK_WS_DAILY_MAX }}
           RS_LIBRARY_STILL_MODEL: ${{ vars.RS_LIBRARY_STILL_MODEL }}
           RS_LIBRARY_STILL_USD: ${{ vars.RS_LIBRARY_STILL_USD }}
+          KEYFRAME_VIDEO: ${{ vars.KEYFRAME_VIDEO }}
+          VIDEO_QA: ${{ vars.VIDEO_QA }}
+          VIDEO_QA_DAILY_MAX: ${{ vars.VIDEO_QA_DAILY_MAX }}
+          FREE_FIX_VIDEO_MONTHLY_CAP: ${{ vars.FREE_FIX_VIDEO_MONTHLY_CAP }}
           OPS_ALERTS: ${{ vars.OPS_ALERTS }}
           BACKUPS: ${{ vars.BACKUPS }}
           BACKUP_MEDIA: ${{ vars.BACKUP_MEDIA }}
@@ -411,6 +422,7 @@ jobs:
                                              "FREE_FIX_MONTHLY_CAP",
                                              "PRESENTER_STILLS", "PRESENTER_VOICE_REF", "CLAIMS_CHECK_DAILY_MAX",
                                              "CLAIMS_CHECK_WS_DAILY_MAX", "RS_LIBRARY_STILL_MODEL", "RS_LIBRARY_STILL_USD",
+                                             "KEYFRAME_VIDEO", "VIDEO_QA", "VIDEO_QA_DAILY_MAX", "FREE_FIX_VIDEO_MONTHLY_CAP",
                                              "RS_WORKER_PROCESS", "RS_TASK_THREADS",
                                              "RS_HEALTH_BUSY_MAX_S")
                       if os.environ.get(k)}

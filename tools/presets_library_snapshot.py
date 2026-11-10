@@ -5,7 +5,9 @@ tests/fixtures/presets_m15_snapshot.json is this script's output on m15-integrat
 added (39 records: 5 ad types, 14 templates, 14 scene statics, 6 statics with a text layer, and the talking
 prompt of each of the 8 presenters). tests/test_m15_library.py recomputes it and fails on any difference, so
 adding presets, presenters and tags can't change what an existing preset sends to the vendor or what a member
-pays for it. Only rewrite the fixture when a price or a prompt is meant to change:
+pays for it. Only rewrite the fixture when a price or a prompt is meant to change (done once since: the six statics
+with a text layer now end their scene with presets.NO_PEOPLE, "No people, no hands, no faces ...", and are asked
+for a "product photograph with no text on it" in the words of catalog.TEXT_FREE):
 
     python tools/presets_library_snapshot.py > tests/fixtures/presets_m15_snapshot.json
 """
@@ -42,8 +44,9 @@ def _prompt(p, catalog, presets) -> str:
     if p.tool == "ad_image":
         parts = catalog.split_image_brief(brief)
         if p.layout:
-            scene = (parts["scene"] + " " + presets.ZONES.get(p.layout, "")).strip()
-            return catalog.image_ad_prompt(scene, product="Trail Mug", forbid=["Keeps drinks hot for 6 hours"])
+            scene = presets.layered_scene(parts["scene"], p.layout, p.id)
+            return catalog.image_ad_prompt(scene, product="Trail Mug", forbid=["Keeps drinks hot for 6 hours"],
+                                           text_free=True)
         return catalog.image_ad_prompt(parts["scene"], parts["headline"], parts["subline"], parts["cta"],
                                        brand="Northwind", product="Trail Mug", forbid=["Keeps drinks hot for 6 hours"])
     if p.tool == "photo_to_video":

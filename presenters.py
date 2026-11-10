@@ -100,7 +100,12 @@ SITUATIONS = {
         "scene": "a small home bathroom: white wall tiles, a towel on a hook and a frosted window behind them, the "
                  "flat light of a ceiling fitting mixed with daylight, the phone propped beside the mirror",
         "pose": "standing at the basin, facing the phone",
-        "surface": "the edge of the basin shelf at the bottom of the frame"},
+        "surface": "the edge of the basin shelf at the bottom of the frame",
+        # Said in every still of this place, whoever it is: the first run drew low-cut tops here. Ads run on
+        # platforms that reject bare shoulders and chests, so the wardrobe is ordinary daytime clothes (said as what
+        # to draw, never as a list of what not to).
+        "dress": "They are fully dressed, as for an ordinary morning before work: the top has a high, round "
+                 "neckline and sleeves, and covers the shoulders, the chest and the midriff."},
     "gym": {
         "label": "Gym",
         "place": "a corner of an ordinary gym",
@@ -189,7 +194,8 @@ _ROSTER = [
        "Slim, upright posture. Almost no makeup; a few fine lines at the corners of her eyes.",
        [("desk", "a cream linen shirt with the top button open"),
         ("kitchen", "a rust-coloured cotton blouse with rolled sleeves"),
-        ("bathroom-mirror", "a plain white waffle robe, hair held back with a clip")], classic=True),
+        ("bathroom-mirror", "a plain white waffle robe closed high at the neck over a white crew-neck tee, hair "
+                            "held back with a clip")], classic=True),
     _p("sam", "Sam", "25-34", "nonbinary",
        "person in their mid 20s, short bleached hair, oversized hoodie, energetic", "Upbeat, Gen Z",
        "a bedroom with fairy lights", 140, "upbeat_f",
@@ -225,7 +231,7 @@ _ROSTER = [
        "Athletic, wiry build. Slightly sunburnt nose, no makeup.",
        [("gym", "a faded teal training top and black leggings"),
         ("outdoor", "a light running jacket, zipped halfway"),
-        ("bathroom-mirror", "an oversized white tee, hair still in its bun")], classic=True),
+        ("bathroom-mirror", "an oversized white crew-neck tee, hair still in its bun")], classic=True),
     _p("theo", "Theo", "25-34", "male",
        "man in his late 20s, wavy hair, denim jacket, friendly grin", "Friendly, chatty",
        "a cafe table by the window", 260, "chatty_m",
@@ -255,7 +261,7 @@ _ROSTER = [
        [("desk", "a fitted rust-orange tee"),
         ("kitchen", "a loose white button-down with the sleeves rolled"),
         ("sofa", "a soft lilac lounge set"),
-        ("bathroom-mirror", "a grey ribbed tank top, twists tied up in a scarf")]),
+        ("bathroom-mirror", "a plain grey crew-neck tee, twists tied up in a scarf")]),
     _p("dev", "Dev", "25-34", "male",
        "man in his early 30s, short black hair, neat stubble, rectangular glasses", "Thoughtful, precise",
        "a plain home desk by a window", 190, "even_m",
@@ -291,7 +297,7 @@ _ROSTER = [
        "A woman of about 24 with light skin with a cool undertone, a small oval face, dark almond-shaped eyes, a "
        "short straight nose, and collarbone-length straight black hair with a full fringe that needs a trim. "
        "Petite, narrow build. A couple of small moles on her neck and slightly chapped lips.",
-       [("bathroom-mirror", "a pale pink towelling headband and a white tee"),
+       [("bathroom-mirror", "a pale pink towelling headband and a plain white crew-neck tee"),
         ("desk", "a cream cable-knit cardigan"),
         ("sofa", "an oversized navy sweatshirt"),
         ("outdoor", "a beige trench coat, open")]),
@@ -333,7 +339,7 @@ _ROSTER = [
        [("gym", "a charcoal training jacket, half zipped"),
         ("kitchen", "a white long-sleeve tee"),
         ("outdoor", "a bright blue running top"),
-        ("bathroom-mirror", "a black training vest under an open grey hoodie")]),
+        ("bathroom-mirror", "a grey zip hoodie zipped up to the collarbone over a plain black crew-neck tee")]),
     _p("mateo", "Mateo", "35-44", "male",
        "man in his late 30s, dark curly hair, short beard, rolled-sleeve shirt", "Warm, good-humoured",
        "an ordinary, lived-in home kitchen", 25, "mellow_m",
@@ -470,21 +476,50 @@ REAL_PHONE = ("Real-phone look: natural skin texture with visible pores and smal
 SAME_PERSON = ("The reference image shows this person. Make a new photo of exactly the same person: the same face, bone "
                "structure, skin, hair, age and build, unchanged. The place, the clothes and the pose are new, as "
                "described here; do not copy the reference's room, clothes or pose.")
+# The softer second try of a "same person, somewhere new" still the vendor's content filter refused (worker._soften):
+# the reference already shows who it is, so the person isn't described again, the clothes are named plainly with
+# no adjectives, and the place is one short phrase.
+SOFT_LOOK = ("Natural skin, ordinary light from the room, no filter and no studio lighting. No readable text or logos. "
+             "One person only, fully dressed in ordinary daytime clothes.")
+_GARMENTS = ("sweatshirt", "sweater", "cardigan", "overshirt", "hoodie", "jacket", "blouse", "shirt", "robe", "polo",
+             "jumper", "fleece", "apron", "tee", "top", "t-shirt", "pullover", "button-down", "coat", "windbreaker",
+             "henley", "turtleneck")
 
 
-def still_prompt(pid, sid, same_person: bool = False) -> str:
+def plain_wardrobe(wardrobe: str) -> str:
+    """A wardrobe line with its adjectives dropped: "a faded teal training top and black leggings" -> "a plain
+    top". The first garment it names that covers the upper body, else plain everyday clothes."""
+    words = [w.strip(",.").lower() for w in (wardrobe or "").split()]
+    found = next((g for w in words for g in _GARMENTS if w == g), "")
+    return f"a plain {'t-shirt' if found == 'tee' else found}" if found else "plain everyday clothes"
+
+
+def still_prompt(pid, sid, same_person: bool = False, soft: bool = False) -> str:
     """The prompt for one situation still: an ordinary room, phone framing, natural skin, no studio light, the mouth
     relaxed, and a clear space on a surface where a product will stand. With `same_person` it is the second path:
-    the first still is given as a reference and only the place and the clothes change."""
+    the first still is given as a reference and only the place and the clothes change. `soft` (with `same_person`)
+    is that path's second try after the vendor's content filter refused the first: a shorter description with no
+    wardrobe adjectives."""
     p, s = record(pid), situation(pid, sid)
     if p is None or s is None:
         raise KeyError(f"{pid}:{sid}")
+    if soft and same_person:
+        return "\n".join([
+            SAME_PERSON,
+            "Vertical photo taken with the front camera of an ordinary phone, as the first frame of a selfie video.",
+            f"The same person as in the reference image, wearing {plain_wardrobe(s['wardrobe'])}, in {s['place']}.",
+            "They look into the lens with a relaxed, neutral expression, the mouth closed. Framed from the chest up "
+            "with the whole face clear; their hands hold nothing.",
+            f"In the lower third of the frame, {s['surface']} is in view with a clear, empty space where a product "
+            "will stand later.",
+            SOFT_LOOK, FICTIONAL])
     wear = f" Wearing {s['wardrobe']}." if s["wardrobe"] else ""
+    dress = f" {s['dress']}" if s.get("dress") else ""
     lines = [SAME_PERSON] if same_person else []
     lines += [
         "Vertical photo taken with the front camera of an ordinary phone, a little above eye level, as the first "
         "frame of a selfie video.",
-        f"{p['appearance']}{wear}",
+        f"{p['appearance']}{wear}{dress}",
         f"The place is {s['scene']}. They are {s['pose']}.",
         "They look into the lens with a relaxed, friendly, neutral expression, the mouth closed and relaxed, as if "
         "about to start talking. Framed from the chest up with the whole face clear and unobstructed and both "
@@ -495,12 +530,20 @@ def still_prompt(pid, sid, same_person: bool = False) -> str:
     return "\n".join(lines)
 
 
-def portrait_prompt(pid, same_person: bool = False) -> str:
-    """The prompt for the picker's portrait: head and shoulders, in their first situation's room."""
+def portrait_prompt(pid, same_person: bool = False, soft: bool = False) -> str:
+    """The prompt for the picker's portrait: head and shoulders, in their first situation's room. `soft`: the
+    shorter second try after a content-filter refusal (see still_prompt)."""
     p = record(pid)
     if p is None:
         raise KeyError(pid)
     s = situation(pid, default_situation(pid))
+    if soft and same_person:
+        return "\n".join([
+            SAME_PERSON, "Head-and-shoulders photo taken with an ordinary phone at eye level.",
+            f"The same person as in the reference image, wearing {plain_wardrobe(s['wardrobe'] if s else '')}, in "
+            f"{s['place'] if s else 'an ordinary room'}.",
+            "They look into the lens with a relaxed, friendly expression, the mouth closed. The face is centred and "
+            "fully visible.", SOFT_LOOK, FICTIONAL])
     wear = f" Wearing {s['wardrobe']}." if s and s["wardrobe"] else ""
     lines = [SAME_PERSON] if same_person else []
     lines += ["Head-and-shoulders photo taken with an ordinary phone at eye level.",
@@ -513,9 +556,13 @@ def portrait_prompt(pid, same_person: bool = False) -> str:
 
 
 VOICE_LINE = "Hi, I'm {name}. Here's a quick look at what this is and who it's for."
+VOICE_LINE_SHORT = "Hi, I'm {name}. Here's a quick look at this."      # a sample under six seconds
 
 
-def voice_line(pid) -> str:
-    """What a presenter says in their voice sample: a neutral line, nothing about any product."""
+def voice_line(pid, seconds: int = 6) -> str:
+    """What a presenter says in their voice sample: a neutral line, nothing about any product. A sample shorter than
+    six seconds gets the shorter line, so it is said at a natural pace instead of rushed."""
     p = record(pid)
-    return VOICE_LINE.format(name=p["name"]) if p else ""
+    if not p:
+        return ""
+    return (VOICE_LINE if int(seconds or 6) >= 6 else VOICE_LINE_SHORT).format(name=p["name"])

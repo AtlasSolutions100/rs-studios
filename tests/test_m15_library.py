@@ -243,8 +243,16 @@ worker.make_poster = lambda path: None            # no ffmpeg on a fake clip
 model_calls, answers = [], []
 
 
+# What the image check answers here: a clean picture. Since the paid runs a static with a text layer always has
+# its text-free picture looked at (tests/test_m15_library_fixes.py covers what the check does with the answers).
+CLEAN = {"product_present": True, "photo_has_label": True, "label_matches": True, "label_legible": True, "other_text": [],
+         "garbled_text": False, "people": False, "deformed_hands": False, "deformed_faces": False, "notes": ""}
+
+
 def _fake_anthropic(body, timeout=None):
     model_calls.append(body)
+    if not answers and body["tools"][0]["name"] == "report":
+        answers.append(dict(CLEAN))
     if not answers:
         raise AssertionError("an unexpected model call: " + body["tools"][0]["name"])
     ans = answers.pop(0)
@@ -883,26 +891,26 @@ try:
     check(claims_check.on() is False and claims_check.estimate() == 0 and claims_check.daily_max() == 3000
           and claims_check.ws_daily_max() == 150, "CLAIMS_CHECK stays off by default; its price to a member is 0; the caps have defaults")
     os.environ["CLAIMS_CHECK"] = "1"
-    balm = db.balance(ws_row(MWS))
+    balm, n_model = db.balance(ws_row(MWS)), len(model_calls)
     answers.append({"sentences": [{"line": 1, "sentence": "The Trail Mug keeps drinks hot for 6 hours.", "supported": True,
                                    "source": "claim", "quote": "Keeps drinks hot for 6 hours"}]})
     r = post(mem, "/app/create/claims", spoken).get_json()
     with db.connect() as conn:
         row = conn.execute("SELECT * FROM claims_checks WHERE workspace_id=? ORDER BY id DESC LIMIT 1", (MWS,)).fetchone()
         holds = conn.execute("SELECT COUNT(*) FROM credit_holds WHERE workspace_id=?", (MWS,)).fetchone()[0]
-    check(r["status"] == "ok" and r["charged"] == 0 and r["balance"] == balm == db.balance(ws_row(MWS)) and len(model_calls) == 1
+    check(r["status"] == "ok" and r["charged"] == 0 and r["balance"] == balm == db.balance(ws_row(MWS)) and len(model_calls) == n_model + 1
           and row["usd"] > 0 and holds == 0, "a check runs the model, takes no credits and holds none; what it cost us is kept")
     again = post(mem, "/app/create/claims", spoken).get_json()
-    check(again.get("cached") and again["charged"] == 0 and len(model_calls) == 1, "the same words again come from the cache")
+    check(again.get("cached") and again["charged"] == 0 and len(model_calls) == n_model + 1, "the same words again come from the cache")
     os.environ["CLAIMS_CHECK_WS_DAILY_MAX"] = "1"
     other = dict(spoken, body="The Trail Mug keeps drinks hot for 6 hours. Order today.")
     r = post(mem, "/app/create/claims", other).get_json()
-    check(r["status"] == "skipped" and r["charged"] == 0 and len(model_calls) == 1,
+    check(r["status"] == "skipped" and r["charged"] == 0 and len(model_calls) == n_model + 1,
           "past the daily cap the check is skipped (no model call), never charged")
     os.environ["CLAIMS_CHECK_WS_DAILY_MAX"] = "50"
     os.environ["CLAIMS_CHECK_DAILY_MAX"] = "1"
     r = post(mem, "/app/create/claims", dict(spoken, body="The Trail Mug keeps drinks hot for 6 hours. See it now.")).get_json()
-    check(r["status"] == "skipped" and len(model_calls) == 1, "the site-wide cap does the same")
+    check(r["status"] == "skipped" and len(model_calls) == n_model + 1, "the site-wide cap does the same")
     for k in ("CLAIMS_CHECK", "CLAIMS_CHECK_WS_DAILY_MAX", "CLAIMS_CHECK_DAILY_MAX"):
         os.environ.pop(k)
     boot = json.loads(mem.get(f"/app/create?product={PID}").get_data(as_text=True).split(

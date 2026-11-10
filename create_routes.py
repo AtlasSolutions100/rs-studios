@@ -24,6 +24,7 @@ import presenter_stills
 import presenters
 import presets
 import products
+import stitch
 from core import admin_required, brand, hold_check, login_required, queue_job, reserve_ai, verify_block, verify_json
 
 bp = Blueprint("create", __name__)
@@ -460,7 +461,8 @@ def save():
 
 def expand(conn, d) -> tuple[dict, list[dict]]:
     """Validate a flow config and turn it into the jobs it would make:
-    [{tool, brief, params, credits, usd, label}]. Raises ConfigError."""
+    [{tool, brief, params, credits, usd, label}]. Raises ConfigError. `d["label"]` (optional, 60 characters)
+    names the jobs' cards; see the end of this function."""
     typ = d.get("type")
     at = next((a for a in catalog.ad_types() if a["id"] == typ), None)
     if not at:
@@ -507,6 +509,19 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
                               "Pick that ad type for it.", "type")
         if rec is not None and not presets.runnable(rec):
             raise ConfigError(f"{rec.name} isn't available yet. Pick another preset.", "type")
+        # KEYFRAME_VIDEO: a video made from a recipe is built from one approved still, in beats, and stitched
+        # (keyframe_video.py). Off, this block does nothing and the job is the one take it always was.
+        keyframe = rec is not None and presets.pipeline_for(rec) == "keyframe_video"
+        screens, end_cta = [], ""
+        if keyframe:
+            import keyframe_video
+            screens = [int(x) for x in d.get("screens") or [] if str(x).isdigit() and int(x) in owned][:4]
+            ok, why = presets.recipe_ready(rec, p, len(photo_ids), len(screens))
+            if not ok:          # a recipe that shows the member's own screens needs them: say what to add
+                raise ConfigError(why, "format")
+            end_cta = " ".join(str(d.get("cta") or "").split())[:catalog.TEXT_LIMITS["cta"]].replace('"', "'")
+            if end_cta and not compliance.check(end_cta)["ok"]:
+                raise ConfigError("Button text: " + " ".join(compliance.check(end_cta)["blocks"]), "script")
         try:
             dur = int(d.get("duration") or (rec.price.get("duration") if rec is not None else 0) or 10)
         except (TypeError, ValueError):
@@ -562,7 +577,22 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
                         label = f"{catalog.VOICE_BY_ID[who]['name']} · {asp}{hd}"
                     if rec is not None:
                         params["preset"] = rec.id
-                    jobs.append({"tool": tool, "brief": said, "params": params, "credits": credits, "usd": usd,
+                    cost = usd
+                    if keyframe:
+                        # planned once, here: the keyframe, the beats with their lines, the cutaways, the end card.
+                        # The member's price is the same per-duration price; `usd` is what the plan costs us.
+                        params["pipeline"] = keyframe_video.PIPELINE
+                        if screens:
+                            params["screens"] = screens
+                        if d.get("captions") is not None:
+                            params["captions"] = bool(d.get("captions"))
+                        if end_cta:
+                            params["cta"] = end_cta
+                        params["kf"] = keyframe_video.plan(rec, params, said, n_photos=len(photo_ids),
+                                                           has_still=keyframe_video.has_still(params),
+                                                           category=presets.category(p))
+                        cost = keyframe_video.plan_cost(params["kf"])["usd"]
+                    jobs.append({"tool": tool, "brief": said, "params": params, "credits": credits, "usd": cost,
                                  "label": label, "hook": item, "key": f"{i}:{who}:{asp}"})
     elif kind == "image":
         n = max(1, min(4, int(d.get("versions") or 1)))
@@ -640,6 +670,14 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
                 raise ConfigError(f"Scene {i + 1}: " + " ".join(chk["blocks"]), "script")
             jobs.append({"tool": tool, "brief": item, "params": dict(base, ref_id=ref["id"]), "credits": credits,
                          "usd": usd, "label": ref["title"], "hook": item, "key": f"{i}::"})
+    # A name for these jobs' cards (Studio's "Gift idea", a Workflow pack's part): d["label"] replaces what the
+    # card says before its shape, so nothing has to rename a job after it is queued. An image ad reads
+    # "<name> · 4:5", anything else "<name> · <its own label>". The line keys and the prices are unchanged.
+    name = " ".join(str(d.get("label") or "").split())[:60]
+    if name:
+        for j in jobs:
+            asp = j["params"].get("aspect")
+            j["label"] = f"{name} · {asp}" if (kind == "image" and asp) else f"{name} · {j['label']}"
     every, alljobs = len(jobs), list(jobs)
     if isinstance(d.get("lines"), list):
         want = {str(x) for x in d["lines"]}
@@ -826,7 +864,8 @@ def generate_for(d):
         save_script(conn, p["id"], meta["type"]["id"], d.get("items"), d.get("body"), angle.get("title"), aid)
         cfg = {k: d.get(k) for k in ("type", "angle", "items", "body", "presenters", "voices", "voice", "duration",
                                      "aspects", "platforms", "versions", "ref", "photos", "setting", "audio", "resolution",
-                                     "subline", "cta", "placement", "preset", "layers", "situation")}
+                                     "subline", "cta", "placement", "preset", "layers", "situation", "label",
+                                     "screens", "captions")}
         cfg["made"] = [j["key"] for j in jobs]
         cfg["every"] = meta["every"]
         cfg["product"] = p["id"]
@@ -897,7 +936,8 @@ def _own_workspace():
 def _library_form():
     f = request.form
     ids = [x for x in (f.get("ids") or "").replace(",", " ").split() if x]
-    options = {k: f.get(k) for k in ("quality", "resolution", "demo", "presenter", "situation", "voice") if f.get(k)}
+    options = {k: f.get(k) for k in ("quality", "resolution", "demo", "presenter", "situation", "voice",
+                                     "video_seconds", "video_resolution", "voice_seconds") if (f.get(k) or "").strip()}
     for k in ("anchor_only", "only_missing"):
         if f.get(k):
             options[k] = True
@@ -932,7 +972,7 @@ def library_admin():
                 error = str(e)
             except hf.GenError as e:
                 error = f"The vendor refused: {e}"
-        rows = library.assets(conn, g.ws["id"], request.args.get("show") or None)
+        rows = library.listing(conn, g.ws["id"], request.args.get("show") or None)
         info = library.overview(conn, g.ws["id"])
     return render_template("admin_library.html", rows=rows, info=info, quote=quote, error=error, kind=kind,
                            ids=" ".join(ids), options=options, kinds=library.KINDS, demo=library.DEMO,
@@ -943,7 +983,47 @@ def library_admin():
                            stills_on=presenters.stills_on(), voice_ref_on=presenters.voice_ref_on(),
                            still_file=presenters.still_path,
                            credits_left=db.balance(ws), still_model=catalog.model_for("library_still"),
-                           still_usd=catalog.LIBRARY_STILL_USD)
+                           still_usd=catalog.LIBRARY_STILL_USD, video_resolutions=library.VIDEO_RESOLUTIONS,
+                           voice_range=library.VOICE_SECONDS_RANGE, voice_default=library.VOICE_SECONDS,
+                           usd_480p=catalog.LIBRARY_USD_PER_SECOND_480P, keyframe_on=presets.keyframe_on(),
+                           ffmpeg_there=stitch.have())
+
+
+@bp.route("/admin/library/file/<int:oid>")
+@admin_required
+def library_file(oid):
+    """One file of a library job, downloaded under its export name (the name it has in the zip), so the files can be
+    fetched one by one."""
+    import library
+    from flask import send_file
+    _own_workspace()
+    with db.connect() as conn:
+        found = library.export_name(conn, g.ws["id"], oid)
+    if found is None:
+        abort(404)
+    resp = send_file(found[0], as_attachment=True, download_name=found[1], conditional=True)
+    resp.headers["Cache-Control"] = "private, no-store"
+    return resp
+
+
+@bp.route("/admin/library/keyframe/<int:jid>")
+@admin_required
+def library_keyframe(jid):
+    """The approved keyframe of a keyframe-first video of the admin's own workspace (a keyframe test, or any video
+    made in beats): the still every beat was generated from, to look at beside the result."""
+    import keyframe_video
+    from flask import send_file
+    _own_workspace()
+    with db.connect() as conn:
+        j = conn.execute("SELECT id FROM jobs WHERE id=? AND workspace_id=? AND deleted_at IS NULL",
+                         (jid, g.ws["id"])).fetchone()
+        k = keyframe_video.keyframe_of(conn, jid) if j is not None else None
+    import os
+    if k is None or not k["path"] or not os.path.exists(k["path"]):
+        abort(404)
+    resp = send_file(k["path"], conditional=True)
+    resp.headers["Cache-Control"] = "private, no-store"
+    return resp
 
 
 @bp.route("/admin/library/export.zip")

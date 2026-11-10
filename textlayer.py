@@ -28,6 +28,12 @@ Rules the renderer keeps, and reports for every layer (render() returns the pict
     cropped, onto a canvas extended with its own backdrop so the product sits where the layout has room. What
     was done is in report["compose"]. A picture with no plain backdrop (a scene) is left exactly as it was.
 
+  * words never go over a face: a static with a text layer is meant to show the product alone, but the image model
+    sometimes draws a person anyway (a man holding the mug, his face where the headline goes). locate_people()
+    finds face-like regions with a cheap skin-tone test (no model); they are obstacles like the product: parts
+    that can move are moved off them, and when nothing clears them report["compose"]["people_clear"] is False
+    (and report["ok"]), which is what the worker reads to make the picture again once (words_on_people()).
+
 Colours and the font come from the brand kit (brands.kit_primary, kit_accent, kit_font, kit_logo; kit_of()),
 with plain defaults when a brand hasn't set them. Fonts are bundled in static/fonts/ads under the SIL Open Font
 License (licence files beside them; THIRD_PARTY_NOTICES.md): Poppins (sans) and DM Serif Display (serif heads).
@@ -418,6 +424,67 @@ def locate_product(img, tol: int = 34):
     return int(x0 / k), int(y0 / k), min(W, int(round(x1 / k))), min(H, int(round(y1 / k)))
 
 
+PEOPLE_REASON = "A person is where the words go."
+
+
+def locate_people(img, side: int = 192) -> list:
+    """Boxes [(x0, y0, x1, y1)] of what looks like a person's face in a text-free picture, hair included. A cheap
+    heuristic, no model: a face is a skin-toned region (any skin tone: the test is on chroma, not lightness) of a
+    face's size and shape, standing free of the frame's edges, with darker features (eyes, brows, a mouth) inside it.
+
+    It misses small, turned or strongly lit faces, and it can take a face-sized, skin-coloured object with dark marks
+    on it for one. Both are fine for what the boxes are used for: words are kept off them where the layout can move,
+    and a picture whose words can't be moved off one is made again once, never refused on this alone."""
+    W, H = img.size
+    if min(W, H) < 64:
+        return []
+    k = side / max(W, H)
+    w, h = max(16, round(W * k)), max(16, round(H * k))
+    small = img.convert("RGB").resize((w, h), Image.BOX if k < 1 else Image.BILINEAR)
+    yy, cb, cr = (c.tobytes() for c in small.convert("YCbCr").split())
+    n = w * h
+    skin = bytearray(1 if (77 <= cb[i] <= 127 and 133 <= cr[i] <= 173 and yy[i] > 40) else 0 for i in range(n))
+    seen, out = bytearray(n), []
+    for start in range(n):
+        if not skin[start] or seen[start]:
+            continue
+        stack, cells, lum = [start], 0, 0
+        seen[start] = 1
+        x0, y0, x1, y1 = w, h, -1, -1
+        while stack:
+            i = stack.pop()
+            x, y = i % w, i // w
+            cells += 1
+            lum += yy[i]
+            x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x), max(y1, y)
+            for j in ((i - 1) if x else -1, (i + 1) if x < w - 1 else -1, i - w, i + w):
+                if 0 <= j < n and skin[j] and not seen[j]:
+                    seen[j] = 1
+                    stack.append(j)
+        bw, bh = x1 - x0 + 1, y1 - y0 + 1
+        if not 0.006 <= cells / n <= 0.30 or not 0.5 <= bw / bh <= 1.5:
+            continue                                  # too small to read as a face, or a wall, a floor, a table
+        if (x0 == 0 and x1 == w - 1) or (y0 == 0 and y1 == h - 1) or not 0.45 <= cells / (bw * bh) <= 0.93:
+            continue                                  # runs edge to edge, or fills its box the way a carton does
+        # features inside the middle of it: eyes, brows, nostrils, a mouth (not skin-coloured, or clearly darker)
+        mean = lum / cells
+        ax0, ax1 = x0 + round(bw * 0.15), x1 - round(bw * 0.15)
+        ay0, ay1 = y0 + round(bh * 0.12), y1 - round(bh * 0.10)
+        inner = marks = 0
+        for y in range(ay0, ay1 + 1):
+            row = y * w
+            for x in range(ax0, ax1 + 1):
+                inner += 1
+                if not skin[row + x] or yy[row + x] < mean - 35:
+                    marks += 1
+        if not inner or not 0.008 <= marks / inner <= 0.45:
+            continue
+        gx, up, down = bw * 0.12, bh * 0.35, bh * 0.10      # the hair above it and the chin below
+        out.append((max(0, int((x0 - gx) / k)), max(0, int((y0 - up) / k)),
+                    min(W, int(round((x1 + 1 + gx) / k))), min(H, int(round((y1 + 1 + down) / k)))))
+    return out
+
+
 def _grow(box, by: float) -> tuple:
     return box[0] - by, box[1] - by, box[2] + by, box[3] + by
 
@@ -503,7 +570,7 @@ def recompose(base, scale: float, offset) -> tuple:
 MIN_SCALE = 0.30            # the product is never made smaller than this to make room; below it the ad is reported
 
 
-def render(img, layout: str, text: dict, kit: dict | None = None, aspect: str = "", fit: bool = True):
+def render(img, layout: str, text: dict, kit: dict | None = None, aspect: str = "", fit: bool = True, people=None):
     """(picture with its layers, report). `img` is the text-free picture; `text` holds headline, subline, cta,
     badge, callouts [..], review {quote, name, stars} and compare {left_title, right_title, left [..], right [..]};
     only what the layout uses is drawn. The report: {"aspect", "safe", "ok", "layers": {name: {...}}, "compose"}.
@@ -513,7 +580,11 @@ def render(img, layout: str, text: dict, kit: dict | None = None, aspect: str = 
         action    "none" (nothing was in the way), "moved" (parts moved, see place) or "recomposed" (the picture
                   was scaled by `scale` and set at `offset` on its own extended backdrop; `product_now` is where
                   the product is in the finished picture, `zone` the room it was given)
-        clear     False only when no arrangement keeps the words off the product (report["ok"] is then False)"""
+        clear     False only when no arrangement keeps the words off the product (report["ok"] is then False)
+
+    When a face is found away from the product (locate_people(); `people` gives the boxes instead, [] for none),
+    compose also has `people` (the boxes) and `people_clear`: False when words still sit on one after every move
+    (report["ok"] is then False too). A picture with no face in it is handled exactly as before."""
     kit = dict(DEFAULT_KIT, **(kit or {}))
     text = text or {}
     base = img.convert("RGB")
@@ -524,10 +595,29 @@ def render(img, layout: str, text: dict, kit: dict | None = None, aspect: str = 
     product = locate_product(base) if fit else None
     compose = {"product": list(product) if product else None, "action": "none", "place": {}, "scale": 1.0, "clear": True}
     place, now = {}, product
-    if product:
-        gap = min(base.size) * 0.015
+    gap = min(base.size) * 0.015
+    faces = []
+    if fit:
+        # a face that is part of the located subject is already covered by the product's own box
+        faces = [tuple(f) for f in (locate_people(base) if people is None else people)
+                 if not (product and _overlap(f, product))]
+    if faces:
+        compose.update(people=[list(f) for f in faces], people_clear=True)
+
+    def off_people(rep) -> bool:
+        return all(_clear(rep, f, gap) for f in faces)
+    if faces and not product:
+        # a scene with someone in it: the parts that can move are moved off the face; nothing is re-composed
         dry = [(pl, _draw(base, layout, text, kit, asp, pl, dry=True)[1]) for pl in _places(layout)]
-        free = next((pl for pl, rep in dry if _clear(rep, product, gap)), None)
+        free = next((pl for pl, rep in dry if off_people(rep)), None)
+        if free:
+            place = free
+            compose.update(action="moved", place=dict(free))
+    if product:
+        dry = [(pl, _draw(base, layout, text, kit, asp, pl, dry=True)[1]) for pl in _places(layout)]
+        free = next((pl for pl, rep in dry if _clear(rep, product, gap) and off_people(rep)), None) if faces else None
+        if free is None:
+            free = next((pl for pl, rep in dry if _clear(rep, product, gap)), None)
         if free is not None:
             place = free
             compose.update(action="moved" if free else "none", place=dict(free))
@@ -546,21 +636,42 @@ def render(img, layout: str, text: dict, kit: dict | None = None, aspect: str = 
                        int(round(product[2] * scale + ox)) + 1, int(round(product[3] * scale + oy)) + 1)
                 compose.update(action="recomposed", place=dict(place), scale=round(scale, 3), offset=[ox, oy],
                                zone=[int(v) for v in zone], product_now=list(now))
+                faces = [(f[0] * scale + ox, f[1] * scale + oy, f[2] * scale + ox, f[3] * scale + oy) for f in faces]
             else:
                 compose["clear"] = False
-    out, report = _draw(base, layout, text, kit, asp, place, product=now)
+    out, report = _draw(base, layout, text, kit, asp, place, product=now, avoid=faces)
     if now and compose["clear"] and not _clear(report, now, 0):
         compose["clear"] = False
+    if faces and not all(_clear(report, f, 0) for f in faces):
+        compose["people_clear"] = False
     report["compose"] = compose
-    if not compose["clear"]:
+    if not compose["clear"] or compose.get("people_clear") is False:
         report["ok"] = False
     return out, report
 
 
+def words_on_people(path: str, layout: str, text: dict, kit: dict | None = None, aspect: str = "") -> bool:
+    """Would the words of this layout sit on a person's face in this saved, text-free picture, whatever is moved?
+    The worker asks before it keeps a picture (worker._finish_images): one that says yes is made again once. False
+    when the layout draws nothing or the picture can't be read (the caller's own error handling deals with that)."""
+    if layout not in LAYOUTS or layout == "none" or not path or not os.path.exists(path):
+        return False
+    try:
+        import imagesafe
+        imagesafe.probe(path, max_pixels=imagesafe.MAX_PIXELS, max_bytes=None)
+        with Image.open(path) as im:
+            img = im.convert("RGB")
+    except Exception:  # noqa: BLE001
+        return False
+    _out, report = render(img, layout, text, kit, aspect)
+    return report["compose"].get("people_clear") is False
+
+
 def _draw(base, layout: str, text: dict, kit: dict, asp: str, place: dict | None = None, dry: bool = False,
-          product=None):
+          product=None, avoid=()):
     """One pass of the layout on `base` (RGB). `place` moves the parts that can move (see _places); `dry` only
-    measures (the picture comes back as None); `product` is the product's box, which the logo keeps off."""
+    measures (the picture comes back as None); `product` is the product's box, which the logo keeps off, as it
+    does the boxes in `avoid` (faces)."""
     place = place or {}
     W, H = base.size
     safe = safe_box(base.size, asp)
@@ -763,7 +874,7 @@ def _draw(base, layout: str, text: dict, kit: dict, asp: str, place: dict | None
                 lx, ly = sx1 - lg.size[0], max(sy0, int(top))
             box = (lx, ly, lx + lg.size[0], ly + lg.size[1])
             clash = any(_overlap(box, v["box"]) for v in report["layers"].values()) or (
-                product is not None and _overlap(box, product))
+                product is not None and _overlap(box, product)) or any(_overlap(box, a) for a in avoid)
             if not clash:
                 out.alpha_composite(lg, (int(lx), int(ly)))
                 note("logo", box, fit=True)

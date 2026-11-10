@@ -64,9 +64,25 @@ RS_MAIL_DOMAIN=mail.campaignify.ai
 # IMAGE_QA (default off): a vision check of every finished image ad against the product photo; a failed picture
 # is made again once, silently, and refunded if it fails twice. Our cost, not the member's: about $0.004 a
 # picture, plus $0.111 for each silent retry. IMAGE_QA_DAILY_MAX caps the checks a day (default 2000, about $8);
-# IMAGE_QA_MODEL names another vision model (default: the fast model).
+# IMAGE_QA_MODEL names another vision model (default: the fast model). With IMAGE_QA off, one check still runs: the
+# text-free picture of a static with a text layer is always looked at for words the image model painted in and for
+# a person in it (about $0.004 a layered picture; the same daily cap).
 # IMAGE_QA=1
 # IMAGE_QA_DAILY_MAX=2000
+# KEYFRAME_VIDEO (default off): videos made from a recipe are built from one approved still, in beats, and stitched
+# (keyframe_video.py; README "Keyframe-first video"), and the eight recipes that need that are offered. Member
+# prices don't change. Our cost per video: the beats' seconds as before, plus a keyframe ($0.215 to $0.245) and its
+# check ($0.004), plus 5 generated cutaway seconds ($2.31) in the two 20-second presenter recipes that have one.
+# Run the paid test first: /admin/library, kind keyframe_tests (541 credits, $2.70).
+# VIDEO_QA (default off): three frames of every beat are checked against the product photo and the keyframe's face; a
+# failing beat is made again once (that is the cost that matters: one more beat, $2.77 to $3.70), then refunded.
+# VIDEO_QA_DAILY_MAX caps the keyframe and frame checks a day (default 3000, about $15), apart from IMAGE_QA's.
+# FREE_FIX_VIDEO_MONTHLY_CAP (default 2): with FREE_FIX on, one-beat video fixes a workspace gets a month (each costs
+# us one beat, up to $3.70).
+# KEYFRAME_VIDEO=1
+# VIDEO_QA=1
+# VIDEO_QA_DAILY_MAX=3000
+# FREE_FIX_VIDEO_MONTHLY_CAP=2
 # FREE_FIX (default off): one free "fix it" per delivered image, with the member's note. Our cost: $0.1071 a fix
 # (one image generation; $0.111 with IMAGE_QA on, up to twice that if the fix needs its silent retry).
 # FREE_FIX_MONTHLY_CAP is the most fixes a workspace gets a month (default 10, so at most about $1.07 a

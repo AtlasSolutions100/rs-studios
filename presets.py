@@ -25,10 +25,12 @@ Three kinds:
               m15 adds seasonal ones and a few more built on the same layouts (STATICS_M15)
     recipe    a fixed VIDEO format (m15, RECIPES): explicit beats of 6 to 8 seconds, each with its shot, what is
               said, the on-screen text and where its first frame comes from, plus an end card. A recipe whose
-              `needs` is "" runs today as one take through the talking-video path (its `direction` goes into
-              catalog.talking_prompt). One that needs "keyframe_video" waits for the keyframe-first pipeline
-              that renders beat by beat and stitches; until that pipeline is in PIPELINES it is hidden from
-              members and refused by Create.
+              `needs` is "" runs as one take through the talking-video path (its `direction` goes into
+              catalog.talking_prompt). One that needs "keyframe_video" needs the keyframe-first pipeline
+              (keyframe_video.py), which builds the video from one approved still, beat by beat, and stitches
+              it. That pipeline is behind KEYFRAME_VIDEO (default off): while it is off those recipes are hidden
+              from members and refused by Create, exactly as before; while it is on "keyframe_video" is in
+              PIPELINES, they are offered, and every video made from a recipe takes that path.
 
 Every record also carries tags (m15): `category`, the product categories it fits (products.CATEGORIES codes, or
 "any"), and `use`, what the ad is for (USES: offer, social-proof, problem-solution, unboxing-pov, hands-only-demo,
@@ -429,6 +431,14 @@ for _l in _STATICS_M15:
 #   text      the on-screen text, set as real type afterwards ("" = none)
 # `direction` is the same format as ONE take, for today's talking-video path (needs ""): what the camera sees in a
 # voiceover, or what the presenter does. `script` tells the writer the shape and gives the member a starting line.
+# What only the keyframe-first pipeline reads (keyframe_video.py):
+#   tag        (a beat) a short literal set on that beat as real type: "Step 1", "1"
+#   place      (a beat) another presenters.SITUATIONS id: the same person, somewhere new, from the same keyframe
+#   captions   burn the spoken words in, a few at a time (a member's config can turn them on or off)
+#   crossfade  frames each join dissolves over (0 = hard cuts, the default; 4 to 6 otherwise)
+#   product_at where the product is in a presenter's keyframe: "table" (on the situation's surface, the default),
+#              "hand" or "shelf"
+#   extra_inputs  ("page_screenshot",) / ("app_screens",): the member's own screenshots, shown as they are
 # Everything here is written for Campaignify; nothing is taken from another tool's prompts.
 _END_CARD = {"beat": "end card", "seconds": 2, "source": "packshot",
              "shot": "the real product photo on the brand colour, the logo under it",
@@ -523,6 +533,7 @@ _RECIPES = [
                 "say": "who it is a good present for, then where to get it", "text": "the headline"},
                _END_CARD)},
     {"id": "founder-story", "name": "Founder story, narrated", "ad_type": "voiceover", "duration": 20, "needs": "",
+     "crossfade": 5,
      "line": "Your own story, read over the product being made and packed",
      "what_for": "For why you started: your own story in your own words, read by a narrator over the product. No AI "
                  "person plays you.",
@@ -547,6 +558,7 @@ _RECIPES = [
                  "and close shots of your product carry the middle.",
      "use": ("talking-head-cutaways",),
      "direction": "",
+     "captions": True,
      "script": {"shape": "A hook to camera, the facts over the product, a close to camera.", "starter": "Let me show you {product}."},
      "beats": ({"beat": "hook", "seconds": 6, "source": "presenter", "shot": "the presenter to camera, the product beside them",
                 "say": "the hook", "text": "the hook in five words or fewer"},
@@ -561,6 +573,7 @@ _RECIPES = [
      "what_for": "For a problem your product solves: a presenter names it, the product answers it, a real packshot closes.",
      "use": ("problem-solution",),
      "direction": "",
+     "captions": True,
      "script": {"shape": "The problem as a question, the product as the answer, one approved fact, where to get it. "
                          "No health or results claims.", "starter": "Still putting up with"},
      "beats": ({"beat": "problem", "seconds": 6, "source": "presenter", "shot": "the presenter to camera, no product yet",
@@ -608,6 +621,7 @@ _RECIPES = [
                  "outdoors as a spokesperson, labelled as AI the whole way through. Never a customer, never a passer-by.",
      "use": ("street-interview",),
      "direction": "",
+     "captions": True,
      "script": {"shape": "One question you choose (shown as text), then a two-part answer: what it is, then who it is "
                          "for and where to get it. The presenter speaks for the brand, never as someone who bought it.",
                 "starter": "What is {product}?"},
@@ -625,12 +639,13 @@ _RECIPES = [
      "direction": "",
      "script": {"shape": "Three short reasons, each one sentence and each true of the product, then where to get it.",
                 "starter": "Three reasons to try {product}."},
+     "captions": True,
      "beats": ({"beat": "reason 1", "seconds": 6, "source": "product", "shot": "the product front on",
-                "say": "the first reason", "text": "1 and the reason in four words"},
+                "say": "the first reason", "text": "1 and the reason in four words", "tag": "1"},
                {"beat": "reason 2", "seconds": 7, "source": "product", "shot": "close on a detail",
-                "say": "the second reason", "text": "2 and the reason in four words"},
+                "say": "the second reason", "text": "2 and the reason in four words", "tag": "2"},
                {"beat": "reason 3", "seconds": 7, "source": "hands", "shot": "hands use it, no face",
-                "say": "the third reason, then where to get it", "text": "3 and the reason in four words"},
+                "say": "the third reason, then where to get it", "text": "3 and the reason in four words", "tag": "3"},
                _END_CARD)},
     {"id": "offer-promo", "name": "Offer, no countdown", "ad_type": "voiceover", "duration": 8,
      "needs": "keyframe_video", "placement": "product_only",
@@ -651,12 +666,13 @@ _RECIPES = [
      "use": ("how-to", "hands-only-demo"),
      "direction": "",
      "script": {"shape": "Three steps in order, one sentence each, then where to get it.", "starter": "Here is how to use {product}."},
+     "captions": True,
      "beats": ({"beat": "step 1", "seconds": 6, "source": "hands", "shot": "wide from above: the first step",
-                "say": "the first step", "text": "Step 1 and three words"},
+                "say": "the first step", "text": "Step 1 and three words", "tag": "Step 1"},
                {"beat": "step 2", "seconds": 7, "source": "hands", "shot": "the same frame: the second step",
-                "say": "the second step", "text": "Step 2 and three words"},
+                "say": "the second step", "text": "Step 2 and three words", "tag": "Step 2"},
                {"beat": "step 3", "seconds": 7, "source": "hands", "shot": "the same frame: the result, label to camera",
-                "say": "the third step, then where to get it", "text": "Step 3 and three words"},
+                "say": "the third step, then where to get it", "text": "Step 3 and three words", "tag": "Step 3"},
                _END_CARD)},
 ]
 
@@ -697,6 +713,25 @@ ZONES = {
     "compare": "Keep the top fifth and the lower half of the frame calm, plain and uncluttered.",
     "none": "",
 }
+
+# A layered static is the product alone: a person in it is where the words go (the image model has drawn a man
+# holding the product for "the product centred on a clean surface"). Said after the scene and the calm zone, for
+# every layered preset whose record doesn't set "people": True (none does today).
+NO_PEOPLE = "No people, no hands, no faces and no body parts anywhere in the picture."
+
+
+def product_only(preset_id) -> bool:
+    """Is this a static with a text layer whose picture shows the product and nobody (all of them today)?"""
+    p = BY_ID.get(str(preset_id or ""))
+    return p is not None and bool(p.layout) and not p.extra.get("people")
+
+
+def layered_scene(scene: str, layout: str, preset_id=None) -> str:
+    """What the image model is asked to draw for a static with a text layer: the scene, where to leave calm space
+    for the words, and that nobody is in it (worker.image_prompt; an unknown preset is treated as product-only)."""
+    nobody = NO_PEOPLE if (str(preset_id or "") not in BY_ID or product_only(preset_id)) else ""
+    return " ".join(x for x in ((scene or "").strip(), ZONES.get(layout, ""), nobody) if x)
+
 
 # ---------------------------------------------------------------- the contract parts the old records never said
 IMAGE_QA = ("product_present", "label_matches", "no_extra_text", "no_deformed_hands_faces")
@@ -898,8 +933,8 @@ def _from_layered(d: dict) -> Preset:
                   params={"language": "English", "text": "none: set afterwards by textlayer.py"},
                   beats=({"beat": "one frame", "shot": d["line"]},), text_layers=d["text_layers"], layout=d["layout"],
                   fields=tuple(d["fields"]), qa=IMAGE_QA, price={"batch": 1}, preview=d["preview"],
-                  extra={k: d[k] for k in ("line", "items_label", "items_hint", "item_max", "ai_items", "headline")
-                         if k in d},
+                  extra={k: d[k] for k in ("line", "items_label", "items_hint", "item_max", "ai_items", "headline",
+                                           "people") if k in d},
                   fits=d.get("fits", "any"), category=_category(d.get("fits", "any")),
                   use=tuple(d.get("use") or _USE.get(d["id"]) or ()), season=d.get("season") or "")
 
@@ -924,7 +959,11 @@ def _from_recipe(d: dict) -> Preset:
                   price={"duration": d["duration"]}, fits=fits, preview="preset-" + d["id"],
                   extra={"line": d["line"], "script": d["script"], "direction": d["direction"],
                          "situation": d.get("situation") or "", "placement": d.get("placement") or "",
-                         "labels": tuple(d.get("labels") or ())},
+                         "labels": tuple(d.get("labels") or ()),
+                         # read only by the keyframe-first pipeline (keyframe_video.py)
+                         "captions": bool(d.get("captions")), "crossfade": int(d.get("crossfade") or 0),
+                         "product_at": d.get("product_at") or "table",
+                         "screens": tuple(d.get("extra_inputs") or ())},
                   category=_category(fits), use=tuple(d["use"]), needs=d["needs"], season=d.get("season") or "")
 
 
@@ -939,9 +978,36 @@ BY_ID = {p.id: p for p in LIBRARY}
 assert len(BY_ID) == len(LIBRARY), "preset ids must be unique"
 assert all(u in USES for p in LIBRARY for u in p.use) and all(p.use for p in LIBRARY), "every preset has known use tags"
 
-# The ways a job can be rendered today. The keyframe-first build adds "keyframe_video" here (with its own switch);
-# until then a recipe that needs it is hidden from members and refused by Create.
-PIPELINES = ("single_take",)
+def keyframe_on() -> bool:
+    """KEYFRAME_VIDEO (default off): videos made from a recipe are built from one approved still, in beats, and
+    stitched (keyframe_video.py). Off, nothing about any video changes."""
+    return os.environ.get("KEYFRAME_VIDEO", "0").strip().lower() in ("1", "on", "true", "yes")
+
+
+class _Pipelines:
+    """The ways a job can be rendered: one take, always; the keyframe-first pipeline while KEYFRAME_VIDEO is on.
+    Reads the switch each time it is asked, so `"keyframe_video" in PIPELINES` is the switch."""
+
+    def _now(self) -> tuple:
+        return ("single_take",) + (("keyframe_video",) if keyframe_on() else ())
+
+    def __iter__(self):
+        return iter(self._now())
+
+    def __contains__(self, item) -> bool:
+        return item in self._now()
+
+    def __len__(self) -> int:
+        return len(self._now())
+
+    def __eq__(self, other) -> bool:
+        return tuple(other) == self._now() if isinstance(other, (tuple, list, _Pipelines)) else NotImplemented
+
+    def __repr__(self) -> str:
+        return repr(self._now())
+
+
+PIPELINES = _Pipelines()
 EXAMPLE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "presets")
 EXAMPLE_URL = "/static/presets"
 
@@ -949,6 +1015,38 @@ EXAMPLE_URL = "/static/presets"
 def runnable(p: Preset) -> bool:
     """Can this preset be made today?"""
     return not p.needs or p.needs in PIPELINES
+
+
+def pipeline_for(p) -> str:
+    """How a video of this preset is rendered now: "keyframe_video" for any recipe while KEYFRAME_VIDEO is on, else
+    "single_take" (also for anything that isn't a recipe)."""
+    return "keyframe_video" if (p is not None and p.kind == "recipe" and keyframe_on()) else "single_take"
+
+
+SCREEN_NEEDS = {"page_screenshot": "a screenshot of your product page", "app_screens": "your app's screenshots"}
+
+
+def screens_needed(p) -> str:
+    """Which of the member's own screenshots a recipe shows ("page_screenshot", "app_screens"), or ""."""
+    return next((x for x in (p.extra.get("screens") or ()) if x in SCREEN_NEEDS), "") if p is not None else ""
+
+
+def recipe_ready(p, product=None, n_photos: int = 0, n_screens: int = 0) -> tuple[bool, str]:
+    """(can this recipe be made for this product now, why not). A recipe that shows the member's own screens needs
+    them: screenshots passed with the config (`screens`), or, for an app, the product's own pictures (an app's
+    photos are its screens). Nothing of a page or an app is ever generated, so without them the recipe stays
+    unavailable for that product, and the reason says what to add."""
+    if p is None or p.kind != "recipe":
+        return False, "That isn't a video preset."
+    if not runnable(p):
+        return False, f"{p.name} isn't available yet."
+    need = screens_needed(p)
+    if not need or n_screens:
+        return True, ""
+    if need == "app_screens" and category(product) == "app_service" and n_photos:
+        return True, ""
+    return False, (f"{p.name} needs {SCREEN_NEEDS[need]}: upload it with the product's photos and pick it as the "
+                   "screenshot. It is shown as it is; nothing of it is ever generated.")
 
 
 def _example(preset_id, ext: str) -> str | None:
@@ -1053,7 +1151,8 @@ def public(p: Preset, url_for=None) -> dict:
              inputs=list(p.inputs))
     if p.kind == "recipe":
         d.update(duration=p.price.get("duration"), situation=p.extra.get("situation") or "",
-                 script=dict(p.extra.get("script") or {}), beats=[dict(b) for b in p.beats])
+                 script=dict(p.extra.get("script") or {}), beats=[dict(b) for b in p.beats],
+                 pipeline=pipeline_for(p), screens=screens_needed(p), captions=bool(p.extra.get("captions")))
     if p.layout:
         d["fields"] = list(p.fields)
     return d

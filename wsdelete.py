@@ -219,6 +219,22 @@ def _vendor_delete(conn, ws_id: int, tries: int) -> dict:
             out["failed"] += 1
         else:
             out["left"] += 1
+    if _has(conn, "video_parts"):
+        # A keyframe-first video (keyframe_video.py) is several vendor requests: its keyframe, each beat, each
+        # cutaway. Each is deleted there too. A part whose request is dealt with loses its request id; purge()
+        # only drops a part's row once it has (so one the vendor is still busy with is tried again next run).
+        for r in conn.execute("SELECT id, request_id FROM video_parts WHERE workspace_id=? AND request_id IS NOT NULL "
+                              "ORDER BY id LIMIT 500", (ws_id,)).fetchall():
+            res = hf.delete_request(r["request_id"])
+            if res in (hf.DELETED, hf.GONE):
+                conn.execute("UPDATE video_parts SET request_id=NULL WHERE id=?", (r["id"],))
+                out["deleted" if res == hf.DELETED else "gone"] += 1
+            elif tries >= VENDOR_TRIES:
+                conn.execute("UPDATE video_parts SET request_id=NULL, error=? WHERE id=?",
+                             ("vendor copy not deleted: " + res[:40], r["id"]))
+                out["failed"] += 1
+            else:
+                out["left"] += 1
     conn.commit()
     return out
 
@@ -325,6 +341,14 @@ def purge(conn, ws, tries: int = 1) -> dict:
     tables = [r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")]
     for t in tables:
         if t in KEEP or t in ("deletion_runs",) or "workspace_id" not in _cols(conn, t):
+            continue
+        if t == "video_parts":
+            # a part whose vendor copy still has to be deleted keeps its row (and nothing else) until it is
+            conn.execute("UPDATE video_parts SET inputs_json=NULL, url=NULL, path=NULL, remote_url=NULL WHERE workspace_id=?",
+                         (ws_id,))
+            n = conn.execute("DELETE FROM video_parts WHERE workspace_id=? AND request_id IS NULL", (ws_id,)).rowcount
+            if n:
+                deleted[t] = n
             continue
         n = conn.execute(f"DELETE FROM {t} WHERE workspace_id=?", (ws_id,)).rowcount
         if n:

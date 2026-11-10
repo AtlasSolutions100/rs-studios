@@ -126,6 +126,10 @@ def _preset_row(ctx, p) -> dict:
                  beats=[{k: b[k] for k in ("beat", "seconds", "shot", "say", "text")} for b in p.beats])
         if not presets.runnable(p):
             d["not_available_yet"] = p.needs
+        # how it is made now (one take, or from a keyframe in beats) and whether it shows the member's own screens
+        d["made_as"] = presets.pipeline_for(p)
+        if presets.screens_needed(p):
+            d["needs_screens"] = presets.SCREEN_NEEDS[presets.screens_needed(p)]
     return d
 
 
@@ -193,13 +197,20 @@ def list_assets(ctx, args):
                                   "ORDER BY id", ids):
                 outs.setdefault(o["job_id"], []).append({"output_id": o["id"], "kind": o["kind"]})
         names = {p["id"]: p["name"] for p in products.products(conn, ctx.account_id)}
+        lib = {a["job_id"]: a for a in library.assets(conn, ctx.account_id)} if '"library"' in "".join(
+            j["params_json"] or "" for j in jobs) else {}
     items = []
     for j in jobs:
         prm = json.loads(j["params_json"] or "{}")
-        items.append({"job_id": j["id"], "type": catalog.job_ad_type(j["tool"], prm), "status": j["status"],
-                      "label": prm.get("label"), "hook": prm.get("hook"), "product": names.get(j["product_id"]),
-                      "batch_id": j["batch_id"], "credits": j["credits"], "created_at": j["created_at"],
-                      "error": j["error"] if j["status"] == "failed" else None, "outputs": outs.get(j["id"], [])})
+        item = {"job_id": j["id"], "type": catalog.job_ad_type(j["tool"], prm), "status": j["status"],
+                "label": prm.get("label"), "hook": prm.get("hook"), "product": names.get(j["product_id"]),
+                "batch_id": j["batch_id"], "credits": j["credits"], "created_at": j["created_at"],
+                "error": j["error"] if j["status"] == "failed" else None, "outputs": outs.get(j["id"], [])}
+        if j["id"] in lib:          # a library job (a site admin's own): each file with the name the export gives it
+            a = lib[j["id"]]
+            item["library"] = {k: a[k] for k in ("kind", "presenter", "situation", "preset", "demo") if a[k]}
+            item["outputs"] = [dict(o) for o in a["outputs"]]
+        items.append(item)
     res = paginate(items, args, key="assets")
     res["note"] = "Use get_asset_download_url with an output_id. The list holds the newest 200."
     return res
@@ -234,7 +245,8 @@ def _ad_config(args):
                      ("duration", "duration"), ("aspects", "aspects"), ("resolution", "resolution"),
                      ("versions", "versions"), ("photo_ids", "photos"), ("subline", "subline"), ("cta", "cta"),
                      ("setting", "setting"), ("placement", "placement"), ("audio", "audio"), ("only", "lines"),
-                     ("preset", "preset"), ("situation", "situation"), ("layers", "layers")):
+                     ("preset", "preset"), ("situation", "situation"), ("layers", "layers"),
+                     ("screen_photo_ids", "screens"), ("captions", "captions")):
         if args.get(src) not in (None, "", []):
             d[dst] = args[src]
     if args.get("presenter") and not d.get("presenters"):        # one presenter (with `situation`), or the list
@@ -351,6 +363,12 @@ def _ad_schema(kinds, generating):
                       "description": "ugc: where the product is. table (default): beside the presenter, hands off. "
                                      "holding: the presenter holds it up."},
         "audio": {"type": "boolean", "description": "product_video: add sound."},
+        "screen_photo_ids": {"type": "array", "maxItems": 4, "items": {"type": "integer"},
+                             "description": "Video presets that show your own screens (over the product page, show "
+                                            "your app): photo ids of the screenshots, uploaded with the product's "
+                                            "photos. They are shown as they are; nothing of them is generated."},
+        "captions": {"type": "boolean", "description": "Video presets made in beats: burn the spoken words in as "
+                                                       "captions (default: the preset's own choice)."},
         "only": {"type": "array", "maxItems": 12, "items": {"type": "string", "maxLength": 40},
                  "description": "Make only these line keys from the quote (default: all)."},
     }
@@ -531,12 +549,14 @@ def library_generate(ctx, args):
 def library_list(ctx, args):
     _admin_only(ctx)
     with ctx.as_user() as conn:
-        rows = library.assets(conn, ctx.account_id, args.get("kind"))
-    for a in rows:
+        rows = library.listing(conn, ctx.account_id, args.get("kind"))
+    res = paginate(rows, args, default=50, most=100, key="assets")
+    for a in res["assets"]:
         for o in a["outputs"]:
             o["download_url"] = ctx.file_link("output", o["output_id"])["url"]
-    res = paginate(rows, args, default=50, most=100, key="assets")
-    res["note"] = ("Each file's `filename` is its tag name. Save the downloads under those names in one folder and run "
+    res["note"] = ("Every file has an `output_id` (get_asset_download_url takes it) and a `filename`: the name the "
+                   "export zip gives it. `in_export` marks the asset the zip takes for its tag (the approved one, else "
+                   "the newest). Save the downloads under those names in one folder and run "
                    "tools/import_library_assets.py <folder> to put them under static/. Links last 1 hour.")
     return res
 
@@ -549,15 +569,27 @@ LIB_OPTIONS = {"type": "object", "additionalProperties": False, "properties": {
     "situation": {"type": "string", "enum": list(presenters.SITUATIONS)},
     "voice": {"type": "string", "enum": list(catalog.VOICE_BY_ID)},
     "anchor_only": {"type": "boolean", "description": "Presenter stills: only each presenter's first still."},
-    "only_missing": {"type": "boolean", "description": "Preset examples: skip presets that already have one."}}}
+    "only_missing": {"type": "boolean", "description": "Preset examples: skip presets that already have one."},
+    "video_seconds": {"type": "integer", "minimum": 1, "maximum": 120,
+                      "description": "preset_videos: the clip's length in seconds (default: the preset's own). Kept "
+                                     "inside what can be made: 4 to 30 for presenter and voiceover presets, 5 or 10 for "
+                                     "product-video presets. The quote's lines show the length used."},
+    "video_resolution": {"type": "string", "enum": list(library.VIDEO_RESOLUTIONS),
+                         "description": "preset_videos: default 720p. 480p is the cheapest and for library examples "
+                                        "only."},
+    "voice_seconds": {"type": "integer", "minimum": library.VOICE_SECONDS_RANGE[0],
+                      "maximum": library.VOICE_SECONDS_RANGE[1],
+                      "description": f"presenter_voices: the sample's length (default {library.VOICE_SECONDS})."}}}
 LIB_PROPS = {
     "kind": {"type": "string", "enum": list(library.KINDS),
              "description": "demo_products (packshots of the demo brand), presenter_stills, presenter_voices, "
-                            "preset_examples (images) or preset_videos."},
+                            "preset_examples (images), preset_videos, or keyframe_tests (one small paid run of the "
+                            "keyframe-first video pipeline at its cheapest: 480p, four-second beats)."},
     "ids": {"type": "array", "minItems": 1, "maxItems": 150, "items": {"type": "string", "maxLength": 80},
             "description": "presenter_stills: \"maya\" (all her situations) or \"maya:kitchen\"; presenter_voices: "
-                           "presenter ids; preset_*: preset ids; demo_products: mug, candle, skincare, coffee, tote, "
-                           "greens, app. [\"all\"] for everything of that kind."},
+                           "presenter ids; preset_*: preset ids; keyframe_tests: video preset ids (talking-head-cutaways "
+                           "shows the most, talk-to-camera is the cheapest); demo_products: mug, candle, skincare, "
+                           "coffee, tote, greens, app. [\"all\"] for everything of that kind."},
     "options": LIB_OPTIONS}
 
 PRODUCT = {"type": "integer", "minimum": 1}
@@ -653,7 +685,8 @@ TOOLS = [
               ["kind", "ids", "confirm_total_credits"]), library_generate, scope="write", visible=_site_admin),
     Tool("list_library_assets", "List library assets (admin)",
          "Admin only. The library assets made in this workspace, newest first: asset ids, the presenter, situation "
-         "or preset each belongs to, status, and a private download link per file.",
+         "or preset each belongs to, status, and per file its output_id (for get_asset_download_url), its export "
+         "filename and a private download link.",
          _obj(dict(PAGE_PROPS, kind={"type": "string", "enum": list(library.KINDS)})), library_list,
          visible=_site_admin),
 ]

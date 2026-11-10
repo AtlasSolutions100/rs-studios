@@ -810,6 +810,19 @@ CREATE TABLE IF NOT EXISTS claims_checks (
     text_hash TEXT NOT NULL, status TEXT NOT NULL,   -- ok | flagged | skipped
     result_json TEXT, usd REAL NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_claims_checks ON claims_checks(workspace_id, product_id, text_hash);
+-- m15, keyframe_video.py: what a keyframe-first video is made of. One row per vendor request: the keyframe still,
+-- each beat, each generated cutaway; a second try of one is a new row (attempt 2). The job itself stays 'running'.
+CREATE TABLE IF NOT EXISTS video_parts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, job_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,                      -- keyframe | beat | broll
+    idx INTEGER NOT NULL DEFAULT 0,          -- which beat (0-based); 0 for the keyframe
+    attempt INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending | running | made (downloaded, not yet checked) | done | failed | skipped
+    model TEXT, inputs_json TEXT, submit_key TEXT, request_id TEXT, tries INTEGER NOT NULL DEFAULT 0,
+    seconds REAL NOT NULL DEFAULT 0, usd REAL NOT NULL DEFAULT 0,
+    url TEXT, path TEXT, remote_url TEXT, error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_video_parts_job ON video_parts(job_id, kind, idx, attempt);
+CREATE INDEX IF NOT EXISTS idx_video_parts_status ON video_parts(status);
 """
 
 # Columns added after the first release: (table, column, definition).
@@ -971,6 +984,8 @@ COLUMNS = [
     ("brands", "kit_font", "TEXT"),
     ("brands", "kit_logo", "TEXT"),
     ("workspaces", "free_fix_cap", "INTEGER"),
+    ("asset_fixes", "kind", "TEXT NOT NULL DEFAULT 'image'"),   # m15: 'video' = one beat of a keyframe-first video
+    ("asset_fixes", "beat", "INTEGER"),                         # which beat (0-based) a video fix re-renders
 ]
 
 
