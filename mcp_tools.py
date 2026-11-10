@@ -193,13 +193,20 @@ def list_assets(ctx, args):
                                   "ORDER BY id", ids):
                 outs.setdefault(o["job_id"], []).append({"output_id": o["id"], "kind": o["kind"]})
         names = {p["id"]: p["name"] for p in products.products(conn, ctx.account_id)}
+        lib = {a["job_id"]: a for a in library.assets(conn, ctx.account_id)} if '"library"' in "".join(
+            j["params_json"] or "" for j in jobs) else {}
     items = []
     for j in jobs:
         prm = json.loads(j["params_json"] or "{}")
-        items.append({"job_id": j["id"], "type": catalog.job_ad_type(j["tool"], prm), "status": j["status"],
-                      "label": prm.get("label"), "hook": prm.get("hook"), "product": names.get(j["product_id"]),
-                      "batch_id": j["batch_id"], "credits": j["credits"], "created_at": j["created_at"],
-                      "error": j["error"] if j["status"] == "failed" else None, "outputs": outs.get(j["id"], [])})
+        item = {"job_id": j["id"], "type": catalog.job_ad_type(j["tool"], prm), "status": j["status"],
+                "label": prm.get("label"), "hook": prm.get("hook"), "product": names.get(j["product_id"]),
+                "batch_id": j["batch_id"], "credits": j["credits"], "created_at": j["created_at"],
+                "error": j["error"] if j["status"] == "failed" else None, "outputs": outs.get(j["id"], [])}
+        if j["id"] in lib:          # a library job (a site admin's own): each file with the name the export gives it
+            a = lib[j["id"]]
+            item["library"] = {k: a[k] for k in ("kind", "presenter", "situation", "preset", "demo") if a[k]}
+            item["outputs"] = [dict(o) for o in a["outputs"]]
+        items.append(item)
     res = paginate(items, args, key="assets")
     res["note"] = "Use get_asset_download_url with an output_id. The list holds the newest 200."
     return res
@@ -531,12 +538,14 @@ def library_generate(ctx, args):
 def library_list(ctx, args):
     _admin_only(ctx)
     with ctx.as_user() as conn:
-        rows = library.assets(conn, ctx.account_id, args.get("kind"))
-    for a in rows:
+        rows = library.listing(conn, ctx.account_id, args.get("kind"))
+    res = paginate(rows, args, default=50, most=100, key="assets")
+    for a in res["assets"]:
         for o in a["outputs"]:
             o["download_url"] = ctx.file_link("output", o["output_id"])["url"]
-    res = paginate(rows, args, default=50, most=100, key="assets")
-    res["note"] = ("Each file's `filename` is its tag name. Save the downloads under those names in one folder and run "
+    res["note"] = ("Every file has an `output_id` (get_asset_download_url takes it) and a `filename`: the name the "
+                   "export zip gives it. `in_export` marks the asset the zip takes for its tag (the approved one, else "
+                   "the newest). Save the downloads under those names in one folder and run "
                    "tools/import_library_assets.py <folder> to put them under static/. Links last 1 hour.")
     return res
 
@@ -549,7 +558,17 @@ LIB_OPTIONS = {"type": "object", "additionalProperties": False, "properties": {
     "situation": {"type": "string", "enum": list(presenters.SITUATIONS)},
     "voice": {"type": "string", "enum": list(catalog.VOICE_BY_ID)},
     "anchor_only": {"type": "boolean", "description": "Presenter stills: only each presenter's first still."},
-    "only_missing": {"type": "boolean", "description": "Preset examples: skip presets that already have one."}}}
+    "only_missing": {"type": "boolean", "description": "Preset examples: skip presets that already have one."},
+    "video_seconds": {"type": "integer", "minimum": 1, "maximum": 120,
+                      "description": "preset_videos: the clip's length in seconds (default: the preset's own). Kept "
+                                     "inside what can be made: 4 to 30 for presenter and voiceover presets, 5 or 10 for "
+                                     "product-video presets. The quote's lines show the length used."},
+    "video_resolution": {"type": "string", "enum": list(library.VIDEO_RESOLUTIONS),
+                         "description": "preset_videos: default 720p. 480p is the cheapest and for library examples "
+                                        "only."},
+    "voice_seconds": {"type": "integer", "minimum": library.VOICE_SECONDS_RANGE[0],
+                      "maximum": library.VOICE_SECONDS_RANGE[1],
+                      "description": f"presenter_voices: the sample's length (default {library.VOICE_SECONDS})."}}}
 LIB_PROPS = {
     "kind": {"type": "string", "enum": list(library.KINDS),
              "description": "demo_products (packshots of the demo brand), presenter_stills, presenter_voices, "
@@ -653,7 +672,8 @@ TOOLS = [
               ["kind", "ids", "confirm_total_credits"]), library_generate, scope="write", visible=_site_admin),
     Tool("list_library_assets", "List library assets (admin)",
          "Admin only. The library assets made in this workspace, newest first: asset ids, the presenter, situation "
-         "or preset each belongs to, status, and a private download link per file.",
+         "or preset each belongs to, status, and per file its output_id (for get_asset_download_url), its export "
+         "filename and a private download link.",
          _obj(dict(PAGE_PROPS, kind={"type": "string", "enum": list(library.KINDS)})), library_list,
          visible=_site_admin),
 ]

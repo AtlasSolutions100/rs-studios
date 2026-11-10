@@ -315,9 +315,12 @@ def queue_job(conn, tool, tpl_id, brief, params, usd, credits, quiet=False, prod
             flash(msg, "verify-cap" if g.verify_reason == "cap" else "verify")
         return None
     now = db.now()
-    pid = product_id or g.ws["product_id"]
+    # A library still or voice sample is about no product (library.py sets params.no_product): it is never tagged
+    # with the workspace's active one, and a retry of it (the same params) isn't either.
+    bare = not product_id and isinstance(params, dict) and bool(params.get("no_product"))
+    pid = product_id or (None if bare else g.ws["product_id"])
     p = products.get_product(conn, g.ws["id"], pid) if pid else None
-    bid = p["brand_id"] if p is not None else g.ws["brand_id"]
+    bid = p["brand_id"] if p is not None else (None if bare else g.ws["brand_id"])
     cur = conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, template_id, brief, params_json, "
                        "status, credits, cost_usd, created_at, updated_at, priority, brand_id, product_id, batch_id) "
                        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",

@@ -897,7 +897,8 @@ def _own_workspace():
 def _library_form():
     f = request.form
     ids = [x for x in (f.get("ids") or "").replace(",", " ").split() if x]
-    options = {k: f.get(k) for k in ("quality", "resolution", "demo", "presenter", "situation", "voice") if f.get(k)}
+    options = {k: f.get(k) for k in ("quality", "resolution", "demo", "presenter", "situation", "voice",
+                                     "video_seconds", "video_resolution", "voice_seconds") if (f.get(k) or "").strip()}
     for k in ("anchor_only", "only_missing"):
         if f.get(k):
             options[k] = True
@@ -932,7 +933,7 @@ def library_admin():
                 error = str(e)
             except hf.GenError as e:
                 error = f"The vendor refused: {e}"
-        rows = library.assets(conn, g.ws["id"], request.args.get("show") or None)
+        rows = library.listing(conn, g.ws["id"], request.args.get("show") or None)
         info = library.overview(conn, g.ws["id"])
     return render_template("admin_library.html", rows=rows, info=info, quote=quote, error=error, kind=kind,
                            ids=" ".join(ids), options=options, kinds=library.KINDS, demo=library.DEMO,
@@ -943,7 +944,26 @@ def library_admin():
                            stills_on=presenters.stills_on(), voice_ref_on=presenters.voice_ref_on(),
                            still_file=presenters.still_path,
                            credits_left=db.balance(ws), still_model=catalog.model_for("library_still"),
-                           still_usd=catalog.LIBRARY_STILL_USD)
+                           still_usd=catalog.LIBRARY_STILL_USD, video_resolutions=library.VIDEO_RESOLUTIONS,
+                           voice_range=library.VOICE_SECONDS_RANGE, voice_default=library.VOICE_SECONDS,
+                           usd_480p=catalog.LIBRARY_USD_PER_SECOND_480P)
+
+
+@bp.route("/admin/library/file/<int:oid>")
+@admin_required
+def library_file(oid):
+    """One file of a library job, downloaded under its export name (the name it has in the zip), so the files can be
+    fetched one by one."""
+    import library
+    from flask import send_file
+    _own_workspace()
+    with db.connect() as conn:
+        found = library.export_name(conn, g.ws["id"], oid)
+    if found is None:
+        abort(404)
+    resp = send_file(found[0], as_attachment=True, download_name=found[1], conditional=True)
+    resp.headers["Cache-Control"] = "private, no-store"
+    return resp
 
 
 @bp.route("/admin/library/export.zip")

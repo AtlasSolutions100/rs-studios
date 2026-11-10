@@ -513,9 +513,13 @@ def portrait_prompt(pid, same_person: bool = False) -> str:
 
 
 VOICE_LINE = "Hi, I'm {name}. Here's a quick look at what this is and who it's for."
+VOICE_LINE_SHORT = "Hi, I'm {name}. Here's a quick look at this."      # a sample under six seconds
 
 
-def voice_line(pid) -> str:
-    """What a presenter says in their voice sample: a neutral line, nothing about any product."""
+def voice_line(pid, seconds: int = 6) -> str:
+    """What a presenter says in their voice sample: a neutral line, nothing about any product. A sample shorter than
+    six seconds gets the shorter line, so it is said at a natural pace instead of rushed."""
     p = record(pid)
-    return VOICE_LINE.format(name=p["name"]) if p else ""
+    if not p:
+        return ""
+    return (VOICE_LINE if int(seconds or 6) >= 6 else VOICE_LINE_SHORT).format(name=p["name"])

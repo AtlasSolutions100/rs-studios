@@ -336,7 +336,18 @@ link per file. The three tools are hidden from non-admins in `tools/list` and re
 them. Kinds: `demo_products`, `presenter_stills` (`"maya"`, `"maya:kitchen"`; a presenter's first situation is text to
 image and the others are made from it as the same person: they wait for it, and are refunded if it fails),
 `presenter_voices`, `preset_examples`, `preset_videos`. Every job carries `params.library = {kind, presenter,
-situation, preset, demo}`. The demo brand is fictional (`library.DEMO`: Dapplewood mug, candle, moisturizer, coffee,
+situation, preset, demo}`. Options that make a run cheaper, on the page and in the tools (the quote follows them, in
+credits and vendor dollars): `video_seconds` for `preset_videos` (default: the preset's own length; kept to 4 to 30
+whole seconds for a presenter or voiceover preset, which is what the vendor's model takes, and to 5 or 10 for a
+product-video preset; a spoken example then says a shorter line that fits), `video_resolution` (`480p`, `720p` the
+default, `1080p`; 480p is $0.2056 a second at the vendor and for library jobs only, like the free preview: members
+are never offered it) and `voice_seconds` for `presenter_voices` (4 to 8, default 6). Talk to camera at 4 seconds and
+480p is 165 credits ($0.82) instead of 740 ($3.70). A presenter's still or voice sample carries no product (never the
+workspace's active one, `params.no_product`); a preset's example carries its demo product, and so does a packshot once
+that product exists. `list_library_assets` and the page give every file its `output_id` (what
+`get_asset_download_url` takes), its export `filename` and `in_export` (the one the zip takes for its tag), and the
+page downloads each file under that name (`/admin/library/file/<output id>`), so files can be fetched one by one. The
+demo brand is fictional (`library.DEMO`: Dapplewood mug, candle, moisturizer, coffee,
 tote, greens, planner app); its products are set up in the admin's workspace from their packshots on first use (the
 workspace needs room for one more brand). Approve or reject on the batch page, download the export zip from the page
 (one file per tag, named `presenter__<id>__<situation>.png`, `preset__<id>.png|.mp4`, `voice__<id>.mp4`), then:
@@ -360,7 +371,7 @@ What we absorb with no price at all: the claims check ($0.004 a script), and, as
 retry and a free fix. The stitched recipes will add one or two keyframes each (about $0.11 to $0.20) inside the same
 price. Library runs, at our table: all 70 presenter stills 2,950 credits (about $14.75), the 7 demo packshots 280
 (about $1.40), all 42 image examples 924 ($4.50), six video examples 6,381 ($31.89), 20 voice samples 4,940 ($24.67).
-Tests: `tests/test_m15_library.py`.
+Tests: `tests/test_m15_library.py`, `tests/test_m15_library_options.py`.
 
 ## The neutral look, Studio and onboarding (`ui_v2.py`, `studio_v2.py`, `onboarding.py`; `UI_V2`, default off)
 
