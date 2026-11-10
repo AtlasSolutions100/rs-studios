@@ -1,6 +1,6 @@
 {% extends "v2/onboard_base.html" %}{% block title %}About you · Campaignify{% endblock %}
 {% block ob %}
-<p class="ob-step">Step 2 of {{ 3 if card_required() else 2 }}</p>
+{% set total = 3 if card_required() else 2 %}<p class="ob-step"><span class="ob-dots" aria-hidden="true">{% for i in range(total) %}<i{{ ' class=on' if i < 2 }}></i>{% endfor %}</span>Step 2 of {{ total }}</p>
 <h1>Tell us a bit about you</h1>
 <p class="ob-sub">Your name goes on your workspace. Your website fills in your brand, so you don't type it twice.</p>
 <form method="post" action="{{ url_for('onboarding.profile') }}" class="ob-form">
@@ -15,4 +15,6 @@
   <button class="ob-btn">Continue</button>
   <div class="ob-under"><a class="ob-link" href="{{ url_for('onboarding.intent') }}">Back</a><button class="ob-link" name="skip" value="1">Skip for now</button></div>
 </form>
+{# A product page typed into the home page's box is waiting here (kept in this browser only, then forgotten). #}
+<script>(function(){try{var u=localStorage.getItem('cfy_first_url'),el=document.getElementById('ob-web');if(u&&el&&!el.value){el.value=u.slice(0,300);}localStorage.removeItem('cfy_first_url');}catch(e){}})();</script>
 {% endblock %}

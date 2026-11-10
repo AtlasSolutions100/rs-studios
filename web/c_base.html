@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="en"{% if ui_v2 %} data-ui="v2" data-surface="public"{% endif %}>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{% block title %}{{ c.name }}{% endblock %}</title><meta name="robots" content="noindex">
 <link rel="preload" as="font" type="font/woff2" href="{{ url_for('static', filename='fonts/inter-latin.woff2') }}" crossorigin>
 <link rel="stylesheet" href="{{ url_for('static', filename='fonts.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"></head>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">{% if ui_v2 %}<link rel="stylesheet" href="{{ url_for('static', filename='ui_v2.css') }}">{% endif %}</head>
 <body class="cm">
 <header class="cm-top"><div class="cm-wrap cm-top-in">
   <a class="cm-name" href="{{ url_for('community.home', slug=c.slug) }}">{{ c.name }}</a>

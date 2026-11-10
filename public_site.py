@@ -69,11 +69,20 @@ def facts() -> dict:
             "talk_lengths": ", ".join(str(d) for d in talk["durations"][:-1]) + f" or {talk['durations'][-1]}",
             "talk_max": talk["durations"][-1], "talk_shapes": ", ".join(talk["aspects"][:-1]) + f" or {talk['aspects'][-1]}",
             "image_shapes": ", ".join(catalog.TOOLS["ad_image"]["aspects"]),
-            "presenters": len(catalog.PRESENTERS), "max_batch": _max_batch(),
+            "presenters": presenter_count(), "max_batch": _max_batch(),
             "platform_list": ", ".join(names[:-1]) + f" and {names[-1]}", "platform_count": len(names),
             "pack_usd": ", ".join(f"${k['usd']}" for k in catalog.PACKS[:-1]) + f" and ${catalog.PACKS[-1]['usd']}",
             "pack_min_usd": catalog.PACKS[0]["usd"], "pack_min_credits": f"{catalog.PACKS[0]['credits']:,}",
             **card_terms()}
+
+
+def presenter_count() -> int:
+    """How many AI presenters a member can pick: the picker's roster (presenters.roster()), else the first eight."""
+    try:
+        import presenters
+        return len(presenters.roster()) or len(catalog.PRESENTERS)
+    except Exception:  # noqa: BLE001
+        return len(catalog.PRESENTERS)
 
 
 def basket(credits: int) -> dict:
@@ -909,6 +918,81 @@ def card(key: str) -> dict:
 
 def related_cards(endpoint: str) -> list[dict]:
     return [card(k) for k in RELATED.get(endpoint, [])]
+
+
+# ---------------------------------------------------------------- the showcase: real outputs on the home page (M15)
+# static/showcase/manifest.json lists real pipeline outputs: {"items": [{"file", "kind": "image" | "video", "preset",
+# "caption", "alt", and optionally "poster" (a video's still) and "aspect"}]}. The files sit in the same folder.
+# Nothing else is ever shown there: with no items the page draws neutral tiles that only say which shapes exist.
+SHOWCASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "showcase")
+SHOWCASE_MANIFEST = "manifest.json"
+SHOWCASE_MAX = 12
+SHOWCASE_EXT = {"image": (".jpg", ".jpeg", ".png", ".webp", ".avif"), "video": (".mp4", ".webm")}
+SHOWCASE_ASPECTS = {"9:16": (9, 16), "4:5": (4, 5), "1:1": (1, 1), "16:9": (16, 9)}
+# What the tiles stand for while the manifest is empty: the kinds and shapes Campaignify makes (catalog.TOOLS).
+SHOWCASE_SHAPES = [("Image ad", "4:5"), ("Presenter video", "9:16"), ("Marketplace image", "1:1"), ("Image ad", "9:16"),
+                   ("Product video", "9:16"), ("Offer image", "4:5"), ("Voiceover video", "9:16"), ("Image ad", "1:1")]
+_showcase = {"key": None, "items": []}
+
+
+def _showcase_file(name) -> str | None:
+    """`name` as a path inside the showcase folder that exists, else None (no folders above it, no absolute paths)."""
+    name = str(name or "").strip().replace("\\", "/")
+    if not name or name.startswith("/") or ".." in name.split("/") or name == SHOWCASE_MANIFEST:
+        return None
+    return name if os.path.isfile(os.path.join(SHOWCASE_DIR, name)) else None
+
+
+def _image_size(path: str):
+    try:
+        from PIL import Image
+        with Image.open(path) as im:
+            return im.size
+    except Exception:  # noqa: BLE001  (an unreadable picture is skipped, never an error page)
+        return None
+
+
+def showcase(limit: int = SHOWCASE_MAX) -> list[dict]:
+    """The home page's gallery, from the manifest: [{"src" (under static/), "kind", "preset", "preset_name",
+    "caption", "alt", "aspect", "width", "height", "poster"}]. An item is dropped when its file is missing, its
+    kind or extension is wrong, or it has neither a caption nor an alt text. Read again when the manifest changes."""
+    path = os.path.join(SHOWCASE_DIR, SHOWCASE_MANIFEST)
+    try:
+        key = (path, os.path.getmtime(path))
+    except OSError:
+        return []
+    if _showcase["key"] != key:
+        items = []
+        try:
+            with open(path, encoding="utf-8") as fh:
+                raw = json.load(fh)
+        except (OSError, ValueError):
+            raw = {}
+        import presets
+        for it in (raw.get("items") if isinstance(raw, dict) else None) or []:
+            if not isinstance(it, dict):
+                continue
+            kind, name = str(it.get("kind") or "").lower(), _showcase_file(it.get("file"))
+            caption, alt = " ".join(str(it.get("caption") or "").split())[:140], " ".join(str(it.get("alt") or "").split())[:220]
+            if kind not in SHOWCASE_EXT or name is None or not name.lower().endswith(SHOWCASE_EXT[kind]) or not (caption or alt):
+                continue
+            pre = presets.get(str(it.get("preset") or ""))
+            aspect = str(it.get("aspect") or "") if str(it.get("aspect") or "") in SHOWCASE_ASPECTS else ""
+            size = _image_size(os.path.join(SHOWCASE_DIR, name)) if kind == "image" else None
+            if kind == "image" and size is None:
+                continue
+            if size is None:
+                aspect = aspect or (pre.aspect if pre is not None and pre.aspect in SHOWCASE_ASPECTS else "9:16")
+                size = tuple(x * 120 for x in SHOWCASE_ASPECTS[aspect])
+            poster = _showcase_file(it.get("poster")) if kind == "video" else None
+            if poster is not None and not poster.lower().endswith(SHOWCASE_EXT["image"]):
+                poster = None
+            items.append({"src": "showcase/" + name, "kind": kind, "preset": pre.id if pre is not None else "",
+                          "preset_name": pre.name if pre is not None else "", "caption": caption, "alt": alt or caption,
+                          "aspect": aspect, "width": size[0], "height": size[1],
+                          "poster": "showcase/" + poster if poster else ""})
+        _showcase.update(key=key, items=items)
+    return list(_showcase["items"][:max(0, limit)])
 
 
 # ---------------------------------------------------------------- per-page meta

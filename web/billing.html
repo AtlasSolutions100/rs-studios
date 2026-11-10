@@ -66,7 +66,7 @@
   <div class="plan-grid">
     {% for p in plans.PAID %}
     <div class="panel plan {{ 'hot' if p.code == 'growth' }} {{ 'mine' if p.code == cur }}">
-      {% if p.code == cur %}<span class="lp-badge">Your plan</span>{% elif p.code == 'growth' %}<span class="lp-badge">Most popular</span>{% endif %}
+      {% if p.code == cur %}<span class="lp-badge">Your plan</span>{% elif p.code == 'growth' and not ui_v2 %}<span class="lp-badge">Most popular</span>{% endif %}
       <h3>{{ p.name }}</h3>
       <div class="lp-amt">${{ p.usd }}<span class="per">/mo</span></div>
       <p class="lp-cr">{{ '{:,}'.format(p.credits) }} credits every month</p>

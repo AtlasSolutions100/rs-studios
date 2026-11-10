@@ -1,0 +1,99 @@
+{
+  "_about": "The home page's gallery (public_site.showcase). Only real Campaignify outputs go here: no stock photos, no other companies' ads, no mock-ups. Put each file in this folder and add one entry to items. Until items has entries the page shows neutral tiles.",
+  "_shape": {
+    "file": "name-of-the-file-in-this-folder.jpg",
+    "kind": "image or video",
+    "preset": "the preset id that made it, e.g. hero, clean-headline, offer, marketplace, ugc, voiceover, product_video",
+    "caption": "one short line shown under the tile",
+    "alt": "what the picture or clip shows, for screen readers",
+    "poster": "videos only: a still in this folder, shown before the clip loads",
+    "aspect": "videos only: 9:16, 4:5, 1:1 or 16:9 (images are measured)"
+  },
+  "_sizes": "Images: JPEG or WebP, 1080 px on the short side (1080x1350 for 4:5, 1080x1920 for 9:16, 1080x1080 for 1:1), under 400 KB. Videos: MP4 (H.264, no audio needed), 720x1280, 5 to 10 seconds, under 3 MB, each with a poster. 8 to 12 items in a mix of shapes fills the grid best; at most 12 are shown.",
+  "items": [
+    {
+      "file": "season-autumn.webp",
+      "kind": "image",
+      "preset": "season-autumn",
+      "caption": "Seasonal static",
+      "alt": "A candle on a wooden table with a blanket, a small pumpkin and autumn leaves; headline \"Made for slow afternoons\" and a Shop now button."
+    },
+    {
+      "file": "inhand.webp",
+      "kind": "image",
+      "preset": "inhand",
+      "caption": "In hand",
+      "alt": "A hand holding a canvas tote bag outdoors; headline \"Take it with you.\""
+    },
+    {
+      "file": "compare.webp",
+      "kind": "image",
+      "preset": "compare",
+      "caption": "Comparison",
+      "alt": "A green travel mug above a two-column table comparing a paper cup with the mug; headline \"One mug, every day\"."
+    },
+    {
+      "file": "cost.webp",
+      "kind": "image",
+      "preset": "cost",
+      "caption": "Lifestyle static",
+      "alt": "A coffee pouch beside a paper cup and a ceramic cup on a café counter; headline \"Skip the café line, keep the café taste.\""
+    },
+    {
+      "file": "callouts.webp",
+      "kind": "image",
+      "preset": "callouts",
+      "caption": "Feature callouts",
+      "alt": "A green travel mug on a rock with three feature labels beside it; headline \"What you get\" and a See more button."
+    },
+    {
+      "file": "two-pm.webp",
+      "kind": "image",
+      "preset": "two-pm",
+      "caption": "Lifestyle static",
+      "alt": "A coffee pouch and a mug on a sunlit desk with a notebook; headline \"Your afternoon cup, in 30 seconds.\""
+    },
+    {
+      "file": "doorstep.webp",
+      "kind": "image",
+      "preset": "doorstep",
+      "caption": "Just arrived",
+      "alt": "A candle sitting in an open delivery box on a doormat; headline \"It's here.\""
+    },
+    {
+      "file": "marketplace.webp",
+      "kind": "image",
+      "preset": "marketplace",
+      "caption": "Marketplace image",
+      "alt": "A green travel mug alone on a pure white background, with no text."
+    },
+    {
+      "file": "problem-answer.webp",
+      "kind": "image",
+      "preset": "problem-answer",
+      "caption": "Problem, then answer",
+      "alt": "A green travel mug on a pale background; headline \"Lid gone missing again?\" with the line \"This one presses in and stays.\" and a button."
+    },
+    {
+      "file": "gym.webp",
+      "kind": "image",
+      "preset": "gym",
+      "caption": "Lifestyle static",
+      "alt": "A coffee pouch packed in an open gym bag with a towel and a shaker; headline \"Packed the night before.\""
+    },
+    {
+      "file": "season-winter-gift.webp",
+      "kind": "image",
+      "preset": "season-winter-gift",
+      "caption": "Seasonal static",
+      "alt": "A green travel mug among wrapped gifts and warm lights; headline \"For the one who is always out early\" and a Shop gifts button."
+    },
+    {
+      "file": "cozy.webp",
+      "kind": "image",
+      "preset": "cozy",
+      "caption": "Lifestyle static",
+      "alt": "A lit candle on a side table next to an armchair; headline \"Makes the room.\""
+    }
+  ]
+}
