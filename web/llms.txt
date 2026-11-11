@@ -33,7 +33,8 @@ Campaignify doesn't post ads, buy media or read results from ad platforms. It gu
 {% for s in solutions %}- [{{ s.h1 }}]({{ site.SITE_URL }}/{{ s.slug }}): {{ s.description }}
 {% endfor %}- [Guides]({{ site.SITE_URL }}/guides): every guide below in one list.
 {% for g in guides %}- [{{ g.h1 }}]({{ site.SITE_URL }}{{ g.path }}): {{ g.description }}
-{% endfor %}- [Terms]({{ site.SITE_URL }}/terms): credits, plans, what you can't make.
+{% endfor %}- [Free AI hook generator]({{ site.SITE_URL }}/tools/ai-hook-generator): type what you sell and who it is for, get eight opening lines for an ad. Free, no account.
+- [Terms]({{ site.SITE_URL }}/terms): credits, plans, what you can't make.
 - [Privacy]({{ site.SITE_URL }}/privacy): what we collect and why.
 - [Messaging policy]({{ site.SITE_URL }}/messaging-policy): rules for emails and texts sent through Campaignify.
 

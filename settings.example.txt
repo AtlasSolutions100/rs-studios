@@ -229,6 +229,11 @@ TWILIO_PRIMARY_PROFILE_SID=BUxxx
 # and the feature rows; web/v2/landing.html + static/ui_v2_home.css). deploy.yml sends 1 unless the repository
 # variable HOME_V2 is 0. /?ui=v1 still shows the old page.
 # HOME_V2=1
+# The free hook generator on the public site (hooktool.py, /tools/ai-hook-generator). On unless 0.
+# It spends on the fast text model with no member behind it, so it is capped: 5 runs a day per visitor and
+# HOOK_TOOL_DAILY_MAX runs a day for the whole site (default 300, well under a dollar a day).
+# HOOK_TOOL=1
+# HOOK_TOOL_DAILY_MAX=300
 # ---- Credit holds (credits.py): AI runs reserve their quote before calling the provider and settle after.
 # off charges after the run instead (at most what's left), as before.
 # CREDIT_HOLDS=on
