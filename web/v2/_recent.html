@@ -1,6 +1,6 @@
 {# The sidebar's "New ad" and Recent list (Studio and Workflow). Needs `recents`. #}
 <div class="v2-rec">
-  <a class="v2-new" href="{{ url_for('studio_v2.page') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5.5v13M5.5 12h13"/></svg>New ad</a>
+  <a class="v2-new v2-new-ad" href="{{ url_for('studio_v2.page') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5.5v13M5.5 12h13"/></svg>New ad</a>
   <h2 class="v2-rec-h" id="rec-h">Recent</h2>
   {% if recents %}<ul class="v2-rec-list" aria-labelledby="rec-h">
     {% for b in recents %}<li><a href="{{ url_for('create.batch', bid=b.id) }}"><span>{{ b.title or 'Untitled' }}</span>{% if b.busy %}<i class="v2-dot" title="Being made"></i><span class="sr">being made</span>{% endif %}</a></li>{% endfor %}

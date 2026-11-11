@@ -1,8 +1,0 @@
-{# The sidebar on the desk: start a campaign, and the campaigns so far (desk.threads). Needs `campaigns`. #}
-<div class="v2-rec">
-  <a class="v2-new" href="{{ url_for('desk.page') }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5.5v13M5.5 12h13"/></svg>New campaign</a>
-  <h2 class="v2-rec-h" id="dk-rec-h">Campaigns</h2>
-  {% if campaigns %}<ul class="v2-rec-list" aria-labelledby="dk-rec-h">
-    {% for c in campaigns %}<li><a href="{{ c.href }}" {{ 'aria-current=page' if t is defined and t and t.id == c.id }}><span>{{ c.title }}</span></a></li>{% endfor %}
-  </ul>{% else %}<p class="v2-rec-none">None yet.</p>{% endif %}
-</div>
