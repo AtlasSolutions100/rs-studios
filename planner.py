@@ -514,7 +514,34 @@ def _save(cid, plan, steps, status=None, **kw):
         conn.commit()
 
 
+def _stated_for(cid: int, notes) -> list:
+    """What the member stated for this plan: their notes, the brief they filled in, the product's offer and price.
+    An offer the plan repeats from these is theirs; one it makes up is refused (compliance.state)."""
+    out = [notes or ""]
+    try:
+        with db.connect() as conn:
+            c = conn.execute("SELECT * FROM campaigns WHERE id=?", (cid,)).fetchone()
+            if c is not None:
+                out.append(c["brief_json"] or "")
+                p = products.get_product(conn, c["workspace_id"], c["product_id"]) if c["product_id"] else None
+                if p is not None:
+                    out += [p["offer"] or "", p["price"] or ""]
+    except Exception:  # noqa: BLE001  (nothing stated is the strict reading)
+        pass
+    return out
+
+
 def run(cid: int, notes: str | None = None, hold=None, free: bool = False):
+    """One planning run, with what the member stated in force for its checks (and only for this run: the task
+    worker's thread goes on to other workspaces)."""
+    token = compliance.state(*_stated_for(cid, notes))
+    try:
+        return _run(cid, notes, hold, free)
+    finally:
+        compliance.unstate(token)
+
+
+def _run(cid: int, notes: str | None = None, hold=None, free: bool = False):
     """One planning run for campaign `cid`. Settles `hold` (credits.reserve) once at the end;
     without one it charges after the fact, at most what's left (CREDIT_HOLDS=off). `free`:
     the out-of-credits free plan (plan_paywall.py): nothing is charged, we absorb the cost."""

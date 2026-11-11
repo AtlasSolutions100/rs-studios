@@ -275,7 +275,7 @@ def send_queued(now=None, limit=100) -> int:
                 messaging._finish(conn, m, "suppressed", now, "Not sent: they replied STOP.")
             elif (c["sms_consent"] or "none") == "none" or not to:
                 messaging._finish(conn, m, "skipped", now, "Not sent: no text consent or phone number on record.")
-            elif not compliance.check(m["body_text"])["ok"]:
+            elif not compliance.check(m["body_text"], stated=m["body_text"] or "")["ok"]:   # saved by the member: its offer is theirs
                 messaging._finish(conn, m, "failed", now, "Not sent: the text breaks the content rules.")
             elif billing_holds.reason(ws):
                 # A refund/dispute hold or a failed renewal (N6): the text stays queued, the flow

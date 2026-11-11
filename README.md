@@ -705,6 +705,13 @@ are refunded on failure. `CREDIT_HOLDS=off` goes back to charging after the run.
 - `catalog.py` tools, prices, templates (the playbook's angles)
 - `presets.py` the preset library; `presenters.py` the presenter roster; `library.py` the admin's library assets
 - `compliance.py` brief checks (weight-loss, health, discount, income, recruiting), run on every brief, the first-ad flow and brand-kit saves
+  - **Discounts are the member's to state, never ours to invent** (Nov 11 2026). A discount, coupon, promo code or
+    free shipping passes when the member stated it, on the offer's own terms ("20% off" passes when "20% off" was
+    stated; "30% off" does not). Stated means: in the strings they sent with the current request (their own
+    headline, their ask, their brief), saved as a product's offer or price, passed by the caller as `stated=` (a
+    saved email or text being sent; the page a product import read), or declared for a background run with
+    `compliance.state()` (the planner). Anything else, which in practice is a model making an offer up, is refused
+    with `compliance.DISCOUNT_MSG`. Every other rule ignores `stated`. `tests/test_stated_offers.py`.
 - `worker.py` submits, polls, saves results, refunds failures
 - `hf.py` the generation API client (the only file that knows the vendor)
 

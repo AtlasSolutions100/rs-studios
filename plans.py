@@ -108,7 +108,7 @@ FEATURES = {
     "brand_kit": {"plan": "free", "name": "Brands & products", "shipped": True,
                   "blurb": "Every brand and product with its photos, offer, approved claims and audience; switch in one click and every brief starts from it."},
     "compliance": {"plan": "free", "name": "Compliance checks", "shipped": True,
-                   "blurb": "Every brief is checked for income, health, discount and recruiting claims."},
+                   "blurb": "Every brief is checked for income, health and recruiting claims and invented discounts."},
     "copy": {"plan": "starter", "name": "Copy studio", "shipped": True,
              "blurb": "Ad copy, hooks, captions, headlines, emails and landing copy for each platform."},
     "planner": {"plan": "starter", "name": "AI campaign planner", "shipped": True,
