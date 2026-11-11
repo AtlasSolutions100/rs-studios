@@ -423,7 +423,7 @@ SYSTEM = """You turn a product web page into a product record for an ad tool. Us
 - name: the product's own name, without the store name or slogans (at most 80 characters).
 - description: one or two plain sentences on what it is and who it's for, in the page's words (at most 300 characters).
 - price: as shown on the page (e.g. "$29" or "$59 / month"), or empty.
-- offer: a bundle or free extra if the page states one, else empty. Never discounts, coupons or free shipping.
+- offer: the offer the page itself states (a discount, free shipping, a bundle or a free extra), in the page's own words, else empty. Never invent one.
 - claims: 3-8 short product facts the page states word for word or nearly so (ingredients, size, servings, materials,
   how to use, certifications the page shows). No health, disease, weight-loss, income or results claims, nothing the
   page doesn't say, no superlatives you can't point to. These are only suggestions; the seller approves them.
@@ -464,13 +464,13 @@ def build(facts: dict, ai: dict | None) -> dict:
     claims = []
     for c in ai.get("claims") or []:
         c = " ".join(str(c).split())[:160]
-        if c and c not in claims and compliance.check(c)["ok"] and _supported(c, page_text):
+        if c and c not in claims and compliance.check(c, stated=page_text)["ok"] and _supported(c, page_text):
             claims.append(c)
     offer = str(ai.get("offer") or "")[:200]
-    if offer and not compliance.check(offer)["ok"]:
+    if offer and not compliance.check(offer, stated=page_text)["ok"]:      # an offer the page itself makes is the member's own
         offer = ""
     desc = str(ai.get("description") or facts["description"])[:600]
-    if not compliance.check(desc)["ok"]:
+    if not compliance.check(desc, stated=page_text)["ok"]:
         desc = ""
     form = {"name": str(ai.get("name") or facts["name"] or "")[:80].strip() or "Imported product",
             "description": desc, "price": str(ai.get("price") or facts["price"])[:60], "offer": offer,

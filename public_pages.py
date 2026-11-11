@@ -627,7 +627,7 @@ SOLUTIONS = {
         "compare": [
             ("Can each client have its own claims?",
              "Yes. Approved claims belong to each product in each brand, and every ad, copy variant and page starts "
-             "from them. Income, health, discount and recruiting claims are blocked on every account."),
+             "from them. Income, health and recruiting claims and invented discounts are blocked on every account."),
             ("Can the team see what everyone made?",
              "Yes. The workspace's library holds every finished ad with full-quality downloads, and the ad-account "
              "setup hub shows the steps your team has ticked off."),
@@ -690,7 +690,7 @@ SOLUTIONS = {
             ("Your real product in the picture", "The ad is built on your own photo, so the label and the shape stay yours."),
             ("Formats that already work", "Presets for the layouts advertisers use most, from a price badge to a side by "
                                           "side comparison."),
-            ("Checked before it is made", "Income, health, discount and recruiting claims are blocked at the brief."),
+            ("Checked before it is made", "Income, health and recruiting claims and invented discounts are blocked at the brief."),
             ("No subscription needed", "Use your free credits or a credit pack. Plans add monthly credits and the campaign "
                                        "tools, from ${starter_usd} a month."),
             ('Several versions at once',
@@ -746,7 +746,7 @@ SOLUTIONS = {
             ('The price before the video',
              'Every video shows its price in credits on the button. Nothing is made, and nothing is charged, until you press it.'),
             ('Claims checked first',
-             'The brief is checked for income, health, discount and recruiting claims before a video is made, so an ad is not built on a line a platform will reject.'),
+             'The brief is checked for income, health and recruiting claims and invented discounts before a video is made, so an ad is not built on a line a platform will reject.'),
         ],
         "h2": {"how": "How the AI product video generator works", "gets": "What the AI product video generator gives you",
                "faq": "AI product video generator questions"},
@@ -835,7 +835,7 @@ SOLUTIONS = {
         "gets": [
             ("Feed and story sizes", "Every ad in the shapes Facebook and Instagram placements ask for."),
             ("Copy written for Meta", "Primary text and headlines within Meta's limits, in several variants to test."),
-            ("Claims checked first", "Income, health, discount and recruiting claims are blocked before an ad is made."),
+            ("Claims checked first", "Income, health and recruiting claims and invented discounts are blocked before an ad is made."),
             ("A plan to test with", "On a plan, the campaign planner lays out angles, hooks and a first test."),
             ('Your product, not a stock picture',
              'Image ads are built on your own product photo, and presenter videos show the product from that same photo, so what people see is what they get.'),
@@ -888,7 +888,7 @@ SOLUTIONS = {
             ('The price before the video',
              'Each video shows its price in credits before it is made, and a batch shows its total first. A render that fails is refunded automatically.'),
             ('Claims checked first',
-             'Scripts are checked for income, health, discount and recruiting claims before a video is made.'),
+             'Scripts are checked for income, health and recruiting claims and invented discounts before a video is made.'),
         ],
         "h2": {"how": "How the AI TikTok ad generator works", "gets": "What the AI TikTok ad generator gives you",
                "faq": "AI TikTok ad generator questions"},
@@ -935,7 +935,7 @@ SOLUTIONS = {
             ('The price before each ad',
              'Every ad shows its price in credits before it is made. Free sign-up includes {sc_images} image ads, {with_nothing_charged}.'),
             ('Claims checked first',
-             'Briefs and copy are checked for income, health, discount and recruiting claims before anything is made.'),
+             'Briefs and copy are checked for income, health and recruiting claims and invented discounts before anything is made.'),
         ],
         "h2": {"how": "How SaaS teams use AI ads", "gets": "What SaaS teams get from AI ads", "faq": "AI ads for SaaS questions"},
         "faq": [
@@ -978,7 +978,7 @@ SOLUTIONS = {
             ('Several presenters, one script',
              'Run the same script with different presenters and see which one people watch. Each video is priced on its own line before you confirm.'),
             ('Claims checked first',
-             'Scripts are checked for income, health, discount and recruiting claims before a video is made, which matters most for finance and wellness apps.'),
+             'Scripts are checked for income, health and recruiting claims and invented discounts before a video is made, which matters most for finance and wellness apps.'),
             ('The price before each ad',
              'Every ad shows its price in credits first. Free sign-up includes {sc_images} image ads, {with_nothing_charged}.'),
             ('A plan for the first test',
@@ -1026,7 +1026,7 @@ SOLUTIONS = {
             ('Copy for every step',
              'On a plan, the copy studio writes the ad copy, the page copy and the follow-up emails in the same voice, so the promise in the ad matches the page it lands on.'),
             ('Claims checked along the way',
-             'Ad briefs, copy and pages are checked for income, health, discount and recruiting claims before they go out.'),
+             'Ad briefs, copy and pages are checked for income, health and recruiting claims and invented discounts before they go out.'),
             ('The price before each ad',
              'Every ad shows its price in credits before it is made. Free sign-up includes {sc_images} image ads, {with_nothing_charged}.'),
         ],
@@ -1080,7 +1080,7 @@ SOLUTIONS = {
                "faq": "AI ads for real estate questions"},
         "faq": [
             ("Does it check fair housing wording?",
-             "No. Campaignify blocks income, health, discount and recruiting claims, but not housing wording. Describe "
+             "No. Campaignify blocks income, health and recruiting claims and invented discounts, but not housing wording. Describe "
              "the property, not who should live there, and choose Meta's housing category in Ads Manager."),
             ("Can it make a video tour?", "No. It makes short videos from photos and presenter videos, not a walk-through "
                                           "of the home."),
@@ -1391,7 +1391,7 @@ GUIDES = {
             ("How Campaignify handles this", [
                 "Campaignify was built around these rules. AI presenters are described as AI presenters, they never "
                 "speak as customers, and it flags briefs where one would. Every brief, copy variant and landing page "
-                "is checked for income, health, discount and recruiting claims. Each ad comes with the reminder to "
+                "is checked for income, health and recruiting claims and invented discounts. Each ad comes with the reminder to "
                 "put #ad first and turn on the AI label. You still post the ads yourself, so the final check is "
                 "yours. More on this on the [page for independent reps](/for-reps).",
             ]),
