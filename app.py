@@ -572,8 +572,12 @@ def index():
     if g.user:
         return redirect(url_for("studio"))
     ui_v2.force()
+    import presenters
+    import presets
+    counts = {"image_presets": sum(1 for p in presets.LIBRARY if p.ad_type == "image" and p.kind != "type"),
+              "recipes": len(presets.RECIPES), "presenters": len(presenters.roster())}
     return render_template("landing.html", gallery=GALLERY, hero=HERO_MEDIA, journey=JOURNEY,
-                           faq=public_site.home_faq())
+                           faq=public_site.home_faq(), home_counts=counts)
 
 
 # Extra lines for the public features page, by feature key (only shipped ones show).
