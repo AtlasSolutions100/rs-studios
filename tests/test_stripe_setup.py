@@ -14,6 +14,7 @@
     python tests/test_stripe_setup.py      (tests/test_app.py runs it too)
 """
 import copy
+import html as htmllib
 import json
 import os
 import shutil
@@ -318,6 +319,16 @@ billing.create_subscription_session = lambda **kw: (_ for _ in ()).throw(billing
 b, wb = signup("b@example.com", card_customer_id="cus_keep")
 r = b.post("/app/billing/subscribe", data={"csrf": csrf(b), "plan": "growth"})
 check(r.status_code == 302 and ws_row(wb)["card_customer_id"] == "cus_keep", "any other Stripe error leaves the customer id alone")
+
+# Stripe's own reason is added to the message for a site admin, and only for a site admin
+r = b.post("/app/billing/subscribe", data={"csrf": csrf(b), "plan": "growth"}, follow_redirects=True)
+check("Checkout couldn't start. Try again in a minute." in htmllib.unescape(r.get_data(as_text=True))
+      and "Stripe said" not in r.get_data(as_text=True), "a member sees that checkout couldn't start, without Stripe's words")
+with db.connect() as conn:
+    conn.execute("UPDATE users SET is_admin=1 WHERE workspace_id=?", (wb,))
+    conn.commit()
+r = b.post("/app/billing/subscribe", data={"csrf": csrf(b), "plan": "growth"}, follow_redirects=True)
+check("Stripe said: Stripe 402: card declined" in htmllib.unescape(r.get_data(as_text=True)), "a site admin also sees what Stripe said")
 
 portal_calls = []
 

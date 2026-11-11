@@ -2093,6 +2093,14 @@ def _report_purchase(sid: str, plan: bool):
         gads.queue(session, "purchase", **ev)
 
 
+def _stripe_said(e) -> str:
+    """For a site admin only: Stripe's own reason, added to the message, so a setup problem in the Stripe account
+    (not activated, no business name, a key without the permission) can be read off the page. Members never see it."""
+    if g.get("user") is None or not g.user["is_admin"]:
+        return ""
+    return f" Stripe said: {str(e)[:240]}"
+
+
 def _subscribed(ws) -> bool:
     """A live Stripe subscription (not just a comp plan). A subscription whose
     renewal failed (unpaid, paused) still counts while RENEWAL_PAUSE is on: it's
@@ -2168,7 +2176,7 @@ def subscribe():
             sess = start(None)
     except billing.BillingError as e:
         log.warning("plan checkout failed for workspace %s: %s", g.ws["id"], e)
-        flash("Checkout couldn't start. Try again in a minute.")
+        flash("Checkout couldn't start. Try again in a minute." + _stripe_said(e))
         return redirect(url_for("billing_page"))
     with db.connect() as conn:
         gads.record_checkout(conn, sess["id"], g.ws["id"], g.user["id"], p["usd"] * 100, "usd", db.now(),
@@ -2240,7 +2248,7 @@ def checkout():
         with db.connect() as conn:
             conn.execute("UPDATE purchases SET status='failed' WHERE id=?", (pid,))
             conn.commit()
-        flash("Checkout couldn't start. Try again in a minute.")
+        flash("Checkout couldn't start. Try again in a minute." + _stripe_said(e))
         return redirect(url_for("billing_page"))
     with db.connect() as conn:
         conn.execute("UPDATE purchases SET stripe_session_id=? WHERE id=?", (sess["id"], pid))
