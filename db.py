@@ -876,6 +876,7 @@ COLUMNS = [
     ("contacts", "stage", "TEXT"),
     # the lead pipeline (pipeline.py): the workspace's own names for its stages, and the stages it added
     ("workspaces", "pipeline_json", "TEXT"),
+    ("workspaces", "stripe_old_json", "TEXT"),   # ids from another Stripe account, set aside (stripe_setup.forget)
     ("contacts", "phone_e164", "TEXT"),
     ("contacts", "timezone", "TEXT"),
     ("contacts", "email_consent", "TEXT NOT NULL DEFAULT 'none'"),

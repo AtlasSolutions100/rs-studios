@@ -49,6 +49,7 @@ import opslog
 import plans
 import presenter_stills
 import preview
+import stripe_setup
 import products
 import public_site
 import service_path
@@ -834,6 +835,7 @@ def health():
     probe (alerts.py). 503 when the database or the worker is down."""
     out, code = alerts.health()
     out["generation_configured"] = hf.configured()
+    out["billing_setup"] = stripe_setup.status()
     if request.args.get("deep"):
         out["generation"] = hf.probe()
     return jsonify(out), code
@@ -2109,6 +2111,7 @@ def subscribe():
     """Start a plan checkout (mode=subscription). Already subscribed: changing
     plan happens in the Stripe portal, so we send you there instead of opening
     a second subscription."""
+    stripe_setup.ready()
     p = plans.PLANS.get(request.form.get("plan") or "")
     if not p or not p["price_id"]:
         abort(400)
@@ -2137,17 +2140,28 @@ def subscribe():
         else:
             flash(f"{session['promo'].get('code')} couldn't be applied. You can enter a code on the checkout page.")
             session.pop("promo", None)
-    try:
-        sess = billing.create_subscription_session(
+    def start(customer):
+        return billing.create_subscription_session(
             promotion_code=promo_id,
             price_id=p["price_id"],
             success_url=f"{base}{url_for('billing_page')}?plan=success&session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{base}{url_for('billing_page')}?checkout=cancel",
-            email=g.user["email"], customer=g.ws["stripe_customer_id"] or g.ws["card_customer_id"],
+            email=g.user["email"], customer=customer,
             client_reference_id=f"cfy-ws-{g.ws['id']}",
             metadata={"app": billing.APP_TAG, "kind": "plan", "workspace_id": g.ws["id"], "plan": p["code"],
                       "user_id": g.user["id"]},
             idempotency_key=f"campaignify-plan-{g.ws['id']}-{p['code']}-{uuid.uuid4().hex[:12]}")
+
+    customer = g.ws["stripe_customer_id"] or g.ws["card_customer_id"]
+    try:
+        try:
+            sess = start(customer)
+        except billing.BillingError as e:
+            if not (customer and billing.missing(e, "customer")):
+                raise
+            # the customer was made in another Stripe account (stripe_setup.py): start fresh in this one
+            stripe_setup.forget(g.ws["id"], "stripe_customer_id", "card_customer_id")
+            sess = start(None)
     except billing.BillingError as e:
         log.warning("plan checkout failed for workspace %s: %s", g.ws["id"], e)
         flash("Checkout couldn't start. Try again in a minute.")
@@ -2170,10 +2184,16 @@ def _portal_redirect(note=None):
     if not g.ws["stripe_customer_id"]:
         flash("There's no subscription to manage yet. Pick a plan below.")
         return redirect(url_for("billing_page"))
+    stripe_setup.ready()
     try:
         url = billing.create_portal_session(customer=g.ws["stripe_customer_id"],
                                             return_url=request.host_url.rstrip("/") + url_for("billing_page"))
     except billing.BillingError as e:
+        if billing.missing(e, "customer"):
+            # that customer lives in another Stripe account (stripe_setup.py): nothing to manage in this one
+            stripe_setup.forget(g.ws["id"], "stripe_customer_id", "stripe_subscription_id")
+            flash("There's no subscription to manage here. Pick a plan below.")
+            return redirect(url_for("billing_page"))
         log.warning("portal session failed for workspace %s: %s", g.ws["id"], e)
         flash("Plan management isn't available right now. Email hello@campaignify.ai and we'll change or cancel "
               "your plan for you.")
@@ -2186,6 +2206,7 @@ def _portal_redirect(note=None):
 @app.route("/app/billing/checkout", methods=["POST"])
 @login_required
 def checkout():
+    stripe_setup.ready()
     pack = catalog.PACK_BY_CODE.get(request.form.get("pack") or "")
     if not pack:
         abort(400)
@@ -2233,6 +2254,7 @@ def stripe_webhook():
     customer.subscription.updated/deleted), and refunds and disputes
     (charge.refunded, charge.dispute.created/closed: billing_holds.py). The
     Stripe account is shared, so anything that isn't ours is ignored."""
+    stripe_setup.ready()
     payload = request.get_data()
     try:
         event = billing.verify_event(payload, request.headers.get("Stripe-Signature", ""))
@@ -2548,6 +2570,8 @@ def _reconcile_plan(ws_id: int) -> int:
         subs = [billing.get_subscription(ws["stripe_subscription_id"])] if ws["stripe_subscription_id"] \
             else billing.find_plan_subscriptions(ws_id)
     except billing.BillingError as e:
+        if ws["stripe_subscription_id"] and billing.missing(e):
+            stripe_setup.forget(ws_id, "stripe_subscription_id")
         log.warning("plan sync for workspace %s: %s", ws_id, e)
         return 0
     granted = 0
@@ -2637,6 +2661,7 @@ def _start_plan_sync():
 
 
 _start_plan_sync()
+stripe_setup.start()
 nudges.start(app)
 
 

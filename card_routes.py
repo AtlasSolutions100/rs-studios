@@ -8,6 +8,7 @@ from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template
 
 import accounts
 import billing
+import stripe_setup
 import card_on_file
 import catalog
 import db
@@ -125,12 +126,27 @@ def start():
                 conn.execute("UPDATE workspaces SET card_customer_id=? WHERE id=? AND card_customer_id IS NULL",
                              (customer, g.ws["id"]))
                 conn.commit()
-        sess = billing.create_setup_session(
-            customer=customer,
-            success_url=f"{base}{url_for('card.done')}?session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{base}{url_for('card.page')}?canceled=1",
-            metadata={**meta, "user_id": g.user["id"]}, client_reference_id=f"cfy-card-{g.ws['id']}",
-            idempotency_key=f"campaignify-card-{g.ws['id']}-{uuid.uuid4().hex[:12]}")
+        def setup(cus):
+            return billing.create_setup_session(
+                customer=cus,
+                success_url=f"{base}{url_for('card.done')}?session_id={{CHECKOUT_SESSION_ID}}",
+                cancel_url=f"{base}{url_for('card.page')}?canceled=1",
+                metadata={**meta, "user_id": g.user["id"]}, client_reference_id=f"cfy-card-{g.ws['id']}",
+                idempotency_key=f"campaignify-card-{g.ws['id']}-{uuid.uuid4().hex[:12]}")
+
+        try:
+            sess = setup(customer)
+        except billing.BillingError as e:
+            if not billing.missing(e, "customer"):
+                raise
+            # made in another Stripe account (stripe_setup.py): a new customer in this one
+            stripe_setup.forget(g.ws["id"], "card_customer_id")
+            customer = billing.create_customer(email=g.user["email"], metadata=meta,
+                                               idempotency_key=f"campaignify-card-customer-{g.ws['id']}-{uuid.uuid4().hex[:8]}")
+            with db.connect() as conn:
+                conn.execute("UPDATE workspaces SET card_customer_id=? WHERE id=?", (customer, g.ws["id"]))
+                conn.commit()
+            sess = setup(customer)
     except billing.BillingError as e:
         log.warning("card checkout failed for workspace %s: %s", g.ws["id"], e)
         flash("The card page couldn't open. Try again in a minute. Nothing was charged.")

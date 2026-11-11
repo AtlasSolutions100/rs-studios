@@ -39,7 +39,28 @@ PORTAL_CONFIG = liveids.get("STRIPE_PORTAL_CONFIG")   # a setting (liveids.py, M
 
 
 class BillingError(RuntimeError):
-    pass
+    """A Stripe call that didn't work. status, code and param are Stripe's own when it answered."""
+
+    def __init__(self, msg="", status=None, code=None, param=None):
+        super().__init__(msg)
+        self.status, self.code, self.param = status, code, param
+
+
+def missing(e, param: str | None = None) -> bool:
+    """Did Stripe say the thing isn't in this account ("No such customer", "No such subscription")? With `param`,
+    only when that is the field it named. Ids kept from another Stripe account fail this way (stripe_setup.py)."""
+    if getattr(e, "code", None) != "resource_missing":
+        return False
+    return param is None or (getattr(e, "param", None) or "") == param
+
+
+def _refused(r) -> BillingError:
+    try:
+        err = r.json().get("error", {}) or {}
+    except ValueError:
+        err = {}
+    msg = err.get("message") or r.text
+    return BillingError(f"Stripe {r.status_code}: {str(msg)[:300]}", r.status_code, err.get("code"), err.get("param"))
 
 
 class SignatureError(ValueError):
@@ -258,11 +279,7 @@ def _get(path: str, params: list | None = None) -> dict:
     except requests.RequestException as e:
         raise BillingError(f"Stripe unreachable: {e.__class__.__name__}") from e
     if r.status_code >= 400:
-        try:
-            msg = r.json().get("error", {}).get("message") or r.text
-        except ValueError:
-            msg = r.text
-        raise BillingError(f"Stripe {r.status_code}: {str(msg)[:300]}")
+        raise _refused(r)
     return r.json()
 
 
@@ -292,11 +309,7 @@ def _post(path: str, form: list, idempotency_key: str | None = None) -> dict:
     except requests.RequestException as e:
         raise BillingError(f"Stripe unreachable: {e.__class__.__name__}") from e
     if r.status_code >= 400:
-        try:
-            msg = r.json().get("error", {}).get("message") or r.text
-        except ValueError:
-            msg = r.text
-        raise BillingError(f"Stripe {r.status_code}: {str(msg)[:300]}")
+        raise _refused(r)
     return r.json()
 
 
