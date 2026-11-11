@@ -623,6 +623,18 @@ cookie keeps it on in that browser for 180 days, logged out too, so the landing 
 Not there yet: presenter voice previews (there are no audio samples in the repo; making them costs generation), and
 presenter portraits show only where the stills exist (`presenter_stills.py`).
 
+## The reel of video ads on the home page (`public_site.showreel`, `static/showcase/manifest.json` "videos")
+
+Under the gallery of Campaignify's own image outputs, the new home page shows one sideways-scrolling row of short
+vertical video ads. Each entry in the manifest's `videos` list says where it came from: `source: "campaignify"` (it
+came out of a preset; the preset's name is the title and the caption says "Made in Campaignify") or `source: "team"`
+(our team made it with AI video outside the app; the caption says "Made by our team" and who or what it was for, and
+it is never labelled as made in Campaignify). Only our own generated footage goes in: no stock, no other companies'
+ads, no real people. A clip with a person on screen (`presenter: true`) is labelled "AI presenter"; a clip with speech
+(`sound: true`) gets a Sound button, and only one clip has its sound on at a time. Clips are muted loops that load
+nothing until they are near the screen. Each needs a poster, a title (or preset), a caption and alt text, or the
+loader drops it. Files: H.264, 720x1280 or smaller, under 3 MB. Tests: `tests/test_showreel.py`.
+
 ## MCP server for Claude (`mcpserver.py`, `mcp_tools.py`, `/docs/mcp`)
 
 `MCP_SERVER=on` (default off) opens a remote MCP server at `/mcp` (Streamable HTTP, one JSON answer per POST,
