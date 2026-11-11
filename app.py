@@ -112,6 +112,7 @@ worker.start()
 # ---------------------------------------------------------------- helpers
 
 from core import csrf_token  # noqa: E402
+import hooktool  # noqa: E402
 
 
 def _has(feature):
@@ -682,6 +683,23 @@ def guide(slug):
 def guides():
     return render_template("guides.html", ix=public_site.GUIDES_INDEX,
                            items=[public_site.guide(k) for k in public_site.GUIDE_ORDER])
+
+
+@app.route(hooktool.PATH, methods=["GET", "POST"])
+def hook_tool():
+    """The free hook generator (hooktool.py): no account, capped per visitor and per day."""
+    if not hooktool.enabled():
+        abort(404)
+    form = {"product": hooktool.clean(request.form.get("product", "")), "audience": hooktool.clean(request.form.get("audience", "")),
+            "platform": request.form.get("platform") if request.form.get("platform") in hooktool.PLATFORMS else "short"}
+    result = None
+    if request.method == "POST":
+        if request.form.get("website"):          # the hidden field only a script fills in
+            return redirect(hooktool.PATH)
+        result = hooktool.run(form["product"], form["audience"], form["platform"], client_ip())
+    return render_template("tool_hooks.html", form=form, result=result, platforms=hooktool.PLATFORMS,
+                           per_visitor=hooktool.PER_VISITOR, max_len=hooktool.MAX_LEN, path=hooktool.PATH,
+                           guide_href=public_site.guide_path("ugc-ad-hooks"))
 
 
 for _slug in public_site.SOLUTION_ORDER:

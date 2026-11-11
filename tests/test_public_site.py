@@ -147,9 +147,9 @@ pub = client()
 
 print("== titles, descriptions, canonical, share cards")
 paths = public_site.sitemap_paths()
-check(paths[:3] == ["/", "/features", "/pricing"] and len(paths) == 32 and "/for-reps" in paths and "/llm-info" in paths
+check(paths[:3] == ["/", "/features", "/pricing"] and len(paths) == 42 and "/for-reps" in paths and "/llm-info" in paths
       and "/guides" in paths and "/best-ai-ugc-ad-generators" in paths,
-      "the sitemap list: home, features, pricing, 16 answer-first pages, guides and the roundup, for reps, llm-info, "
+      "the sitemap list: home, features, pricing, 25 answer-first pages, guides and the roundup, the hook tool, for reps, llm-info, "
       "privacy, terms, messaging policy")
 pages = {}
 for p in paths:
@@ -383,7 +383,7 @@ def main_text(path):
 
 new_paths = ([f"/{x}" for x in public_pages.SOLUTION_ORDER] + ["/guides"]
              + [public_site.guide_path(k) for k in public_site.GUIDE_ORDER])
-check(len(new_paths) == 16 and all(p in paths for p in new_paths), "16 new public pages, all in the sitemap")
+check(len(new_paths) == 25 and all(p in paths for p in new_paths), "25 public pages from public_pages.py, all in the sitemap")
 for p in new_paths:
     txt = main_text(p)
     n = len(txt.split())
