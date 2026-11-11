@@ -70,6 +70,10 @@ SIGNUPS_PER_HOUR, SIGNUPS_PER_DAY = accounts.SIGNUPS_PER_HOUR, accounts.SIGNUPS_
 LOGIN_FAILS_PER_EMAIL, LOGIN_FAILS_PER_IP = login_security.FAILS_PER_IP_EMAIL, login_security.FAILS_PER_IP
 log = logging.getLogger("campaignify")
 
+# Python before 3.13 lists WebP and AVIF only among its non-standard types, so static files in those formats went out
+# as application/octet-stream (with nosniff). Name them, so every picture is served as a picture.
+for _ext, _type in ((".webp", "image/webp"), (".avif", "image/avif")):
+    mimetypes.add_type(_type, _ext)
 app = Flask(__name__, template_folder=os.path.join(HERE, "web"), static_folder=os.path.join(HERE, "static"))
 def _secret_key() -> str:
     """RS_SECRET_KEY, else one generated once and kept in the data folder. A
