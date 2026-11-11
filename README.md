@@ -633,34 +633,63 @@ cookie keeps it on in that browser for 180 days, logged out too, so the landing 
 Not there yet: presenter voice previews (there are no audio samples in the repo; making them costs generation), and
 presenter portraits show only where the stills exist (`presenter_stills.py`).
 
-## The campaign desk (`desk.py`, `web/v2/desk.html`, `static/desk.js`; behind `UI_V2`)
+## The campaign desk (`desk.py`, `web/v2/desk.html`, `web/v2/desk_thread.html`, `static/desk.js`; behind `UI_V2`)
 
 The app's home in the new look once a member has made something (their first run keeps Studio's two free image ads;
-a link that asks Studio for a mode, a batch or a preset still gets Studio). It has its own link above the Studio tabs
-and lives at `/app/desk`.
+a link that asks Studio for a mode, a batch or a preset still gets Studio). It has its own link above the Studio tabs.
+The shape is the one people know from other AI tools: a sentence box, examples to start from, and each campaign as
+a conversation listed in the sidebar.
 
-- **One sentence in.** `POST /app/desk/plan` sends the sentence through `studio_v2.ask_run`, the one place the Ask
-  model call happens (the composer's Ask uses it too), so the daily cap, the claim rules and what counts as an ad
-  part are the same wherever the sentence was typed. The answer is the ads.
+- **`/app/desk`**: the sentence box, "Start from an example" (`desk.EXAMPLES`: a name, a line, the sentence it puts
+  in the box, and a picture or clip from our own gallery in `static/showcase`), the campaigns so far, the brand panel.
+- **A campaign is a conversation** (`desk_threads`, `desk_turns`; `/app/desk/c/<id>`): what the member said, the plan
+  that came back, what was made from it, and whatever they ask next. `POST /app/desk/plan` starts one, or with
+  `thread` adds a turn to it. The newest plan that hasn't been made is open to edit and its edits are kept on the
+  turn; earlier plans are shown as they were ("Made." or "Not made. A later plan replaced it."). Finished ads show
+  in the conversation and are refreshed in place while they are being made.
+- **One model call per sentence.** The sentence goes through `studio_v2.ask_run`, the one place the Ask model call
+  happens (the composer's Ask uses it too), so the daily cap, the claim rules and what counts as an ad part are the
+  same wherever it was typed. A later sentence carries a short account of the campaign (`desk._context`) and the
+  model is told to answer with only what it adds.
 - **The rest of the campaign has no model call.** Word rules (`desk.WANTS`, built on Studio's `ASK_ALSO`) decide which
-  of the copy, a page with a sign-up form, an email follow-up and the launch step the sentence asked for. Those come
-  back ticked; the others come back unticked, so a campaign always shows its five stages: Make, Write, Capture,
-  Follow up, Launch. A part the member's plan doesn't include shows the plan that has it and can't be ticked. At the
-  cap, or when the sentence asks for no ads, the rest still comes back.
-- **Every row has a price and can be changed.** Untick it, edit it in place (the words, how many, the presenter and
-  the place, the platform, the page title, which follow-up) or remove it; "Add a part" adds one with first words
-  taken from the product. `POST /app/desk/quote` prices the rows again with no model call: ads by Create's own quote
-  through Studio, copy at the most it can cost (`copywriter.estimate`). `desk.clean_part` cuts a row down to what its
-  kind may set, so a name, a stage or a price sent by the browser counts for nothing. Five ad parts at most.
+  of the copy, a page with a sign-up form, an email follow-up and the launch step the sentence asked for; the copy
+  row takes the platform the sentence names (`desk.platform_in`). A new campaign shows all five stages (Make, Write,
+  Capture, Follow up, Launch), asked-for ones ticked; a later turn shows only what it asks for. A part the member's
+  plan doesn't include shows the plan that has it and can't be ticked.
+- **Every row has a price and can be changed.** Untick it, edit it in place, remove it, or "Add a part".
+  `POST /app/desk/quote` prices the rows again with no model call: ads by Create's own quote through Studio, copy at
+  the most it can cost (`copywriter.estimate`). `desk.clean_part` cuts a row down to what its kind may set. Five ad
+  parts at most.
 - **The total is on the button.** `POST /app/desk/run` starts nothing unless the total it is sent is the total it
-  works out (409), and nothing when credits are short (402). The ads go first through `studio_v2.generate_parts`, so
-  a step Create asks for (confirming the email, a hold, more than eight videos) comes back before anything else is
-  made. Then the copy is written (held at its estimate, settled at what it used, kept as a run of the Copy tool),
-  the page is saved as a draft with a new sign-up form on it, and the follow-up is saved switched off, set to start
-  from that form. The launch step is a link to the ad accounts: nothing is sent anywhere.
-- **What was made is kept** in `desk_runs` and shown again under "Your campaigns", each part a link.
+  works out (409), and nothing when credits are short (402). The ads go first through `studio_v2.generate_parts`;
+  then the copy is written (held at its estimate, settled at what it used), the page is saved as a draft with a new
+  sign-up form on it, and the follow-up is saved switched off, set to start from that form. The launch step is a
+  link to the ad accounts: nothing is sent anywhere.
 
 Tests: `tests/test_desk.py`.
+
+## Reading the brand when a link is imported (`brand_identity.py`; `IMPORT_ENRICH`, default on)
+
+Koby, Nov 11 2026: whenever a link is imported, also pull in the brand and its market. After `/app/start/import`
+succeeds (the first run, the brand brief, the product form), `brand_identity.start` queues one job for the product's
+brand (a `brand_enrich` task in the worker; inline in tests):
+
+1. **Identity, no model.** The site's own home page (`service_path.read_site`, the importer's fetcher) gives the
+   website, what the brand is about, its colours and its logo, which becomes the brand kit's logo.
+2. **Voice, one small call** to the fast model over the page's own words: the tone and who it is for.
+3. **Competitors**, one call with web search (`competitors.discover`: a competitor needs a source to count), kept on
+   the brand (`brands.rivals_json`).
+4. **The full research** (`competitors.run`, `free: True`, the closest three) starts by itself only on a paid plan
+   and only when the brand has no report. A free account gets the list and a link to the Competitors page, where
+   the research is run at its price, shown first.
+
+A field the member filled in is never overwritten; words that break a claim rule are not kept. It is free to the
+member, so it is capped: once per brand per `ENRICH_DAYS` (30), and `ENRICH_DAILY` (200) model-backed runs a day
+site-wide, past which only step 1 runs. A site that can't be read changes nothing and is never shown as an error.
+The desk's brand panel shows the logo, the colours, the voice, the competitors, the state of the research and,
+when it is ready, an angle to test with a button that puts it in the sentence box.
+
+Tests: `tests/test_brand_identity.py`.
 
 ## Video ads in the home page gallery (`public_site.showcase`, `static/showcase/manifest.json`)
 

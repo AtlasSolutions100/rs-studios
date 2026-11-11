@@ -13,8 +13,13 @@ word rules and the member's plan, with no model call:
 
 Every part is a row the member can untick, edit in place or remove, and each row carries its price. The total is on
 the button that runs it, and /app/desk/run starts nothing unless the total it is sent is the total it works out
-(409 otherwise), exactly as Studio does. What one confirmation made is kept in desk_runs, so the desk can show the
-campaign again with a link to each thing.
+(409 otherwise), exactly as Studio does.
+
+A campaign is a conversation (desk_threads, desk_turns): what the member said, the plan that came back, what was
+made from it, and whatever they ask for next ("add a TikTok version"), which goes through the same Ask with a short
+account of the campaign so far and answers with only what is new. The desk's home starts one, from the sentence
+box or from an example card; /app/desk/c/<id> is the conversation, with the newest plan still open to edit and
+everything before it shown as it was. The campaigns are listed in the sidebar.
 
 A part is a small dict the browser holds and sends back; clean_part() cuts it down to the fields its kind may set, so
 what is priced and started is never more than that.
@@ -58,7 +63,27 @@ ADD_NAMES = {"image": "Image ads", "presenter": "Presenter video", "voiceover": 
              "flow": "An email follow-up", "launch": "Launch"}
 DEFAULT_FLOW = "lead_magnet"
 MAX_PARTS = 12
-RUNS_SHOWN = 4
+THREADS_SHOWN = 8           # campaigns listed in the sidebar and on the desk
+TURNS_SHOWN = 60            # turns of one conversation shown (the newest)
+STORED = ("id", "kind", "on", "text", "count", "presenter", "situation", "platform", "n", "title", "template")
+
+# "Start from an example": what the card says, the sentence it puts in the box ({name} is the product), and a
+# picture or clip from our own gallery (static/showcase) to show the kind of thing it makes.
+EXAMPLES = [
+    ("Launch kit", "The whole campaign from one product.",
+     "Launch {name}: three image ads, one presenter video, the ad copy, a page to collect emails and a follow-up",
+     "team-skincare"),
+    ("Presenter test", "Two presenters, two openings.",
+     "Two presenter videos for {name}, each with a different opening line", "preset-talk-to-camera"),
+    ("Product film", "The product on screen, no person.",
+     "A product video and a voiceover video for {name}", "team-product-film"),
+    ("Angle test", "Four headlines, four angles.",
+     "Four image ads for {name}, each on a different angle", "compare"),
+    ("Lead capture", "A page, a form and the emails after.",
+     "A page to collect emails for {name}, with a follow-up", "doorstep"),
+    ("Ad copy", "Every text field, sized for the platform.",
+     "Ad copy for {name} for Meta", "callouts"),
+]
 
 # What the sentence asks for beyond ads: Studio's own word rules (studio_v2.ASK_ALSO), by the tool they point at, plus
 # the few ways people say "page" and "follow-up" when they are describing a campaign and not naming a tool.
@@ -70,6 +95,18 @@ WANTS = {
                                       r"(?:two|three|four|five|six|\d)[- ]emails?)\b",
     "launch": _ALSO_RX["adhub.index"],
 }
+
+
+# The platform a sentence names, for the copy it asks for ("the captions for TikTok").
+PLATFORM_WORDS = [("tiktok", r"\btik ?tok\b"), ("youtube", r"\byoutube\b|\bshorts\b"), ("linkedin", r"\blinkedin\b"),
+                  ("pinterest", r"\bpinterest\b"), ("snapchat", r"\bsnap(?:chat)?\b"), ("reddit", r"\breddit\b"),
+                  ("x", r"\btwitter\b|\bon x\b|\bfor x\b"), ("meta", r"\bmeta\b|\bfacebook\b|\binstagram\b|\breels\b")]
+
+
+def platform_in(text: str) -> str:
+    """The first platform the sentence names that the copy tool writes for ("" when it names none)."""
+    t = " ".join(str(text or "").lower().split())
+    return next((k for k, rx in PLATFORM_WORDS if k in platforms.PLATFORMS and re.search(rx, t)), "")
 
 
 def wanted(text: str) -> set:
@@ -240,21 +277,167 @@ def starters(conn, product) -> dict:
             "product_video": f"{product['name']} on a table in soft light, the camera moving in slowly."}
 
 
+def examples(product) -> list[dict]:
+    """The example cards, each with its picture or clip when the gallery has it."""
+    import os
+    name = product["name"] if product is not None else "your product"
+    root = os.path.join(current_app.static_folder, "showcase")
+    out = []
+    for title, line, ask, media in EXAMPLES:
+        card = {"title": title, "line": line, "ask": ask.format(name=name), "image": "", "video": ""}
+        if os.path.exists(os.path.join(root, f"{media}.webp")):
+            card["image"] = url_for("static", filename=f"showcase/{media}.webp")
+        if os.path.exists(os.path.join(root, f"{media}.mp4")):
+            card["video"] = url_for("static", filename=f"showcase/{media}.mp4")
+        out.append(card)
+    return out
+
+
+# ---------------------------------------------------------------- campaigns as conversations
+
+def _short(text: str, n: int = 60) -> str:
+    text = " ".join(str(text or "").split())
+    return text if len(text) <= n else text[:n - 2].rsplit(" ", 1)[0].rstrip(" ,:;.-") + "\u2026"
+
+
+def _thread(conn, tid):
+    """The campaign, when it is this workspace's and still there."""
+    try:
+        tid = int(tid)
+    except (TypeError, ValueError):
+        return None
+    return conn.execute("SELECT * FROM desk_threads WHERE id=? AND workspace_id=? AND archived=0",
+                        (tid, g.ws["id"])).fetchone()
+
+
+def _new_thread(conn, product, said: str) -> int:
+    t = db.now()
+    head = str(said or "").split(":", 1)[0]               # "Holiday launch for the candle: three image ads, ..." -> its name
+    title = _short(head if 12 <= len(head.strip()) < len(str(said or "")) else said) or "A campaign"
+    return conn.execute("INSERT INTO desk_threads (workspace_id, user_id, product_id, title, created_at, updated_at) "
+                        "VALUES (?,?,?,?,?,?)", (g.ws["id"], g.user["id"], product["id"], title, t, t)).lastrowid
+
+
+def _turn(conn, tid: int, role: str, kind: str, body: dict) -> int:
+    t = db.now()
+    rid = conn.execute("INSERT INTO desk_turns (thread_id, workspace_id, role, kind, body_json, created_at) "
+                       "VALUES (?,?,?,?,?,?)", (tid, g.ws["id"], role, kind, json.dumps(body), t)).lastrowid
+    conn.execute("UPDATE desk_threads SET updated_at=? WHERE id=?", (t, tid))
+    return rid
+
+
+def _body(row) -> dict:
+    try:
+        b = json.loads(row["body_json"] or "{}")
+        return b if isinstance(b, dict) else {}
+    except ValueError:
+        return {}
+
+
+def _turns(conn, tid: int) -> list[dict]:
+    rows = conn.execute("SELECT * FROM (SELECT * FROM desk_turns WHERE thread_id=? AND workspace_id=? ORDER BY id DESC "
+                        "LIMIT ?) ORDER BY id", (tid, g.ws["id"], TURNS_SHOWN)).fetchall()
+    return [{"id": r["id"], "role": r["role"], "kind": r["kind"], "at": r["created_at"], "body": _body(r)} for r in rows]
+
+
+def _stored(parts) -> list[dict]:
+    """A plan's rows as they are kept in its turn: only what a row may set."""
+    return [{k: p[k] for k in STORED if k in p} for p in parts]
+
+
+def _snapshot(views) -> list[dict]:
+    """The rows as they read, for showing a plan later exactly as it was."""
+    return [{"stage": v["stage"], "name": v["name"], "words": v.get("words") or "", "label": v.get("label") or "",
+             "on": bool(v["on"])} for v in views]
+
+
+def _context(conn, thread) -> str:
+    """What this campaign holds so far, in a few lines, for the model: what was asked, what the last plan had,
+    what was made. Member text only ever reaches the model as quoted data here, as it does in the request itself."""
+    asked, planned, made = [], [], []
+    for t in _turns(conn, thread["id"]):
+        b = t["body"]
+        if t["kind"] == "said":
+            asked.append(studio_v2._clean(b.get("text"), 300))
+        elif t["kind"] == "plan":
+            planned = [f"{r['name']} ({studio_v2._clean(r['words'], 120)})" for r in b.get("rows") or [] if r.get("on")]
+        elif t["kind"] == "made":
+            made += [m.get("name") or "" for m in b.get("made") or []]
+    lines = [f"- The member asked: \"{a}\"" for a in asked[-3:]]
+    if planned:
+        lines.append("- The last plan had: " + "; ".join(planned[:8]))
+    if made:
+        lines.append("- Already made: " + "; ".join(x for x in made[-10:] if x))
+    return "\n".join(lines)
+
+
+def _adopt_runs(conn) -> None:
+    """Campaigns made before the desk had conversations (desk_runs with no thread) become one each, so nothing a
+    member made disappears from the list."""
+    for r in conn.execute("SELECT * FROM desk_runs WHERE workspace_id=? AND thread_id IS NULL ORDER BY id LIMIT 20",
+                          (g.ws["id"],)).fetchall():
+        try:
+            made = [m for m in json.loads(r["made_json"] or "[]") if isinstance(m, dict)]
+        except ValueError:
+            made = []
+        cur = conn.execute("INSERT INTO desk_threads (workspace_id, user_id, product_id, title, created_at, updated_at) "
+                           "VALUES (?,?,?,?,?,?)", (g.ws["id"], r["user_id"], r["product_id"], _short(r["ask"]) or "A campaign",
+                                                    r["created_at"], r["created_at"]))
+        for role, kind, body in (("member", "said", {"text": r["ask"] or ""}), ("desk", "made", {"made": made, "credits": r["credits"]})):
+            conn.execute("INSERT INTO desk_turns (thread_id, workspace_id, role, kind, body_json, created_at) VALUES (?,?,?,?,?,?)",
+                         (cur.lastrowid, g.ws["id"], role, kind, json.dumps(body), r["created_at"]))
+        conn.execute("UPDATE desk_runs SET thread_id=? WHERE id=?", (cur.lastrowid, r["id"]))
+    conn.commit()
+
+
+def threads(conn, limit: int = THREADS_SHOWN) -> list[dict]:
+    """The workspace's campaigns, the one touched last first, each with what it last made."""
+    _adopt_runs(conn)
+    out = []
+    for t in conn.execute("SELECT * FROM desk_threads WHERE workspace_id=? AND archived=0 ORDER BY updated_at DESC, id DESC "
+                          "LIMIT ?", (g.ws["id"], limit)).fetchall():
+        last = conn.execute("SELECT body_json FROM desk_turns WHERE thread_id=? AND kind='made' ORDER BY id DESC LIMIT 1",
+                            (t["id"],)).fetchone()
+        made = [m for m in (_body(last).get("made") or []) if isinstance(m, dict) and m.get("href")] if last else []
+        out.append({"id": t["id"], "title": t["title"] or "A campaign", "at": t["updated_at"], "made": made,
+                    "href": url_for("desk.thread", tid=t["id"])})
+    return out
+
+
+def _tiles(conn, batch_id) -> dict:
+    """The ads one confirmation started: how many are still being made, and the finished ones to show."""
+    if not batch_id:
+        return {"busy": 0, "outs": []}
+    jobs = conn.execute("SELECT id, status FROM jobs WHERE batch_id=? AND workspace_id=? AND deleted_at IS NULL ORDER BY id",
+                        (batch_id, g.ws["id"])).fetchall()
+    ids = [j["id"] for j in jobs]
+    outs = conn.execute(f"SELECT id, kind FROM outputs WHERE job_id IN ({','.join('?' * len(ids))}) ORDER BY id LIMIT 8",
+                        ids).fetchall() if ids else []
+    return {"busy": sum(1 for j in jobs if j["status"] in ("pending", "running", "made")),
+            "outs": [{"id": o["id"], "video": o["kind"] == "video"} for o in outs]}
+
+
 # ---------------------------------------------------------------- the routes
 
 @bp.route("/app/desk/plan", methods=["POST"])
 @login_required
 def plan():
-    """The sentence -> the campaign, priced. Nothing is made here."""
+    """The sentence -> the campaign, priced, as a turn of a conversation. Nothing is made here. With no `thread`
+    this starts a campaign; with one it continues it: the model is told what the campaign holds and answers with
+    what the new sentence adds."""
     if not ui_v2.on():
         return studio_v2._off()
     d = studio_v2._payload()
     text = studio_v2._clean(d.get("ask"), 600)
-    out, status = studio_v2.ask_run(text, d.get("product"))
+    with db.connect() as conn:
+        thread = _thread(conn, d.get("thread")) if d.get("thread") else None
+        if d.get("thread") and thread is None:
+            return jsonify({"error": "That campaign isn't here any more. Start a new one."}), 404
+        product = _product(conn, thread["product_id"] if thread is not None else d.get("product"))
+        context = _context(conn, thread) if thread is not None else ""
+    out, status = studio_v2.ask_run(text, product["id"] if product is not None else d.get("product"), context=context)
     if status == 400 and "step" not in out:             # too short, a claim the ads can't make, no product
         return jsonify(out), 400
-    with db.connect() as conn:
-        product = _product(conn, d.get("product"))
     if product is None:
         return jsonify({"error": "Add your product first, then ask again."}), 400
     cast = studio_v2.roster()
@@ -272,14 +455,34 @@ def plan():
         note = out.get("error") or ""
     else:
         note = "The ads didn't come back this time. Add them with Add a part, or plan it again."
-    raw += [{"kind": k, "on": k in want} for k in SPINE]
+    if thread is None:
+        raw += [{"kind": k, "on": k in want} for k in SPINE]        # a new campaign shows every stage
+    else:
+        raw += [{"kind": k, "on": True} for k in SPINE if k in want]   # a later turn: only what it asks for
+    for r in raw:
+        if r["kind"] == "copy" and platform_in(text):
+            r["platform"] = platform_in(text)
     for i, r in enumerate(raw):
         r["id"] = f"p{i + 1}"
-    ans = price(clean_parts(raw, cast, have), product, cast)
+    parts = clean_parts(raw, cast, have)
+    ans = price(parts, product, cast)
     rows = {url_for(ENDPOINT[k]) for k in SPINE if _has(k)}          # already a row of the plan: not a link as well
     also = [a for a in (out.get("also") or studio_v2.ask_also(text)) if a["href"] not in rows]
+    if thread is not None and not parts:
+        note = (note if status in (429, 400) else "") or ("I couldn't turn that into a part of the campaign. Say what "
+                                                          "to add: more image ads, a video, the ad copy, a page, a follow-up.")
+    with db.connect() as conn:
+        tid = thread["id"] if thread is not None else _new_thread(conn, product, text)
+        _turn(conn, tid, "member", "said", {"text": text})
+        if parts:
+            turn = _turn(conn, tid, "desk", "plan", {"ask": text, "note": note, "skipped": out.get("skipped") or [],
+                                                     "also": also, "parts": _stored(ans["parts"]),
+                                                     "rows": _snapshot(ans["parts"]), "ran": False})
+        else:
+            turn = _turn(conn, tid, "desk", "note", {"text": note, "also": also})
+        conn.commit()
     ans.update(note=note, skipped=out.get("skipped") or [], also=also, ask=text, planned=status == 200,
-               left=out.get("left"))
+               left=out.get("left"), thread=tid, turn=turn, url=url_for("desk.thread", tid=tid) + f"#t{turn}")
     return jsonify(ans)
 
 
@@ -294,7 +497,30 @@ def quote():
         product = _product(conn, d.get("product"))
     if product is None:
         return jsonify({"error": "Pick a product first."}), 400
-    return jsonify(price(clean_parts(d.get("parts")), product))
+    ans = price(clean_parts(d.get("parts")), product)
+    if d.get("turn"):
+        _keep_plan(d.get("turn"), ans["parts"])
+    return jsonify(ans)
+
+
+def _keep_plan(turn_id, views, ran: bool = False) -> None:
+    """Write the rows of a plan that is still open back to its turn, so a reload shows the member's edits; `ran`
+    closes it."""
+    try:
+        turn_id = int(turn_id)
+    except (TypeError, ValueError):
+        return
+    with db.connect() as conn:
+        row = conn.execute("SELECT * FROM desk_turns WHERE id=? AND workspace_id=? AND kind='plan'",
+                           (turn_id, g.ws["id"])).fetchone()
+        if row is None:
+            return
+        body = _body(row)
+        if body.get("ran"):
+            return
+        body.update(parts=_stored(views), rows=_snapshot(views), ran=bool(ran))
+        conn.execute("UPDATE desk_turns SET body_json=? WHERE id=?", (json.dumps(body), turn_id))
+        conn.commit()
 
 
 def _write_copy(part, product, said) -> tuple[dict | None, str]:
@@ -396,7 +622,7 @@ def run():
         return jsonify({"error": f"That needs {q['total']:,} credits and you have {q['balance']:,}. Untick a part or "
                                  "top up on Billing.", "billing": url_for("billing_page"), "pack": q["pack"]}), 402
     said = studio_v2._clean(d.get("ask"), 600)
-    made, notes, spent = [], [], 0
+    made, notes, spent, batch = [], [], 0, None
     ads = [v for v in on if v["kind"] in MAKES]
     if ads:
         body = {"plan": [_make_item(v) for v in ads], "product": product["id"], "ask": said, "total": q["ads"],
@@ -410,6 +636,7 @@ def run():
             return out                                  # nothing has been made: Create's own answer
         n = sum((v.get("count") or 1) if v["kind"] == "image" else 1 for v in ads)
         made.append({"kind": "ads", "name": _plural(n, "ad"), "state": "Being made", "href": data["url"]})
+        batch = data.get("batch")
         spent += q["ads"]                               # (a part Create refused is flashed by Studio itself)
     for v in on:
         if v["kind"] == "copy":
@@ -432,28 +659,21 @@ def run():
         if any(v["kind"] == "launch" for v in on):
             made.append({"kind": "launch", "name": "Get the ads into your ad accounts", "state": "Next",
                          "href": url_for(ENDPOINT["launch"])})
-        rid = conn.execute("INSERT INTO desk_runs (workspace_id, user_id, product_id, ask, made_json, credits, created_at) "
-                           "VALUES (?,?,?,?,?,?,?)", (g.ws["id"], g.user["id"], product["id"], said, json.dumps(made),
-                                                      spent, db.now())).lastrowid
+        thread = _thread(conn, d.get("thread")) if d.get("thread") else None
+        if thread is None:                              # made without a conversation open: it gets one
+            tid = _new_thread(conn, product, said or "A campaign")
+            _turn(conn, tid, "member", "said", {"text": said})
+        else:
+            tid = thread["id"]
+        turn = _turn(conn, tid, "desk", "made", {"made": made, "notes": notes, "batch": batch, "credits": spent})
+        rid = conn.execute("INSERT INTO desk_runs (workspace_id, user_id, product_id, ask, made_json, credits, created_at, "
+                           "thread_id) VALUES (?,?,?,?,?,?,?,?)", (g.ws["id"], g.user["id"], product["id"], said,
+                                                                    json.dumps(made), spent, db.now(), tid)).lastrowid
         conn.commit()
-    for note in notes:
-        flash(note)
-    return jsonify({"ok": True, "run": rid, "made": made, "notes": notes, "url": url_for("desk.page", done=rid)})
-
-
-def _runs(conn, limit=RUNS_SHOWN, only=None) -> list[dict]:
-    """The campaigns this workspace made from the desk, newest first."""
-    sql, args = "SELECT * FROM desk_runs WHERE workspace_id=?", [g.ws["id"]]
-    if only:
-        sql, args = sql + " AND id=?", args + [only]
-    out = []
-    for r in conn.execute(sql + " ORDER BY id DESC LIMIT ?", (*args, limit)).fetchall():
-        try:
-            made = [m for m in json.loads(r["made_json"] or "[]") if isinstance(m, dict) and m.get("href")]
-        except ValueError:
-            made = []
-        out.append({"id": r["id"], "ask": r["ask"] or "A campaign", "at": r["created_at"], "made": made})
-    return out
+    if d.get("turn"):
+        _keep_plan(d.get("turn"), q["parts"], ran=True)
+    return jsonify({"ok": True, "run": rid, "made": made, "notes": notes, "thread": tid, "turn": turn,
+                    "url": url_for("desk.thread", tid=tid) + f"#t{turn}"})
 
 
 def _now(conn) -> list[dict]:
@@ -482,37 +702,14 @@ def _now(conn) -> list[dict]:
     return out
 
 
-@bp.route("/app/desk")
-@login_required
-def page():
-    if not ui_v2.on():
-        return redirect(url_for("studio"))
-    import textlayer
-    g.v2_tab = "desk"
-    with db.connect() as conn:
-        ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone() or g.ws
-        product = _product(conn, ws["product_id"])
-        b = products.get_brand(conn, ws["id"], product["brand_id"]) if product is not None else None
-        angles = conn.execute("SELECT title FROM angles WHERE product_id=? AND workspace_id=? ORDER BY id DESC LIMIT 3",
-                              (product["id"], ws["id"])).fetchall() if product is not None else []
-        first = starters(conn, product) if product is not None else {}
-        runs = _runs(conn)
-        done = _runs(conn, 1, request.args.get("done", type=int)) if request.args.get("done") else []
-        now = _now(conn)
-    brief = products.as_brief(b, product, ws)
-    keys = b.keys() if b is not None else []
-    kit = [c for c in (textlayer.clean_hex(b[k] or "") if k in keys else "" for k in ("kit_primary", "kit_accent")) if c]
-    name = product["name"] if product is not None else ""
-    tries = [f"A campaign for {name} that leads with “{a['title']}”" for a in angles]
-    tries += [f"Launch {name}: three image ads and one presenter video",
-              f"A page to collect emails for {name}, with a follow-up",
-              f"Two image ads and ad copy for {name}"][:max(0, 3 - len(tries))]
+def _boot(ws, product, conn) -> dict:
+    """What the desk's script needs on either page: the product, what can be added, the pickers, the addresses."""
     have = {m["id"] for m in studio_v2.available_modes()}
     cast = studio_v2.roster()
-    boot = {
+    return {
         "csrf": studio_v2._csrf(), "product": product["id"] if product is not None else None, "balance": db.balance(ws),
-        "ask_on": llm.configured(), "starters": first, "max_count": studio_v2.MAX_COUNT,
-        "max_makes": studio_v2.ASK_MAX_PARTS,
+        "ask_on": llm.configured(), "starters": starters(conn, product) if product is not None else {},
+        "max_count": studio_v2.MAX_COUNT, "max_makes": studio_v2.ASK_MAX_PARTS,
         "add": [{"kind": k, "name": ADD_NAMES[k], "locked": _locked(k)} for k in (*MAKES, *SPINE)
                 if (k in have if k in MAKES else _has(k)) and not (k == "presenter" and not cast)],
         "presenters": [{"id": c["id"], "name": c.get("name") or c["id"].title(),
@@ -525,6 +722,82 @@ def page():
         "urls": {"plan": url_for("desk.plan"), "quote": url_for("desk.quote"), "run": url_for("desk.run"),
                  "claims": url_for("studio_v2.claims"), "billing": url_for("billing_page")},
     }
-    return render_template("v2/desk.html", boot=boot, product=product, brief=brief, kit=kit, tries=tries, runs=runs,
-                           done=done[0] if done else None, now=now, stages=STAGES,
-                           website=(brief.get("website") or brief.get("url") or ""))
+
+
+def _brand_ctx(conn, ws, product) -> dict:
+    """The brand panel: what every part of a campaign is made from."""
+    import textlayer
+    b = products.get_brand(conn, ws["id"], product["brand_id"]) if product is not None else None
+    brief = products.as_brief(b, product, ws)
+    keys = b.keys() if b is not None else []
+    kit = [c for c in (textlayer.clean_hex(b[k] or "") if k in keys else "" for k in ("kit_primary", "kit_accent")) if c]
+    import os
+
+    import brand_identity
+    logo = url_for("products.brand_logo", bid=b["id"]) if (b is not None and "kit_logo" in keys and b["kit_logo"]
+                                                           and os.path.exists(b["kit_logo"])) else ""
+    return {"brief": brief, "kit": kit, "website": brief.get("website") or brief.get("url") or "", "logo": logo,
+            "market": brand_identity.panel(conn, ws, b)}
+
+
+@bp.route("/app/desk")
+@login_required
+def page():
+    """The desk: say what you are launching, or start from an example; your campaigns underneath."""
+    if not ui_v2.on():
+        return redirect(url_for("studio"))
+    g.v2_tab = "desk"
+    with db.connect() as conn:
+        if request.args.get("done"):                    # an address from before campaigns were conversations
+            run_row = conn.execute("SELECT thread_id FROM desk_runs WHERE id=? AND workspace_id=?",
+                                   (request.args.get("done", type=int) or 0, g.ws["id"])).fetchone()
+            _adopt_runs(conn)
+            run_row = conn.execute("SELECT thread_id FROM desk_runs WHERE id=? AND workspace_id=?",
+                                   (request.args.get("done", type=int) or 0, g.ws["id"])).fetchone() if run_row else None
+            if run_row and run_row["thread_id"]:
+                return redirect(url_for("desk.thread", tid=run_row["thread_id"]))
+        ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone() or g.ws
+        product = _product(conn, ws["product_id"])
+        campaigns = threads(conn)
+        boot = _boot(ws, product, conn)
+        brand_ctx = _brand_ctx(conn, ws, product)
+        now = _now(conn)
+    return render_template("v2/desk.html", boot=boot, product=product, examples=examples(product), campaigns=campaigns,
+                           now=now, **brand_ctx)
+
+
+@bp.route("/app/desk/c/<int:tid>")
+@login_required
+def thread(tid):
+    """One campaign, as the conversation it is: what was said, each plan, what was made, and a box to go on. The
+    newest plan that hasn't been made is still open to edit (the script draws it from `boot.plan`, priced now);
+    everything else is shown as it was."""
+    if not ui_v2.on():
+        return redirect(url_for("studio"))
+    g.v2_tab = "desk"
+    with db.connect() as conn:
+        t = _thread(conn, tid)
+        if t is None:
+            return redirect(url_for("desk.page"))
+        ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone() or g.ws
+        product = _product(conn, t["product_id"])
+        turns = _turns(conn, tid)
+        live = next((x for x in reversed(turns) if x["kind"] == "plan"), None)
+        live = live if (live and not live["body"].get("ran") and product is not None
+                        and not any(x["kind"] == "made" and x["id"] > live["id"] for x in turns)) else None
+        for x in turns:
+            x["live"] = live is not None and x["id"] == live["id"]
+            if x["kind"] == "made":
+                x["tiles"] = _tiles(conn, x["body"].get("batch"))
+        campaigns = threads(conn)
+        boot = _boot(ws, product, conn)
+        brand_ctx = _brand_ctx(conn, ws, product)
+        made = [m for x in turns if x["kind"] == "made" for m in x["body"].get("made") or [] if isinstance(m, dict) and m.get("href")]
+    boot["thread"] = tid
+    if live is not None:
+        plan_now = price(clean_parts(live["body"].get("parts")), product)
+        plan_now.update(turn=live["id"], ask=live["body"].get("ask") or "", note=live["body"].get("note") or "",
+                        skipped=live["body"].get("skipped") or [], also=live["body"].get("also") or [])
+        boot["plan"] = plan_now
+    return render_template("v2/desk_thread.html", boot=boot, product=product, t=t, turns=turns, campaigns=campaigns,
+                           made=made, busy=any(x.get("tiles", {}).get("busy") for x in turns), **brand_ctx)

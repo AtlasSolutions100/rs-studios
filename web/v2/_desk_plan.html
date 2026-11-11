@@ -1,0 +1,24 @@
+{# The plan that is still open: rows with a price each, drawn by static/desk.js from boot.plan; nothing is made
+   until /app/desk/run is sent the total on the button. #}
+<section class="dk-plan" data-plan-wrap aria-labelledby="dk-plan-h">
+  <div class="dk-plan-top">
+    <h2 id="dk-plan-h" tabindex="-1">Here is the plan. Nothing is made yet.</h2>
+    <span>Untick, edit or add to any part before you make it.</span>
+  </div>
+  <p class="dk-note" data-note></p>
+  <p class="dk-skipped" data-skipped hidden></p>
+  <ul class="dk-rows" data-rows></ul>
+  <div class="dk-add">
+    <button type="button" class="dk-add-btn" data-add-open aria-expanded="false" aria-controls="dk-add-menu">Add a part</button>
+    <div class="dk-add-menu" id="dk-add-menu" data-add-menu hidden></div>
+  </div>
+  <div class="dk-also" data-also hidden></div>
+  <div class="dk-bar">
+    <div class="dk-bar-sum"><b data-total></b><span data-sum></span></div>
+    <div class="dk-bar-act">
+      <label class="dk-many" data-many-wrap hidden><input type="checkbox" data-many> <span data-many-text></span></label>
+      <button type="button" class="btn" data-run>Make it</button>
+    </div>
+    <p class="dk-err" data-err role="alert" hidden></p>
+  </div>
+</section>
