@@ -84,6 +84,19 @@ def on() -> bool:
     return g.ui_v2_on
 
 
+def home_v2() -> bool:
+    """HOME_V2=1: the home page in the new look for everyone. deploy.yml sends 1 unless the repository variable
+    says otherwise; with no value (a test, a fresh checkout) it is off."""
+    return (os.environ.get("HOME_V2") or "").strip().lower() in ("1", "on", "true", "yes")
+
+
+def force() -> None:
+    """The public home page is live in the new look for everyone, whatever UI_V2 says, while HOME_V2 is on.
+    ?ui=v1 still shows the old page for comparison. Everything else follows the switch as before."""
+    if home_v2():
+        g.ui_v2_on = (request.args.get(PARAM) or "").strip().lower() not in _OFF
+
+
 @bp.after_app_request
 def _sticky(resp):
     """?ui=v2 from an admin sets the signed cookie; ?ui=v1 from anyone removes it."""

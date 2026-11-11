@@ -349,6 +349,9 @@ jobs:
           RS_SERVICE_PATH: ${{ vars.RS_SERVICE_PATH }}
           RS_LAUNCH_KIT: ${{ vars.RS_LAUNCH_KIT }}
           UI_V2: ${{ vars.UI_V2 }}
+          # HOME_V2 (ui_v2.force): the public home page in the new look for everyone, whatever UI_V2 says.
+          # On unless the repository variable HOME_V2 is 0.
+          HOME_V2: ${{ vars.HOME_V2 || '1' }}
           TEXT_LAYERS: ${{ vars.TEXT_LAYERS }}
           CLAIMS_CHECK: ${{ vars.CLAIMS_CHECK }}
           IMAGE_QA: ${{ vars.IMAGE_QA }}
@@ -417,7 +420,7 @@ jobs:
                                              "RS_LOGIN_HARDENING", "RS_SIGNUP_CONFIRM", "RS_NEXT_STEPS", "RS_STORAGE_QUOTAS",
                                              "RS_JOB_CANCEL", "RS_STORAGE_PURGE_DELETED", "RS_SERVICE_PATH", "OPS_ALERTS", "BACKUPS",
                                              "RS_CARD_REQUIRED", "RS_PLAN_PAYWALL", "RS_CARD_STARTS_PER_HOUR",
-                                             "BACKUP_MEDIA", "RS_DISK_MIN_GB", "RS_HEALTH_WORKER_MAX_AGE", "RS_LAUNCH_KIT", "UI_V2",
+                                             "BACKUP_MEDIA", "RS_DISK_MIN_GB", "RS_HEALTH_WORKER_MAX_AGE", "RS_LAUNCH_KIT", "UI_V2", "HOME_V2",
                                              "TEXT_LAYERS", "CLAIMS_CHECK", "IMAGE_QA", "IMAGE_QA_DAILY_MAX", "IMAGE_QA_MODEL", "FREE_FIX",
                                              "FREE_FIX_MONTHLY_CAP",
                                              "PRESENTER_STILLS", "PRESENTER_VOICE_REF", "CLAIMS_CHECK_DAILY_MAX",

@@ -188,6 +188,35 @@ price = off["/pricing"].get_data(as_text=True)
 check("pr-plans" not in price and 'class="lp-prices plans"' in price and "Most popular" in price,
       "the pricing page is the old one")
 sitemap_off = client().get("/sitemap.xml").get_data(as_text=True)
+
+print("== HOME_V2: the home page is live in the new look for everyone")
+import ui_v2  # noqa: E402
+check(not ui_v2.home_v2(), "HOME_V2 is off unless it is set")
+os.environ["HOME_V2"] = "1"
+hv = client().get("/", headers=HTML).get_data(as_text=True)
+check('data-ui="v2"' in hv and "ui_v2_home.css" in hv and "cfh-stage" in hv and "lp-hero" not in hv,
+      "the home page is the new one with UI_V2 off")
+with appmod.app.test_request_context("/"):
+    so = appmod._signup_offer()
+check("Everything your campaign needs, from one product link." in hv and "data-try" in hv and so["cta"] in hv
+      and so["body"] in hv, "its hero keeps the product-link form and the sign-up offer from the billing config")
+check(len(re.findall(r'class="cfh-t[ "]', hv)) == 18 and "cfh-stars" in hv and "data-replay" in hv, "the hero gathers 18 tiles, then the stars")
+shipped = [f["name"] for f in plans.FEATURES.values() if f.get("shipped")]
+rows = re.search(r'<section class="cfm".*?</section>', hv, re.S).group(0)
+check(all(rows.count(">" + n.replace("&", "&amp;") + "</li>") == 2 for n in shipped) and rows.count('aria-hidden="true"><li>') == 2,
+      f"the feature rows list every shipped feature from the billing config ({len(shipped)}), each once for readers")
+media = set(re.findall(r'src="(/static/[^"?]+)', hv.split('class="cfm"')[0]))
+check(media and all(os.path.isfile(os.path.join(ROOT, m.lstrip("/"))) for m in media)
+      and all(m.startswith(("/static/presets/", "/static/presenters/")) for m in media if "cfh" not in m and m.endswith(".webp")),
+      f"every hero tile is one of our own preset examples or presenter stills ({len(media)} files)")
+check('data-ui="v2"' not in client().get("/pricing", headers=HTML).get_data(as_text=True)
+      and 'data-ui="v2"' not in client().get("/features", headers=HTML).get_data(as_text=True), "pricing and features are still the old pages")
+check("lp-hero" in client().get("/?ui=v1", headers=HTML).get_data(as_text=True), "/?ui=v1 shows the old home page")
+os.environ["HOME_V2"] = "0"
+check("lp-hero" in client().get("/", headers=HTML).get_data(as_text=True), "HOME_V2=0 puts the old home page back")
+os.environ.pop("HOME_V2", None)
+dep = open(os.path.join(ROOT, ".github", "workflows", "deploy.yml"), encoding="utf-8").read()
+check("HOME_V2: ${{ vars.HOME_V2 || '1' }}" in dep and '"UI_V2", "HOME_V2",' in dep, "deploy.yml sends HOME_V2, on unless the variable says otherwise")
 pages_off = dict(public_site.PAGES)
 m = signup("member@example.com")
 r = m.get("/app/studio/workflow")
@@ -220,7 +249,7 @@ check('data-ui="v2"' in client().get("/no-such-page").get_data(as_text=True)
 print("== the home page")
 home = on["/"].get_data(as_text=True)
 t = text(home)
-check(home.count("<h1") == 1 and "Turn your product page into finished ads." in t, "one promise, in one h1")
+check(home.count("<h1") == 1 and "Everything your campaign needs, from one product link." in t, "one promise, in one h1")
 check(len(re.findall(r'<ol class="lv-steps">.*?</ol>', home, re.S)) == 1
       and len(re.findall(r"<li>", re.search(r'<ol class="lv-steps">(.*?)</ol>', home, re.S).group(1))) == 3
       and all(s in t for s in ("Paste your product page", "See the price first", "Download finished ads")),

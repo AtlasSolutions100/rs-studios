@@ -3,11 +3,41 @@
    neutral tiles while it is empty), the plans from the billing config, the same FAQ the page's FAQPage data lists,
    and one call to action. Every number is rates(), signup_offer(), plans or packs: none is typed in. #}
 {% set r = rates() %}{% set so = signup_offer() %}{% set sc = so.credits %}{% set shots = showcase() %}
-<section class="lv-hero">
-  <div class="lv-wrap">
-    <h1>Turn your product page into finished ads.</h1>
-    <p class="lv-lede">Paste the link. Campaignify reads the page and makes image ads, presenter videos and product videos from your own photos. You see the price before anything is made.</p>
-    <form class="lv-try" action="{{ url_for('signup') }}" method="get" data-try>
+{% macro ico(n) -%}
+<svg viewBox="0 0 24 24" aria-hidden="true">{% if n == 'image' %}<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="m4 16 4.5-4.5 4 4 2.5-2.5 5 5"/><circle cx="15.5" cy="9" r="1.4"/>{% elif n == 'video' %}<rect x="3.5" y="5.5" width="13" height="13" rx="2.5"/><path d="m16.5 10.5 4-2.5v8l-4-2.5"/>{% elif n == 'person' %}<circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/>{% elif n == 'text' %}<path d="M5 6.5h14M5 12h14M5 17.5h9"/>{% elif n == 'plan' %}<rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M9 3v4M15 3v4"/>{% elif n == 'search' %}<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>{% elif n == 'page' %}<rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4"/>{% elif n == 'link' %}<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>{% elif n == 'mail' %}<rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="m4 7 8 6 8-6"/>{% elif n == 'shield' %}<path d="M12 3.5 5 6v5.5c0 4.2 2.9 7.3 7 9 4.1-1.7 7-4.8 7-9V6z"/><path d="m9 12 2.2 2.2L15 10.5"/>{% elif n == 'chart' %}<path d="M4.5 19.5h15M7.5 16v-5M12 16V6.5M16.5 16v-8"/>{% elif n == 'people' %}<circle cx="9" cy="9" r="3"/><path d="M3.5 19c.6-3 2.7-4.5 5.5-4.5s4.9 1.5 5.5 4.5"/><circle cx="17" cy="8" r="2.3"/><path d="M16.5 13.5c2.2.2 3.6 1.5 4 4"/>{% else %}<path d="M13 3 5 13.5h6L10 21l8.5-11H12z"/>{% endif %}</svg>
+{%- endmacro %}
+{# What the studio makes (each is a real output: catalog.py, copywriter.py, planner, competitors) and the features in the
+   billing config, as two rows that drift past. The second list in each row is a copy for the loop, hidden from readers. #}
+{% set makes = [('image', 'Image ads'), ('person', 'Presenter videos'), ('video', 'Product videos'), ('video', 'Voiceover videos'), ('text', 'Ad copy'), ('text', 'Hooks'), ('text', 'Captions'), ('text', 'Headlines'), ('mail', 'Emails'), ('page', 'Landing-page copy'), ('plan', 'Campaign plans'), ('search', 'Competitor snapshots'), ('person', 'AI presenters'), ('image', 'Image presets'), ('video', 'Video recipes')] %}
+{% set fx_icon = {'studio': 'video', 'brand_kit': 'image', 'compliance': 'shield', 'copy': 'text', 'planner': 'plan', 'competitors': 'search', 'pages': 'page', 'links': 'link', 'flows_email': 'mail', 'flows_sms': 'mail', 'seo': 'search', 'optimizer': 'text', 'link_analytics': 'chart', 'forms': 'page', 'community': 'people'} %}
+<div class="cfh">
+<section class="cfh-stage" data-run="a" aria-labelledby="cfh-h">
+  <div class="cfh-stars" aria-hidden="true"><i class="cfh-sl cfh-s1"></i><i class="cfh-sl cfh-s2"></i><i class="cfh-sl cfh-s3"></i><i class="cfh-shoot cfh-sh1"></i><i class="cfh-shoot cfh-sh2"></i></div>
+  <div class="cfh-tiles" aria-hidden="true">
+    <img class="cfh-t a45" alt="" src="{{ url_for('static', filename='presets/offer.webp') }}" style="--x:-560px;--y:-236px;--r:-6deg;--d:0s;--g:0s">
+    <img class="cfh-t a916" alt="" src="{{ url_for('static', filename='presets/talk-to-camera.webp') }}" style="--x:-362px;--y:-246px;--r:4deg;--d:0.05s;--g:0.03s">
+    <div class="cfh-t" style="--x:-150px;--y:-272px;--r:-3deg;--d:0.1s;--g:0.06s;width:208px;margin:-64px 0 0 -104px"><b>Ad copy</b><span>The mug that goes with you</span><span>One mug, not a stack of cups</span><span>Lid gone missing again?</span></div>
+    <img class="cfh-t a45" alt="" src="{{ url_for('static', filename='presets/callouts.webp') }}" style="--x:72px;--y:-250px;--r:5deg;--d:0.15s;--g:0.02s">
+    <div class="cfh-t" style="--x:300px;--y:-268px;--r:-4deg;--d:0.2s;--g:0.08s;width:214px;margin:-68px 0 0 -107px"><b>Competitor snapshot</b><span class="bar">What they sell<i style="width:64px"></i></span><span class="bar">How they pitch it<i style="width:44px"></i></span><span class="bar">Where yours differs<i class="on" style="width:52px"></i></span></div>
+    <img class="cfh-t a916" alt="" src="{{ url_for('static', filename='presenters/marcus/car.webp') }}" style="--x:542px;--y:-224px;--r:6deg;--d:0.25s;--g:0.05s">
+    <div class="cfh-t" style="--x:-588px;--y:12px;--r:5deg;--d:0.3s;--g:0.1s;width:196px;margin:-78px 0 0 -98px"><b>Lead page</b><span class="fld">Name</span><span class="fld">Email</span><span class="go">Send me the guide</span></div>
+    <img class="cfh-t a45" alt="" src="{{ url_for('static', filename='presets/then-now.webp') }}" style="--x:-382px;--y:22px;--r:-5deg;--d:0.35s;--g:0.04s">
+    <img class="cfh-t a916" alt="" src="{{ url_for('static', filename='presets/season-summer.webp') }}" style="--x:-172px;--y:14px;--r:3deg;--d:0.4s;--g:0.01s">
+    <div class="cfh-t" style="--x:44px;--y:30px;--r:-2deg;--d:0.45s;--g:0.07s;width:204px;margin:-66px 0 0 -102px"><b>Campaign plan</b><span class="dot"><i class="on"></i>Week 1: three image ads</span><span class="dot"><i></i>Week 2: presenter video</span><span class="dot"><i></i>Week 3: keep the winner</span></div>
+    <img class="cfh-t a45" alt="" src="{{ url_for('static', filename='presets/season-winter-gift.webp') }}" style="--x:252px;--y:4px;--r:6deg;--d:0.5s;--g:0.09s">
+    <div class="cfh-t" style="--x:474px;--y:34px;--r:-5deg;--d:0.55s;--g:0.03s;width:206px;margin:-58px 0 0 -103px"><b>Follow-up email</b><span>Subject: Here is your guide</span><span>Goes out when the form is filled in</span></div>
+    <img class="cfh-t a45" alt="" src="{{ url_for('static', filename='presets/review.webp') }}" style="--x:-502px;--y:254px;--r:-4deg;--d:0.6s;--g:0.06s">
+    <img class="cfh-t a916" alt="" src="{{ url_for('static', filename='presenters/nia/desk.webp') }}" style="--x:-262px;--y:252px;--r:5deg;--d:0.65s;--g:0.02s">
+    <img class="cfh-t a916" alt="" src="{{ url_for('static', filename='presets/app-screen.webp') }}" style="--x:-22px;--y:262px;--r:-6deg;--d:0.7s;--g:0.08s">
+    <img class="cfh-t a45" alt="" src="{{ url_for('static', filename='presets/season-autumn.webp') }}" style="--x:212px;--y:252px;--r:4deg;--d:0.75s;--g:0.04s">
+    <img class="cfh-t a45" alt="" src="{{ url_for('static', filename='presets/compare.webp') }}" style="--x:432px;--y:256px;--r:-3deg;--d:0.8s;--g:0.1s">
+    <img class="cfh-t a916" alt="" src="{{ url_for('static', filename='presets/inhand.webp') }}" style="--x:622px;--y:244px;--r:5deg;--d:0.85s;--g:0.05s">
+    <span class="cfh-pulse"></span><span class="cfh-pulse two"></span>
+  </div>
+  <div class="cfh-copy">
+    <h1 id="cfh-h" class="cfh-late">Everything your campaign needs, from one product link.</h1>
+    <p class="lv-lede cfh-late" style="--ld:2.5s">Paste the link. Campaignify makes the image ads, the presenter videos, the copy and the plan, and builds the page that collects your leads. You see the price before anything is made.</p>
+    <form class="lv-try cfh-late" style="--ld:2.6s" action="{{ url_for('signup') }}" method="get" data-try>
       <label class="sr" for="lv-url">Your product page (optional)</label>
       <div class="lv-try-box">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/></svg>
@@ -15,14 +45,24 @@
         <button class="btn lg" data-cta="hero">{{ so.cta }}</button>
       </div>
     </form>
-    <p class="lv-terms">{{ so.body }}</p>
+    <p class="lv-terms cfh-late" style="--ld:2.7s">{{ so.body }}</p>
+  </div>
+  <button type="button" class="cfh-replay" data-replay hidden>Replay the intro</button>
+</section>
+</div>
+
+<section class="cfm" aria-label="What Campaignify makes, and the tools that come with it">
+  <div class="cfm-row">{% for copy in (0, 1) %}<ul{% if copy %} aria-hidden="true"{% endif %}>{% for i, n in makes %}<li>{{ ico(i) }}{{ n }}</li>{% endfor %}</ul>{% endfor %}</div>
+  <div class="cfm-row">{% for copy in (0, 1) %}<ul{% if copy %} aria-hidden="true"{% endif %}>{% for k, f in plans.FEATURES.items() if f.shipped %}<li>{{ ico(fx_icon.get(k, 'bolt')) }}{{ f.name }}</li>{% endfor %}</ul>{% endfor %}</div>
+</section>
+
+<div class="lv-wrap lv-ratewrap">
     <dl class="lv-rates" aria-label="What each ad costs">
       <div><dt>Image ad</dt><dd>{{ r.image|credits }}</dd></div>
       <div><dt>Product video, 5 seconds</dt><dd>{{ r.video5|credits }}</dd></div>
       <div><dt>Voiceover or presenter video, 8 seconds</dt><dd>{{ r.talk8|credits }}</dd></div>
     </dl>
-  </div>
-</section>
+</div>
 
 <section class="lv-sec" id="journey" aria-labelledby="lv-how">
   <div class="lv-wrap">
@@ -113,7 +153,7 @@
   </div>
 </section>
 
-<section class="lv-end" aria-labelledby="lv-go">
+<section class="lv-end cfh-end" aria-labelledby="lv-go">
   <div class="lv-wrap">
     <h2 id="lv-go">See it on your own product.</h2>
     <p>{{ so.body }}</p>
@@ -125,5 +165,15 @@
 (function(){ var f = document.querySelector('[data-try]'); if(!f) return; var i = f.querySelector('input[name=url]');
   f.addEventListener('submit', function(){ var v = i.value.trim(); try { if(v) localStorage.setItem('cfy_first_url', v.slice(0, 300)); } catch(e){} if(!v) i.disabled = true; });
   window.addEventListener('pageshow', function(){ i.disabled = false; });
+})();
+// The hero: play the intro again, and let the stars drift a little with the mouse (not when motion is turned down).
+(function(){ var st = document.querySelector('.cfh-stage'); if(!st) return;
+  var stars = st.querySelector('.cfh-stars'), rp = st.querySelector('[data-replay]');
+  if(rp){ rp.hidden = false; rp.addEventListener('click', function(){ st.setAttribute('data-run', st.getAttribute('data-run') === 'a' ? 'b' : 'a'); }); }
+  if(!stars || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+  st.addEventListener('mousemove', function(e){ var r = st.getBoundingClientRect();
+    stars.style.setProperty('--mx', Math.max(-1, Math.min(1, (e.clientX - r.left) / r.width * 2 - 1)).toFixed(3));
+    stars.style.setProperty('--my', Math.max(-1, Math.min(1, (e.clientY - r.top) / r.height * 2 - 1)).toFixed(3)); });
+  st.addEventListener('mouseleave', function(){ stars.style.setProperty('--mx', '0'); stars.style.setProperty('--my', '0'); });
 })();
 </script>
