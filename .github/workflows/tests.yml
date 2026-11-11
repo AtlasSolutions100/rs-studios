@@ -34,7 +34,12 @@ jobs:
       # image has none; without it those checks (and the older watermark and export ones) skip themselves, so a
       # mirror that is down only costs coverage, never the run.
       - name: ffmpeg for the stitching tests
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg || echo "no ffmpeg; the stitching checks will be skipped"
+        # Bounded: a mirror that hangs (Nov 11 2026: two runs sat here until the job's own timeout cancelled them)
+        # costs coverage too, never the run.
+        run: |
+          sudo timeout 240 sh -c 'apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update -qq \
+            && apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -y -qq --no-install-recommends ffmpeg' \
+            || echo "no ffmpeg; the stitching checks will be skipped"
       - name: python tests/test_app.py
         env:
           # The tests' data folder is a throwaway; the disk guard (storage.py, default 5 GB
