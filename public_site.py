@@ -999,6 +999,54 @@ def showcase(limit: int = SHOWCASE_MAX) -> list[dict]:
     return list(_showcase["items"][:max(0, limit)])
 
 
+# The reel under the gallery: short video ads, each saying where it came from. source "campaignify" came out of a
+# Campaignify preset (its name is the title); source "team" is an ad our team made with AI video outside the app,
+# and is never labelled as made in Campaignify. Only our own generated footage: no stock, no other companies' ads.
+REEL_MAX = 12
+REEL_SOURCES = ("campaignify", "team")
+_reel = {"key": None, "items": []}
+
+
+def showreel(limit: int = REEL_MAX) -> list[dict]:
+    """[{"src", "poster" (both under static/), "source", "title", "caption", "alt", "presenter", "sound"}] from the
+    manifest's "videos". An entry is dropped when its clip or poster is missing or the wrong kind, its source isn't
+    one of REEL_SOURCES, a "campaignify" one names no real preset, or it has no title or no alt text."""
+    path = os.path.join(SHOWCASE_DIR, SHOWCASE_MANIFEST)
+    try:
+        key = (path, os.path.getmtime(path))
+    except OSError:
+        return []
+    if _reel["key"] != key:
+        items = []
+        try:
+            with open(path, encoding="utf-8") as fh:
+                raw = json.load(fh)
+        except (OSError, ValueError):
+            raw = {}
+        import presets
+        for it in (raw.get("videos") if isinstance(raw, dict) else None) or []:
+            if not isinstance(it, dict):
+                continue
+            name, poster = _showcase_file(it.get("file")), _showcase_file(it.get("poster"))
+            source = str(it.get("source") or "").lower()
+            if name is None or poster is None or source not in REEL_SOURCES:
+                continue
+            if not name.lower().endswith(SHOWCASE_EXT["video"]) or not poster.lower().endswith(SHOWCASE_EXT["image"]):
+                continue
+            pre = presets.get(str(it.get("preset") or "")) if source == "campaignify" else None
+            if source == "campaignify" and pre is None:
+                continue
+            title = pre.name if pre is not None else " ".join(str(it.get("title") or "").split())[:60]
+            alt = " ".join(str(it.get("alt") or "").split())[:220]
+            if not title or not alt:
+                continue
+            items.append({"src": "showcase/" + name, "poster": "showcase/" + poster, "source": source, "title": title,
+                          "caption": " ".join(str(it.get("caption") or "").split())[:140], "alt": alt,
+                          "presenter": it.get("presenter") is True, "sound": it.get("sound") is True})
+        _reel.update(key=key, items=items)
+    return list(_reel["items"][:max(0, limit)])
+
+
 # ---------------------------------------------------------------- per-page meta
 
 PAGES = {  # endpoint -> (path, title, description)

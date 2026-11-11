@@ -1,5 +1,5 @@
 {
-  "_about": "The home page's gallery (public_site.showcase). Only real Campaignify outputs go here: no stock photos, no other companies' ads, no mock-ups. Put each file in this folder and add one entry to items. Until items has entries the page shows neutral tiles.",
+  "_about": "The home page's gallery (public_site.showcase) and its reel of video ads (public_site.showreel). items: only real Campaignify outputs, no stock photos, no other companies' ads, no mock-ups. videos: our own generated footage only, and each one says where it came from: source \"campaignify\" (it came out of a Campaignify preset) or \"team\" (our team made it with AI video outside the app). No stock, no other companies' ads, no real people. Put each file in this folder and add one entry.",
   "_shape": {
     "file": "name-of-the-file-in-this-folder.jpg",
     "kind": "image or video",
@@ -8,6 +8,17 @@
     "alt": "what the picture or clip shows, for screen readers",
     "poster": "videos only: a still in this folder, shown before the clip loads",
     "aspect": "videos only: 9:16, 4:5, 1:1 or 16:9 (images are measured)"
+  },
+  "_video_shape": {
+    "file": "clip.mp4 in this folder (H.264, 720x1280 or smaller, under 3 MB)",
+    "poster": "a still in this folder, shown before the clip loads (required)",
+    "source": "campaignify or team",
+    "preset": "source campaignify only: the preset id that made it (its name is the title)",
+    "title": "source team: a short name for the kind of ad",
+    "caption": "one short line under the title: who it was made for, or that the brand is made up",
+    "alt": "what the clip shows, for screen readers",
+    "presenter": "true when a person is on screen: the tile is labelled AI presenter",
+    "sound": "true when the clip has speech: the tile gets a Sound button"
   },
   "_sizes": "Images: JPEG or WebP, 1080 px on the short side (1080x1350 for 4:5, 1080x1920 for 9:16, 1080x1080 for 1:1), under 400 KB. Videos: MP4 (H.264, no audio needed), 720x1280, 5 to 10 seconds, under 3 MB, each with a poster. 8 to 12 items in a mix of shapes fills the grid best; at most 12 are shown.",
   "items": [
@@ -94,6 +105,108 @@
       "preset": "cozy",
       "caption": "Lifestyle static",
       "alt": "A lit candle on a side table next to an armchair; headline \"Makes the room.\""
+    }
+  ],
+  "videos": [
+    {
+      "file": "team-skincare.mp4",
+      "poster": "team-skincare.webp",
+      "source": "team",
+      "title": "Skincare, selfie style",
+      "caption": "Made by our team. Petalune is a made-up brand.",
+      "presenter": true,
+      "sound": true,
+      "alt": "An AI presenter in a white robe shows a serum bottle to the camera and puts a drop on the back of her hand."
+    },
+    {
+      "file": "preset-talk-to-camera.mp4",
+      "poster": "preset-talk-to-camera.webp",
+      "source": "campaignify",
+      "preset": "talk-to-camera",
+      "caption": "Made in Campaignify.",
+      "presenter": true,
+      "sound": true,
+      "alt": "An AI presenter in a kitchen talks to the camera with a green travel mug on the counter in front of her."
+    },
+    {
+      "file": "team-streamer.mp4",
+      "poster": "team-streamer.webp",
+      "source": "team",
+      "title": "Streamer to camera",
+      "caption": "Made by our team for Crowdcut, our clipping app.",
+      "presenter": true,
+      "sound": true,
+      "alt": "An AI presenter with a headset around his neck, in a room lit purple and blue, points at a phone and talks to the camera."
+    },
+    {
+      "file": "preset-pov-unboxing.mp4",
+      "poster": "preset-pov-unboxing.webp",
+      "source": "campaignify",
+      "preset": "pov-unboxing",
+      "caption": "Made in Campaignify.",
+      "presenter": false,
+      "sound": true,
+      "alt": "Two hands open a plain cardboard box and lift out a candle in an amber jar."
+    },
+    {
+      "file": "team-app-demo.mp4",
+      "poster": "team-app-demo.webp",
+      "source": "team",
+      "title": "App demo, selfie style",
+      "caption": "Made by our team. Tasklane is a made-up app.",
+      "presenter": true,
+      "sound": true,
+      "alt": "An AI presenter in a navy hoodie holds up a phone showing a to-do list, ticks a box and talks to the camera."
+    },
+    {
+      "file": "preset-hands-only-demo.mp4",
+      "poster": "preset-hands-only-demo.webp",
+      "source": "campaignify",
+      "preset": "hands-only-demo",
+      "caption": "Made in Campaignify.",
+      "presenter": false,
+      "sound": true,
+      "alt": "Two hands pick up and turn a green travel mug on a pale table."
+    },
+    {
+      "file": "team-desk-talk.mp4",
+      "poster": "team-desk-talk.webp",
+      "source": "team",
+      "title": "Desk talk",
+      "caption": "Made by our team for Crowdcut, our clipping app.",
+      "presenter": true,
+      "sound": true,
+      "alt": "An AI presenter at a desk with a laptop and a ring light talks to the camera and points down at the laptop."
+    },
+    {
+      "file": "preset-vo-product-shots.mp4",
+      "poster": "preset-vo-product-shots.webp",
+      "source": "campaignify",
+      "preset": "vo-product-shots",
+      "caption": "Made in Campaignify.",
+      "presenter": false,
+      "sound": true,
+      "alt": "Three calm shots of a green travel mug on a wooden table, one close on its label."
+    },
+    {
+      "file": "team-product-film.mp4",
+      "poster": "team-product-film.webp",
+      "source": "team",
+      "title": "Product film",
+      "caption": "Made by our team. No presenter, no words.",
+      "presenter": false,
+      "sound": false,
+      "alt": "A small 3D model of a floor of rooms rises from a dark floor plan; one room is outlined in yellow."
+    },
+    {
+      "file": "preset-turn.mp4",
+      "poster": "preset-turn.webp",
+      "source": "campaignify",
+      "preset": "turn",
+      "caption": "Made in Campaignify.",
+      "presenter": false,
+      "sound": false,
+      "alt": "A green travel mug turning slowly on a pale grey background."
     }
   ]
 }
