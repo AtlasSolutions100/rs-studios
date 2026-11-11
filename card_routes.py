@@ -40,6 +40,9 @@ def _wants_json() -> bool:
 def gate():
     if g.get("user") is None or g.get("ws") is None or g.get("viewing") is not None:
         return None
+    import plan_gate
+    if plan_gate.on():      # PLANS_ONLY: the plan checkout takes the card; this step isn't asked on top
+        return None
     ep = request.endpoint or ""
     if ep == "static" or ep.startswith("card.") or ep in ALLOWED:
         return None
@@ -76,8 +79,9 @@ def _new_account(ws) -> bool:
 @bp.route("/app/card")
 @login_required
 def page():
+    import plan_gate
     with db.connect() as conn:
-        needed = card_on_file.needs_card(conn, g.ws, g.user)
+        needed = card_on_file.needs_card(conn, g.ws, g.user) and not plan_gate.on()
     if not needed:
         return redirect(url_for("studio"))
     n = card_on_file.pending(g.ws)

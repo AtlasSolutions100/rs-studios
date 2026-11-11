@@ -163,12 +163,15 @@ def start_trial(conn, ws, sub_id: str, code: str, trial_end=None, user_id=None) 
     email = _email_norm(owner)
     again = conn.execute("SELECT 1 FROM plan_trials WHERE workspace_id=? LIMIT 1", (ws["id"],)).fetchone() is not None \
         or bool(email and conn.execute("SELECT 1 FROM plan_trials WHERE email_norm=? LIMIT 1", (email,)).fetchone())
-    n = 0 if again else trial_credits(p)
+    # Word of the trial reached us after its first payment did (events out of order): record it, change nothing.
+    paid = conn.execute("SELECT 1 FROM plan_invoices WHERE workspace_id=? AND amount_cents>0 LIMIT 1",
+                        (ws["id"],)).fetchone() is not None
+    n = 0 if (again or paid) else trial_credits(p)
     ends = _iso(trial_end)
     cur = conn.execute("INSERT OR IGNORE INTO plan_trials (workspace_id, user_id, email_norm, plan, subscription_id, "
                        "credits, started_at, ends_at) VALUES (?,?,?,?,?,?,?,?)",
                        (ws["id"], owner["id"] if owner is not None else None, email, code, sub_id, n, db.now(), ends))
-    if cur.rowcount != 1:
+    if cur.rowcount != 1 or paid:
         return 0
     if n:
         db.set_plan_credits(conn, ws["id"], n, f"{p['name']} plan: trial credits")

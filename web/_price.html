@@ -1,0 +1,5 @@
+{# A plan's price (plans.PLANS). With PLAN_SALE on, the price it is going to sits beside it, struck through, with
+   the difference as a percent off (plans.sale: rounded down). Nothing here is typed in. #}
+{% macro amount(p, per=' a month', per_class='') -%}
+{% set s = plans.sale(p) %}<b>${{ p.usd }}</b>{% if s %}<s class="px-next"><span class="sr">going to </span>${{ s.next }}</s>{% endif %}<span{% if per_class %} class="{{ per_class }}"{% endif %}>{{ per }}</span>{% if s %}<em class="px-off">{{ s.off }}% off</em>{% endif %}
+{%- endmacro %}

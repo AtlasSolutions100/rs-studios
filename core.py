@@ -245,6 +245,10 @@ def hold_check(ws=None):
     why = hold_reason(ws)
     if why:
         raise BillingHold(why)
+    import plan_gate      # no plan while PLANS_ONLY is on: pick one first (its checkout saves the card too)
+    if plan_gate.on():
+        plan_gate.check(ws, g.get("user"))
+        return
     import card_on_file   # a free workspace without a saved card makes nothing new (RS_CARD_REQUIRED)
     if ws is not None and card_on_file.active():
         with db.connect() as conn:
