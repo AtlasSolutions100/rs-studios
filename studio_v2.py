@@ -417,7 +417,8 @@ ASK_SCHEMA = {
 # (endpoint, name, what it does, words that ask for it, plan feature or None).
 ASK_ALSO = [
     ("studio_v2.workflow", "Campaign plan", "A dated plan of what to post and run, with a budget. Describe it on Workflow.",
-     r"\b(campaign plan|content plan|marketing plan|launch plan|plan (?:out|ahead|the|a|my|our)|calendar|strategy|budget|"
+     r"\b(campaign plan|content plan|marketing plan|launch plan|(?:a|the|my|our) plan|plan (?:out|ahead|the|a|my|our)|"
+     r"calendar|strategy|budget|"
      r"what (?:should|to) (?:i|we) (?:post|run)|week(?:s)? of (?:posts|ads|content))\b", "planner"),
     ("copy.studio", "Copy", "Captions, primary text, headlines, emails and hooks for each platform.",
      r"\b(copy|captions?|primary text|ad text|descriptions?|subject lines?|emails?|newsletter|tweets?|posts? text|bio)\b", "copy"),
