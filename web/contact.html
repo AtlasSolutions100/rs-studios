@@ -4,6 +4,7 @@
   <p style="margin:0 0 14px"><a href="{{ url_for('forms.contacts') }}">← Contacts</a></p>
   <p class="eyebrow">Contact</p><h1 class="break">{{ c.name or c.email }}</h1>
   <p class="muted"><a href="mailto:{{ c.email }}">{{ c.email }}</a>{% if c.phone %} · {{ c.phone }}{% endif %} · first seen {{ c.first_seen|localtime('date') }} · {{ c.submissions }} form{{ '' if c.submissions == 1 else 's' }}</p>
+  <style>button.choice{font:600 13px var(--body)}button.choice.on{border-color:var(--accent);color:var(--on-accent);background:var(--accent);opacity:1;cursor:default}</style>
   <form method="post" action="{{ url_for('forms.contact_stage', cid=c.id) }}" class="row" style="gap:6px;margin:0 0 18px" aria-label="Stage"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
     <span class="small muted" style="margin-right:4px">Stage</span>
     {% for s in stages %}<button class="choice {{ 'on' if s.key == stage }}" name="stage" value="{{ s.key }}" {{ 'aria-current=true disabled' if s.key == stage }}>{{ s.name }}</button>{% endfor %}
