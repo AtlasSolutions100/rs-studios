@@ -301,8 +301,9 @@ check(smb_pg.title == "AI Marketing Platform for Small Business · Campaignify"
       f"{SMB}: the keyword in the title, the H1 and the description, with the plan price")
 check("local shops, service businesses and small online stores" in smb_text and "without hiring an agency" in smb_text,
       f"{SMB}: answers who it's for first (local shops, service businesses, small online stores)")
-check("launch them yourself in each platform's ads manager" in smb_text and "Does Campaignify post or run my ads? No." in smb_text,
-      f"{SMB}: says plainly that you download the ads and launch them in each platform's ads manager")
+check("You launch them in each platform's ads manager" in smb_text and "coming soon, starting with Meta" in smb_text
+      and "Does Campaignify post or run my ads? No." not in smb_text,
+      f"{SMB}: says you launch the ads in each platform's ads manager, and that launching from Campaignify is coming")
 check(not re.search(r"\b(we|campaignify|it) (post|posts|run|runs|publish|publishes) (your|the) ads\b", smb_text, re.I),
       f"{SMB}: never claims the app posts or runs ads")
 check(f"{public_site.catalog.starter_credits()} credits, enough for 2 image ads" in smb_text
