@@ -571,6 +571,7 @@ def index():
     """Logged in: the studio. Logged out: the public landing page."""
     if g.user:
         return redirect(url_for("studio"))
+    ui_v2.force()
     return render_template("landing.html", gallery=GALLERY, hero=HERO_MEDIA, journey=JOURNEY,
                            faq=public_site.home_faq())
 

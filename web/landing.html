@@ -1,6 +1,7 @@
 {% extends "public_base.html" %}
 {% block pubhead %}
 {% if not ui_v2 %}<link rel="preload" as="image" href="{{ url_for('static', filename=hero[1].poster) }}" fetchpriority="high">{% endif %}
+{% if ui_v2 %}<link rel="stylesheet" href="{{ url_for('static', filename='ui_v2_home.css') }}">{% endif %}
 {% endblock %}
 {% block main %}
 {% if ui_v2 %}{% include "v2/landing.html" %}{% else %}

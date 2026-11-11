@@ -1,0 +1,129 @@
+/* Campaignify: the home page's hero and its feature rows (web/v2/landing.html). Loaded only there,
+   after ui_v2.css.
+
+   The hero is one moment: the things a campaign needs (real ads, presenters, copy, a plan, a lead
+   page) fly in, gather into one point, and the promise and the product-link box rise out of it.
+   Then the black fills with small stars that drift a little with the mouse, and a shooting star
+   crosses now and then. Roughly 60 / 30 / 10: paper, black, and the lime spark.
+
+   The stage is dark in both themes, so it re-declares the dark tokens for what sits inside it. */
+
+.cfh{padding:var(--s3) var(--s4) 0}
+.cfh-stage{position:relative;overflow:hidden;max-width:1408px;min-height:800px;margin:0 auto;border-radius:28px;background:#000000;color:#FFFFFF;
+  --kx:1;--ky:1;--sc:1;
+  --bg:#000000; --bg2:#141414; --panel:#161616; --card:#1A1A1A;
+  --line:rgba(255,255,255,.1); --v2-line2:rgba(255,255,255,.2);
+  --ink:#EDEDEB; --muted:#A8A8A5; --dim:#92928F;
+  --v2-inv:#EDEDEB; --v2-inv-ink:#111111; --v2-inv-hover:#FFFFFF;
+  --v2-raise:#1C1C1C; --v2-sunk:#121212; --v2-focus:#BDFA25; --v2-mark:#BDFA25;
+  color-scheme:dark}
+@media (max-width:1100px){.cfh-stage{--kx:.7;--ky:.95;--sc:.8}}
+@media (max-width:720px){.cfh-stage{--kx:.29;--ky:.88;--sc:.54}}
+
+/* the things that gather */
+.cfh-tiles{position:absolute;inset:0}
+.cfh-t{position:absolute;left:50%;top:50%;opacity:0;will-change:transform,opacity;border-radius:14px;transform:translate(calc(var(--x) * var(--kx)),calc(var(--y) * var(--ky))) scale(var(--sc)) rotate(var(--r))}
+img.cfh-t{object-fit:cover}
+img.cfh-t.a45{width:152px;height:190px;margin:-95px 0 0 -76px}
+img.cfh-t.a916{width:124px;height:220px;margin:-110px 0 0 -62px}
+div.cfh-t{box-sizing:border-box;padding:14px 16px;background:#FFFFFF;color:#000000;font-size:13px;line-height:1.45;text-align:left}
+div.cfh-t b{display:block;margin-bottom:6px;font-weight:600}
+div.cfh-t span{display:block;color:#4A4A4A}
+div.cfh-t .bar{display:flex;justify-content:space-between;gap:12px}
+div.cfh-t .bar i{height:8px;margin-top:6px;border-radius:4px;background:#D9D9D9}
+div.cfh-t .bar i.on{background:#BDFA25}
+div.cfh-t .dot{display:flex;align-items:center;gap:8px}
+div.cfh-t .dot i{flex:none;width:10px;height:10px;border-radius:3px;background:#D9D9D9}
+div.cfh-t .dot i.on{background:#BDFA25}
+div.cfh-t .fld{height:26px;margin-bottom:6px;padding:3px 8px;box-sizing:border-box;border:1px solid #CFCFCF;border-radius:7px;color:#6B6B6B}
+div.cfh-t .go{height:28px;margin-top:8px;padding-top:4px;box-sizing:border-box;border-radius:7px;background:#000000;color:#FFFFFF;text-align:center;font-weight:500}
+.cfh-pulse{position:absolute;left:50%;top:50%;width:180px;height:180px;margin:-90px 0 0 -90px;border-radius:50%;border:3px solid #BDFA25;opacity:0;pointer-events:none}
+.cfh-pulse.two{border-width:2px;--pd:2.45s}
+
+/* the promise */
+.cfh-copy{position:relative;min-height:800px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;padding:72px 24px 96px;text-align:center}
+[data-ui="v2"] .cfh-copy h1{max-width:1040px;margin:0;color:#FFFFFF;font-size:clamp(38px,6.1vw,88px);font-weight:700;line-height:1;letter-spacing:-.045em;text-wrap:balance}
+.cfh-copy .lv-lede{max-width:640px;margin:0;color:#B4B4B4;font-size:19px;line-height:1.5}
+.cfh-copy .lv-try{width:100%;max-width:640px;margin:0}
+.cfh-copy .lv-try-box{padding:8px 8px 8px var(--s4);border-color:transparent;border-radius:20px;background:#FFFFFF;box-shadow:0 0 0 6px rgba(189,250,37,.22);
+  --ink:#141414; --dim:#686866; --v2-focus:#BDFA25}
+[data-ui="v2"] .cfh-copy .lv-try-box input{color:#141414;font-size:17px}
+[data-ui="v2"] .cfh-copy .lv-try-box input::placeholder{color:#686866;opacity:1}
+[data-ui="v2"] .cfh-copy .lv-try-box .btn{min-height:52px;padding:0 24px;border-radius:14px;background:#BDFA25;color:#141414;font-size:17px}
+[data-ui="v2"] .cfh-copy .lv-try-box .btn:hover{background:#D7FF7A}
+.cfh-copy .lv-terms{max-width:60ch;margin:0;color:#B4B4B4;font-size:15px}
+.cfh-copy .lv-terms a{color:#FFFFFF}
+.cfh-replay{position:absolute;right:18px;top:18px;min-height:44px;padding:0 16px;border:1px solid rgba(255,255,255,.35);border-radius:999px;background:transparent;color:#FFFFFF;font:500 14px/1 var(--body);cursor:pointer}
+.cfh-replay:hover{border-color:#FFFFFF}
+
+/* the stars */
+.cfh-stars{position:absolute;inset:0;pointer-events:none;opacity:0;--mx:0;--my:0}
+.cfh-sl{position:absolute;left:0;top:0;width:1px;height:1px;border-radius:50%;transition:transform .9s cubic-bezier(.2,.8,.2,1)}
+.cfh-s1{transform:translate3d(calc(var(--mx) * -6px),calc(var(--my) * -4px),0)}
+.cfh-s2{transform:translate3d(calc(var(--mx) * -12px),calc(var(--my) * -8px),0);animation:cfh-twinkle 7s ease-in-out infinite}
+.cfh-s3{transform:translate3d(calc(var(--mx) * -20px),calc(var(--my) * -14px),0);animation:cfh-twinkle 5s ease-in-out 1.5s infinite}
+.cfh-s1{box-shadow:38.2vw 478px 0 0 rgba(255,255,255,.35),89.8vw 795px 0 0 rgba(255,255,255,.55),89.2vw 586px 0 0 rgba(255,255,255,.55),27.9vw 25px 0 0 rgba(255,255,255,.35),66.0vw 43px 0 0 rgba(255,255,255,.45),94.4vw 312px 0 0 rgba(255,255,255,.55),32.1vw 533px 0 0 rgba(255,255,255,.55),68.9vw 127px 0 0 rgba(255,255,255,.35),78.1vw 73px 0 0 rgba(255,255,255,.45),86.3vw 448px 0 0 rgba(255,255,255,.35),72.4vw 979px 0 0 rgba(255,255,255,.35),55.5vw 43px 0 0 rgba(255,255,255,.35),10.3vw 300px 0 0 rgba(255,255,255,.55),89.7vw 370px 0 0 rgba(255,255,255,.35),26.9vw 467px 0 0 rgba(255,255,255,.55),3.1vw 378px 0 0 rgba(255,255,255,.45),88.4vw 123px 0 0 rgba(255,255,255,.45),40.0vw 224px 0 0 rgba(255,255,255,.55),9.8vw 50px 0 0 rgba(255,255,255,.55),65.5vw 814px 0 0 rgba(255,255,255,.35),2.6vw 282px 0 0 rgba(255,255,255,.35),45.9vw 828px 0 0 rgba(255,255,255,.45),53.2vw 578px 0 0 rgba(255,255,255,.55),3.3vw 35px 0 0 rgba(255,255,255,.55),46.4vw 367px 0 0 rgba(255,255,255,.35),80.4vw 87px 0 0 rgba(255,255,255,.55),85.9vw 229px 0 0 rgba(255,255,255,.55),70.3vw 852px 0 0 rgba(255,255,255,.55),70.8vw 180px 0 0 rgba(255,255,255,.55),52.9vw 209px 0 0 rgba(255,255,255,.35),22.3vw 749px 0 0 rgba(255,255,255,.55),46.0vw 846px 0 0 rgba(255,255,255,.45),8.7vw 571px 0 0 rgba(255,255,255,.55),21.4vw 515px 0 0 rgba(255,255,255,.45),37.8vw 673px 0 0 rgba(255,255,255,.55),38.1vw 609px 0 0 rgba(255,255,255,.45),73.0vw 444px 0 0 rgba(255,255,255,.55),16.8vw 69px 0 0 rgba(255,255,255,.35),18.4vw 499px 0 0 rgba(255,255,255,.35),98.3vw 323px 0 0 rgba(255,255,255,.45),33.1vw 473px 0 0 rgba(255,255,255,.45),67.4vw 248px 0 0 rgba(255,255,255,.45),59.8vw 401px 0 0 rgba(255,255,255,.55),77.1vw 810px 0 0 rgba(255,255,255,.45),89.0vw 730px 0 0 rgba(255,255,255,.35),18.2vw 321px 0 0 rgba(255,255,255,.55),15.7vw 368px 0 0 rgba(255,255,255,.45),72.5vw 152px 0 0 rgba(255,255,255,.35),51.0vw 726px 0 0 rgba(255,255,255,.35),68.0vw 636px 0 0 rgba(255,255,255,.45),15.5vw 783px 0 0 rgba(255,255,255,.55),23.3vw 257px 0 0 rgba(255,255,255,.55),28.2vw 859px 0 0 rgba(255,255,255,.45),40.4vw 1012px 0 0 rgba(255,255,255,.55),84.7vw 205px 0 0 rgba(255,255,255,.55),47.0vw 909px 0 0 rgba(255,255,255,.35),48.4vw 977px 0 0 rgba(255,255,255,.45),7.6vw 1020px 0 0 rgba(255,255,255,.45),93.6vw 774px 0 0 rgba(255,255,255,.35),60.9vw 60px 0 0 rgba(255,255,255,.55),19.8vw 1027px 0 0 rgba(255,255,255,.45),91.4vw 358px 0 0 rgba(255,255,255,.45),86.4vw 460px 0 0 rgba(255,255,255,.35),86.9vw 826px 0 0 rgba(255,255,255,.35)}
+.cfh-s2{box-shadow:3.1vw 774px 0 .4px rgba(255,255,255,.6),23.6vw 560px 0 .4px rgba(255,255,255,.8),2.9vw 510px 0 .4px rgba(255,255,255,.7),72.3vw 96px 0 .4px rgba(255,255,255,.8),32.9vw 383px 0 .4px rgba(255,255,255,.7),6.8vw 88px 0 .4px rgba(255,255,255,.6),37.1vw 572px 0 .4px rgba(255,255,255,.7),9.1vw 904px 0 .4px rgba(255,255,255,.6),71.2vw 223px 0 .4px rgba(255,255,255,.7),39.0vw 142px 0 .4px rgba(255,255,255,.8),83.2vw 658px 0 .4px rgba(255,255,255,.8),43.9vw 768px 0 .4px rgba(255,255,255,.8),79.2vw 180px 0 .4px rgba(255,255,255,.6),37.2vw 724px 0 .4px rgba(255,255,255,.6),86.0vw 360px 0 .4px rgba(255,255,255,.7),16.3vw 189px 0 .4px rgba(255,255,255,.6),83.9vw 651px 0 .4px rgba(255,255,255,.7),89.9vw 647px 0 .4px rgba(255,255,255,.7),83.3vw 405px 0 .4px rgba(255,255,255,.6),89.8vw 248px 0 .4px rgba(255,255,255,.6),91.0vw 570px 0 .4px rgba(255,255,255,.8),84.6vw 566px 0 .4px rgba(255,255,255,.7),97.4vw 973px 0 .4px rgba(255,255,255,.8),76.9vw 833px 0 .4px rgba(255,255,255,.7),65.7vw 563px 0 .4px rgba(255,255,255,.8),69.0vw 509px 0 .4px rgba(255,255,255,.6),75.1vw 114px 0 .4px rgba(255,255,255,.6),82.9vw 664px 0 .4px rgba(255,255,255,.7),28.6vw 604px 0 .4px rgba(255,255,255,.7),28.8vw 143px 0 .4px rgba(255,255,255,.7),99.0vw 631px 0 .4px rgba(255,255,255,.6),40.6vw 31px 0 .4px rgba(255,255,255,.7),64.6vw 484px 0 .4px rgba(255,255,255,.7),92.5vw 855px 0 .4px rgba(255,255,255,.8)}
+.cfh-s3{box-shadow:94.0vw 927px 0 .8px #BDFA25,65.3vw 83px 0 .8px #BDFA25,6.6vw 762px 0 .8px #BDFA25,17.6vw 868px 0 .8px #BDFA25,51.0vw 973px 0 .8px rgba(255,255,255,.9),97.7vw 251px 0 .8px rgba(255,255,255,1),45.8vw 174px 0 .8px rgba(255,255,255,.9),81.0vw 39px 0 .8px rgba(255,255,255,.9),94.3vw 567px 0 .8px rgba(255,255,255,1),96.5vw 800px 0 .8px rgba(255,255,255,1),89.1vw 319px 0 .8px rgba(255,255,255,.9),92.2vw 835px 0 .8px rgba(255,255,255,1),35.6vw 415px 0 .8px rgba(255,255,255,1),73.5vw 184px 0 .8px rgba(255,255,255,.9)}
+.cfh-shoot{position:absolute;width:130px;height:2px;border-radius:2px;opacity:0;background:linear-gradient(90deg,rgba(255,255,255,0),#BDFA25 70%,#FFFFFF 96%)}
+.cfh-sh1{left:9%;top:120px;animation:cfh-shoot-1 13s linear 5s infinite}
+.cfh-sh2{left:88%;top:210px;animation:cfh-shoot-2 19s linear 12s infinite}
+@keyframes cfh-twinkle{0%,100%{opacity:1}50%{opacity:.45}}
+@keyframes cfh-shoot-1{0%{opacity:0;transform:translate(0,0) rotate(20deg) scaleX(.3)}1%{opacity:1}6%{opacity:1;transform:translate(360px,131px) rotate(20deg) scaleX(1)}8%,100%{opacity:0;transform:translate(470px,171px) rotate(20deg) scaleX(.6)}}
+@keyframes cfh-shoot-2{0%{opacity:0;transform:translate(0,0) rotate(160deg) scaleX(.3)}1%{opacity:1}5%{opacity:1;transform:translate(-330px,120px) rotate(160deg) scaleX(1)}7%,100%{opacity:0;transform:translate(-430px,157px) rotate(160deg) scaleX(.6)}}
+
+/* one moment on load; data-run flips between a and b to play it again, so each animation has a twin */
+@keyframes cfh-in-a{from{opacity:0;transform:translate(calc(var(--x) * var(--kx) * 1.3),calc(var(--y) * var(--ky) * 1.3)) scale(calc(var(--sc) * .45)) rotate(var(--r))}to{opacity:1;transform:translate(calc(var(--x) * var(--kx)),calc(var(--y) * var(--ky))) scale(var(--sc)) rotate(var(--r))}}
+@keyframes cfh-in-b{from{opacity:0;transform:translate(calc(var(--x) * var(--kx) * 1.3),calc(var(--y) * var(--ky) * 1.3)) scale(calc(var(--sc) * .45)) rotate(var(--r))}to{opacity:1;transform:translate(calc(var(--x) * var(--kx)),calc(var(--y) * var(--ky))) scale(var(--sc)) rotate(var(--r))}}
+@keyframes cfh-gather-a{0%{opacity:1;transform:translate(calc(var(--x) * var(--kx)),calc(var(--y) * var(--ky))) scale(var(--sc)) rotate(var(--r))}70%{opacity:1}100%{opacity:0;transform:translate(0px,0px) scale(.05) rotate(0deg)}}
+@keyframes cfh-gather-b{0%{opacity:1;transform:translate(calc(var(--x) * var(--kx)),calc(var(--y) * var(--ky))) scale(var(--sc)) rotate(var(--r))}70%{opacity:1}100%{opacity:0;transform:translate(0px,0px) scale(.05) rotate(0deg)}}
+@keyframes cfh-pulse-a{0%{opacity:1;transform:scale(.15)}100%{opacity:0;transform:scale(6)}}
+@keyframes cfh-pulse-b{0%{opacity:1;transform:scale(.15)}100%{opacity:0;transform:scale(6)}}
+@keyframes cfh-rise-a{from{opacity:0;transform:translateY(22px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes cfh-rise-b{from{opacity:0;transform:translateY(22px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes cfh-stars-a{from{opacity:0}to{opacity:1}}
+@keyframes cfh-stars-b{from{opacity:0}to{opacity:1}}
+[data-run="a"] .cfh-t{animation:cfh-in-a .5s cubic-bezier(.2,.9,.25,1) var(--d) both,cfh-gather-a .8s cubic-bezier(.76,0,.24,1) calc(1.55s + var(--g)) forwards}
+[data-run="b"] .cfh-t{animation:cfh-in-b .5s cubic-bezier(.2,.9,.25,1) var(--d) both,cfh-gather-b .8s cubic-bezier(.76,0,.24,1) calc(1.55s + var(--g)) forwards}
+[data-run="a"] .cfh-pulse{animation:cfh-pulse-a .9s cubic-bezier(.1,.7,.3,1) var(--pd,2.3s) both}
+[data-run="b"] .cfh-pulse{animation:cfh-pulse-b .9s cubic-bezier(.1,.7,.3,1) var(--pd,2.3s) both}
+[data-run="a"] .cfh-late{animation:cfh-rise-a .65s cubic-bezier(.2,.9,.25,1) var(--ld,2.4s) both}
+[data-run="b"] .cfh-late{animation:cfh-rise-b .65s cubic-bezier(.2,.9,.25,1) var(--ld,2.4s) both}
+[data-run="a"] .cfh-stars{animation:cfh-stars-a 1.6s ease-out 2.1s both}
+[data-run="b"] .cfh-stars{animation:cfh-stars-b 1.6s ease-out 2.1s both}
+
+/* ------------------------------------------------------------------ the feature rows */
+.cfm{overflow:hidden;padding:var(--s6) 0 var(--s2)}
+.cfm-row{display:flex;width:max-content;animation:cfm-left 70s linear infinite}
+.cfm-row+.cfm-row{margin-top:12px;animation-name:cfm-right;animation-duration:84s}
+.cfm:hover .cfm-row{animation-play-state:paused}
+.cfm ul{display:flex;gap:12px;margin:0;padding:0 12px 0 0;list-style:none}
+.cfm li{display:inline-flex;align-items:center;gap:10px;height:52px;padding:0 20px;border:1px solid var(--line);border-radius:14px;background:var(--v2-raise);color:var(--ink);font-size:16px;font-weight:500;white-space:nowrap}
+.cfm svg{flex:none;width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+@keyframes cfm-left{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes cfm-right{from{transform:translateX(-50%)}to{transform:translateX(0)}}
+.cfh+.cfm+.lv-ratewrap .lv-rates{margin-top:var(--s6)}
+
+/* the closing band */
+[data-ui="v2"] .lv-end.cfh-end{margin:var(--s8) var(--s4) 0;border:0;border-radius:28px;background:#000000;color:#FFFFFF}
+[data-ui="v2"] .lv-end.cfh-end h2{color:#FFFFFF}
+.lv-end.cfh-end p{color:#B4B4B4}
+[data-ui="v2"] .lv-end.cfh-end .btn{background:#BDFA25;color:#141414}
+[data-ui="v2"] .lv-end.cfh-end .btn:hover{background:#D7FF7A}
+
+@media (max-width:720px){
+  .cfh{padding-left:var(--s2);padding-right:var(--s2)}
+  .cfh-copy{padding:88px 16px 72px;gap:22px}
+  .cfh-copy .lv-lede{font-size:17px}
+  .cfm li{height:46px;padding:0 16px;font-size:15px}
+}
+@media (prefers-reduced-motion:reduce){
+  .cfh-t,.cfh-pulse{animation:none!important;opacity:0!important}
+  .cfh-late{animation:none!important}
+  .cfh-stars{animation:none!important;opacity:1!important}
+  .cfh-sl{animation:none!important;transition:none!important}
+  .cfh-shoot{display:none!important}
+  .cfm-row{animation:none!important;width:auto;flex-wrap:wrap;justify-content:center;padding:0 var(--s4)}
+  .cfm ul{flex-wrap:wrap;justify-content:center;padding:0}
+  .cfm ul[aria-hidden]{display:none}
+}
