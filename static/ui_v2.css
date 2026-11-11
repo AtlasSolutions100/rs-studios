@@ -1038,3 +1038,52 @@ html[data-ui="v2"]:root{--v2-pop:#BDFA25;--v2-pop-hover:#CDFF52;--v2-pop-ink:#14
 .ld-ch form label{font-size:12px;color:var(--muted)}
 .ld-ch form textarea{resize:vertical}
 @media (max-width:1180px){.ld.has-open{grid-template-columns:minmax(0,1fr)}.ld-open{position:static}}
+
+/* ================================================================ the brand brief (web/v2/onboard_brief.html)
+   Cards that show what the app holds about the business; each opens in place to fix it. */
+.ob.ob-wide{max-width:1040px}
+[data-ui="v2"] .ob.ob-wide h1{font:600 28px/1.2 var(--display);letter-spacing:-.02em;margin:0 0 var(--s2);text-align:left}
+[data-ui="v2"] .ob.ob-wide .ob-sub{text-align:left;margin:0 0 var(--s5);max-width:68ch}
+.ob-wide .btn:not(.dark):not(.sm){background:var(--v2-spark);color:var(--v2-spark-ink);border-color:rgba(20,20,20,.28)}
+.ob-wide .btn:not(.dark):not(.sm):hover{background:#CDFF52}
+.bb-start{max-width:620px;margin:0 auto}
+.bb-link label{display:block;margin:0 0 6px;font-size:13px;color:var(--muted)}
+.bb-linkrow{display:flex;gap:var(--s2);flex-wrap:wrap}
+.bb-linkrow input{flex:1 1 260px;min-width:0;min-height:44px}
+.bb-linkrow .btn{min-height:44px}
+.bb-will{margin:var(--s5) 0;padding:0 0 0 18px;color:var(--muted);font-size:14px;display:grid;gap:6px}
+.bb-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s4);align-items:start}
+.bb-card{display:flex;flex-direction:column;gap:var(--s2);padding:var(--s5);border:1px solid var(--line);border-radius:var(--r-lg);background:var(--panel);min-width:0;overflow-wrap:anywhere}
+.bb-card h2{margin:0;font:600 13px/1.4 var(--body);color:var(--muted)}
+.bb-card p{margin:0;font-size:14.5px;line-height:1.5}
+.bb-card .bb-main{font-size:17px;font-weight:600;line-height:1.35}
+.bb-none{color:var(--dim)}
+.bb-note{font-size:13px;color:var(--dim)}
+.bb-label{font-size:13px;color:var(--muted)}
+.bb-claims{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.bb-claims li{padding:8px 10px;border-radius:var(--r-sm);background:var(--v2-sunk);font-size:14px}
+.bb-pending{display:flex;flex-direction:column;gap:var(--s2);padding:var(--s3);border:1px dashed var(--v2-line2);border-radius:var(--r-md)}
+.bb-tick{display:flex;gap:10px;align-items:flex-start;min-height:32px;font-size:14px;cursor:pointer}
+.bb-tick input{margin-top:3px;width:18px;height:18px;flex:none;accent-color:#4A7400}
+.bb-edit{margin-top:var(--s1)}
+.bb-edit summary{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border:1px solid var(--v2-line2);border-radius:999px;font:500 13px var(--body);cursor:pointer;list-style:none}
+.bb-edit summary::-webkit-details-marker{display:none}
+.bb-edit summary:hover{background:var(--hover)}
+.bb-edit summary:focus-visible{outline:2px solid var(--v2-focus);outline-offset:2px}
+.bb-edit[open] summary{background:var(--v2-sunk)}
+.bb-edit form{display:flex;flex-direction:column;gap:6px;margin-top:var(--s3)}
+.bb-edit form label{font-size:13px;color:var(--muted);margin-top:4px}
+.bb-edit form .btn,.bb-pending .btn{align-self:flex-start;margin-top:var(--s2)}
+.bb-two{display:grid;grid-template-columns:1fr 2fr;gap:var(--s3)}
+.bb-swatches{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.bb-swatches i{width:18px;height:18px;border-radius:50%;border:1px solid var(--v2-line2)}
+.bb-angles{grid-column:1 / -1}
+.bb-anglelist{margin:var(--s2) 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:var(--s3)}
+.bb-anglelist li{display:flex;flex-direction:column;gap:4px;padding:var(--s3);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:inset 3px 0 0 var(--v2-mark)}
+.bb-anglelist b{font-weight:600;font-size:15px}
+.bb-hook{font-size:14px}
+.bb-why{font-size:13px;color:var(--muted)}
+.bb-anglebtns{display:flex;gap:var(--s3);flex-wrap:wrap;align-items:flex-start;margin-top:var(--s2)}
+.bb-anglebtns .bb-edit{margin:0;flex:1 1 280px}
+.bb-done{display:flex;flex-direction:column;align-items:flex-start;gap:var(--s2);margin-top:var(--s5)}
+@media (max-width:760px){.bb-grid{grid-template-columns:minmax(0,1fr)}.bb-two{grid-template-columns:minmax(0,1fr)}}

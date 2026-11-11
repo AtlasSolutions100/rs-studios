@@ -635,6 +635,28 @@ ads, no real people. A clip with a person on screen (`presenter: true`) is label
 nothing until they are near the screen. Each needs a poster, a title (or preset), a caption and alt text, or the
 loader drops it. Files: H.264, 720x1280 or smaller, under 3 MB. Tests: `tests/test_showreel.py`.
 
+## The brand brief, the last onboarding step (`onboarding.brief`, `/app/welcome/brand`; behind `UI_V2`)
+
+After "What do you want to make?" and the profile (and the card step, when one is due), a new account lands on the
+brand brief. With no product yet it asks for a link and reads it with the free first-run importer (`app.start_import`:
+no AI read, throttled). Then it shows what the app holds, one card each, and every card opens in place to fix it:
+
+| Card | What it edits (and so what every prompt reads through `core.brand()`) |
+|---|---|
+| What you sell | the product's name, description, price, offer |
+| Who buys it, and why | the product's audience |
+| What you can say | the product's approved claims; claims the import found wait as ticks until the member approves them |
+| How you sound | the brand's tone and about (its colors and logo are left alone) |
+| How you look | read-only: photo count, logo, colors, with a link to the Brand screen |
+| The angles to test first | rows in `angles`: the member's own (free), or "Suggest five", which is Create's paid call |
+
+There is no separate store: a correction here changes the brief behind every ad, caption and email. "Suggest five"
+shows the most it can cost on the button (`creator.estimate_angles()`), holds that, and charges what the writing used
+(`core.reserve_ai`, `create_routes._settle`); it is not offered while AI writing is off. Everything else on the page is
+free. "Looks right. Open Studio" (or skip) marks the brief done; until then a visit to Studio comes back to it, while
+nothing has been made (`onboarding.brief_due`). The card page is never sent to the brief, because the brief sits behind
+the card step. Tests: `tests/test_brand_brief.py`.
+
 ## MCP server for Claude (`mcpserver.py`, `mcp_tools.py`, `/docs/mcp`)
 
 `MCP_SERVER=on` (default off) opens a remote MCP server at `/mcp` (Streamable HTTP, one JSON answer per POST,

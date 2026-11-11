@@ -239,6 +239,11 @@ check(r.status_code == 302 and u["name"] == "Dana Reyes" and ans.get("company") 
       and ans.get("website") == "https://hearth.example" and ans.get("goals") == ["ugc", "image"],
       "the profile is stored: name on the member, company and website with the answers, goals kept")
 check(u["onboarded_at"], "the steps are finished")
+# the brand brief follows (tests/test_brand_brief.py): Studio waits for it until it is finished or skipped
+r2 = n.get("/app")
+check(r.headers["Location"].endswith("/app/welcome/brand") and r2.status_code == 302
+      and r2.headers["Location"].endswith("/app/welcome/brand"), "the profile step goes on to the brand brief, and Studio waits for it")
+check(n.post("/app/welcome/brand", data={"csrf": csrf(n), "do": "skip"}).status_code == 302, "the brief can be skipped")
 home = n.get("/app")
 hh = home.get_data(as_text=True)
 check(home.status_code == 200 and "data-cmp" in hh and "data-first-run" not in hh, "Home is now Studio, with the composer")

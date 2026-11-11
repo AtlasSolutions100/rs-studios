@@ -1,0 +1,121 @@
+{% extends "v2/onboard_base.html" %}{% block title %}Your brand · Campaignify{% endblock %}
+{% block ob_class %} ob-wide{% endblock %}
+{# The brand brief (onboarding.brief). Each card shows what the app holds and opens to edit it in place; what is saved
+   here is what every prompt reads (products.as_brief). Plain forms, no scripts. #}
+{% block ob %}
+{% if p is none %}
+<div class="bb-start">
+  <h1>Start with your link. I'll learn the business.</h1>
+  <p class="ob-sub">Paste your product page or your website. You see what was read before anything is made, and reading it costs nothing.</p>
+  <form method="post" action="{{ url_for('onboarding.brief') }}" class="bb-link">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="do" value="import">
+    <label for="bb-url">Your website or product page</label>
+    <div class="bb-linkrow"><input id="bb-url" type="text" name="url" maxlength="500" inputmode="url" autocomplete="url" required value="{{ website }}" placeholder="https://"><button class="btn">Read my page</button></div>
+  </form>
+  <ul class="bb-will">
+    <li>What you sell, the price and any offer on the page</li>
+    <li>Photos of the product</li>
+    <li>What the page says about it, for you to approve before any ad says it</li>
+  </ul>
+  <form method="post" action="{{ url_for('onboarding.brief') }}" class="ob-under"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <a class="ob-link" href="{{ url_for('onboarding.profile') }}">Back</a><button class="ob-link" name="do" value="skip">No website yet? Skip and add it by hand</button></form>
+</div>
+{% else %}
+<div class="bb-head">
+  <h1>Here is what I understood. Fix anything I got wrong.</h1>
+  <p class="ob-sub">{% if source %}Read from {{ source|replace('https://', '')|replace('http://', '')|truncate(60, True, '…') }}. {% endif %}Everything written for you starts from this, so a correction here improves every ad, caption and email.</p>
+</div>
+<div class="bb-grid">
+
+  <section class="bb-card" aria-labelledby="bb-sell">
+    <h2 id="bb-sell">What you sell</h2>
+    <p class="bb-main">{{ p.name }}{% if p.price %}, {{ p.price }}{% endif %}</p>
+    {% if p.description %}<p>{{ p.description }}</p>{% endif %}
+    <p class="{{ '' if p.offer else 'bb-none' }}">{{ 'Offer right now: ' ~ p.offer if p.offer else 'No offer on file. Ads never mention a discount you haven\'t stated.' }}</p>
+    <details class="bb-edit"><summary>Edit</summary>
+      <form method="post" action="{{ url_for('onboarding.brief') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="do" value="product">
+        <label for="bb-name">Name</label><input id="bb-name" type="text" name="name" maxlength="80" required value="{{ p.name }}">
+        <label for="bb-desc">What it is</label><textarea id="bb-desc" name="description" rows="3" maxlength="600">{{ p.description or '' }}</textarea>
+        <div class="bb-two"><div><label for="bb-price">Price</label><input id="bb-price" type="text" name="price" maxlength="60" value="{{ p.price or '' }}"></div>
+        <div><label for="bb-offer">Offer, if there is one</label><input id="bb-offer" type="text" name="offer" maxlength="200" value="{{ p.offer or '' }}" placeholder="For example: free shipping this week"></div></div>
+        <button class="btn dark">Save</button>
+      </form>
+    </details>
+  </section>
+
+  <section class="bb-card" aria-labelledby="bb-who">
+    <h2 id="bb-who">Who buys it, and why</h2>
+    <p class="{{ 'bb-main' if p.audience else 'bb-none' }}">{{ p.audience or 'Not said yet. One sentence in your own words is enough.' }}</p>
+    <details class="bb-edit" {{ 'open' if not p.audience }}><summary>{{ 'Edit' if p.audience else 'Add' }}</summary>
+      <form method="post" action="{{ url_for('onboarding.brief') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="do" value="product">
+        <label for="bb-aud">Who it is for</label><textarea id="bb-aud" name="audience" rows="3" maxlength="300" placeholder="For example: people who light a candle most evenings, and people buying a gift">{{ p.audience or '' }}</textarea>
+        <button class="btn dark">Save</button>
+      </form>
+    </details>
+  </section>
+
+  <section class="bb-card" aria-labelledby="bb-say">
+    <h2 id="bb-say">What you can say</h2>
+    {% if claims %}<ul class="bb-claims">{% for c in claims %}<li>{{ c }}</li>{% endfor %}</ul>
+    {% else %}<p class="bb-none">Nothing approved yet. Ads describe the product without making claims until you add some.</p>{% endif %}
+    {% if pending %}
+    <form method="post" action="{{ url_for('onboarding.brief') }}" class="bb-pending"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="do" value="claims">
+      <p class="bb-label" id="bb-found">Found on your page. Tick the ones that are true.</p>
+      <div role="group" aria-labelledby="bb-found">{% for c in pending %}<label class="bb-tick"><input type="checkbox" name="pick" value="{{ loop.index0 }}"><span>{{ c }}</span></label>{% endfor %}</div>
+      <button class="btn dark">Add the ticked ones</button>
+    </form>{% endif %}
+    <details class="bb-edit"><summary>{{ 'Edit' if claims else 'Add' }}</summary>
+      <form method="post" action="{{ url_for('onboarding.brief') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="do" value="product">
+        <label for="bb-claims">One per line, only what is true and you can show</label><textarea id="bb-claims" name="claims" rows="4" maxlength="2000">{{ p.claims or '' }}</textarea>
+        <button class="btn dark">Save</button>
+      </form>
+    </details>
+    <p class="bb-note">Nothing else gets said about it: no health or mood claims, and no discount you haven't stated.</p>
+  </section>
+
+  <section class="bb-card" aria-labelledby="bb-sound">
+    <h2 id="bb-sound">How you sound</h2>
+    <p class="{{ 'bb-main' if b and b.tone else 'bb-none' }}">{{ (b.tone if b else '') or 'Not said yet. A few words: calm and warm, or blunt and funny.' }}</p>
+    {% if b and b.about %}<p>{{ b.about }}</p>{% endif %}
+    {% if b %}<details class="bb-edit" {{ 'open' if not b.tone }}><summary>{{ 'Edit' if b.tone else 'Add' }}</summary>
+      <form method="post" action="{{ url_for('onboarding.brief') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="do" value="brand">
+        <label for="bb-tone">The voice, in a few words</label><input id="bb-tone" type="text" name="tone" maxlength="80" value="{{ b.tone or '' }}" placeholder="Calm, warm, a little dry">
+        <label for="bb-about">About {{ b.brand_name or 'the brand' }}</label><textarea id="bb-about" name="about" rows="3" maxlength="600">{{ b.about or '' }}</textarea>
+        <button class="btn dark">Save</button>
+      </form>
+    </details>{% endif %}
+  </section>
+
+  <section class="bb-card" aria-labelledby="bb-look">
+    <h2 id="bb-look">How you look</h2>
+    <p class="{{ 'bb-main' if photos else 'bb-none' }}">{{ photos }} product photo{{ '' if photos == 1 else 's' }}{{ ', and your logo' if b and b.kit_logo else '' }}.</p>
+    {% if b and (b.kit_primary or b.kit_accent) %}<p class="bb-swatches" aria-label="Brand colors">{% for col in (b.kit_primary, b.kit_accent) if col %}<i style="background:{{ col }}"></i><span>{{ col }}</span>{% endfor %}</p>{% endif %}
+    <p><a href="{{ url_for('studio_v2.brand') }}">Add photos, a logo or your colors</a></p>
+  </section>
+
+  <section class="bb-card bb-angles" id="angles" aria-labelledby="bb-ang">
+    <h2 id="bb-ang">The angles to test first</h2>
+    <p>An angle is the reason someone buys. Each one becomes the brief behind your ads, captions and emails.</p>
+    {% if angles %}<ul class="bb-anglelist">{% for a in angles %}<li><b>{{ a.title }}</b>{% if a.hook %}<span class="bb-hook">{{ a.hook }}</span>{% endif %}{% if a.insight %}<span class="bb-why">{{ a.insight }}</span>{% endif %}</li>{% endfor %}</ul>
+    {% else %}<p class="bb-none">None yet.</p>{% endif %}
+    <div class="bb-anglebtns">
+      {% if angle_price %}<form method="post" action="{{ url_for('onboarding.brief') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <button class="btn dark" name="do" value="angles">Suggest five · up to {{ angle_price }} credit{{ '' if angle_price == 1 else 's' }}</button></form>{% endif %}
+      <details class="bb-edit"><summary>Add your own angle</summary>
+        <form method="post" action="{{ url_for('onboarding.brief') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="do" value="angle">
+          <label for="bb-at">The reason, in a few words</label><input id="bb-at" type="text" name="title" maxlength="80" required placeholder="The easy gift">
+          <label for="bb-ah">A line that says it</label><input id="bb-ah" type="text" name="hook" maxlength="240" placeholder="For the person who has everything.">
+          <button class="btn dark">Add angle</button>
+        </form>
+      </details>
+    </div>
+    {% if angle_price %}<p class="bb-note">Suggesting angles is the one step here that costs credits. You are charged what the writing used, never more than the price on the button.</p>{% endif %}
+  </section>
+</div>
+
+<form method="post" action="{{ url_for('onboarding.brief') }}" class="bb-done"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <button class="btn lg" name="do" value="done">Looks right. Open Studio</button>
+  <p class="bb-note">You can change any of this later under Brand and Products.</p>
+</form>
+{% endif %}
+{% endblock %}
