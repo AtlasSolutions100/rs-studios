@@ -62,6 +62,36 @@ its own (plan credits expire, pack credits stay).
 Brands (`brands` table; the workspace's brand columns mirror the active brand) and seats (Team page, owner-made invite
 links) are capped per plan server-side; Scale jobs get queue priority.
 
+## The Stripe account (`stripe_setup.py`, `STRIPE_SETUP`)
+
+Campaignify can run on its own Stripe account, so checkout, receipts and card statements say Campaignify. Moving it
+is two secrets and one webhook endpoint; the app does the rest:
+
+1. In the new account: finish activation, set the public business name and statement descriptor, and add a webhook
+   endpoint at `https://campaignify.ai/webhooks/stripe` for `checkout.session.completed`,
+   `checkout.session.async_payment_succeeded`, `invoice.paid`, `customer.subscription.created`,
+   `customer.subscription.updated`, `customer.subscription.deleted`, `charge.refunded`, `charge.dispute.created`
+   and `charge.dispute.closed`.
+2. Set the repo secrets `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to the new account's, and deploy.
+
+At start-up each process asks Stripe which account and mode its key is for and settles every id there: the configured
+one (`liveids.py`) if it exists in that account, else the price under our lookup key (`campaignify_plan_<code>_month`,
+`campaignify_pack_<code>`), else it creates the product and price with the amounts in `plans.PLANS` and
+`catalog.PACKS`, and a Billing Portal configuration like the original. The result is kept in `meta["stripe_setup"]`
+and applied to `plans.PLANS`, `plans.BY_PRICE`, `catalog.PACKS` and `billing.PORTAL_CONFIG`. In the account the
+configured ids already live in, nothing is created. Existing prices are never edited; a changed amount gets a new
+price. `/health` shows `billing_setup`: `off`, `pending`, `ok`, `ok, portal not set` or `error`.
+`STRIPE_SETUP` is `1` in deploy.yml (set the repo variable to `0` to switch it off) and off in code.
+
+What does not move: customers, saved cards and subscriptions stay in the old account. A workspace's old customer or
+subscription id is set aside (`workspaces.stripe_old_json`) the first time Stripe says it doesn't know it, at plan
+checkout, the card step, the portal or the hourly plan sync, and the workspace starts fresh. Cancel old
+subscriptions in the old account before the switch (its webhook then sets those workspaces back to Free), and remove
+the old account's Campaignify webhook endpoint afterwards. Discount codes are per account: remake any still in use,
+tagged `app=campaignify`.
+
+Tests: `tests/test_stripe_setup.py`.
+
 ## AI writing (copy studio, optimizer, later the planner and SEO)
 
 `llm.py` talks to Anthropic's Messages API (`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, default `claude-sonnet-4-6`) with an
