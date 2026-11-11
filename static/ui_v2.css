@@ -1211,8 +1211,14 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 .dk-brand-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
 .dk-brand-top a{font-size:13px;color:var(--muted)}
 .dk-brand-src{margin:0;font-size:13px;color:var(--muted)}
-.dk-kit{display:flex;gap:8px}
-.dk-kit span{flex:1;height:36px;border-radius:8px;border:1px solid var(--line)}
+.dk-kit{display:flex;gap:8px;align-items:center}
+.dk-kit img{height:36px;max-width:96px;object-fit:contain;border-radius:6px;background:#fff;padding:3px;border:1px solid var(--line)}
+.dk-kit-colors{display:flex;gap:8px;flex:1}
+.dk-kit-colors span{flex:1;height:36px;border-radius:8px;border:1px solid var(--line)}
+.dk-market .btn{align-self:flex-start;margin:4px 0 10px}
+.dk-rival{margin:0;min-height:44px;display:flex;align-items:center;border-top:1px solid var(--line);font-size:14px}
+.dk-angle{margin:0;padding:10px 0 6px;border-top:1px solid var(--line);font-size:14px;display:flex;flex-direction:column;gap:2px}
+.dk-angle span{font-size:12.5px;color:var(--muted)}
 .dk-brand dl{display:flex;flex-direction:column;gap:10px;margin:0;font-size:14px}
 .dk-brand dt{font-size:12.5px;color:var(--muted)}
 .dk-brand dd{margin:0;overflow-wrap:anywhere}

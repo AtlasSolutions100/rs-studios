@@ -731,7 +731,13 @@ def _brand_ctx(conn, ws, product) -> dict:
     brief = products.as_brief(b, product, ws)
     keys = b.keys() if b is not None else []
     kit = [c for c in (textlayer.clean_hex(b[k] or "") if k in keys else "" for k in ("kit_primary", "kit_accent")) if c]
-    return {"brief": brief, "kit": kit, "website": brief.get("website") or brief.get("url") or ""}
+    import os
+
+    import brand_identity
+    logo = url_for("products.brand_logo", bid=b["id"]) if (b is not None and "kit_logo" in keys and b["kit_logo"]
+                                                           and os.path.exists(b["kit_logo"])) else ""
+    return {"brief": brief, "kit": kit, "website": brief.get("website") or brief.get("url") or "", "logo": logo,
+            "market": brand_identity.panel(conn, ws, b)}
 
 
 @bp.route("/app/desk")

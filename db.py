@@ -895,6 +895,8 @@ COLUMNS = [
     ("workspaces", "pipeline_json", "TEXT"),
     ("workspaces", "stripe_old_json", "TEXT"),   # ids from another Stripe account, set aside (stripe_setup.forget)
     ("desk_runs", "thread_id", "INTEGER"),          # the conversation a desk run belongs to (desk_threads)
+    ("brands", "rivals_json", "TEXT"),              # competitors found at import: [{name, website, why, sources}]
+    ("brands", "enrich_json", "TEXT"),              # the last reading of the brand's site (brand_identity.py)
     ("contacts", "phone_e164", "TEXT"),
     ("contacts", "timezone", "TEXT"),
     ("contacts", "email_consent", "TEXT NOT NULL DEFAULT 'none'"),

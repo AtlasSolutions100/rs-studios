@@ -3,7 +3,7 @@
 <section class="dk-brand" aria-labelledby="dk-brand-h">
   <div class="dk-brand-top"><h2 id="dk-brand-h">Your brand</h2><a href="{{ url_for('onboarding.brief') }}">Edit</a></div>
   <p class="dk-brand-src">{% if website %}Read from {{ website|replace('https://', '')|replace('http://', '')|replace('www.', '')|truncate(40, true) }}. {% endif %}Every ad, page and email starts from this.</p>
-  {% if kit %}<div class="dk-kit" role="img" aria-label="Brand colours">{% for c in kit %}<span style="background:{{ c }}"></span>{% endfor %}</div>{% endif %}
+  {% if logo or kit %}<div class="dk-kit">{% if logo %}<img src="{{ logo }}" alt="{{ brief.name }} logo">{% endif %}{% if kit %}<span class="dk-kit-colors" role="img" aria-label="Brand colours">{% for c in kit %}<span style="background:{{ c }}"></span>{% endfor %}</span>{% endif %}</div>{% endif %}
   <dl>
     <div><dt>Brand</dt><dd>{{ brief.name }}</dd></div>
     {% if brief.tone %}<div><dt>Voice</dt><dd>{{ brief.tone }}</dd></div>{% endif %}
@@ -12,4 +12,20 @@
     {% if brief.audience %}<div><dt>Who it's for</dt><dd>{{ brief.audience|truncate(160) }}</dd></div>{% endif %}
   </dl>
 </section>
+{% if market.reading or market.rivals or market.report or market.running %}
+<section class="dk-now dk-market" aria-labelledby="dk-mkt-h">
+  <h2 id="dk-mkt-h">Who you're up against</h2>
+  {% if market.reading and not market.rivals %}<p class="dk-brand-src" role="status">Reading your site and finding your competitors. This takes a minute or two.</p>{% endif %}
+  {% for r in market.rivals %}{% if r.website %}<a href="{{ r.website }}" target="_blank" rel="noopener noreferrer"><span>{{ r.name }}</span><span aria-hidden="true">Site</span></a>{% else %}<p class="dk-rival">{{ r.name }}</p>{% endif %}{% endfor %}
+  {% if market.report %}
+    {% if market.angle %}<p class="dk-angle"><span>An angle to test</span>{{ market.angle }}</p>
+    <button type="button" class="btn dark sm" data-try="A campaign for {{ product.name }} that leads with {{ market.angle }}">Plan a campaign on it</button>{% endif %}
+    <a href="{{ url_for('competitors.show', rid=market.report) }}"><span>The full research</span><span aria-hidden="true">Open</span></a>
+  {% elif market.running %}
+    <p class="dk-brand-src" role="status">Researching their offers and angles. It will be here when it's done.</p>
+  {% elif market.rivals %}
+    <a href="{{ url_for('competitors.index') }}"><span>Research their offers and angles</span><span aria-hidden="true">See the price</span></a>
+  {% endif %}
+</section>
+{% endif %}
 {% endif %}
