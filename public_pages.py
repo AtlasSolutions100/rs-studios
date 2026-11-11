@@ -520,8 +520,7 @@ SOLUTIONS = {
             ("Where do my courses live?",
              "On Scale, at campaignify.ai/c/your-community, with lessons that can use video from your library, "
              "YouTube, Vimeo or Loom."),
-            ("Does it post or run my ads?",
-             "No. You launch the ads yourself in each platform's ads manager."),
+            ("Does it post or run my ads?", "{runs_short}"),
             _TRY,
         ],
         "related": ["ftc-meta-rules-for-ai-ads", "ugc-ad-hooks", "predis-ai-alternative"],
@@ -845,8 +844,7 @@ SOLUTIONS = {
         "h2": {"how": "How the AI Facebook ad generator works", "gets": "What the AI Facebook ad generator gives you",
                "faq": "AI Facebook ad generator questions"},
         "faq": [
-            ("Does Campaignify publish to Facebook?", "No. It makes the ads and the copy. You upload and launch them in "
-                                                      "Meta Ads Manager, and your ad spend stays there."),
+            ("Does Campaignify publish to Facebook?", "{runs_short} Your ad spend stays in your own ad account."),
             ("Do the ads work for Instagram too?", "Yes. The feed, story and Reels sizes are the same placements Meta "
                                                    "uses across Facebook and Instagram."),
             ("Will Meta approve AI-made ads?",

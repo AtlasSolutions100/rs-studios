@@ -54,6 +54,58 @@ def card_terms(card: bool | None = None) -> dict:
             "nothing_charged_lc": "nothing charged", "with_nothing_charged": "with nothing charged", "one_trial": ""}
 
 
+# ---------------------------------------------------------------- "does it run my ads": one answer, kept true by the flag
+# Launching into a member's own ad account (launches.py: the campaign is created switched off, the member turns it on)
+# sits behind AD_LAUNCH. The public pages say what is true for everyone today: while it is not open to every workspace
+# they say you launch in the ads manager and that launching from Campaignify is coming; once AD_LAUNCH is "on" and the
+# Meta app is set up they say yes. Nobody has to remember to edit the copy when the flag changes.
+
+def launch_live() -> bool:
+    try:
+        import adplatforms
+        return adplatforms.mode() == "on" and bool(adplatforms.adapter("meta").configured())
+    except Exception:  # noqa: BLE001
+        return False
+
+
+RUNS = {
+    False: {
+        "runs": "You launch them, and Campaignify does the work on both sides of that. Before: it plans the campaign, "
+                "makes the ads, writes the copy, walks you through setting up each ad account and exports every ad at "
+                "that platform's sizes, so going live in the ads manager takes minutes. After: your pages, forms, "
+                "leads and follow-up run here. Your ad spend stays in your own ad account. Launching straight into "
+                "your ad accounts from Campaignify is coming soon, starting with Meta: the campaign is created "
+                "switched off and you turn it on.",
+        "runs_short": "You launch them in each platform's ads manager, with every ad exported at that platform's sizes "
+                      "and a setup guide for each account. Launching into your ad accounts straight from Campaignify "
+                      "is coming soon, starting with Meta.",
+        "limits_run": "It doesn't buy media or read results from the ad platforms. Launching into your ad accounts "
+                      "from Campaignify is coming soon, starting with Meta; until then you launch in each platform's "
+                      "ads manager.",
+        "results": "Results from the ad platforms themselves stay in each platform's ads manager for now; they come to "
+                   "Campaignify with ad-account launching.",
+    },
+    True: {
+        "runs": "Yes, on Meta to start. On a paid plan, connect your ad account and Campaignify creates the campaign "
+                "there from your plan, with your ads and copy in place and switched off. You look it over and switch "
+                "it on, and you can pause it or change its budget from Campaignify. Your ad spend stays in your own ad "
+                "account. For the other platforms it walks you through setup and exports every ad at that platform's "
+                "sizes. Posting for you is next.",
+        "runs_short": "On Meta, yes: on a paid plan Campaignify creates the campaign in your ad account, switched off, "
+                      "and you turn it on. On other platforms you launch in the ads manager, with every ad exported at "
+                      "that platform's sizes.",
+        "limits_run": "It doesn't buy media: your ad spend stays in your own ad account. It creates Meta campaigns for "
+                      "you, switched off; on other platforms you launch in the ads manager.",
+        "results": "Campaigns you launch from Campaignify show their results from the ad platform here too. For "
+                   "anything you launch yourself, see each platform's ads manager.",
+    },
+}
+
+
+def runs() -> dict:
+    return RUNS[launch_live()]
+
+
 def facts() -> dict:
     """Live numbers for the copy (str.format keys)."""
     r, sc = catalog.rates(), catalog.starter_credits()
@@ -61,7 +113,7 @@ def facts() -> dict:
     names = [platforms.PLATFORMS[k]["name"] for k in platforms.ORDER if k not in ("email", "landing")]
     talk = catalog.TOOLS["ugc_video"]
     # Costs are quoted in credits only; dollars appear only for plan and pack prices.
-    return {"talk8": f"{r['talk8']:,}", "talk10": f"{r['talk10']:,}", "image": r["image"],
+    return {**runs(), "talk8": f"{r['talk8']:,}", "talk10": f"{r['talk10']:,}", "image": r["image"],
             "video5": f"{r['video5']:,}", "video10": f"{r['video10']:,}",
             "sc": f"{sc:,}", "sc_images": sc // max(r["image"], 1),
             "starter_usd": p["starter"]["usd"], "growth_usd": p["growth"]["usd"], "scale_usd": p["scale"]["usd"],
@@ -152,10 +204,7 @@ def _fmt(items, f):
 # ---------------------------------------------------------------- FAQs shown on the home page and /pricing
 
 HOME_FAQ = [
-    ("Does Campaignify post or run my ads?",
-     "No. It plans the campaign, makes the ads, writes the copy and walks you through setting up each ad account, "
-     "then exports every ad at that platform's sizes. You upload and launch them in the platform's own ads manager, "
-     "and your ad spend stays there too."),
+    ("Does Campaignify post or run my ads?", "{runs}"),
     ("Can it make video ads with a presenter?",
      "Yes. Pick one of {presenters} AI presenters, write what they say, and you get a selfie-style video with your "
      "product in it. There are also voiceover videos, unboxing and hands-only videos, and product videos with no "
@@ -163,8 +212,7 @@ HOME_FAQ = [
     ("Can I see how my campaign is doing?",
      "For what you run on Campaignify, yes: clicks on your smart links (per day, referrer, country, device and UTM "
      "source), views on your pages and submissions to your forms. Every lead sits on a leads board by stage, with "
-     "its full history, and you can email or text a lead from there. Campaignify doesn't read results from the ad "
-     "platforms; see those in each platform's ads manager."),
+     "its full history, and you can email or text a lead from there. {results}"),
     ("Which plan do I need?",
      "The free studio makes ads with your starter credits and credit packs. Starter adds the AI campaign planner, "
      "copy studio, ad-account setup hub, one landing page and smart links. Growth adds the SEO, AEO & GEO optimizer, "
@@ -205,7 +253,7 @@ PRICING_FAQ_QS = ("Do I need a subscription?", "Which plan do I need?", "Do unus
 
 
 def home_faq():
-    r = dict(catalog.rates(), presenters=presenter_count())
+    r = dict(catalog.rates(), presenters=presenter_count(), **runs())
     return [(q, a.format(**r)) for q, a in HOME_FAQ]
 
 
@@ -539,9 +587,7 @@ SOLUTIONS = {
         ],
         "faq": [
             ("Does Campaignify post or run my ads?",
-             "No. You download or export each ad at the platform's sizes and launch it yourself in that platform's "
-             "ads manager, where your ad spend and results stay. Campaignify's own analytics cover the pages, smart "
-             "links and forms you run on it."),
+             "{runs_short} Campaignify's own analytics cover the pages, smart links and forms you run on it."),
             ("How much does it cost for a small business?",
              "Free sign-up includes {sc} credits, enough for {sc_images} image ads, {with_nothing_charged}. Plans are "
              "${starter_usd}, ${growth_usd} and ${scale_usd} a month. Each ad has a price in credits shown before you "
@@ -624,7 +670,7 @@ SOLUTIONS = {
         "limits": [
             "It makes AI presenters only; it doesn't book or film real creators.",
             "A talking video is at most {talk_max} seconds long.",
-            "It doesn't buy media, post ads or read results from the ad platforms.",
+            "{limits_run}",
         ],
         "media": [("site/ugc-serum.jpg", "An AI presenter in a bright bathroom shows a face serum."),
                   ("site/show-pastel.jpg", "A coffee bag among floating pastel cubes on a white pedestal."),
@@ -712,7 +758,7 @@ SOLUTIONS = {
         "limits": [
             "It makes AI presenters only; it doesn't book or film real creators.",
             "A talking video is at most {talk_max} seconds long.",
-            "It doesn't buy media, post ads or read results from the ad platforms.",
+            "{limits_run}",
         ],
         "media": [("site/ugc-bakery.jpg", "An AI presenter behind a bakery counter shows a tray of croissants."),
                   ("site/show-y2k.jpg", "A coffee bag on denim among chains, charms and a pink flip phone."),
