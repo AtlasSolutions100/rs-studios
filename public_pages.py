@@ -12,6 +12,8 @@ Same rules as public_site.py, which merges these in:
 - AI presenters are always called AI presenters. Digits for numbers, no long
   dashes, and every page opens with a direct answer.
 """
+from copyswitch import P
+
 
 AS_OF = "2026-11-04"
 AS_OF_LABEL = "Nov 4, 2026"
@@ -59,11 +61,10 @@ _NOT_AFFILIATED = ("No. Campaignify is an independent product. {name} is a trade
                    "this page are from the pages listed under the table, as listed on Nov 4, 2026; check their site "
                    "for today's terms.")
 _TRY = ("Can I try Campaignify before I pay?",
-        "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, {with_nothing_charged} and no trial that "
-        "renews.{one_trial} Buy a credit pack or pick a plan only when you want more.")
+        "Yes. {new_account_gets}, enough for {sc_images} image ads, {with_nothing_charged}{and_no_trial_renews}.{one_trial} {try_tail_more}")
 _CANCEL = ("How do I cancel a Campaignify plan?",
            "From Billing in the app: press Manage or cancel plan. The plan stays on until the end of the month you've "
-           "paid for. Pack credits and the free starter credits never expire.")
+           "paid for. {packs_never_expire}.")
 _LIMITS = [
     "It makes AI presenters only; it doesn't book or film real creators.",
     "A talking video is at most {talk_max} seconds long.",
@@ -79,14 +80,14 @@ SOLUTIONS = {
         "nav": "Blaze alternative",
         "title": "Blaze Alternative With AI Presenter Ads · Campaignify",
         "description": "Comparing Blaze alternatives? Campaignify adds UGC-style AI presenter videos to ads, copy, "
-                       "pages, forms and follow-up flows. {sc_images} image ads free.",
+                       "pages, forms and follow-up flows. {ads_free}.",
         "eyebrow": "Comparing tools",
         "h1": "Campaignify is a Blaze alternative that adds AI presenter video ads to the rest of your marketing",
         "answer": "Campaignify and Blaze both cover more than ads: planning, copy, SEO, landing pages and follow-up. "
                   "The main difference is video. Campaignify makes UGC-style video ads with AI presenters who hold "
                   "your product and say a script, and AI presenter video was not listed on the Blaze pages read on "
                   "Nov 4, 2026. Blaze lists post publishing and automated ad campaigns; Campaignify doesn't post or run ads. "
-                  "Free sign-up includes {sc_images} image ads, {with_nothing_charged}.",
+                  "{signup_includes} {sc_images} image ads, {with_nothing_charged}.",
         "steps": [
             ("Paste a product page",
              "Campaignify reads the product's name, description, price and photos from its page. You approve the "
@@ -108,8 +109,7 @@ SOLUTIONS = {
             "rows": [
                 ("Trying it",
                  "A 7-day free trial, \"No credit card required\" (as listed on Nov 4, 2026).",
-                 "{signup_charge}, and the free credits have no end date: {sc} credits ({sc_images} image ads).{one_trial} "
-                 "Nothing starts billing by itself."),
+                 "{trying_no_end}"),
                 ("Plans",
                  "Starter $79 a month (600 generation credits, 3 posting accounts, automated ad campaigns), Growth "
                  "$149 a month (1,500 credits, unlimited users) and a managed All-In-One tier at $999 a month, as "
@@ -169,14 +169,18 @@ SOLUTIONS = {
     "predis-ai-alternative": {
         "query": "Predis.ai alternative",
         "nav": "Predis.ai alternative",
-        "title": "Predis.ai Alternative, Nothing Charged · Campaignify",
-        "description": "Comparing Predis.ai alternatives? Campaignify charges nothing at sign-up, prices each ad in "
-                       "credits first and adds pages, forms and follow-up flows.",
+        "title": P("Predis.ai Alternative, Nothing Charged · Campaignify",
+                   "Predis.ai Alternative, Every Ad Priced First · Campaignify"),
+        "description": P("Comparing Predis.ai alternatives? Campaignify charges nothing at sign-up, prices each ad in "
+                         "credits first and adds pages, forms and follow-up flows.",
+                         "Comparing Predis.ai alternatives? Campaignify prices each ad in credits first and adds pages, "
+                         "forms and follow-up flows. {try_ads_free}."),
         "eyebrow": "Comparing tools",
-        "h1": "Campaignify is a Predis.ai alternative with nothing charged to start and each ad priced before you make it",
+        "h1": P("Campaignify is a Predis.ai alternative with nothing charged to start and each ad priced before you make it",
+                "Campaignify is a Predis.ai alternative with each ad priced before you make it"),
         "answer": "Campaignify makes UGC-style videos with AI presenters, product videos and image ads from your "
                   "product page, then keeps the copy, landing page, forms and follow-up flows in the same workspace. "
-                  "{signup_charge}, and you start with {sc_images} free image ads. Predis.ai lists a 3-day free "
+                  "{predis_start} Predis.ai lists a 3-day free "
                   "start with a card taken at sign-up, as listed on Nov 4, 2026.",
         "steps": [
             ("Paste a product page",
@@ -185,9 +189,8 @@ SOLUTIONS = {
             ("See the price, then generate",
              "Pick an AI presenter video, a product video or an image ad. The price in credits is on the button "
              "before anything runs."),
-            ("Pay only when you want more",
-             "Your free credits cover {sc_images} image ads. After that, a one-time pack from ${pack_min_usd} or a "
-             "plan from ${starter_usd} a month, cancel anytime from Billing."),
+            ("{pay_only_title}",
+             "{free_cover}. {after_that_billing}"),
         ],
         "table": {
             "competitor": "Predis.ai",
@@ -199,8 +202,7 @@ SOLUTIONS = {
                 ("Trying it",
                  "\"Every plan starts with 3 days free\", with a card taken at sign-up; payments after that are "
                  "listed as \"non-refundable\" (Nov 4, 2026).",
-                 "{signup_charge}, and the free credits have no end date: {sc} credits ({sc_images} image ads).{one_trial} "
-                 "Nothing starts billing by itself."),
+                 "{trying_no_end}"),
                 ("Plans",
                  "Core $19 a month (struck from $32, 1,300 credits, 1 brand), Rise $40 a month (struck from $79, "
                  "3,200 credits, up to 4 brands), Enterprise+ $212 a month (10,000 credits); yearly totals of $230, "
@@ -222,7 +224,7 @@ SOLUTIONS = {
                "faq": "Predis.ai alternative questions"},
         "compare": [
             ("Is there a trial that bills you?",
-             "No. {signup_charge}, and the free credits have no end date. A plan starts only when you choose one."),
+             "{trial_bills_answer}"),
             ("Does it go past the ad?",
              "Yes. On Starter and up: landing pages, smart links and flows. On Growth: forms and contacts, email "
              "sending and the SEO, AEO and GEO optimizer. On Scale: texts in flows and community and courses."),
@@ -257,7 +259,7 @@ SOLUTIONS = {
         "nav": "HeyGen alternative",
         "title": "HeyGen Alternative for Product Ads · Campaignify",
         "description": "Looking for a HeyGen alternative for ads? Campaignify makes short ads where an AI presenter "
-                       "holds your product, priced in credits first. {sc_images} image ads free.",
+                       "holds your product, priced in credits first. {ads_free}.",
         "eyebrow": "Comparing tools",
         "h1": "Campaignify is a HeyGen alternative built for short product ads, not long avatar videos",
         "answer": "HeyGen is an AI avatar video generator for creators and teams, and its pricing page did not "
@@ -283,7 +285,7 @@ SOLUTIONS = {
             "rows": [
                 ("Trying it",
                  "A free plan with 3 watermarked videos a month, 1 minute each, no card (as listed on Nov 4, 2026).",
-                 "{nothing_charged}: {sc} free credits ({sc_images} image ads), no watermark on image ads.{one_trial}"),
+                 "{nothing_charged}: {free_credits_n} ({sc_images} image ads), no watermark on image ads.{one_trial}"),
                 ("Plans",
                  "Creator $29 a month or $24 billed annually (600 credits), Pro $49 a month (1,000 credits), "
                  "Business $149 a month plus $20 a seat (1,500 credits), Enterprise custom, as listed on Nov 4, 2026.",
@@ -362,14 +364,14 @@ SOLUTIONS = {
             "rows": [
                 ("Trying it",
                  "A free tier with 10 one-time credits and a watermark, as listed on G2 on Nov 4, 2026.",
-                 "{nothing_charged}: {sc} free credits ({sc_images} image ads), no watermark on image ads.{one_trial}"),
+                 "{nothing_charged}: {free_credits_n} ({sc_images} image ads), no watermark on image ads.{one_trial}"),
                 ("Plans",
                  "Pro $29 a month (80 credits) and Business $75 a month (250 credits), as listed on G2 on Nov 4, 2026. "
                  "G2 shows 2 different update dates for this listing, so confirm on Topview's own site.",
                  "Starter ${starter_usd}, Growth ${growth_usd} and Scale ${scale_usd} a month; packs at {pack_usd}."),
                 ("Do credits expire?",
                  "Credits expire monthly, per the G2 listing.",
-                 "Plan credits reset at each monthly renewal. Pack credits and the free starter credits never expire."),
+                 "Plan credits reset at each monthly renewal. {packs_never_expire}."),
                 ("Features listed",
                  "Video Agent, Product Avatars, 2,000+ avatars and voices on paid plans, and TikTok Ad Library access.",
                  "{presenters} AI presenters, product videos, image ads, motion copy, ad copy, a planner, landing "
@@ -405,7 +407,7 @@ SOLUTIONS = {
              "listing on Nov 4, 2026. Check Topview's site for current terms."),
             ("Do Campaignify credits expire?",
              "Plan credits arrive with each monthly payment and expire at your next renewal, and they're used first. "
-             "Credits from packs and your free starter credits never expire."),
+             "{credits_never_expire}."),
             _TRY,
         ],
         "related": ["ai-ads-for-ecommerce", "credit-based-ai-ad-pricing", "heygen-alternative"],
@@ -415,7 +417,7 @@ SOLUTIONS = {
         "nav": "AI ads for local businesses",
         "title": "AI Ads for Local Businesses · Campaignify",
         "description": "Make ads from photos of your shop, menu or service, then a landing page, form and follow-up "
-                       "emails. Plans from ${starter_usd} a month; {sc_images} image ads free.",
+                       "emails. Plans from ${starter_usd} a month; {ads_free}.",
         "eyebrow": "For local businesses",
         "h1": "AI ads for local businesses",
         "answer": "Campaignify helps a local business make ads from photos of what it sells, then catch the people "
@@ -459,7 +461,7 @@ SOLUTIONS = {
              "No. It writes the copy, makes the ads and walks you through setting up each ad account. You launch the "
              "ads in each platform's ads manager, where your ad spend stays."),
             ("How much does it cost?",
-             "Free sign-up includes {sc} credits ({sc_images} image ads), {with_nothing_charged}. Plans are ${starter_usd}, "
+             "{signup_includes} {sc} credits ({sc_images} image ads), {with_nothing_charged}. Plans are ${starter_usd}, "
              "${growth_usd} and ${scale_usd} a month. Each ad's price in credits is shown before you make it."),
             ("Does it manage my reviews or Google Business Profile?",
              "No. Campaignify doesn't manage reviews or a Google Business Profile."),
@@ -474,7 +476,7 @@ SOLUTIONS = {
         "nav": "AI ads for coaches",
         "title": "AI Ads for Coaches and Course Creators · Campaignify",
         "description": "Ads, copy, a sign-up page and follow-up emails for your coaching program, with income and "
-                       "health claims blocked. {sc_images} image ads free, nothing charged.",
+                       "health claims blocked. {ads_free_nc}.",
         "eyebrow": "For coaches",
         "h1": "AI ads for coaches and course creators",
         "answer": "Campaignify gives a coach the whole path from ad to client: image and video ads for your program, "
@@ -668,13 +670,13 @@ SOLUTIONS = {
         "nav": "AI image ad generator",
         "title": "AI Image Ad Generator from Your Product Photo · Campaignify",
         "description": "Turn one product photo into finished image ads in feed, story and listing sizes. {image} credits "
-                       "an ad, price shown first. {sc_images} image ads free, nothing charged.",
+                       "an ad, price shown first. {ads_free_nc}.",
         "eyebrow": "Image ads",
         "h1": "AI image ad generator that starts from your product photo",
         "answer": "Campaignify's AI image ad generator makes a finished ad from your own product photo: pick a format such "
                   "as an offer, a callout list, a comparison or a seasonal scene, write the headline, and get the ad in "
                   "the sizes the feeds, stories and listings ask for. An image ad costs {image} credits, and you see the "
-                  "price before anything is made. Free sign-up includes {sc_images} image ads, {with_nothing_charged}.",
+                  "price before anything is made. {signup_includes} {sc_images} image ads, {with_nothing_charged}.",
         "clips": ["ad_image", "product-video", "ugc-coffee"],
         "price_line": "Image ad: {image} credits. Shown before you press Generate.",
         "steps": [
@@ -690,8 +692,7 @@ SOLUTIONS = {
             ("Formats that already work", "Presets for the layouts advertisers use most, from a price badge to a side by "
                                           "side comparison."),
             ("Checked before it is made", "Income, health and recruiting claims and invented discounts are blocked at the brief."),
-            ("No subscription needed", "Use your free credits or a credit pack. Plans add monthly credits and the campaign "
-                                       "tools, from ${starter_usd} a month."),
+            ("{no_sub_title}", "{use_free_or_pack} from ${starter_usd} a month."),
             ('Several versions at once',
              'Make two or more versions of the same headline in one go and keep the one that reads best. Each version is priced before you confirm, and a batch shows its total first.'),
             ('A brand you set once',
@@ -719,13 +720,12 @@ SOLUTIONS = {
         "nav": "AI product video generator",
         "title": "AI Product Video Generator from One Photo · Campaignify",
         "description": "Make a 5 or 10 second product video from one product photo. {video5} credits for 5 seconds, "
-                       "price shown first. Start free with {sc} credits.",
+                       "price shown first. {start_free_with}.",
         "eyebrow": "Product videos",
         "h1": "AI product video generator that needs one photo",
         "answer": "Campaignify's AI product video generator turns a single product photo into a short video for your ads "
                   "or your product page: a turn, a label read, a how-it-works shot or a scene you describe. A 5 second "
-                  "video costs {video5} credits and a 10 second one {video10}, shown before you press Generate. Free "
-                  "sign-up includes {sc} credits, {with_nothing_charged}.",
+                  "video costs {video5} credits and a 10 second one {video10}, shown before you press Generate. {signup_includes} {sc} credits, {with_nothing_charged}.",
         "clips": ["product-video", "photo_to_video", "show-amber"],
         "price_line": "5-second product video: {video5} credits. 10 seconds: {video10}. Shown before you press Generate.",
         "steps": [
@@ -793,7 +793,7 @@ SOLUTIONS = {
             ('Captions when you want them',
              'Video presets made in beats can burn the spoken words in as captions, so the ad still works with the sound off.'),
             ('The price before the video',
-             'Every video shows its price in credits before it is made, priced by its length. Free sign-up includes {sc} credits, {with_nothing_charged}, and a render that fails is refunded automatically.'),
+             'Every video shows its price in credits before it is made, priced by its length. {signup_includes} {sc} credits, {with_nothing_charged}, and a render that fails is refunded automatically.'),
         ],
         "h2": {"how": "How AI avatar ads are made", "gets": "What you get with AI avatar ads", "faq": "AI avatar ads questions"},
         "faq": [
@@ -814,7 +814,7 @@ SOLUTIONS = {
         "nav": "AI Facebook ad generator",
         "title": "AI Facebook Ad Generator: Image, Video, Copy · Campaignify",
         "description": "Make Facebook and Instagram ads from your product page: image ads, presenter videos and the "
-                       "primary text and headlines to go with them. {sc_images} image ads free.",
+                       "primary text and headlines to go with them. {ads_free}.",
         "eyebrow": "Facebook and Instagram",
         "h1": "AI Facebook ad generator for the picture, the video and the words",
         "answer": "Campaignify is an AI Facebook ad generator that makes the whole ad: image ads and short videos in feed "
@@ -851,7 +851,7 @@ SOLUTIONS = {
              "Meta allows AI-made ads that follow its rules. See [what the FTC and Meta expect]"
              "(/guides/ftc-meta-rules-for-ai-ads)."),
             ('How much does a Facebook ad cost to make?',
-             'An image ad is {image} credits and an 8 second presenter video is {talk8}. Free sign-up includes {sc_images} image ads, {with_nothing_charged}. What you spend on running the ad is paid to Meta.'),
+             'An image ad is {image} credits and an 8 second presenter video is {talk8}. {signup_includes} {sc_images} image ads, {with_nothing_charged}. What you spend on running the ad is paid to Meta.'),
             ('Can it help me set up my ad account?',
              "On a plan, the ad-account setup hub walks you through each step in Meta's own tools. Campaignify does not log in to your ad account."),
         ],
@@ -907,7 +907,7 @@ SOLUTIONS = {
         "nav": "AI ads for SaaS",
         "title": "AI Ads for SaaS from Your Own Screens · Campaignify",
         "description": "Ads for your software from your own screenshots: image ads, presenter videos, copy and a page "
-                       "with a sign-up form. {sc_images} image ads free, nothing charged.",
+                       "with a sign-up form. {ads_free_nc}.",
         "eyebrow": "For SaaS",
         "h1": "AI ads for SaaS, made from your own screens",
         "answer": "Campaignify makes AI ads for SaaS from what you already have: your product page and your screenshots. "
@@ -931,7 +931,7 @@ SOLUTIONS = {
             ('A plan for the first test',
              'On a plan, the campaign planner turns a brief into angles, hooks, scripts and a launch checklist, so the first two weeks of ads have an order to them.'),
             ('The price before each ad',
-             'Every ad shows its price in credits before it is made. Free sign-up includes {sc_images} image ads, {with_nothing_charged}.'),
+             'Every ad shows its price in credits before it is made. {signup_includes} {sc_images} image ads, {with_nothing_charged}.'),
             ('Claims checked first',
              'Briefs and copy are checked for income, health and recruiting claims and invented discounts before anything is made.'),
         ],
@@ -978,7 +978,7 @@ SOLUTIONS = {
             ('Claims checked first',
              'Scripts are checked for income, health and recruiting claims and invented discounts before a video is made, which matters most for finance and wellness apps.'),
             ('The price before each ad',
-             'Every ad shows its price in credits first. Free sign-up includes {sc_images} image ads, {with_nothing_charged}.'),
+             'Every ad shows its price in credits first. {signup_includes} {sc_images} image ads, {with_nothing_charged}.'),
             ('A plan for the first test',
              'On a plan, the campaign planner turns a brief into angles, hooks and scripts, so you know which three openings to try first and what to keep.'),
         ],
@@ -1002,7 +1002,7 @@ SOLUTIONS = {
         "nav": "AI ads for lead generation",
         "title": "AI Ads for Lead Generation, Page and Form · Campaignify",
         "description": "The whole lead path in one place: ads, a landing page with a form, a contacts list and "
-                       "follow-up emails. Plans from ${starter_usd} a month; {sc_images} image ads free.",
+                       "follow-up emails. Plans from ${starter_usd} a month; {ads_free}.",
         "eyebrow": "For lead generation",
         "h1": "AI ads for lead generation, with the page and the follow-up",
         "answer": "Campaignify covers the lead path from the ad to the follow-up. It makes the ads, builds a landing page "
@@ -1026,7 +1026,7 @@ SOLUTIONS = {
             ('Claims checked along the way',
              'Ad briefs, copy and pages are checked for income, health and recruiting claims and invented discounts before they go out.'),
             ('The price before each ad',
-             'Every ad shows its price in credits before it is made. Free sign-up includes {sc_images} image ads, {with_nothing_charged}.'),
+             'Every ad shows its price in credits before it is made. {signup_includes} {sc_images} image ads, {with_nothing_charged}.'),
         ],
         "h2": {"how": "How AI ads for lead generation work", "gets": "What you get for lead generation with AI ads",
                "faq": "AI ads for lead generation questions"},
@@ -1048,7 +1048,7 @@ SOLUTIONS = {
         "nav": "AI ads for real estate",
         "title": "AI Ads for Real Estate Agents and Teams · Campaignify",
         "description": "Listing and lead ads from your own photos, with a page and a form to catch the enquiry. "
-                       "{sc_images} image ads free, nothing charged.",
+                       "{ads_free_nc}.",
         "eyebrow": "For real estate",
         "h1": "AI ads for real estate agents and teams",
         "answer": "Campaignify makes AI ads for real estate from your own photos: image ads for a listing or your "
@@ -1070,7 +1070,7 @@ SOLUTIONS = {
             ('Copy for each platform',
              'On a plan, the copy studio writes the ad copy, headlines and follow-up emails for the listing or the service, in several variants to test.'),
             ('The price before each ad',
-             'Every ad shows its price in credits before it is made. Free sign-up includes {sc_images} image ads, {with_nothing_charged}.'),
+             'Every ad shows its price in credits before it is made. {signup_includes} {sc_images} image ads, {with_nothing_charged}.'),
             ('One place for enquiries',
              'Each enquiry lands in a contacts list with tags, so a lead from one listing can be followed up about the next.'),
         ],
@@ -1086,7 +1086,7 @@ SOLUTIONS = {
             ('Does it post to the listing sites?',
              "No. It makes the ads, the page and the emails. You upload the ads in each ad platform's own ads manager."),
             ('Which plan do I need?',
-             'Free sign-up makes ads with your starter credits. Starter adds the landing page and flows; Growth adds forms, contacts and email sending.'),
+             '{free_makes} Starter adds the landing page and flows; Growth adds forms, contacts and email sending.'),
         ],
         "related": ["ai-ads-for-local-businesses", "ai-ads-for-lead-generation", "ftc-meta-rules-for-ai-ads"],
     },
@@ -1138,7 +1138,7 @@ GUIDES = {
             "cols": ["Tool", "Entry paid price", "Free plan or trial", "Built for"],
             "rows": [
                 ("Campaignify", "${starter_usd} a month ({starter_credits} credits); packs from ${pack_min_usd}",
-                 "{sc} free credits, {nothing_charged_lc}", "Ads plus planner, copy, pages, forms and follow-up flows"),
+                 "{free_credits_n}, {nothing_charged_lc}", "Ads plus planner, copy, pages, forms and follow-up flows"),
                 ("Arcads", "Not listed on its public site; $110 a month for 10 videos per eesel.ai (Jun 17, 2026)",
                  "72-hour trial, card required", "AI actor UGC video ads"),
                 ("Creatify", "$10 a month (struck from $15), 55 credits", "Free, 10 credits a month, watermark",
@@ -1544,7 +1544,7 @@ GUIDES = {
                 "the AI actually used, with the most a run can cost shown first. Failed generations are refunded "
                 "automatically.",
                 ("ul", [
-                    "Free sign-up: {sc} credits ({sc_images} image ads), {nothing_charged_lc}, no end date.{one_trial}",
+                    "{free_signup_list}{one_trial}",
                     "Plans: ${starter_usd}, ${growth_usd} and ${scale_usd} a month, billed monthly. Plan credits "
                     "arrive with each payment and expire at the next renewal; they're spent first.",
                     "Packs: {pack_usd}, one-time. Pack credits never expire.",
@@ -1562,8 +1562,7 @@ GUIDES = {
              "Monthly plan credits are often tied to the billing period. Look for one-time packs that don't expire "
              "if you make ads in bursts."),
             ("Do Campaignify credits expire?",
-             "Plan credits expire at your next renewal. Credits from packs and your free starter credits never "
-             "expire."),
+             "Plan credits expire at your next renewal. {credits_never_expire}."),
             ("What if a Campaignify generation fails?",
              "Your credits come back automatically. You only pay for ads that finish."),
         ],

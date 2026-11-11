@@ -38,11 +38,23 @@ def indexnow_body(urls: list[str]) -> dict:
             "urlList": [u for u in urls if u.startswith(SITE_URL + "/")]}
 
 
+from copyswitch import P, plans_only as _plans_only  # noqa: E402  (PLANS_ONLY, plan_gate.py)
+
+
 def card_terms(card: bool | None = None) -> dict:
     """How the copy describes free sign-up, by whether it asks for a card (re-audit
     L-4: with the card step on, say so plainly and never contrast it with other
-    tools' cards). str.format keys for facts()."""
+    tools' cards). str.format keys for facts(). With PLANS_ONLY on there is no
+    free sign-up: the same keys say how the trial starts and when it is charged."""
     import adoffer
+    if card is None and _plans_only():
+        return {"signup_charge": "A card is needed at sign-up, and the plan you pick is charged when its trial ends "
+                                 "unless you cancel first",
+                "nothing_charged": "Card needed to start, and the plan is charged when the trial ends unless you cancel",
+                "nothing_charged_lc": "card needed to start, and the plan is charged when the trial ends unless you cancel",
+                "with_nothing_charged": "with a card needed to start and the plan charged when the trial ends unless "
+                                        "you cancel first",
+                "one_trial": " One trial per person."}
     card = adoffer.card_on() if card is None else card
     if card:
         return {"signup_charge": "A card is needed at sign-up, but nothing is charged until you pick a plan or buy a pack",
@@ -106,14 +118,160 @@ def runs() -> dict:
     return RUNS[launch_live()]
 
 
+# ---------------------------------------------------------------- copy that follows PLANS_ONLY
+# Every sentence about starting free is a named phrase with two wordings: the first while sign-up is free, the
+# second while PLANS_ONLY is on (plan_gate.py: no free tier, a 3-day trial on Starter and Growth with a card, Scale
+# charged at once). The copy below uses the names ({signup_includes}, {free_cover}, ...), so the pages say what is
+# true for a new account today and nobody edits them when the switch changes. Both wordings may use the other
+# facts. With the switch on, {sc} and {sc_images} are the Starter trial's credits and what they make.
+
+SWITCHED = [
+    ('trial_turns_answer',
+     'No. {signup_charge}, and the free credits have no end date. A plan starts only when you choose one, and you can cancel it anytime.',
+     "Yes, on Starter and Growth, and it says so before you start: {trial_days} days free, then the plan's price each month unless you cancel first. The trial's length and what is charged after it are shown on the pricing page and again at checkout. Scale has no trial."),
+    ('trial_bills_answer',
+     'No. {signup_charge}, and the free credits have no end date. A plan starts only when you choose one.',
+     "Yes, on Starter and Growth, and it says so before you start: {trial_days} days free, then the plan's price each month unless you cancel first."),
+    ('no_trial_pitch',
+     "{signup_charge}, and there's no trial that turns into a plan: you start with {sc_images} free image ads, see every ad's price in credits before you generate, and buy a pack or a plan only when you want to.",
+     "Starter and Growth start with a {trial_days}-day free trial whose length and price are stated before you begin, and you see every ad's price in credits before you generate."),
+    ('trying_no_end',
+     '{signup_charge}, and the free credits have no end date: {sc} credits ({sc_images} image ads).{one_trial} Nothing starts billing by itself.',
+     '{signup_charge}: {sc} credits on Starter ({sc_images} image ads) for the trial.{one_trial}'),
+    ('predis_start',
+     '{signup_charge}, and you start with {sc_images} free image ads.',
+     "Starter and Growth start with a {trial_days}-day free trial with a card taken at sign-up, and every ad's price is shown before you make it."),
+    ('need_sub',
+     'No. Start with your free credits and buy credit packs when you need more. Plans add monthly credits and the campaign tools;',
+     'Yes: every account is on a plan. Starter and Growth start with a {trial_days}-day free trial, and credit packs top up any plan;'),
+    ('free_studio_line',
+     'The free studio makes ads with your starter credits and credit packs.',
+     'Every plan has the ad studio and monthly credits.'),
+    ('try_tail_more',
+     'Buy a credit pack or pick a plan only when you want more.',
+     'Credit packs top up any plan.'),
+    ('try_tail_make_more',
+     'Buy a credit pack or pick a plan when you want to make more.',
+     'Credit packs top up any plan.'),
+    ('and_nothing_starts',
+     ' and nothing that starts billing by itself',
+     ''),
+    ('and_no_trial_renews',
+     ' and no trial that renews',
+     ''),
+    ('new_account_gets',
+     'A new account gets {sc} free credits',
+     "Starter's {trial_days}-day free trial comes with {sc} credits"),
+    ('new_accounts_get',
+     'New accounts get {sc} free credits',
+     "Starter's {trial_days}-day free trial comes with {sc} credits"),
+    ('nothing_starts_by_itself',
+     'Nothing starts by itself: you buy a pack or pick a plan when you want more.',
+     "The trial's length and the price after it are shown before you start."),
+    ('nothing_renews',
+     'Nothing renews unless you pick a plan.',
+     'Cancel before the trial ends and nothing is charged.'),
+    ('nothing_starts_billing',
+     'Nothing starts billing by itself.',
+     'Cancel before the trial ends and nothing is charged.'),
+    ('free_signup_noend',
+     'Free sign-up, {nothing_charged_lc}, no end date',
+     'A {trial_days}-day free trial on Starter and Growth, {nothing_charged_lc}'),
+    ('free_signup_nc',
+     'Free sign-up, {nothing_charged_lc}',
+     'A {trial_days}-day free trial on Starter and Growth, {nothing_charged_lc}'),
+    ('free_signup_list',
+     'Free sign-up: {sc} credits ({sc_images} image ads), {nothing_charged_lc}, no end date.',
+     'A {trial_days}-day free trial on Starter: {sc} credits ({sc_images} image ads), {nothing_charged_lc}.'),
+    ('signup_ads_nc',
+     'Free sign-up includes {sc_images} image ads, nothing charged',
+     "Starter's {trial_days}-day free trial includes {sc_images} image ads"),
+    ('and_signup_includes',
+     'and free sign-up includes',
+     "and Starter's {trial_days}-day free trial includes"),
+    ('signup_includes',
+     'Free sign-up includes',
+     "Starter's {trial_days}-day free trial includes"),
+    ('free_makes',
+     'Free sign-up makes ads with your starter credits.',
+     'Every plan makes ads.'),
+    ('free_lets',
+     'Free lets you try the ad studio.',
+     'Every plan has the ad studio.'),
+    ('free_cover',
+     'Your free credits cover {sc_images} image ads',
+     "Starter's {trial_days}-day trial covers {sc_images} image ads"),
+    ('after_that_billing',
+     'After that, a one-time pack from ${pack_min_usd} or a plan from ${starter_usd} a month, cancel anytime from Billing.',
+     'After the trial it is ${starter_usd} a month, cancel anytime from Billing; packs from ${pack_min_usd} top it up.'),
+    ('after_that',
+     'After that, a one-time pack from ${pack_min_usd} or a plan from ${starter_usd} a month, cancel anytime.',
+     'After the trial it is ${starter_usd} a month, cancel anytime; packs from ${pack_min_usd} top it up.'),
+    ('pay_only_title',
+     'Pay only when you want more',
+     'Try it before you pay'),
+    ('packs_never_expire',
+     'Pack credits and the free starter credits never expire',
+     'Pack credits never expire'),
+    ('credits_never_expire',
+     'Credits from packs and your free starter credits never expire',
+     'Credits from packs never expire'),
+    ('ads_free_nc',
+     '{sc_images} image ads free, nothing charged',
+     '{trial_days}-day free trial on Starter and Growth'),
+    ('try_ads_free',
+     'Try {sc_images} image ads free',
+     'Try it free for {trial_days} days'),
+    ('ads_free',
+     '{sc_images} image ads free',
+     '{trial_days}-day free trial'),
+    ('ads_free_short',
+     '{sc_images} ads free',
+     '{trial_days}-day free trial'),
+    ('start_free_with',
+     'Start free with {sc} credits',
+     'Try it free for {trial_days} days'),
+    ('free_credits_n',
+     '{sc} free credits',
+     'a {trial_days}-day free trial with {sc} credits on Starter'),
+    ('no_sub_title',
+     'No subscription needed',
+     '{trial_days} days free to start'),
+    ('use_free_or_pack',
+     'Use your free credits or a credit pack. Plans add monthly credits and the campaign tools,',
+     'Starter and Growth start with a {trial_days}-day free trial. Plans come with monthly credits and the campaign tools,'),
+    ('nc_mid',
+     ', nothing charged,',
+     ','),
+    ('no_autobill',
+     ' no auto-billing trial,',
+     ''),
+]
+SWITCHED_KEYS = {k for k, _, _ in SWITCHED}
+
+
+def switched(base: dict, on: bool | None = None) -> dict:
+    """The phrases of SWITCHED in the wording that is true now, filled in from `base` (the other facts)."""
+    on = _plans_only() if on is None else on
+    return {k: (paid if on else free).format(**base) for k, free, paid in SWITCHED}
+
+
+def pick(text, f: dict | None = None) -> str:
+    """A line that isn't otherwise filled in (titles, h1s): the wording for now, with the facts in it."""
+    return text.format(**(f if f is not None else facts())) if isinstance(text, P) else text
+
+
 def facts() -> dict:
     """Live numbers for the copy (str.format keys)."""
+    import plan_gate
     r, sc = catalog.rates(), catalog.starter_credits()
     p = plans.PLANS
+    if _plans_only():       # no starter credits: what a new account starts with is the Starter trial's share
+        sc = plan_gate.trial_credits(p["starter"])
     names = [platforms.PLATFORMS[k]["name"] for k in platforms.ORDER if k not in ("email", "landing")]
     talk = catalog.TOOLS["ugc_video"]
     # Costs are quoted in credits only; dollars appear only for plan and pack prices.
-    return {**runs(), "talk8": f"{r['talk8']:,}", "talk10": f"{r['talk10']:,}", "image": r["image"],
+    base = {**runs(), "talk8": f"{r['talk8']:,}", "talk10": f"{r['talk10']:,}", "image": r["image"],
             "video5": f"{r['video5']:,}", "video10": f"{r['video10']:,}",
             "sc": f"{sc:,}", "sc_images": sc // max(r["image"], 1),
             "starter_usd": p["starter"]["usd"], "growth_usd": p["growth"]["usd"], "scale_usd": p["scale"]["usd"],
@@ -125,7 +283,10 @@ def facts() -> dict:
             "platform_list": ", ".join(names[:-1]) + f" and {names[-1]}", "platform_count": len(names),
             "pack_usd": ", ".join(f"${k['usd']}" for k in catalog.PACKS[:-1]) + f" and ${catalog.PACKS[-1]['usd']}",
             "pack_min_usd": catalog.PACKS[0]["usd"], "pack_min_credits": f"{catalog.PACKS[0]['credits']:,}",
+            "trial_days": plan_gate.TRIAL_DAYS,
             **card_terms()}
+    base.update(switched(base))
+    return base
 
 
 def presenter_count() -> int:
@@ -214,16 +375,15 @@ HOME_FAQ = [
      "source), views on your pages and submissions to your forms. Every lead sits on a leads board by stage, with "
      "its full history, and you can email or text a lead from there. {results}"),
     ("Which plan do I need?",
-     "The free studio makes ads with your starter credits and credit packs. Starter adds the AI campaign planner, "
+     "{free_studio_line} Starter adds the AI campaign planner, "
      "copy studio, ad-account setup hub, one landing page and smart links. Growth adds the SEO, AEO & GEO optimizer, "
      "the content optimizer, forms, contacts and the leads board, link analytics and unlimited pages. Scale adds "
      "community and courses and the priority queue."),
     ("Do I need a subscription?",
-     "No. Start with your free credits and buy credit packs when you need more. Plans add monthly credits and the "
-     "campaign tools; you can cancel a plan anytime and it stays on until the end of the month you've paid for."),
+     "{need_sub} you can cancel a plan anytime and it stays on until the end of the month you've paid for."),
     ("Do unused credits roll over?",
      "Plan credits arrive with each monthly payment and expire at your next renewal, and they're used before any "
-     "other credits. Credits from packs and your free starter credits never expire."),
+     "other credits. {credits_never_expire}."),
     ("What does a credit buy?",
      "An image ad is {image} credits, an 8-second presenter video {talk8}, a 5-second product video {video5}, a "
      "10-second one {video10}, and copying a reference video's motion is {motion_per_s} credits per second of the "
@@ -254,6 +414,7 @@ PRICING_FAQ_QS = ("Do I need a subscription?", "Which plan do I need?", "Do unus
 
 def home_faq():
     r = dict(catalog.rates(), presenters=presenter_count(), **runs())
+    r.update({k: v for k, v in facts().items() if k in SWITCHED_KEYS})
     return [(q, a.format(**r)) for q, a in HOME_FAQ]
 
 
@@ -269,7 +430,7 @@ SOLUTIONS = {
         "nav": "AI UGC ad generator",
         "title": "AI UGC Ad Generator: UGC-Style Video Ads · Campaignify",
         "description": "Turn a product page into UGC-style video ads: an AI presenter holds your product and says your "
-                       "script, priced up front. Free sign-up includes {sc_images} image ads.",
+                       "script, priced up front. {signup_includes} {sc_images} image ads.",
         "eyebrow": "AI UGC ads",
         "h1": "AI UGC ad generator",
         "answer": "Campaignify turns your product page into UGC-style video ads. Paste the link, pick an AI presenter "
@@ -313,7 +474,7 @@ SOLUTIONS = {
              "personal results."),
             ("How much does an AI UGC video cost?",
              "Talking videos are paid in credits: an 8-second video is {talk8} credits "
-             "and a 10-second one {talk10} credits at 720p. New accounts get {sc} free credits, enough "
+             "and a 10-second one {talk10} credits at 720p. {new_accounts_get}, enough "
              "for {sc_images} image ads. Plans start at ${starter_usd} a month with {starter_credits} credits."),
             ("Can I write my own script?",
              "Yes. AI drafts the spoken lines from your product and the angle you pick, and you can edit or replace "
@@ -332,11 +493,11 @@ SOLUTIONS = {
         "nav": "Arcads alternative",
         "title": "Arcads Alternative for AI UGC Video Ads · Campaignify",
         "description": "Comparing Arcads alternatives? Campaignify makes UGC-style video and image ads from your "
-                       "product page, nothing charged, price first. Try {sc_images} image ads free.",
+                       "product page{nc_mid} price first. {try_ads_free}.",
         "eyebrow": "Comparing tools",
         "h1": "Campaignify is an Arcads alternative for AI UGC video ads, priced before you generate",
         "answer": "Campaignify is an AI ad studio that makes UGC-style video ads and image ads from your product page, "
-                  "and keeps the copy, landing page and launch checklist in the same workspace. Free sign-up includes "
+                  "and keeps the copy, landing page and launch checklist in the same workspace. {signup_includes} "
                   "{sc_images} image ads {with_nothing_charged}, and you see the price of every ad before it's made. The table "
                   "below puts the two side by side; every Arcads fact is quoted from Arcads' own help center, with the "
                   "date it was read.",
@@ -348,7 +509,7 @@ SOLUTIONS = {
              "Pick a UGC presenter video, a voiceover video or an image ad, let AI write the script, and check the "
              "price before you generate."),
             ("Judge it on your own product",
-             "Compare the result with what you get elsewhere. Your free credits cover {sc_images} image ads; talking "
+             "Compare the result with what you get elsewhere. {free_cover}; talking "
              "videos start at {talk8} credits."),
         ],
         "table": {
@@ -360,8 +521,7 @@ SOLUTIONS = {
                 ("Trying it",
                  "A 72-hour trial of every feature with 1,000 credits. \"A card is required at sign-up but isn't charged "
                  "during the trial.\" \"After 72 hours, the Starter monthly plan starts automatically.\"",
-                 "{signup_charge}. Free sign-up includes {sc} credits ({sc_images} image ads).{one_trial} Nothing starts by itself: you "
-                 "buy a pack or pick a plan when you want more."),
+                 "{signup_charge}. {signup_includes} {sc} credits ({sc_images} image ads).{one_trial} {nothing_starts_by_itself}"),
                 ("Prices on the public site",
                  "Not listed on the public site (as of 2026-11-03): \"Current prices are on the pricing page in the "
                  "app.\" Plans are named Starter, Creator, Pro, Scale, Business and Enterprise.",
@@ -407,8 +567,7 @@ SOLUTIONS = {
              "owner. The Arcads facts on this page are quoted from Arcads' own help center with the date they were "
              "read; check their site for today's terms."),
             ("Can I try Campaignify before I pay?",
-             "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, {with_nothing_charged}.{one_trial} Buy a credit "
-             "pack or pick a plan when you want to make more."),
+             "Yes. {new_account_gets}, enough for {sc_images} image ads, {with_nothing_charged}.{one_trial} {try_tail_make_more}"),
             ("How long can a talking video be?",
              "{talk_lengths} seconds, in {talk_shapes}. Make a batch of variants to test different hooks and "
              "presenters."),
@@ -475,7 +634,7 @@ SOLUTIONS = {
              "text. Check every ad before you post it. Failed generations are refunded; finished ones are charged."),
             ("How much does a Shopify product ad cost?",
              "An image ad is {image} credits, a 5-second product video {video5} credits and an 8-second "
-             "talking video {talk8} credits. New accounts get {sc} free credits; plans start at ${starter_usd} a month."),
+             "talking video {talk8} credits. {new_accounts_get}; plans start at ${starter_usd} a month."),
             ("Can it run the ads or sync them to my store?",
              "No. You download the ads and launch them in each ad platform's ads manager. Campaignify doesn't change "
              "your store."),
@@ -539,14 +698,14 @@ SOLUTIONS = {
         "nav": "AI marketing for small business",
         "title": "AI Marketing Platform for Small Business · Campaignify",
         "description": "Ads, ad copy, landing pages, forms and email follow-ups in one place for your small business, "
-                       "no agency. Plans from ${starter_usd} a month; {sc_images} image ads free.",
+                       "no agency. Plans from ${starter_usd} a month; {ads_free}.",
         "eyebrow": "For small businesses",
         "h1": "AI marketing platform for small business",
         "answer": "Campaignify is an AI marketing platform for small businesses: local shops, service businesses and "
                   "small online stores. In one workspace you make image and video ads from photos of what you sell, "
                   "write the ad copy, publish a landing page with a form, share smart links and draft the email "
                   "follow-ups, without hiring an agency. You download the ads and launch them yourself in each "
-                  "platform's ads manager. Plans start at ${starter_usd} a month, and free sign-up includes "
+                  "platform's ads manager. Plans start at ${starter_usd} a month, {and_signup_includes} "
                   "{sc_images} image ads, {with_nothing_charged}.",
         "clips": ["ugc-bakery", "product-video", "ugc-app"],
         "price_line": "Plans from ${starter_usd} a month. Image ad: {image} credits. 8-second talking video: {talk8} "
@@ -589,12 +748,12 @@ SOLUTIONS = {
             ("Does Campaignify post or run my ads?",
              "{runs_short} Campaignify's own analytics cover the pages, smart links and forms you run on it."),
             ("How much does it cost for a small business?",
-             "Free sign-up includes {sc} credits, enough for {sc_images} image ads, {with_nothing_charged}. Plans are "
+             "{signup_includes} {sc} credits, enough for {sc_images} image ads, {with_nothing_charged}. Plans are "
              "${starter_usd}, ${growth_usd} and ${scale_usd} a month. Each ad has a price in credits shown before you "
              "generate: an image ad is {image} credits, a 5-second product video {video5} and an 8-second talking "
              "video {talk8}. Your ad spend is paid to the ad platforms, not to Campaignify."),
             ("Which plan does a small business need?",
-             "Free lets you try the ad studio. Starter (${starter_usd} a month) adds the campaign planner, copy "
+             "{free_lets} Starter (${starter_usd} a month) adds the campaign planner, copy "
              "studio, ad-account setup hub, 1 landing page, smart links and flows. Growth (${growth_usd} a month) "
              "adds forms and contacts, email sending in flows, the SEO & AEO optimizer, link analytics and unlimited "
              "pages. See [pricing](/pricing)."),
@@ -613,12 +772,12 @@ SOLUTIONS = {
         "nav": "Creatify alternative",
         "title": "Creatify Alternative: Price Shown First · Campaignify",
         "description": "Comparing Creatify alternatives? Campaignify shows each ad's price in credits before you "
-                       "generate, nothing charged, pack credits never expire. {sc_images} ads free.",
+                       "generate{nc_mid} pack credits never expire. {ads_free_short}.",
         "eyebrow": "Comparing tools",
         "h1": "Campaignify is a Creatify alternative with a fixed credit price per ad, shown before you generate",
         "answer": "Campaignify makes UGC-style video ads, product videos and image ads from your product page. Every "
                   "ad has a fixed price in credits that you see before you press Generate, failed generations are "
-                  "refunded, and pack credits never expire. Free sign-up includes {sc_images} image ads, {with_nothing_charged}. "
+                  "refunded, and pack credits never expire. {signup_includes} {sc_images} image ads, {with_nothing_charged}. "
                   "The Creatify facts below are quoted from Creatify's pricing page, with the date it was read.",
         "steps": [
             ("Paste a product page",
@@ -628,7 +787,7 @@ SOLUTIONS = {
              "Pick a UGC presenter video, a product video or an image ad. The price in credits is on the button "
              "before anything runs."),
             ("Judge it on your own product",
-             "Your free credits cover {sc_images} image ads. Talking videos start at {talk8} credits, product videos "
+             "{free_cover}. Talking videos start at {talk8} credits, product videos "
              "at {video5}."),
         ],
         "table": {
@@ -640,7 +799,7 @@ SOLUTIONS = {
                 ("Trying it",
                  "A free plan with 10 credits a month, \"up to 2 video ads or 20 image ads\", exports with a watermark. "
                  "Whether a card is needed: not listed on creatify.ai/pricing (as of 2026-11-03).",
-                 "{signup_charge}. Free sign-up includes {sc} credits ({sc_images} image ads), no watermark on image ads.{one_trial}"),
+                 "{signup_charge}. {signup_includes} {sc} credits ({sc_images} image ads), no watermark on image ads.{one_trial}"),
                 ("What an ad costs",
                  "\"Credit usage varies by the model, feature, and type of output\"; the cost is shown before you "
                  "confirm a generation. Plans listed from $10 a month (Standard, 55 credits) to $136 a month "
@@ -650,7 +809,7 @@ SOLUTIONS = {
                  "${scale_usd} a month; packs from ${pack_min_usd}."),
                 ("Do credits expire?",
                  "\"Credits expire after 2 months.\"",
-                 "Plan credits reset at each monthly renewal. Pack credits and the free starter credits never expire."),
+                 "Plan credits reset at each monthly renewal. {packs_never_expire}."),
             ],
         },
         "h2": {"how": "How this Creatify alternative works", "compare": "Creatify and Campaignify, side by side",
@@ -681,8 +840,7 @@ SOLUTIONS = {
              "owner. The Creatify facts on this page are quoted from Creatify's pricing page with the date it was "
              "read; check their site for today's terms."),
             ("Can I try Campaignify before I pay?",
-             "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, {with_nothing_charged} and nothing "
-             "that starts billing by itself.{one_trial}"),
+             "Yes. {new_account_gets}, enough for {sc_images} image ads, {with_nothing_charged}{and_nothing_starts}.{one_trial}"),
             ("What does a credit buy?",
              "An image ad is {image} credits, a 5-second product video {video5}, an 8-second talking video {talk8} "
              "and a 10-second one {talk10}. Plans are ${starter_usd}, ${growth_usd} and ${scale_usd} a month; packs "
@@ -696,14 +854,16 @@ SOLUTIONS = {
     "makeugc-alternative": {
         "query": "MakeUGC alternative",
         "nav": "MakeUGC alternative",
-        "title": "MakeUGC Alternative: No Trial That Bills You · Campaignify",
-        "description": "Comparing MakeUGC alternatives? Campaignify charges nothing to start, has no trial that renews, "
-                       "and each ad's price shown first. Try {sc_images} image ads free.",
+        "title": P("MakeUGC Alternative: No Trial That Bills You · Campaignify",
+                   "MakeUGC Alternative: Every Ad Priced First · Campaignify"),
+        "description": P("Comparing MakeUGC alternatives? Campaignify charges nothing to start, has no trial that renews, "
+                         "and each ad's price shown first. {try_ads_free}.",
+                         "Comparing MakeUGC alternatives? Campaignify shows each ad's price in credits before you make "
+                         "it, and says what its trial costs before you start. {try_ads_free}."),
         "eyebrow": "Comparing tools",
-        "h1": "Campaignify is a MakeUGC alternative with nothing charged at sign-up, no trial that renews, and the price shown first",
-        "answer": "Campaignify makes UGC-style video ads, product videos and image ads from your product page. {signup_charge}, "
-                  "and there's no trial that turns into a plan: you start with {sc_images} free image ads, "
-                  "see every ad's price in credits before you generate, and buy a pack or a plan only when you want to. "
+        "h1": P("Campaignify is a MakeUGC alternative with nothing charged at sign-up, no trial that renews, and the price shown first",
+                "Campaignify is a MakeUGC alternative with every ad priced first and a {trial_days}-day free trial"),
+        "answer": "Campaignify makes UGC-style video ads, product videos and image ads from your product page. {no_trial_pitch} "
                   "The MakeUGC facts below are quoted from MakeUGC's pricing page, with the date it was read.",
         "steps": [
             ("Paste a product page",
@@ -712,9 +872,8 @@ SOLUTIONS = {
             ("See the price, then generate",
              "Pick a UGC presenter video, a product video or an image ad. The price in credits is on the button "
              "before anything runs."),
-            ("Pay only when you want more",
-             "Your free credits cover {sc_images} image ads. After that, a one-time pack from ${pack_min_usd} or a plan "
-             "from ${starter_usd} a month, cancel anytime."),
+            ("{pay_only_title}",
+             "{free_cover}. {after_that}"),
         ],
         "table": {
             "competitor": "MakeUGC",
@@ -726,8 +885,7 @@ SOLUTIONS = {
                  "\"Try any plan for $1.\" It \"renews at the plan price unless you cancel from your account\"; the "
                  "trial's length is shown at checkout. A free plan: not listed on makeugc.ai/pricing (as of "
                  "2026-11-03).",
-                 "Free sign-up, {nothing_charged_lc}: {sc} credits ({sc_images} image ads).{one_trial} Nothing renews unless "
-                 "you pick a plan."),
+                 "{free_signup_nc}: {sc} credits ({sc_images} image ads).{one_trial} {nothing_renews}"),
                 ("What an ad costs",
                  "\"Each generation costs credits based on its model, duration and resolution\"; a per-video price is "
                  "not listed on the page (as of 2026-11-03). Plans listed at $29, $39 and $79 a month billed yearly "
@@ -737,15 +895,14 @@ SOLUTIONS = {
                  "${scale_usd} a month, billed monthly."),
                 ("Do credits expire?",
                  "Credits \"refresh monthly\" and \"do not roll over\".",
-                 "Plan credits reset at each monthly renewal. Pack credits and the free starter credits never expire."),
+                 "Plan credits reset at each monthly renewal. {packs_never_expire}."),
             ],
         },
         "h2": {"how": "How this MakeUGC alternative works", "compare": "MakeUGC and Campaignify, side by side",
                "faq": "MakeUGC alternative questions"},
         "compare": [
             ("Is there a trial that turns into a subscription?",
-             "No. {signup_charge}, and the free credits have no end date. A plan starts only when you choose one, and you can cancel "
-             "it anytime."),
+             "{trial_turns_answer}"),
             ("Do I see the price before I generate?",
              "Yes, in credits, on the button, and failed generations are refunded automatically."),
             ("Who are the presenters?",
@@ -769,8 +926,7 @@ SOLUTIONS = {
              "owner. The MakeUGC facts on this page are quoted from MakeUGC's pricing page with the date it was "
              "read; check their site for today's terms."),
             ("Can I try Campaignify before I pay?",
-             "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, {with_nothing_charged} and no trial "
-             "that renews.{one_trial}"),
+             "Yes. {new_account_gets}, enough for {sc_images} image ads, {with_nothing_charged}{and_no_trial_renews}.{one_trial}"),
             ("What does a credit buy?",
              "An image ad is {image} credits, a 5-second product video {video5}, an 8-second talking video {talk8} "
              "and a 10-second one {talk10}. Plans are ${starter_usd}, ${growth_usd} and ${scale_usd} a month; packs "
@@ -785,14 +941,12 @@ SOLUTIONS = {
         "query": "AdCreative.ai alternative",
         "nav": "AdCreative.ai alternative",
         "title": "AdCreative.ai Alternative, Priced First · Campaignify",
-        "description": "Comparing AdCreative.ai alternatives? Image and video ads from a product page, nothing charged, "
-                       "no auto-billing trial, price first. Try {sc_images} image ads free.",
+        "description": "Comparing AdCreative.ai alternatives? Image and video ads from a product page{nc_mid}{no_autobill} price first. {try_ads_free}.",
         "eyebrow": "Comparing tools",
-        "h1": "Campaignify is an AdCreative.ai alternative with nothing charged at sign-up, no auto-billing trial, and every ad priced first",
+        "h1": P("Campaignify is an AdCreative.ai alternative with nothing charged at sign-up, no auto-billing trial, and every ad priced first",
+                "Campaignify is an AdCreative.ai alternative with every ad priced first and a {trial_days}-day free trial"),
         "answer": "Campaignify makes image ads, product videos and UGC-style talking videos from your product page, "
-                  "then writes the copy for each platform. {signup_charge}, and there's no trial that turns into a "
-                  "plan: you start with {sc_images} free image ads, see every ad's price in credits before you "
-                  "generate, and buy a pack or a plan only when you want to. The AdCreative.ai facts below are quoted "
+                  "then writes the copy for each platform. {no_trial_pitch} The AdCreative.ai facts below are quoted "
                   "from AdCreative.ai's site, with the date it was read.",
         "steps": [
             ("Paste a product page",
@@ -801,9 +955,8 @@ SOLUTIONS = {
             ("See the price, then generate",
              "Pick an image ad, a product video or a UGC presenter video. The price in credits is on the button "
              "before anything runs."),
-            ("Pay only when you want more",
-             "Your free credits cover {sc_images} image ads. After that, a one-time pack from ${pack_min_usd} or a plan "
-             "from ${starter_usd} a month, cancel anytime."),
+            ("{pay_only_title}",
+             "{free_cover}. {after_that}"),
         ],
         "table": {
             "competitor": "AdCreative.ai",
@@ -815,8 +968,7 @@ SOLUTIONS = {
                  "\"7 day free trial. Cancel anytime.\" with 20 credits. Whether a card is needed, and whether the "
                  "trial turns into a paid plan by itself: not stated on adcreative.ai (as of 2026-11-03); the page "
                  "says \"We'll remind you before trial ends\".",
-                 "Free sign-up, {nothing_charged_lc}, no end date: {sc} credits ({sc_images} image ads).{one_trial} Nothing "
-                 "starts billing by itself."),
+                 "{free_signup_noend}: {sc} credits ({sc_images} image ads).{one_trial} {nothing_starts_billing}"),
                 ("What a plan costs",
                  "Monthly plans listed at $39 (Starter, 20 credits, 1 brand), $249 (Professional, 300 credits) and "
                  "$999 (Ultimate, 300 credits, 25 brands); quarterly and yearly discounts shown.",
@@ -832,8 +984,7 @@ SOLUTIONS = {
                "faq": "AdCreative.ai alternative questions"},
         "compare": [
             ("Is there a trial that turns into a subscription?",
-             "No. {signup_charge}, and the free credits have no end date. A plan starts only when you choose one, and you can cancel "
-             "it anytime."),
+             "{trial_turns_answer}"),
             ("Do I see the price before I generate?",
              "Yes, in credits, on the button, and failed generations are refunded automatically."),
             ("Does it make video as well as image ads?",
@@ -856,8 +1007,7 @@ SOLUTIONS = {
              "its owner. The AdCreative.ai facts on this page are quoted from AdCreative.ai's site with the date it "
              "was read; check their site for today's terms."),
             ("Can I try Campaignify before I pay?",
-             "Yes. A new account gets {sc} free credits, enough for {sc_images} image ads, {with_nothing_charged} and no trial "
-             "that renews.{one_trial}"),
+             "Yes. {new_account_gets}, enough for {sc_images} image ads, {with_nothing_charged}{and_no_trial_renews}.{one_trial}"),
             ("What does a credit buy?",
              "An image ad is {image} credits, a 5-second product video {video5}, an 8-second talking video {talk8} "
              "and a 10-second one {talk10}. Plans are ${starter_usd}, ${growth_usd} and ${scale_usd} a month; packs "
@@ -902,6 +1052,7 @@ def guide(slug: str) -> dict:
     out = dict(g, slug=slug, path=guide_path(slug))
     for k in ("title", "description", "h1", "answer"):
         out[k] = g[k].format(**f)
+    out["nav"] = pick(g["nav"], f)
     out["sections"] = [(h.format(**f), re.sub(r"[^a-z0-9]+", "-", h.lower()).strip("-"), [_fmt_block(b, f) for b in blocks])
                        for h, blocks in g["sections"]]
     out["faq"] = _fmt(g["faq"], f)
@@ -931,6 +1082,9 @@ def solution(slug: str) -> dict:
     """A solution page with its copy filled in from the live numbers."""
     s, f = SOLUTIONS[slug], facts()
     out = dict(s, slug=slug)
+    for k in ("title", "h1", "nav", "eyebrow"):
+        if k in s:
+            out[k] = pick(s[k], f)
     out["answer"] = s["answer"].format(**f)
     out["description"] = s["description"].format(**f)
     out["steps"] = _fmt(s["steps"], f)
@@ -1063,12 +1217,12 @@ def showcase(limit: int = SHOWCASE_MAX) -> list[dict]:
 PAGES = {  # endpoint -> (path, title, description)
     "index": ("/", "Campaignify: AI UGC Ads and Your Whole Campaign",
               "UGC-style video and image ads from a product page, then the copy, landing page and launch checklist. "
-              "Free sign-up includes {sc_images} image ads, nothing charged."),
+              "{signup_ads_nc}."),
     "features": ("/features", "Features: Every Campaignify Tool, Step by Step",
                  "Every Campaignify tool in the order a campaign runs: plan, make the ads, write the copy, get found, "
                  "launch, capture leads, grow and measure."),
     "pricing": ("/pricing", "Pricing: Plans From ${starter} a Month · Campaignify",
-                "Free sign-up includes {sc_images} image ads, nothing charged. Plans at ${starter}, ${growth} and ${scale} a month, or "
+                "{signup_ads_nc}. Plans at ${starter}, ${growth} and ${scale} a month, or "
                 "one-time credit packs. See every price before you generate."),
     "hook_tool": ("/tools/ai-hook-generator", "Free AI Hook Generator for Ads · Campaignify",
                   "Type what you sell and who it is for, and get eight opening lines for TikTok, Reels and Facebook "
@@ -1181,7 +1335,7 @@ def meta(endpoint: str | None, view_args: dict | None) -> dict | None:
     elif endpoint in PAGES:
         path, title, desc = PAGES[endpoint]
         prices = {c: plans.PLANS[c]["usd"] for c in ("starter", "growth", "scale")}
-        title, desc = title.format(**prices), desc.format(sc_images=facts()["sc_images"], **prices)
+        title, desc = title.format(**prices), desc.format(**{**facts(), **prices})
     else:
         return None
     url = absolute(path)
@@ -1207,6 +1361,8 @@ def offers() -> list[dict]:
             "description": f"{catalog.starter_credits():,} starter credits (free sign-up includes "
                            f"{catalog.starter_credits() // max(catalog.rates()['image'], 1)} image ads) and the ad studio",
             "url": absolute("/pricing")}]
+    if _plans_only():       # no free tier: the paid plans only
+        out = []
     for p in plans.PAID:
         out.append({"@type": "Offer", "name": f"{p['name']} plan", "price": str(p["usd"]), "priceCurrency": "USD",
                     "description": f"{p['credits']:,} credits a month. {p['line']}", "url": absolute("/pricing"),

@@ -1109,7 +1109,7 @@ def page():
     talk = catalog.TOOLS["ugc_video"]
     pres = roster()
     boot = {
-        "csrf": _csrf(), "modes": modes, "mode": mode, "note": note, "balance": bal, "first_run": first_run,
+        "csrf": _csrf(), "modes": modes, "mode": mode, "note": note, "balance": bal, "first_run": first_run, "plans_only": _plans_only(),
         "free_images": free_images, "products": plist, "product": active["id"] if active is not None else None,
         "presenters": pres, "max_presenters": create_routes.MAX_PRESENTERS,
         "voices": [{"id": v["id"], "name": v["name"], "who": v.get("who") or ""} for v in catalog.VOICES],
@@ -1217,3 +1217,8 @@ def brand():
                            website=onboarding.answers(g.user).get("website") or (b["website"] if b is not None else "") or "",
                            kit_fonts=[(k, v["name"]) for k, v in textlayer.FONTS.items()],
                            kit_default=textlayer.DEFAULT_KIT, imported=request.args.get("imported", type=int))
+
+
+def _plans_only() -> bool:
+    import plan_gate
+    return plan_gate.on()

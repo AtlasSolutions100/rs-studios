@@ -3264,6 +3264,9 @@ if __name__ == "__main__" and not os.environ.get("RS_TEST_ONE"):
     subprocess.run([sys.executable, os.path.join(HERE, "test_plan_pending.py")], check=True)
     # Card on file at sign-up and the out-of-credits paywall (RS_CARD_REQUIRED, RS_PLAN_PAYWALL; Stripe and AI faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_card_paywall.py")], check=True)
+    # Plans only: no free tier, the 3-day trial and its credits, the plan step, the percent-off price and the
+    # public copy that follows the switch (PLANS_ONLY, PLAN_SALE; Stripe faked).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_plans_only.py")], check=True)
     # Re-audit L-2, L-3, L-10: one trial per confirmed email, the indexed users.email_norm, the import budget and cap.
     subprocess.run([sys.executable, os.path.join(HERE, "test_card_import_hardening.py")], check=True)
     # Site copy (M5.8, L-4): the hero, one pricing sum on /pricing and Billing, sign-up, the 404, card-on-file copy.

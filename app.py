@@ -31,6 +31,7 @@ import alerts
 import billing
 import billing_holds
 import card_on_file
+import plan_gate
 import catalog
 import compcodes
 import conversions
@@ -138,7 +139,12 @@ app.jinja_env.globals.update(csrf_token=csrf_token, tools=catalog.DISPLAY_TOOLS,
                              starter_credits=catalog.starter_credits, rates=catalog.rates,
                              billing_configured=billing.configured, starter_image_ads=catalog.STARTER_IMAGE_ADS,
                              plans=plans, has_feature=_has, balance=_balance,
-                             comp_until_text=compcodes.free_until_text)
+                             comp_until_text=compcodes.free_until_text,
+                             # PLANS_ONLY (plan_gate.py): no free tier; Starter and Growth start with a trial
+                             plans_only=plan_gate.on, trial_credits=plan_gate.trial_credits,
+                             plan_trial_days=lambda code: plan_gate.TRIAL_DAYS if plan_gate.offers_trial(code) else 0,
+                             start_cta=lambda: f"Try it free for {plan_gate.TRIAL_DAYS} days" if plan_gate.on()
+                             else "Start free")
 
 # Sidebar: (endpoint, label, icon, feature or None, endpoints that light it up),
 # in groups (title or None, items). NAV is the flat list.
@@ -417,6 +423,8 @@ def _first_touch(resp):
 def _signup_offer() -> dict:
     """What a free sign-up gives this visitor right now (adoffer.offer): the paid-ad
     offer only when sign-up would grant it to them, the normal starter credits otherwise."""
+    if "signup_offer" not in g and plan_gate.on():
+        g.signup_offer = plan_gate.offer()      # no free credits: the offer is the trial
     if "signup_offer" not in g:
         n = None
         if adoffer.credits() and not g.get("user"):
@@ -2005,9 +2013,19 @@ def billing_page():
         flash("Payment received, thank you. Your credits land in a few seconds; refresh if the balance hasn't moved.")
     elif request.args.get("checkout") == "cancel":
         flash("Checkout canceled. Nothing was charged.")
+    elif request.args.get("plan") == "success" and request.args.get("trial"):
+        flash(f"Your {plan_gate.TRIAL_DAYS}-day trial has started. Your plan and its trial credits switch on in a "
+              "few seconds; refresh if they haven't yet.")
     elif request.args.get("plan") == "success":
         flash("You're subscribed, thank you. Your plan and its monthly credits switch on in a few seconds; "
               "refresh if they haven't yet.")
+    if request.args.get("plan") == "success" and plan_gate.on():
+        # back from Stripe, maybe ahead of its webhook: note the subscription, so the member isn't asked to pick
+        # a plan they just picked (plan_gate.py). Never breaks the page.
+        try:
+            _adopt_plan_checkout((request.args.get("session_id") or "").strip()[:200])
+        except Exception:  # noqa: BLE001
+            log.exception("couldn't apply the checkout session on the way back")
     if "success" in (request.args.get("checkout"), request.args.get("plan")):
         _report_purchase((request.args.get("session_id") or "").strip()[:200], request.args.get("plan") == "success")
     if request.args.get("plan") == "success":
@@ -2023,7 +2041,10 @@ def billing_page():
                 g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone()
     except Exception:  # noqa: BLE001
         log.exception("plan sync on billing page failed")
+    if request.args.get("plan") == "success" and request.args.get("go") == "app":
+        return redirect(url_for("studio"))     # a first plan (plan_gate.py): straight on to making ads
     with db.connect() as conn:
+        trials = {p["code"]: plan_gate.trial_days(conn, g.ws, g.user, p["code"]) for p in plans.PAID}
         purchases = conn.execute("SELECT * FROM purchases WHERE workspace_id=? AND status IN ('paid','open') "
                                  "ORDER BY id DESC LIMIT 50", (g.ws["id"],)).fetchall()
         # The job's tool and template, so "generation" rows can say what was made.
@@ -2038,7 +2059,32 @@ def billing_page():
                            invoices=invoices, current=plans.plan(g.ws), subscribed=_subscribed(g.ws),
                            renewal_failed=_renewal_failed(g.ws), owed=db.owed(g.ws),
                            owner=is_owner(), comp_on=compcodes.active(g.ws), used_code=used_code,
-                           promo=session.get("promo"))
+                           promo=session.get("promo"), trials=trials, trial=plan_gate.trial_view(g.ws),
+                           packs_open=plan_gate.packs_open(g.ws, g.user))
+
+
+def _adopt_plan_checkout(sid: str) -> bool:
+    """Back from Stripe's page with ?session_id: read that Checkout Session and, when it is this workspace's
+    finished plan checkout, apply it the way checkout.session.completed does (the same function, safe to run
+    twice). The member then isn't shown "pick a plan" just because the webhook is a second behind. True when
+    it was applied."""
+    if not sid.startswith("cs_") or not billing.configured():
+        return False
+    if g.ws["stripe_subscription_id"] and g.ws["plan_status"] in plans.LIVE_STATUSES | {"pending"}:
+        return False
+    try:
+        sess = billing.get_checkout_session(sid)
+    except billing.BillingError as e:
+        log.info("couldn't read checkout session %s on the way back: %s", sid, e)
+        return False
+    meta = sess.get("metadata") or {}
+    if meta.get("app") != billing.APP_TAG or str(meta.get("workspace_id")) != str(g.ws["id"]) \
+            or sess.get("mode") != "subscription" or sess.get("status") != "complete":
+        return False
+    _plan_checkout_completed(sess)
+    with db.connect() as conn:
+        g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone()
+    return True
 
 
 def _save_promo(raw, from_link=False) -> bool:
@@ -2175,16 +2221,29 @@ def subscribe():
         else:
             flash(f"{session['promo'].get('code')} couldn't be applied. You can enter a code on the checkout page.")
             session.pop("promo", None)
+    # PLANS_ONLY (plan_gate.py): Starter and Growth start with a trial, once per workspace and person; a first
+    # plan goes straight on to the app afterwards, and a canceled checkout comes back to the plan page.
+    with db.connect() as conn:
+        days = plan_gate.trial_days(conn, g.ws, g.user, p["code"])
+        first = plan_gate.needs_plan(conn, g.ws, g.user)
+    back = "&trial=1" if days else ""
+    back += "&go=app" if first else ""
+    cancel = f"{url_for('plangate.page')}?canceled=1" if first else f"{url_for('billing_page')}?checkout=cancel"
+    meta = {"app": billing.APP_TAG, "kind": "plan", "workspace_id": g.ws["id"], "plan": p["code"],
+            "user_id": g.user["id"]}
+    if days:
+        meta["trial_days"] = days
+
     def start(customer):
         return billing.create_subscription_session(
-            promotion_code=promo_id,
+            promotion_code=promo_id, trial_days=days,
+            note=plan_gate.checkout_note(p["code"], days) if plan_gate.on() else None,
             price_id=p["price_id"],
-            success_url=f"{base}{url_for('billing_page')}?plan=success&session_id={{CHECKOUT_SESSION_ID}}",
-            cancel_url=f"{base}{url_for('billing_page')}?checkout=cancel",
+            success_url=f"{base}{url_for('billing_page')}?plan=success{back}&session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{base}{cancel}",
             email=g.user["email"], customer=customer,
             client_reference_id=f"cfy-ws-{g.ws['id']}",
-            metadata={"app": billing.APP_TAG, "kind": "plan", "workspace_id": g.ws["id"], "plan": p["code"],
-                      "user_id": g.user["id"]},
+            metadata=meta,
             idempotency_key=f"campaignify-plan-{g.ws['id']}-{p['code']}-{uuid.uuid4().hex[:12]}")
 
     customer = g.ws["stripe_customer_id"] or g.ws["card_customer_id"]
@@ -2205,7 +2264,8 @@ def subscribe():
         gads.record_checkout(conn, sess["id"], g.ws["id"], g.user["id"], p["usd"] * 100, "usd", db.now(),
                             conversions.context(request))
         conn.commit()
-        site_events.on_workspace_step(conn, "checkout", g.ws["id"], request, detail=f"plan:{p['code']}")
+        site_events.on_workspace_step(conn, "checkout", g.ws["id"], request,
+                                      detail=f"plan:{p['code']}" + (":trial" if days else ""))
     return redirect(sess["url"], code=303)
 
 
@@ -2248,6 +2308,9 @@ def checkout():
     if not billing.configured():
         flash("Checkout is coming soon. Your free credits work in the meantime.")
         return redirect(url_for("billing_page"))
+    if not plan_gate.packs_open(g.ws, g.user):
+        flash("Credit packs top up a plan. Pick a plan first, then add a pack whenever you need more.")
+        return redirect(url_for("billing_page") + "#plans")
     with db.connect() as conn:
         pid = conn.execute("INSERT INTO purchases (workspace_id, user_id, pack, credits, amount_cents, currency, "
                            "status, created_at) VALUES (?,?,?,?,?,?,?,?)",
@@ -2488,17 +2551,49 @@ def _plan_invoice_paid(inv):
         reason = inv.get("billing_reason") or "subscription_cycle"
         if conn.execute("SELECT 1 FROM plan_invoices WHERE invoice_id=?", (inv.get("id"),)).fetchone():
             return jsonify({"ok": True, "duplicate": True})
-        if reason == "subscription_update":
+        period_end = max([ln["period_end"] or 0 for ln in lines] or [0]) or None
+        customer = inv.get("customer") if isinstance(inv.get("customer"), str) else (inv.get("customer") or {}).get("id")
+        if _trial_invoice(inv, meta, lines, reason):
+            # The $0 invoice a trial opens with (plan_gate.py): the plan's month of credits lands now, and the
+            # subscription is trialing, not paid. The first payment carries on with them (below).
+            grant = plan_gate.start_trial(conn, ws, sub_id, p["code"], period_end, meta.get("user_id"),
+                                          _trial_card(conn, sub_id))
+            conn.execute("INSERT INTO plan_invoices (invoice_id, workspace_id, plan, credits, amount_cents, "
+                         "billing_reason, created_at, payment_intent) VALUES (?,?,?,?,?,?,?,?)",
+                         (inv.get("id"), ws["id"], p["code"], grant, 0, "trial", db.now(), None))
+            # a trial invoice that turns up late never undoes a subscription that has since been paid
+            conn.execute("UPDATE workspaces SET plan=?, plan_status=CASE WHEN plan_status IN ('active','past_due') "
+                         "AND stripe_subscription_id=? THEN plan_status ELSE 'trialing' END, "
+                         "plan_period_end=COALESCE(plan_period_end, ?), plan_pending=NULL, plan_pending_at=NULL, "
+                         "stripe_subscription_id=COALESCE(?, stripe_subscription_id), "
+                         "stripe_customer_id=COALESCE(?, stripe_customer_id) WHERE id=?",
+                         (p["code"], sub_id, _iso(period_end), sub_id, customer, ws["id"]))
+            conn.commit()
+            return jsonify({"ok": True, "credited": grant, "plan": p["code"], "trial": True})
+        if ws["trial_open"] and int(inv.get("amount_paid") or 0) == 0 and all(int(ln["amount"] or 0) <= 0 for ln in lines):
+            # A $0 invoice while the trial runs (a plan change in the portal: nothing is due until the trial ends).
+            # Nothing was paid, so no month's credits land; the subscription event moves the plan, and the month
+            # comes with the first payment. (A first payment made free by a 100% code keeps its line amounts.)
+            conn.execute("INSERT INTO plan_invoices (invoice_id, workspace_id, plan, credits, amount_cents, "
+                         "billing_reason, created_at, payment_intent) VALUES (?,?,?,?,?,?,?,?)",
+                         (inv.get("id"), ws["id"], p["code"], 0, 0, reason, db.now(), None))
+            conn.commit()
+            return jsonify({"ok": True, "credited": 0, "plan": ws["plan"], "trial": True})
+        after_trial = bool(ws["trial_open"]) and reason != "subscription_update"
+        if reason == "subscription_update" or after_trial:
+            # An upgrade: the bucket is topped up by the difference. The first payment after a trial (Koby, Nov 11):
+            # the trial's credits are the first month's, so nothing resets and the member carries on with what is
+            # left; only what the trial didn't bring is added (a repeat trial that came without credits, or a
+            # bigger plan picked during it). The next full month lands at the following renewal.
             grant = max(0, p["credits"] - int(ws["plan_granted"] or 0))
             if grant:
-                db.adjust_credits(conn, ws["id"], grant, f"{p['name']} plan: upgrade credits", bucket="plan")
+                db.adjust_credits(conn, ws["id"], grant, f"{p['name']} plan: " +
+                                  ("monthly credits" if after_trial else "upgrade credits"), bucket="plan")
             granted = max(int(ws["plan_granted"] or 0), p["credits"])
         else:
             grant = p["credits"]
             db.set_plan_credits(conn, ws["id"], grant, f"{p['name']} plan: monthly credits")
             granted = grant
-        period_end = max([ln["period_end"] or 0 for ln in lines] or [0]) or None
-        customer = inv.get("customer") if isinstance(inv.get("customer"), str) else (inv.get("customer") or {}).get("id")
         pi = billing.invoice_payment_intent(inv)
         if not pi and billing_holds.enabled() and int(inv.get("amount_paid") or 0) > 0:
             # Newer API versions send invoice.payments only when expanded: ask Stripe (read only),
@@ -2510,7 +2605,7 @@ def _plan_invoice_paid(inv):
         conn.execute("INSERT INTO plan_invoices (invoice_id, workspace_id, plan, credits, amount_cents, billing_reason, "
                      "created_at, payment_intent) VALUES (?,?,?,?,?,?,?,?)",
                      (inv.get("id"), ws["id"], p["code"], grant, int(inv.get("amount_paid") or 0), reason, db.now(), pi))
-        conn.execute("UPDATE workspaces SET plan=?, plan_status='active', plan_granted=?, "
+        conn.execute("UPDATE workspaces SET plan=?, plan_status='active', plan_granted=?, trial_open=0, "
                      "plan_period_end=COALESCE(?, plan_period_end), plan_paid_through=COALESCE(?, plan_paid_through), "
                      "plan_pending=NULL, plan_pending_at=NULL, stripe_subscription_id=COALESCE(?, stripe_subscription_id), "
                      "stripe_customer_id=COALESCE(?, stripe_customer_id) WHERE id=?",
@@ -2521,6 +2616,29 @@ def _plan_invoice_paid(inv):
             # the funnel's paid step: a plan's first invoice (this invoice id only gets here once)
             site_events.on_workspace_step(conn, "paid", ws["id"], detail=f"plan:{p['code']}", path="")
     return jsonify({"ok": True, "credited": grant, "plan": p["code"]})
+
+
+def _trial_card(conn, sub_id) -> str | None:
+    """The fingerprint of the card a trial was started with, read from Stripe the first time the trial is seen
+    (one trial per card, plan_gate.card_had_trial). None when it can't be read: the trial then goes ahead."""
+    if not sub_id or conn.execute("SELECT 1 FROM plan_trials WHERE subscription_id=?", (sub_id,)).fetchone():
+        return None
+    try:
+        return billing.subscription_card_fingerprint(sub_id)
+    except Exception as e:  # noqa: BLE001 — never fail the webhook over this guard
+        log.warning("stripe webhook: couldn't read the card of trial %s: %s", sub_id, e)
+        return None
+
+
+def _trial_invoice(inv, meta, lines, reason) -> bool:
+    """Is this the $0 invoice a trial of ours opens with? Our checkout marked the subscription (trial_days), it is
+    the subscription's first invoice, nothing was paid and every line is $0 (a 100% promotion code without a
+    trial keeps its line amounts, and carries no mark)."""
+    if not str((meta or {}).get("trial_days") or "").isdigit() or int(meta["trial_days"]) <= 0:
+        return False
+    if reason != "subscription_create" or int(inv.get("amount_paid") or 0) > 0:
+        return False
+    return all(int(ln["amount"] or 0) == 0 for ln in lines)
 
 
 def _plan_not_billed(conn, ws, status):
@@ -2535,7 +2653,8 @@ def _plan_not_billed(conn, ws, status):
         plan credits expire (they belonged to the period that's over)."""
     ws_id = ws["id"]
     conn.execute("UPDATE workspaces SET plan_status=?, plan_pending=NULL, plan_pending_at=NULL"
-                 + (", plan_cancel_at_period_end=0" if status == "canceled" else "") + " WHERE id=?", (status, ws_id))
+                 + (", plan_cancel_at_period_end=0, trial_open=0" if status == "canceled" else "") + " WHERE id=?",
+                 (status, ws_id))
     fresh = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
     if plans.paid_period_left(fresh):
         conn.commit()
@@ -2580,6 +2699,10 @@ def _plan_subscription_changed(sub, deleted=False):
                      "stripe_customer_id=COALESCE(?, stripe_customer_id) WHERE id=?",
                      (code, status, 1 if (sub.get("cancel_at_period_end") or sub.get("cancel_at")) else 0,
                       _iso(billing.subscription_period_end(sub)), sub_id, customer, ws["id"]))
+        if status == "trialing" and meta.get("app") == billing.APP_TAG and str(meta.get("trial_days") or "").isdigit():
+            # a trial of ours (plan_gate.py): its credits land once, whichever of this and its $0 invoice comes first
+            plan_gate.start_trial(conn, ws, sub_id, code, sub.get("trial_end"), meta.get("user_id"),
+                                  _trial_card(conn, sub_id))
         conn.commit()
     return jsonify({"ok": True, "plan": code, "status": status})
 
@@ -3108,6 +3231,8 @@ app.register_blueprint(desk.bp)
 # Card on file at sign-up (RS_CARD_REQUIRED) and the out-of-credits paywall (RS_PLAN_PAYWALL), both default off.
 import card_routes  # noqa: E402
 import paywall_routes  # noqa: E402
+import plan_gate_routes  # noqa: E402
+app.register_blueprint(plan_gate_routes.bp)     # PLANS_ONLY (plan_gate.py): before the card step, which it replaces
 app.register_blueprint(card_routes.bp)
 app.register_blueprint(paywall_routes.bp)
 import deletion_routes  # noqa: E402  (M7.5: Team > Delete this workspace)

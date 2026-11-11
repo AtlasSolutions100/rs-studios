@@ -77,10 +77,15 @@ def create_self_serve_account(conn, email: str, name: str, pw_hash: str, req, ip
     if not (inv and inv["workspace_id"]):
         ws_id = conn.execute("INSERT INTO workspaces (name, credits, created_at) VALUES (?,?,?)",
                              ((name or email.split("@")[0]) + "'s studio", 0, db.now())).lastrowid
-        # Ad-sourced sign-ups get SIGNUP_CREDITS_ADS instead, once per person (adoffer.py).
-        ad_credits = adoffer.claim(conn, ws_id, email, ip, gads.parse_cookie(req.cookies.get(gads.COOKIE)),
-                                   bool(req.cookies.get(adoffer.BROWSER_COOKIE)), db.now())
-        grant = (ad_credits, adoffer.REASON) if ad_credits else (catalog.starter_credits(), "starter credits")
+        import plan_gate
+        if plan_gate.on():
+            # PLANS_ONLY: no free credits at sign-up. The account picks a plan next; a trial brings its own.
+            grant = (0, "")
+        else:
+            # Ad-sourced sign-ups get SIGNUP_CREDITS_ADS instead, once per person (adoffer.py).
+            ad_credits = adoffer.claim(conn, ws_id, email, ip, gads.parse_cookie(req.cookies.get(gads.COOKIE)),
+                                       bool(req.cookies.get(adoffer.BROWSER_COOKIE)), db.now())
+            grant = (ad_credits, adoffer.REASON) if ad_credits else (catalog.starter_credits(), "starter credits")
         if grant[0] and card_on_file.active():
             card_on_file.defer(conn, ws_id, *grant)    # they land when the card is saved (card_on_file.py)
         elif grant[0]:
@@ -162,7 +167,8 @@ def self_serve_signup(email: str, name: str, pw_hash: str, req, ip: str, secret:
         if not made["joins"]:
             # the funnel's sign-up step (site_events.py), with this visitor's first touch
             site_events.on_signup(conn, ws_id, uid, req,
-                                  detail="invite" if made["invited"] else "ad_offer" if ad_credits else "starter")
+                                  detail="invite" if made["invited"] else "ad_offer" if ad_credits else
+                                  "plans_only" if _plans_only() else "starter")
     db.hit(f"signup:{ip}")
     # the server-side sign-up copy for Meta / TikTok / Reddit (same event id as the tag), when a token is set
     try:
@@ -180,6 +186,11 @@ def self_serve_signup(email: str, name: str, pw_hash: str, req, ip: str, secret:
     # New accounts land on Home, which is the first-ad form until they've made one
     # (the setup guide is a link from there, not a detour).
     return _landing(redirect(dest or url_for("studio")), req, ad_credits)
+
+
+def _plans_only() -> bool:
+    import plan_gate
+    return plan_gate.on()
 
 
 def _landing(resp, req, ad_credits):
