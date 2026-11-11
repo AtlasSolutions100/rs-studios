@@ -80,9 +80,10 @@
       <svg class="sw-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg>
     </button>
     {% endif %}
-    {% if ui_v2 %}{% set v2tab = 'brand' if request.endpoint == 'studio_v2.brand' else ('workflow' if request.endpoint == 'studio_v2.workflow' else ('advanced' if request.endpoint in ('create.index', 'create.batch', 'new', 'start') else ('studio' if request.endpoint in ('studio', 'studio_v2.page') else ''))) %}
+    {% if ui_v2 %}{% set v2tab = g.get('v2_tab') or ('brand' if request.endpoint == 'studio_v2.brand' else ('workflow' if request.endpoint == 'studio_v2.workflow' else ('advanced' if request.endpoint in ('create.index', 'create.batch', 'new', 'start') else ('studio' if request.endpoint in ('studio', 'studio_v2.page') else '')))) %}
     <nav class="v2-tabs" aria-label="Make">
-      <a href="{{ url_for('studio') }}" {{ 'aria-current=page' if v2tab == 'studio' }}>Studio</a>
+      <a href="{{ url_for('desk.page') }}" {{ 'aria-current=page' if v2tab == 'desk' }}>Desk</a>
+      <a href="{{ url_for('studio_v2.page') }}" {{ 'aria-current=page' if v2tab == 'studio' }}>Studio</a>
       <a href="{{ url_for('studio_v2.workflow') }}" {{ 'aria-current=page' if v2tab == 'workflow' }}>Workflow</a>
       <a href="{{ url_for('create.index') }}" {{ 'aria-current=page' if v2tab == 'advanced' }}>Advanced</a>
       <a href="{{ url_for('studio_v2.brand') }}" {{ 'aria-current=page' if v2tab == 'brand' }}>Brand</a>

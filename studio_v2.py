@@ -711,35 +711,31 @@ def quote():
     return jsonify(quote_parts(parts))
 
 
-@bp.route("/app/studio/ask", methods=["POST"])
-@login_required
-def ask():
-    """A sentence in, a priced set back. Nothing is made here: the answer is the proposal and its quote, and the
-    member confirms it through /app/studio/generate with the total they saw, like everything else in Studio."""
-    if not ui_v2.on():
-        return _off()
-    d = _payload()
-    text = _clean(d.get("ask"), 600)
+def ask_run(said, product_id) -> tuple[dict, int]:
+    """A sentence in, a priced set back, as (answer, HTTP status). Nothing is made here. The one place the Ask model
+    call happens (the composer's Ask and the campaign desk both come through it), so the daily cap, the claim rules
+    and what counts as a part are the same wherever the sentence was typed."""
+    text = _clean(said, 600)
     if len(text) < 8:
-        return jsonify({"error": "Say what you want to make, in a sentence."}), 400
+        return {"error": "Say what you want to make, in a sentence."}, 400
     verdict = compliance.check(text)
     if not verdict["ok"]:
-        return jsonify({"error": "That asks for a claim your ads can't make: " + verdict["blocks"][0]}), 400
+        return {"error": "That asks for a claim your ads can't make: " + verdict["blocks"][0]}, 400
     also = ask_also(text)
     if not llm.configured():
-        return jsonify({"error": "Asking isn't available right now. Use the composer below."}), 503
+        return {"error": "Asking isn't available right now. Use the composer below."}, 503
     with db.connect() as conn:
-        product = products.get_product(conn, g.ws["id"], d.get("product"))
+        product = products.get_product(conn, g.ws["id"], product_id)
         used = ask_used(conn, g.ws["id"])
     if product is None:
-        return jsonify({"error": "Add your product first, then ask again."}), 400
+        return {"error": "Add your product first, then ask again."}, 400
     if used >= ASK_DAILY:
-        return jsonify({"error": f"That's {ASK_DAILY} asks today. Use the composer below, or ask again tomorrow."}), 429
+        return {"error": f"That's {ASK_DAILY} asks today. Use the composer below, or ask again tomorrow."}, 429
     try:
         plan = ask_plan(text, product, roster())
     except Exception:  # noqa: BLE001
         log.exception("studio ask failed")
-        return jsonify({"error": "That didn't come back. Try again, or use the composer below."}), 502
+        return {"error": "That didn't come back. Try again, or use the composer below."}, 502
     with db.connect() as conn:
         conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (_ask_key(g.ws["id"]), str(used + 1)))
         conn.commit()
@@ -755,19 +751,31 @@ def ask():
             items.append(it)
     if not items:
         if first_error is not None:
-            return jsonify({"error": first_error["error"], "step": first_error.get("step", "")}), 400
+            return {"error": first_error["error"], "step": first_error.get("step", "")}, 400
         if skipped:
-            return jsonify({"error": "Nothing usable came back. " + skipped[0] + " Ask again, or use the composer below.",
-                            "also": also}), 422
+            return {"error": "Nothing usable came back. " + skipped[0] + " Ask again, or use the composer below.",
+                    "also": also}, 422
         if also:
-            return jsonify({"error": "That isn't an ad, so there is nothing to price here. It lives in:", "also": also}), 422
-        return jsonify({"error": "I couldn't turn that into ads. Name what you want: image ads, a presenter video, "
-                                 "a product video."}), 422
+            return {"error": "That isn't an ad, so there is nothing to price here. It lives in:", "also": also}, 422
+        return {"error": "I couldn't turn that into ads. Name what you want: image ads, a presenter video, "
+                         "a product video."}, 422
     q = quote_parts([_ask_part(it, product["id"]) for it in items])
     if q.get("error"):
-        return jsonify({"error": q["error"], "step": q.get("step", "")}), 400
-    return jsonify({"plan": items, "note": plan["note"], "skipped": skipped, "quote": q, "product": product["id"],
-                    "also": also, "left": max(0, ASK_DAILY - used - 1)})
+        return {"error": q["error"], "step": q.get("step", "")}, 400
+    return {"plan": items, "note": plan["note"], "skipped": skipped, "quote": q, "product": product["id"],
+            "also": also, "left": max(0, ASK_DAILY - used - 1)}, 200
+
+
+@bp.route("/app/studio/ask", methods=["POST"])
+@login_required
+def ask():
+    """The composer's Ask: the answer is the proposal and its quote, and the member confirms it through
+    /app/studio/generate with the total they saw, like everything else in Studio."""
+    if not ui_v2.on():
+        return _off()
+    d = _payload()
+    out, status = ask_run(d.get("ask"), d.get("product"))
+    return jsonify(out), status
 
 
 @bp.route("/app/studio/claims", methods=["POST"])

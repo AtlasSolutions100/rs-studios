@@ -1,0 +1,103 @@
+{% extends "base.html" %}{% block title %}Desk · Campaignify{% endblock %}
+{# The campaign desk (desk.py): say what you are launching, get the whole campaign back as rows with a price on each,
+   untick, edit or add, then make it with the total on the button. The rows are drawn by static/desk.js from what
+   /app/desk/plan and /app/desk/quote answer; nothing here is made until /app/desk/run is sent the total shown. #}
+{% block body %}
+<div class="page full dk" data-desk>
+  <div class="dk-main">
+    {% if done %}
+    <section class="dk-done" aria-labelledby="dk-done-h">
+      <h2 id="dk-done-h">Started. Here is each part.</h2>
+      <ul class="dk-made">
+        {% for m in done.made %}<li><a href="{{ m.href }}"><b>{{ m.name }}</b><span>{{ m.state }}</span></a></li>{% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+    <h1 id="dk-h">What are we launching?</h1>
+    {% if product %}
+    <form class="dk-ask" data-ask-form>
+      <label class="sr" for="dk-ask">Say what you want to launch</label>
+      <textarea id="dk-ask" rows="3" maxlength="600" placeholder="Say it in a sentence" data-ask></textarea>
+      <div class="dk-ask-foot">
+        <div class="dk-chips">
+          <button type="button" class="dk-chip" data-sw-open aria-haspopup="dialog" aria-controls="sw-panel">{% if product.primary_photo_id %}<img src="{{ url_for('photo', pid=product.primary_photo_id) }}" alt="">{% endif %}{{ product.name }}</button>
+          {% if brief.offer %}<span class="dk-chip quiet">Offer: {{ brief.offer|truncate(48, true) }}</span>{% endif %}
+        </div>
+        <button class="btn" data-plan>Plan it</button>
+      </div>
+    </form>
+    <p class="dk-say" data-say role="status" hidden></p>
+    <div class="dk-tries" data-tries>
+      {% for t in tries %}<button type="button" data-try>{{ t }}</button>{% endfor %}
+    </div>
+
+    <section class="dk-plan" data-plan-wrap hidden aria-labelledby="dk-plan-h">
+      <div class="dk-plan-top">
+        <h2 id="dk-plan-h" tabindex="-1">Here is the campaign. Nothing is made yet.</h2>
+        <span>Untick, edit or add to any part before you make it.</span>
+      </div>
+      <p class="dk-note" data-note></p>
+      <p class="dk-skipped" data-skipped hidden></p>
+      <ul class="dk-rows" data-rows></ul>
+      <div class="dk-add">
+        <button type="button" class="dk-add-btn" data-add-open aria-expanded="false" aria-controls="dk-add-menu">Add a part</button>
+        <div class="dk-add-menu" id="dk-add-menu" data-add-menu hidden></div>
+      </div>
+      <div class="dk-also" data-also hidden></div>
+      <div class="dk-bar">
+        <div class="dk-bar-sum"><b data-total></b><span data-sum></span></div>
+        <div class="dk-bar-act">
+          <label class="dk-many" data-many-wrap hidden><input type="checkbox" data-many> <span data-many-text></span></label>
+          <button type="button" class="btn dark" data-replan>Ask for a different plan</button>
+          <button type="button" class="btn" data-run>Make it</button>
+        </div>
+        <p class="dk-err" data-err role="alert" hidden></p>
+      </div>
+    </section>
+    {% else %}
+    <div class="empty">Add your product first: the desk plans from what it knows about it. <a href="{{ url_for('onboarding.brief') }}">Set up your brand</a></div>
+    {% endif %}
+
+    {% if runs %}
+    <section class="dk-runs" aria-labelledby="dk-runs-h">
+      <h2 id="dk-runs-h">Your campaigns</h2>
+      <ul>
+        {% for r in runs %}
+        <li>
+          <div class="dk-run-top"><b>{{ r.ask }}</b><span>{{ r.at|localtime }}</span></div>
+          <div class="dk-run-made">{% for m in r.made %}<a href="{{ m.href }}">{{ m.name }}<span>{{ m.state }}</span></a>{% endfor %}</div>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+  </div>
+
+  <aside class="dk-side" aria-label="Your brand and what is waiting">
+    {% if product %}
+    <section class="dk-brand" aria-labelledby="dk-brand-h">
+      <div class="dk-brand-top"><h2 id="dk-brand-h">Your brand</h2><a href="{{ url_for('onboarding.brief') }}">Edit</a></div>
+      <p class="dk-brand-src">{% if website %}Read from {{ website|replace('https://', '')|replace('http://', '')|replace('www.', '')|truncate(40, true) }}. {% endif %}Every ad, page and email starts from this.</p>
+      {% if kit %}<div class="dk-kit" role="img" aria-label="Brand colours">{% for c in kit %}<span style="background:{{ c }}"></span>{% endfor %}</div>{% endif %}
+      <dl>
+        <div><dt>Brand</dt><dd>{{ brief.name }}</dd></div>
+        {% if brief.tone %}<div><dt>Voice</dt><dd>{{ brief.tone }}</dd></div>{% endif %}
+        <div><dt>Claims you can make</dt><dd>{% if brief.claims %}{{ brief.claims.split('\n')|map('trim')|reject('equalto', '')|list|batch(4)|first|join('. ')|truncate(200) }}{% else %}None approved yet. <a href="{{ url_for('onboarding.brief') }}">Add them</a>{% endif %}</dd></div>
+        {% if brief.offer %}<div><dt>Offer</dt><dd>{{ brief.offer }}</dd></div>{% endif %}
+        {% if brief.audience %}<div><dt>Who it's for</dt><dd>{{ brief.audience|truncate(160) }}</dd></div>{% endif %}
+      </dl>
+    </section>
+    {% endif %}
+    {% if now %}
+    <section class="dk-now" aria-labelledby="dk-now-h">
+      <h2 id="dk-now-h">Waiting for you</h2>
+      {% for n in now %}<a href="{{ n.href }}"><span>{{ n.line }}</span><span aria-hidden="true">Open</span></a>{% endfor %}
+    </section>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>window.CFY_DESK = {{ boot|tojson }};</script>
+<script src="{{ url_for('static', filename='desk.js') }}" defer></script>
+{% endblock %}
