@@ -164,9 +164,20 @@ def _pause(conn, flow_id, why, now):
                            "Open the flow to see what happened, then turn it on again.", now)
 
 
+def _hold(conn, msg, f, why, now):
+    """A flow's message that can't go right now pauses its flow and stays queued. One the member wrote to a contact
+    has no flow to pause: it is marked not sent, with the reason, so their timeline says what happened."""
+    if f is not None:
+        _pause(conn, f["id"], why, now)
+    else:
+        _finish(conn, msg, "failed", now, f"Not sent: {why}.")
+
+
 def _finish(conn, msg, status, now, error=None, provider_id=None, credits=0):
     conn.execute("UPDATE messages SET status=?, error=?, provider_id=COALESCE(?, provider_id), credits=?, sent_at=? WHERE id=?",
                  (status, error, provider_id, credits, flows_engine.iso(now) if status == "sent" else None, msg["id"]))
+    if msg["flow_id"] is None:
+        return      # no flow to log against: the contact's timeline reads the message row itself (pipeline.timeline)
     kind = {"sent": "sent", "suppressed": "skipped", "skipped": "skipped", "failed": "error"}[status]
     flows_engine._event(conn, msg["flow_id"], msg["workspace_id"], msg["run_id"], msg["contact_id"], msg["node_id"], kind,
                         error or f"Email sent: {msg['subject']}", now)
@@ -184,7 +195,8 @@ def send_queued(now=None, limit=100) -> int:
             ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (msg["workspace_id"],)).fetchone()
             c = conn.execute("SELECT * FROM contacts WHERE id=?", (msg["contact_id"],)).fetchone()
             f = conn.execute("SELECT * FROM flows WHERE id=?", (msg["flow_id"],)).fetchone()
-            if f is None or f["status"] != "on":
+            direct = msg["flow_id"] is None      # written by the member on the contact's page (pipeline.write)
+            if not direct and (f is None or f["status"] != "on"):
                 continue   # paused: stays queued until the flow is back on
             if c is None:
                 _finish(conn, msg, "skipped", now, "The contact was deleted.")
@@ -198,20 +210,21 @@ def send_queued(now=None, limit=100) -> int:
             elif billing_holds.reason(ws):
                 # A refund/dispute hold or a failed renewal (N6): nothing spends. The email stays
                 # queued and the flow pauses with the real reason, not "out of credits".
-                _pause(conn, f["id"], billing_holds.FLOW_REASON[billing_holds.reason(ws)], now)
+                _hold(conn, msg, f, billing_holds.FLOW_REASON[billing_holds.reason(ws)], now)
                 conn.commit()
                 continue
             elif email_ready(ws):
                 continue
             elif _sent_since(conn, ws["id"], now - timedelta(days=1)) >= daily_cap(conn, ws, now):
-                _pause(conn, f["id"], "this workspace reached its daily email limit", now)
+                _hold(conn, msg, f, "this workspace reached its daily email limit", now)
                 conn.commit()
                 continue
             elif _sent_since(conn, ws["id"], now - timedelta(days=1), c["id"]) >= PER_CONTACT_DAY:
                 continue   # at most two emails a person a day: it stays queued and goes later
-            elif not db.adjust_credits(conn, ws["id"], -EMAIL_CREDITS, f"Email · {f['name']}"):
+            elif not db.adjust_credits(conn, ws["id"], -EMAIL_CREDITS, f"Email · {f['name'] if f else 'to a contact'}"):
                 _finish(conn, msg, "failed", now, "Not sent: out of credits.")
-                _pause(conn, f["id"], "the workspace ran out of credits", now)
+                if f is not None:
+                    _pause(conn, f["id"], "the workspace ran out of credits", now)
             else:
                 try:
                     e = build(conn, ws, msg)

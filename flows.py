@@ -55,7 +55,7 @@ TESTS = {
     "has_consent": "Agreed to messages",
     "replied": "Replied to a text",
 }
-STAGES = ["lead", "engaged", "customer", "repeat", "cold"]
+STAGES = ["lead", "engaged", "qualified", "customer", "repeat", "cold"]    # the pipeline's keys too (pipeline.py)
 FIELDS = ("name", "email", "phone", "stage", "source")
 MERGE_TAGS = ("first_name", "name", "product", "brand")
 

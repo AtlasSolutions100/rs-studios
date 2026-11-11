@@ -874,6 +874,8 @@ COLUMNS = [
     ("products", "category", "TEXT"),
     # flows (phase 6): contact stage and consent, workspace sending details
     ("contacts", "stage", "TEXT"),
+    # the lead pipeline (pipeline.py): the workspace's own names for its stages, and the stages it added
+    ("workspaces", "pipeline_json", "TEXT"),
     ("contacts", "phone_e164", "TEXT"),
     ("contacts", "timezone", "TEXT"),
     ("contacts", "email_consent", "TEXT NOT NULL DEFAULT 'none'"),

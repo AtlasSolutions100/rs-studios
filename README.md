@@ -191,6 +191,30 @@ IP, no redirects), signed `X-Campaignify-Signature: sha256=<hmac of body>`; the 
 There is no mailer in the app, so email notifications are not sent (the form editor says so). Contacts: search, tag
 filter, notes, CSV export (formula-safe), delete (also wipes their answers).
 
+## Lead pipeline (`pipeline.py`, `/app/leads`, Growth+ with Forms)
+
+A light CRM over the contacts: where each lead stands, what has happened with them, and a way to write to one person.
+
+- **Stages.** The six flow stage keys are the pipeline (`flows.STAGES`: lead, engaged, qualified, customer, repeat,
+  cold), so a flow's "Move to a stage" step and the board always agree. The built-in names are New lead, Contacted,
+  Qualified, Won, Delivered and Lost. A workspace renames any of them and adds up to four of its own (`x1`..`x4`,
+  placed after Qualified) under Rename stages; names are kept in `workspaces.pipeline_json`. Removing an own stage
+  moves its people back to Qualified. Flows can't move a contact to an own stage yet.
+- **Board** (`/app/leads`): one column per stage in order, Lost in a list underneath, newest activity first, 60 cards
+  a column with a link to the full list. Each card has a plain select and a Move button (no drag and drop, so it works
+  by keyboard and on a phone).
+- **History.** Every move writes a `contact_events` row of kind `stage` ("New lead to Contacted, by Koby"). The contact
+  page shows one timeline, newest first: forms, pages, smart links, ads, opens, clicks, text replies, stage moves, and
+  every email and text sent, waiting or not sent, with who wrote it (a follow-up by name, or the member).
+- **Write to one lead.** Email and text panels on the contact page. A message is a `messages` row with no flow
+  (`flow_id` NULL) and goes out through the same senders as flows (`messaging.send_queued`, `sms.send_queued`), so
+  the same rules hold: the workspace's sending setup, the contact's consent, unsubscribes and STOP, quiet hours for
+  texts, the claims check with the member's own words as the stated offer, and the daily caps. The price is on the
+  button (an email is 1 credit; a text is the per-part price). A direct message that can't go is marked not sent with
+  the reason; there is no flow to pause.
+
+Tests: `tests/test_pipeline.py`.
+
 ## Flows (`/app/flows`, Starter+; email Growth+, texts Scale)
 
 The follow-up after the ad: a trigger (form submitted, tag added, contact added, community joined, a date) and steps

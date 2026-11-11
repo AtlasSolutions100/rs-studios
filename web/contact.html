@@ -4,6 +4,11 @@
   <p style="margin:0 0 14px"><a href="{{ url_for('forms.contacts') }}">← Contacts</a></p>
   <p class="eyebrow">Contact</p><h1 class="break">{{ c.name or c.email }}</h1>
   <p class="muted"><a href="mailto:{{ c.email }}">{{ c.email }}</a>{% if c.phone %} · {{ c.phone }}{% endif %} · first seen {{ c.first_seen|localtime('date') }} · {{ c.submissions }} form{{ '' if c.submissions == 1 else 's' }}</p>
+  <style>button.choice{font:600 13px var(--body)}button.choice.on{border-color:var(--accent);color:var(--on-accent);background:var(--accent);opacity:1;cursor:default}</style>
+  <form method="post" action="{{ url_for('forms.contact_stage', cid=c.id) }}" class="row" style="gap:6px;margin:0 0 18px" aria-label="Stage"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <span class="small muted" style="margin-right:4px">Stage</span>
+    {% for s in stages %}<button class="choice {{ 'on' if s.key == stage }}" name="stage" value="{{ s.key }}" {{ 'aria-current=true disabled' if s.key == stage }}>{{ s.name }}</button>{% endfor %}
+  </form>
   <div class="grid2">
     <form method="post" class="panel copyform"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
       <label for="cn">Name</label><input id="cn" type="text" name="name" maxlength="120" value="{{ c.name or '' }}">
@@ -12,8 +17,27 @@
       <label for="cno">Notes</label><textarea id="cno" name="notes" maxlength="4000">{{ c.notes or '' }}</textarea>
       <div class="row" style="margin-top:14px;justify-content:space-between"><button class="btn" name="action" value="save">Save</button><button class="btn dark sm" name="action" value="delete" data-confirm="Delete this contact and their form answers?">Delete contact</button></div>
     </form>
-    <div class="panel"><h3>Engagement</h3>
-      <ol class="steplist">{% for e in events %}<li class="{{ 'done' if e.kind == 'form' else 'note' }}"><b>{{ {'form': 'Filled in', 'page': 'On page', 'link': 'Came through smart link', 'ad': 'Came from', 'msg_click': 'Clicked a link in', 'msg_open': 'Opened', 'sms_reply': 'Replied by text:'}.get(e.kind, e.kind) }} {{ e.detail }}</b><span class="small muted">{{ e.at|localtime }}</span></li>{% else %}<li class="note"><b>Nothing yet</b></li>{% endfor %}</ol>
+    <div class="panel"><h3>What has happened</h3>
+      <ol class="steplist">{% for e in timeline %}<li class="{{ 'done' if e.kind in ('form', 'stage') else 'note' }}"><b>{{ e.what }}{{ ':' if e.kind == 'message' and e.detail else '' }} {{ e.detail }}</b><span class="small muted">{{ e.at|localtime }}</span></li>{% else %}<li class="note"><b>Nothing yet</b><span class="small muted">Forms they fill in, emails and texts they get, and every stage move show here.</span></li>{% endfor %}</ol>
+    </div>
+  </div>
+  <div class="section-h" id="write"><h2>Write to them</h2><span class="muted small">Sent from your own sender and logged above</span></div>
+  <div class="grid2">
+    <div class="panel">
+      <h3 style="margin-top:0">Email</h3>
+      {% if blocked.email %}<p class="small muted" style="margin:0">{{ blocked.email[0] }}</p>
+      {% else %}<form method="post" action="{{ url_for('forms.contact_message', cid=c.id) }}" class="copyform"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="channel" value="email">
+        <label for="wm-s">Subject</label><input id="wm-s" type="text" name="subject" maxlength="200" required>
+        <label for="wm-b">Message</label><textarea id="wm-b" name="body" maxlength="20000" required></textarea>
+        <p style="margin:12px 0 0"><button class="btn">Send email · {{ email_credits }} credit{{ '' if email_credits == 1 else 's' }}</button></p></form>{% endif %}
+    </div>
+    <div class="panel">
+      <h3 style="margin-top:0">Text</h3>
+      {% if blocked.sms %}<p class="small muted" style="margin:0">{{ blocked.sms[0] }}</p>
+      {% else %}<form method="post" action="{{ url_for('forms.contact_message', cid=c.id) }}" class="copyform"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="channel" value="sms">
+        <label for="wt-b">Message</label><textarea id="wt-b" name="body" maxlength="640" required></textarea>
+        <p style="margin:12px 0 0"><button class="btn">Send text · {{ sms_credits }} credit{{ '' if sms_credits == 1 else 's' }} a part</button></p>
+        <p class="small muted" style="margin:8px 0 0">A text is one part up to 160 characters. Texts go out in their daytime only.</p></form>{% endif %}
     </div>
   </div>
   {% if sources %}<div class="section-h"><h2>Where they came from</h2><span class="muted small">The ad tags on the page they filled in the form from</span></div>
@@ -35,7 +59,7 @@
         <button class="btn dark sm" {{ 'disabled' if stopped and val == 'none' }}>{{ 'Remove consent' if val != 'none' else 'Record consent' }}</button></form>{% endif %}
     </div>{% endfor %}
   </div>
-  {% if runs %}<div class="section-h"><h2>Flows</h2>{% if c.stage %}<span class="muted small">Stage: {{ c.stage }}</span>{% endif %}</div>
+  {% if runs %}<div class="section-h"><h2>Flows</h2></div>
   <div class="panel scrollx"><table>{% for r in runs %}<tr><td><a href="{{ url_for('flows.edit', fid=r.flow_id) }}">{{ r.fname }}</a></td>
     <td><span class="fl-pill {{ 'on' if r.status == 'waiting' else '' }}">{{ {'waiting': 'In it', 'done': 'Finished', 'exited': 'Exited', 'failed': 'Failed'}[r.status] }}</span></td>
     <td class="small muted">{% if r.status == 'waiting' %}Next: {{ steps.get(r.id) or 'the next step' }}, {{ r.wake_at|localtime }}{% else %}{{ r.exit_reason or '' }} {{ r.ended_at|localtime if r.ended_at }}{% endif %}</td>
