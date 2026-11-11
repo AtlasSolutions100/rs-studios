@@ -22,6 +22,7 @@ webhook keys on.
 import hashlib
 import hmac
 import json
+import logging
 import os
 import re
 import time
@@ -101,7 +102,7 @@ def create_checkout_session(*, price_id: str, quantity: int = 1, success_url: st
     for k, v in metadata.items():
         form.append((f"metadata[{k}]", str(v)))
         form.append((f"payment_intent_data[metadata][{k}]", str(v)))
-    j = _post("/checkout/sessions", form, idempotency_key)
+    j = _session(form, idempotency_key)
     return {"id": j["id"], "url": j["url"]}
 
 
@@ -128,7 +129,7 @@ def create_line_items_session(*, lines: list[dict], success_url: str, cancel_url
     for k, v in metadata.items():
         form.append((f"metadata[{k}]", str(v)))
         form.append((f"payment_intent_data[metadata][{k}]", str(v)))
-    j = _post("/checkout/sessions", form, idempotency_key)
+    j = _session(form, idempotency_key)
     return {"id": j["id"], "url": j["url"]}
 
 
@@ -171,7 +172,7 @@ def create_subscription_session(*, price_id: str, success_url: str, cancel_url: 
     for k, v in metadata.items():
         form.append((f"metadata[{k}]", str(v)))
         form.append((f"subscription_data[metadata][{k}]", str(v)))
-    j = _post("/checkout/sessions", form, idempotency_key)
+    j = _session(form, idempotency_key)
     return {"id": j["id"], "url": j["url"]}
 
 
@@ -254,7 +255,7 @@ def create_setup_session(*, customer: str, success_url: str, cancel_url: str, me
     for k, v in metadata.items():
         form.append((f"metadata[{k}]", str(v)))
         form.append((f"setup_intent_data[metadata][{k}]", str(v)))
-    j = _post("/checkout/sessions", form, idempotency_key)
+    j = _session(form, idempotency_key)
     return {"id": j["id"], "url": j["url"]}
 
 
@@ -271,6 +272,26 @@ def create_portal_session(*, customer: str, return_url: str) -> str:
     if PORTAL_CONFIG:
         form.append(("configuration", PORTAL_CONFIG))
     return _post("/billing_portal/sessions", form)["url"]
+
+
+MANAGED = re.compile(r"managed[ _-]payments", re.I)
+
+
+def _session(form: list, idempotency_key: str | None = None) -> dict:
+    """Create a Checkout Session as ourselves. A Stripe account can have Managed Payments on by default (Stripe, as
+    "Link", becomes the seller of record: statements read LINK.COM*, every product needs a tax code, and setup mode
+    isn't allowed). Our sessions are written for selling as Campaignify, so when Stripe refuses one for that reason
+    it is sent again with managed_payments[enabled]=false, which Stripe's own error names as the way to opt out
+    for one request. An account without Managed Payments never sees the parameter."""
+    try:
+        return _post("/checkout/sessions", form, idempotency_key)
+    except BillingError as e:
+        if not MANAGED.search(str(e)) or any(k.startswith("managed_payments") for k, _ in form):
+            raise
+        logging.getLogger("campaignify.billing").warning(
+            "checkout session refused under Managed Payments; sending it again without: %s", str(e)[:120])
+        return _post("/checkout/sessions", form + [("managed_payments[enabled]", "false")],
+                     f"{idempotency_key}-own" if idempotency_key else None)
 
 
 def _get(path: str, params: list | None = None) -> dict:

@@ -40,6 +40,16 @@ create Stripe customers or set `metadata.account_id` (Crowdcut's key).
 Needs `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`; without them the prices
 show and the buy buttons say "Checkout coming soon".
 
+**Near-cost generation (Nov 11 2026).** With the repo variables `RS_MARKUP=1.08` and `RS_HD_MARKUP=1.08`, generation is
+priced about 8% over the vendor's bill instead of 2x: an image ad is 12 credits (was 22), an 8 second talking video
+400 (was 740), so a plan's credits make about twice as many ads (Starter 5 talking videos a month, Growth 15, Scale
+45). A credit then costs us about 0.93 cents to honour, so below `catalog.LOW_MARKUP` (1.5) the packs are cut to
+1,500 / 4,800 / 14,400 credits at the same $29 / $79 / $199 (`catalog.PACKS_AT_LOW_MARKUP`); the old sizes would sell
+the Studio pack below cost. Margins after Stripe's fee if every credit is spent: packs about 48%, 40%, 30%; plans
+49%, 41%, 30% (`catalog.pack_margin`). The switch is the variable: pack sizes follow the markup at start-up, and
+`stripe_setup.py` brings each pack's Stripe description up to date so Checkout says what the member gets. Credits
+members already hold buy more after the switch. Tests: `tests/test_pricing_low_markup.py`.
+
 ## Plans (Stripe subscriptions)
 
 `plans.py` is the one place that decides access: `plans.has(ws, feature)`, `plans.limit(ws, "brands"|"seats"|"pages")`.

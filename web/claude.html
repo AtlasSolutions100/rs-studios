@@ -78,7 +78,7 @@
         <p>Every image ad and video is priced before anything is made.</p>
         <div class="cl-chat">
           <div class="cl-msg you"><b>You</b>Price image ads for it with the headline "One scoop. Your whole morning." in square and vertical.</div>
-          <div class="cl-msg ai"><b>Claude</b>That's 2 image ads at 22 credits each, 44 credits in all. You have 11,888. Want me to make them?<span class="tool">quote_ad_batch</span></div>
+          <div class="cl-msg ai"><b>Claude</b>That's 2 image ads at {{ rates().image }} credits each, {{ 2 * rates().image }} credits in all. You have 11,888. Want me to make them?<span class="tool">quote_ad_batch</span></div>
         </div>
       </div>
       <div class="cl-step">

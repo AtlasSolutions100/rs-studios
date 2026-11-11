@@ -70,6 +70,9 @@ def wanted() -> dict:
     """What the ids are settled for: each amount in cents and each configured id. A change in either settles again."""
     out = {f"plan:{p['code']}": p["usd"] * 100 for p in plans.PAID}
     out.update({f"pack:{p['code']}": p["usd"] * 100 for p in catalog.PACKS})
+    # what a product's description says: a pack that is re-cut, or a plan given other credits, settles again
+    out.update({f"about:plan:{p['code']}": plan_about(p) for p in plans.PAID})
+    out.update({f"about:pack:{p['code']}": pack_about(p) for p in catalog.PACKS})
     for name in sorted(liveids.PRODUCTION):
         if name.startswith("STRIPE_"):
             out[name] = liveids.get(name) or ""
@@ -79,6 +82,26 @@ def wanted() -> dict:
 # ---------------------------------------------------------------- reading Stripe
 def _id(x):
     return x.get("id") if isinstance(x, dict) else x
+
+
+def plan_about(p: dict) -> str:
+    return f"Monthly plan: {p['credits']:,} credits each month, {PLAN_ABOUT.get(p['code'], p.get('line', ''))}"
+
+
+def pack_about(p: dict) -> str:
+    paid = p["credits"] - (p.get("bonus") or 0)
+    split = f" ({paid:,} + {p['bonus']:,} bonus)" if p.get("bonus") else ""
+    return f"{p['credits']:,} Campaignify credits{split} for making ads at {SITE}. One-time purchase."
+
+
+def _describe(prod_id: str, about: str) -> None:
+    """Checkout shows the product's description, so it has to say what the member gets today. Our own product
+    (tagged brand Campaignify) whose description says something else is corrected; anything else is left alone."""
+    prod = _fetch(f"/products/{prod_id}") if prod_id else None
+    if not prod or (prod.get("metadata") or {}).get("brand") != BRAND or (prod.get("description") or "") == about:
+        return
+    billing._post(f"/products/{prod['id']}", [("description", about)])
+    log.info("stripe setup: description of %s brought up to date", prod["id"])
 
 
 def _fetch(path: str) -> dict | None:
@@ -117,24 +140,22 @@ def _product(have: dict, kind: str, code: str, name: str, about: str, extra: dic
 def _price(have: dict, kind: str, p: dict, configured: str | None, tag: str) -> tuple[str, str]:
     """(price id, product id) for one plan or pack in this account."""
     code, cents = p["code"], p["usd"] * 100
+    about = plan_about(p) if kind == "plan" else pack_about(p)
     hit = _fetch(f"/prices/{configured}") if configured else None
     if hit and hit.get("active"):
+        _describe(_id(hit.get("product")), about)
         return hit["id"], _id(hit.get("product"))
     key = plan_key(code) if kind == "plan" else pack_key(code)
     hit = _by_lookup(key)
     monthly = ((hit or {}).get("recurring") or {}).get("interval") == "month"
     if hit and hit.get("unit_amount") == cents and hit.get("currency") == "usd" and monthly == (kind == "plan"):
+        _describe(_id(hit.get("product")), about)
         return hit["id"], _id(hit.get("product"))
     if kind == "plan":
-        prod = _product(have, "plan", code, f"{BRAND} {p['name']}",
-                        f"Monthly plan: {p['credits']:,} credits each month, {PLAN_ABOUT.get(code, p.get('line', ''))}",
-                        {"monthly_credits": p["credits"]}, tag)
+        prod = _product(have, "plan", code, f"{BRAND} {p['name']}", about, {"monthly_credits": p["credits"]}, tag)
     else:
-        paid = p["credits"] - (p.get("bonus") or 0)
-        split = f" ({paid:,} + {p['bonus']:,} bonus)" if p.get("bonus") else ""
-        prod = _product(have, "pack", code, f"{BRAND} {p['name']} pack",
-                        f"{p['credits']:,} Campaignify credits{split} for making ads at {SITE}. One-time purchase.",
-                        {"credits": p["credits"]}, tag)
+        prod = _product(have, "pack", code, f"{BRAND} {p['name']} pack", about, {"credits": p["credits"]}, tag)
+    _describe(prod, about)          # a product found by its tag may still carry an older description
     form = [("product", prod), ("currency", "usd"), ("unit_amount", str(cents)), ("lookup_key", key),
             ("transfer_lookup_key", "true"), ("metadata[brand]", BRAND), (f"metadata[{kind}]", code),
             ("metadata[site]", SITE)]

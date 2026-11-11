@@ -14,6 +14,7 @@
     python tests/test_stripe_setup.py      (tests/test_app.py runs it too)
 """
 import copy
+import html as htmllib
 import json
 import os
 import shutil
@@ -319,6 +320,16 @@ b, wb = signup("b@example.com", card_customer_id="cus_keep")
 r = b.post("/app/billing/subscribe", data={"csrf": csrf(b), "plan": "growth"})
 check(r.status_code == 302 and ws_row(wb)["card_customer_id"] == "cus_keep", "any other Stripe error leaves the customer id alone")
 
+# Stripe's own reason is added to the message for a site admin, and only for a site admin
+r = b.post("/app/billing/subscribe", data={"csrf": csrf(b), "plan": "growth"}, follow_redirects=True)
+check("Checkout couldn't start. Try again in a minute." in htmllib.unescape(r.get_data(as_text=True))
+      and "Stripe said" not in r.get_data(as_text=True), "a member sees that checkout couldn't start, without Stripe's words")
+with db.connect() as conn:
+    conn.execute("UPDATE users SET is_admin=1 WHERE workspace_id=?", (wb,))
+    conn.commit()
+r = b.post("/app/billing/subscribe", data={"csrf": csrf(b), "plan": "growth"}, follow_redirects=True)
+check("Stripe said: Stripe 402: card declined" in htmllib.unescape(r.get_data(as_text=True)), "a site admin also sees what Stripe said")
+
 portal_calls = []
 
 
@@ -377,6 +388,45 @@ check(r.status_code == 303 and setups == ["cus_old", "cus_new"] and ws_row(wf)["
 check("cus_old" in (ws_row(wf)["stripe_old_json"] or "") and made_customers[0]["idempotency_key"] != f"campaignify-card-customer-{wf}",
       "the old card customer is set aside and the new one isn't a replay of the old request")
 os.environ.pop("RS_CARD_REQUIRED")
+
+print("== an account with Managed Payments on by default")
+sent = []
+
+
+def managed_post(path, form, idempotency_key=None):
+    sent.append((path, dict(form), idempotency_key))
+    f = dict(form)
+    if path == "/checkout/sessions" and "managed_payments[enabled]" not in f:
+        if f.get("mode") == "setup":
+            raise billing.BillingError("Stripe 400: Invalid mode: setup. Managed Payments, which is enabled by default on your account, only "
+                                       "supports mode: subscription or mode: payment.", 400, None, None)
+        raise billing.BillingError("Stripe 400: Invalid line_items[0]: the product tax code is missing. Set the product's tax_code field "
+                                   "(more details: https://docs.stripe.com/payments/managed-payments/eligibility#product-tax-code-requirements).",
+                                   400, None, "line_items[0]")
+    if path == "/checkout/sessions" and f.get("mode") == "payment" and f.get("line_items[0][price]") == "price_bad":
+        raise billing.BillingError("Stripe 400: No such price: 'price_bad'", 400, "resource_missing", "line_items[0][price]")
+    return {"id": "cs_ok", "url": "https://checkout.stripe.test/c/ok"}
+
+
+billing._post = managed_post
+base = [("mode", "subscription"), ("line_items[0][price]", "price_x")]
+out = billing._session(list(base), "key-1")
+check(out["id"] == "cs_ok" and [x[1].get("managed_payments[enabled]") for x in sent] == [None, "false"] and [x[2] for x in sent] == ["key-1", "key-1-own"],
+      "a session Stripe refuses for a missing tax code is sent again as our own sale, under its own idempotency key")
+sent.clear()
+billing._session([("mode", "setup"), ("customer", "cus_new")], "key-2")
+check([x[1].get("managed_payments[enabled]") for x in sent] == [None, "false"], "the card step (setup mode) gets through the same way")
+sent.clear()
+try:
+    billing._session([("mode", "payment"), ("line_items[0][price]", "price_bad"), ("managed_payments[enabled]", "false")], "key-3")
+    failed = False
+except billing.BillingError:
+    failed = True
+check(failed and len(sent) == 1, "any other refusal is raised as it is, with no second try")
+sent.clear()
+billing._post = lambda path, form, idempotency_key=None: sent.append(dict(form)) or {"id": "cs_plain", "url": "u"}
+billing._session(list(base), "key-4")
+check(len(sent) == 1 and "managed_payments[enabled]" not in sent[0], "an account without Managed Payments never sees the parameter")
 
 r = appmod.app.test_client().get("/health")
 check(r.get_json().get("billing_setup") == "off", "/health reports the setup state (off here)")
