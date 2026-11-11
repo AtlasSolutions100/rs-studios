@@ -31,7 +31,7 @@
   function editor(p){
     var h = '';
     if(MAKES[p.kind]){
-      h += '<label>' + WORDS[p.kind] + '<textarea rows="3" maxlength="900" data-f="text">' + esc(p.text) + '</textarea></label>';
+      h += '<label>' + WORDS[p.kind] + '<textarea rows="' + (p.kind === 'image' ? 2 : 3) + '" maxlength="900" data-f="text">' + esc(p.text) + '</textarea></label>';
       if(p.kind === 'image'){
         var c = ''; for(var i = 1; i <= B.max_count; i++) c += opt(i, i === 1 ? '1 version' : i + ' versions', p.count || 1);
         h += '<label>How many<select data-f="count">' + c + '</select></label>';

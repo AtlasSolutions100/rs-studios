@@ -215,8 +215,9 @@ html[data-ui="v2"][data-surface="app"]:not([data-theme]):root{
 [data-ui="v2"] .rail h2{font-size:15px}
 @media (max-width:760px){[data-ui="v2"] .page{padding:var(--s5) var(--s4) var(--s7)}[data-ui="v2"] .shell h1,[data-ui="v2"] .auth h1{font-size:22px}[data-ui="v2"] .flash-top{margin:var(--s3) var(--s4) 0}}
 
-/* Desk / Studio / Workflow / Advanced / Brand */
-.v2-tabs{display:grid;grid-template-columns:repeat(5,auto);gap:2px;padding:3px;margin:0 0 10px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--v2-sunk);flex:none}
+/* Studio / Workflow / Advanced / Brand (the desk sits above them as its own link) */
+[data-ui="v2"] .side a.nav.v2-desk{flex:none;margin:0 0 8px}
+.v2-tabs{display:grid;grid-template-columns:repeat(4,auto);gap:2px;padding:3px;margin:0 0 10px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--v2-sunk);flex:none}
 .v2-tabs a{display:flex;align-items:center;justify-content:center;padding:6px 4px;border-radius:7px;font-size:12.5px;min-width:0;font-weight:500;color:var(--muted);text-decoration:none;border:1px solid transparent;white-space:nowrap}
 .v2-tabs a:hover{color:var(--ink)}
 .v2-tabs a[aria-current]{background:var(--v2-raise);color:var(--ink);border-color:var(--line)}

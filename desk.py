@@ -94,7 +94,7 @@ def _has(kind: str) -> bool:
 def _locked(kind: str) -> str:
     """The plan that includes this part, when the member's plan doesn't ("" when it does)."""
     feat = FEATURE.get(kind)
-    return plans.required(feat).name if feat and not plans.has(g.ws, feat) else ""
+    return plans.required(feat)["name"] if feat and not plans.has(g.ws, feat) else ""
 
 
 def flow_templates() -> list[dict]:
@@ -468,7 +468,7 @@ def _now(conn) -> list[dict]:
         n = conn.execute(f"SELECT COUNT(*) FROM contacts WHERE workspace_id=? AND (stage IS NULL OR stage=? OR stage NOT IN ({marks}))",
                          (g.ws["id"], known[0], *known)).fetchone()[0]
         if n:
-            out.append({"line": f"{_plural(n, 'lead')} in {st[0]['name']}", "href": url_for("forms.leads")})
+            out.append({"line": f"{st[0]['name']}: {n}", "href": url_for("forms.leads")})
     busy = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=? AND deleted_at IS NULL AND status IN ('pending','running')",
                         (g.ws["id"],)).fetchone()[0]
     if busy:
