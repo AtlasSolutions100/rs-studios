@@ -73,6 +73,12 @@ def fake_get(path, params=None):
 billing._post, billing._get = fake_post, fake_get
 appmod._maybe_reconcile = lambda ws_id, force=False: 0
 
+# ---------------------------------------------------------------- fake email (the trial reminder)
+import mailer  # noqa: E402
+sent_mail = []
+mailer.configured = lambda: True
+mailer.send = lambda **kw: sent_mail.append(kw) or f"em_{len(sent_mail)}"
+
 # ---------------------------------------------------------------- helpers
 _ip, _n = [0], [0]
 NOW = int(time.time())
@@ -242,7 +248,12 @@ check(re.search(r'data-plan="scale">\s*<p class="px-trial gap" aria-hidden="true
       "Scale's slot is hidden from readers and screen readers")
 check("days free</b> with" not in html and "credits land with that first payment" not in html,
       "the per-card trial arithmetic is gone")
-check("you carry on with the same month of credits" in html, "the step says the first payment carries on with the same credits")
+line = re.search(r'<ol class="tl" data-trial-line.*?</ol>', html, re.S)
+steps = re.findall(r"<li[^>]*><b>(.*?)</b><span>(.*?)</span></li>", line.group(0)) if line else []
+check(len(steps) == 3 and steps[0] == ("Today · $0", "Full access") and steps[1][1] == "Reminder email"
+      and steps[2][1] == "Your plan&#39;s price charged" and 'class="on"' in line.group(0),
+      "under the plans, the trial is three dots: today at $0 with full access, the reminder email, the charge")
+check("data-plan-how" not in html and "Canceling</dt>" not in html, "the paragraph-by-paragraph explanation is gone")
 check("Your card is charged when the trial ends, unless you cancel first" in html, "the step says when the card is charged")
 for off, nxt in (("50% off", "$79"), ("33% off", "$149"), ("28% off", "$349")):
     check(off in html and f'<s class="px-next"><span class="sr">going to </span>{nxt}</s>' in html,
@@ -320,12 +331,38 @@ w = ws_of("nina@example.com")
 check(w["plan_credits"] == 2000 and len(q("SELECT 1 FROM plan_trials WHERE workspace_id=?", w["id"])) == 1,
       "the subscription event and a repeat of the invoice grant nothing more")
 html = page(c, "/app/billing")
-check('id="plan-trial"' in html and "Free trial, ends" in html and "$39 is charged then, and you carry on with this month" in html
-      and "came without credits" not in html, "Billing says when the trial ends, what is charged and that the credits carry on")
+box = re.search(r'<div id="plan-trial".*?</ol></div>', html, re.S)
+steps = re.findall(r"<li[^>]*><b>(.*?)</b><span>(.*?)</span></li>", box.group(0)) if box else []
+check(len(steps) == 3 and steps[0][0].endswith("· $0") and [w for _, w in steps] == ["Full access", "Reminder email", "$39 charged"]
+      and "data-plan-trial" in box.group(0), "Billing shows the trial as the chip and three dots: $0 full access, reminder email, $39 charged")
+check("Free trial, ends" not in html and "came without credits" not in html, "in place of the paragraph that explained it")
 check(c.get("/app").status_code == 200 and c.get("/app/plan").status_code == 302, "in the trial the app is open and the plan step is gone")
 check("Needs a plan" not in html, "packs can be bought on a plan")
 with db.connect() as conn:
     check(plan_gate.trial_days(conn, w, user_of("nina@example.com"), "growth") == 0, "no second trial for this workspace")
+
+# ---------------------------------------------------------------- the reminder before the first charge
+print("\nThe reminder email")
+from datetime import datetime, timedelta, timezone  # noqa: E402
+check(plan_gate.run_reminders() == 0 and not sent_mail, "three days out: nothing is sent")
+day_before = datetime.now(timezone.utc) + timedelta(days=2, hours=1)
+signup("quin@example.com")
+ev_invoice("quin@example.com", "sub_quin", "growth", "in_quin_0", 0, "subscription_create", IN_3_DAYS)
+run_sql("UPDATE workspaces SET plan_cancel_at_period_end=1 WHERE id=?", ws_of("quin@example.com")["id"])
+check(plan_gate.run_reminders(now=day_before) == 1 and len(sent_mail) == 1, "about a day before the charge: one reminder goes out")
+m = sent_mail[0]
+check(m["to"] == "nina@example.com" and m["subject"] == "Your Campaignify trial ends in about 23 hours"
+      and m["tags"] == {"kind": "trial_reminder"}, "to the trial's owner, saying when it ends")
+check("charged $39 for the first month" in m["text"] and "until you cancel" in m["text"] and "/app/billing" in m["text"]
+      and "Manage or cancel plan" in m["html"], "it says what is charged and how to cancel first")
+check(all(r["to"] != "quin@example.com" for r in sent_mail), "a trial already set to cancel gets no reminder")
+check(plan_gate.run_reminders(now=day_before) == 0 and len(sent_mail) == 1, "and nobody is reminded twice")
+check(plan_gate.timeline_for(db.connect(), ws_of("quin@example.com"))[2]["what"] == "Trial ends, $0 charged",
+      "a trial set to cancel shows that nothing will be charged")
+mailer.configured = lambda: False
+check(plan_gate.timeline(None, None)[1]["what"] == "Cancel any time before" and plan_gate.run_reminders(now=day_before) == 0,
+      "without email connected no reminder is promised or sent")
+mailer.configured = lambda: True
 
 # ---------------------------------------------------------------- the first payment
 print("\nThe first payment")

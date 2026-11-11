@@ -1269,3 +1269,4 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 .pr-plans .pr-plan .btn{order:9;margin-top:auto}
 .pr-plans .pr-plan.hot .btn,[data-ui="v2"] .lp-actions .btn{background:var(--v2-spark);color:var(--v2-spark-ink);border-color:rgba(20,20,20,.2)}
 .pr-plans .pr-plan.hot .btn:hover,[data-ui="v2"] .lp-actions .btn:hover{background:#AEEB16}
+[data-ui="v2"] .tl li.on::before{background:var(--v2-spark);box-shadow:0 0 0 1.5px rgba(20,20,20,.75)}

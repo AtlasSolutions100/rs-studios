@@ -67,4 +67,5 @@ def page():
     terms = {code: plan_gate.terms(code, days) for code, days in trials.items()}
     return render_template("plan_pick.html", trials=trials, terms=terms, new=not made, owner=is_owner(),
                            any_trial=any(trials.values()), days=plan_gate.TRIAL_DAYS,
+                           trial_line=plan_gate.timeline(None, None),
                            canceled=request.args.get("canceled") == "1", checkout_open=billing.configured())

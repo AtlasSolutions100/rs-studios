@@ -18,6 +18,9 @@ While it is on:
     paid for a plan, or is on a comp or a code, gets no trial either: it goes straight to the paid plan. A
     repeat that slips through to a Stripe trial (the card is only known after checkout) runs without trial
     credits; its credits land with the first payment.
+  * About a day before a trial's first charge its owner gets one email saying what is charged, when, and how to
+    cancel first (run_reminders, from the mail loop; not sent for a trial already set to cancel). The plan step
+    and Billing show the trial as three dots: today $0, the reminder, the charge (timeline).
   * Accounts that were on Free pick a plan at their next visit to make anything
     new. Their library, downloads, sharing, Billing, the look switch, workspace
     deletion and logging out stay open (plan_gate_routes.ALLOWED).
@@ -33,7 +36,7 @@ Switching the flag off puts everything back: sign-ups get starter credits again
 and nobody is asked for a plan. Trials already running carry on in Stripe.
 """
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from werkzeug.exceptions import HTTPException
 
@@ -44,6 +47,7 @@ import preview
 TRIAL_DAYS = 3
 TRIAL_PLANS = ("starter", "growth")
 TRIAL_PERCENT = 100         # of the plan's monthly credits, granted when the trial starts: full access
+REMINDER_HOURS = 24         # the reminder email goes out about this long before a trial's first charge
 MESSAGE = "Pick a plan to make something new."
 
 
@@ -216,6 +220,118 @@ def trial_view(ws) -> dict | None:
     return {"plan": p, "ends_at": _key(ws, "trial_ends_at"), "usd": p["usd"],
             "no_credits": int(_key(ws, "plan_granted") or 0) == 0,
             "canceling": bool(_key(ws, "plan_cancel_at_period_end"))}
+
+
+def timeline(start_iso: str | None, end_iso: str | None, usd=None, *, canceling: bool = False) -> list[dict]:
+    """The trial as three dots (trial_line in web/_price.html): the start ($0, full access), the reminder email
+    about a day before it ends (run_reminders), and the charge. With no dates it is the picture before checkout:
+    today, then TRIAL_DAYS from now. Each step: {"label" or "iso", "amount", "what", "now"}. The reminder is only
+    promised while email is connected; a trial set to cancel says so instead."""
+    import mailer
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    before = not start_iso
+    try:
+        start = now if before else datetime.fromisoformat(start_iso)
+        end = datetime.fromisoformat(end_iso) if end_iso else start + timedelta(days=TRIAL_DAYS)
+    except ValueError:
+        start, end = now, now + timedelta(days=TRIAL_DAYS)
+    day_before = (end - timedelta(hours=REMINDER_HOURS)).isoformat()
+    first = {"label": "Today" if before else None, "iso": start.isoformat(), "amount": "$0", "what": "Full access",
+             "now": True}
+    if canceling:
+        return [first, {"iso": day_before, "what": "Set to cancel"},
+                {"iso": end.isoformat(), "what": "Trial ends, $0 charged"}]
+    middle = "Reminder email" if mailer.configured() else "Cancel any time before"
+    charge = f"${usd} charged" if usd else "Your plan's price charged"
+    return [first, {"iso": day_before, "what": middle}, {"iso": end.isoformat(), "what": charge}]
+
+
+def timeline_for(conn, ws) -> list[dict] | None:
+    """The timeline of the trial this workspace is in (Billing), or None."""
+    t = trial_view(ws)
+    if t is None:
+        return None
+    row = conn.execute("SELECT started_at, ends_at FROM plan_trials WHERE workspace_id=? AND subscription_id=?",
+                       (ws["id"], _key(ws, "stripe_subscription_id"))).fetchone()
+    start = row["started_at"] if row is not None else None
+    return timeline(start or db.now(), (row["ends_at"] if row is not None else None) or t["ends_at"], t["usd"],
+                    canceling=t["canceling"])
+
+
+# ---------------------------------------------------------------- the reminder before the first charge
+def reminders_due(conn, now=None) -> list:
+    """Trials whose first charge is within REMINDER_HOURS: still trialing on that subscription, not set to cancel,
+    not reminded yet."""
+    now = now or datetime.now(timezone.utc)
+    lo, hi = now.replace(microsecond=0).isoformat(), (now + timedelta(hours=REMINDER_HOURS)).replace(microsecond=0).isoformat()
+    return conn.execute(
+        "SELECT t.* FROM plan_trials t JOIN workspaces w ON w.id=t.workspace_id "
+        "WHERE t.reminded_at IS NULL AND t.ends_at IS NOT NULL AND t.ends_at>? AND t.ends_at<=? "
+        "AND w.plan_status='trialing' AND w.stripe_subscription_id=t.subscription_id "
+        "AND COALESCE(w.plan_cancel_at_period_end, 0)=0 ORDER BY t.ends_at", (lo, hi)).fetchall()
+
+
+def reminder_copy(plan: dict, hours: int, billing_url: str) -> tuple[str, str, str]:
+    """(subject, text, html) of the reminder: what is charged, when, and how to cancel first."""
+    usd, name = plan["usd"], plan["name"]
+    when = f"about {hours} hour{'' if hours == 1 else 's'}"
+    subject = f"Your Campaignify trial ends in {when}"
+    lines = [f"Your {TRIAL_DAYS}-day free trial of Campaignify {name} ends in {when}.",
+             f"When it does, your card is charged ${usd} for the first month, and ${usd} each month after that until "
+             f"you cancel. You carry on with the credits you have now.",
+             "To keep your plan, there is nothing to do.",
+             f"To cancel before you are charged, open Billing and choose Manage or cancel plan: {billing_url}",
+             "Questions? Reply to this email."]
+    text = "\n\n".join(lines)
+    html = ('<div style="font:15px/1.55 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#141414;max-width:520px">'
+            + "".join(f"<p>{line}</p>" for line in lines[:3])
+            + f'<p>To cancel before you are charged, open <a href="{billing_url}">Billing</a> and choose Manage or '
+              f"cancel plan.</p><p>{lines[4]}</p></div>")
+    return subject, text, html
+
+
+def remind(conn, trial, now=None) -> bool:
+    """Send one trial's reminder to its owner. The trial is marked first, so nobody is mailed twice; an email the
+    provider defers is kept and sent again by the mailer."""
+    import logging
+
+    import mailer
+    import verify
+    now = now or datetime.now(timezone.utc)
+    p = plans.PLANS.get(trial["plan"])
+    user = conn.execute("SELECT * FROM users WHERE id=?", (trial["user_id"],)).fetchone() if trial["user_id"] else None
+    if user is None:
+        user = conn.execute("SELECT * FROM users WHERE workspace_id=? ORDER BY (role='owner') DESC, id LIMIT 1",
+                            (trial["workspace_id"],)).fetchone()
+    if conn.execute("UPDATE plan_trials SET reminded_at=? WHERE id=? AND reminded_at IS NULL",
+                    (db.now(), trial["id"])).rowcount != 1:
+        conn.commit()
+        return False
+    conn.commit()
+    if p is None or user is None or "@" not in (user["email"] or ""):
+        return False
+    hours = max(1, round((datetime.fromisoformat(trial["ends_at"]) - now).total_seconds() / 3600))
+    subject, text, html = reminder_copy(p, hours, verify.public_url() + "/app/billing")
+    try:
+        mailer.send(frm=verify.from_address(), to=user["email"], subject=subject, html=html, text=text,
+                    reply_to=verify.reply_to(), tags={"kind": "trial_reminder"},
+                    idempotency_key=f"trial-reminder-{trial['id']}")
+        return True
+    except mailer.MailError as e:
+        logging.getLogger("campaignify").warning("trial reminder for workspace %s not sent: %s", trial["workspace_id"], e)
+        return False
+
+
+def run_reminders(now=None) -> int:
+    """Send every trial reminder that is due (nudges.mail_tick, every few minutes). Returns how many went out."""
+    import mailer
+    if not mailer.configured():
+        return 0
+    sent = 0
+    with db.connect() as conn:
+        for t in reminders_due(conn, now):
+            sent += 1 if remind(conn, t, now) else 0
+    return sent
 
 
 def terms(code: str, days: int) -> dict:

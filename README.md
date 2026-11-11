@@ -720,6 +720,15 @@ Asked for by Koby on Nov 11 2026. `deploy.yml` turns both on in production unles
   for a plan, or is on a comp or a code, goes straight to the paid plan.
 - What a trial can cost us: a credit is about a cent of generation spend, so a trial that is used up and canceled
   costs up to about $18 on Starter and $55 on Growth.
+- The trial is drawn as three dots (`plan_gate.timeline`, `trial_line` in `web/_price.html`) under the plans on the
+  plan step and in Billing's plan box while a trial runs: today at $0 with full access, the reminder email, the
+  charge. The reminder is real: about a day before a trial's first charge its owner gets one email saying what is
+  charged, when, and how to cancel first (`plan_gate.run_reminders`, from `nudges.mail_tick` every 10 minutes;
+  `plan_trials.reminded_at`; kind `trial_reminder`; not sent for a trial set to cancel). Without email connected the
+  middle dot reads "Cancel any time before" instead.
+- In the new look the plans and packs are separate cards with the first look's lime accents (Koby's pick, Nov 11):
+  Growth has a lime edge, a lime button and a "Recommended" tag. It does not say "Most popular": that would be a
+  claim about what sells most, and the home page test keeps such claims out. The menu's button is lime too.
 - The plan cards say it with one chip at the top of Starter and Growth (`trial_chip` in `web/_price.html`: the star
   mark, "3-day free trial. Full access."); the terms are stated once under the plans, on the plan step and on
   Stripe's page.
