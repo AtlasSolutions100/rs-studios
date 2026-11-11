@@ -244,7 +244,7 @@ def run(ws_id: int, brand_id: int, product_id, url: str) -> dict:
 
     # 2. the voice, from the page's own words
     text = " ".join(x for x in (site.get("headline") or "", site.get("description") or "", site.get("text") or "") if x)[:2500]
-    if ai and llm.configured() and text and not (b["tone"] or ""):
+    if ai and llm.configured() and text and not ((b["tone"] or "") and (b["audience"] or "")):
         try:
             out = llm.structured(system=VOICE_SYSTEM, prompt=f"Brand: {b['brand_name'] or site.get('name') or ''}\n\nPage:\n{text}",
                                  schema=VOICE_SCHEMA, max_tokens=200, temperature=0.3, usage=usage,
