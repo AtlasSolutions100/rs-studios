@@ -6,7 +6,7 @@
   <a class="ob-logo" href="{{ url_for('studio') }}" aria-label="Campaignify home">{% include "_wordmark.svg" %}</a>
   <div class="ob-who"><span>{{ g.user.email }}</span><form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="ob-link">Log out</button></form></div>
 </header>
-<main class="ob" id="main">
+<main class="ob{% block ob_class %}{% endblock %}" id="main">
   {% for cat, m in get_flashed_messages(with_categories=true) %}<div class="flash" role="status">{{ m }}</div>{% endfor %}
   {% block ob %}{% endblock %}
 </main>
