@@ -539,6 +539,19 @@ cookie keeps it on in that browser for 180 days, logged out too, so the landing 
   config to `create_routes.quote_for` / `generate_for`, so the rules, the claims check, the email-confirm step and
   the "total changed" refusal (409) are Create's. Results are the usual cards (Download, approve, More like this,
   the free fix when `FREE_FIX` is on). Create stays at `/app/create` as "Advanced"; `/app?classic=1` is the old Home.
+- **Ask** (the composer's first tab, `studio_v2.ask`, `/app/studio/ask`): the member types what they want in a
+  sentence ("launch the candle for the holidays, a few image ads and one short video"). The fast text model, given
+  the product's facts, its approved claims and the presenter roster, proposes up to `ASK_MAX_PARTS` (5) things
+  Studio already makes, with the words for each. Every part is priced by Create's own quote and the confirm box
+  opens on the set: each part can be unticked and its words edited, and the box re-prices in place
+  (`/app/studio/quote` with `plan`). The button posts the ticked parts plus the shown total to
+  `/app/studio/generate`, which starts them as one batch named after the ask. What comes back from the browser is
+  read through `ask_item`, so a part can only ever set its kind, words, image count, presenter and place. Words
+  that trip a claim rule are never proposed (the part is named as left out), a part Create can't price is left out
+  with Create's reason, and an ask that itself asks for a blocked claim never reaches the model. Asking costs the
+  member nothing; it is capped at `ASK_DAILY` (40) per workspace per day (the `meta` table) and hidden when no text
+  model is configured. A returning member's Studio opens on Ask; a first run still opens on its two free image
+  ads. `tests/test_studio_ask.py` covers it with the model stubbed.
 - **Brand** (`/app/studio/brand`): one input, "Drop your website" (the same free importer), then the brand's Look
   (colours, font, logo), saved through the existing brand form.
 - **Onboarding** (`/app/welcome`, `/app/welcome/profile`): what do you want to make (stored as codes in
