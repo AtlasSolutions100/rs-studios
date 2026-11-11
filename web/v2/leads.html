@@ -1,0 +1,108 @@
+{% extends "base.html" %}{% block title %}Leads · Campaignify{% endblock %}
+{# The lead pipeline in the new look (pipeline.py): the board on the left, the lead you opened on the right.
+   A card opens its lead; the lead moves with the stage buttons in the panel. Everything is a link or a plain form. #}
+{% block body %}
+<div class="page full">
+  <div class="ld-top">
+    <div>
+      <p class="eyebrow">Leads</p>
+      <h1>Where every lead stands</h1>
+      <p class="muted">Everyone who came in from your pages, forms and ads, by stage. {{ board.total }} in all.</p>
+    </div>
+    <div class="row">
+      <a class="btn dark sm" href="{{ url_for('forms.leads', stages=None if editing else 1, lead=opened.c.id if opened else None) }}">{{ 'Close' if editing else 'Rename stages' }}</a>
+      <a class="btn dark sm" href="{{ url_for('forms.contacts') }}">All contacts</a>
+    </div>
+  </div>
+  {% if editing %}
+  <form method="post" action="{{ url_for('forms.leads_stages') }}" class="panel" style="margin-bottom:18px"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <h2 style="margin-top:0">Your stages</h2>
+    <p class="small muted" style="margin:0 0 12px">Call each stage what you call it. You can add up to {{ max_extra }} of your own between {{ stages[2].name }} and {{ stages[-3].name }}. Follow-up steps that move a lead keep working.</p>
+    <div class="ld-names">
+    {% for s in stages %}<div><label for="st-{{ s.key }}">{{ 'Lost leads' if s.lost else 'Stage ' ~ loop.index }}</label>
+      <div class="row" style="gap:6px"><input id="st-{{ s.key }}" type="text" name="name_{{ s.key }}" maxlength="24" value="{{ s.name }}" required style="flex:1;min-width:120px">{% if s.own %}<button class="btn dark sm" name="remove" value="{{ s.key }}" data-confirm="Remove {{ s.name }}? Its leads go back to {{ stages[2].name }}.">Remove</button>{% endif %}</div></div>{% endfor %}
+    <div><label for="st-new">Add a stage of your own</label><input id="st-new" type="text" name="new" maxlength="24" placeholder="For example: Quote sent"></div>
+    </div>
+    <p style="margin:14px 0 0"><button class="btn dark">Save stages</button></p>
+  </form>
+  {% endif %}
+
+  <div class="ld {{ 'has-open' if opened }}">
+    <div class="ld-board">
+      <div class="scrollx"><div class="ld-cols" style="grid-template-columns:repeat({{ board.columns|length }},minmax(128px,1fr))">
+        {% for col in board.columns %}
+        <section class="ld-col {{ 'here' if opened and opened.stage == col.key }}" aria-labelledby="pc-{{ col.key }}" style="--at:{{ (100 * loop.index0 / ([loop.length - 1, 1]|max))|round|int }}%">
+          <header><h2 id="pc-{{ col.key }}">{{ col.name }}</h2><span class="ld-n">{{ col.count }}</span></header>
+          {% for k in col.cards %}
+          <a class="ld-card" href="{{ url_for('forms.leads', lead=k.id) }}#lead" {{ 'aria-current=true' if opened and opened.c.id == k.id }}>
+            <b>{{ k.name }}</b>
+            {% if k.source %}<span class="small muted">{{ k.source }}</span>{% endif %}
+            {% if k.last %}<span class="small">{{ k.last }}</span>{% endif %}
+            <span class="small dim">{{ k.at|localtime if k.at }}</span>
+          </a>
+          {% else %}<p class="small dim" style="margin:0">Nobody here yet.</p>{% endfor %}
+          {% if col.count > col.cards|length %}<p class="small muted" style="margin:0">And {{ col.count - col.cards|length }} more in <a href="{{ url_for('forms.contacts') }}">All contacts</a>.</p>{% endif %}
+        </section>
+        {% endfor %}
+      </div></div>
+      <p class="small muted" style="margin:18px 0 0">A lead moves when you move it, or when a follow-up step says so. {{ board.lost.name }}: {{ board.lost.count }}. {% if board.lost.count and not showing_lost %}<a href="{{ url_for('forms.leads', lost=1, lead=opened.c.id if opened else None) }}">Show them</a>{% endif %}</p>
+      {% if lost_rows %}<div class="panel scrollx" style="margin-top:10px"><table>{% for c in lost_rows %}<tr><td><a href="{{ url_for('forms.leads', lead=c.id, lost=1) }}#lead"><b>{{ c.name or c.email }}</b></a></td><td class="small muted">{{ c.last_seen|localtime }}</td></tr>{% endfor %}</table></div>{% endif %}
+    </div>
+
+    {% if opened %}{% set c = opened.c %}
+    <aside class="ld-open panel" id="lead" aria-label="The lead you opened">
+      <div>
+        <h2>{{ c.name or c.email }}</h2>
+        <p class="small muted">{{ c.email }}{% if c.phone_e164 %}, {{ c.phone_e164 }}{% endif %}</p>
+      </div>
+      {% if c.source %}<p class="ld-from"><span class="muted">Came from</span> {{ c.source }}</p>{% endif %}
+
+      <form method="post" action="{{ url_for('forms.contact_stage', cid=c.id) }}" class="ld-stage"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="board"><input type="hidden" name="open" value="1">
+        <span class="ld-label" id="ld-st">Stage</span>
+        <div role="group" aria-labelledby="ld-st" class="row" style="gap:6px">
+          {% for s in stages %}<button class="choice {{ 'on' if s.key == opened.stage }}" name="stage" value="{{ s.key }}" {{ 'aria-current=true disabled' if s.key == opened.stage }}>{{ s.name }}</button>{% endfor %}
+        </div>
+      </form>
+
+      <div>
+        <span class="ld-label">What has happened</span>
+        <ol class="ld-line">
+          {% for e in opened.timeline %}<li><i aria-hidden="true"></i><span>{{ e.what }}{{ ':' if e.kind == 'message' and e.detail else '' }} {{ e.detail }}</span><span class="small dim">{{ e.at|localtime }}</span></li>
+          {% else %}<li><i aria-hidden="true"></i><span class="muted">Nothing yet. Forms they fill in, messages they get and every move show here.</span><span></span></li>{% endfor %}
+        </ol>
+        <p class="small" style="margin:8px 0 0"><a href="{{ url_for('forms.contact', cid=c.id) }}">{{ 'All ' ~ (opened.timeline|length + opened.more) ~ ' and their details' if opened.more else 'Their details, notes and consent' }}</a></p>
+      </div>
+
+      <div class="ld-write">
+        <span class="ld-label">Write to them</span>
+        {% if opened.blocked.email and opened.blocked.sms %}
+        <p class="small muted" style="margin:0">{{ opened.blocked.email[0] }}</p>
+        {% else %}
+        {% if not opened.blocked.email %}
+        <details class="ld-ch" {{ 'open' if not request.args.get('ch') == 'sms' }}>
+          <summary>Email</summary>
+          <form method="post" action="{{ url_for('forms.contact_message', cid=c.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="channel" value="email"><input type="hidden" name="back" value="board">
+            <label for="ld-s">Subject</label><input id="ld-s" type="text" name="subject" maxlength="200" required>
+            <label for="ld-b">Message</label><textarea id="ld-b" name="body" rows="5" maxlength="20000" required></textarea>
+            <button class="btn">Send email · {{ email_credits }} credit{{ '' if email_credits == 1 else 's' }}</button>
+          </form>
+        </details>
+        {% else %}<p class="small muted" style="margin:0">Email: {{ opened.blocked.email[0] }}</p>{% endif %}
+        {% if not opened.blocked.sms %}
+        <details class="ld-ch">
+          <summary>Text</summary>
+          <form method="post" action="{{ url_for('forms.contact_message', cid=c.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="channel" value="sms"><input type="hidden" name="back" value="board">
+            <label for="ld-t">Message</label><textarea id="ld-t" name="body" rows="3" maxlength="640" required></textarea>
+            <button class="btn">Send text · {{ sms_credits }} credit{{ '' if sms_credits == 1 else 's' }} a part</button>
+            <p class="small muted" style="margin:0">One part is up to 160 characters. Texts go out in their daytime only.</p>
+          </form>
+        </details>
+        {% else %}<p class="small muted" style="margin:0">Text: {{ opened.blocked.sms[0] }}</p>{% endif %}
+        <p class="small muted" style="margin:0">Sent from your own sender and logged above. People who unsubscribed are never sent to.</p>
+        {% endif %}
+      </div>
+    </aside>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

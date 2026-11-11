@@ -243,7 +243,13 @@ A light CRM over the contacts: where each lead stands, what has happened with th
   button (an email is 1 credit; a text is the per-part price). A direct message that can't go is marked not sent with
   the reason; there is no flow to pause.
 
-Tests: `tests/test_pipeline.py`.
+- **In the new look** (`web/v2/leads.html`, behind `UI_V2`): the board with the lead you opened beside it. A card is a
+  link (`/app/leads?lead=<id>`); the newest lead of the first stage with anyone in it is open by default. The panel
+  shows where they came from, stage buttons (the move keeps the lead open), the latest seven lines of the timeline
+  with a link to the full contact page, and the email and text forms with the price on the button. Members on the
+  current look keep the board with a select and Move on each card.
+
+Tests: `tests/test_pipeline.py`, `tests/test_leads_v2.py`.
 
 ## Flows (`/app/flows`, Starter+; email Growth+, texts Scale)
 

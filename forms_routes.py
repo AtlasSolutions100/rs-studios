@@ -407,8 +407,32 @@ def leads():
         data = pipeline.board(conn, ws)
         lost = conn.execute("SELECT id, email, name, last_seen FROM contacts WHERE workspace_id=? AND stage=? ORDER BY last_seen "
                             "DESC LIMIT 50", (g.ws["id"], data["lost"]["key"])).fetchall() if request.args.get("lost") else []
-    return render_template("leads.html", board=data, stages=pipeline.stages(ws), lost_rows=lost, max_extra=pipeline.MAX_EXTRA,
-                           editing=bool(request.args.get("stages")), showing_lost=bool(request.args.get("lost")))
+        import ui_v2
+        v2 = ui_v2.on()
+        opened = _opened_lead(conn, ws, data, request.args.get("lead", type=int)) if v2 else None
+    import sms as smsmod
+    return render_template("v2/leads.html" if v2 else "leads.html", board=data, stages=pipeline.stages(ws), lost_rows=lost,
+                           max_extra=pipeline.MAX_EXTRA, editing=bool(request.args.get("stages")),
+                           showing_lost=bool(request.args.get("lost")), opened=opened,
+                           email_credits=messaging.EMAIL_CREDITS, sms_credits=smsmod.credits_per_segment())
+
+
+OPENED_EVENTS = 7       # lines of the timeline the board's side panel shows; the contact's own page has them all
+
+
+def _opened_lead(conn, ws, data, cid):
+    """The lead the board has open (the new look's side panel): the one asked for when it is this workspace's, else
+    the newest lead in the first stage that has any, else None. {c, stage, timeline, more, blocked}."""
+    c = conn.execute("SELECT * FROM contacts WHERE id=? AND workspace_id=?", (cid, ws["id"])).fetchone() if cid else None
+    if c is None:
+        first = next((col["cards"][0]["id"] for col in data["columns"] if col["cards"]), None)
+        c = conn.execute("SELECT * FROM contacts WHERE id=? AND workspace_id=?", (first, ws["id"])).fetchone() if first else None
+    if c is None:
+        return None
+    line = pipeline.timeline(conn, ws, c["id"])
+    return {"c": c, "stage": pipeline.key_of(ws, c["stage"]), "timeline": line[:OPENED_EVENTS],
+            "more": max(0, len(line) - OPENED_EVENTS),
+            "blocked": {ch: pipeline.can_write(conn, ws, c, ch) for ch in ("email", "sms")}}
 
 
 @bp.route("/app/leads/stages", methods=["POST"])
@@ -430,7 +454,10 @@ def contact_stage(cid):
         if pipeline.move(conn, ws, c, request.form.get("stage") or "", (g.user["name"] or g.user["email"] or "")[:60]):
             conn.commit()
             flash(f"Moved to {pipeline.name_of(ws, request.form.get('stage'))}.", "ok")
-    return redirect(url_for("forms.leads") if request.form.get("back") == "board" else url_for("forms.contact", cid=cid))
+    if request.form.get("back") == "board":
+        # from the board; "open" keeps that lead open in the new look's side panel
+        return redirect(url_for("forms.leads", lead=cid if request.form.get("open") else None))
+    return redirect(url_for("forms.contact", cid=cid))
 
 
 @bp.route("/app/contacts/<int:cid>/message", methods=["POST"])
@@ -442,6 +469,8 @@ def contact_message(cid):
                                    request.form.get("body"))
         conn.commit()
     flash(words, "ok") if ok else flash(words)
+    if request.form.get("back") == "board":
+        return redirect(url_for("forms.leads", lead=cid) + "#lead")
     return redirect(url_for("forms.contact", cid=cid) + "#write")
 
 
