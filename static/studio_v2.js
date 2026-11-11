@@ -543,7 +543,7 @@
     $('[data-q-bal]').textContent = credits(q.balance);
     $('[data-q-after]').textContent = q.short ? 'Not enough' : credits(q.balance - q.total);
     var note = $('[data-q-note]'), notes = [];
-    if(B.first_run && !q.short && k === 'image') notes.push('Your free credits cover this.');
+    if(B.first_run && !q.short && k === 'image') notes.push(B.plans_only ? 'Your credits cover this.' : 'Your free credits cover this.');
     if(B.claims_check) notes.push('The words are checked against your product\'s claims and page first' + (B.claims_credits ? ' (about ' + credits(B.claims_credits) + ').' : ', free.'));
     if(q.videos) notes.push('Failed videos are refunded automatically.');
     note.hidden = !notes.length; note.textContent = notes.join(' ');

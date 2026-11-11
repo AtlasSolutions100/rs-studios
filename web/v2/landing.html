@@ -216,7 +216,7 @@
   <div class="lv-wrap lv-split">
     <div>
       <h2 id="lv-rest">The rest of the campaign, when you want it</h2>
-      <p class="lv-sub">The free studio makes ads. A plan adds the tools around them, and each one says which plan it comes with.</p>
+      <p class="lv-sub">{% if plans_only() %}Every plan makes ads. Each tool around them says which plan it comes with.{% else %}The free studio makes ads. A plan adds the tools around them, and each one says which plan it comes with.{% endif %}</p>
       <p><a href="{{ url_for('features') }}">See every feature</a></p>
     </div>
     <ul class="lv-list">
@@ -231,7 +231,7 @@
 <section class="lv-sec" id="pricing" aria-labelledby="lv-price">
   <div class="lv-wrap">
     <h2 id="lv-price">Pricing</h2>
-    <p class="lv-sub">Start free. Buy a credit pack when you only want ads, or pick a plan for monthly credits and the campaign tools.</p>
+    <p class="lv-sub">{% if plans_only() %}Starter and Growth are free for {{ plan_trial_days('starter') }} days. Every plan comes with monthly credits, and credit packs top it up.{% else %}Start free. Buy a credit pack when you only want ads, or pick a plan for monthly credits and the campaign tools.{% endif %}</p>
     {% include "_pricing.html" %}
     <p class="pr-note"><a href="{{ url_for('pricing') }}">Pricing in full</a></p>
   </div>

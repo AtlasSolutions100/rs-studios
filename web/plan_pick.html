@@ -1,0 +1,55 @@
+{% extends ("v2/onboard_base.html" if ui_v2 else "base.html") %}{% import "_price.html" as price %}
+{% block title %}Pick a plan · Campaignify{% endblock %}
+{# The plan step (plan_gate_routes.py, PLANS_ONLY). Every figure comes from plans.PLANS and plan_gate.terms():
+   the price, the trial's length and credits, and what is charged when. Works in both looks. #}
+{% block ob_class %} ob-wide{% endblock %}
+{% block ob %}{{ self.pick() }}{% endblock %}
+{% block body %}<div class="page full">{{ self.pick() }}</div>{% endblock %}
+{% block pick %}
+<div class="pk" data-plan-step>
+  <h1>{% if new %}Pick a plan to start{% else %}Pick a plan to keep making ads{% endif %}</h1>
+  <p class="pk-sub">{% if not new %}Your ads, products and credits are all still here. {% endif %}{% if any_trial %}Starter and Growth are free for {{ days }} days. Your card is charged when the trial ends, unless you cancel first.{% else %}Monthly, and you can cancel any time.{% endif %}</p>
+
+  {% if canceled %}<p class="pk-note" role="status" data-plan-canceled>Checkout canceled. Nothing was charged.</p>{% endif %}
+  {% if not checkout_open %}<p class="pk-note" role="status">Plan checkout isn't switched on yet. Check back shortly.</p>{% endif %}
+
+  <div class="pk-plans" data-plans>
+    {% for p in plans.PAID %}{% set t = terms[p.code] %}
+    <section class="pk-plan" aria-labelledby="pk-{{ p.code }}" data-plan="{{ p.code }}">
+      {% if any_trial %}{{ price.trial_chip(t.days, days) }}{% endif %}
+      <h2 id="pk-{{ p.code }}">{{ p.name }}</h2>
+      <p class="pk-amt">{{ price.amount(p) }}</p>
+      <p class="pk-cr">{{ '{:,}'.format(p.credits) }} credits every month</p>
+      {% set m = ad_math(p.credits, p.usd) %}<p class="pk-makes">{{ m.counts }}.</p>
+      {% if not owner %}
+      <span class="btn dark disabled" aria-disabled="true">Owner picks the plan</span>
+      {% elif not checkout_open or not p.price_id %}
+      <span class="btn dark disabled" aria-disabled="true">Not open yet</span>
+      {% else %}
+      <form method="post" action="{{ url_for('subscribe') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="plan" value="{{ p.code }}">
+        <button class="btn {{ '' if p.code == 'growth' else 'dark' }}" data-plan-start>{% if t.days %}Start {{ t.days }}-day trial{% else %}Start {{ p.name }}, ${{ t.usd }} today{% endif %}</button></form>
+      {% endif %}
+      {% set prev = plans.ORDER[plans.ORDER.index(p.code) - 1] %}
+      <ul class="pk-feats">
+        <li>{{ 'Up to ' ~ p.seats ~ ' seats' if p.seats and p.seats > 1 else '1 seat' }}, {{ 'unlimited brands' if p.brands is none else (p.brands ~ ' brand' ~ ('s' if p.brands != 1 else '')) }}</li>
+        <li>{{ 'The ad studio, brands and compliance checks' if prev == 'free' else 'Everything in ' ~ plans.PLANS[prev].name }}</li>
+        {% for f in plans.plan_features(p.code) %}<li>{{ f.name }}</li>{% endfor %}
+      </ul>
+    </section>
+    {% endfor %}
+  </div>
+
+  {% if not owner %}<p class="pk-fine">Ask your workspace owner to pick a plan. You can keep making ads as soon as it's on.</p>{% endif %}
+  <dl class="pk-how" data-plan-how>
+    {% if any_trial %}
+    <div><dt>Today</dt><dd>$0 on Starter and Growth, with the whole plan and its month of credits. You add your card on Stripe's secure page and come straight back here.</dd></div>
+    <div><dt>In {{ days }} days</dt><dd>The plan's price is charged and you carry on with the same month of credits. Cancel before then and nothing is charged.</dd></div>
+    {% else %}
+    <div><dt>Today</dt><dd>The plan's price is charged on Stripe's secure page and your credits land right away.</dd></div>
+    {% endif %}
+    <div><dt>Canceling</dt><dd>Any time, from Billing. A plan you've paid for runs to the end of that month.</dd></div>
+    <div><dt>More credits</dt><dd>Credit packs top up any plan from ${{ packs[0].usd }}. Pack credits never expire.</dd></div>
+  </dl>
+  <p class="pk-under">{% if not new %}<a href="{{ url_for('library') }}">Go to your library</a>{% endif %}<a href="{{ url_for('billing_page') }}#code">Have a code?</a></p>
+</div>
+{% endblock %}

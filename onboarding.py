@@ -43,7 +43,7 @@ GOAL_CODES = [c for c, _ in GOALS]
 GOAL_MODE = {"ugc": "presenter", "image": "image", "product_video": "product_video", "voiceover": "voiceover"}
 OTHER_MAX, NAME_MAX, COMPANY_MAX, WEBSITE_MAX = 200, 40, 80, 300
 # Pages a new account is sent to the steps from (GET only). Everything else is left alone.
-START_ENDPOINTS = {"studio", "studio_v2.page", "card.page"}
+START_ENDPOINTS = {"studio", "studio_v2.page", "card.page", "plangate.page"}
 
 
 def answers(user) -> dict:
@@ -102,7 +102,7 @@ def _start():
         if due(conn, g.user, g.ws):
             return redirect(url_for("onboarding.intent"))
         # not from the card page: the brief sits behind the card step, so sending the card page there would loop
-        if request.endpoint != "card.page" and brief_due(conn, g.user, g.ws):
+        if request.endpoint not in ("card.page", "plangate.page") and brief_due(conn, g.user, g.ws):
             return redirect(url_for("onboarding.brief"))
     return None
 

@@ -1240,3 +1240,17 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
   .dk-bar-act{width:100%}
   .dk-bar-act .btn{flex:1 1 auto}
 }
+/* the percent-off price and the plan step in the neutral look (plans.sale, plan_pick.html) */
+[data-ui="v2"] .px-off{border-radius:6px;padding:2px 8px;background:var(--v2-inv);color:var(--v2-inv-ink);font:500 12px/1.4 var(--body);letter-spacing:0}
+.pr-amt .px-next{font-size:16px;font-weight:400}
+.pr-amt .px-off{margin-left:8px}
+.pr-plans.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:1000px){.pr-plans.three{grid-template-columns:1fr}.pr-plans.three .pr-plan{border-left:0}.pr-plans.three .pr-plan:nth-child(n+2){border-top:1px solid var(--line)}}
+.ob.ob-wide{max-width:1040px}
+[data-ui="v2"] .pk h1{text-align:left;font-size:24px}
+[data-ui="v2"] .pk-plan{border-radius:var(--r-lg);background:var(--panel)}
+[data-ui="v2"] .pk-plan h2{font-size:15px;font-weight:600}
+[data-ui="v2"] .pk-amt b{font:600 34px var(--body);letter-spacing:-.035em}
+[data-ui="v2"] .pk-amt .px-next{font-size:16px;font-weight:400}
+[data-ui="v2"] .px-trial{border-radius:var(--r-md);background:var(--v2-sunk);margin-bottom:var(--s4)}
+@media (max-width:1000px){.pr-plans .px-trial.gap{display:none}}

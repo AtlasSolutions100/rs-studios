@@ -1,0 +1,10 @@
+{# A plan's price (plans.PLANS). With PLAN_SALE on, the price it is going to sits beside it, struck through, with
+   the difference as a percent off (plans.sale: rounded down). Nothing here is typed in. #}
+{% macro amount(p, per=' a month', per_class='') -%}
+{% set s = plans.sale(p) %}<b>${{ p.usd }}</b>{% if s %}<s class="px-next"><span class="sr">going to </span>${{ s.next }}</s>{% endif %}<span{% if per_class %} class="{{ per_class }}"{% endif %}>{{ per }}</span>{% if s %}<em class="px-off">{{ s.off }}% off</em>{% endif %}
+{%- endmacro %}
+{# The chip at the top of a plan that includes a trial (plan_gate.py): our star, the trial's length and "Full access".
+   With days = 0 it leaves an unseen slot of the same height, so side-by-side cards keep their rows in line. #}
+{% macro trial_chip(days, like=3) -%}
+<p class="px-trial{{ '' if days else ' gap' }}"{% if days %} data-plan-trial{% else %} aria-hidden="true"{% endif %}><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#0B0C0E"/><path d="M32 9C33.6 25 39 30.4 55 32C39 33.6 33.6 39 32 55C30.4 39 25 33.6 9 32C25 30.4 30.4 25 32 9Z" fill="#BDFA25"/></svg><span><b>{{ days or like }}-day free trial.</b> Full access.</span></p>
+{%- endmacro %}

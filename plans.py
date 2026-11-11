@@ -3,6 +3,9 @@
 Three monthly plans on Stripe (recurring Prices on the shared account), plus
 the free tier everyone starts on. Every plan includes everything in the plans
 below it. Credit packs (catalog.PACKS) stay on sale as top-ups for anyone.
+With PLANS_ONLY on (plan_gate.py) there is no free tier for new accounts: a
+sign-up picks a plan, Starter and Growth start with a 3-day trial, and packs
+top up a plan.
 
 Credits come in two buckets on a workspace:
     plan_credits  granted by each paid plan invoice; they expire at the next
@@ -28,15 +31,15 @@ PLANS = {
     "free": {"code": "free", "name": "Free", "usd": 0, "credits": 0, "price_id": None, "product_id": None,
              "brands": 1, "seats": 1, "pages": 0,
              "line": "Your starter credits and the ad studio. Top up with credit packs."},
-    "starter": {"code": "starter", "name": "Starter", "usd": 39, "credits": 2000,
+    "starter": {"code": "starter", "name": "Starter", "usd": 39, "next_usd": 79, "credits": 2000,
                 "price_id": None, "product_id": None,
                 "brands": 1, "seats": 1, "pages": 1,
                 "line": "For one seller running their own campaigns."},
-    "growth": {"code": "growth", "name": "Growth", "usd": 99, "credits": 6000,
+    "growth": {"code": "growth", "name": "Growth", "usd": 99, "next_usd": 149, "credits": 6000,
                "price_id": None, "product_id": None,
                "brands": 3, "seats": 3, "pages": None,
                "line": "For small teams and a few brands."},
-    "scale": {"code": "scale", "name": "Scale", "usd": 249, "credits": 18000,
+    "scale": {"code": "scale", "name": "Scale", "usd": 249, "next_usd": 349, "credits": 18000,
               "price_id": None, "product_id": None,
               "brands": None, "seats": 10, "pages": None,
               "line": "For agencies and teams running many brands."},
@@ -48,6 +51,22 @@ for _code, _p in PLANS.items():
         _p["product_id"] = liveids.get(f"STRIPE_PLAN_PRODUCT_{_code.upper()}")
 PAID = [PLANS[c] for c in ORDER if c != "free"]
 BY_PRICE = {p["price_id"]: p for p in PAID}
+
+
+def sale_on() -> bool:
+    """PLAN_SALE (default off): show each plan's price next to the price it is going to (`next_usd`, Koby,
+    Nov 11 2026), struck through, with the difference as a percent off. Display only: what is charged is `usd`,
+    the Stripe Price. Switch it off (or raise `usd`) when the prices go up."""
+    return (os.environ.get("PLAN_SALE") or "").strip().lower() in ("1", "on", "true", "yes")
+
+
+def sale(p) -> dict | None:
+    """{"next": 79, "off": 50} for a plan whose price is going up, while PLAN_SALE is on; else None. The percent
+    is rounded down, so the tag never says more than the difference."""
+    nxt = (p or {}).get("next_usd")
+    if not sale_on() or not nxt or nxt <= p["usd"]:
+        return None
+    return {"next": nxt, "off": (nxt - p["usd"]) * 100 // nxt}
 
 # Subscription states Stripe still bills. They keep the plan on, except that
 # past_due (the renewal payment failed, Stripe is retrying) pauses the

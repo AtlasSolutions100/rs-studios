@@ -113,11 +113,11 @@
     {% block side_help %}{% if has_endpoint is defined and has_endpoint('assistant.page') and assistant_on() %}<button type="button" class="helpbtn" data-help-open><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.6 4.8L18.5 9l-4.9 1.4L12 15l-1.6-4.6L5.5 9l4.9-1.2z"/><path d="M18 15l.7 1.9 1.8.6-1.8.7L18 20l-.7-1.8-1.8-.7 1.8-.6z"/></svg>Help me<kbd>?</kbd></button>{% endif %}{% endblock %}
     {% if ui_v2 %}
     <details class="v2-acct" data-v2-acct>
-      <summary aria-label="Account, credits and settings"><span class="v2-ava" aria-hidden="true">{{ (g.user.name or g.user.email)[:1]|upper }}</span><span class="v2-acct-txt"><b>{{ g.ws.name if g.ws else g.user.email }}</b><span><span data-bal-pill>{{ balance()|credits }}</span>, {{ plans.plan(g.ws).name }} plan</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg></summary>
+      <summary aria-label="Account, credits and settings"><span class="v2-ava" aria-hidden="true">{{ (g.user.name or g.user.email)[:1]|upper }}</span><span class="v2-acct-txt"><b>{{ g.ws.name if g.ws else g.user.email }}</b><span><span data-bal-pill>{{ balance()|credits }}</span>, {{ 'no plan yet' if plans_only() and plans.plan_code(g.ws) == 'free' else plans.plan(g.ws).name ~ ' plan' }}</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg></summary>
       <div class="v2-acct-menu">
         <p class="v2-acct-mail">{{ g.user.email }}</p>
         <a href="{{ url_for('billing_page') }}"><span>Credits</span><b>{{ '{:,}'.format(balance()) }}</b></a>
-        <a href="{{ url_for('billing_page') }}#plans"><span>Plan and billing</span><b>{{ plans.plan(g.ws).name }}</b></a>
+        <a href="{{ url_for('billing_page') }}#plans"><span>Plan and billing</span><b>{{ 'Pick a plan' if plans_only() and plans.plan_code(g.ws) == 'free' else plans.plan(g.ws).name }}</b></a>
         <a href="{{ url_for('team') }}"><span>Team and settings</span></a>
         <button type="button" data-theme-toggle><span>Light or dark</span></button>
         {% if ui_v2_can_preview and not ui_v2_global %}<form method="post" action="{{ url_for('ui_v2.set_look') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="look" value="v1"><button><span>Back to the current look</span></button></form>{% endif %}
@@ -126,7 +126,7 @@
     </details>
     {% else %}
     <a class="pill" href="{{ url_for('billing_page') }}" title="Credits left: buy more"><i></i><span data-bal-pill>{{ balance()|credits }}</span></a>
-    <a class="planchip" href="{{ url_for('billing_page') }}">{{ plans.plan(g.ws).name }} plan{% if plans.plan_code(g.ws) == 'free' %} · <b>Upgrade</b>{% endif %}</a>
+    <a class="planchip" href="{{ url_for('billing_page') }}">{% if plans_only() and plans.plan_code(g.ws) == 'free' %}No plan · <b>Pick a plan</b>{% else %}{{ plans.plan(g.ws).name }} plan{% if plans.plan_code(g.ws) == 'free' %} · <b>Upgrade</b>{% endif %}{% endif %}</a>
     <div class="side-foot">
       <button type="button" class="theme" data-theme-toggle aria-label="Switch light or dark theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg><span>Theme</span></button>
       <form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn">Log out</button></form>

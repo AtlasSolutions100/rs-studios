@@ -691,6 +691,61 @@ when it is ready, an angle to test with a button that puts it in the sentence bo
 
 Tests: `tests/test_brand_identity.py`.
 
+## Plans only and the percent-off price (`plan_gate.py`, `plan_gate_routes.py`, `plans.sale`; `PLANS_ONLY`, `PLAN_SALE`, both default off in code)
+
+Asked for by Koby on Nov 11 2026. `deploy.yml` turns both on in production unless the repo variable says `0`.
+
+**`PLANS_ONLY`: no free tier.** It takes effect only while Stripe can run a plan checkout (`billing.configured()`).
+
+- A sign-up gets no starter credits (`accounts.create_self_serve_account`) and lands on the plan step, `/app/plan`
+  (`web/plan_pick.html`, both looks). The first two onboarding questions still come first. The separate card step
+  (`RS_CARD_REQUIRED`) is not asked on top: the plan checkout takes the card.
+- Starter and Growth start with a 3-day trial (`TRIAL_DAYS`, `TRIAL_PLANS`). `subscribe()` sends
+  `subscription_data[trial_period_days]`, `payment_method_collection=always`, the subscription metadata `trial_days`
+  and one line under Stripe's button (`plan_gate.checkout_note`; if Stripe refuses that field the session is made
+  again without it). Scale has no trial and is charged at once.
+- The trial has full access (Koby, Nov 11): the whole plan and its month of credits (`TRIAL_PERCENT = 100`: 2,000 on
+  Starter, 6,000 on Growth). They land when the trial starts, from whichever of the `$0` `invoice.paid` and the
+  `trialing` subscription event arrives first (`plan_gate.start_trial`, once per subscription, table `plan_trials`).
+  The first paid invoice does not reset them: they are the first month's credits and the member carries on with what
+  is left (`workspaces.trial_open`; only what the trial didn't bring is added, for a repeat trial that came without
+  credits or a bigger plan picked during it). The renewal after that refills as before. A `$0` invoice from a 100%
+  promotion code is not a trial (no `trial_days` mark, and its line keeps its amount), and a `$0` invoice during the
+  trial (a plan change) lands nothing.
+- One trial per workspace, per person and per card: `plan_trials.email_norm` (case, +tags and Gmail dots folded) and
+  `plan_trials.fingerprint`, read from Stripe when the trial is first recorded
+  (`billing.subscription_card_fingerprint`; cards that earned the old free credits count too). The card is only known
+  after checkout, so a repeat that gets through runs its Stripe trial without credits, and Billing says so; its
+  credits land with the first payment. If the card can't be read the trial goes ahead. A workspace that already paid
+  for a plan, or is on a comp or a code, goes straight to the paid plan.
+- What a trial can cost us: a credit is about a cent of generation spend, so a trial that is used up and canceled
+  costs up to about $18 on Starter and $55 on Growth.
+- The plan cards say it with one chip at the top of Starter and Growth (`trial_chip` in `web/_price.html`: the star
+  mark, "3-day free trial. Full access."); the terms are stated once under the plans, on the plan step and on
+  Stripe's page.
+- A trial canceled before it ends keeps the plan and its trial credits to the trial's end, then both go
+  (`core.settle_plan_lapse`). A card that fails at the end pauses the plan (the renewal hold), fixed on Billing.
+- Accounts that were on Free are sent to the plan step at their next visit. Open without a plan
+  (`plan_gate_routes.ALLOWED`): the library, downloads and sharing, Billing, email confirmation, the look switch,
+  workspace deletion and logging out. Never asked: site admins, a plan / comp / code, a checkout still confirming, a
+  failed payment (fixed on Billing), and a workspace that paid for a pack and still holds credits.
+- Anything that spends is refused with 402 (`core.hold_check` raises `plan_gate.PlanRequired`; JSON callers get
+  `{"plan_required": true, "url": "/app/plan"}`). Credit packs are sold only on a plan (`plan_gate.packs_open`).
+- Back from Stripe, Billing applies the finished Checkout Session itself (`_adopt_plan_checkout`) so the member is
+  not asked for a plan while the webhook is a second behind, then sends a first plan straight on to the app.
+- Public copy follows the switch. `public_site.SWITCHED` holds every sentence about starting free with its second
+  wording, used in the copy by name; `copyswitch.P` does the same for a few whole titles. With the switch off every
+  public page is byte-for-byte what it was. `signup_offer()` becomes `plan_gate.offer()`; the pricing partials hide
+  the Free card; the structured data lists the paid plans only.
+
+**`PLAN_SALE`: the price each plan is going to.** `plans.PLANS[code]["next_usd"]` (79 / 149 / 349) is shown struck
+through beside the price charged, with the difference as a percent off, rounded down (`plans.sale`, the macro in
+`web/_price.html`: public pricing, the plan step, Billing). It is display only; what is charged is still `usd` and its
+Stripe Price. When the prices go up, change `usd` and the Stripe Prices and the tag disappears by itself. The struck
+price is only honest while the plan is to charge it: if the increase is dropped, set `PLAN_SALE=0`.
+
+Tests: `tests/test_plans_only.py`.
+
 ## Video ads in the home page gallery (`public_site.showcase`, `static/showcase/manifest.json`)
 
 "Made in Campaignify" on the new home page is one grid of image ads and video ads (owner decision, Nov 11 2026): the
