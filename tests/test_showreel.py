@@ -105,5 +105,14 @@ check("Every person here is an AI presenter." in home and "ads our team made wit
 check('<h2 id="lv-made">Made in Campaignify</h2>' in home and home.index("lv-reel-head") > home.index('id="lv-made"'),
       "the reel sits under the gallery of Campaignify's own outputs")
 
+print("== pictures are served as pictures")
+import mimetypes  # noqa: E402
+check(mimetypes.guess_type("x.webp")[0] == "image/webp" and mimetypes.guess_type("x.avif")[0] == "image/avif",
+      "WebP and AVIF are named types on every Python version")
+r = appmod.app.test_client().get("/static/" + reel[0]["poster"])
+check(r.status_code == 200 and r.headers["Content-Type"] == "image/webp", "a poster goes out as image/webp")
+r = appmod.app.test_client().get("/static/" + reel[0]["src"])
+check(r.status_code == 200 and r.headers["Content-Type"] == "video/mp4", "a clip goes out as video/mp4")
+
 shutil.rmtree(TMP, ignore_errors=True)
 print(f"\nall {passed} checks passed")
