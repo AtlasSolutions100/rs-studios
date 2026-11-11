@@ -1102,7 +1102,8 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 .dk-say{margin:0;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--v2-raise);font-size:14px;box-shadow:inset 3px 0 0 var(--amber)}
 /* start from an example: a picture or a clip from our own gallery, a name, what it makes */
 .dk-exs{display:flex;flex-direction:column;gap:12px;padding-top:8px}
-.dk-ex-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.dk-ex-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+@media (max-width:1320px){.dk-ex-row{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .dk-ex{display:flex;flex-direction:column;gap:4px;padding:0 0 10px;border:1px solid var(--line);border-radius:12px;background:var(--v2-raise);color:var(--ink);font:400 13px/1.35 var(--body);text-align:left;cursor:pointer;overflow:hidden}
 .dk-ex:hover{border-color:var(--v2-line2)}
 .dk-ex-media{position:relative;display:block;aspect-ratio:4/5;background:var(--thumb-bg);overflow:hidden}
@@ -1130,10 +1131,10 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 .dk-tiles img{width:100%;height:100%;object-fit:cover;display:block}
 .dk-tile-busy{display:inline-flex;align-items:center;gap:8px;min-height:32px;padding:0 12px;border:1px dashed var(--v2-line2);border-radius:999px;font-size:13px;color:var(--muted)}
 .dk-tile-busy::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--v2-mark)}
-@media (prefers-reduced-motion:no-preference){.dk-tile-busy::before{animation:dk-pulse 1.4s ease-in-out infinite}}
-@keyframes dk-pulse{50%{opacity:.25}}
-.dk-ask.dk-next{position:sticky;bottom:12px;box-shadow:var(--shadow)}
-[data-ui="v2"] .dk-ask.dk-next textarea{min-height:54px;font-size:16px}
+.dk-ask.dk-next{position:sticky;bottom:12px;box-shadow:var(--shadow);flex-direction:row;align-items:flex-end;gap:12px;padding:12px 12px 12px 18px}
+[data-ui="v2"] .dk-ask.dk-next textarea{min-height:44px;height:44px;font-size:16px;padding:10px 0;resize:none}
+.dk-ask.dk-next .dk-ask-foot{flex:none}
+.dk-ask.dk-next .dk-chips{display:none}
 .dk-thread .dk-bar{position:static;box-shadow:none}
 .dk-plan{display:flex;flex-direction:column;gap:16px;padding-top:8px}
 .dk-plan[hidden]{display:none}

@@ -97,6 +97,18 @@ WANTS = {
 }
 
 
+# The platform a sentence names, for the copy it asks for ("the captions for TikTok").
+PLATFORM_WORDS = [("tiktok", r"\btik ?tok\b"), ("youtube", r"\byoutube\b|\bshorts\b"), ("linkedin", r"\blinkedin\b"),
+                  ("pinterest", r"\bpinterest\b"), ("snapchat", r"\bsnap(?:chat)?\b"), ("reddit", r"\breddit\b"),
+                  ("x", r"\btwitter\b|\bon x\b|\bfor x\b"), ("meta", r"\bmeta\b|\bfacebook\b|\binstagram\b|\breels\b")]
+
+
+def platform_in(text: str) -> str:
+    """The first platform the sentence names that the copy tool writes for ("" when it names none)."""
+    t = " ".join(str(text or "").lower().split())
+    return next((k for k, rx in PLATFORM_WORDS if k in platforms.PLATFORMS and re.search(rx, t)), "")
+
+
 def wanted(text: str) -> set:
     t = " ".join(str(text or "").lower().split())
     return {kind for kind, rx in WANTS.items() if re.search(rx, t)}
@@ -300,9 +312,10 @@ def _thread(conn, tid):
 
 def _new_thread(conn, product, said: str) -> int:
     t = db.now()
+    head = str(said or "").split(":", 1)[0]               # "Holiday launch for the candle: three image ads, ..." -> its name
+    title = _short(head if 12 <= len(head.strip()) < len(str(said or "")) else said) or "A campaign"
     return conn.execute("INSERT INTO desk_threads (workspace_id, user_id, product_id, title, created_at, updated_at) "
-                        "VALUES (?,?,?,?,?,?)", (g.ws["id"], g.user["id"], product["id"], _short(said) or "A campaign",
-                                                 t, t)).lastrowid
+                        "VALUES (?,?,?,?,?,?)", (g.ws["id"], g.user["id"], product["id"], title, t, t)).lastrowid
 
 
 def _turn(conn, tid: int, role: str, kind: str, body: dict) -> int:
@@ -446,6 +459,9 @@ def plan():
         raw += [{"kind": k, "on": k in want} for k in SPINE]        # a new campaign shows every stage
     else:
         raw += [{"kind": k, "on": True} for k in SPINE if k in want]   # a later turn: only what it asks for
+    for r in raw:
+        if r["kind"] == "copy" and platform_in(text):
+            r["platform"] = platform_in(text)
     for i, r in enumerate(raw):
         r["id"] = f"p{i + 1}"
     parts = clean_parts(raw, cast, have)
