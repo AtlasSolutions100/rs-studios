@@ -481,6 +481,7 @@
       if(r.error || !r.plan || !r.quote){ fail(r.error || 'That didn\'t come back. Try again.'); return; }
       asked = {text: a.text, product: r.product, note: r.note || '', skipped: r.skipped || [], plan: r.plan.map(function(it){ it.on = true; return it; })};
       planRows(); lastQuote = r.quote; showPrice(r.quote);
+      if(inBox) $$('[data-plan-text]').forEach(fit);
     }).catch(function(){ working(false); waiting(false); fail('That didn\'t come back. Try again.'); });
   }
   function planRows(){
@@ -489,10 +490,12 @@
     $('[data-q-plan]').innerHTML = asked.plan.map(function(it, i){
       var what = it.make === 'image' ? 'Headline' : it.make === 'product_video' ? 'Shot' : 'Script';
       return '<li data-plan-row="' + i + '"><input type="checkbox" checked data-plan-on="' + i + '" aria-label="Make this: ' + esc(it.name) + '">' +
-        '<div class="v2-plan-b"><b>' + esc(it.name) + '</b><textarea rows="2" maxlength="900" data-plan-text="' + i + '" aria-label="' + what + ' for ' + esc(it.name) + '">' + esc(it.text) + '</textarea></div>' +
-        '<span class="v2-plan-cr" data-plan-cr="' + i + '"></span></li>';
+        '<b>' + esc(it.name) + '</b><span class="v2-plan-cr" data-plan-cr="' + i + '"></span>' +
+        '<textarea rows="1" maxlength="900" data-plan-text="' + i + '" aria-label="' + what + ' for ' + esc(it.name) + '">' + esc(it.text) + '</textarea></li>';
     }).join('');
   }
+  // A part's words show in full: the box is as tall as what is in it (set once the dialog is laid out, and as it is typed in).
+  function fit(el){ el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px'; }
   // Each part's price, from the quote of the parts still ticked (they are quoted in the order shown).
   function planPrices(q){
     var j = 0;
@@ -518,6 +521,7 @@
     if(t.dataset.planOn != null){ asked.plan[+t.dataset.planOn].on = t.checked; requote(); }
     else if(t.dataset.planText != null){ asked.plan[+t.dataset.planText].text = t.value.trim().replace(/\s+/g, ' '); requote(); }
   });
+  dlg('price').addEventListener('input', function(e){ if(e.target.dataset.planText != null) fit(e.target); });
   var again = $('[data-q-again]'); if(again) again.addEventListener('click', function(){ var a = asking(); if(a && !busy){ qerr(''); ask(a); } });
 
   function showPrice(q){
@@ -543,7 +547,8 @@
     ok.disabled = !n || !!q.short || !!q.confirm; ok.dataset.total = q.total;
     $('[data-q-err]').hidden = true;
     if(d.open) return;                          // an ask's box re-prices in place as parts are ticked or edited
-    open('price'); (set ? $('[data-plan-on]', d) || ok : q.short ? $('[data-close]', d) : ok).focus();
+    open('price'); if(set) $$('[data-plan-text]', d).forEach(fit);
+    (set ? $('[data-plan-on]', d) || ok : q.short ? $('[data-close]', d) : ok).focus();
   }
   $('[data-q-many]').addEventListener('change', function(e){ $('[data-confirm-make]').disabled = !e.target.checked || !!(lastQuote && lastQuote.short); });
   function qerr(msg){ var e = $('[data-q-err]'); e.hidden = !msg; e.textContent = msg || ''; }

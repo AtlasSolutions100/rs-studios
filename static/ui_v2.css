@@ -474,16 +474,15 @@ dialog.v2-dlg.price{width:min(460px,calc(100vw - 24px))}
 .v2-lines b{font-weight:500}
 /* an ask's set in the price box: tick, words you can change, price (web/v2/_price_dialog.html) */
 dialog.v2-dlg.price.asked{width:min(580px,calc(100vw - 24px))}
-dialog.price .v2-asked-note{margin:0;padding:2px 20px 4px;font-size:14px;line-height:1.5;color:var(--ink)}
-.v2-plan{list-style:none;margin:0;padding:0 20px;max-height:min(46vh,380px);overflow:auto}
-.v2-plan li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 0;border-bottom:1px solid var(--line);font-size:13.5px}
-.v2-plan input[type=checkbox]{width:18px;height:18px;margin:1px 0 0;accent-color:var(--v2-inv)}
-.v2-plan-b{display:flex;flex-direction:column;gap:6px;min-width:0}
-.v2-plan-b b{font-weight:500}
-[data-ui="v2"] .v2-plan-b textarea{width:100%;min-height:0;resize:vertical;padding:7px 9px;font:400 13.5px/1.45 var(--body);color:var(--ink);background-color:var(--field);border:1px solid var(--line);border-radius:var(--r-sm)}
-.v2-plan-cr{white-space:nowrap;font-variant-numeric:tabular-nums}
-.v2-plan li.off .v2-plan-b b,.v2-plan li.off .v2-plan-cr{color:var(--dim)}
-.v2-plan li.off textarea{color:var(--muted)}
+dialog.price .v2-asked-note{margin:0;padding:2px 20px 6px;font-size:14px;font-weight:400;line-height:1.5;color:var(--ink)}
+.v2-plan{list-style:none;margin:0;padding:0 20px;max-height:min(46vh,400px);overflow:auto}
+.v2-plan li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px 12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.v2-plan input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--v2-inv)}
+.v2-plan b{font-weight:500}
+[data-ui="v2"] .v2-plan textarea{grid-column:2 / -1;width:100%;min-height:0;resize:none;overflow:hidden;padding:8px 10px;font:400 13.5px/1.45 var(--body);color:var(--ink);background-color:var(--field);border:1px solid var(--line);border-radius:var(--r-sm)}
+.v2-plan-cr{white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--muted)}
+.v2-plan li.off b,.v2-plan li.off .v2-plan-cr{color:var(--dim)}
+[data-ui="v2"] .v2-plan li.off textarea{color:var(--muted)}
 dialog.price .v2-asked-f{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:8px 20px 0;font-size:12.5px;color:var(--muted)}
 .v2-again{margin-left:auto;padding:0;border:0;background:none;color:var(--ink);font:500 12.5px var(--body);text-decoration:underline;text-underline-offset:3px;cursor:pointer;white-space:nowrap}
 .v2-again:disabled{color:var(--dim);cursor:progress}
