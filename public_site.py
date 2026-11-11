@@ -156,15 +156,20 @@ HOME_FAQ = [
      "No. It plans the campaign, makes the ads, writes the copy and walks you through setting up each ad account, "
      "then exports every ad at that platform's sizes. You upload and launch them in the platform's own ads manager, "
      "and your ad spend stays there too."),
+    ("Can it make video ads with a presenter?",
+     "Yes. Pick one of {presenters} AI presenters, write what they say, and you get a selfie-style video with your "
+     "product in it. There are also voiceover videos, unboxing and hands-only videos, and product videos with no "
+     "person at all. An 8-second presenter video is {talk8} credits."),
     ("Can I see how my campaign is doing?",
      "For what you run on Campaignify, yes: clicks on your smart links (per day, referrer, country, device and UTM "
-     "source), views on your pages and submissions to your forms, with each contact's history. Campaignify doesn't "
-     "read results from the ad platforms; see those in each platform's ads manager."),
+     "source), views on your pages and submissions to your forms. Every lead sits on a leads board by stage, with "
+     "its full history, and you can email or text a lead from there. Campaignify doesn't read results from the ad "
+     "platforms; see those in each platform's ads manager."),
     ("Which plan do I need?",
      "The free studio makes ads with your starter credits and credit packs. Starter adds the AI campaign planner, "
      "copy studio, ad-account setup hub, one landing page and smart links. Growth adds the SEO, AEO & GEO optimizer, "
-     "the content optimizer, forms and contacts, link analytics and unlimited pages. Scale adds community and "
-     "courses and the priority queue."),
+     "the content optimizer, forms, contacts and the leads board, link analytics and unlimited pages. Scale adds "
+     "community and courses and the priority queue."),
     ("Do I need a subscription?",
      "No. Start with your free credits and buy credit packs when you need more. Plans add monthly credits and the "
      "campaign tools; you can cancel a plan anytime and it stays on until the end of the month you've paid for."),
@@ -172,13 +177,14 @@ HOME_FAQ = [
      "Plan credits arrive with each monthly payment and expire at your next renewal, and they're used before any "
      "other credits. Credits from packs and your free starter credits never expire."),
     ("What does a credit buy?",
-     "An image ad is {image} credits, a 5-second video {video5}, a 10-second video {video10}, and "
-     "copying a reference video's motion is {motion_per_s} credits per second of the reference (up to {motion_max}). "
-     "The AI writing tools charge what the AI actually used. You always see the price before you generate."),
+     "An image ad is {image} credits, an 8-second presenter video {talk8}, a 5-second product video {video5}, a "
+     "10-second one {video10}, and copying a reference video's motion is {motion_per_s} credits per second of the "
+     "reference (up to {motion_max}). The AI writing tools charge what the AI actually used. You always see the "
+     "price before you generate."),
     ("What if a generation fails?", "Your credits come back automatically. You only pay for ads that finish."),
     ("Does it work for my product?",
-     "If you can photograph it, yes. Product hero, Daily routine and your own brief work for anything; a few "
-     "templates were written for coffee and say so."),
+     "If you can photograph it, yes. Services and apps work too: start from your website and use a screenshot or "
+     "a photo of your work. Each preset says what kinds of product it fits."),
     ("Who owns the ads I make?",
      "You can use the ads you make in your own marketing, including paid ads. They're AI-generated, so similar "
      "images can come out for other people, and you're responsible for what you post. See the [terms](/terms)."),
@@ -199,7 +205,7 @@ PRICING_FAQ_QS = ("Do I need a subscription?", "Which plan do I need?", "Do unus
 
 
 def home_faq():
-    r = catalog.rates()
+    r = dict(catalog.rates(), presenters=presenter_count())
     return [(q, a.format(**r)) for q, a in HOME_FAQ]
 
 
@@ -924,13 +930,16 @@ def related_cards(endpoint: str) -> list[dict]:
     return [card(k) for k in RELATED.get(endpoint, [])]
 
 
-# ---------------------------------------------------------------- the showcase: real outputs on the home page (M15)
-# static/showcase/manifest.json lists real pipeline outputs: {"items": [{"file", "kind": "image" | "video", "preset",
-# "caption", "alt", and optionally "poster" (a video's still) and "aspect"}]}. The files sit in the same folder.
-# Nothing else is ever shown there: with no items the page draws neutral tiles that only say which shapes exist.
+# ---------------------------------------------------------------- the showcase: our own work on the home page (M15)
+# static/showcase/manifest.json lists image ads and video ads in one grid: {"items": [{"file", "kind": "image" |
+# "video", "preset" or "title", "caption", "alt", and for a video "poster", "aspect", "presenter", "sound"}]}. The
+# files sit in the same folder. Only our own generated work goes in (Nov 11 2026, owner decision: clips made with the
+# same vendor outside the app count, and need no separate label). A clip with a person on screen is tagged "AI
+# presenter"; one with speech gets a Sound button. With no items the page draws neutral tiles that only say which
+# shapes exist.
 SHOWCASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "showcase")
 SHOWCASE_MANIFEST = "manifest.json"
-SHOWCASE_MAX = 12
+SHOWCASE_MAX = 16
 SHOWCASE_EXT = {"image": (".jpg", ".jpeg", ".png", ".webp", ".avif"), "video": (".mp4", ".webm")}
 SHOWCASE_ASPECTS = {"9:16": (9, 16), "4:5": (4, 5), "1:1": (1, 1), "16:9": (16, 9)}
 # What the tiles stand for while the manifest is empty: the kinds and shapes Campaignify makes (catalog.TOOLS).
@@ -957,9 +966,10 @@ def _image_size(path: str):
 
 
 def showcase(limit: int = SHOWCASE_MAX) -> list[dict]:
-    """The home page's gallery, from the manifest: [{"src" (under static/), "kind", "preset", "preset_name",
-    "caption", "alt", "aspect", "width", "height", "poster"}]. An item is dropped when its file is missing, its
-    kind or extension is wrong, or it has neither a caption nor an alt text. Read again when the manifest changes."""
+    """The home page's gallery, from the manifest: [{"src" (under static/), "kind", "preset", "preset_name" (the
+    preset's name, else the entry's own title), "caption", "alt", "aspect", "width", "height", "poster", "presenter",
+    "sound"}]. An item is dropped when its file is missing, its kind or extension is wrong, or it has neither a
+    caption nor an alt text. Read again when the manifest changes."""
     path = os.path.join(SHOWCASE_DIR, SHOWCASE_MANIFEST)
     try:
         key = (path, os.path.getmtime(path))
@@ -991,60 +1001,15 @@ def showcase(limit: int = SHOWCASE_MAX) -> list[dict]:
             poster = _showcase_file(it.get("poster")) if kind == "video" else None
             if poster is not None and not poster.lower().endswith(SHOWCASE_EXT["image"]):
                 poster = None
+            title = pre.name if pre is not None else " ".join(str(it.get("title") or "").split())[:60]
             items.append({"src": "showcase/" + name, "kind": kind, "preset": pre.id if pre is not None else "",
-                          "preset_name": pre.name if pre is not None else "", "caption": caption, "alt": alt or caption,
+                          "preset_name": title, "caption": caption, "alt": alt or caption,
                           "aspect": aspect, "width": size[0], "height": size[1],
-                          "poster": "showcase/" + poster if poster else ""})
+                          "poster": "showcase/" + poster if poster else "",
+                          "presenter": kind == "video" and it.get("presenter") is True,
+                          "sound": kind == "video" and it.get("sound") is True})
         _showcase.update(key=key, items=items)
     return list(_showcase["items"][:max(0, limit)])
-
-
-# The reel under the gallery: short video ads, each saying where it came from. source "campaignify" came out of a
-# Campaignify preset (its name is the title); source "team" is an ad our team made with AI video outside the app,
-# and is never labelled as made in Campaignify. Only our own generated footage: no stock, no other companies' ads.
-REEL_MAX = 12
-REEL_SOURCES = ("campaignify", "team")
-_reel = {"key": None, "items": []}
-
-
-def showreel(limit: int = REEL_MAX) -> list[dict]:
-    """[{"src", "poster" (both under static/), "source", "title", "caption", "alt", "presenter", "sound"}] from the
-    manifest's "videos". An entry is dropped when its clip or poster is missing or the wrong kind, its source isn't
-    one of REEL_SOURCES, a "campaignify" one names no real preset, or it has no title or no alt text."""
-    path = os.path.join(SHOWCASE_DIR, SHOWCASE_MANIFEST)
-    try:
-        key = (path, os.path.getmtime(path))
-    except OSError:
-        return []
-    if _reel["key"] != key:
-        items = []
-        try:
-            with open(path, encoding="utf-8") as fh:
-                raw = json.load(fh)
-        except (OSError, ValueError):
-            raw = {}
-        import presets
-        for it in (raw.get("videos") if isinstance(raw, dict) else None) or []:
-            if not isinstance(it, dict):
-                continue
-            name, poster = _showcase_file(it.get("file")), _showcase_file(it.get("poster"))
-            source = str(it.get("source") or "").lower()
-            if name is None or poster is None or source not in REEL_SOURCES:
-                continue
-            if not name.lower().endswith(SHOWCASE_EXT["video"]) or not poster.lower().endswith(SHOWCASE_EXT["image"]):
-                continue
-            pre = presets.get(str(it.get("preset") or "")) if source == "campaignify" else None
-            if source == "campaignify" and pre is None:
-                continue
-            title = pre.name if pre is not None else " ".join(str(it.get("title") or "").split())[:60]
-            alt = " ".join(str(it.get("alt") or "").split())[:220]
-            if not title or not alt:
-                continue
-            items.append({"src": "showcase/" + name, "poster": "showcase/" + poster, "source": source, "title": title,
-                          "caption": " ".join(str(it.get("caption") or "").split())[:140], "alt": alt,
-                          "presenter": it.get("presenter") is True, "sound": it.get("sound") is True})
-        _reel.update(key=key, items=items)
-    return list(_reel["items"][:max(0, limit)])
 
 
 # ---------------------------------------------------------------- per-page meta
