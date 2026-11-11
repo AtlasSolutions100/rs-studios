@@ -1413,3 +1413,34 @@ a.sol-link h3{margin-top:0}
 .thumbs2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .thumbs2 .thumb{aspect-ratio:4/5}
 .lgrid .litem:has(.thumbs2){grid-column:span 2}
+/* A plan's price next to the price it is going to (plans.sale, PLAN_SALE): struck through, with the percent off */
+.px-next{margin-left:.3em;font-size:.48em;font-weight:500;letter-spacing:0;color:var(--dim);text-decoration:line-through;text-decoration-thickness:1.5px}
+.px-off{display:inline-block;margin-left:.75em;padding:3px 9px;border-radius:999px;background:var(--accent);color:var(--on-accent);font:700 12px/1.35 var(--body);font-style:normal;letter-spacing:.02em;vertical-align:middle;white-space:nowrap}
+.lp-prices.three{grid-template-columns:repeat(3,1fr)}
+@media (max-width:860px){.lp-prices.three{grid-template-columns:1fr}}
+/* The plan step (plan_pick.html, PLANS_ONLY): three plans, what each charges and when */
+.pk{max-width:1040px;margin:0 auto}
+.pk h1{margin:0 0 8px}
+.pk-sub{margin:0 0 22px;max-width:64ch;color:var(--muted)}
+.pk-note{margin:0 0 16px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;color:var(--muted);font-size:14px}
+.pk-plans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0 0 22px}
+.pk-plan{display:flex;flex-direction:column;min-width:0;padding:22px;border:1px solid var(--line);border-radius:18px;background:var(--panel-bg)}
+.pk-plan h2{margin:0 0 10px;font-size:17px}
+.pk-amt{margin:0 0 6px;line-height:1.1}
+.pk-amt b{font:700 36px var(--display);letter-spacing:-.03em}
+.pk-amt span{font-size:14px;color:var(--muted)}
+.pk-cr{margin:0 0 4px;font-weight:600}
+.pk-makes{margin:0 0 14px;font-size:13.5px;color:var(--muted)}
+.pk-terms{margin:0 0 16px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;font-size:13.5px;line-height:1.45;color:var(--muted)}
+.pk-terms b{color:var(--ink)}
+.pk-plan form{margin:0}
+.pk-plan .btn{width:100%;justify-content:center}
+.pk-feats{margin:16px 0 0;padding:14px 0 0 18px;border-top:1px solid var(--line);font-size:13.5px;color:var(--muted)}
+.pk-feats li{margin:0 0 4px}
+.pk-fine{margin:0 0 16px;font-size:14px;color:var(--muted)}
+.pk-how{margin:0;border-top:1px solid var(--line)}
+.pk-how div{display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
+.pk-how dt{font-weight:600}
+.pk-how dd{margin:0;color:var(--muted)}
+.pk-under{display:flex;flex-wrap:wrap;gap:8px 22px;margin:16px 0 0;font-size:14px}
+@media (max-width:900px){.pk-plans{grid-template-columns:1fr}.pk-how div{grid-template-columns:1fr;gap:2px}}
