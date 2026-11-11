@@ -30,7 +30,8 @@
         <p class="small" style="margin:0" id="comp-status"><b>{{ current.name }}, free until {{ comp_until_text(g.ws.comp_until) }}.</b> {% if g.ws.stripe_customer_id %}Nothing will be charged, won't renew.{% else %}No card on file, won't renew.{% endif %}</p>
         <p class="muted small" style="margin:4px 0 0">{{ '{:,}'.format(current.credits) }} credits a month. After that you're back on Free, with your pack credits kept. To stay on a plan, pick one below.</p>
       {% elif trial %}
-        <p class="small" style="margin:0" id="plan-trial"><b>Free trial{% if trial.ends_at %}, ends {{ trial.ends_at|localtime('date') }}{% endif %}.</b> {% if trial.canceling %}It's set to cancel then, so nothing will be charged.{% else %}${{ trial.usd }} is charged then, and you carry on with this month's credits; they refill to {{ '{:,}'.format(trial.plan.credits) }} at each renewal after that. Cancel before the trial ends and nothing is charged.{% endif %}{% if trial.no_credits %} This card or email already had a free trial, so this one came without credits; they land with the first payment.{% endif %}</p>
+        <div id="plan-trial" style="margin-top:10px">{{ price.trial_chip(plan_trial_days(trial.plan.code) or 3) }}{{ price.trial_line(trial_line) }}</div>
+        {% if trial.no_credits %}<p class="small" style="margin:8px 0 0">This card or email already had a free trial, so this one came without credits; they land with the first payment.</p>{% endif %}
       {% elif g.ws.plan_status == 'pending' and current.code == 'free' %}
         <p class="small" style="margin:0" id="plan-pending"><b>Confirming payment{% if g.ws.plan_pending in plans.PLANS %} for {{ plans.PLANS[g.ws.plan_pending].name }}{% endif %}.</b> Your plan and its monthly credits switch on as soon as Stripe confirms the payment, usually within a minute. Refresh to check.</p>
       {% elif plans.renewal_paused(g.ws) %}

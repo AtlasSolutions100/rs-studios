@@ -40,16 +40,8 @@
   </div>
 
   {% if not owner %}<p class="pk-fine">Ask your workspace owner to pick a plan. You can keep making ads as soon as it's on.</p>{% endif %}
-  <dl class="pk-how" data-plan-how>
-    {% if any_trial %}
-    <div><dt>Today</dt><dd>$0 on Starter and Growth, with the whole plan and its month of credits. You add your card on Stripe's secure page and come straight back here.</dd></div>
-    <div><dt>In {{ days }} days</dt><dd>The plan's price is charged and you carry on with the same month of credits. Cancel before then and nothing is charged.</dd></div>
-    {% else %}
-    <div><dt>Today</dt><dd>The plan's price is charged on Stripe's secure page and your credits land right away.</dd></div>
-    {% endif %}
-    <div><dt>Canceling</dt><dd>Any time, from Billing. A plan you've paid for runs to the end of that month.</dd></div>
-    <div><dt>More credits</dt><dd>Credit packs top up any plan from ${{ packs[0].usd }}. Pack credits never expire.</dd></div>
-  </dl>
+  {% if any_trial %}{{ price.trial_line(trial_line) }}
+  {% else %}<p class="pk-fine" data-plan-how>Charged today on Stripe's secure page. Cancel any time from Billing.</p>{% endif %}
   <p class="pk-under">{% if not new %}<a href="{{ url_for('library') }}">Go to your library</a>{% endif %}<a href="{{ url_for('billing_page') }}#code">Have a code?</a></p>
 </div>
 {% endblock %}

@@ -117,7 +117,7 @@ NURTURE = frozenset({"outreach", "weekly_report"})     # weekly_report: the Ad c
 NURTURE_PREFIXES = ("first_run_nudge_",)
 # How long a deferred transactional email is still worth sending (minutes since it was first tried).
 RETRY_MINUTES = {"verify_email": 15, "verify_signup": 48 * 60, "password_reset": 60, "account_exists": 60,
-                 "login_fails": 60, "ops_alert": 12 * 60}
+                 "login_fails": 60, "ops_alert": 12 * 60, "trial_reminder": 12 * 60}
 DEFAULT_RETRY_MINUTES = 24 * 60
 # A newer email of these kinds (a new code, nonce or token) replaces a deferred older one.
 SUPERSEDED_BY_NEWER = frozenset({"verify_email", "verify_signup", "password_reset", "account_exists", "login_fails"})

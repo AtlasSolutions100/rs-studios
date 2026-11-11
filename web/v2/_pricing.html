@@ -1,4 +1,6 @@
-{# Plans and packs in the neutral look (M15). Shared by the home page, /pricing and /features through web/_pricing.html.
+{# Plans and packs in the neutral look (M15); since Nov 11 as separate cards with the first look's lime accents
+   (Growth marked "Recommended", which is our own advice rather than a claim about what sells most; the button at
+   the foot of each card: Koby's pick). Shared by the home page, /pricing and /features through web/_pricing.html.
    Every number is read from the billing config: plans.PLANS / plans.PAID, catalog.PACKS (packs), the rate card
    (rates()) and the sign-up offer (signup_offer()). Nothing here is typed in. Needs r = rates(), sc = starter credits. #}
 {% import "_price.html" as price %}{% set po = plans_only() %}
@@ -20,9 +22,10 @@
     <ul class="pr-feats">{% for k, f in plans.FEATURES.items() if f.plan == 'free' and f.shipped %}<li>{{ f.name }}</li>{% endfor %}<li>Credit packs whenever you need more</li></ul>
   </section>{% endif %}
   {% for p in plans.PAID %}
-  <section class="pr-plan" aria-labelledby="pr-{{ p.code }}" data-plan="{{ p.code }}">
+  <section class="pr-plan{{ ' hot' if p.code == 'growth' }}" aria-labelledby="pr-{{ p.code }}" data-plan="{{ p.code }}">
     {% if po %}{{ price.trial_chip(plan_trial_days(p.code), plan_trial_days('starter')) }}{% endif %}
     <h3 id="pr-{{ p.code }}">{{ p.name }}</h3>
+    {% if p.code == 'growth' %}<span class="pr-badge">Recommended</span>{% endif %}
     <p class="pr-amt">{{ price.amount(p) }}</p>
     <p class="pr-cr">{{ '{:,}'.format(p.credits) }} credits every month</p>
     {% set m = ad_math(p.credits, p.usd) %}<p class="pr-makes">{{ m.counts }}, each month.</p>
@@ -30,6 +33,7 @@
     {% if open %}<a class="btn dark" href="{{ url_for('signup') }}" data-cta="pricing-{{ p.code }}">{% if plan_trial_days(p.code) %}Try {{ p.name }} free for {{ plan_trial_days(p.code) }} days{% else %}Start {{ p.name }}{% endif %}</a>
     {% else %}<span class="btn dark disabled" aria-disabled="true">Not open yet</span>{% endif %}
     {% set prev = plans.ORDER[plans.ORDER.index(p.code) - 1] %}
+    <p class="pr-in">What's in {{ p.name }}</p>
     <ul class="pr-feats">
       <li>{{ 'Up to ' ~ p.seats ~ ' seats' if p.seats and p.seats > 1 else '1 seat' }}, {{ 'unlimited brands' if p.brands is none else (p.brands ~ ' brand' ~ ('s' if p.brands != 1 else '')) }}{% if plans.FEATURES.pages.shipped %}, {{ 'unlimited pages' if p.pages is none else (p.pages ~ ' published page' ~ ('s' if p.pages != 1 else '')) }}{% endif %}</li>
       <li>{{ ('The ad studio, brands and compliance checks' if po else 'Everything in the free studio') if prev == 'free' else 'Everything in ' ~ plans.PLANS[prev].name }}</li>

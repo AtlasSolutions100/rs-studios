@@ -352,8 +352,9 @@ print("== pricing: every number is the billing config's")
 for path in ("/pricing", "/"):
     page = client().get(path).get_data(as_text=True)
     pt = text(page)
-    check('class="pr-plans"' in page and 'class="lp-prices plans"' not in page and "Most popular" not in page,
-          f"{path}: the plans in the new look, without a 'Most popular' label")
+    check('class="pr-plans"' in page and 'class="lp-prices plans"' not in page and "Most popular" not in page
+          and 'class="pr-plan hot"' in page and page.count('<span class="pr-badge">Recommended</span>') == 1,
+          f"{path}: the plans in the new look, as cards, Growth marked 'Recommended' (no 'Most popular' claim)")
     for p in plans.PAID:
         block = text(re.search(rf'data-plan="{p["code"]}">(.*?)</section>', page, re.S).group(1))
         check(block.startswith(p["name"]) and f"${p['usd']} a month" in block and f"{p['credits']:,} credits every month" in block
