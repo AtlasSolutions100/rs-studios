@@ -1429,6 +1429,7 @@ a.sol-link h3{margin-top:0}
 .pk-amt{margin:0 0 6px;line-height:1.1}
 .pk-amt b{font:700 36px var(--display);letter-spacing:-.03em}
 .pk-amt span{font-size:14px;color:var(--muted)}
+.pk-amt .px-next{font-size:17px}
 .pk-cr{margin:0 0 4px;font-weight:600}
 .pk-makes{margin:0 0 14px;font-size:13.5px;color:var(--muted)}
 .pk-terms{margin:0 0 16px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;font-size:13.5px;line-height:1.45;color:var(--muted)}

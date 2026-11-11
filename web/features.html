@@ -5,7 +5,7 @@
   <div class="lp-wrap">
     <p class="eyebrow">Features</p>
     <h1>Every tool for your campaign, <span class="gold">step by step.</span></h1>
-    <p class="lp-lede">Every tool that's live today, in the order a campaign runs, and the plan that includes it. The free studio makes ads; the plans add the rest of the campaign.</p>
+    <p class="lp-lede">Every tool that's live today, in the order a campaign runs, and the plan that includes it. {{ 'Every plan has the ad studio; each plan up adds more of the campaign.' if plans_only() else 'The free studio makes ads; the plans add the rest of the campaign.' }}</p>
     <ol class="lp-rail" aria-label="The steps of a campaign">
       {% for s in journey %}<li><a href="#step-{{ s.id }}"><span>{{ '%02d'|format(loop.index) }}</span>{{ s.step }}</a></li>{% endfor %}
     </ol>

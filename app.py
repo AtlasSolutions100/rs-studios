@@ -2565,6 +2565,15 @@ def _plan_invoice_paid(inv):
                          (p["code"], sub_id, _iso(period_end), sub_id, customer, ws["id"]))
             conn.commit()
             return jsonify({"ok": True, "credited": grant, "plan": p["code"], "trial": True})
+        if ws["trial_open"] and int(inv.get("amount_paid") or 0) == 0 and all(int(ln["amount"] or 0) <= 0 for ln in lines):
+            # A $0 invoice while the trial runs (a plan change in the portal: nothing is due until the trial ends).
+            # Nothing was paid, so no month's credits land; the subscription event moves the plan, and the month
+            # comes with the first payment. (A first payment made free by a 100% code keeps its line amounts.)
+            conn.execute("INSERT INTO plan_invoices (invoice_id, workspace_id, plan, credits, amount_cents, "
+                         "billing_reason, created_at, payment_intent) VALUES (?,?,?,?,?,?,?,?)",
+                         (inv.get("id"), ws["id"], p["code"], 0, 0, reason, db.now(), None))
+            conn.commit()
+            return jsonify({"ok": True, "credited": 0, "plan": ws["plan"], "trial": True})
         after_trial = bool(ws["trial_open"]) and reason != "subscription_update"
         if reason == "subscription_update" or after_trial:
             # an upgrade, or the first payment after a trial: the bucket is topped up to the plan's month

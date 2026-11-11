@@ -351,6 +351,20 @@ check(out["credited"] == 0 and w["plan_credits"] == 600 and w["plan_status"] == 
 out = ev_invoice("omar@example.com", "sub_omar", "growth", "in_omar_1", 9900, "subscription_cycle", IN_33_DAYS).get_json()
 check(out["credited"] == 5400 and ws_of("omar@example.com")["plan_credits"] == 6000, "Growth's first payment adds the other 5,400")
 
+print("\nA plan change during the trial")
+signup("wes@example.com")
+ev_invoice("wes@example.com", "sub_wes", "starter", "in_wes_0", 0, "subscription_create", IN_3_DAYS)
+out = ev_invoice("wes@example.com", "sub_wes", "growth", "in_wes_up", 0, "subscription_update", IN_3_DAYS).get_json()
+w = ws_of("wes@example.com")
+check(out["credited"] == 0 and w["plan_credits"] == 200 and w["plan_status"] == "trialing" and w["trial_open"] == 1,
+      "upgrading in the trial (a $0 invoice) lands no month's credits: nothing was paid")
+ev_sub("wes@example.com", "sub_wes", "growth", "trialing", IN_3_DAYS)
+w = ws_of("wes@example.com")
+check(w["plan"] == "growth" and w["plan_credits"] == 200, "the subscription event moves the plan; the trial's credits stay as they were")
+out = ev_invoice("wes@example.com", "sub_wes", "growth", "in_wes_1", 9900, "subscription_cycle", IN_33_DAYS).get_json()
+w = ws_of("wes@example.com")
+check(out["credited"] == 5800 and w["plan_credits"] == 6000 and w["plan_status"] == "active", "Growth's first payment brings it to the full 6,000")
+
 print("\nThe first payment before word of the trial")
 signup("pia@example.com")
 ev_invoice("pia@example.com", "sub_pia", "starter", "in_pia_1", 3900, "subscription_cycle", IN_33_DAYS)

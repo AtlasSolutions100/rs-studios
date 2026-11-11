@@ -216,7 +216,7 @@
   <div class="lv-wrap lv-split">
     <div>
       <h2 id="lv-rest">The rest of the campaign, when you want it</h2>
-      <p class="lv-sub">The free studio makes ads. A plan adds the tools around them, and each one says which plan it comes with.</p>
+      <p class="lv-sub">{% if plans_only() %}Every plan makes ads. Each tool around them says which plan it comes with.{% else %}The free studio makes ads. A plan adds the tools around them, and each one says which plan it comes with.{% endif %}</p>
       <p><a href="{{ url_for('features') }}">See every feature</a></p>
     </div>
     <ul class="lv-list">

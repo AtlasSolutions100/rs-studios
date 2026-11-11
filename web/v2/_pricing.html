@@ -25,8 +25,8 @@
     <p class="pr-amt">{{ price.amount(p) }}</p>
     <p class="pr-cr">{{ '{:,}'.format(p.credits) }} credits every month</p>
     {% set m = ad_math(p.credits, p.usd) %}<p class="pr-makes">{{ m.counts }}, each month.</p>
-    <p class="pr-for">{{ p.line }}</p>
     {% if plan_trial_days(p.code) %}<p class="pr-trial" data-plan-trial><b>{{ plan_trial_days(p.code) }} days free</b> with {{ '{:,}'.format(trial_credits(p)) }} credits, then ${{ p.usd }} a month.</p>{% elif po %}<p class="pr-trial" data-plan-trial>Charged at once. No trial.</p>{% endif %}
+    <p class="pr-for">{{ p.line }}</p>
     {% if open %}<a class="btn dark" href="{{ url_for('signup') }}" data-cta="pricing-{{ p.code }}">{% if plan_trial_days(p.code) %}Try {{ p.name }} free for {{ plan_trial_days(p.code) }} days{% else %}Start {{ p.name }}{% endif %}</a>
     {% else %}<span class="btn dark disabled" aria-disabled="true">Not open yet</span>{% endif %}
     {% set prev = plans.ORDER[plans.ORDER.index(p.code) - 1] %}
