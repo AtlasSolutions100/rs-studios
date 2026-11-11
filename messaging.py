@@ -192,7 +192,8 @@ def send_queued(now=None, limit=100) -> int:
                 _finish(conn, msg, "suppressed", now, "Not sent: they unsubscribed or their address bounced.")
             elif not consent_ok(ws, c):
                 _finish(conn, msg, "skipped", now, "Not sent: no email consent on record for this contact.")
-            elif not compliance.check(msg["subject"], msg["body_text"])["ok"]:
+            elif not compliance.check(msg["subject"], msg["body_text"],      # saved by the member: its offer is theirs
+                                      stated=(msg["subject"] or "", msg["body_text"] or ""))["ok"]:
                 _finish(conn, msg, "failed", now, "Not sent: the email breaks the content rules.")
             elif billing_holds.reason(ws):
                 # A refund/dispute hold or a failed renewal (N6): nothing spends. The email stays

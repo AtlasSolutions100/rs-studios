@@ -6,6 +6,7 @@ rail, not legal review. Income, earnings and recruiting claims are blocked for
 every account. 'block' stops the generation, 'warn' lets it run with a
 note shown to the member.
 """
+import contextvars
 import re
 import unicodedata
 
@@ -111,6 +112,9 @@ CUSTOMER_VOICE_RX = "|".join([
     r"\b(?:game[- ]changer|life[- ]saver) for me\b|\bworked for me\b|\bas a (?:customer|user|mom who uses)\b",
 ])
 
+DISCOUNT_MSG = ("No discounts, coupons or free shipping unless you've stated the offer: say it in your request or save "
+                "it as the product's offer.")
+
 RULES = [
     # (level, pattern, message[, flags])
     ("block", r"\b(los[et]|losing|drop|shed|burn|melt(s|ed|ing)?)\b[^.]{0,30}\b(weight|pounds|lbs|kilos?|fat|inches|belly)\b|"
@@ -122,8 +126,10 @@ RULES = [
      "No health or disease claims: use only the label's words.", "benign"),
     ("block", r"\b(diabetes|cancer|anxiety|depression|adhd|arthritis|disease|blood pressure|cholesterol)\b",
      "No health or disease claims: use only the label's words."),
-    ("block", r"\b\d{1,2}\s?% off\b|\bdiscount\b|\bcoupon\b|\bpromo code\b|\bfree shipping\b|\bbogo\b",
-     "No discounts, coupons or free-shipping offers. Free extras only."),
+    # An offer is the member's to make, never ours to invent (Koby, Nov 11 2026): a discount, coupon or free shipping
+    # passes when the member stated it, in the same terms (the "stated" flag, _Stated below); anything else is refused.
+    ("block", r"\b\d{1,2}\s?% off\b|\bdiscount\b|\bcoupon\b|\bpromo code\b|\bfree shipping\b|\bbogo\b", DISCOUNT_MSG,
+     "stated"),
     # Income, earnings and lifestyle claims: blocked for every account. Most
     # members are independent reps, and the FTC treats these as earnings claims.
     ("block", r"\b(earn(s|ed|ing)?|make|makes|making|made|bring(s|ing)? in|pull(s|ing)? in|clear(ed|ing)?)\b[^.!?]{0,30}"
@@ -252,10 +258,91 @@ def _negated(text: str, start: int) -> bool:
     return bool(_NEGATION.search(before)) and not re.search(r"\bno\s+more\s*$", before, re.I)
 
 
-def _hits(rx, text: str, flags) -> bool:
+# ---------------------------------------------------------------- what the member has stated
+# A rule marked "stated" doesn't fire on words the member gave us themselves. "20% off" in a headline is fine when
+# the member typed it, asked for it, or saved it as the product's offer; it is refused when the model made it up.
+# What counts as stated, for one check:
+#   * `stated=` from the caller (a saved message being sent, the product page an import read);
+#   * state() for work done for a member outside a request (a planner run);
+#   * inside a web request: every string the member sent with it (form fields, query, JSON body), and the offers
+#     and prices saved on their workspace's products.
+# The match is on the offer's own terms: "20% off" passes when "20% off" (or "20 percent off") was stated, "30% off"
+# does not. Built only when a "stated" rule matches, once per request.
+_STATED = contextvars.ContextVar("compliance_stated", default=())
+
+
+def state(*texts):
+    """For work done for a member outside a request: these texts are what they stated. Returns a token for unstate()."""
+    return _STATED.set(_STATED.get() + tuple(str(t) for t in texts if t))
+
+
+def unstate(token) -> None:
+    _STATED.reset(token)
+
+
+def _squash(s: str) -> str:
+    t = re.sub(r"\s+", " ", normalize(s).lower())
+    return t.replace(" percent", "%").replace(" per cent", "%").replace(" %", "%")
+
+
+def _request_strings() -> list:
+    """What the member sent with the current web request, and the offers and prices saved on their products."""
+    try:
+        from flask import g, has_request_context, request
+    except ImportError:
+        return []
+    if not has_request_context():
+        return []
+    cached = g.get("_stated_strings")
+    if cached is not None:
+        return cached
+    out = []
+
+    def walk(v, depth=0):
+        if isinstance(v, str):
+            out.append(v[:6000])
+        elif isinstance(v, dict) and depth < 6:
+            for x in list(v.values())[:300]:
+                walk(x, depth + 1)
+        elif isinstance(v, (list, tuple)) and depth < 6:
+            for x in v[:300]:
+                walk(x, depth + 1)
+
+    try:
+        walk(list(request.values.values()))
+        walk(request.get_json(silent=True))
+    except Exception:  # noqa: BLE001  (a body we can't read states nothing)
+        pass
+    ws = g.get("ws")
+    if ws is not None:
+        try:
+            import db
+            with db.connect() as conn:
+                for r in conn.execute("SELECT offer, price FROM products WHERE workspace_id=? AND archived=0", (ws["id"],)):
+                    out += [r[0] or "", r[1] or ""]
+        except Exception:  # noqa: BLE001
+            pass
+    g._stated_strings = out
+    return out
+
+
+class _Stated:
+    def __init__(self, extra=None):
+        self.extra, self._blob = extra, None
+
+    def has(self, words: str) -> bool:
+        if self._blob is None:
+            extra = [self.extra] if isinstance(self.extra, str) else list(self.extra or [])
+            self._blob = _squash(" \n ".join(str(x) for x in [*extra, *_STATED.get(), *_request_strings()] if x))
+        return _squash(words) in self._blob
+
+
+def _hits(rx, text: str, flags, stated=None) -> bool:
     if not flags:
         return bool(rx.search(text))
     for m in rx.finditer(text):
+        if "stated" in flags and stated is not None and stated.has(m.group(0)):
+            continue
         if "negatable" in flags and _negated(text, m.start()):
             continue
         if "time" in flags and before_after_time(text, m.end()):
@@ -271,24 +358,26 @@ def before_after(text: str) -> bool:
     return _hits(_COMPILED[IDS.index("before_after")][1], text, {"negatable", "time"})
 
 
-def check(*texts: str) -> dict:
+def check(*texts: str, stated=None) -> dict:
     """{'ok': bool, 'blocks': [msg], 'warnings': [msg]} for the combined text.
     The same rules run for every kind of text everywhere (headlines, concepts,
-    scripts, briefs); callers check each piece the member sees on its own."""
+    scripts, briefs); callers check each piece the member sees on its own.
+    `stated`: text (or texts) the member gave that an offer in `texts` may repeat (see "what the member has stated")."""
     text = normalize(" ".join(t for t in texts if t))
-    blocks, warns = [], []
+    blocks, warns, said = [], [], _Stated(stated)
     for lvl, rx, msg, flags in _COMPILED:
-        if _hits(rx, text, flags):
+        if _hits(rx, text, flags, said):
             (blocks if lvl == "block" else warns).append(msg)
     dedupe = lambda xs: list(dict.fromkeys(xs))
     return {"ok": not blocks, "blocks": dedupe(blocks), "warnings": dedupe(warns)}
 
 
-def findings(*texts: str) -> list:
+def findings(*texts: str, stated=None) -> list:
     """[(level, rule id, message)] for every rule the combined text breaks, in RULES order.
     The same rules and wording as check(); used where a caller needs to know which rule hit."""
     text = normalize(" ".join(t for t in texts if t))
-    return [(lvl, IDS[i], msg) for i, (lvl, rx, msg, flags) in enumerate(_COMPILED) if _hits(rx, text, flags)]
+    said = _Stated(stated)
+    return [(lvl, IDS[i], msg) for i, (lvl, rx, msg, flags) in enumerate(_COMPILED) if _hits(rx, text, flags, said)]
 
 
 def negated(text: str, start: int) -> bool:

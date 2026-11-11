@@ -242,7 +242,7 @@ SOLUTIONS = {
                                             "photo; and your product in a reference video's motion."),
             ("Prices before you press Generate", "Paid in credits: an 8-second talking video is {talk8} credits "
                                                  "at 720p. Failed generations are refunded."),
-            ("Compliance checks on every brief", "Income, health, discount and recruiting claims are blocked, and "
+            ("Compliance checks on every brief", "Income, health and recruiting claims and invented discounts are blocked, and "
                                                  "AI presenters never speak as customers."),
             ("Sizes for every feed", "On Starter and up, export each finished ad at each platform's sizes and get "
                                      "step-by-step setup for eight ad platforms."),
@@ -405,7 +405,7 @@ SOLUTIONS = {
             ("Copy and a landing page", "On Starter and up: ad copy for each platform's fields and a landing page "
                                         "published on campaignify.ai."),
             ("Checks before anything runs", "Prices shown before you generate, failures refunded, and income, health "
-                                            "and discount claims blocked."),
+                                            "claims and invented discounts blocked."),
         ],
         "faq": [
             ("Is this a Shopify ad creator or a Shopify app?",
@@ -457,7 +457,7 @@ SOLUTIONS = {
                                        "to test against each other."),
             ("Emails and landing copy", "Subject line, preview text and a short email; or a headline, benefits, FAQ "
                                         "and call to action for a page."),
-            ("Compliance checks", "Every variant is checked for income, health, discount and recruiting claims."),
+            ("Compliance checks", "Every variant is checked for income, health and recruiting claims and invented discounts."),
             ("Pay for what the AI used", "Each run costs the AI's actual usage in credits, at least 1 credit; the "
                                          "copy studio is on Starter (${starter_usd} a month) and up."),
         ],
@@ -470,7 +470,7 @@ SOLUTIONS = {
              "actually used, in credits, and you see the most it can cost before you run it."),
             ("Will it write claims my product can't make?",
              "It writes from the claims you approved, and every variant goes through the compliance checks, which "
-             "block income, health, discount and recruiting claims. Still read each line before you use it."),
+             "block income, health and recruiting claims and invented discounts. Still read each line before you use it."),
             ("Can it improve copy I already have?",
              "Yes. On Growth and up the content optimizer scores a draft for a platform (hook, clarity, call to "
              "action, fit and compliance) for free, and an AI review explains the biggest fix and writes three "
@@ -1015,7 +1015,7 @@ PAGES = {  # endpoint -> (path, title, description)
                   "Type what you sell and who it is for, and get eight opening lines for TikTok, Reels and Facebook "
                   "ads. Free, no sign-up."),
     "for_reps": ("/for-reps", "For Independent Reps: Compliance Checks · Campaignify",
-                 "Selling as an independent rep? Campaignify blocks income, recruiting, health and discount claims in "
+                 "Selling as an independent rep? Campaignify blocks income, recruiting and health claims and invented discounts in "
                  "every ad brief, copy variant and landing page."),
     "llm_info": ("/llm-info", "Campaignify for AI Assistants (llms.txt) · Campaignify",
                  "What Campaignify is, what it makes, what each ad costs in credits and which plan includes each tool, "

@@ -589,7 +589,7 @@ FEATURE_DETAILS = {
                "The price in credits shown before anything runs; failures refunded automatically"],
     "compliance": ["Income, earnings and recruiting claims blocked on every account",
                    "Weight-loss, disease and before-and-after language blocked",
-                   "Discount and free-shipping promises blocked; promise words flagged"],
+                   "Invented discounts and free-shipping promises blocked; promise words flagged"],
     "brand_kit": ["Approved claims copied from your label", "Product photos reused across every ad",
                   "More than one brand on Growth and Scale"],
     "priority": ["Scale workspaces' generations start before the rest of the queue"],
