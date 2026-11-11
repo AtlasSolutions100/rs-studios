@@ -1241,11 +1241,11 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
   .dk-bar-act .btn{flex:1 1 auto}
 }
 /* the percent-off price and the plan step in the neutral look (plans.sale, plan_pick.html) */
-[data-ui="v2"] .px-off{border-radius:6px;padding:2px 8px;background:var(--v2-inv);color:var(--v2-inv-ink);font:500 12px/1.4 var(--body);letter-spacing:0}
+[data-ui="v2"] .px-off{border-radius:999px;padding:3px 9px;background:var(--v2-spark);color:var(--v2-spark-ink);font:600 12px/1.35 var(--body);letter-spacing:0;box-shadow:inset 0 0 0 1px rgba(20,20,20,.18)}
 .pr-amt .px-next{font-size:16px;font-weight:400}
 .pr-amt .px-off{margin-left:8px}
 .pr-plans.three{grid-template-columns:repeat(3,minmax(0,1fr))}
-@media (max-width:1000px){.pr-plans.three{grid-template-columns:1fr}.pr-plans.three .pr-plan{border-left:0}.pr-plans.three .pr-plan:nth-child(n+2){border-top:1px solid var(--line)}}
+@media (max-width:1000px){.pr-plans.three{grid-template-columns:1fr}}
 .ob.ob-wide{max-width:1040px}
 [data-ui="v2"] .pk h1{text-align:left;font-size:24px}
 [data-ui="v2"] .pk-plan{border-radius:var(--r-lg);background:var(--panel)}
@@ -1254,3 +1254,18 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 [data-ui="v2"] .pk-amt .px-next{font-size:16px;font-weight:400}
 [data-ui="v2"] .px-trial{border-radius:var(--r-md);background:var(--v2-sunk);margin-bottom:var(--s4)}
 @media (max-width:1000px){.pr-plans .px-trial.gap{display:none}}
+/* Koby's pick, Nov 11: in the new look the plans and packs are separate cards with space between them and the first
+   look's lime accents. Growth is marked "Recommended" with a lime edge and a lime button, the percent-off tags are
+   lime, each card's button sits at its foot, and the menu's button is lime too. */
+.pr-plans,.pr-packs{gap:var(--s4);border:0;border-radius:0;background:none;overflow:visible}
+.pr-plans .pr-plan:nth-child(n),.pr-packs .pr-pack:nth-child(n){position:relative;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--panel)}
+.pr-plans .pr-plan.hot:nth-child(n){border-color:var(--v2-spark);box-shadow:0 0 0 1px rgba(189,250,37,.6),0 18px 36px -26px rgba(20,20,20,.4)}
+.pr-badge{position:absolute;top:-11px;left:var(--s5);padding:3px 10px;border-radius:999px;background:var(--v2-spark);color:var(--v2-spark-ink);font:600 12px/1.4 var(--body);box-shadow:inset 0 0 0 1px rgba(20,20,20,.18)}
+.pr-plans .pr-makes{color:var(--ok);font-weight:500}
+.pr-plans .pr-for{min-height:0;margin-bottom:var(--s3)}
+.pr-in{margin:var(--s2) 0 var(--s2);font-size:12.5px;font-weight:600;color:var(--dim)}
+.pr-plans .pr-feats{margin:0 0 var(--s5);padding-top:0;border-top:0}
+.pr-plans .pr-feats li::before{border-color:var(--ok)}
+.pr-plans .pr-plan .btn{order:9;margin-top:auto}
+.pr-plans .pr-plan.hot .btn,[data-ui="v2"] .lp-actions .btn{background:var(--v2-spark);color:var(--v2-spark-ink);border-color:rgba(20,20,20,.2)}
+.pr-plans .pr-plan.hot .btn:hover,[data-ui="v2"] .lp-actions .btn:hover{background:#AEEB16}
