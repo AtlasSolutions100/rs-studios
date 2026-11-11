@@ -250,6 +250,7 @@ jobs:
           TWILIO_A2P_POLICY_SID: ${{ vars.TWILIO_A2P_POLICY_SID }}
           INDEXNOW_KEY: ${{ vars.INDEXNOW_KEY }}
           RS_LIVE_IDS: ${{ vars.RS_LIVE_IDS }}
+          STRIPE_SETUP: ${{ vars.STRIPE_SETUP || '1' }}
           RS_OWNER_INVITES: ${{ secrets.RS_OWNER_INVITES }}
           RS_MARKUP: ${{ vars.RS_MARKUP }}
           RS_STARTER_CREDITS: ${{ vars.RS_STARTER_CREDITS }}
@@ -394,7 +395,7 @@ jobs:
                                              "STRIPE_PLAN_PRODUCT_GROWTH", "STRIPE_PLAN_PRODUCT_SCALE",
                                              "STRIPE_PRICE_STARTER", "STRIPE_PRICE_PRO", "STRIPE_PRICE_STUDIO",
                                              "TWILIO_SECONDARY_POLICY_SID", "TWILIO_A2P_POLICY_SID", "INDEXNOW_KEY",
-                                             "RS_LIVE_IDS", "RS_OWNER_INVITES",
+                                             "RS_LIVE_IDS", "STRIPE_SETUP", "RS_OWNER_INVITES",
                                              "SIGNUP_CREDITS_ADS", "SIGNUP_CREDITS_ADS_PER_DAY",
                                              "RESEND_API_KEY", "RESEND_WEBHOOK_SECRET", "RS_MAIL_DOMAIN", "RS_POSTAL_ADDRESS",
                                              "RS_HD_MARKUP", "RS_VIDEO_UPSCALE_MODEL", "RS_VIDEO_UPSCALE_USD_PER_SECOND",

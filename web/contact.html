@@ -15,10 +15,10 @@
       <label for="cp">Phone</label><input id="cp" type="text" name="phone" maxlength="30" value="{{ c.phone or '' }}">
       <label for="ct">Tags</label><input id="ct" type="text" name="tags" maxlength="300" value="{{ c.tags or '' }}">
       <label for="cno">Notes</label><textarea id="cno" name="notes" maxlength="4000">{{ c.notes or '' }}</textarea>
-      <div class="row" style="margin-top:14px;justify-content:space-between"><button class="btn" name="action" value="save">Save</button><button class="btn dark sm" name="action" value="delete" data-confirm="Delete this contact and their form answers?">Delete contact</button></div>
+      <div class="row" style="margin-top:14px;justify-content:space-between"><button class="btn dark" name="action" value="save">Save</button><button class="btn dark sm" name="action" value="delete" data-confirm="Delete this contact and their form answers?">Delete contact</button></div>
     </form>
     <div class="panel"><h3>What has happened</h3>
-      <ol class="steplist">{% for e in timeline %}<li class="{{ 'done' if e.kind in ('form', 'stage') else 'note' }}"><b>{{ e.what }}{{ ':' if e.kind == 'message' and e.detail else '' }} {{ e.detail }}</b><span class="small muted">{{ e.at|localtime }}</span></li>{% else %}<li class="note"><b>Nothing yet</b><span class="small muted">Forms they fill in, emails and texts they get, and every stage move show here.</span></li>{% endfor %}</ol>
+      <ol class="steplist tl">{% for e in timeline %}<li class="{{ 'done' if e.kind in ('form', 'stage') else 'note' }}"><b>{{ e.what }}{{ ':' if e.kind == 'message' and e.detail else '' }} {{ e.detail }}</b><span class="small muted">{{ e.at|localtime }}</span></li>{% else %}<li class="note"><b>Nothing yet</b><span class="small muted">Forms they fill in, emails and texts they get, and every stage move show here.</span></li>{% endfor %}</ol>
     </div>
   </div>
   <div class="section-h" id="write"><h2>Write to them</h2><span class="muted small">Sent from your own sender and logged above</span></div>
