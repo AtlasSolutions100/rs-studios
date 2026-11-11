@@ -530,9 +530,10 @@ def plan_parts(d) -> list[dict]:
     return [_ask_part(it, d.get("product")) for it in items]
 
 
-def ask_plan(text: str, product, cast: list) -> dict:
+def ask_plan(text: str, product, cast: list, context: str = "") -> dict:
     """{"note", "items", "dropped"}: the fast model's proposal for this request, cleaned by ask_item; `dropped` names
-    each part left out because its words tripped a claim rule."""
+    each part left out because its words tripped a claim rule. `context` is what the campaign already holds, when
+    the request continues one (the desk's threads): the model is told to add to it, not to start again."""
     have = {m["id"] for m in available_modes()}
     who = "\n".join(f"- {c['id']}: {c.get('name') or c['id']}; places: " + (", ".join(map(str, _places(c)[:6])) or "none")
                     for c in cast[:20]) or "none"
@@ -543,7 +544,10 @@ def ask_plan(text: str, product, cast: list) -> dict:
             facts.append(f"{label}: {fact}")
     facts.append("Approved claims (the only claims you may make): " + (_clean(product["claims"], 800) or "none given"))
     prompt = ("\n".join(facts) + f"\n\nKinds available: {', '.join(k for k in ASK_MAKES if k in have)}"
-              f"\n\nPresenter roster:\n{who}\n\nThe member asks: {text}\n\nPropose the set.")
+              f"\n\nPresenter roster:\n{who}\n\n"
+              + (f"This continues a campaign. So far:\n{_clean(context, 1500)}\nPropose only what the new request adds or "
+                 "changes, not the whole set again.\n\n" if context else "")
+              + f"The member asks: {text}\n\nPropose the set.")
     out = llm.structured(system=ASK_SYSTEM, prompt=prompt, schema=ASK_SCHEMA, max_tokens=900, temperature=0.6,
                          model_id=llm.fast_model())
     out = out if isinstance(out, dict) else {}
@@ -711,7 +715,7 @@ def quote():
     return jsonify(quote_parts(parts))
 
 
-def ask_run(said, product_id) -> tuple[dict, int]:
+def ask_run(said, product_id, context: str = "") -> tuple[dict, int]:
     """A sentence in, a priced set back, as (answer, HTTP status). Nothing is made here. The one place the Ask model
     call happens (the composer's Ask and the campaign desk both come through it), so the daily cap, the claim rules
     and what counts as a part are the same wherever the sentence was typed."""
@@ -732,7 +736,7 @@ def ask_run(said, product_id) -> tuple[dict, int]:
     if used >= ASK_DAILY:
         return {"error": f"That's {ASK_DAILY} asks today. Use the composer below, or ask again tomorrow."}, 429
     try:
-        plan = ask_plan(text, product, roster())
+        plan = ask_plan(text, product, roster(), context)
     except Exception:  # noqa: BLE001
         log.exception("studio ask failed")
         return {"error": "That didn't come back. Try again, or use the composer below."}, 502

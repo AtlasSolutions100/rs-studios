@@ -409,6 +409,17 @@ CREATE TABLE IF NOT EXISTS desk_runs (
     made_json TEXT NOT NULL DEFAULT '[]',           -- what one confirmation made: [{kind, name, href, state}]
     credits INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_desk_runs_ws ON desk_runs(workspace_id, id);
+CREATE TABLE IF NOT EXISTS desk_threads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, user_id INTEGER, product_id INTEGER,
+    title TEXT NOT NULL DEFAULT '',                 -- a campaign on the desk: one conversation (desk.py)
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, archived INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX IF NOT EXISTS idx_desk_threads_ws ON desk_threads(workspace_id, archived, updated_at);
+CREATE TABLE IF NOT EXISTS desk_turns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, thread_id INTEGER NOT NULL, workspace_id INTEGER NOT NULL,
+    role TEXT NOT NULL,                             -- member | desk
+    kind TEXT NOT NULL,                             -- said | plan | made | note
+    body_json TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_desk_turns_thread ON desk_turns(thread_id, id);
 CREATE TABLE IF NOT EXISTS flow_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT, flow_id INTEGER NOT NULL, version_id INTEGER NOT NULL,
     workspace_id INTEGER NOT NULL, contact_id INTEGER NOT NULL,
@@ -883,6 +894,7 @@ COLUMNS = [
     # the lead pipeline (pipeline.py): the workspace's own names for its stages, and the stages it added
     ("workspaces", "pipeline_json", "TEXT"),
     ("workspaces", "stripe_old_json", "TEXT"),   # ids from another Stripe account, set aside (stripe_setup.forget)
+    ("desk_runs", "thread_id", "INTEGER"),          # the conversation a desk run belongs to (desk_threads)
     ("contacts", "phone_e164", "TEXT"),
     ("contacts", "timezone", "TEXT"),
     ("contacts", "email_consent", "TEXT NOT NULL DEFAULT 'none'"),
