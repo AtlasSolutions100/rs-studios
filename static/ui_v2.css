@@ -5,9 +5,10 @@
      type       one family (Inter, already bundled) on a fixed scale: 12 13 14 16 18 22 28 40 56
      space      a 4px grid: 4 8 12 16 24 32 48 64 96
      corners    8px controls, 10px fields and tiles, 12px panels and dialogs
-     accent     the lime of the wordmark's spark, kept for small marks only: what is picked, what is new, focus on
-                dark. Buttons and selected chips are ink on paper. style.css's --accent is therefore redefined
-                to ink here, so every older component that fills with it turns neutral without its own rule.
+     accent     the lime of the wordmark's spark. On the site it is kept for small marks. In the app it is the
+                10 of 80 / 20 / 10 (see "the pop" at the end of this file): the one action a screen is for, where
+                you are and what is picked, and what is new. style.css's --accent is still redefined to ink here,
+                so every older component that fills with it turns neutral unless the pop names it.
 
    Light is the base (the site, log in, sign up, onboarding). The app is dark unless the browser prefers light or
    the member switched: base.html sets data-theme before paint; without scripts the app falls back to dark. */
@@ -945,3 +946,35 @@ dialog.price .v2-dlg-f{margin-top:14px}
   [data-ui="v2"] .spinner{animation-duration:2.4s}
 }
 [data-ui="v2"] form.panel>.ppick:first-of-type label,[data-ui="v2"] form.panel>input[type=hidden]+label{margin-top:0}
+
+/* ================================================================ the pop (Nov 11 2026)
+   The app keeps to 80 / 20 / 10: 80 the near-black (or near-white) surfaces, 20 ink, 10 the lime of the wordmark.
+   The lime has three jobs in the app and no others:
+     1. the one action a screen is for: a full-size primary button (small buttons in rows stay ink on paper);
+     2. where you are and what is picked: the menu, a tab, a chip, a tick, a lead's stage;
+     3. what is new or moving: a mark, the newest line of a timeline, progress.
+   As a fill it always carries dark ink (--v2-pop-ink). As a line or as text it is --v2-mark: the lime on dark, a
+   dark green on light, so it reads on both. The public site keeps its own rules (data-surface is not "app"). */
+html[data-ui="v2"]:root{--v2-pop:#BDFA25;--v2-pop-hover:#CDFF52;--v2-pop-ink:#141414;--v2-pop-edge:rgba(20,20,20,.28)}
+
+/* 1. the action */
+[data-ui="v2"][data-surface="app"] .btn:not(.dark):not(.sm):not(.danger):not(.on):not(.disabled):not([disabled]){background:var(--v2-pop);color:var(--v2-pop-ink);border-color:var(--v2-pop-edge)}
+[data-ui="v2"][data-surface="app"] .btn:not(.dark):not(.sm):not(.danger):not(.on):not(.disabled):not([disabled]):hover{background:var(--v2-pop-hover)}
+[data-ui="v2"][data-surface="app"] .cmp-send:not(:disabled){background:var(--v2-pop);color:var(--v2-pop-ink)}
+[data-ui="v2"][data-surface="app"] .cmp-send:not(:disabled):hover{background:var(--v2-pop-hover)}
+
+/* 2. where you are, what is picked */
+[data-ui="v2"][data-surface="app"] .side a.nav.on{position:relative}
+[data-ui="v2"][data-surface="app"] .side a.nav.on::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:2px;background:var(--v2-mark)}
+[data-ui="v2"][data-surface="app"] .side a.nav.on svg{color:var(--v2-mark)}
+[data-ui="v2"][data-surface="app"] .v2-tabs a[aria-current]{box-shadow:inset 0 -2px 0 var(--v2-mark)}
+[data-ui="v2"][data-surface="app"] .tabs a.on{border-bottom-color:var(--v2-mark)}
+[data-ui="v2"][data-surface="app"] .choice:has(input:checked),
+[data-ui="v2"][data-surface="app"] button.choice.on{background:var(--v2-pop);border-color:var(--v2-pop-edge);color:var(--v2-pop-ink);opacity:1}
+[data-ui="v2"][data-surface="app"] input[type=checkbox],[data-ui="v2"][data-surface="app"] input[type=radio],
+[data-ui="v2"][data-surface="app"] input[type=range],[data-ui="v2"][data-surface="app"] progress{accent-color:var(--v2-pop)}
+[data-ui="v2"][data-surface="app"] .eyebrow{color:var(--v2-mark)}
+[data-ui="v2"][data-surface="app"] .lp-badge{background:var(--v2-pop);color:var(--v2-pop-ink);border-color:var(--v2-pop-edge)}
+
+/* 3. what is new */
+[data-ui="v2"][data-surface="app"] .steplist.tl li:first-child::before{background:var(--v2-pop);border-color:var(--v2-mark)}
