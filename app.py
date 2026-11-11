@@ -423,6 +423,8 @@ def _first_touch(resp):
 def _signup_offer() -> dict:
     """What a free sign-up gives this visitor right now (adoffer.offer): the paid-ad
     offer only when sign-up would grant it to them, the normal starter credits otherwise."""
+    if "signup_offer" not in g and plan_gate.on():
+        g.signup_offer = plan_gate.offer()      # no free credits: the offer is the trial
     if "signup_offer" not in g:
         n = None
         if adoffer.credits() and not g.get("user"):

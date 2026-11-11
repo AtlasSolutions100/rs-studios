@@ -231,7 +231,7 @@
 <section class="lv-sec" id="pricing" aria-labelledby="lv-price">
   <div class="lv-wrap">
     <h2 id="lv-price">Pricing</h2>
-    <p class="lv-sub">Start free. Buy a credit pack when you only want ads, or pick a plan for monthly credits and the campaign tools.</p>
+    <p class="lv-sub">{% if plans_only() %}Starter and Growth are free for {{ plan_trial_days('starter') }} days. Every plan comes with monthly credits, and credit packs top it up.{% else %}Start free. Buy a credit pack when you only want ads, or pick a plan for monthly credits and the campaign tools.{% endif %}</p>
     {% include "_pricing.html" %}
     <p class="pr-note"><a href="{{ url_for('pricing') }}">Pricing in full</a></p>
   </div>

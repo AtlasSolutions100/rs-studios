@@ -52,8 +52,12 @@ class PlanRequired(HTTPException):
 
 
 def on() -> bool:
-    """PLANS_ONLY: 1 / on turns it on (default off)."""
-    return (os.environ.get("PLANS_ONLY") or "").strip().lower() in ("1", "on", "true", "yes")
+    """PLANS_ONLY: 1 / on turns it on (default off). It takes effect only while Stripe can run a plan checkout
+    (billing.configured): without one nobody could pick a plan, so the app stays as it was."""
+    if (os.environ.get("PLANS_ONLY") or "").strip().lower() not in ("1", "on", "true", "yes"):
+        return False
+    import billing
+    return billing.configured()
 
 
 def _key(row, k):
@@ -205,6 +209,22 @@ def terms(code: str, days: int) -> dict:
     n = trial_credits(p) if days else int(p["credits"])
     return {"code": code, "name": p["name"], "usd": p["usd"], "days": days, "credits": int(p["credits"]),
             "credits_now": n, "credits_later": int(p["credits"]) - n if days else 0}
+
+
+def offer() -> dict:
+    """The sign-up offer copy while PLANS_ONLY is on, in the shape of adoffer.offer(): what a new account starts
+    with is the Starter trial, and the terms say when the card is charged."""
+    import catalog
+    r = catalog.rates()
+    n = trial_credits(plans.PLANS["starter"])
+    images = n // max(r["image"], 1)
+    terms_line = (f"A card is needed to start, and the plan is charged when the {TRIAL_DAYS}-day trial ends unless "
+                  "you cancel first.")
+    return {"credits": n, "images": images, "video": n >= r["video5"], "ad": False, "card": True, "trial": True,
+            "cta": f"Try it free for {TRIAL_DAYS} days",
+            "body": (f"Starter and Growth are free for {TRIAL_DAYS} days. Starter's trial comes with {n:,} credits, "
+                     f"enough for {images} image ad{'' if images == 1 else 's'}. {terms_line}"),
+            "terms": terms_line}
 
 
 def checkout_note(code: str, days: int) -> str:

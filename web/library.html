@@ -22,7 +22,7 @@
   </nav>
   {% endif %}
   {% if fresh %}
-  {% set ni = balance() // rates().image %}{% set free_ads = plans.plan_code(g.ws) == 'free' and ni >= 1 %}
+  {% set ni = balance() // rates().image %}{% set free_ads = plans.plan_code(g.ws) == 'free' and ni >= 1 and not plans_only() %}
   <div class="panel lib-empty" style="margin-top:20px">
     <h2>Your ads will live here</h2>
     <p class="muted">Every ad you make lands on this page at full quality: download it, approve the keepers, and re-render a video in 1080p when it earns it.{% if free_ads %} Your {{ [ni, 2]|min }} free image ad{{ '' if [ni, 2]|min == 1 else 's' }} take{{ 's' if [ni, 2]|min == 1 }} about a minute.{% endif %}</p>

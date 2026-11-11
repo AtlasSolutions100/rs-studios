@@ -17,16 +17,18 @@ Campaignify doesn't post ads, buy media or read results from ad platforms. It gu
 
 ## Billing and cancelling
 
-- Free sign-up charges nothing and has no end date{{ '; a card is saved at sign-up to stop abuse and is not charged' if card_required() }}. Nothing starts billing by itself.
+{% if plans_only() %}- Every account is on a plan. Starter and Growth start with a {{ plan_trial_days('starter') }}-day free trial: a card is saved at sign-up and the plan's price is charged when the trial ends, unless it is canceled first. Scale has no trial.
+{% else %}- Free sign-up charges nothing and has no end date{{ '; a card is saved at sign-up to stop abuse and is not charged' if card_required() }}. Nothing starts billing by itself.
+{% endif %}
 - Plans are billed monthly. Cancel yourself anytime from Billing in the app ("Manage or cancel plan"); the plan stays on until the end of the month you've paid for.
-- Plan credits arrive with each monthly payment and expire at the next renewal. Credits from packs and the free starter credits never expire.
+- Plan credits arrive with each monthly payment and expire at the next renewal. Credits from packs{{ '' if plans_only() else ' and the free starter credits' }} never expire.
 - Every ad's cost in credits is shown before it's made, and failed generations are refunded automatically.
 
 ## Pages
 
 - [Home]({{ site.SITE_URL }}/): the campaign steps, example ads, compliance checks, pricing and FAQ.
 - [Features]({{ site.SITE_URL }}/features): every tool that's live today, by campaign step, and which plan includes it.
-- [Pricing]({{ site.SITE_URL }}/pricing): the free tier, the monthly plans, credit packs and what a credit buys.
+- [Pricing]({{ site.SITE_URL }}/pricing): {{ '' if plans_only() else 'the free tier, ' }}the monthly plans, credit packs and what a credit buys.
 - [For reps]({{ site.SITE_URL }}/for-reps): the compliance checks for independent reps.
 - [LLM info]({{ site.SITE_URL }}/llm-info): this file as an HTML page.
 - [llms-full.txt]({{ site.SITE_URL }}/llms-full.txt): this file plus the full text and FAQ of every page below.
@@ -40,9 +42,10 @@ Campaignify doesn't post ads, buy media or read results from ad platforms. It gu
 
 ## Plans
 
-- Free: {{ '{:,}'.format(starter_credits()) }} starter credits (free sign-up includes {{ starter_credits() // rates().image }} image ads) and the ad studio. {{ signup_offer().terms }}
-{% for p in plans.PAID %}- {{ p.name }}: ${{ p.usd }} a month, {{ '{:,}'.format(p.credits) }} credits a month. {{ p.line }}
-{% endfor %}- Credit packs ({% for p in packs %}${{ p.usd }}{{ ', ' if not loop.last }}{% endfor %}) top up any account.
+{% if plans_only() %}- Trial: Starter and Growth are free for {{ plan_trial_days('starter') }} days, with {{ '{:,}'.format(trial_credits(plans.PLANS.starter)) }} credits on Starter and {{ '{:,}'.format(trial_credits(plans.PLANS.growth)) }} on Growth; the rest of the month's credits arrive with the first payment. {{ signup_offer().terms }}
+{% else %}- Free: {{ '{:,}'.format(starter_credits()) }} starter credits (free sign-up includes {{ starter_credits() // rates().image }} image ads) and the ad studio. {{ signup_offer().terms }}
+{% endif %}{% for p in plans.PAID %}- {{ p.name }}: ${{ p.usd }} a month, {{ '{:,}'.format(p.credits) }} credits a month. {{ p.line }}
+{% endfor %}- Credit packs ({% for p in packs %}${{ p.usd }}{{ ', ' if not loop.last }}{% endfor %}) top up any {{ 'plan' if plans_only() else 'account' }}.
 - Every ad is priced in credits, shown before it's made. Plan credits expire at each renewal; pack credits never expire.
 
 ## What it makes
@@ -56,7 +59,7 @@ Campaignify doesn't post ads, buy media or read results from ad platforms. It gu
 - Talking (UGC) video with an AI presenter: {{ rc.talk8 }} credits for 8 seconds, {{ rc.talk10 }} for 10 seconds at 720p; {{ '{:,}'.format(rc.talk10_1080) }} for 10 seconds at 1080p.
 - Copy a reference video's motion: {{ rc.motion_per_s }} credits per second of the reference, up to {{ rc.motion_max }}.
 - AI writing tools (planner, copy, SEO audits): charged at what the AI actually used, at least 1 credit, with the most a run can cost shown first.
-- Failed generations are refunded automatically. Free sign-up includes {{ '{:,}'.format(starter_credits()) }} credits ({{ starter_credits() // rc.image }} image ads). {{ signup_offer().terms }}
+- Failed generations are refunded automatically. {% if plans_only() %}Starter's {{ plan_trial_days('starter') }}-day free trial includes {{ '{:,}'.format(trial_credits(plans.PLANS.starter)) }} credits ({{ trial_credits(plans.PLANS.starter) // rc.image }} image ads).{% else %}Free sign-up includes {{ '{:,}'.format(starter_credits()) }} credits ({{ starter_credits() // rc.image }} image ads).{% endif %} {{ signup_offer().terms }}
 
 ## Tools
 {% for k, f in plans.FEATURES.items() if f.shipped %}

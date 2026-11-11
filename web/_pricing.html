@@ -1,8 +1,9 @@
 {# Plans + packs, shared by the landing page and /features. Needs r = rates(), sc = the visitor's starter credits (signup_offer().credits). #}
+{% import "_price.html" as price %}{% set po = plans_only() %}
 {% if ui_v2 %}{% include "v2/_pricing.html" %}{% else %}
 <p class="lp-anchor">Talking videos from <b>{{ r.talk8|credits }}</b> · product videos from <b>{{ r.video5|credits }}</b> · image ads from <b>{{ r.image|credits }}</b>. You see the price in credits before anything runs.</p>
-<div class="lp-prices plans">
-  <div class="lp-price free">
+<div class="lp-prices plans{{ ' three' if po }}">
+  {% if not po %}<div class="lp-price free">
     <h3>Free</h3>
     <div class="lp-amt">$0</div>
     <p class="lp-cr">{{ '{:,}'.format(sc) }} starter credits</p>
@@ -10,18 +11,19 @@
     <p class="small plan-out">Only want ads? Buy a pack. Credits never expire.</p>
     <ul class="plan-feats">{% for k, f in plans.FEATURES.items() if f.plan == 'free' and f.shipped %}<li>{{ f.name }}</li>{% endfor %}<li>Credit packs whenever you need more</li></ul>
     <a class="btn dark" href="{{ url_for('signup') }}" data-cta="pricing-free">Start free</a>
-  </div>
+  </div>{% endif %}
   {% for p in plans.PAID %}
   <div class="lp-price {{ 'hot' if p.code == 'growth' }}">
     {% if p.code == 'growth' %}<span class="lp-badge">Most popular</span>{% endif %}
     <h3>{{ p.name }}</h3>
-    <div class="lp-amt">${{ p.usd }}<span class="per">/mo</span></div>
+    <div class="lp-amt">{{ price.amount(p, '/mo', 'per') }}</div>
     <p class="lp-cr">{{ '{:,}'.format(p.credits) }} credits every month</p>
     {% set m = ad_math(p.credits, p.usd) %}<p class="small plan-out">{{ m.counts }}, each month.</p>
+    {% if plan_trial_days(p.code) %}<p class="small" data-plan-trial><b>{{ plan_trial_days(p.code) }} days free</b> with {{ '{:,}'.format(trial_credits(p)) }} credits, then ${{ p.usd }} a month.</p>{% elif po %}<p class="small" data-plan-trial>Charged at once. No trial.</p>{% endif %}
     <p class="muted small">{{ p.line }}</p>
     <details class="plan-more" open><summary>What's in {{ p.name }}</summary>{% include "_plan_features.html" %}</details>
     {% if billing_configured() %}
-    <a class="btn {{ '' if p.code == 'growth' else 'dark' }}" href="{{ url_for('signup') }}" data-cta="pricing-{{ p.code }}">Start {{ p.name }}, ${{ p.usd }}/mo</a>
+    <a class="btn {{ '' if p.code == 'growth' else 'dark' }}" href="{{ url_for('signup') }}" data-cta="pricing-{{ p.code }}">{% if plan_trial_days(p.code) %}Try {{ p.name }} free for {{ plan_trial_days(p.code) }} days{% else %}Start {{ p.name }}, ${{ p.usd }}/mo{% endif %}</a>
     {% else %}
     <span class="btn dark disabled" aria-disabled="true">Not open yet</span>
     <p class="small dim plan-why">Plan checkout isn't switched on yet. Start free now; your credits carry over.</p>
@@ -29,8 +31,8 @@
   </div>
   {% endfor %}
 </div>
-<p class="small dim" style="margin:14px 0 30px">No trial that bills you: nothing is charged until you pick a plan or buy a pack. Cancel any month; the plan runs to the end of the month you paid for. Plan credits reset monthly and are spent before pack credits; pack credits never expire. Failed generations are refunded automatically.</p>
-<h3 class="lp-h3">Credit packs <span class="muted small">one-time top-ups, on any plan or none</span></h3>
+<p class="small dim" style="margin:14px 0 30px">{% if po %}Starter and Growth start with a {{ plan_trial_days('starter') }}-day free trial: {{ '{:,}'.format(trial_credits(plans.PLANS.starter)) }} credits on Starter and {{ '{:,}'.format(trial_credits(plans.PLANS.growth)) }} on Growth to try it, and the rest of the month's credits with the first payment. Your card is charged when the trial ends unless you cancel first. Scale has no trial and is charged at once. {% else %}No trial that bills you: nothing is charged until you pick a plan or buy a pack. {% endif %}Cancel any month; the plan runs to the end of the month you paid for. Plan credits reset monthly and are spent before pack credits; pack credits never expire. Failed generations are refunded automatically.</p>
+<h3 class="lp-h3">Credit packs <span class="muted small">{{ 'one-time top-ups for any plan' if po else 'one-time top-ups, on any plan or none' }}</span></h3>
 <div class="lp-packs">
   {% for p in packs %}
   <div class="lp-pack">

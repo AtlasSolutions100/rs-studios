@@ -47,7 +47,7 @@
   <div class="lp-wrap">
     <h2 class="lp-h2">{{ so.cta }}.</h2>
     <p class="muted">{{ so.body }}</p>
-    <a class="btn lg" href="{{ url_for('signup') }}" data-cta="closing">Start free</a>
+    <a class="btn lg" href="{{ url_for('signup') }}" data-cta="closing">{{ start_cta() }}</a>
   </div>
 </section>
 {% endblock %}

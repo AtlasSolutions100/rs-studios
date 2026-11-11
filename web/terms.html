@@ -18,7 +18,8 @@
     <li>You can cancel or change your plan anytime from Billing. A cancellation or downgrade takes effect at the end of the month you've paid for; an upgrade applies right away and you pay the prorated difference.</li>
     <li>If a generation fails, its credits are refunded to your balance automatically.</li>
     <li>Credits have no cash value and can't be transferred or exchanged for money. Purchases are non-refundable except where the law requires otherwise; if something went wrong, email us and we'll make it right.</li>
-    <li>Free starter credits are one per person. We may remove credits from accounts made to collect them more than once.</li>
+    <li>Free starter credits and free trials are one per person. We may remove credits from accounts made to collect them more than once.</li>
+    {% if plans_only() %}<li>Starter and Growth start with a {{ plan_trial_days('starter') }}-day free trial. Your card is saved when the trial starts and charged the plan's monthly price when it ends, unless you cancel before then from Billing. Scale has no trial and is charged when you start it.</li>{% endif %}
   </ul>
 
   <h2>Your ads</h2>
