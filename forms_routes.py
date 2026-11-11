@@ -11,6 +11,7 @@ from flask import (Blueprint, Response, abort, current_app, flash, g, make_respo
 
 import adleads
 import compliance
+import pipeline
 import conversions
 import db
 import flows
@@ -385,6 +386,65 @@ def render_errors_page(errors):
     return resp
 
 
+# ---------------------------------------------------------------- leads: the pipeline (pipeline.py)
+
+def _contact_or_404(conn, cid):
+    c = conn.execute("SELECT * FROM contacts WHERE id=? AND workspace_id=?", (cid, g.ws["id"])).fetchone()
+    if not c:
+        abort(404)
+    return c
+
+
+def _ws_row(conn):
+    return conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone()
+
+
+@bp.route("/app/leads")
+@feature_required("forms")
+def leads():
+    with db.connect() as conn:
+        ws = _ws_row(conn)
+        data = pipeline.board(conn, ws)
+        lost = conn.execute("SELECT id, email, name, last_seen FROM contacts WHERE workspace_id=? AND stage=? ORDER BY last_seen "
+                            "DESC LIMIT 50", (g.ws["id"], data["lost"]["key"])).fetchall() if request.args.get("lost") else []
+    return render_template("leads.html", board=data, stages=pipeline.stages(ws), lost_rows=lost, max_extra=pipeline.MAX_EXTRA,
+                           editing=bool(request.args.get("stages")), showing_lost=bool(request.args.get("lost")))
+
+
+@bp.route("/app/leads/stages", methods=["POST"])
+@feature_required("forms")
+def leads_stages():
+    with db.connect() as conn:
+        why = pipeline.save_stages(conn, _ws_row(conn), request.form)
+        conn.commit()
+    flash(why) if why else flash("Stages saved.", "ok")
+    return redirect(url_for("forms.leads", stages=1 if why else None))
+
+
+@bp.route("/app/contacts/<int:cid>/stage", methods=["POST"])
+@feature_required("forms")
+def contact_stage(cid):
+    with db.connect() as conn:
+        c = _contact_or_404(conn, cid)
+        ws = _ws_row(conn)
+        if pipeline.move(conn, ws, c, request.form.get("stage") or "", (g.user["name"] or g.user["email"] or "")[:60]):
+            conn.commit()
+            flash(f"Moved to {pipeline.name_of(ws, request.form.get('stage'))}.", "ok")
+    return redirect(url_for("forms.leads") if request.form.get("back") == "board" else url_for("forms.contact", cid=cid))
+
+
+@bp.route("/app/contacts/<int:cid>/message", methods=["POST"])
+@feature_required("forms")
+def contact_message(cid):
+    with db.connect() as conn:
+        c = _contact_or_404(conn, cid)
+        ok, words = pipeline.write(conn, _ws_row(conn), c, request.form.get("channel"), request.form.get("subject"),
+                                   request.form.get("body"))
+        conn.commit()
+    flash(words, "ok") if ok else flash(words)
+    return redirect(url_for("forms.contact", cid=cid) + "#write")
+
+
 # ---------------------------------------------------------------- contacts
 
 @bp.route("/app/contacts", methods=["GET", "POST"])
@@ -475,7 +535,13 @@ def contact(cid):
             nodes = flows.unpack(v["graph_json"] if v else "{}").get("nodes") or {}
             steps[r["id"]] = flows.describe(nodes[r["node_id"]]) if r["node_id"] in nodes else ""
         sources = adleads.of_contact(conn, g.ws["id"], cid)
+        ws = _ws_row(conn)
+        timeline = pipeline.timeline(conn, ws, cid)
+        blocked = {ch: pipeline.can_write(conn, ws, c, ch) for ch in ("email", "sms")}
     from core import is_owner
+    import messaging
+    import sms as smsmod
     return render_template("contact.html", c=c, events=events, subs=subs, loads=json.loads, runs=runs, steps=steps,
-                           sources=sources,
+                           sources=sources, timeline=timeline, stages=pipeline.stages(ws), stage=pipeline.key_of(ws, c["stage"]),
+                           blocked=blocked, email_credits=messaging.EMAIL_CREDITS, sms_credits=smsmod.credits_per_segment(),
                            is_owner=is_owner())

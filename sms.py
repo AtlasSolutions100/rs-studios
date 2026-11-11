@@ -266,7 +266,8 @@ def send_queued(now=None, limit=100) -> int:
             ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (m["workspace_id"],)).fetchone()
             c = conn.execute("SELECT * FROM contacts WHERE id=?", (m["contact_id"],)).fetchone()
             f = conn.execute("SELECT * FROM flows WHERE id=?", (m["flow_id"],)).fetchone()
-            if f is None or f["status"] != "on":
+            direct = m["flow_id"] is None        # written by the member on the contact's page (pipeline.write)
+            if not direct and (f is None or f["status"] != "on"):
                 continue
             to = (c["phone_e164"] if c else "") or ""
             if c is None:
@@ -280,14 +281,14 @@ def send_queued(now=None, limit=100) -> int:
             elif billing_holds.reason(ws):
                 # A refund/dispute hold or a failed renewal (N6): the text stays queued, the flow
                 # pauses with the real reason.
-                messaging._pause(conn, f["id"], billing_holds.FLOW_REASON[billing_holds.reason(ws)], now)
+                messaging._hold(conn, m, f, billing_holds.FLOW_REASON[billing_holds.reason(ws)], now)
             elif sms_ready(ws):
                 continue
             elif next_allowed(now, _tz(conn, c, ws)):
                 conn.execute("UPDATE messages SET scheduled_at=? WHERE id=?",
                              (flows_engine.iso(next_allowed(now, _tz(conn, c, ws))), m["id"]))
             elif _count(conn, ws["id"], now - timedelta(days=1)) >= WS_DAY:
-                messaging._pause(conn, f["id"], "this workspace reached its daily text limit", now)
+                messaging._hold(conn, m, f, "this workspace reached its daily text limit", now)
             elif _count(conn, ws["id"], now - timedelta(days=1), c["id"]) >= PER_CONTACT_DAY or \
                     _count(conn, ws["id"], now - timedelta(days=7), c["id"]) >= PER_CONTACT_WEEK:
                 conn.execute("UPDATE messages SET scheduled_at=? WHERE id=?", (flows_engine.iso(now + timedelta(hours=24)), m["id"]))
@@ -299,9 +300,11 @@ def send_queued(now=None, limit=100) -> int:
                     body = body.rstrip() + " " + OPT_OUT_LINE
                 segs = segments(body)
                 cost = segs * credits_per_segment()
-                if not db.adjust_credits(conn, ws["id"], -cost, f"SMS · {segs} segment{'s' if segs != 1 else ''} · {f['name']}"):
+                if not db.adjust_credits(conn, ws["id"], -cost,
+                                         f"SMS · {segs} segment{'s' if segs != 1 else ''} · {f['name'] if f else 'to a contact'}"):
                     messaging._finish(conn, m, "failed", now, "Not sent: out of credits.")
-                    messaging._pause(conn, f["id"], "the workspace ran out of credits", now)
+                    if f is not None:
+                        messaging._pause(conn, f["id"], "the workspace ran out of credits", now)
                 else:
                     p = profile(conn, ws["id"])
                     try:
