@@ -250,7 +250,10 @@ with db.connect() as conn:
           "a health claim isn't saved")
 r = u.post(f"/app/products/{gp['id']}", data={"csrf": csrf(u), "name": "Glow Serum", "offer": "20% off this week"})
 with db.connect() as conn:
-    check(not conn.execute("SELECT offer FROM products WHERE id=?", (gp["id"],)).fetchone()[0], "a discount offer isn't saved")
+    check(conn.execute("SELECT offer FROM products WHERE id=?", (gp["id"],)).fetchone()[0] == "20% off this week",
+          "a discount the member states as the product's offer is saved (it is theirs to make)")
+    conn.execute("UPDATE products SET offer=NULL WHERE id=?", (gp["id"],))
+    conn.commit()
 u.post(f"/app/products/{gp['id']}/photos/{gph[1]['id']}/primary", data={"csrf": csrf(u)})
 with db.connect() as conn:
     check(conn.execute("SELECT primary_photo_id FROM products WHERE id=?", (gp["id"],)).fetchone()[0] == gph[1]["id"],

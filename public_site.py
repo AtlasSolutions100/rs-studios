@@ -1016,7 +1016,7 @@ PAGES = {  # endpoint -> (path, title, description)
                   "ads. Free, no sign-up."),
     "for_reps": ("/for-reps", "For Independent Reps: Compliance Checks · Campaignify",
                  "Selling as an independent rep? Campaignify blocks income, recruiting and health claims and invented discounts in "
-                 "every ad brief, copy variant and landing page."),
+                 "every brief, copy variant and page."),
     "llm_info": ("/llm-info", "Campaignify for AI Assistants (llms.txt) · Campaignify",
                  "What Campaignify is, what it makes, what each ad costs in credits and which plan includes each tool, "
                  "in plain text for AI assistants and search engines."),
