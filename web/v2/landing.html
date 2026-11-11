@@ -184,49 +184,30 @@
   <div class="lv-wrap">
     {% if shots %}
     <h2 id="lv-made">Made in Campaignify</h2>
-    <p class="lv-sub">Real ads from real product photos. Each one names the preset that made it.</p>
+    <p class="lv-sub">Image ads and video ads, with a presenter or without.</p>
     <div class="lv-show" data-showcase="{{ shots|length }}">
       {% for it in shots %}
       <figure class="lv-shot">
-        {% if it.kind == 'video' %}<video class="a{{ (it.aspect or '9:16')|replace(':', 'x') }}" data-inview muted loop playsinline preload="none" {% if it.poster %}data-poster="{{ url_for('static', filename=it.poster) }}"{% endif %} width="{{ it.width }}" height="{{ it.height }}" aria-label="{{ it.alt }}"><source src="{{ url_for('static', filename=it.src) }}"></video>
+        {% if it.kind == 'video' %}<div class="lv-vid"><video class="a{{ (it.aspect or '9:16')|replace(':', 'x') }}" data-inview muted loop playsinline preload="none" {% if it.poster %}data-poster="{{ url_for('static', filename=it.poster) }}"{% endif %} width="{{ it.width }}" height="{{ it.height }}" aria-label="{{ it.alt }}"><source src="{{ url_for('static', filename=it.src) }}" type="video/mp4"></video>{% if it.presenter %}<span class="lv-clip-tag">AI presenter</span>{% endif %}{% if it.sound %}<button type="button" class="lv-clip-snd" data-sound aria-pressed="false" aria-label="Sound for {{ it.preset_name or it.caption }}">Sound off</button>{% endif %}</div>
         {% else %}<img src="{{ url_for('static', filename=it.src) }}" alt="{{ it.alt }}" width="{{ it.width }}" height="{{ it.height }}" loading="lazy" decoding="async">{% endif %}
-        <figcaption>{% if it.preset_name %}<b>{{ it.preset_name }}</b>{% endif %}{% if it.caption %}<span>{{ it.caption }}</span>{% endif %}</figcaption>
-      </figure>
-      {% endfor %}
-    </div>
-    {% else %}
-    <h2 id="lv-made">What you get</h2>
-    <p class="lv-sub">Every ad is made from your own product photo, in the shapes the feeds, stories and listings ask for.</p>
-    <div class="lv-show is-empty" data-showcase="0">
-      {% for label, aspect in showcase_shapes %}<div class="lv-shot ph"><i class="a{{ aspect|replace(':', 'x') }}"></i><p><b>{{ label }}</b><span>{{ aspect }}</span></p></div>{% endfor %}
-    </div>
-    {% endif %}
-    {% set reel = showreel() %}{% if reel %}
-    {# Video ads (public_site.showreel). Each clip says where it came from; people on screen are labelled AI presenters. #}
-    <div class="lv-reel-head">
-      <h3 id="lv-reel">Video ads, with a presenter or without</h3>
-      <p class="lv-sub">Every person here is an AI presenter. Some clips came out of Campaignify's presets. The others are ads our team made with AI video, for our own products and for made-up brands.</p>
-    </div>
-    <div class="lv-reel" role="group" tabindex="0" aria-labelledby="lv-reel" data-reel="{{ reel|length }}">
-      {% for it in reel %}
-      <figure class="lv-clip">
-        <div class="lv-clip-v">
-          <video data-inview muted loop playsinline preload="none" data-poster="{{ url_for('static', filename=it.poster) }}" width="720" height="1280" aria-label="{{ it.alt }}"><source src="{{ url_for('static', filename=it.src) }}" type="video/mp4"></video>
-          {% if it.presenter %}<span class="lv-clip-tag">AI presenter</span>{% endif %}
-          {% if it.sound %}<button type="button" class="lv-clip-snd" data-sound aria-pressed="false" aria-label="Sound for {{ it.title }}">Sound off</button>{% endif %}
-        </div>
-        <figcaption><b>{{ it.title }}</b>{% if it.caption %}<span>{{ it.caption }}</span>{% endif %}</figcaption>
+        <figcaption>{% if it.preset_name %}<b>{{ it.preset_name }}</b>{% endif %}{% if it.caption and it.caption != it.preset_name %}<span>{{ it.caption }}</span>{% endif %}</figcaption>
       </figure>
       {% endfor %}
     </div>
     <script>
     // One clip at a time may have its sound on. The clips stay muted loops until someone asks.
     (function(){
-      var btns = [].slice.call(document.querySelectorAll('.lv-reel [data-sound]'));
+      var btns = [].slice.call(document.querySelectorAll('.lv-show [data-sound]'));
       function set(b, on){ var v = b.parentNode.querySelector('video'); v.muted = !on; b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.textContent = on ? 'Sound on' : 'Sound off'; if (on) { if (v.dataset.poster && !v.poster) v.poster = v.dataset.poster; v.play().catch(function(){}); } }
       btns.forEach(function(b){ b.addEventListener('click', function(){ var on = b.getAttribute('aria-pressed') !== 'true'; btns.forEach(function(o){ if (o !== b) set(o, false); }); set(b, on); }); });
     })();
     </script>
+    {% else %}
+    <h2 id="lv-made">What you get</h2>
+    <p class="lv-sub">Every ad is made from your own product photo, in the shapes the feeds, stories and listings ask for.</p>
+    <div class="lv-show is-empty" data-showcase="0">
+      {% for label, aspect in showcase_shapes %}<div class="lv-shot ph"><i class="a{{ aspect|replace(':', 'x') }}"></i><p><b>{{ label }}</b><span>{{ aspect }}</span></p></div>{% endfor %}
+    </div>
     {% endif %}
   </div>
 </section>

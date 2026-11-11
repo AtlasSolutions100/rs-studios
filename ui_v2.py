@@ -155,5 +155,4 @@ def _ctx():
     return {"ui_v2": is_on, "ui_v2_surface": where, "ui_v2_can_preview": can_preview(g.get("user")),
             "ui_v2_global": enabled(), "ui_v2_pref": _user_pref(g.get("user")),
             # the home page's gallery of real outputs and its neutral tiles (public_site.showcase, M15)
-            "showcase": public_site.showcase, "showcase_shapes": public_site.SHOWCASE_SHAPES,
-            "showreel": public_site.showreel}
+            "showcase": public_site.showcase, "showcase_shapes": public_site.SHOWCASE_SHAPES}

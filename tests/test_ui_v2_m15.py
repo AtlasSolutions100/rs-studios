@@ -302,12 +302,14 @@ check('data-showcase="0"' in home0 and home0.count('class="lv-shot ph"') == len(
       and "site/ugc-" not in home0 and "site/show-" not in home0 and "<video" not in home0,
       "an empty manifest: neutral tiles, none of the old invented examples, no media at all")
 shipped = json.load(open(os.path.join(ROOT, "static", "showcase", "manifest.json")))["items"]
+# an image is under 400 KB; a video (tests/test_gallery_videos.py) is under 3 MB; a tile is titled by its preset or its own title
 check(len(public_site.showcase()) == min(len(shipped), public_site.SHOWCASE_MAX)
       and all(os.path.isfile(os.path.join(ROOT, "static", "showcase", i["file"])) and i.get("alt") and i.get("caption")
-              and presets.get(i["preset"]) and os.path.getsize(os.path.join(ROOT, "static", "showcase", i["file"])) <= 400 * 1024
+              and (presets.get(i.get("preset") or "") or i.get("title"))
+              and os.path.getsize(os.path.join(ROOT, "static", "showcase", i["file"])) <= (3000 if i["kind"] == "video" else 400) * 1024
               for i in shipped)
       and f'data-showcase="{min(len(shipped), public_site.SHOWCASE_MAX)}"' in home,
-      "every item the repo's manifest lists is a real file under 400 KB from a real preset, with a caption and alt text, and the home page shows them")
+      "every item the repo's manifest lists is a real file of a sensible size with a title, a caption and alt text, and the home page shows them")
 show = os.path.join(TMP, "showcase")
 os.makedirs(show)
 open(os.path.join(show, "hero.png"), "wb").write(png(800, 1000).getvalue())
