@@ -1068,8 +1068,10 @@ def studio():
     if ui_v2.on() and not request.args.get("classic") and not request.args.get("preview") \
             and not request.args.get("made"):
         # M14: with the new look on, Home is the Studio composer (studio_v2.py). ?classic=1 keeps the old Home.
+        # The campaign desk (desk.py) is Home once the member has made something; the first run stays in Studio.
+        import desk
         import studio_v2
-        return studio_v2.page()
+        return desk.page() if desk.is_home() else studio_v2.page()
     return _studio_page()
 
 
@@ -3080,6 +3082,8 @@ import ui_v2  # noqa: E402
 app.register_blueprint(ui_v2.bp)
 app.register_blueprint(onboarding.bp)
 app.register_blueprint(studio_v2.bp)
+import desk  # noqa: E402
+app.register_blueprint(desk.bp)
 # Card on file at sign-up (RS_CARD_REQUIRED) and the out-of-credits paywall (RS_PLAN_PAYWALL), both default off.
 import card_routes  # noqa: E402
 import paywall_routes  # noqa: E402

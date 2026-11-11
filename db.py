@@ -403,6 +403,12 @@ CREATE INDEX IF NOT EXISTS idx_flows_ws ON flows(workspace_id, status);
 CREATE TABLE IF NOT EXISTS flow_versions (
     id INTEGER PRIMARY KEY AUTOINCREMENT, flow_id INTEGER NOT NULL, version INTEGER NOT NULL,
     graph_json TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS desk_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, user_id INTEGER, product_id INTEGER,
+    ask TEXT NOT NULL DEFAULT '',                   -- the sentence the campaign came from (desk.py)
+    made_json TEXT NOT NULL DEFAULT '[]',           -- what one confirmation made: [{kind, name, href, state}]
+    credits INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_desk_runs_ws ON desk_runs(workspace_id, id);
 CREATE TABLE IF NOT EXISTS flow_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT, flow_id INTEGER NOT NULL, version_id INTEGER NOT NULL,
     workspace_id INTEGER NOT NULL, contact_id INTEGER NOT NULL,

@@ -633,6 +633,35 @@ cookie keeps it on in that browser for 180 days, logged out too, so the landing 
 Not there yet: presenter voice previews (there are no audio samples in the repo; making them costs generation), and
 presenter portraits show only where the stills exist (`presenter_stills.py`).
 
+## The campaign desk (`desk.py`, `web/v2/desk.html`, `static/desk.js`; behind `UI_V2`)
+
+The app's home in the new look once a member has made something (their first run keeps Studio's two free image ads;
+a link that asks Studio for a mode, a batch or a preset still gets Studio). It has its own link above the Studio tabs
+and lives at `/app/desk`.
+
+- **One sentence in.** `POST /app/desk/plan` sends the sentence through `studio_v2.ask_run`, the one place the Ask
+  model call happens (the composer's Ask uses it too), so the daily cap, the claim rules and what counts as an ad
+  part are the same wherever the sentence was typed. The answer is the ads.
+- **The rest of the campaign has no model call.** Word rules (`desk.WANTS`, built on Studio's `ASK_ALSO`) decide which
+  of the copy, a page with a sign-up form, an email follow-up and the launch step the sentence asked for. Those come
+  back ticked; the others come back unticked, so a campaign always shows its five stages: Make, Write, Capture,
+  Follow up, Launch. A part the member's plan doesn't include shows the plan that has it and can't be ticked. At the
+  cap, or when the sentence asks for no ads, the rest still comes back.
+- **Every row has a price and can be changed.** Untick it, edit it in place (the words, how many, the presenter and
+  the place, the platform, the page title, which follow-up) or remove it; "Add a part" adds one with first words
+  taken from the product. `POST /app/desk/quote` prices the rows again with no model call: ads by Create's own quote
+  through Studio, copy at the most it can cost (`copywriter.estimate`). `desk.clean_part` cuts a row down to what its
+  kind may set, so a name, a stage or a price sent by the browser counts for nothing. Five ad parts at most.
+- **The total is on the button.** `POST /app/desk/run` starts nothing unless the total it is sent is the total it
+  works out (409), and nothing when credits are short (402). The ads go first through `studio_v2.generate_parts`, so
+  a step Create asks for (confirming the email, a hold, more than eight videos) comes back before anything else is
+  made. Then the copy is written (held at its estimate, settled at what it used, kept as a run of the Copy tool),
+  the page is saved as a draft with a new sign-up form on it, and the follow-up is saved switched off, set to start
+  from that form. The launch step is a link to the ad accounts: nothing is sent anywhere.
+- **What was made is kept** in `desk_runs` and shown again under "Your campaigns", each part a link.
+
+Tests: `tests/test_desk.py`.
+
 ## Video ads in the home page gallery (`public_site.showcase`, `static/showcase/manifest.json`)
 
 "Made in Campaignify" on the new home page is one grid of image ads and video ads (owner decision, Nov 11 2026): the
