@@ -440,6 +440,26 @@ def _signup_offer() -> dict:
 app.jinja_env.globals["signup_offer"] = _signup_offer
 
 
+def _desk_campaigns() -> list:
+    """The workspace's newest campaigns (desk.py conversations) for the new look's sidebar, on every app page:
+    [{"id", "title", "href"}]. Read only and once per request; never breaks a page."""
+    if "desk_campaigns" not in g:
+        g.desk_campaigns = []
+        if g.get("ws") is not None and "desk.thread" in app.view_functions:
+            try:
+                with db.connect() as conn:
+                    rows = conn.execute("SELECT id, title FROM desk_threads WHERE workspace_id=? AND archived=0 "
+                                        "ORDER BY updated_at DESC, id DESC LIMIT 6", (g.ws["id"],)).fetchall()
+                g.desk_campaigns = [{"id": r["id"], "title": r["title"] or "A campaign",
+                                     "href": url_for("desk.thread", tid=r["id"])} for r in rows]
+            except Exception:  # noqa: BLE001
+                log.exception("sidebar campaigns not read")
+    return g.desk_campaigns
+
+
+app.jinja_env.globals["desk_campaigns"] = _desk_campaigns
+
+
 @app.context_processor
 def _public_meta():
     """Title, description, canonical, share card and JSON-LD for the public pages

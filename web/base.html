@@ -81,26 +81,46 @@
     </button>
     {% endif %}
     {% if ui_v2 %}{% set v2tab = g.get('v2_tab') or ('brand' if request.endpoint == 'studio_v2.brand' else ('workflow' if request.endpoint == 'studio_v2.workflow' else ('advanced' if request.endpoint in ('create.index', 'create.batch', 'new', 'start') else ('studio' if request.endpoint in ('studio', 'studio_v2.page') else '')))) %}
+    {# One sidebar in the new look (Nov 11): start a campaign, the places a campaign lives, its recent conversations,
+       then the tools. The desk's campaigns show on every page (desk_campaigns), not only on the desk. #}
+    {% set conn_ep = 'adconnect.settings' if has_endpoint('adconnect.settings') else ('adhub.index' if has_endpoint('adhub.index') else '') %}
+    {% set conn_eps = ('adconnect.settings', 'adconnect.pick', 'adconnect.pixel') if conn_ep == 'adconnect.settings' else ('adhub.index', 'adhub.platform', 'adhub.export_page') %}
+    {% set V2_MAIN = ('studio', 'create.index', 'library', 'brand_kit', 'forms.leads', conn_ep) %}
+    <a class="v2-new v2-new-top" href="{{ url_for('desk.page') }}" data-new-campaign><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5.5v13M5.5 12h13"/></svg>New campaign</a>
+    <nav class="v2-main" aria-label="Campaign">
     <a class="nav v2-desk {{ 'on' if v2tab == 'desk' }}" href="{{ url_for('desk.page') }}" {{ 'aria-current=page' if v2tab == 'desk' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ICONS['home']|safe }}</svg><span>Desk</span></a>
-    <nav class="v2-tabs" aria-label="Make">
-      <a href="{{ url_for('studio_v2.page') }}" {{ 'aria-current=page' if v2tab == 'studio' }}>Studio</a>
-      <a href="{{ url_for('studio_v2.workflow') }}" {{ 'aria-current=page' if v2tab == 'workflow' }}>Workflow</a>
-      <a href="{{ url_for('create.index') }}" {{ 'aria-current=page' if v2tab == 'advanced' }}>Advanced</a>
-      <a href="{{ url_for('studio_v2.brand') }}" {{ 'aria-current=page' if v2tab == 'brand' }}>Brand</a>
+    <a class="nav {{ 'on' if request.endpoint == 'library' }}" href="{{ url_for('library') }}" {{ 'aria-current=page' if request.endpoint == 'library' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ICONS['library']|safe }}</svg><span>Library</span></a>
+    {% if has_endpoint('forms.leads') %}<a class="nav {{ 'on' if request.endpoint == 'forms.leads' }}" href="{{ url_for('forms.leads') }}" {{ 'aria-current=page' if request.endpoint == 'forms.leads' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ICONS['contacts']|safe }}</svg><span>Leads</span>{% if not has_feature('forms') %}<em class="lock" title="Included in {{ plans.required('forms').name }}">{{ plans.required('forms').name }}</em>{% endif %}</a>{% endif %}
+    <a class="nav {{ 'on' if v2tab == 'brand' }}" href="{{ url_for('studio_v2.brand') }}" {{ 'aria-current=page' if v2tab == 'brand' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ICONS['brand']|safe }}</svg><span>Brand</span></a>
+    {% if conn_ep %}<a class="nav {{ 'on' if request.endpoint in conn_eps }}" href="{{ url_for(conn_ep) }}" {{ 'aria-current=page' if request.endpoint in conn_eps }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ICONS['plug']|safe }}</svg><span>{{ 'Connections' if conn_ep == 'adconnect.settings' else 'Ad accounts' }}</span>{% if conn_ep == 'adhub.index' and not has_feature('adhub') %}<em class="lock" title="Included in {{ plans.required('adhub').name }}">{{ plans.required('adhub').name }}</em>{% endif %}</a>{% endif %}
     </nav>
+    {% set camps = desk_campaigns() %}{% set here = (request.view_args or {}).get('tid') if request.endpoint == 'desk.thread' else none %}
+    <div class="v2-rec v2-camps" data-campaigns>
+      <h2 class="v2-rec-h" id="side-camps-h">Campaigns</h2>
+      {% if camps %}<ul class="v2-rec-list" aria-labelledby="side-camps-h">
+        {% for c in camps %}<li><a href="{{ c.href }}" {{ 'aria-current=page' if here == c.id }}><span>{{ c.title }}</span></a></li>{% endfor %}
+      </ul>{% else %}<p class="v2-rec-none">None yet.</p>{% endif %}
+    </div>
     {% block v2_side %}{% endblock %}{% endif %}
-    <nav class="navs" aria-label="Main">
+    <nav class="navs" aria-label="{{ 'Tools' if ui_v2 else 'Main' }}">
     {% set fold = nav_collapse_locked is defined and nav_collapse_locked %}
     {% set locked = namespace(items=[]) %}
+    {% if ui_v2 %}{% set tool_on = v2tab in ('studio', 'workflow', 'advanced') or request.endpoint in ('brand_kit', 'products.new', 'products.edit', 'products.brand_edit') %}
+    <details class="navgrp" data-navgrp="Tools" {{ 'open' if tool_on or not camps }}><summary>Tools<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>
+      <a class="nav {{ 'on' if v2tab == 'studio' }}" href="{{ url_for('studio_v2.page') }}" {{ 'aria-current=page' if v2tab == 'studio' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ICONS['create']|safe }}</svg><span>Studio</span></a>
+      <a class="nav {{ 'on' if v2tab == 'workflow' }}" href="{{ url_for('studio_v2.workflow') }}" {{ 'aria-current=page' if v2tab == 'workflow' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ICONS['flows']|safe }}</svg><span>Workflow</span></a>
+      <a class="nav {{ 'on' if v2tab == 'advanced' }}" href="{{ url_for('create.index') }}" {{ 'aria-current=page' if v2tab == 'advanced' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ICONS['planner']|safe }}</svg><span>Advanced</span></a>
+      <a class="nav {{ 'on' if request.endpoint in ('brand_kit', 'products.new', 'products.edit', 'products.brand_edit') }}" href="{{ url_for('brand_kit') }}" {{ 'aria-current=page' if request.endpoint in ('brand_kit', 'products.new', 'products.edit', 'products.brand_edit') }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ICONS['brand']|safe }}</svg><span>Products</span></a>
+    </details>{% endif %}
     {% macro navlink(ep, label, icon, feat, eps) -%}
       <a class="nav {{ 'on' if request.endpoint in eps }}" href="{{ url_for(ep) }}" {{ 'aria-current=page' if request.endpoint in eps }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ICONS[icon]|safe }}</svg><span>{{ label }}</span>{% if feat and not has_feature(feat) %}<em class="lock" title="Included in {{ plans.required(feat).name }}">{{ plans.required(feat).name }}</em>{% endif %}</a>
     {%- endmacro %}
     {% for title, items in GROUPS %}
-      {% set shown = [] %}{% for it in items %}{% if (has_endpoint is not defined or has_endpoint(it[0])) and not (ui_v2 and it[0] in ('studio', 'create.index')) %}{% if fold and it[3] and not has_feature(it[3]) and request.endpoint not in it[4] %}{% set _ = locked.items.append(it) %}{% else %}{% set _ = shown.append(it) %}{% endif %}{% endif %}{% endfor %}
+      {% set shown = [] %}{% for it in items %}{% if (has_endpoint is not defined or has_endpoint(it[0])) and not (ui_v2 and it[0] in V2_MAIN) %}{% if fold and it[3] and not has_feature(it[3]) and request.endpoint not in it[4] %}{% set _ = locked.items.append(it) %}{% else %}{% set _ = shown.append(it) %}{% endif %}{% endif %}{% endfor %}
       {% if shown %}
       {% set ns = namespace(on=false) %}{% for it in shown %}{% if request.endpoint in it[4] %}{% set ns.on = true %}{% endif %}{% endfor %}
       {% if title %}<details class="navgrp" data-navgrp="{{ title }}" {{ 'open' if ns.on or (not ui_v2 and title in ('Plan', 'Grow', 'Launch', 'Settings')) }}><summary>{{ title }}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></summary>{% endif %}
-      {% for ep, label, icon, feat, eps in shown %}{{ navlink(ep, label, icon, feat, eps) }}{% endfor %}
+      {% for ep, label, icon, feat, eps in shown %}{{ navlink(ep, 'Planner' if ui_v2 and ep == 'campaigns.index' else label, icon, feat, eps) }}{% endfor %}
       {% if title %}</details>{% endif %}
       {% endif %}
     {% endfor %}

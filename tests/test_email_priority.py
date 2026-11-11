@@ -265,7 +265,9 @@ try:
     POSTS.clear()
     st = mailer.retry_deferred(now=now + timedelta(minutes=10))
     check(st["resent"] == 0 and not POSTS, "nothing resent while the hold is on")
-    after = midnight + timedelta(minutes=2)
+    # After the daily reset, and at least 61 minutes on: in the last hour before UTC midnight the reset comes sooner
+    # than the 1-hour password email stops being worth sending, and this check used to fail then (seen Nov 11, 23:07 UTC).
+    after = max(midnight + timedelta(minutes=2), now + timedelta(minutes=61))
     st = mailer.retry_deferred(now=after)
     subjects = [p["subject"] for p in POSTS]
     check(subjects == ["link one"], f"after the reset: the confirm link goes ({subjects})")

@@ -635,8 +635,9 @@ print("== Workflow: the planner's box and packs of presets")
 wf = n.get("/app/studio/workflow")
 wh = wf.get_data(as_text=True)
 wb = boot_of(wh)
-check(wf.status_code == 200 and "data-wf" in wh and 'aria-current=page>Workflow' in wh and "Describe what you want" in wh,
-      "the Workflow tab is there, lit in the sidebar")
+check(wf.status_code == 200 and "data-wf" in wh and "Describe what you want" in wh
+      and re.search(r'<a class="nav on" href="[^"]+" aria-current=page><svg[^>]*>.*?</svg><span>Workflow</span></a>', wh, re.S) is not None,
+      "Workflow is there, lit among the sidebar's tools")
 form = re.search(r'<form method="post" action="([^"]+)" class="wf-box" data-plan-form>(.*?)</form>', wh, re.S)
 import planner  # noqa: E402
 check(form and form.group(1) == "/app/campaigns" and f'name="product" value="{pid}"' in form.group(2)

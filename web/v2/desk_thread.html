@@ -1,7 +1,6 @@
 {% extends "base.html" %}{% block title %}{{ t.title }} · Campaignify{% endblock %}
 {# One campaign as a conversation (desk.thread): what was said, each plan, what was made, and a box to go on.
    The newest plan that hasn't been made is open (v2/_desk_plan.html, drawn by static/desk.js); the rest is as it was. #}
-{% block v2_side %}{% include "v2/_desk_side.html" %}{% endblock %}
 {% block body %}
 <div class="page full dk dk-thread" data-desk>
   <div class="dk-main">
