@@ -2,8 +2,10 @@
 cost, and the ready-made templates (the angles that sell for us).
 
 Costs are the vendor's list prices in USD at the settings we use. Members pay
-in RS credits: 1 credit = $0.01, price = cost x MARKUP, rounded up, so the
-markup is the margin. Change MARKUP in settings, not here.
+in RS credits: price = cost x MARKUP x 100, rounded up, so one credit buys
+$0.01 / MARKUP of generation. Change MARKUP in settings, not here. What a
+credit sells for is set by the plans (plans.PLANS) and the packs (PACKS),
+whose sizes follow the markup.
 """
 import math
 import os
@@ -904,9 +906,30 @@ PACKS = [
     {"code": "studio", "name": "Studio", "usd": 199, "credits": 23000, "bonus": 3100,
      "price_id": None},
 ]
+# Pack sizes follow the markup (Nov 11 2026, owner decision). A credit costs us $0.01 / MARKUP to honour. At 2x that
+# is half a cent, so a dollar can buy 100 credits. At the near-cost markup (RS_MARKUP 1.08: generation priced about
+# 8% over the vendor's bill, so a plan's credits make about twice as many ads) a credit costs us about 0.93 cents,
+# and the old sizes would sell the Studio pack below cost. Below LOW_MARKUP the packs are cut to carry about the
+# plans' own margins after Stripe's fee: about 50%, 42% and 31%. The dollar prices never change here.
+LOW_MARKUP = 1.5
+PACKS_AT_LOW_MARKUP = {"starter": (1500, 0), "pro": (4800, 700), "studio": (14400, 4100)}   # code: (credits, bonus)
+if MARKUP < LOW_MARKUP:
+    for _p in PACKS:
+        _p["credits"], _p["bonus"] = PACKS_AT_LOW_MARKUP[_p["code"]]
 for _p in PACKS:      # the price ids are settings (liveids.py, M7.4)
     _p["price_id"] = liveids.get(f"STRIPE_PRICE_{_p['code'].upper()}")
 PACK_BY_CODE = {p["code"]: p for p in PACKS}
+
+
+def credit_cost_usd() -> float:
+    """What one credit costs us when it is spent on a 720p generation: $0.01 / MARKUP."""
+    return 0.01 / MARKUP
+
+
+def pack_margin(p: dict) -> float:
+    """The share of a pack's price we keep if every credit is spent, after Stripe's 2.9% + 30 cents."""
+    net = p["usd"] * (1 - 0.029) - 0.30
+    return (net - p["credits"] * credit_cost_usd()) / p["usd"]
 
 
 def rates() -> dict:
