@@ -155,6 +155,7 @@ NAV_GROUPS = [
         ("pages.index", "Pages", "pages", "pages", ("pages.index", "pages.edit")),
         ("pages.links", "Links", "links", "links", ("pages.links", "pages.link_detail")),
         ("forms.index", "Forms", "forms", "forms", ("forms.index", "forms.edit", "forms.submissions")),
+        ("forms.leads", "Leads", "contacts", "forms", ("forms.leads",)),
         ("forms.contacts", "Contacts", "contacts", "forms", ("forms.contacts", "forms.contact")),
         ("community.admin", "Community", "community", "community", ("community.admin", "community.course_edit",
                                                                      "community.lesson_edit")),

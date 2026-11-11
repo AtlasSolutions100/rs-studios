@@ -1,0 +1,55 @@
+{% extends "base.html" %}{% block title %}Leads · Campaignify{% endblock %}
+{# The lead pipeline (pipeline.py): every contact at its stage. Moving a lead and renaming stages are plain forms. #}
+{% block body %}
+<div class="page full">
+  <p class="eyebrow">Leads</p>
+  <h1>Where every lead stands</h1>
+  <p class="muted">Everyone who came in from your pages, forms and ads, by stage. {{ board.total }} in all. A lead moves when you move it, or when a follow-up step says so.</p>
+  <div class="row" style="margin:18px 0">
+    <a class="btn dark sm" href="{{ url_for('forms.leads', stages=None if editing else 1) }}">{{ 'Close' if editing else 'Rename stages' }}</a>
+    <a class="btn dark sm" href="{{ url_for('forms.contacts') }}">All contacts</a>
+  </div>
+  {% if editing %}
+  <form method="post" action="{{ url_for('forms.leads_stages') }}" class="panel" style="margin-bottom:18px"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <h2 style="margin-top:0">Your stages</h2>
+    <p class="small muted" style="margin:0 0 12px">Call each stage what you call it. You can add up to {{ max_extra }} of your own between {{ stages[2].name }} and {{ stages[-3].name }}. Follow-up steps that move a lead keep working.</p>
+    <div class="pipe-names">
+    {% for s in stages %}<div><label for="st-{{ s.key }}">{{ 'Lost leads' if s.lost else 'Stage ' ~ loop.index }}</label>
+      <div class="row" style="gap:6px"><input id="st-{{ s.key }}" type="text" name="name_{{ s.key }}" maxlength="24" value="{{ s.name }}" required style="flex:1;min-width:120px">{% if s.own %}<button class="btn dark sm" name="remove" value="{{ s.key }}" data-confirm="Remove {{ s.name }}? Its leads go back to {{ stages[2].name }}.">Remove</button>{% endif %}</div></div>{% endfor %}
+    <div><label for="st-new">Add a stage of your own</label><input id="st-new" type="text" name="new" maxlength="24" placeholder="For example: Quote sent"></div>
+    </div>
+    <p style="margin:14px 0 0"><button class="btn">Save stages</button></p>
+  </form>
+  {% endif %}
+  <div class="scrollx"><div class="pipe" style="grid-template-columns:repeat({{ board.columns|length }},minmax(210px,1fr))">
+    {% for col in board.columns %}
+    <section class="pipe-col" aria-labelledby="pc-{{ col.key }}">
+      <header><h2 id="pc-{{ col.key }}">{{ col.name }}</h2><span class="small muted">{{ col.count }}</span></header>
+      {% for k in col.cards %}
+      <article class="pipe-card">
+        <a href="{{ url_for('forms.contact', cid=k.id) }}"><b>{{ k.name }}</b></a>
+        {% if k.source %}<span class="small muted">{{ k.source }}</span>{% endif %}
+        {% if k.last %}<span class="small">{{ k.last }}</span>{% endif %}
+        <span class="small dim">{{ k.at|localtime if k.at }}</span>
+        <form method="post" action="{{ url_for('forms.contact_stage', cid=k.id) }}" class="row" style="gap:6px;margin-top:4px"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="board">
+          <select name="stage" aria-label="Move {{ k.name }} to" style="flex:1;min-width:0">{% for s in stages %}<option value="{{ s.key }}" {{ 'selected' if s.key == col.key }}>{{ s.name }}</option>{% endfor %}</select>
+          <button class="btn dark sm">Move</button></form>
+      </article>
+      {% else %}<p class="small dim" style="margin:0">Nobody here yet.</p>{% endfor %}
+      {% if col.count > col.cards|length %}<p class="small muted" style="margin:0">And {{ col.count - col.cards|length }} more in <a href="{{ url_for('forms.contacts') }}">All contacts</a>.</p>{% endif %}
+    </section>
+    {% endfor %}
+  </div></div>
+  <p class="small muted" style="margin:18px 0 0">{{ board.lost.name }}: {{ board.lost.count }}. {% if board.lost.count and not showing_lost %}<a href="{{ url_for('forms.leads', lost=1) }}">Show them</a>{% endif %}</p>
+  {% if lost_rows %}<div class="panel scrollx" style="margin-top:10px"><table>{% for c in lost_rows %}<tr><td><a href="{{ url_for('forms.contact', cid=c.id) }}"><b>{{ c.name or c.email }}</b></a></td><td class="small muted">{{ c.last_seen|localtime }}</td></tr>{% endfor %}</table></div>{% endif %}
+</div>
+<style>
+.pipe{display:grid;gap:12px;align-items:start;min-width:0}
+.pipe-col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.pipe-col header{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:0 2px 8px;border-bottom:2px solid var(--line)}
+.pipe-col h2{margin:0;font-size:14px}
+.pipe-card{display:flex;flex-direction:column;gap:3px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);min-width:0;overflow-wrap:anywhere}
+.pipe-names{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.pipe-names label{display:block;margin-bottom:4px}
+</style>
+{% endblock %}
