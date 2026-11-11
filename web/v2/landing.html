@@ -35,8 +35,8 @@
     <span class="cfh-pulse"></span><span class="cfh-pulse two"></span>
   </div>
   <div class="cfh-copy">
-    <h1 id="cfh-h" class="cfh-late">Everything your campaign needs, from one product link.</h1>
-    <p class="lv-lede cfh-late" style="--ld:2.5s">Paste the link. Campaignify makes the image ads, the presenter videos, the copy and the plan, and builds the page that collects your leads. You see the price before anything is made.</p>
+    <h1 id="cfh-h" class="cfh-late">Create converting campaigns with AI</h1>
+    <p class="lv-lede cfh-late" style="--ld:2.5s">Ads, presenter videos, copy, a campaign plan, competitor research, lead pages, forms and contacts, and the follow-up. All from one product link, with the price shown before anything is made.</p>
     <form class="lv-try cfh-late" style="--ld:2.6s" action="{{ url_for('signup') }}" method="get" data-try>
       <label class="sr" for="lv-url">Your product page (optional)</label>
       <div class="lv-try-box">
@@ -63,6 +63,92 @@
       <div><dt>Voiceover or presenter video, 8 seconds</dt><dd>{{ r.talk8|credits }}</dd></div>
     </dl>
 </div>
+
+{% macro plan_note(key) -%}{% set f = plans.FEATURES[key] %}<em class="cfk-plan">{{ f.name }}: {{ 'every account' if f.plan == 'free' else plans.PLANS[f.plan].name ~ ' and up' }}</em>{%- endmacro %}
+<section class="lv-sec cfk" id="makes" aria-labelledby="cfk-h">
+  <div class="lv-wrap">
+    <h2 id="cfk-h">The link goes in once. This is what comes back out.</h2>
+    <p class="lv-sub">Every picture below was made by Campaignify from one product photo of a made-up mug brand.</p>
+    <div class="cfk-two">
+      <nav class="cfk-rail" aria-label="What it makes">
+        <a href="#k-ads" data-k="ads" class="on">Image ads</a>
+        <a href="#k-video" data-k="video">Presenter videos</a>
+        <a href="#k-copy" data-k="copy">Copy and a plan</a>
+        <a href="#k-research" data-k="research">Competitor research</a>
+        <a href="#k-leads" data-k="leads">Lead pages and follow-up</a>
+      </nav>
+      <div class="cfk-rows">
+
+        <article id="k-ads" data-row="ads" class="cfk-row">
+          <div>
+            <h3>Image ads with every word spelled right</h3>
+            <p>Your product photo becomes a finished ad. The headline, the price and the callouts are set in real type on top, so nothing comes out garbled.</p>
+            <p class="cfk-fact">{{ home_counts.image_presets }} formats, {{ r.image|credits }} each.</p>
+            {{ plan_note('studio') }}
+          </div>
+          <div class="cfk-pics three">
+            <img src="{{ url_for('static', filename='presets/offer.webp') }}" alt="An offer ad: a green travel mug with the headline The mug that goes with you and a 24 dollar price badge" loading="lazy" width="864" height="1080">
+            <img src="{{ url_for('static', filename='presets/callouts.webp') }}" alt="A callouts ad: the mug outdoors with three feature callouts beside it" loading="lazy" width="864" height="1080">
+            <img src="{{ url_for('static', filename='presets/then-now.webp') }}" alt="A comparison ad: the old way against the new way in two columns under the mug" loading="lazy" width="864" height="1080">
+          </div>
+        </article>
+
+        <article id="k-video" data-row="video" class="cfk-row">
+          <div>
+            <h3>Presenter videos without a shoot</h3>
+            <p>{{ home_counts.presenters }} AI presenters, each with a few places they film in. Pick one, write what they say, and get a selfie-style video with your product beside them.</p>
+            <p class="cfk-fact">None of them is a real person. An 8 second video is {{ r.talk8|credits }}.</p>
+            {{ plan_note('studio') }}
+          </div>
+          <div class="cfk-pics three tall">
+            <figure><img src="{{ url_for('static', filename='presenters/marcus/car.webp') }}" alt="Marcus, an AI presenter, talking to camera from the driver's seat of a parked car" loading="lazy" width="720" height="1280"><figcaption>Marcus, car</figcaption></figure>
+            <figure><img src="{{ url_for('static', filename='presenters/nia/desk.webp') }}" alt="Nia, an AI presenter, at her desk" loading="lazy" width="720" height="1280"><figcaption>Nia, desk</figcaption></figure>
+            <figure><img src="{{ url_for('static', filename='presenters/lena/gym.webp') }}" alt="Lena, an AI presenter, in a gym" loading="lazy" width="720" height="1280"><figcaption>Lena, gym</figcaption></figure>
+          </div>
+        </article>
+
+        <article id="k-copy" data-row="copy" class="cfk-row">
+          <div>
+            <h3>Copy and a plan, written for your product</h3>
+            <p>Hooks, primary text, captions, headlines and emails in your brand's voice, and a campaign plan that says what to run and when.</p>
+            {{ plan_note('copy') }}
+            {{ plan_note('planner') }}
+          </div>
+          <div class="cfk-cards">
+            <div class="cfk-card"><b>Three hooks</b><p>The mug that goes with you</p><p>One mug, not a stack of cups</p><p>Lid gone missing again? This one presses in and stays.</p></div>
+            <div class="cfk-card"><b>The plan</b><p class="dot"><i class="on"></i>Week 1: three image ads, one per hook</p><p class="dot"><i></i>Week 2: a presenter video of the best hook</p><p class="dot"><i></i>Week 3: keep the winner, retire the rest</p></div>
+          </div>
+        </article>
+
+        <article id="k-research" data-row="research" class="cfk-row">
+          <div>
+            <h3>Competitor research before you write a word</h3>
+            <p>Name your closest competitors and get a short brief on what they offer and how they pitch it, each point with its source, so your ads say something different.</p>
+            {{ plan_note('competitors') }}
+          </div>
+          <div class="cfk-cards one">
+            <div class="cfk-card"><b>Snapshot of a competitor you name</b><p class="kv"><span>What they sell</span><span>Their offers and prices, from their own site</span></p><p class="kv"><span>How they pitch it</span><span>The promises they lead with</span></p><p class="kv"><span class="dot"><i class="on"></i>Where yours differs</span><span>The angle they have left open</span></p></div>
+          </div>
+        </article>
+
+        <article id="k-leads" data-row="leads" class="cfk-row">
+          <div>
+            <h3>A page for the click, and the follow-up after it</h3>
+            <p>Send your ads to a page with a form. Everyone who fills it in lands in your contacts, and the emails you wrote go out on their own.</p>
+            {{ plan_note('pages') }}
+            {{ plan_note('forms') }}
+            {{ plan_note('flows') }}
+          </div>
+          <div class="cfk-cards">
+            <div class="cfk-card form"><b>Get the trail guide</b><span class="fld">Name</span><span class="fld">Email</span><span class="go">Send me the guide</span></div>
+            <div class="cfk-card"><b>The follow-up</b><p class="dot"><i class="on"></i>Right away: here is your guide</p><p class="dot"><i></i>Day 2: how people use it</p><p class="dot"><i></i>Day 5: the offer</p></div>
+          </div>
+        </article>
+
+      </div>
+    </div>
+  </div>
+</section>
 
 <section class="lv-sec" id="journey" aria-labelledby="lv-how">
   <div class="lv-wrap">
@@ -175,5 +261,12 @@
     stars.style.setProperty('--mx', Math.max(-1, Math.min(1, (e.clientX - r.left) / r.width * 2 - 1)).toFixed(3));
     stars.style.setProperty('--my', Math.max(-1, Math.min(1, (e.clientY - r.top) / r.height * 2 - 1)).toFixed(3)); });
   st.addEventListener('mouseleave', function(){ stars.style.setProperty('--mx', '0'); stars.style.setProperty('--my', '0'); });
+})();
+// "What comes back out": the side list marks the row that is in view.
+(function(){ var links = document.querySelectorAll('.cfk-rail a'); if(!links.length || !('IntersectionObserver' in window)) return;
+  var io = new IntersectionObserver(function(es){ es.forEach(function(e){ if(!e.isIntersecting) return;
+    links.forEach(function(a){ var on = a.getAttribute('data-k') === e.target.getAttribute('data-row'); a.classList.toggle('on', on); if(on) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current'); }); }); },
+    { rootMargin: '-45% 0px -45% 0px' });
+  document.querySelectorAll('.cfk-row').forEach(function(r){ io.observe(r); });
 })();
 </script>

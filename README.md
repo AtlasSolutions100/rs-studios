@@ -500,7 +500,10 @@ variable `HOME_V2` is `0`; with no value, as in tests, it is off). `/?ui=v1` sho
 (`web/v2/landing.html`, `static/ui_v2_home.css`) gathers 18 tiles (our own preset examples, presenter stills and five
 drawn cards) into one point, then shows the promise and the product-link form on a black stage with small stars that
 drift with the mouse and an occasional shooting star; under it two rows of features drift past (what the studio makes,
-and every shipped feature in `plans.FEATURES`). Everything else on the page, and every other page, is unchanged.
+and every shipped feature in `plans.FEATURES`), then "The link goes in once. This is what comes back out.": five
+rows (image ads, presenter videos, copy and a plan, competitor research, lead pages and follow-up) beside a list that
+marks the row in view, each naming the plan its tools come with. Counts and prices come from the catalog and
+`rates()`. Every other page is unchanged.
 
 One switch, off by default. Off, nothing changes. `UI_V2=1` (a repo variable, in `deploy.yml`'s sync list) turns it
 on for everyone. Before that, a site admin can try it alone on the live site: open any page with `?ui=v2` (a signed
