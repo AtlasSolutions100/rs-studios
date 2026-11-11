@@ -18,7 +18,7 @@
       <div><label for="l-kind">Kind</label><select id="l-kind" name="kind" style="width:auto">{% for k in kinds %}<option value="{{ k }}" {{ 'selected' if kind == k }}>{{ k.replace('_', ' ') }}</option>{% endfor %}</select></div>
       <div><label for="l-q">Still quality</label><select id="l-q" name="quality" style="width:auto">{% for q in ('high', 'medium', 'low') %}<option {{ 'selected' if options.quality == q }}>{{ q }}</option>{% endfor %}</select></div>
       <div><label for="l-r">Still size</label><select id="l-r" name="resolution" style="width:auto">{% for r in ('1k', '2k') %}<option {{ 'selected' if options.resolution == r }}>{{ r }}</option>{% endfor %}</select></div>
-      <div><label for="l-p">Presenter <span class="dim">(video examples)</span></label><select id="l-p" name="presenter" style="width:auto"><option value="">Maya</option>{% for p in roster %}<option value="{{ p.id }}" {{ 'selected' if options.presenter == p.id }}>{{ p.name }}</option>{% endfor %}</select></div>
+      <div><label for="l-p">Presenter <span class="dim">(video examples, posters)</span></label><select id="l-p" name="presenter" style="width:auto"><option value="">Maya (posters: take turns)</option>{% for p in roster %}<option value="{{ p.id }}" {{ 'selected' if options.presenter == p.id }}>{{ p.name }}</option>{% endfor %}</select></div>
     </div>
     <div class="row" style="gap:12px;flex-wrap:wrap">
       <div><label for="l-vs">Video seconds <span class="dim">(preset videos)</span></label><input id="l-vs" name="video_seconds" type="number" min="1" max="120" step="1" inputmode="numeric" style="width:9em" placeholder="the preset's own" value="{{ options.video_seconds or '' }}"></div>
