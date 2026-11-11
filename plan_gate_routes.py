@@ -57,6 +57,8 @@ def plan_required_error(e):
 @bp.route("/app/plan")
 @login_required
 def page():
+    import stripe_setup
+    stripe_setup.ready()        # right after a restart the plan prices settle in a start-up step: wait for it
     with db.connect() as conn:
         if not plan_gate.needs_plan(conn, g.ws, g.user):
             return redirect(url_for("studio"))
