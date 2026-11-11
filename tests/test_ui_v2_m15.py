@@ -384,7 +384,7 @@ one = catalog.price_credits("ad_image", batch=1)
 check(bal == 2 * one, "a new account holds the credits for two single image ads")
 want = catalog.first_run_pair({"product": "Ember Candle", "description": "", "tags": ""})
 check(want[0]["id"] != want[1]["id"], "the classic first run picks two different templates for this product")
-hh = n.get("/app").get_data(as_text=True)
+hh = n.get("/app/studio").get_data(as_text=True)
 boot = boot_of(hh)
 check(boot["first_run"] and boot["pair"] and boot["pair_names"] == [t["name"] for t in want] and boot["prefill"]["count"] == 2,
       "Studio opens on 2 image ads and names the two looks the classic first run would pick")
@@ -432,7 +432,7 @@ with db.connect() as conn:
 q2 = jpost(n, "/app/studio/quote", payload).get_json()
 check(q2.get("count") == 1 and q2.get("total") == catalog.price_credits("ad_image", batch=2) and "parts" not in q2,
       "after the first run the same request is an ordinary one: two versions of one image ad")
-check(not boot_of(n.get("/app").get_data(as_text=True))["pair"], "and Studio no longer asks for the pair")
+check(not boot_of(n.get("/app/studio").get_data(as_text=True))["pair"], "and Studio no longer asks for the pair")
 
 g = signup("glow@example.com")
 finish_onboarding("glow@example.com")
@@ -619,7 +619,7 @@ with appmod.app.test_request_context("/app"):
         check(not any(x["example"] for x in studio_v2.gallery(None)), "and so does a library without those functions")
     finally:
         presets.example_url, presets.example_video_url = real_img, real_vid
-hh = n.get("/app").get_data(as_text=True)
+hh = n.get("/app/studio").get_data(as_text=True)
 mb = boot_of(hh)
 check('data-gu="offer"' in hh and 'data-gf="video"' in hh and "galUse" in js and "galKind" in js
       and [u["id"] for u in mb["gallery_uses"]][:1] == ["product-hero"],
@@ -652,7 +652,7 @@ check(set(packs) == {"launch", "offer", "marketplace"} and packs["launch"]["coun
 check(all(x.get("preset") is None or presets.get(x["preset"]) is not None for p in studio_v2.PACKS for x in p["parts"]),
       "every pack is built from presets that exist")
 recs = re.findall(r'<a class="wf-rec" href="([^"]+)">', wh)
-check(recs == ["/app/studio?preset=" + x["id"] for x in boot_of(n.get("/app").get_data(as_text=True))["gallery"] if x["opens"] == "recipe"]
+check(recs == ["/app/studio?preset=" + x["id"] for x in boot_of(n.get("/app/studio").get_data(as_text=True))["gallery"] if x["opens"] == "recipe"]
       and len(recs) >= 5, "Workflow's shelf lists the video presets that fit this product; each opens in Studio with the preset pinned")
 lp = {"pack": "launch", "product": pid, "fields": {"headline": "Your whole evening, in one candle.",
                                                    "script": "Ember Candle. Soy wax with amber and cedar."}}

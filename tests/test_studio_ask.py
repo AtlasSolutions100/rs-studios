@@ -168,7 +168,7 @@ check(jpost(a, "/app/studio/ask", {"ask": ASK, "product": pid}).status_code == 4
       "with the new look off, asking is a 404 and the model is never called")
 
 os.environ["UI_V2"] = "1"
-page = a.get("/app").get_data(as_text=True)
+page = a.get("/app/studio").get_data(as_text=True)
 boot = boot_of(page)
 check(not boot["ask_on"] and boot["start"] == "" and 'data-mode="ask"' not in page,
       "with no text model the Ask tab isn't shown and Studio starts where it did")
@@ -177,7 +177,7 @@ check(r.status_code == 503 and "composer" in r.get_json()["error"] and not calls
 
 print("== on: the tab, and where Studio starts")
 llm.configured = lambda: True
-page = a.get("/app").get_data(as_text=True)
+page = a.get("/app/studio").get_data(as_text=True)
 boot = boot_of(page)
 check(boot["ask_on"] and boot["urls"]["ask"] == "/app/studio/ask" and 'data-mode="ask"' in page
       and page.index('data-mode="ask"') < page.index('data-mode="image"'), "the Ask tab is the composer's first")
@@ -281,7 +281,7 @@ check(len(bs) == 1 and bs[0]["id"] == g["batch"] and bs[0]["title"] == "Launch t
       and all(j["batch_id"] == bs[0]["id"] for j in jobs) and cfg.get("ask") == ASK
       and cfg.get("templates") == ["image", "presenter", "product_video"], "one batch, named after the ask, holding all of it")
 check(db.balance(ws_of(EMAIL)) == bal - qe["total"], "exactly the shown total is charged")
-page = a.get("/app").get_data(as_text=True)
+page = a.get("/app/studio").get_data(as_text=True)
 check(boot_of(page)["start"] == "ask" and re.search(r'aria-checked="true"[^>]*data-mode="ask"', page),
       "after the first run Studio opens on Ask")
 check(boot_of(a.get("/app?mode=image").get_data(as_text=True))["start"] == ""
@@ -360,7 +360,7 @@ with appmod.app.test_request_context("/app"):
     check(len(six) == 3 and [x["name"] for x in six] == ["Campaign plan", "Copy", "Competitor snapshot"], "never more than three pointers")
     check(any(x["locked"] for x in six) == any(not __import__("plans").has(flask.g.ws, f) for f in ("planner", "copy", "competitors")),
           "a tool the member's plan doesn't include is marked, not hidden")
-check("data-q-also" in a.get("/app").get_data(as_text=True) and "data-ask-also" in a.get("/app").get_data(as_text=True)
+check("data-q-also" in a.get("/app/studio").get_data(as_text=True) and "data-ask-also" in a.get("/app/studio").get_data(as_text=True)
       and "alsoRows(" in open(os.path.join(ROOT, "static", "studio_v2.js"), encoding="utf-8").read(),
       "the price box and the composer both have the place for those pointers")
 
