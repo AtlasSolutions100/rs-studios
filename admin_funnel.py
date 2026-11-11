@@ -174,6 +174,8 @@ def _worker_status(conn) -> dict:
         out["tasks"] = tasks.counts(conn)
         lease = conn.execute("SELECT holder, until FROM worker_leases WHERE name='worker'").fetchone()
         out["lease"] = dict(lease) if lease else None
+        import workerproc
+        out["stall"] = workerproc.last_stall(conn)       # the last time the watchdog had to restart a hung loop
     except Exception:  # noqa: BLE001
         pass
     return out
