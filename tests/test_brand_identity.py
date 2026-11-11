@@ -284,6 +284,18 @@ d = page(p_, "/app/desk")
 check("An angle to test" in d and "the easy gift" in d and 'data-try="A campaign for Ember Candle that leads with the easy gift"' in d
       and f"/app/competitors/{rs[0]['id']}" in d, "when it is ready the desk shows an angle to test, one click from a plan, and links the research")
 
+t_, pid_t = member("t@example.com")
+bt = brand_of("t@example.com")
+with db.connect() as conn:
+    conn.execute("UPDATE workspaces SET plan_override='growth', plan_status='trialing' WHERE id=?", (bt["workspace_id"],))
+    conn.commit()
+    check(not brand_identity.paying(conn.execute("SELECT * FROM workspaces WHERE id=?", (bt["workspace_id"],)).fetchone())
+          and brand_identity.paying(conn.execute("SELECT * FROM workspaces WHERE id=?", (bp_["workspace_id"],)).fetchone()),
+          "a card trial that hasn't paid yet doesn't count as paying")
+brand_identity.run(bt["workspace_id"], bt["id"], pid_t, URL)
+check(not reports("t@example.com") and len(started) == 1 and brand_identity.rivals(brand_of("t@example.com")),
+      "so a trial gets the competitors found, and the full research only at its price")
+
 print("== caps and failures")
 q, pid_q = member("q@example.com")
 bq = brand_of("q@example.com")

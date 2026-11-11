@@ -15,9 +15,10 @@ Rules, all of them:
     rules before it is kept.
   * Finding the competitors is one call with web search (competitors.discover: a competitor needs a source to
     count). It is free to the member, so it is capped: once per brand per ENRICH_DAYS, ENRICH_DAILY a day site-wide.
-  * The full research (competitors.run on the closest AUTO_RESEARCH, free) starts by itself only on a paid plan and
-    only when the brand has no report yet. A free account gets the list, and runs the research at its price from
-    the Competitors page, where the price is shown first.
+  * The full research (competitors.run on the closest AUTO_RESEARCH, free) starts by itself only on a plan that
+    has been paid for (not the free plan, not a card trial still running) and only when the brand has no report
+    yet. Anyone else gets the list, and runs the research at its price from the Competitors page, where the
+    price is shown first.
 
 IMPORT_ENRICH=0 turns all of it off. A failure in any step leaves the import as it was and is never shown as an
 error: the brand panel simply has less in it.
@@ -135,6 +136,14 @@ def _ai_allowed(conn) -> bool:
     conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (key, str(used + 1)))
     conn.commit()
     return True
+
+
+def paying(ws) -> bool:
+    """On a plan that has been paid for (or was granted): not the free plan, and not still inside a card trial.
+    The research that starts by itself costs us a few dollars, so a trial that may never pay doesn't get it."""
+    import plans
+    status = (ws["plan_status"] if "plan_status" in ws.keys() else "") or ""
+    return plans.plan_code(ws) != "free" and status != "trialing"
 
 
 def start(ws_id: int, brand_id, product_id, url: str) -> bool:
@@ -276,7 +285,7 @@ def run(ws_id: int, brand_id: int, product_id, url: str) -> dict:
 
     # 4. the full research, by itself, only on a paid plan and only the first time
     rid = None
-    if found and llm.anthropic_ready() and plans.plan_code(ws) != "free":
+    if found and llm.anthropic_ready() and paying(ws):
         with db.connect() as conn:
             have = conn.execute("SELECT 1 FROM competitor_reports WHERE workspace_id=? AND brand_id=? LIMIT 1",
                                 (ws_id, brand_id)).fetchone()
