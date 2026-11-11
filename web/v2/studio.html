@@ -32,7 +32,7 @@
     {% else %}
     <div class="st-ghosts" aria-hidden="true">{% for _ in range(12) %}<i></i>{% endfor %}</div>
     <div class="st-empty">
-      <h2>{% if boot.free_images %}Your first {{ boot.free_images if boot.free_images < 3 else 2 }} image ad{{ '' if boot.free_images == 1 else 's' }} {{ 'is' if boot.free_images == 1 else 'are' }} on us{% else %}Nothing made yet{% endif %}</h2>
+      <h2>{% if boot.free_images %}Your first {{ boot.free_images if boot.free_images < 3 else 2 }} image ad{{ '' if boot.free_images == 1 else 's' }} {{ 'is' if boot.free_images == 1 else 'are' }} {{ 'ready to make' if plans_only() else 'on us' }}{% else %}Nothing made yet{% endif %}</h2>
       <ol class="st-steps">
         <li data-empty-step {{ 'class=done' if boot.products }}><b>{{ 'Product added' if boot.products else 'Add your product' }}</b><span>{{ 'Change it any time from the composer.' if boot.products else 'Paste the link to its page. We read the name and photo. It costs nothing.' }}</span></li>
         <li><b>Write a headline</b><span>The words that go on the ad.</span></li>

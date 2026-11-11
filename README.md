@@ -668,6 +668,23 @@ a conversation listed in the sidebar.
 
 Tests: `tests/test_desk.py`.
 
+## One sidebar in the new look (`web/base.html`, `desk_campaigns()`; behind `UI_V2`)
+
+Since Nov 11 the new look's sidebar is one list instead of a Desk link above four tabs:
+
+- **New campaign** (the desk), then **Desk**, **Library**, **Leads** (with its plan tag when the plan doesn't include
+  forms), **Brand**, and one link for ad accounts: **Connections** where launching is on (`AD_LAUNCH`), the setup hub
+  **Ad accounts** otherwise.
+- **Campaigns**: the workspace's six newest desk conversations, on every app page (`desk_campaigns()` in `app.py`,
+  one read per request), the open one marked. The desk pages no longer carry their own copy
+  (`web/v2/_desk_side.html` is gone).
+- **Tools**: Studio, Workflow, Advanced and Products, then the Plan / Grow / Launch / Settings groups as before, minus
+  what moved up. The planner's link reads "Planner" here, so "Campaigns" means the desk's. Studio and Workflow keep
+  their Recent list under the campaigns.
+- There is no Results link yet: it comes with the results screen.
+
+The first look's sidebar is unchanged. Tests: `tests/test_desk.py` ("one sidebar in the new look").
+
 ## Reading the brand when a link is imported (`brand_identity.py`; `IMPORT_ENRICH`, default on)
 
 Koby, Nov 11 2026: whenever a link is imported, also pull in the brand and its market. After `/app/start/import`
