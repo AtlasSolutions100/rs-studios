@@ -759,23 +759,13 @@ dialog.price .v2-dlg-f{margin-top:14px}
 .lv-shot figcaption{display:flex;flex-direction:column;gap:1px;margin-top:var(--s2);font-size:13.5px;line-height:1.4}
 .lv-shot figcaption b{font-weight:600}
 .lv-shot figcaption span{color:var(--muted)}
-/* the reel of video ads under the gallery: one row that scrolls sideways; a tile is a 9:16 clip and two lines */
-.lv-reel-head{margin:var(--s7) 0 var(--s4)}
-.lv-reel-head h3{margin:0 0 var(--s2);font:600 22px/1.25 var(--display);letter-spacing:-.01em}
-.lv-reel-head .lv-sub{margin:0;max-width:68ch}
-.lv-reel{display:flex;gap:var(--s4);overflow-x:auto;padding:2px 2px var(--s3);scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
-.lv-reel:focus-visible{outline:2px solid var(--v2-focus);outline-offset:4px;border-radius:var(--r-md)}
-.lv-clip{flex:0 0 clamp(172px,18vw,228px);margin:0;scroll-snap-align:start;min-width:0}
-.lv-clip-v{position:relative;aspect-ratio:9/16;border-radius:var(--r-md);overflow:hidden;border:1px solid var(--line);background:var(--thumb-bg)}
-.lv-clip-v video{display:block;width:100%;height:100%;object-fit:cover}
+/* a video tile in the gallery: the clip, an "AI presenter" tag when a person is on screen, a Sound button when it talks */
+.lv-vid{position:relative}
 .lv-clip-tag{position:absolute;left:8px;top:8px;padding:2px 8px;border-radius:999px;background:rgba(14,14,14,.74);color:#fff;font:500 12px/1.5 var(--body)}
 .lv-clip-snd{position:absolute;right:8px;bottom:8px;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid rgba(255,255,255,.34);background:rgba(14,14,14,.74);color:#fff;font:500 12.5px/1 var(--body);cursor:pointer}
 .lv-clip-snd:hover{background:rgba(14,14,14,.9)}
 .lv-clip-snd:focus-visible{outline:2px solid #fff;outline-offset:2px}
 .lv-clip-snd[aria-pressed="true"]{background:var(--v2-spark);color:var(--v2-spark-ink);border-color:transparent}
-.lv-clip figcaption{display:flex;flex-direction:column;gap:1px;margin-top:var(--s2);font-size:13.5px;line-height:1.4}
-.lv-clip figcaption b{font-weight:600}
-.lv-clip figcaption span{color:var(--muted)}
 .lv-show.is-empty{columns:auto;display:flex;align-items:flex-end;gap:var(--s4)}
 .lv-show.is-empty .lv-shot{flex:1 1 0;min-width:0;margin:0}
 .lv-shot.ph i{display:block;width:100%;border-radius:var(--r-md);border:1px dashed var(--v2-line2);background:var(--v2-sunk)}

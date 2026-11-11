@@ -633,39 +633,16 @@ cookie keeps it on in that browser for 180 days, logged out too, so the landing 
 Not there yet: presenter voice previews (there are no audio samples in the repo; making them costs generation), and
 presenter portraits show only where the stills exist (`presenter_stills.py`).
 
-## The reel of video ads on the home page (`public_site.showreel`, `static/showcase/manifest.json` "videos")
+## Video ads in the home page gallery (`public_site.showcase`, `static/showcase/manifest.json`)
 
-Under the gallery of Campaignify's own image outputs, the new home page shows one sideways-scrolling row of short
-vertical video ads. Each entry in the manifest's `videos` list says where it came from: `source: "campaignify"` (it
-came out of a preset; the preset's name is the title and the caption says "Made in Campaignify") or `source: "team"`
-(our team made it with AI video outside the app; the caption says "Made by our team" and who or what it was for, and
-it is never labelled as made in Campaignify). Only our own generated footage goes in: no stock, no other companies'
-ads, no real people. A clip with a person on screen (`presenter: true`) is labelled "AI presenter"; a clip with speech
-(`sound: true`) gets a Sound button, and only one clip has its sound on at a time. Clips are muted loops that load
-nothing until they are near the screen. Each needs a poster, a title (or preset), a caption and alt text, or the
-loader drops it. Files: H.264, 720x1280 or smaller, under 3 MB. Tests: `tests/test_showreel.py`.
-
-## The brand brief, the last onboarding step (`onboarding.brief`, `/app/welcome/brand`; behind `UI_V2`)
-
-After "What do you want to make?" and the profile (and the card step, when one is due), a new account lands on the
-brand brief. With no product yet it asks for a link and reads it with the free first-run importer (`app.start_import`:
-no AI read, throttled). Then it shows what the app holds, one card each, and every card opens in place to fix it:
-
-| Card | What it edits (and so what every prompt reads through `core.brand()`) |
-|---|---|
-| What you sell | the product's name, description, price, offer |
-| Who buys it, and why | the product's audience |
-| What you can say | the product's approved claims; claims the import found wait as ticks until the member approves them |
-| How you sound | the brand's tone and about (its colors and logo are left alone) |
-| How you look | read-only: photo count, logo, colors, with a link to the Brand screen |
-| The angles to test first | rows in `angles`: the member's own (free), or "Suggest five", which is Create's paid call |
-
-There is no separate store: a correction here changes the brief behind every ad, caption and email. "Suggest five"
-shows the most it can cost on the button (`creator.estimate_angles()`), holds that, and charges what the writing used
-(`core.reserve_ai`, `create_routes._settle`); it is not offered while AI writing is off. Everything else on the page is
-free. "Looks right. Open Studio" (or skip) marks the brief done; until then a visit to Studio comes back to it, while
-nothing has been made (`onboarding.brief_due`). The card page is never sent to the brief, because the brief sits behind
-the card step. Tests: `tests/test_brand_brief.py`.
+"Made in Campaignify" on the new home page is one grid of image ads and video ads (owner decision, Nov 11 2026): the
+manifest's `items` list holds both, in the order shown, and the first `SHOWCASE_MAX` (16) appear. A video entry has a
+`poster`, an `aspect`, and optionally `presenter: true` (the tile is tagged "AI presenter") and `sound: true` (the tile
+gets a Sound button; one clip has its sound on at a time). Clips are muted loops that load nothing until they are near
+the screen. A tile is titled by its preset's name, or by the entry's own `title` when no preset made it; clips made
+with the same vendor outside the app are shown without a separate label. Only our own generated work goes in: no
+stock, no other companies' ads, no real people. Files: images under 400 KB; videos H.264, 720x1280 or smaller, under
+3 MB. Tests: `tests/test_gallery_videos.py`.
 
 ## MCP server for Claude (`mcpserver.py`, `mcp_tools.py`, `/docs/mcp`)
 
