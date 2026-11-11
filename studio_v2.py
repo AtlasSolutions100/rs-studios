@@ -387,7 +387,8 @@ ASK_SYSTEM = (
     "- product_video: a 5 second clip from the product photo. `text` describes the shot in one sentence.\n"
     "Rules, all of them:\n"
     "- Use only the product facts and approved claims given. Do not invent features, prices, numbers or results.\n"
-    "- No income, health or guaranteed-result claims, no discounts that were not stated, no fake urgency.\n"
+    "- No income, health or guaranteed-result claims, and no fake urgency.\n"
+    "- No discounts, coupons, percent-off or free-shipping offers in the words: the studio's claim rules refuse them.\n"
     "- Never write a review, a testimonial or a customer quote, and a presenter never speaks as a customer.\n"
     "- Each headline takes a different angle. Plain words, no hashtags, no emoji.\n"
     "- Videos cost far more than images: propose one video unless the member asks for more.\n"
@@ -485,14 +486,16 @@ def plan_parts(d) -> list[dict]:
 
 
 def ask_plan(text: str, product, cast: list) -> dict:
-    """{"note", "items"}: the fast model's proposal for this request, cleaned by ask_item."""
+    """{"note", "items", "dropped"}: the fast model's proposal for this request, cleaned by ask_item; `dropped` names
+    each part left out because its words tripped a claim rule."""
     have = {m["id"] for m in available_modes()}
     who = "\n".join(f"- {c['id']}: {c.get('name') or c['id']}; places: " + (", ".join(map(str, _places(c)[:6])) or "none")
                     for c in cast[:20]) or "none"
     facts = [f"Product: {_clean(product['name'], 120)}"]
     for label, key in (("Price", "price"), ("Offer", "offer"), ("About it", "description"), ("Audience", "audience")):
-        if _clean(product[key], 400):
-            facts.append(f"{label}: {_clean(product[key], 400)}")
+        fact = _clean(product[key], 400)
+        if fact and compliance.check(fact)["ok"]:           # a fact the claim rules refuse is not offered as material
+            facts.append(f"{label}: {fact}")
     facts.append("Approved claims (the only claims you may make): " + (_clean(product["claims"], 800) or "none given"))
     prompt = ("\n".join(facts) + f"\n\nKinds available: {', '.join(k for k in ASK_MAKES if k in have)}"
               f"\n\nPresenter roster:\n{who}\n\nThe member asks: {text}\n\nPropose the set.")
@@ -500,12 +503,17 @@ def ask_plan(text: str, product, cast: list) -> dict:
                          model_id=llm.fast_model())
     out = out if isinstance(out, dict) else {}
     raw = out.get("parts") if isinstance(out.get("parts"), list) else []
-    items = []
+    items, dropped = [], []
     for x in raw[:ASK_MAX_PARTS]:
         it = ask_item(x, cast, have)
-        if it and compliance.check(it["text"])["ok"]:       # words that trip a claim rule are never proposed
+        if not it:
+            continue
+        verdict = compliance.check(it["text"])
+        if verdict["ok"]:
             items.append(it)
-    return {"note": _clean(out.get("note"), 300), "items": items}
+        else:                                               # words that trip a claim rule are never proposed
+            dropped.append(f"{it['name']}: the words it wrote broke a rule ({verdict['blocks'][0]})")
+    return {"note": _clean(out.get("note"), 300), "items": items, "dropped": dropped}
 
 
 def parts_for(d):
@@ -635,8 +643,9 @@ def _parts_or_error(d):
 
 def _title_for(d, parts) -> tuple[str, dict]:
     if isinstance(d.get("plan"), list):
-        return _clean(d.get("ask"), 80) or "Your set", {"ask": _clean(d.get("ask"), 600),
-                                                       "templates": [p["payload"]["mode"] for p in parts]}
+        said = _clean(d.get("ask"), 600)
+        title = said if len(said) <= 60 else said[:58].rsplit(" ", 1)[0].rstrip(" ,:;.-") + "…"
+        return title or "Your set", {"ask": said, "templates": [p["payload"]["mode"] for p in parts]}
     if d.get("pack"):
         pack = PACK_BY_ID[d["pack"]]
         return pack["name"], {"pack": pack["id"], "templates": [p.get("template") or p["payload"]["mode"] for p in parts]}
@@ -690,7 +699,7 @@ def ask():
         conn.commit()
     # a part Create can't price for this product (no photo for a product video, a script too long) is left out and
     # named, so one bad part doesn't cost the member the rest of the set
-    items, skipped, first_error = [], [], None
+    items, skipped, first_error = [], list(plan["dropped"]), None
     for it in plan["items"]:
         q = quote_parts([_ask_part(it, product["id"])])
         if q.get("error"):
@@ -701,6 +710,8 @@ def ask():
     if not items:
         if first_error is not None:
             return jsonify({"error": first_error["error"], "step": first_error.get("step", "")}), 400
+        if skipped:
+            return jsonify({"error": "Nothing usable came back. " + skipped[0] + " Ask again, or use the composer below."}), 422
         return jsonify({"error": "I couldn't turn that into ads. Name what you want: image ads, a presenter video, "
                                  "a product video."}), 422
     q = quote_parts([_ask_part(it, product["id"]) for it in items])
@@ -1053,7 +1064,10 @@ def page():
         "claims_credits": claims_check.estimate() if claims_check.on() and llm.anthropic_ready() else 0,
         "words": {str(d): catalog.hard_words(d) for d in talk["durations"]},
         "website": answers.get("website") or "",
+        # Ask: the composer's first tab, and where a returning member starts unless they arrived with something to
+        # edit (a batch, a preset, ?mode=). The first run keeps its two free image ads as the opening move.
         "ask_on": llm.configured(),
+        "start": "ask" if (llm.configured() and not first_run and not prefill and not request.args.get("mode")) else "",
         "urls": {"quote": url_for("studio_v2.quote"), "generate": url_for("studio_v2.generate"),
                  "ask": url_for("studio_v2.ask"),
                  "claims": url_for("studio_v2.claims"), "import": url_for("start_import"),

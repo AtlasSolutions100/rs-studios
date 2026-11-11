@@ -285,6 +285,11 @@ html[data-ui="v2"][data-surface="app"]:not([data-theme]):root{
 .cmp-modes button svg,.cmp-more svg{width:16px;height:16px;flex:none}
 .cmp-modes button:hover{color:var(--ink)}
 .cmp-modes button[aria-checked="true"]{background:var(--v2-raise);color:var(--ink);border-color:var(--line);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+/* Ask, the first tab: the one place the accent fills, because it is the short way to everything else */
+.cmp-modes button[data-mode="ask"]{color:var(--ink);margin-right:4px}
+.cmp-modes button[data-mode="ask"][aria-checked="true"]{background:var(--v2-spark);color:var(--v2-spark-ink);border-color:rgba(20,20,20,.35);box-shadow:none}
+.cmp.asking .cmp-box textarea{min-height:64px}
+.cmp-asking{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);white-space:nowrap}
 .cmp-more{margin-left:auto;border-color:var(--line);height:40px;border-radius:var(--r-md);color:var(--ink)}
 .cmp-more:hover{background:var(--hover)}
 .cmp-pin{display:inline-flex;align-items:center;gap:6px;flex:none;height:40px;padding:0 6px 0 12px;border:1px solid var(--v2-line2);border-radius:var(--r-md);color:var(--ink);font:500 13.5px var(--body);white-space:nowrap;max-width:44%}
@@ -467,6 +472,21 @@ dialog.v2-dlg.price{width:min(460px,calc(100vw - 24px))}
 .v2-lines li>span:first-child{min-width:0;display:flex;flex-direction:column;gap:3px;line-height:1.35}
 .v2-lines li>span:last-child{white-space:nowrap;font-variant-numeric:tabular-nums}
 .v2-lines b{font-weight:500}
+/* an ask's set in the price box: tick, words you can change, price (web/v2/_price_dialog.html) */
+dialog.v2-dlg.price.asked{width:min(580px,calc(100vw - 24px))}
+dialog.price .v2-asked-note{margin:0;padding:2px 20px 4px;font-size:14px;line-height:1.5;color:var(--ink)}
+.v2-plan{list-style:none;margin:0;padding:0 20px;max-height:min(46vh,380px);overflow:auto}
+.v2-plan li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:start;padding:12px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.v2-plan input[type=checkbox]{width:18px;height:18px;margin:1px 0 0;accent-color:var(--v2-inv)}
+.v2-plan-b{display:flex;flex-direction:column;gap:6px;min-width:0}
+.v2-plan-b b{font-weight:500}
+[data-ui="v2"] .v2-plan-b textarea{width:100%;min-height:0;resize:vertical;padding:7px 9px;font:400 13.5px/1.45 var(--body);color:var(--ink);background-color:var(--field);border:1px solid var(--line);border-radius:var(--r-sm)}
+.v2-plan-cr{white-space:nowrap;font-variant-numeric:tabular-nums}
+.v2-plan li.off .v2-plan-b b,.v2-plan li.off .v2-plan-cr{color:var(--dim)}
+.v2-plan li.off textarea{color:var(--muted)}
+dialog.price .v2-asked-f{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:8px 20px 0;font-size:12.5px;color:var(--muted)}
+.v2-again{margin-left:auto;padding:0;border:0;background:none;color:var(--ink);font:500 12.5px var(--body);text-decoration:underline;text-underline-offset:3px;cursor:pointer;white-space:nowrap}
+.v2-again:disabled{color:var(--dim);cursor:progress}
 .v2-sum{margin:0;padding:10px 20px 4px}
 .v2-sum div{display:flex;justify-content:space-between;padding:4px 0;font-size:13.5px;color:var(--muted)}
 .v2-sum dd{margin:0;font-variant-numeric:tabular-nums}

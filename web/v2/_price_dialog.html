@@ -1,6 +1,12 @@
 {# The price, before anything is made (Studio and Workflow share it; static/studio_v2.js fills it from a quote). #}
 <dialog class="v2-dlg price" data-dlg="price" aria-labelledby="dq-h">
   <header class="v2-dlg-h"><h2 id="dq-h" data-q-title>Price</h2><button type="button" class="v2-x" data-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+  {# an ask's answer: what was proposed and why, then each part with its words and price (studio_v2.ask) #}
+  <div class="v2-asked" data-q-ask hidden>
+    <p class="v2-asked-note" data-q-asknote></p>
+    <ul class="v2-plan" data-q-plan></ul>
+    <p class="v2-asked-f"><span data-q-skipped></span><button type="button" class="v2-again" data-q-again>Ask for a different set</button></p>
+  </div>
   <ul class="v2-lines" data-q-lines></ul>
   <dl class="v2-sum">
     <div><dt>Total</dt><dd data-q-total></dd></div>
