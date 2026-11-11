@@ -35,7 +35,7 @@ import json
 import logging
 import re
 
-from flask import Blueprint, flash, g, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, g, jsonify, redirect, render_template, request, url_for
 
 import catalog
 import claims_check
@@ -45,6 +45,7 @@ import db
 import free_fix
 import llm
 import onboarding
+import plans
 import presenter_stills
 import presets
 import products
@@ -410,6 +411,48 @@ ASK_SCHEMA = {
 }
 
 
+# The rest of the product, reached from the same sentence. Ask makes ads; when the sentence also asks for something
+# another tool does (a plan, copy, competitor research, a lead page, the follow-up, a launch), the answer says where
+# that lives, so the short way in never hides what the product can do. Plain word rules, no model:
+# (endpoint, name, what it does, words that ask for it, plan feature or None).
+ASK_ALSO = [
+    ("studio_v2.workflow", "Campaign plan", "A dated plan of what to post and run, with a budget. Describe it on Workflow.",
+     r"\b(campaign plan|content plan|marketing plan|launch plan|plan (?:out|ahead|the|a|my|our)|calendar|strategy|budget|"
+     r"what (?:should|to) (?:i|we) (?:post|run)|week(?:s)? of (?:posts|ads|content))\b", "planner"),
+    ("copy.studio", "Copy", "Captions, primary text, headlines, emails and hooks for each platform.",
+     r"\b(copy|captions?|primary text|ad text|descriptions?|subject lines?|emails?|newsletter|tweets?|posts? text|bio)\b", "copy"),
+    ("competitors.index", "Competitor snapshot", "What your competitors are running and saying, with sources.",
+     r"\b(competitors?|competition|rivals?|what (?:are|is) .{0,30} (?:running|doing|saying)|compared? (?:to|with)|versus|vs\.?)\b",
+     "competitors"),
+    ("seo.index", "SEO and AEO", "Pages and answers that search engines and AI assistants can find.",
+     r"\b(seo|aeo|geo|search engines?|rank(?:ing)?|google search|blog posts?|articles?|keywords?|chatgpt|ai (?:search|answers?))\b",
+     "seo"),
+    ("pages.index", "Lead page", "A page with your offer and a form, hosted for you.",
+     r"\b(landing pages?|lead pages?|sign[- ]?up pages?|squeeze pages?|a page (?:for|to)|capture leads?|lead capture|lead gen(?:eration)?|"
+     r"collect (?:emails|leads|sign[- ]?ups))\b", "pages"),
+    ("forms.contacts", "Contacts", "The people who filled in your forms, in one list.",
+     r"\b(crm|contacts?|leads list|my leads|subscribers?)\b", "forms"),
+    ("flows.index", "Follow-up", "Emails and texts sent by themselves after someone signs up.",
+     r"\b(follow[- ]?ups?|drip|sequences?|autorespond(?:er)?|nurture|automations?|welcome emails?|sms|text messages?)\b", "flows"),
+    ("adhub.index", "Launch", "Get the ads into your ad accounts.",
+     r"\b(launch (?:it|them|the ads?)|run (?:it|them|the ads?) on|publish (?:to|on)|ads? manager|ad accounts?|go live on|"
+     r"put (?:it|them) on (?:meta|facebook|instagram|tiktok|google))\b", "adhub"),
+]
+
+
+def ask_also(text: str) -> list[dict]:
+    """Where the other things this sentence asks for live: [{name, line, href, locked}], at most three, in
+    ASK_ALSO's order. `locked` is true when the member's plan doesn't include that tool (the page says so)."""
+    t, out = " ".join(str(text or "").lower().split()), []
+    for ep, name, line, rx, feat in ASK_ALSO:
+        if len(out) == 3:
+            break
+        if ep not in current_app.view_functions or not re.search(rx, t):
+            continue
+        out.append({"name": name, "line": line, "href": url_for(ep), "locked": bool(feat) and not plans.has(g.ws, feat)})
+    return out
+
+
 def _ask_key(ws_id) -> str:
     import datetime
     return f"studio_ask:{ws_id}:{datetime.datetime.now(datetime.timezone.utc):%Y-%m-%d}"
@@ -680,6 +723,7 @@ def ask():
     verdict = compliance.check(text)
     if not verdict["ok"]:
         return jsonify({"error": "That asks for a claim your ads can't make: " + verdict["blocks"][0]}), 400
+    also = ask_also(text)
     if not llm.configured():
         return jsonify({"error": "Asking isn't available right now. Use the composer below."}), 503
     with db.connect() as conn:
@@ -711,14 +755,17 @@ def ask():
         if first_error is not None:
             return jsonify({"error": first_error["error"], "step": first_error.get("step", "")}), 400
         if skipped:
-            return jsonify({"error": "Nothing usable came back. " + skipped[0] + " Ask again, or use the composer below."}), 422
+            return jsonify({"error": "Nothing usable came back. " + skipped[0] + " Ask again, or use the composer below.",
+                            "also": also}), 422
+        if also:
+            return jsonify({"error": "That isn't an ad, so there is nothing to price here. It lives in:", "also": also}), 422
         return jsonify({"error": "I couldn't turn that into ads. Name what you want: image ads, a presenter video, "
                                  "a product video."}), 422
     q = quote_parts([_ask_part(it, product["id"]) for it in items])
     if q.get("error"):
         return jsonify({"error": q["error"], "step": q.get("step", "")}), 400
     return jsonify({"plan": items, "note": plan["note"], "skipped": skipped, "quote": q, "product": product["id"],
-                    "left": max(0, ASK_DAILY - used - 1)})
+                    "also": also, "left": max(0, ASK_DAILY - used - 1)})
 
 
 @bp.route("/app/studio/claims", methods=["POST"])

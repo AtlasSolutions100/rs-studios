@@ -381,7 +381,7 @@
     roving($('[data-modes]'), '[data-mode]', function(b){ setMode(b.dataset.mode); $('[data-mode="' + b.dataset.mode + '"]').focus(); });
     root.addEventListener('input', function(e){
       var t = e.target;
-      if(t === text){ count(); say(''); return; }
+      if(t === text){ count(); say(''); var al = $('[data-ask-also]'); if(al) al.hidden = true; return; }
       if(t.dataset.layer){ readLayer(t); return; }
       if(t.dataset.set){ S[t.dataset.set] = t.value; if(t.dataset.set === 'duration') count(); }
     });
@@ -472,14 +472,21 @@
     }).catch(function(){ working(false); say('The price didn\'t load. Try again.'); });
   }
   // ---------------------------------------------------------------- ask: a sentence in, a priced set back
+  // Where the other things the sentence asked for live (studio_v2.ask_also): links, never a spend.
+  function alsoRows(el, list){
+    if(!el) return;
+    el.hidden = !(list && list.length);
+    el.innerHTML = (list || []).map(function(a){ return '<li><span><b>' + esc(a.name) + '</b><span class="small muted">' + esc(a.line) + (a.locked ? ' On a paid plan.' : '') + '</span></span><a class="btn dark sm" href="' + esc(a.href) + '">Open</a></li>'; }).join('');
+  }
   function waiting(on){ var w = $('[data-asking]'); if(w) w.hidden = !on; var b = $('[data-q-again]'); if(b) b.disabled = on; }
   function ask(a){
     var inBox = dlg('price').open, fail = inBox ? qerr : say;
     say(''); working(true); waiting(true);
     post(B.urls.ask, {ask: a.text, product: a.product}).then(function(r){
       working(false); waiting(false);
+      alsoRows($('[data-ask-also]'), r.plan ? [] : r.also);
       if(r.error || !r.plan || !r.quote){ fail(r.error || 'That didn\'t come back. Try again.'); return; }
-      asked = {text: a.text, product: r.product, note: r.note || '', skipped: r.skipped || [], plan: r.plan.map(function(it){ it.on = true; return it; })};
+      asked = {also: r.also || [], text: a.text, product: r.product, note: r.note || '', skipped: r.skipped || [], plan: r.plan.map(function(it){ it.on = true; return it; })};
       planRows(); lastQuote = r.quote; showPrice(r.quote);
       if(inBox) $$('[data-plan-text]').forEach(fit);
     }).catch(function(){ working(false); waiting(false); fail('That didn\'t come back. Try again.'); });
@@ -487,6 +494,7 @@
   function planRows(){
     $('[data-q-asknote]').textContent = asked.note || 'Here is a set for that.';
     $('[data-q-skipped]').textContent = asked.skipped.length ? 'Left out: ' + asked.skipped.join(' ') : '';
+    alsoRows($('[data-q-also]'), asked.also);
     $('[data-q-plan]').innerHTML = asked.plan.map(function(it, i){
       var what = it.make === 'image' ? 'Headline' : it.make === 'product_video' ? 'Shot' : 'Script';
       return '<li data-plan-row="' + i + '"><input type="checkbox" checked data-plan-on="' + i + '" aria-label="Make this: ' + esc(it.name) + '">' +

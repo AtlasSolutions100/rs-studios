@@ -339,6 +339,31 @@ check(r.status_code == 429 and str(studio_v2.ASK_DAILY) in r.get_json()["error"]
       "the daily cap says so and the model isn't called")
 check(jpost(b, "/app/studio/ask", {"ask": ASK, "product": other}).status_code == 422, "the cap is each workspace's own")
 
+print("== the rest of the product, from the same sentence")
+answer[0] = {"note": "Two headlines.", "parts": [{"make": "image", "text": "Light it when the day ends.", "count": 2}]}
+d = jpost(b, "/app/studio/ask", {"ask": "Two image ads, then write the captions and plan the next two weeks", "product": other}).get_json()
+names = [x["name"] for x in d["also"]]
+check(d["plan"] and names == ["Campaign plan", "Copy"] and d["also"][0]["href"] == "/app/studio/workflow"
+      and all(x["line"] and "locked" in x for x in d["also"]),
+      "a sentence that also asks for a plan and copy gets the set, and is told where those two live")
+d = jpost(b, "/app/studio/ask", {"ask": "Three image ads for the serum please", "product": other}).get_json()
+check(d["also"] == [], "a sentence that only asks for ads gets only ads")
+answer[0] = {"note": "", "parts": []}
+r = jpost(b, "/app/studio/ask", {"ask": "What are my competitors running, and build me a landing page to capture leads", "product": other})
+d = r.get_json()
+check(r.status_code == 422 and [x["name"] for x in d["also"]] == ["Competitor snapshot", "Lead page"] and "nothing to price" in d["error"],
+      "a sentence with no ad in it prices nothing and points to the tools it asked for")
+with appmod.app.test_request_context("/app"):
+    import flask
+    flask.g.ws = ws_of("other@example.com")
+    six = studio_v2.ask_also("a plan, some copy, competitor research, seo, a landing page, a crm and follow-up emails, then launch it on meta")
+    check(len(six) == 3 and [x["name"] for x in six] == ["Campaign plan", "Copy", "Competitor snapshot"], "never more than three pointers")
+    check(any(x["locked"] for x in six) == any(not __import__("plans").has(flask.g.ws, f) for f in ("planner", "copy", "competitors")),
+          "a tool the member's plan doesn't include is marked, not hidden")
+check("data-q-also" in a.get("/app").get_data(as_text=True) and "data-ask-also" in a.get("/app").get_data(as_text=True)
+      and "alsoRows(" in open(os.path.join(ROOT, "static", "studio_v2.js"), encoding="utf-8").read(),
+      "the price box and the composer both have the place for those pointers")
+
 print("== talking videos switched off")
 real = studio_v2.available_modes
 studio_v2.available_modes = lambda: [m for m in studio_v2.MODES if m["id"] in ("image", "product_video")]
