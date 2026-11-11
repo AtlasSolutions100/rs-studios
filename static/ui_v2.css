@@ -1270,3 +1270,11 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 .pr-plans .pr-plan.hot .btn,[data-ui="v2"] .lp-actions .btn{background:var(--v2-spark);color:var(--v2-spark-ink);border-color:rgba(20,20,20,.2)}
 .pr-plans .pr-plan.hot .btn:hover,[data-ui="v2"] .lp-actions .btn:hover{background:#AEEB16}
 [data-ui="v2"] .tl li.on::before{background:var(--v2-spark);box-shadow:0 0 0 1.5px rgba(20,20,20,.75)}
+/* One sidebar (Nov 11): New campaign, the places a campaign lives, its recent conversations, then the tools */
+.v2-new.v2-new-top{flex:none;margin:0 0 8px;border:1px solid var(--v2-line2);background:var(--v2-raise);justify-content:center;padding:8px 10px}
+.v2-new.v2-new-top:hover{background:var(--hover)}
+.v2-main{display:grid;gap:1px;flex:none;margin:0 0 6px}
+[data-ui="v2"] .side .v2-main a.nav.v2-desk{margin:0}
+.v2-rec.v2-camps{border-bottom:0;padding-bottom:4px}
+.v2-rec .v2-new.v2-new-ad{font-weight:400;color:var(--muted)}
+[data-ui="v2"] .side .navs{border-top:1px solid var(--line);padding-top:6px}
