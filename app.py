@@ -2045,6 +2045,7 @@ def billing_page():
         return redirect(url_for("studio"))     # a first plan (plan_gate.py): straight on to making ads
     with db.connect() as conn:
         trials = {p["code"]: plan_gate.trial_days(conn, g.ws, g.user, p["code"]) for p in plans.PAID}
+        trial_line = plan_gate.timeline_for(conn, g.ws)
         purchases = conn.execute("SELECT * FROM purchases WHERE workspace_id=? AND status IN ('paid','open') "
                                  "ORDER BY id DESC LIMIT 50", (g.ws["id"],)).fetchall()
         # The job's tool and template, so "generation" rows can say what was made.
@@ -2059,7 +2060,7 @@ def billing_page():
                            invoices=invoices, current=plans.plan(g.ws), subscribed=_subscribed(g.ws),
                            renewal_failed=_renewal_failed(g.ws), owed=db.owed(g.ws),
                            owner=is_owner(), comp_on=compcodes.active(g.ws), used_code=used_code,
-                           promo=session.get("promo"), trials=trials, trial=plan_gate.trial_view(g.ws),
+                           promo=session.get("promo"), trials=trials, trial=plan_gate.trial_view(g.ws), trial_line=trial_line,
                            packs_open=plan_gate.packs_open(g.ws, g.user))
 
 

@@ -8,3 +8,7 @@
 {% macro trial_chip(days, like=3) -%}
 <p class="px-trial{{ '' if days else ' gap' }}"{% if days %} data-plan-trial{% else %} aria-hidden="true"{% endif %}><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#0B0C0E"/><path d="M32 9C33.6 25 39 30.4 55 32C39 33.6 33.6 39 32 55C30.4 39 25 33.6 9 32C25 30.4 30.4 25 32 9Z" fill="#BDFA25"/></svg><span><b>{{ days or like }}-day free trial.</b> Full access.</span></p>
 {%- endmacro %}
+{# A trial as three dots (plan_gate.timeline): the start at $0, the reminder email, the charge. #}
+{% macro trial_line(steps) -%}
+<ol class="tl" data-trial-line aria-label="How the trial runs">{% for s in steps %}<li{% if s.now %} class="on"{% endif %}><b>{% if s.label %}{{ s.label }}{% else %}{{ s.iso|localtime('date') }}{% endif %}{% if s.amount %} · {{ s.amount }}{% endif %}</b><span>{{ s.what }}</span></li>{% endfor %}</ol>
+{%- endmacro %}

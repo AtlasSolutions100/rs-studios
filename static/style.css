@@ -1437,12 +1437,8 @@ a.sol-link h3{margin-top:0}
 .pk-feats{margin:16px 0 0;padding:14px 0 0 18px;border-top:1px solid var(--line);font-size:13.5px;color:var(--muted)}
 .pk-feats li{margin:0 0 4px}
 .pk-fine{margin:0 0 16px;font-size:14px;color:var(--muted)}
-.pk-how{margin:0;border-top:1px solid var(--line)}
-.pk-how div{display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
-.pk-how dt{font-weight:600}
-.pk-how dd{margin:0;color:var(--muted)}
 .pk-under{display:flex;flex-wrap:wrap;gap:8px 22px;margin:16px 0 0;font-size:14px}
-@media (max-width:900px){.pk-plans{grid-template-columns:1fr}.pk-how div{grid-template-columns:1fr;gap:2px}}
+@media (max-width:900px){.pk-plans{grid-template-columns:1fr}}
 /* The trial chip at the top of a plan (web/_price.html trial_chip): our star, the trial, "Full access" */
 .px-trial{display:flex;align-items:center;gap:10px;margin:0 0 18px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:rgba(127,127,127,.09);font-size:14.5px;line-height:1.3;color:var(--muted)}
 .px-trial svg{flex:0 0 auto;width:22px;height:22px}
@@ -1451,3 +1447,16 @@ a.sol-link h3{margin-top:0}
 @media (max-width:860px){.lp-prices .px-trial.gap{display:none}}
 @media (max-width:900px){.pk-plans .px-trial.gap{display:none}}
 @media (max-width:1100px){.plan-grid .px-trial.gap{display:none}}
+/* A trial as three dots on a line (trial_line in web/_price.html): today at $0, the reminder, the charge */
+.tl{list-style:none;position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0 4px;padding:0;max-width:640px}
+.tl::before{content:"";position:absolute;left:6px;right:6px;top:5px;height:1px;background:var(--line)}
+.tl li{position:relative;padding-top:24px;font-size:13px;line-height:1.4;color:var(--dim)}
+.tl li::before{content:"";position:absolute;top:0;left:0;width:11px;height:11px;border-radius:50%;background:var(--dim);opacity:.45}
+.tl li.on::before{background:var(--accent);opacity:1;box-shadow:0 0 0 1.5px rgba(20,20,20,.7)}
+.tl li:nth-child(2){text-align:center}.tl li:nth-child(2)::before{left:calc(50% - 5.5px)}
+.tl li:nth-child(3){text-align:right}.tl li:nth-child(3)::before{left:auto;right:0}
+.tl b{display:block;font-weight:600;font-size:13.5px;color:var(--muted)}
+.tl li.on b{color:var(--ink)}
+.pk .tl{margin:4px 0 18px}
+#plan-trial{max-width:560px}
+#plan-trial .px-trial{margin-bottom:0}
