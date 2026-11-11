@@ -759,6 +759,23 @@ dialog.price .v2-dlg-f{margin-top:14px}
 .lv-shot figcaption{display:flex;flex-direction:column;gap:1px;margin-top:var(--s2);font-size:13.5px;line-height:1.4}
 .lv-shot figcaption b{font-weight:600}
 .lv-shot figcaption span{color:var(--muted)}
+/* the reel of video ads under the gallery: one row that scrolls sideways; a tile is a 9:16 clip and two lines */
+.lv-reel-head{margin:var(--s7) 0 var(--s4)}
+.lv-reel-head h3{margin:0 0 var(--s2);font:600 22px/1.25 var(--display);letter-spacing:-.01em}
+.lv-reel-head .lv-sub{margin:0;max-width:68ch}
+.lv-reel{display:flex;gap:var(--s4);overflow-x:auto;padding:2px 2px var(--s3);scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+.lv-reel:focus-visible{outline:2px solid var(--v2-focus);outline-offset:4px;border-radius:var(--r-md)}
+.lv-clip{flex:0 0 clamp(172px,18vw,228px);margin:0;scroll-snap-align:start;min-width:0}
+.lv-clip-v{position:relative;aspect-ratio:9/16;border-radius:var(--r-md);overflow:hidden;border:1px solid var(--line);background:var(--thumb-bg)}
+.lv-clip-v video{display:block;width:100%;height:100%;object-fit:cover}
+.lv-clip-tag{position:absolute;left:8px;top:8px;padding:2px 8px;border-radius:999px;background:rgba(14,14,14,.74);color:#fff;font:500 12px/1.5 var(--body)}
+.lv-clip-snd{position:absolute;right:8px;bottom:8px;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid rgba(255,255,255,.34);background:rgba(14,14,14,.74);color:#fff;font:500 12.5px/1 var(--body);cursor:pointer}
+.lv-clip-snd:hover{background:rgba(14,14,14,.9)}
+.lv-clip-snd:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.lv-clip-snd[aria-pressed="true"]{background:var(--v2-spark);color:var(--v2-spark-ink);border-color:transparent}
+.lv-clip figcaption{display:flex;flex-direction:column;gap:1px;margin-top:var(--s2);font-size:13.5px;line-height:1.4}
+.lv-clip figcaption b{font-weight:600}
+.lv-clip figcaption span{color:var(--muted)}
 .lv-show.is-empty{columns:auto;display:flex;align-items:flex-end;gap:var(--s4)}
 .lv-show.is-empty .lv-shot{flex:1 1 0;min-width:0;margin:0}
 .lv-shot.ph i{display:block;width:100%;border-radius:var(--r-md);border:1px dashed var(--v2-line2);background:var(--v2-sunk)}
@@ -978,3 +995,46 @@ html[data-ui="v2"]:root{--v2-pop:#BDFA25;--v2-pop-hover:#CDFF52;--v2-pop-ink:#14
 
 /* 3. what is new */
 [data-ui="v2"][data-surface="app"] .steplist.tl li:first-child::before{background:var(--v2-pop);border-color:var(--v2-mark)}
+
+/* ================================================================ leads, the new look (web/v2/leads.html)
+   The board on the left, the lead you opened on the right. The stage color ramps from line to the mark, left to
+   right (--at); the column the opened lead is in and its card carry the mark. */
+.ld-top{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--s4);flex-wrap:wrap;margin:0 0 var(--s5)}
+.ld-top h1{margin:0}.ld-top .muted{margin:6px 0 0}
+.ld-names{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.ld-names label{display:block;margin-bottom:4px}
+.ld{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s5);align-items:start}
+.ld.has-open{grid-template-columns:minmax(0,1fr) 348px}
+.ld-board{min-width:0}
+.ld-cols{display:grid;gap:12px;align-items:start;min-width:0}
+.ld-col{--stage:color-mix(in srgb,var(--v2-mark) var(--at,0%),var(--v2-line2));display:flex;flex-direction:column;gap:8px;min-width:0}
+.ld-col header{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0 2px 8px;border-bottom:2px solid var(--stage)}
+.ld-col h2{margin:0;font-size:14px;display:flex;align-items:center;gap:8px;min-width:0}
+.ld-col h2::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--stage);flex:none}
+.ld-n{min-width:24px;padding:1px 8px;border:1px solid var(--stage);border-radius:999px;font:600 12px/1.5 var(--body);text-align:center;font-variant-numeric:tabular-nums}
+.ld-col.here header{border-bottom-color:var(--v2-mark)}
+.ld-card{display:flex;flex-direction:column;gap:3px;padding:12px;min-height:44px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--panel);color:var(--ink);text-decoration:none;min-width:0;overflow-wrap:anywhere}
+.ld-card:hover{background:var(--v2-raise);border-color:var(--v2-line2)}
+.ld-card:focus-visible{outline:2px solid var(--v2-focus);outline-offset:2px}
+.ld-card[aria-current]{border-color:var(--v2-mark);box-shadow:inset 3px 0 0 var(--v2-mark)}
+.ld-card b{font-weight:600;font-size:14px}
+.ld-open{display:flex;flex-direction:column;gap:var(--s5);position:sticky;top:var(--s4);min-width:0;scroll-margin-top:var(--s4)}
+.ld-open h2{margin:0;font-size:20px}.ld-open h2+p{margin:4px 0 0;overflow-wrap:anywhere}
+.ld-from{margin:0;padding:10px 12px;border-radius:var(--r-md);background:var(--v2-sunk);font-size:14px}
+.ld-label{display:block;margin:0 0 8px;font-size:12px;color:var(--muted)}
+.ld-stage .choice{font:500 13px var(--body);border-radius:999px;cursor:pointer}
+.ld-stage .choice.on{cursor:default}
+.ld-line{list-style:none;margin:0;padding:0}
+.ld-line li{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.ld-line li i{width:8px;height:8px;border-radius:50%;background:var(--dim)}
+.ld-line li:first-child i{background:var(--v2-mark)}
+.ld-line li span:last-child{white-space:nowrap}
+.ld-write{display:flex;flex-direction:column;gap:10px}
+.ld-write .ld-label{margin:0}
+.ld-ch{border:1px solid var(--line);border-radius:var(--r-md)}
+.ld-ch summary{padding:10px 12px;font-weight:600;font-size:14px;cursor:pointer;min-height:24px}
+.ld-ch summary:focus-visible{outline:2px solid var(--v2-focus);outline-offset:2px;border-radius:var(--r-md)}
+.ld-ch form{display:flex;flex-direction:column;gap:8px;padding:0 12px 12px}
+.ld-ch form label{font-size:12px;color:var(--muted)}
+.ld-ch form textarea{resize:vertical}
+@media (max-width:1180px){.ld.has-open{grid-template-columns:minmax(0,1fr)}.ld-open{position:static}}
