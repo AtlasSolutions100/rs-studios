@@ -23,8 +23,8 @@
   {% endif %}
   <div class="scrollx"><div class="pipe" style="grid-template-columns:repeat({{ board.columns|length }},minmax(210px,1fr))">
     {% for col in board.columns %}
-    <section class="pipe-col" aria-labelledby="pc-{{ col.key }}">
-      <header><h2 id="pc-{{ col.key }}">{{ col.name }}</h2><span class="small muted">{{ col.count }}</span></header>
+    <section class="pipe-col" aria-labelledby="pc-{{ col.key }}" style="--at:{{ (100 * loop.index0 / ([loop.length - 1, 1]|max))|round|int }}%">
+      <header><h2 id="pc-{{ col.key }}">{{ col.name }}</h2><span class="pipe-n">{{ col.count }}</span></header>
       {% for k in col.cards %}
       <article class="pipe-card">
         <a href="{{ url_for('forms.contact', cid=k.id) }}"><b>{{ k.name }}</b></a>
@@ -46,8 +46,13 @@
 <style>
 .pipe{display:grid;gap:12px;align-items:start;min-width:0}
 .pipe-col{display:flex;flex-direction:column;gap:8px;min-width:0}
-.pipe-col header{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:0 2px 8px;border-bottom:2px solid var(--line)}
-.pipe-col h2{margin:0;font-size:14px}
+/* the color of a stage: none at the first, the full mark at the last (--at is how far along the column is) */
+.pipe-col{--stage:color-mix(in srgb,var(--v2-mark,var(--accent)) var(--at,0%),var(--v2-line2,var(--line)))}
+.pipe-col header{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0 2px 8px;border-bottom:2px solid var(--stage)}
+.pipe-col h2{margin:0;font-size:14px;display:flex;align-items:center;gap:8px;min-width:0}
+.pipe-col h2::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--stage);flex:none}
+.pipe-n{min-width:24px;padding:1px 8px;border:1px solid var(--stage);border-radius:999px;font:600 12px/1.5 var(--body);text-align:center;font-variant-numeric:tabular-nums}
+.pipe-card:hover{border-color:var(--v2-line2,var(--line))}
 .pipe-card{display:flex;flex-direction:column;gap:3px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);min-width:0;overflow-wrap:anywhere}
 .pipe-names{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
 .pipe-names label{display:block;margin-bottom:4px}
