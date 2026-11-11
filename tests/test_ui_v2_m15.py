@@ -198,10 +198,18 @@ check('data-ui="v2"' in hv and "ui_v2_home.css" in hv and "cfh-stage" in hv and 
       "the home page is the new one with UI_V2 off")
 with appmod.app.test_request_context("/"):
     so = appmod._signup_offer()
-check("Everything your campaign needs, from one product link." in hv and "data-try" in hv and so["cta"] in hv
+check("Create converting campaigns with AI" in hv and "data-try" in hv and so["cta"] in hv
       and so["body"] in hv, "its hero keeps the product-link form and the sign-up offer from the billing config")
 check(len(re.findall(r'class="cfh-t[ "]', hv)) == 18 and "cfh-stars" in hv and "data-replay" in hv, "the hero gathers 18 tiles, then the stars")
 shipped = [f["name"] for f in plans.FEATURES.values() if f.get("shipped")]
+import presenters  # noqa: E402
+kb = re.search(r'<section class="lv-sec cfk".*?</section>', hv, re.S).group(0)
+n_img = sum(1 for p in presets.LIBRARY if p.ad_type == "image" and p.kind != "type")
+check("The link goes in once. This is what comes back out." in kb and kb.count('class="cfk-row"') == 5
+      and f"{n_img} formats" in kb and f"{len(presenters.roster())} AI presenters" in kb and "None of them is a real person." in kb,
+      "what comes back out: five rows, with the preset and presenter counts from the catalog")
+check(all(f"{plans.FEATURES[k]['name'].replace('&', '&amp;')}: " in kb for k in ("studio", "copy", "planner", "competitors", "pages", "forms", "flows")),
+      "each row says which plan its tools come with, from the billing config")
 rows = re.search(r'<section class="cfm".*?</section>', hv, re.S).group(0)
 check(all(rows.count(">" + n.replace("&", "&amp;") + "</li>") == 2 for n in shipped) and rows.count('aria-hidden="true"><li>') == 2,
       f"the feature rows list every shipped feature from the billing config ({len(shipped)}), each once for readers")
@@ -249,7 +257,7 @@ check('data-ui="v2"' in client().get("/no-such-page").get_data(as_text=True)
 print("== the home page")
 home = on["/"].get_data(as_text=True)
 t = text(home)
-check(home.count("<h1") == 1 and "Everything your campaign needs, from one product link." in t, "one promise, in one h1")
+check(home.count("<h1") == 1 and "Create converting campaigns with AI" in t, "one promise, in one h1")
 check(len(re.findall(r'<ol class="lv-steps">.*?</ol>', home, re.S)) == 1
       and len(re.findall(r"<li>", re.search(r'<ol class="lv-steps">(.*?)</ol>', home, re.S).group(1))) == 3
       and all(s in t for s in ("Paste your product page", "See the price first", "Download finished ads")),
