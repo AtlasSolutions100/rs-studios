@@ -483,12 +483,14 @@ CREATE TABLE IF NOT EXISTS card_trials (
     trial INTEGER NOT NULL DEFAULT 0, credits INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_card_trials_fp ON card_trials(fingerprint);
 CREATE INDEX IF NOT EXISTS idx_card_trials_email ON card_trials(email_norm);
--- Plan trials (plan_gate.py, PLANS_ONLY): one row per trial subscription. One trial per workspace and per person
--- (email_norm); a row with credits 0 is a Stripe trial that carried no credits of ours (a second one).
+-- Plan trials (plan_gate.py, PLANS_ONLY): one row per trial subscription. One trial per workspace, per person
+-- (email_norm) and per card (fingerprint); a row with credits 0 is a Stripe trial that carried no credits of ours
+-- (a second one).
 CREATE TABLE IF NOT EXISTS plan_trials (
     id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, user_id INTEGER, email_norm TEXT,
     plan TEXT NOT NULL, subscription_id TEXT, credits INTEGER NOT NULL DEFAULT 0, started_at TEXT NOT NULL,
-    ends_at TEXT);
+    ends_at TEXT, fingerprint TEXT);
+CREATE INDEX IF NOT EXISTS idx_plan_trials_fp ON plan_trials(fingerprint);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_plan_trials_sub ON plan_trials(subscription_id);
 CREATE INDEX IF NOT EXISTS idx_plan_trials_ws ON plan_trials(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_plan_trials_email ON plan_trials(email_norm);

@@ -334,6 +334,16 @@ def get_subscription(sub_id: str) -> dict:
     return _get(f"/subscriptions/{sub_id}")
 
 
+def subscription_card_fingerprint(sub_id: str) -> str | None:
+    """The fingerprint of the card a subscription bills (its default payment method), or None when it has no
+    card. Read only. plan_gate.py uses it for one trial per card."""
+    sub = _get(f"/subscriptions/{sub_id}", [("expand[]", "default_payment_method")])
+    pm = sub.get("default_payment_method")
+    if isinstance(pm, str) and pm:
+        pm = _get(f"/payment_methods/{pm}")
+    return ((pm.get("card") or {}).get("fingerprint") or None) if isinstance(pm, dict) else None
+
+
 def find_plan_subscriptions(workspace_id: int) -> list[dict]:
     """Our plan subscriptions for a workspace, found by the metadata we set at checkout."""
     q = f"metadata['app']:'{APP_TAG}' AND metadata['workspace_id']:'{int(workspace_id)}'"

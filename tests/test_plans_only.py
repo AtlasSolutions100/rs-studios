@@ -42,7 +42,7 @@ def check(cond, msg):
 
 
 # ---------------------------------------------------------------- fake Stripe
-posts, sessions, refuse_note = [], {}, [False]
+posts, sessions, refuse_note, cards = [], {}, [False], {}
 
 
 def fake_post(path, form, idempotency_key=None):
@@ -64,6 +64,9 @@ def fake_get(path, params=None):
         raise billing.BillingError("Stripe 404: No such checkout.session", 404, "resource_missing", "id")
     if path == "/invoice_payments":
         return {"object": "list", "data": []}
+    if path.startswith("/subscriptions/"):          # the card a trial was started with (one trial per card)
+        sub = path.rsplit("/", 1)[1]
+        return {"id": sub, "default_payment_method": {"id": f"pm_{sub}", "card": {"fingerprint": cards.get(sub, f"fp_{sub}")}}}
     raise AssertionError(f"unexpected Stripe read {path}")
 
 
@@ -232,10 +235,14 @@ r = c.get("/app")
 check(r.status_code == 302 and r.headers["Location"].endswith("/app/plan"), "the app sends a new account to the plan step")
 html = page(c, "/app/plan")
 check("Pick a plan to start" in html and html.count("Start 3-day trial") == 2, "the plan step: a 3-day trial on Starter and Growth")
-check("Start Scale, $249 today" in html and "All 18,000 credits land right away" in html, "Scale has no trial and says it is charged today")
-check("<b>3 days free</b> with 200 credits" in html and "<b>3 days free</b> with 600 credits" in html,
-      "the trial's credits are 10% of the month: 200 on Starter, 600 on Growth")
-check("the other 1,800 credits land with that first payment" in html, "the rest of the month's credits come with the first payment")
+check("Start Scale, $249 today" in html, "Scale has no trial and says it is charged today")
+check(html.count("data-plan-trial") == 2 and html.count("<b>3-day free trial.</b> Full access.") == 3 and 'fill="#BDFA25"' in html,
+      "Starter and Growth carry the chip at the top: our star, 3-day free trial, full access (Scale keeps an unseen slot)")
+check(re.search(r'data-plan="scale">\s*<p class="px-trial gap" aria-hidden="true">', html) is not None,
+      "Scale's slot is hidden from readers and screen readers")
+check("days free</b> with" not in html and "credits land with that first payment" not in html,
+      "the per-card trial arithmetic is gone")
+check("you carry on with the same month of credits" in html, "the step says the first payment carries on with the same credits")
 check("Your card is charged when the trial ends, unless you cancel first" in html, "the step says when the card is charged")
 for off, nxt in (("50% off", "$79"), ("33% off", "$149"), ("28% off", "$349")):
     check(off in html and f'<s class="px-next"><span class="sr">going to </span>{nxt}</s>' in html,
@@ -243,8 +250,8 @@ for off, nxt in (("50% off", "$79"), ("33% off", "$149"), ("28% off", "$349")):
 check("Launch price" not in html and "launch price" not in html, "no launch-price wording")
 check(c.get("/app/library").status_code == 200, "the library stays open without a plan")
 html = page(c, "/app/billing")
-check("No plan yet" in html and html.count("Start 3-day trial") == 2 and "Needs a plan" in html,
-      "Billing stays open: no plan yet, the trial buttons, and packs wait for a plan")
+check("No plan yet" in html and html.count("Start 3-day trial") == 2 and "Needs a plan" in html
+      and html.count("data-plan-trial") == 2, "Billing stays open: no plan yet, the trial chips and buttons, and packs wait for a plan")
 r = c.get("/app/create", headers={"Accept": "application/json"})
 check(r.status_code == 402 and r.get_json().get("plan_required") and r.get_json()["url"].endswith("/app/plan"),
       "a JSON caller gets 402 with plan_required and the plan step's address")
@@ -270,7 +277,7 @@ check(form.get("subscription_data[trial_period_days]") == "3" and form.get("paym
 check(form.get("subscription_data[metadata][trial_days]") == "3" and form.get("metadata[plan]") == "starter",
       "the subscription is marked as a trial of ours")
 note = form.get("custom_text[submit][message]", "")
-check("3 days free with 200 credits" in note and "$39 a month" in note and "nothing is charged" in note,
+check("3 days free with full access" in note and "$39 a month" in note and "nothing is charged" in note,
       "Stripe's page says the trial, the price after it and how to avoid the charge")
 check("plan=success&trial=1&go=app" in form["success_url"] and "/app/plan?canceled=1" in form["cancel_url"],
       "afterwards the member lands in the app; a canceled checkout comes back to the plan step")
@@ -297,24 +304,24 @@ w = ws_of("nina@example.com")
 check(w["plan_status"] == "pending" and c.get("/app").status_code == 200, "checkout done: confirming, and the app is open")
 out = ev_invoice("nina@example.com", "sub_nina", "starter", "in_nina_0", 0, "subscription_create", IN_3_DAYS).get_json()
 w = ws_of("nina@example.com")
-check(out.get("trial") and out["credited"] == 200, "the $0 invoice starts the trial with 200 credits")
+check(out.get("trial") and out["credited"] == 2000, "the $0 invoice starts the trial with the plan's full 2,000 credits")
 check(w["plan"] == "starter" and w["plan_status"] == "trialing" and plans.plan_code(w) == "starter", "the workspace is on Starter, trialing")
-check(w["plan_credits"] == 200 and w["credits"] == 0 and w["plan_granted"] == 200 and w["trial_open"] == 1,
-      "200 plan credits, none of the pack kind, and the trial is open")
+check(w["plan_credits"] == 2000 and w["credits"] == 0 and w["plan_granted"] == 2000 and w["trial_open"] == 1,
+      "2,000 plan credits, none of the pack kind, and the trial is open")
 check(w["trial_ends_at"] and w["plan_paid_through"] == w["trial_ends_at"], "the trial's end is on the workspace")
 t = q("SELECT * FROM plan_trials WHERE workspace_id=?", w["id"])
-check(len(t) == 1 and t[0]["credits"] == 200 and t[0]["subscription_id"] == "sub_nina" and t[0]["email_norm"] == "nina@example.com",
-      "the trial is recorded once, with the person's email")
+check(len(t) == 1 and t[0]["credits"] == 2000 and t[0]["subscription_id"] == "sub_nina" and t[0]["email_norm"] == "nina@example.com"
+      and t[0]["fingerprint"] == "fp_sub_nina", "the trial is recorded once, with the person's email and the card's fingerprint")
 inv = q("SELECT * FROM plan_invoices WHERE invoice_id='in_nina_0'")[0]
-check(inv["billing_reason"] == "trial" and inv["credits"] == 200 and inv["amount_cents"] == 0, "the $0 invoice is filed as the trial")
+check(inv["billing_reason"] == "trial" and inv["credits"] == 2000 and inv["amount_cents"] == 0, "the $0 invoice is filed as the trial")
 ev_sub("nina@example.com", "sub_nina", "starter", "trialing", IN_3_DAYS, typ="customer.subscription.created")
 ev_invoice("nina@example.com", "sub_nina", "starter", "in_nina_0", 0, "subscription_create", IN_3_DAYS)
 w = ws_of("nina@example.com")
-check(w["plan_credits"] == 200 and len(q("SELECT 1 FROM plan_trials WHERE workspace_id=?", w["id"])) == 1,
+check(w["plan_credits"] == 2000 and len(q("SELECT 1 FROM plan_trials WHERE workspace_id=?", w["id"])) == 1,
       "the subscription event and a repeat of the invoice grant nothing more")
 html = page(c, "/app/billing")
-check('id="plan-trial"' in html and "Free trial, ends" in html and "$39 is charged then and the other 1,800 credits land" in html,
-      "Billing says when the trial ends, what is charged and what lands then")
+check('id="plan-trial"' in html and "Free trial, ends" in html and "$39 is charged then, and you carry on with this month" in html
+      and "came without credits" not in html, "Billing says when the trial ends, what is charged and that the credits carry on")
 check(c.get("/app").status_code == 200 and c.get("/app/plan").status_code == 302, "in the trial the app is open and the plan step is gone")
 check("Needs a plan" not in html, "packs can be bought on a plan")
 with db.connect() as conn:
@@ -327,13 +334,14 @@ with db.connect() as conn:
     conn.commit()
 out = ev_invoice("nina@example.com", "sub_nina", "starter", "in_nina_1", 3900, "subscription_cycle", IN_33_DAYS).get_json()
 w = ws_of("nina@example.com")
-check(out["credited"] == 1800 and w["plan_credits"] == 1950, "the first payment adds the other 1,800: 150 left of the trial plus 1,800")
+check(out["credited"] == 0 and w["plan_credits"] == 1950, "the first payment resets nothing: the 1,950 left carry on")
 check(w["plan_status"] == "active" and w["trial_open"] == 0 and w["plan_granted"] == 2000, "the plan is active and the trial is closed")
-check(q("SELECT reason FROM ledger WHERE workspace_id=? ORDER BY id DESC LIMIT 1", w["id"])[0]["reason"] == "Starter plan: monthly credits",
-      "the ledger calls them the month's credits")
+check(q("SELECT reason FROM ledger WHERE workspace_id=? ORDER BY id DESC LIMIT 1", w["id"])[0]["reason"] == "generation"
+      and q("SELECT credits, amount_cents FROM plan_invoices WHERE invoice_id='in_nina_1'")[0]["amount_cents"] == 3900,
+      "nothing new in the ledger; the payment itself is on file")
 out = ev_invoice("nina@example.com", "sub_nina", "starter", "in_nina_2", 3900, "subscription_cycle", IN_63_DAYS).get_json()
 w = ws_of("nina@example.com")
-check(out["credited"] == 2000 and w["plan_credits"] == 2000, "each renewal after that is the full 2,000, replacing what was left")
+check(out["credited"] == 2000 and w["plan_credits"] == 2000, "the renewal after that refills to the full 2,000, replacing what was left")
 ev_invoice("nina@example.com", "sub_nina", "starter", "in_nina_0b", 0, "subscription_create", IN_3_DAYS)
 w = ws_of("nina@example.com")
 check(w["plan_status"] == "active" and w["plan_credits"] == 2000, "a stray trial invoice later changes nothing")
@@ -343,27 +351,28 @@ print("\nThe subscription event first")
 c2 = signup("omar@example.com")
 ev_sub("omar@example.com", "sub_omar", "growth", "trialing", IN_3_DAYS, typ="customer.subscription.created")
 w = ws_of("omar@example.com")
-check(w["plan"] == "growth" and w["plan_status"] == "trialing" and w["plan_credits"] == 600 and w["trial_open"] == 1,
-      "Growth's trial starts from the subscription event alone, with 600 credits")
+check(w["plan"] == "growth" and w["plan_status"] == "trialing" and w["plan_credits"] == 6000 and w["trial_open"] == 1,
+      "Growth's trial starts from the subscription event alone, with its full 6,000 credits")
 out = ev_invoice("omar@example.com", "sub_omar", "growth", "in_omar_0", 0, "subscription_create", IN_3_DAYS).get_json()
 w = ws_of("omar@example.com")
-check(out["credited"] == 0 and w["plan_credits"] == 600 and w["plan_status"] == "trialing", "its $0 invoice afterwards grants nothing more")
+check(out["credited"] == 0 and w["plan_credits"] == 6000 and w["plan_status"] == "trialing", "its $0 invoice afterwards grants nothing more")
 out = ev_invoice("omar@example.com", "sub_omar", "growth", "in_omar_1", 9900, "subscription_cycle", IN_33_DAYS).get_json()
-check(out["credited"] == 5400 and ws_of("omar@example.com")["plan_credits"] == 6000, "Growth's first payment adds the other 5,400")
+check(out["credited"] == 0 and ws_of("omar@example.com")["plan_credits"] == 6000, "Growth's first payment adds nothing and takes nothing")
 
 print("\nA plan change during the trial")
 signup("wes@example.com")
 ev_invoice("wes@example.com", "sub_wes", "starter", "in_wes_0", 0, "subscription_create", IN_3_DAYS)
 out = ev_invoice("wes@example.com", "sub_wes", "growth", "in_wes_up", 0, "subscription_update", IN_3_DAYS).get_json()
 w = ws_of("wes@example.com")
-check(out["credited"] == 0 and w["plan_credits"] == 200 and w["plan_status"] == "trialing" and w["trial_open"] == 1,
+check(out["credited"] == 0 and w["plan_credits"] == 2000 and w["plan_status"] == "trialing" and w["trial_open"] == 1,
       "upgrading in the trial (a $0 invoice) lands no month's credits: nothing was paid")
 ev_sub("wes@example.com", "sub_wes", "growth", "trialing", IN_3_DAYS)
 w = ws_of("wes@example.com")
-check(w["plan"] == "growth" and w["plan_credits"] == 200, "the subscription event moves the plan; the trial's credits stay as they were")
+check(w["plan"] == "growth" and w["plan_credits"] == 2000, "the subscription event moves the plan; the trial's credits stay as they were")
 out = ev_invoice("wes@example.com", "sub_wes", "growth", "in_wes_1", 9900, "subscription_cycle", IN_33_DAYS).get_json()
 w = ws_of("wes@example.com")
-check(out["credited"] == 5800 and w["plan_credits"] == 6000 and w["plan_status"] == "active", "Growth's first payment brings it to the full 6,000")
+check(out["credited"] == 4000 and w["plan_credits"] == 6000 and w["plan_status"] == "active",
+      "Growth's first payment adds the difference between the two plans: 6,000 in all")
 
 print("\nThe first payment before word of the trial")
 signup("pia@example.com")
@@ -411,13 +420,40 @@ r, form = subscribe(c4, "starter")
 check("subscription_data[trial_period_days]" not in form and "trial_days" not in str(form) and "go=app" in form["success_url"],
       "and their checkout has no trial")
 
+# ---------------------------------------------------------------- one trial per card
+print("\nOne trial per card")
+cards.update(sub_zed1="fp_shared", sub_zed2="fp_shared", sub_yan="fp_old_free")
+signup("zed1@example.com")
+ev_invoice("zed1@example.com", "sub_zed1", "starter", "in_zed1_0", 0, "subscription_create", IN_3_DAYS)
+check(ws_of("zed1@example.com")["plan_credits"] == 2000, "a card's first trial has full access")
+cz = signup("zed2@example.com")
+out = ev_invoice("zed2@example.com", "sub_zed2", "starter", "in_zed2_0", 0, "subscription_create", IN_3_DAYS).get_json()
+w = ws_of("zed2@example.com")
+check(out["credited"] == 0 and w["plan_credits"] == 0 and w["plan_status"] == "trialing" and w["trial_open"] == 1
+      and q("SELECT credits FROM plan_trials WHERE workspace_id=?", w["id"])[0]["credits"] == 0,
+      "the same card on a second account: Stripe's trial runs, without trial credits")
+check("came without credits; they land with the first payment" in page(cz, "/app/billing"), "and Billing says why")
+out = ev_invoice("zed2@example.com", "sub_zed2", "starter", "in_zed2_1", 3900, "subscription_cycle", IN_33_DAYS).get_json()
+check(out["credited"] == 2000 and ws_of("zed2@example.com")["plan_credits"] == 2000, "its credits land with the first payment")
+signup("yan@example.com")
+run_sql("INSERT INTO card_trials (workspace_id, fingerprint, email_norm, trial, credits, created_at) VALUES (?,?,?,?,?,?)",
+        ws_of("old.free@example.com")["id"], "fp_old_free", None, 1, 40, db.now())
+out = ev_sub("yan@example.com", "sub_yan", "growth", "trialing", IN_3_DAYS, typ="customer.subscription.created").get_json()
+check(ws_of("yan@example.com")["plan_credits"] == 0, "a card that already earned the old free credits elsewhere gets no trial credits either")
+_real_fp = billing.subscription_card_fingerprint
+billing.subscription_card_fingerprint = lambda sub: (_ for _ in ()).throw(billing.BillingError("Stripe unreachable"))
+signup("xia@example.com")
+ev_invoice("xia@example.com", "sub_xia", "starter", "in_xia_0", 0, "subscription_create", IN_3_DAYS)
+check(ws_of("xia@example.com")["plan_credits"] == 2000, "if the card can't be read the trial goes ahead")
+billing.subscription_card_fingerprint = _real_fp
+
 # ---------------------------------------------------------------- a trial that is canceled
 print("\nA trial that ends without paying")
 c5 = signup("tess@example.com")
 ev_invoice("tess@example.com", "sub_tess", "starter", "in_tess_0", 0, "subscription_create", IN_3_DAYS)
 ev_sub("tess@example.com", "sub_tess", "starter", "canceled", IN_3_DAYS, typ="customer.subscription.deleted")
 w = ws_of("tess@example.com")
-check(w["plan_status"] == "canceled" and plans.plan_code(w) == "starter" and w["plan_credits"] == 200 and w["trial_open"] == 0,
+check(w["plan_status"] == "canceled" and plans.plan_code(w) == "starter" and w["plan_credits"] == 2000 and w["trial_open"] == 0,
       "canceled during the trial: the plan and its trial credits stay to the trial's end")
 run_sql("UPDATE workspaces SET plan_paid_through='2020-01-01T00:00:00+00:00' WHERE id=?", w["id"])
 with db.connect() as conn:
@@ -491,8 +527,12 @@ check(all(f'<s class="px-next"><span class="sr">going to </span>{x}</s>' in html
       "pricing: the price each plan is going to, struck through")
 check("Try Starter free for 3 days" in html and "Try Growth free for 3 days" in html and "Start Scale, $249/mo" in html,
       "pricing: trial buttons on Starter and Growth, a plain one on Scale")
-check("Your card is charged when the trial ends unless you cancel first" in html and "Scale has no trial and is charged at once" in html,
-      "pricing: the trial's terms are stated")
+check(html.count("data-plan-trial") == 2 and html.count("<b>3-day free trial.</b> Full access.") == 3 and 'fill="#BDFA25"' in html,
+      "pricing: the star chip at the top of Starter and Growth, 3-day free trial, full access")
+check("days free</b> with" not in html and "200 credits" not in html and "Charged at once. No trial." not in html,
+      "pricing: the per-card trial wording is gone")
+check("Your card is charged the plan's price when the trial ends unless you cancel first" in html
+      and "Scale has no trial and is charged at once" in html, "pricing: the trial's terms are stated once, under the plans")
 check("No trial that bills you" not in html and "on any plan or none" not in html, "pricing: the lines about free sign-up are gone")
 check("Launch price" not in html and "countdown" not in html.lower() and "ends in" not in html.lower(), "pricing: no launch wording and no timer")
 html = page(pub, "/")

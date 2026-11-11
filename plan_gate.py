@@ -6,16 +6,18 @@ While it is on:
     (plan_gate_routes.py: the "Pick a plan" page, then Stripe Checkout). Its card
     is saved by that checkout, so the separate card step (card_on_file.py) is not
     asked on top.
-  * Starter and Growth start with a 3-day trial (TRIAL_DAYS, TRIAL_PLANS). Stripe
-    runs the trial: the card is taken at checkout and charged the plan's price
-    when the trial ends, unless the member cancels first. TRIAL_PERCENT of the
-    plan's monthly credits land when the trial starts (200 on Starter, 600 on
-    Growth); the rest land with the first payment, and each renewal after that
-    is the full month. Scale has no trial and is charged at once.
-  * One trial per workspace and per person (plan_trials: the workspace, and the
-    owner's email with case, +tags and Gmail dots folded, preview.norm_email).
-    A workspace that already paid for a plan, or is on a comp or a code, gets no
-    trial either: it goes straight to the paid plan.
+  * Starter and Growth start with a 3-day trial (TRIAL_DAYS, TRIAL_PLANS) with full access (Koby, Nov 11): the
+    whole plan and its month of credits from the first minute (TRIAL_PERCENT = 100: 2,000 on Starter, 6,000 on
+    Growth). Stripe runs the trial: the card is taken at checkout and charged the plan's price when the trial
+    ends, unless the member cancels first. The first payment does not reset the credits: they are the first
+    month's, and the member carries on with what is left; the next full month lands at the renewal after
+    that. Scale has no trial and is charged at once.
+  * One trial per workspace, per person and per card (plan_trials: the workspace, the owner's email with case,
+    +tags and Gmail dots folded, preview.norm_email, and the card's fingerprint read from Stripe when the trial
+    is first recorded; cards that had the old free credits count too, card_trials). A workspace that already
+    paid for a plan, or is on a comp or a code, gets no trial either: it goes straight to the paid plan. A
+    repeat that slips through to a Stripe trial (the card is only known after checkout) runs without trial
+    credits; its credits land with the first payment.
   * Accounts that were on Free pick a plan at their next visit to make anything
     new. Their library, downloads, sharing, Billing, the look switch, workspace
     deletion and logging out stay open (plan_gate_routes.ALLOWED).
@@ -41,7 +43,7 @@ import preview
 
 TRIAL_DAYS = 3
 TRIAL_PLANS = ("starter", "growth")
-TRIAL_PERCENT = 10          # of the plan's monthly credits, granted when the trial starts
+TRIAL_PERCENT = 100         # of the plan's monthly credits, granted when the trial starts: full access
 MESSAGE = "Pick a plan to make something new."
 
 
@@ -148,11 +150,23 @@ def _iso(ts) -> str | None:
         return None
 
 
-def start_trial(conn, ws, sub_id: str, code: str, trial_end=None, user_id=None) -> int:
+def card_had_trial(conn, ws_id: int, fingerprint: str | None) -> bool:
+    """Did this card start a trial (or earn the old free credits, card_on_file.py) on another workspace?"""
+    if not fingerprint:
+        return False
+    if conn.execute("SELECT 1 FROM plan_trials WHERE fingerprint=? AND workspace_id!=? LIMIT 1",
+                    (fingerprint, ws_id)).fetchone():
+        return True
+    return conn.execute("SELECT 1 FROM card_trials WHERE fingerprint=? AND workspace_id!=? AND trial=1 LIMIT 1",
+                        (fingerprint, ws_id)).fetchone() is not None
+
+
+def start_trial(conn, ws, sub_id: str, code: str, trial_end=None, user_id=None, fingerprint: str | None = None) -> int:
     """A trial subscription of ours began (its $0 invoice, or the subscription turning up as trialing; whichever
     Stripe sends first). Records it once per subscription and grants the trial credits. No commit. Returns the
-    credits granted: 0 when this subscription's trial was recorded before, or when the workspace or the person
-    already had a trial (the Stripe trial still runs; it just carries no credits of ours)."""
+    credits granted: 0 when this subscription's trial was recorded before, or when the workspace, the person or
+    the card (`fingerprint`) already had a trial (the Stripe trial still runs; it just carries no credits of
+    ours, and they land with the first payment)."""
     p = plans.PLANS.get(code)
     if ws is None or not sub_id or p is None or code == "free":
         return 0
@@ -166,15 +180,17 @@ def start_trial(conn, ws, sub_id: str, code: str, trial_end=None, user_id=None) 
                              (ws["id"],)).fetchone()
     email = _email_norm(owner)
     again = conn.execute("SELECT 1 FROM plan_trials WHERE workspace_id=? LIMIT 1", (ws["id"],)).fetchone() is not None \
-        or bool(email and conn.execute("SELECT 1 FROM plan_trials WHERE email_norm=? LIMIT 1", (email,)).fetchone())
+        or bool(email and conn.execute("SELECT 1 FROM plan_trials WHERE email_norm=? LIMIT 1", (email,)).fetchone()) \
+        or card_had_trial(conn, ws["id"], fingerprint)
     # Word of the trial reached us after its first payment did (events out of order): record it, change nothing.
     paid = conn.execute("SELECT 1 FROM plan_invoices WHERE workspace_id=? AND amount_cents>0 LIMIT 1",
                         (ws["id"],)).fetchone() is not None
     n = 0 if (again or paid) else trial_credits(p)
     ends = _iso(trial_end)
     cur = conn.execute("INSERT OR IGNORE INTO plan_trials (workspace_id, user_id, email_norm, plan, subscription_id, "
-                       "credits, started_at, ends_at) VALUES (?,?,?,?,?,?,?,?)",
-                       (ws["id"], owner["id"] if owner is not None else None, email, code, sub_id, n, db.now(), ends))
+                       "credits, started_at, ends_at, fingerprint) VALUES (?,?,?,?,?,?,?,?,?)",
+                       (ws["id"], owner["id"] if owner is not None else None, email, code, sub_id, n, db.now(), ends,
+                        fingerprint or None))
     if cur.rowcount != 1 or paid:
         return 0
     if n:
@@ -190,25 +206,22 @@ def in_trial(ws) -> bool:
 
 
 def trial_view(ws) -> dict | None:
-    """What Billing says about a running trial: the plan, when it ends, what is charged then, and the credits
-    still to come with that first payment. None when no trial is running."""
+    """What Billing says about a running trial: the plan, when it ends and what is charged then. `no_credits`
+    marks a repeat trial that came without credits. None when no trial is running."""
     if not in_trial(ws):
         return None
     p = plans.PLANS.get(_key(ws, "plan") or "")
     if p is None or p["code"] == "free":
         return None
-    had = int(_key(ws, "plan_granted") or 0)
-    return {"plan": p, "ends_at": _key(ws, "trial_ends_at"), "usd": p["usd"], "credits_now": had,
-            "credits_later": max(0, int(p["credits"]) - had),
+    return {"plan": p, "ends_at": _key(ws, "trial_ends_at"), "usd": p["usd"],
+            "no_credits": int(_key(ws, "plan_granted") or 0) == 0,
             "canceling": bool(_key(ws, "plan_cancel_at_period_end"))}
 
 
 def terms(code: str, days: int) -> dict:
-    """What picking plan `code` means in money, for the plan page and the checkout note."""
+    """What picking plan `code` means in money, for the plan page."""
     p = plans.PLANS[code]
-    n = trial_credits(p) if days else int(p["credits"])
-    return {"code": code, "name": p["name"], "usd": p["usd"], "days": days, "credits": int(p["credits"]),
-            "credits_now": n, "credits_later": int(p["credits"]) - n if days else 0}
+    return {"code": code, "name": p["name"], "usd": p["usd"], "days": days, "credits": int(p["credits"])}
 
 
 def offer() -> dict:
@@ -222,16 +235,15 @@ def offer() -> dict:
                   "you cancel first.")
     return {"credits": n, "images": images, "video": n >= r["video5"], "ad": False, "card": True, "trial": True,
             "cta": f"Try it free for {TRIAL_DAYS} days",
-            "body": (f"Starter and Growth are free for {TRIAL_DAYS} days. Starter's trial comes with {n:,} credits, "
-                     f"enough for {images} image ad{'' if images == 1 else 's'}. {terms_line}"),
+            "body": f"Starter and Growth include a {TRIAL_DAYS}-day free trial with full access. {terms_line}",
             "terms": terms_line}
 
 
 def checkout_note(code: str, days: int) -> str:
     """The line under the button on Stripe's page (custom_text.submit.message)."""
-    t = terms(code, days)
+    p = plans.PLANS[code]
     if days:
-        return (f"{days} days free with {t['credits_now']:,} credits. Then ${t['usd']} a month with "
-                f"{t['credits']:,} credits a month, until you cancel. Cancel any time in Billing; "
-                f"cancel before the trial ends and nothing is charged.")
-    return f"${t['usd']} a month with {t['credits']:,} credits a month, until you cancel. Cancel any time in Billing."
+        return (f"{days} days free with full access. Then ${p['usd']} a month with {int(p['credits']):,} credits a "
+                f"month, until you cancel. Cancel any time in Billing; cancel before the trial ends and nothing "
+                f"is charged.")
+    return f"${p['usd']} a month with {int(p['credits']):,} credits a month, until you cancel. Cancel any time in Billing."

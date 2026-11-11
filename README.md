@@ -704,14 +704,25 @@ Asked for by Koby on Nov 11 2026. `deploy.yml` turns both on in production unles
   `subscription_data[trial_period_days]`, `payment_method_collection=always`, the subscription metadata `trial_days`
   and one line under Stripe's button (`plan_gate.checkout_note`; if Stripe refuses that field the session is made
   again without it). Scale has no trial and is charged at once.
-- Trial credits are 10% of the plan's month (`TRIAL_PERCENT`: 200 on Starter, 600 on Growth). They land when the
-  trial starts, from whichever of the `$0` `invoice.paid` and the `trialing` subscription event arrives first
-  (`plan_gate.start_trial`, once per subscription, table `plan_trials`). The first paid invoice tops the plan bucket up
-  to the full month (`workspaces.trial_open`); each renewal after that replaces it as before. A `$0` invoice from a
-  100% promotion code is not a trial (no `trial_days` mark, and its line keeps its amount).
-- One trial per workspace and per person (`plan_trials.email_norm`: case, +tags and Gmail dots folded). A workspace
-  that already paid for a plan, or is on a comp or a code, goes straight to the paid plan. The card's fingerprint is
-  not checked yet; that is the next guard if trials get farmed.
+- The trial has full access (Koby, Nov 11): the whole plan and its month of credits (`TRIAL_PERCENT = 100`: 2,000 on
+  Starter, 6,000 on Growth). They land when the trial starts, from whichever of the `$0` `invoice.paid` and the
+  `trialing` subscription event arrives first (`plan_gate.start_trial`, once per subscription, table `plan_trials`).
+  The first paid invoice does not reset them: they are the first month's credits and the member carries on with what
+  is left (`workspaces.trial_open`; only what the trial didn't bring is added, for a repeat trial that came without
+  credits or a bigger plan picked during it). The renewal after that refills as before. A `$0` invoice from a 100%
+  promotion code is not a trial (no `trial_days` mark, and its line keeps its amount), and a `$0` invoice during the
+  trial (a plan change) lands nothing.
+- One trial per workspace, per person and per card: `plan_trials.email_norm` (case, +tags and Gmail dots folded) and
+  `plan_trials.fingerprint`, read from Stripe when the trial is first recorded
+  (`billing.subscription_card_fingerprint`; cards that earned the old free credits count too). The card is only known
+  after checkout, so a repeat that gets through runs its Stripe trial without credits, and Billing says so; its
+  credits land with the first payment. If the card can't be read the trial goes ahead. A workspace that already paid
+  for a plan, or is on a comp or a code, goes straight to the paid plan.
+- What a trial can cost us: a credit is about a cent of generation spend, so a trial that is used up and canceled
+  costs up to about $18 on Starter and $55 on Growth.
+- The plan cards say it with one chip at the top of Starter and Growth (`trial_chip` in `web/_price.html`: the star
+  mark, "3-day free trial. Full access."); the terms are stated once under the plans, on the plan step and on
+  Stripe's page.
 - A trial canceled before it ends keeps the plan and its trial credits to the trial's end, then both go
   (`core.settle_plan_lapse`). A card that fails at the end pauses the plan (the renewal hold), fixed on Billing.
 - Accounts that were on Free are sent to the plan step at their next visit. Open without a plan

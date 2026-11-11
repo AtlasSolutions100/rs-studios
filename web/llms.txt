@@ -42,7 +42,7 @@ Campaignify doesn't post ads, buy media or read results from ad platforms. It gu
 
 ## Plans
 
-{% if plans_only() %}- Trial: Starter and Growth are free for {{ plan_trial_days('starter') }} days, with {{ '{:,}'.format(trial_credits(plans.PLANS.starter)) }} credits on Starter and {{ '{:,}'.format(trial_credits(plans.PLANS.growth)) }} on Growth; the rest of the month's credits arrive with the first payment. {{ signup_offer().terms }}
+{% if plans_only() %}- Trial: Starter and Growth are free for {{ plan_trial_days('starter') }} days with full access: the plan's tools and its month of credits. The first payment does not reset the credits; they refill at each renewal after that. {{ signup_offer().terms }}
 {% else %}- Free: {{ '{:,}'.format(starter_credits()) }} starter credits (free sign-up includes {{ starter_credits() // rates().image }} image ads) and the ad studio. {{ signup_offer().terms }}
 {% endif %}{% for p in plans.PAID %}- {{ p.name }}: ${{ p.usd }} a month, {{ '{:,}'.format(p.credits) }} credits a month. {{ p.line }}
 {% endfor %}- Credit packs ({% for p in packs %}${{ p.usd }}{{ ', ' if not loop.last }}{% endfor %}) top up any {{ 'plan' if plans_only() else 'account' }}.

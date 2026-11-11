@@ -15,11 +15,11 @@
   {% for p in plans.PAID %}
   <div class="lp-price {{ 'hot' if p.code == 'growth' }}">
     {% if p.code == 'growth' %}<span class="lp-badge">Most popular</span>{% endif %}
+    {% if po %}{{ price.trial_chip(plan_trial_days(p.code), plan_trial_days('starter')) }}{% endif %}
     <h3>{{ p.name }}</h3>
     <div class="lp-amt">{{ price.amount(p, '/mo', 'per') }}</div>
     <p class="lp-cr">{{ '{:,}'.format(p.credits) }} credits every month</p>
     {% set m = ad_math(p.credits, p.usd) %}<p class="small plan-out">{{ m.counts }}, each month.</p>
-    {% if plan_trial_days(p.code) %}<p class="small" data-plan-trial><b>{{ plan_trial_days(p.code) }} days free</b> with {{ '{:,}'.format(trial_credits(p)) }} credits, then ${{ p.usd }} a month.</p>{% elif po %}<p class="small" data-plan-trial>Charged at once. No trial.</p>{% endif %}
     <p class="muted small">{{ p.line }}</p>
     <details class="plan-more" open><summary>What's in {{ p.name }}</summary>{% include "_plan_features.html" %}</details>
     {% if billing_configured() %}
@@ -31,7 +31,7 @@
   </div>
   {% endfor %}
 </div>
-<p class="small dim" style="margin:14px 0 30px">{% if po %}Starter and Growth start with a {{ plan_trial_days('starter') }}-day free trial: {{ '{:,}'.format(trial_credits(plans.PLANS.starter)) }} credits on Starter and {{ '{:,}'.format(trial_credits(plans.PLANS.growth)) }} on Growth to try it, and the rest of the month's credits with the first payment. Your card is charged when the trial ends unless you cancel first. Scale has no trial and is charged at once. {% else %}No trial that bills you: nothing is charged until you pick a plan or buy a pack. {% endif %}Cancel any month; the plan runs to the end of the month you paid for. Plan credits reset monthly and are spent before pack credits; pack credits never expire. Failed generations are refunded automatically.</p>
+<p class="small dim" style="margin:14px 0 30px">{% if po %}Starter and Growth include a {{ plan_trial_days('starter') }}-day free trial with full access. Your card is charged the plan's price when the trial ends unless you cancel first, and you carry on with that month's credits. Scale has no trial and is charged at once. {% else %}No trial that bills you: nothing is charged until you pick a plan or buy a pack. {% endif %}Cancel any month; the plan runs to the end of the month you paid for. Plan credits reset monthly and are spent before pack credits; pack credits never expire. Failed generations are refunded automatically.</p>
 <h3 class="lp-h3">Credit packs <span class="muted small">{{ 'one-time top-ups for any plan' if po else 'one-time top-ups, on any plan or none' }}</span></h3>
 <div class="lp-packs">
   {% for p in packs %}

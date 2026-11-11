@@ -16,11 +16,11 @@
   <div class="pk-plans" data-plans>
     {% for p in plans.PAID %}{% set t = terms[p.code] %}
     <section class="pk-plan" aria-labelledby="pk-{{ p.code }}" data-plan="{{ p.code }}">
+      {% if any_trial %}{{ price.trial_chip(t.days, days) }}{% endif %}
       <h2 id="pk-{{ p.code }}">{{ p.name }}</h2>
       <p class="pk-amt">{{ price.amount(p) }}</p>
       <p class="pk-cr">{{ '{:,}'.format(p.credits) }} credits every month</p>
       {% set m = ad_math(p.credits, p.usd) %}<p class="pk-makes">{{ m.counts }}.</p>
-      <p class="pk-terms" data-plan-terms>{% if t.days %}<b>{{ t.days }} days free</b> with {{ '{:,}'.format(t.credits_now) }} credits. Then ${{ t.usd }} a month, and the other {{ '{:,}'.format(t.credits_later) }} credits land with that first payment.{% else %}<b>${{ t.usd }} today</b>, then each month. All {{ '{:,}'.format(t.credits) }} credits land right away.{% endif %}</p>
       {% if not owner %}
       <span class="btn dark disabled" aria-disabled="true">Owner picks the plan</span>
       {% elif not checkout_open or not p.price_id %}
@@ -42,8 +42,8 @@
   {% if not owner %}<p class="pk-fine">Ask your workspace owner to pick a plan. You can keep making ads as soon as it's on.</p>{% endif %}
   <dl class="pk-how" data-plan-how>
     {% if any_trial %}
-    <div><dt>Today</dt><dd>$0 on Starter and Growth. You add your card on Stripe's secure page and come straight back here.</dd></div>
-    <div><dt>In {{ days }} days</dt><dd>The plan's price is charged and the rest of the month's credits land. Cancel before then and nothing is charged.</dd></div>
+    <div><dt>Today</dt><dd>$0 on Starter and Growth, with the whole plan and its month of credits. You add your card on Stripe's secure page and come straight back here.</dd></div>
+    <div><dt>In {{ days }} days</dt><dd>The plan's price is charged and you carry on with the same month of credits. Cancel before then and nothing is charged.</dd></div>
     {% else %}
     <div><dt>Today</dt><dd>The plan's price is charged on Stripe's secure page and your credits land right away.</dd></div>
     {% endif %}

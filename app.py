@@ -2554,9 +2554,10 @@ def _plan_invoice_paid(inv):
         period_end = max([ln["period_end"] or 0 for ln in lines] or [0]) or None
         customer = inv.get("customer") if isinstance(inv.get("customer"), str) else (inv.get("customer") or {}).get("id")
         if _trial_invoice(inv, meta, lines, reason):
-            # The $0 invoice a trial opens with (plan_gate.py): the trial's share of the month's credits, and the
-            # subscription is trialing, not paid. The rest lands with the first payment (below).
-            grant = plan_gate.start_trial(conn, ws, sub_id, p["code"], period_end, meta.get("user_id"))
+            # The $0 invoice a trial opens with (plan_gate.py): the plan's month of credits lands now, and the
+            # subscription is trialing, not paid. The first payment carries on with them (below).
+            grant = plan_gate.start_trial(conn, ws, sub_id, p["code"], period_end, meta.get("user_id"),
+                                          _trial_card(conn, sub_id))
             conn.execute("INSERT INTO plan_invoices (invoice_id, workspace_id, plan, credits, amount_cents, "
                          "billing_reason, created_at, payment_intent) VALUES (?,?,?,?,?,?,?,?)",
                          (inv.get("id"), ws["id"], p["code"], grant, 0, "trial", db.now(), None))
@@ -2580,7 +2581,10 @@ def _plan_invoice_paid(inv):
             return jsonify({"ok": True, "credited": 0, "plan": ws["plan"], "trial": True})
         after_trial = bool(ws["trial_open"]) and reason != "subscription_update"
         if reason == "subscription_update" or after_trial:
-            # an upgrade, or the first payment after a trial: the bucket is topped up to the plan's month
+            # An upgrade: the bucket is topped up by the difference. The first payment after a trial (Koby, Nov 11):
+            # the trial's credits are the first month's, so nothing resets and the member carries on with what is
+            # left; only what the trial didn't bring is added (a repeat trial that came without credits, or a
+            # bigger plan picked during it). The next full month lands at the following renewal.
             grant = max(0, p["credits"] - int(ws["plan_granted"] or 0))
             if grant:
                 db.adjust_credits(conn, ws["id"], grant, f"{p['name']} plan: " +
@@ -2612,6 +2616,18 @@ def _plan_invoice_paid(inv):
             # the funnel's paid step: a plan's first invoice (this invoice id only gets here once)
             site_events.on_workspace_step(conn, "paid", ws["id"], detail=f"plan:{p['code']}", path="")
     return jsonify({"ok": True, "credited": grant, "plan": p["code"]})
+
+
+def _trial_card(conn, sub_id) -> str | None:
+    """The fingerprint of the card a trial was started with, read from Stripe the first time the trial is seen
+    (one trial per card, plan_gate.card_had_trial). None when it can't be read: the trial then goes ahead."""
+    if not sub_id or conn.execute("SELECT 1 FROM plan_trials WHERE subscription_id=?", (sub_id,)).fetchone():
+        return None
+    try:
+        return billing.subscription_card_fingerprint(sub_id)
+    except Exception as e:  # noqa: BLE001 — never fail the webhook over this guard
+        log.warning("stripe webhook: couldn't read the card of trial %s: %s", sub_id, e)
+        return None
 
 
 def _trial_invoice(inv, meta, lines, reason) -> bool:
@@ -2685,7 +2701,8 @@ def _plan_subscription_changed(sub, deleted=False):
                       _iso(billing.subscription_period_end(sub)), sub_id, customer, ws["id"]))
         if status == "trialing" and meta.get("app") == billing.APP_TAG and str(meta.get("trial_days") or "").isdigit():
             # a trial of ours (plan_gate.py): its credits land once, whichever of this and its $0 invoice comes first
-            plan_gate.start_trial(conn, ws, sub_id, code, sub.get("trial_end"), meta.get("user_id"))
+            plan_gate.start_trial(conn, ws, sub_id, code, sub.get("trial_end"), meta.get("user_id"),
+                                  _trial_card(conn, sub_id))
         conn.commit()
     return jsonify({"ok": True, "plan": code, "status": status})
 
