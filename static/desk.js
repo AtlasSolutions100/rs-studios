@@ -1,10 +1,12 @@
-/* The campaign desk (desk.py, web/v2/desk.html).
-   Plan it -> /app/desk/plan -> rows, each with a price. A tick, an edit, a part added or removed -> /app/desk/quote
-   (no model, just the prices again). Make it -> the claims check Studio runs, then /app/desk/run with the total the
-   button showed; the server starts nothing when that total is not the one it works out. */
+/* The campaign desk (desk.py; web/v2/desk.html is its home, web/v2/desk_thread.html one campaign's conversation).
+   The sentence box -> /app/desk/plan, which starts a campaign or adds a turn to the one open, then the page of that
+   campaign is shown. There, the newest plan is open: a tick, an edit, a part added or removed -> /app/desk/quote
+   (no model, just the prices again, and the rows are kept on the turn). Make it -> the claims check Studio runs,
+   then /app/desk/run with the total the button showed; the server starts nothing when that total is not the one it
+   works out. Ads still being made are refreshed in place until they are done. */
 (function(){
   var B = window.CFY_DESK, root = document.querySelector('[data-desk]');
-  if(!B || !root || !B.product) return;
+  if(!B || !root) return;
   function $(s, el){ return (el || root).querySelector(s); }
   function $$(s, el){ return Array.prototype.slice.call((el || root).querySelectorAll(s)); }
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); }
@@ -14,20 +16,70 @@
       .then(function(r){ return r.json().catch(function(){ return {error: 'Something went wrong. Try again.'}; }).then(function(d){ d._status = r.status; return d; }); });
   }
   function opt(v, label, cur){ return '<option value="' + esc(v) + '"' + (String(cur) === String(v) ? ' selected' : '') + '>' + esc(label) + '</option>'; }
+  function go(url){                      // the same page with a new place on it still has to be loaded again
+    var to = new URL(url, location.href);
+    if(to.pathname === location.pathname){ location.hash = to.hash; location.reload(); } else location.href = url;
+  }
 
+  // ---------------------------------------------------------------- the sentence box (both pages)
+  var ask = $('[data-ask]'), form = $('[data-ask-form]'), sayEl = $('[data-say]'), planBtn = $('[data-plan]');
+  var busy = false;
+  function say(msg){ if(!sayEl) return; sayEl.hidden = !msg; sayEl.textContent = msg || ''; }
+  function plan(){
+    var text = ask.value.trim().replace(/\s+/g, ' ');
+    if(text.length < 8){ say(B.thread ? 'Say what to add or change, in a sentence.' : 'Say what you want to launch, in a sentence.'); ask.focus(); return; }
+    if(busy) return;
+    var label = planBtn.textContent;
+    busy = true; planBtn.disabled = true; planBtn.textContent = 'Planning'; say('');
+    function back(msg){ busy = false; planBtn.disabled = false; planBtn.textContent = label; say(msg); }
+    post(B.urls.plan, {ask: text, product: B.product, thread: B.thread || null}).then(function(r){
+      if(!r.url){ back(r.error || 'That didn\'t come back. Try again.'); return; }
+      go(r.url);
+    }).catch(function(){ back('That didn\'t come back. Try again.'); });
+  }
+  if(form && ask && B.product){
+    form.addEventListener('submit', function(e){ e.preventDefault(); plan(); });
+    ask.addEventListener('keydown', function(e){ if(e.key === 'Enter' && (e.metaKey || e.ctrlKey)){ e.preventDefault(); plan(); } });
+  }
+  // An example card puts its sentence in the box; its clip plays while the card is pointed at.
+  var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  $$('[data-try]').forEach(function(b){
+    b.addEventListener('click', function(){ ask.value = b.dataset.try; ask.focus(); ask.setSelectionRange(ask.value.length, ask.value.length); });
+    var v = b.querySelector('video'); if(!v || still) return;
+    function on(){ b.classList.add('playing'); var p = v.play(); if(p && p.catch) p.catch(function(){ b.classList.remove('playing'); }); }
+    function off(){ b.classList.remove('playing'); v.pause(); }
+    b.addEventListener('mouseenter', on); b.addEventListener('mouseleave', off); b.addEventListener('focus', on); b.addEventListener('blur', off);
+  });
+
+  // ---------------------------------------------------------------- ads still being made: refresh them in place
+  function watch(){
+    if(!$('[data-tiles][data-busy]')) return;
+    setTimeout(function(){
+      fetch(location.pathname, {credentials: 'same-origin', headers: {'X-Requested-With': 'fetch'}}).then(function(r){ return r.text(); }).then(function(html){
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        $$('[data-tiles]').forEach(function(el){
+          var now = doc.querySelector('[data-tiles="' + el.dataset.tiles + '"]'); if(!now) return;
+          var card = el.closest('.dk-done'), fresh = now.closest('.dk-done');
+          if(card && fresh) card.innerHTML = fresh.innerHTML;
+        });
+        watch();
+      }).catch(function(){ watch(); });
+    }, 8000);
+  }
+  watch();
+
+  // ---------------------------------------------------------------- the open plan
+  var wrap = $('[data-plan-wrap]');
+  if(!wrap || !B.plan) return;
   var MAKES = {image: 1, presenter: 1, voiceover: 1, product_video: 1};
   var STAGES = {make: 'Make', write: 'Write', capture: 'Capture', followup: 'Follow up', launch: 'Launch'};
   var WORDS = {image: 'Headline', presenter: 'What the presenter says', voiceover: 'What the narrator says', product_video: 'The shot'};
-  var S = {ask: '', parts: [], q: null, editing: '', adding: false, busy: false, seq: 0, n: 0};
-
-  var ask = $('[data-ask]'), form = $('[data-ask-form]'), sayEl = $('[data-say]'), wrap = $('[data-plan-wrap]');
-  var rowsEl = $('[data-rows]'), runBtn = $('[data-run]'), errEl = $('[data-err]'), planBtn = $('[data-plan]');
-  function say(msg){ sayEl.hidden = !msg; sayEl.textContent = msg || ''; }
+  var S = {ask: B.plan.ask || '', parts: B.plan.parts, q: B.plan, turn: B.plan.turn, editing: '', adding: false, busy: false, seq: 0, n: 0};
+  var rowsEl = $('[data-rows]'), runBtn = $('[data-run]'), errEl = $('[data-err]');
   function err(html){ errEl.hidden = !html; errEl.innerHTML = html || ''; }
   function part(id){ for(var i = 0; i < S.parts.length; i++) if(S.parts[i].id === id) return S.parts[i]; return null; }
   function who(id){ for(var i = 0; i < B.presenters.length; i++) if(B.presenters[i].id === id) return B.presenters[i]; return B.presenters[0] || null; }
 
-  // ---------------------------------------------------------------- the rows
   function editor(p){
     var h = '';
     if(MAKES[p.kind]){
@@ -98,10 +150,10 @@
       : '<span>Everything a campaign can have is already in the plan.</span>';
   }
 
-  // ---------------------------------------------------------------- pricing again, with no model
+  // pricing again, with no model; the rows are kept on the plan's turn so a reload shows them
   function requote(){
     var n = ++S.seq;
-    return post(B.urls.quote, {product: B.product, parts: S.parts}).then(function(r){
+    return post(B.urls.quote, {product: B.product, parts: S.parts, turn: S.turn}).then(function(r){
       if(n !== S.seq) return;
       if(r.error || !r.parts){ err(esc(r.error || 'The prices didn\'t come back. Try again.')); return; }
       var open = S.editing && rowsEl.querySelector('[data-id="' + S.editing + '"]'), vals = {};
@@ -144,7 +196,7 @@
   $('[data-add-open]').addEventListener('click', function(){ S.adding = !S.adding; menu(); });
   $('[data-add-menu]').addEventListener('click', function(e){
     var b = e.target.closest('[data-add]'); if(!b) return;
-    var kind = b.dataset.add, p = {id: 'a' + (++S.n), kind: kind, on: true, stage: MAKES[kind] ? 'make' : '', name: b.textContent, words: '', label: ''};
+    var kind = b.dataset.add, p = {id: 'a' + (++S.n) + Date.now().toString(36).slice(-4), kind: kind, on: true, stage: MAKES[kind] ? 'make' : '', name: b.textContent, words: '', label: ''};
     if(MAKES[kind]){ p.text = (B.starters || {})[kind] || ''; p.on = !!p.text; }
     if(kind === 'image') p.count = 1;
     if(kind === 'presenter' && B.presenters[0]) p.presenter = B.presenters[0].id;
@@ -153,45 +205,21 @@
   });
   $('[data-many]').addEventListener('change', bar);
 
-  // ---------------------------------------------------------------- the sentence -> the plan
-  function planning(on){ S.busy = on; planBtn.disabled = on; planBtn.textContent = on ? 'Planning' : 'Plan it'; $('[data-replan]').disabled = on; root.classList.toggle('dk-busy', on); }
-  function plan(){
-    var text = ask.value.trim().replace(/\s+/g, ' ');
-    if(text.length < 8){ say('Say what you want to launch, in a sentence.'); ask.focus(); return; }
-    if(S.busy) return;
-    say(''); err(''); planning(true);
-    post(B.urls.plan, {ask: text, product: B.product}).then(function(r){
-      planning(false);
-      if(!r.parts){ say(r.error || 'That didn\'t come back. Try again.'); return; }
-      S.ask = r.ask || text; S.parts = r.parts; S.q = r; S.editing = ''; S.adding = false;
-      $('[data-note]').textContent = r.note || '';
-      var sk = $('[data-skipped]'); sk.hidden = !(r.skipped || []).length; sk.textContent = (r.skipped || []).length ? 'Left out: ' + r.skipped.join(' ') : '';
-      var al = $('[data-also]'); al.hidden = !(r.also || []).length;
-      al.innerHTML = (r.also || []).length ? '<span>You also asked for</span>' + r.also.map(function(a){ return '<a href="' + esc(a.href) + '"><b>' + esc(a.name) + '</b><span>' + esc(a.locked ? 'Not in your plan yet' : a.line) + '</span></a>'; }).join('') : '';
-      var tries = $('[data-tries]'); if(tries) tries.hidden = true;
-      wrap.hidden = false; planBtn.classList.add('dark'); render(); $('#dk-plan-h').focus();   // one lime action a screen: now it is Make it
-    }).catch(function(){ planning(false); say('That didn\'t come back. Try again.'); });
-  }
-  form.addEventListener('submit', function(e){ e.preventDefault(); plan(); });
-  ask.addEventListener('keydown', function(e){ if(e.key === 'Enter' && (e.metaKey || e.ctrlKey)){ e.preventDefault(); plan(); } });
-  $('[data-replan]').addEventListener('click', plan);
-  $$('[data-try]').forEach(function(b){ b.addEventListener('click', function(){ ask.value = b.textContent; ask.focus(); }); });
-
-  // ---------------------------------------------------------------- make it
+  // make it
   function ads(){ return S.parts.filter(function(p){ return p.on && MAKES[p.kind]; }).map(function(p){ return {make: p.kind, text: p.text, count: p.count, presenter: p.presenter, situation: p.situation}; }); }
   function run(){
     if(S.busy || !S.q || !S.q.count) return;
-    var total = +runBtn.dataset.total, label = runBtn.textContent, plan = ads();
+    var total = +runBtn.dataset.total, label = runBtn.textContent, set = ads();
     S.busy = true; runBtn.disabled = true; runBtn.textContent = 'Starting'; err('');
     function back(){ S.busy = false; runBtn.textContent = label; bar(); }
-    var first = B.claims_check && plan.length ? post(B.urls.claims, {plan: plan, product: B.product, ask: S.ask}) : Promise.resolve({status: 'off'});
+    var first = B.claims_check && set.length ? post(B.urls.claims, {plan: set, product: B.product, ask: S.ask}) : Promise.resolve({status: 'off'});
     first.then(function(c){
       if(c && c.error && !c.status){ back(); err(esc(c.error)); return null; }
       if(c && c.status === 'flagged'){ back(); err('These lines say something the product page doesn\'t back up. Edit them and try again: ' + esc((c.flags || []).map(function(f){ return '“' + f.sentence + '”'; }).join(' '))); return null; }
-      return post(B.urls.run, {product: B.product, ask: S.ask, parts: S.parts, total: total, confirm_many: $('[data-many]').checked});
+      return post(B.urls.run, {product: B.product, ask: S.ask, parts: S.parts, total: total, confirm_many: $('[data-many]').checked, thread: B.thread, turn: S.turn});
     }).then(function(r){
       if(!r) return;
-      if(r.ok){ location.href = r.url; return; }
+      if(r.ok){ go(r.url); return; }
       back();
       if(r.card_required){ location.href = r.url; return; }
       if(r.verify && window.cfyVerify && window.CFY_VERIFY){ window.cfyVerify(r.reason).then(function(yes){ if(yes) run(); else err(esc(r.error)); }); return; }
@@ -200,4 +228,11 @@
     }).catch(function(){ back(); err('Something went wrong. Try again.'); });
   }
   runBtn.addEventListener('click', run);
+
+  // the plan as it came with the page
+  $('[data-note]').textContent = B.plan.note || '';
+  var sk = $('[data-skipped]'); sk.hidden = !(B.plan.skipped || []).length; sk.textContent = (B.plan.skipped || []).length ? 'Left out: ' + B.plan.skipped.join(' ') : '';
+  var al = $('[data-also]'); al.hidden = !(B.plan.also || []).length;
+  al.innerHTML = (B.plan.also || []).length ? '<span>You also asked for</span>' + B.plan.also.map(function(a){ return '<a href="' + esc(a.href) + '"><b>' + esc(a.name) + '</b><span>' + esc(a.locked ? 'Not in your plan yet' : a.line) + '</span></a>'; }).join('') : '';
+  render();
 })();

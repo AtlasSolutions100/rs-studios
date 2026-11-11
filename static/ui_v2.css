@@ -1100,10 +1100,41 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 .dk-chip.quiet{color:var(--muted);background:transparent}
 [data-ui="v2"] .dk-ask .btn{min-height:44px;padding:0 20px}
 .dk-say{margin:0;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--v2-raise);font-size:14px;box-shadow:inset 3px 0 0 var(--amber)}
-.dk-tries{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
-.dk-tries[hidden]{display:none}
-.dk-tries button{min-height:36px;padding:6px 12px;border:1px dashed var(--v2-line2);border-radius:999px;background:transparent;color:var(--muted);font:400 13.5px/1.3 var(--body);text-align:left;cursor:pointer}
-.dk-tries button:hover{color:var(--ink);border-style:solid}
+/* start from an example: a picture or a clip from our own gallery, a name, what it makes */
+.dk-exs{display:flex;flex-direction:column;gap:12px;padding-top:8px}
+.dk-ex-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.dk-ex{display:flex;flex-direction:column;gap:4px;padding:0 0 10px;border:1px solid var(--line);border-radius:12px;background:var(--v2-raise);color:var(--ink);font:400 13px/1.35 var(--body);text-align:left;cursor:pointer;overflow:hidden}
+.dk-ex:hover{border-color:var(--v2-line2)}
+.dk-ex-media{position:relative;display:block;aspect-ratio:4/5;background:var(--thumb-bg);overflow:hidden}
+.dk-ex-media img,.dk-ex-media video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.dk-ex-media video{opacity:0}
+.dk-ex.playing .dk-ex-media video{opacity:1}
+.dk-ex>b{padding:6px 10px 0;font-weight:600;font-size:14px}
+.dk-ex>span:last-child{padding:0 10px;color:var(--muted)}
+/* one campaign: the conversation */
+.dk-thread-top{display:flex;flex-direction:column;gap:2px}
+[data-ui="v2"] .shell .dk.dk-thread h1{font-size:28px;line-height:1.2;letter-spacing:-.02em}
+.dk-turns{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:20px}
+.dk-turn{display:flex;flex-direction:column;gap:12px;min-width:0;scroll-margin-top:16px}
+.dk-said{align-self:flex-end;max-width:min(560px,88%);margin:0;padding:10px 14px;border-radius:14px 14px 4px 14px;background:var(--v2-sunk);border:1px solid var(--line);overflow-wrap:anywhere}
+.dk-was{display:flex;flex-direction:column;gap:10px}
+.dk-was-rows{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.dk-was-rows li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 14px;padding:10px 0;border-bottom:1px solid var(--line)}
+.dk-was-rows b{font-weight:600}
+.dk-was-rows span{grid-column:1;color:var(--muted);overflow-wrap:anywhere}
+.dk-was-rows em{grid-column:2;grid-row:1;font-style:normal;font-size:14px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.dk-was-rows li.off b,.dk-was-rows li.off em{color:var(--muted)}
+.dk-was-state{margin:0;font-size:13px;color:var(--muted)}
+.dk-tiles{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.dk-tiles a{display:block;width:76px;height:96px;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--thumb-bg)}
+.dk-tiles img{width:100%;height:100%;object-fit:cover;display:block}
+.dk-tile-busy{display:inline-flex;align-items:center;gap:8px;min-height:32px;padding:0 12px;border:1px dashed var(--v2-line2);border-radius:999px;font-size:13px;color:var(--muted)}
+.dk-tile-busy::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--v2-mark)}
+@media (prefers-reduced-motion:no-preference){.dk-tile-busy::before{animation:dk-pulse 1.4s ease-in-out infinite}}
+@keyframes dk-pulse{50%{opacity:.25}}
+.dk-ask.dk-next{position:sticky;bottom:12px;box-shadow:var(--shadow)}
+[data-ui="v2"] .dk-ask.dk-next textarea{min-height:54px;font-size:16px}
+.dk-thread .dk-bar{position:static;box-shadow:none}
 .dk-plan{display:flex;flex-direction:column;gap:16px;padding-top:8px}
 .dk-plan[hidden]{display:none}
 .dk-plan-top{display:flex;align-items:baseline;justify-content:space-between;gap:6px 12px;flex-wrap:wrap}
@@ -1191,6 +1222,9 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 @media (max-width:1080px){[data-ui="v2"] .page.dk{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:760px){
   [data-ui="v2"] .shell .dk h1{font-size:30px}
+  [data-ui="v2"] .shell .dk.dk-thread h1{font-size:22px}
+  .dk-ask.dk-next{position:static;box-shadow:none}
+  .dk-ex-row{grid-template-columns:repeat(2,minmax(0,1fr))}
   .dk-row{grid-template-columns:28px minmax(0,1fr);gap:6px 12px}
   .dk-stage{grid-column:1/-1;padding-top:0}
   .dk-stage:empty{display:none}

@@ -1,0 +1,15 @@
+{# The brand panel beside the desk: what every ad, page and email is made from. Needs product, brief, kit, website. #}
+{% if product %}
+<section class="dk-brand" aria-labelledby="dk-brand-h">
+  <div class="dk-brand-top"><h2 id="dk-brand-h">Your brand</h2><a href="{{ url_for('onboarding.brief') }}">Edit</a></div>
+  <p class="dk-brand-src">{% if website %}Read from {{ website|replace('https://', '')|replace('http://', '')|replace('www.', '')|truncate(40, true) }}. {% endif %}Every ad, page and email starts from this.</p>
+  {% if kit %}<div class="dk-kit" role="img" aria-label="Brand colours">{% for c in kit %}<span style="background:{{ c }}"></span>{% endfor %}</div>{% endif %}
+  <dl>
+    <div><dt>Brand</dt><dd>{{ brief.name }}</dd></div>
+    {% if brief.tone %}<div><dt>Voice</dt><dd>{{ brief.tone }}</dd></div>{% endif %}
+    <div><dt>Claims you can make</dt><dd>{% if brief.claims %}{{ brief.claims.split('\n')|map('trim')|reject('equalto', '')|list|batch(4)|first|join('. ')|truncate(200) }}{% else %}None approved yet. <a href="{{ url_for('onboarding.brief') }}">Add them</a>{% endif %}</dd></div>
+    {% if brief.offer %}<div><dt>Offer</dt><dd>{{ brief.offer }}</dd></div>{% endif %}
+    {% if brief.audience %}<div><dt>Who it's for</dt><dd>{{ brief.audience|truncate(160) }}</dd></div>{% endif %}
+  </dl>
+</section>
+{% endif %}

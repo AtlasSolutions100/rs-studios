@@ -1,0 +1,78 @@
+{% extends "base.html" %}{% block title %}{{ t.title }} · Campaignify{% endblock %}
+{# One campaign as a conversation (desk.thread): what was said, each plan, what was made, and a box to go on.
+   The newest plan that hasn't been made is open (v2/_desk_plan.html, drawn by static/desk.js); the rest is as it was. #}
+{% block v2_side %}{% include "v2/_desk_side.html" %}{% endblock %}
+{% block body %}
+<div class="page full dk dk-thread" data-desk>
+  <div class="dk-main">
+    <div class="dk-thread-top">
+      <p class="eyebrow">Campaign</p>
+      <h1 id="dk-h">{{ t.title }}</h1>
+    </div>
+    <ol class="dk-turns" aria-label="This campaign so far">
+      {% for x in turns %}
+      <li id="t{{ x.id }}" class="dk-turn {{ x.kind }}{{ ' live' if x.live }}">
+        {% if x.kind == 'said' %}
+          <p class="dk-said"><span class="sr">You said: </span>{{ x.body.text }}</p>
+        {% elif x.kind == 'note' %}
+          <p class="dk-note">{{ x.body.text }}</p>
+          {% if x.body.also %}<div class="dk-also"><span>It lives in</span>{% for a in x.body.also %}<a href="{{ a.href }}"><b>{{ a.name }}</b><span>{{ a.line }}</span></a>{% endfor %}</div>{% endif %}
+        {% elif x.kind == 'plan' and x.live %}
+          {% include "v2/_desk_plan.html" %}
+        {% elif x.kind == 'plan' %}
+          <section class="dk-was" aria-label="An earlier plan">
+            {% if x.body.note %}<p class="dk-note">{{ x.body.note }}</p>{% endif %}
+            <ul class="dk-was-rows">
+              {% for r in x.body.rows %}{% if r.on or not x.body.ran %}
+              <li class="{{ '' if r.on else 'off' }}"><b>{{ r.name }}</b>{% if r.words %}<span>{{ r.words }}</span>{% endif %}<em>{{ r.label }}</em></li>
+              {% endif %}{% endfor %}
+            </ul>
+            <p class="dk-was-state">{{ 'Made.' if x.body.ran else 'Not made. A later plan replaced it.' }}</p>
+          </section>
+        {% elif x.kind == 'made' %}
+          <section class="dk-done" aria-label="What was made">
+            <h2>Started. Here is each part.</h2>
+            <ul class="dk-made">
+              {% for m in x.body.made %}<li><a href="{{ m.href }}"><b>{{ m.name }}</b><span>{{ m.state if not (m.kind == 'ads' and x.tiles and not x.tiles.busy and x.tiles.outs) else 'Ready' }}</span></a></li>{% endfor %}
+            </ul>
+            {% if x.tiles and (x.tiles.outs or x.tiles.busy) %}
+            <div class="dk-tiles" data-tiles="{{ x.id }}" {{ 'data-busy' if x.tiles.busy }}>
+              {% for o in x.tiles.outs %}<a href="{{ url_for('library') }}"><img src="{{ url_for('media', oid=o.id, poster=1) if o.video else url_for('media', oid=o.id) }}" alt="{{ 'A finished video ad' if o.video else 'A finished image ad' }}" loading="lazy"></a>{% endfor %}
+              {% if x.tiles.busy %}<span class="dk-tile-busy" role="status">{{ x.tiles.busy }} being made</span>{% endif %}
+            </div>
+            {% endif %}
+            {% for n in x.body.notes %}<p class="dk-was-state">{{ n }}</p>{% endfor %}
+          </section>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+
+    {% if product %}
+    <form class="dk-ask dk-next" data-ask-form>
+      <label class="sr" for="dk-ask">Add to this campaign or change it</label>
+      <textarea id="dk-ask" rows="2" maxlength="600" placeholder="Add to it or change it. For example: two more image ads with a different headline" data-ask></textarea>
+      <div class="dk-ask-foot">
+        <div class="dk-chips"><span class="dk-chip quiet">{% if product.primary_photo_id %}<img src="{{ url_for('photo', pid=product.primary_photo_id) }}" alt="">{% endif %}{{ product.name }}</span></div>
+        <button class="btn dark" data-plan>Send</button>
+      </div>
+    </form>
+    <p class="dk-say" data-say role="status" hidden></p>
+    {% endif %}
+  </div>
+
+  <aside class="dk-side" aria-label="This campaign and your brand">
+    {% if made %}
+    <section class="dk-now" aria-labelledby="dk-in-h" data-in-campaign>
+      <h2 id="dk-in-h">In this campaign</h2>
+      {% for m in made %}<a href="{{ m.href }}"><span>{{ m.name }}</span><span aria-hidden="true">Open</span></a>{% endfor %}
+    </section>
+    {% endif %}
+    {% include "v2/_desk_brand.html" %}
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>window.CFY_DESK = {{ boot|tojson }};</script>
+<script src="{{ url_for('static', filename='desk.js') }}" defer></script>
+{% endblock %}
