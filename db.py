@@ -483,6 +483,15 @@ CREATE TABLE IF NOT EXISTS card_trials (
     trial INTEGER NOT NULL DEFAULT 0, credits INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_card_trials_fp ON card_trials(fingerprint);
 CREATE INDEX IF NOT EXISTS idx_card_trials_email ON card_trials(email_norm);
+-- Plan trials (plan_gate.py, PLANS_ONLY): one row per trial subscription. One trial per workspace and per person
+-- (email_norm); a row with credits 0 is a Stripe trial that carried no credits of ours (a second one).
+CREATE TABLE IF NOT EXISTS plan_trials (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, user_id INTEGER, email_norm TEXT,
+    plan TEXT NOT NULL, subscription_id TEXT, credits INTEGER NOT NULL DEFAULT 0, started_at TEXT NOT NULL,
+    ends_at TEXT);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_plan_trials_sub ON plan_trials(subscription_id);
+CREATE INDEX IF NOT EXISTS idx_plan_trials_ws ON plan_trials(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_plan_trials_email ON plan_trials(email_norm);
 -- The free campaign plan of an out-of-credits workspace (plan_paywall.py, RS_PLAN_PAYWALL): 1 per 30 days.
 CREATE TABLE IF NOT EXISTS free_plans (
     id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, campaign_id INTEGER, report_id INTEGER,
@@ -895,6 +904,8 @@ COLUMNS = [
     ("workspaces", "pipeline_json", "TEXT"),
     ("workspaces", "stripe_old_json", "TEXT"),   # ids from another Stripe account, set aside (stripe_setup.forget)
     ("desk_runs", "thread_id", "INTEGER"),          # the conversation a desk run belongs to (desk_threads)
+    ("workspaces", "trial_open", "INTEGER NOT NULL DEFAULT 0"),   # a plan trial began and nothing is paid yet (plan_gate.py)
+    ("workspaces", "trial_ends_at", "TEXT"),                       # when that trial ends (the first charge)
     ("brands", "rivals_json", "TEXT"),              # competitors found at import: [{name, website, why, sources}]
     ("brands", "enrich_json", "TEXT"),              # the last reading of the brand's site (brand_identity.py)
     ("contacts", "phone_e164", "TEXT"),

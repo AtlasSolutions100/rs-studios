@@ -146,19 +146,31 @@ def create_refund(payment_intent: str, amount_cents: int, idempotency_key: str, 
 
 def create_subscription_session(*, price_id: str, success_url: str, cancel_url: str, email: str | None,
                                 customer: str | None, metadata: dict, client_reference_id: str,
-                                idempotency_key: str, promotion_code: str | None = None) -> dict:
+                                idempotency_key: str, promotion_code: str | None = None,
+                                trial_days: int = 0, note: str | None = None) -> dict:
     """Start a subscription Checkout Session for one plan. The metadata goes on
     both the session and the subscription, so every invoice and subscription
     event carries it. `promotion_code` (a promo_... id from find_promotion_code)
     is applied up front; without one, Checkout shows its own "Add promotion code"
-    field (Stripe allows one or the other, never both). Returns {"id", "url"}."""
+    field (Stripe allows one or the other, never both).
+
+    `trial_days` (plan_gate.py) starts the subscription with a free trial: Stripe
+    takes the card on its page (payment_method_collection=always), shows the trial
+    and the price after it, and charges the plan when the trial ends unless it is
+    canceled. `note` is one line under Stripe's button saying the same in our
+    words; if Stripe refuses that field the session is made without it.
+    Returns {"id", "url"}."""
     if not secret_key():
         raise BillingError("Stripe is not configured.")
+    trial_days = max(0, int(trial_days or 0))
     form = [("mode", "subscription"),
             ("line_items[0][price]", price_id), ("line_items[0][quantity]", "1"),
             ("success_url", success_url), ("cancel_url", cancel_url),
             ("client_reference_id", client_reference_id),
-            ("payment_method_collection", "if_required")]
+            # a trial always saves a card; otherwise a fully discounted plan needs none
+            ("payment_method_collection", "always" if trial_days else "if_required")]
+    if trial_days:
+        form.append(("subscription_data[trial_period_days]", str(trial_days)))
     if promotion_code:
         form.append(("discounts[0][promotion_code]", promotion_code))
     else:
@@ -172,6 +184,16 @@ def create_subscription_session(*, price_id: str, success_url: str, cancel_url: 
     for k, v in metadata.items():
         form.append((f"metadata[{k}]", str(v)))
         form.append((f"subscription_data[metadata][{k}]", str(v)))
+    if note:
+        try:
+            j = _session(form + [("custom_text[submit][message]", note[:1100])], idempotency_key)
+            return {"id": j["id"], "url": j["url"]}
+        except BillingError as e:
+            if not (getattr(e, "param", None) or "").startswith("custom_text"):
+                raise
+            logging.getLogger("campaignify.billing").warning("checkout note refused; session made without it: %s",
+                                                             str(e)[:120])
+            idempotency_key = f"{idempotency_key}-plain" if idempotency_key else None
     j = _session(form, idempotency_key)
     return {"id": j["id"], "url": j["url"]}
 
