@@ -104,7 +104,15 @@
     return post(B.urls.quote, {product: B.product, parts: S.parts}).then(function(r){
       if(n !== S.seq) return;
       if(r.error || !r.parts){ err(esc(r.error || 'The prices didn\'t come back. Try again.')); return; }
+      var open = S.editing && rowsEl.querySelector('[data-id="' + S.editing + '"]'), vals = {};
+      if(open) $$('[data-f]', open).forEach(function(el){ vals[el.dataset.f] = el.value; });   // what is being typed survives the redraw
       S.q = r; S.parts = r.parts; err(''); render();
+      var now = open && rowsEl.querySelector('[data-id="' + S.editing + '"]');
+      if(now) $$('[data-f]', now).forEach(function(el){
+        var v = vals[el.dataset.f]; if(v == null) return;
+        if(el.tagName === 'SELECT' && !Array.prototype.some.call(el.options, function(o){ return o.value === v; })) return;
+        el.value = v;
+      });
     }).catch(function(){ if(n === S.seq) err('The prices didn\'t come back. Try again.'); });
   }
   function readEdit(li, p){
@@ -161,7 +169,7 @@
       var al = $('[data-also]'); al.hidden = !(r.also || []).length;
       al.innerHTML = (r.also || []).length ? '<span>You also asked for</span>' + r.also.map(function(a){ return '<a href="' + esc(a.href) + '"><b>' + esc(a.name) + '</b><span>' + esc(a.locked ? 'Not in your plan yet' : a.line) + '</span></a>'; }).join('') : '';
       var tries = $('[data-tries]'); if(tries) tries.hidden = true;
-      wrap.hidden = false; render(); $('#dk-plan-h').focus();
+      wrap.hidden = false; planBtn.classList.add('dark'); render(); $('#dk-plan-h').focus();   // one lime action a screen: now it is Make it
     }).catch(function(){ planning(false); say('That didn\'t come back. Try again.'); });
   }
   form.addEventListener('submit', function(e){ e.preventDefault(); plan(); });
