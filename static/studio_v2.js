@@ -1,7 +1,9 @@
 /* Studio composer and Workflow (web/v2/studio.html, web/v2/workflow.html, studio_v2.py).
    Send -> /app/studio/quote -> the price box -> its button -> /app/studio/generate with the total shown.
    Nothing here starts a generation without that box: generate() is only called from the box's button.
-   `src` is what Send prices: the composer, or the pack that is open on Workflow. */
+   `src` is what Send prices: the composer, or the pack that is open on Workflow.
+   Ask (the composer's first tab): Send -> /app/studio/ask -> the same box, on the set that came back. `asked` is
+   that set; what is priced and made is the parts still ticked, with the words as they stand in the box. */
 (function(){
   var B = window.CFY_STUDIO; if(!B) return;
   var root = document.querySelector('[data-cmp]'), wf = document.querySelector('[data-wf]');
@@ -19,7 +21,14 @@
   function words(t){ t = (t || '').trim(); return t ? t.split(/\s+/).length : 0; }
   function fitSeconds(n){ var durs = (B.durations || {}).talk || []; for(var i = 0; i < durs.length; i++){ if(n <= B.words[String(durs[i])]) return durs[i]; } return null; }
   var src = null, lastQuote = null, busy = false;
-  function payload(){ return src.payload(); }
+  var asked = null, qseq = 0;      // asked: {text, product, note, skipped, plan: [{make, text, name, count, on}]}
+  function asking(){ return src && src.ask ? src.ask() : null; }
+  function askPayload(){
+    var plan = (asked ? asked.plan : []).filter(function(it){ return it.on && it.text; }).map(function(it){
+      var o = {make: it.make, text: it.text}; if(it.count) o.count = it.count; if(it.presenter) o.presenter = it.presenter; if(it.situation) o.situation = it.situation; return o; });
+    return {plan: plan, product: asked ? asked.product : null, ask: asked ? asked.text : ''};
+  }
+  function payload(){ return asking() && asked ? askPayload() : src.payload(); }
   function say(msg){ var e = src && src.err; if(!e) return; e.hidden = !msg; e.textContent = msg || ''; }
 
   // ---------------------------------------------------------------- dialogs
@@ -55,6 +64,7 @@
   // ================================================================ the composer (Studio)
   if(root) (function(){
     var modeBy = {}; B.modes.forEach(function(m){ modeBy[m.id] = m; });
+    if(B.ask_on) modeBy.ask = {id: 'ask', name: 'Ask', noun: 'ask', placeholder: 'Say what you want. For example: three image ads and one short presenter video for the holiday sale'};
     var galBy = {}; B.gallery.forEach(function(x){ galBy[x.id] = x; });
     var presBy = {}; B.presenters.forEach(function(p){ presBy[p.id] = p; });
     var P = B.prefill || {};
@@ -68,13 +78,14 @@
       layers: P.layers || {}
     };
     if(S.preset) S.mode = S.preset.mode;
+    else if(B.start === 'ask' && modeBy.ask && !S.text) S.mode = 'ask';
     if(S.preset && S.preset.opens === 'recipe' && !S.text && S.preset.starter) S.text = S.preset.starter;
     if(typeof P.situation === 'string' && P.situation) S.presenters.forEach(function(id){ S.situations[id] = P.situation; });
     else if(P.situation && typeof P.situation === 'object') S.situations = P.situation;
     if(!S.presenters.length && B.presenters.length) S.presenters = [B.presenters[0].id];
     var text = $('[data-text]'), err = $('[data-err]', root);
 
-    function kind(){ return S.mode === 'presenter' || S.mode === 'voiceover' ? 'talk' : S.mode === 'product_video' ? 'video' : 'image'; }
+    function kind(){ return S.mode === 'ask' ? 'ask' : S.mode === 'presenter' || S.mode === 'voiceover' ? 'talk' : S.mode === 'product_video' ? 'video' : 'image'; }
     function product(){ return B.products.filter(function(p){ return p.id === S.product; })[0] || null; }
     function spec(){ return S.preset && S.preset.spec ? S.preset.spec : null; }
     function noHeadline(){ var sp = spec(); return !!(sp && sp.headline === false); }
@@ -88,10 +99,12 @@
 
     src = {
       err: err,
-      kind: function(){ return kind() === 'image' ? 'image' : 'video'; },
+      kind: function(){ return kind() === 'ask' ? 'mixed' : kind() === 'image' ? 'image' : 'video'; },
       count: function(){ return S.count; },
+      ask: function(){ return S.mode === 'ask' ? {text: text.value.trim().replace(/\s+/g, ' '), product: S.product} : null; },
       check: function(){
         if(!S.product) return {msg: B.products.length ? 'Pick a product first.' : 'Add your product first.', focus: $('[data-product-open]')};
+        if(S.mode === 'ask') return text.value.trim().length < 8 ? {msg: 'Say what you want to make, in a sentence.', focus: text} : null;
         if(S.mode === 'presenter' && !S.presenters.length) return {msg: 'Pick a presenter first.', focus: $('[data-presenter-open]')};
         if(!noHeadline() && !text.value.trim()) return {msg: 'Write the ' + modeBy[S.mode].noun + ' first.', focus: text};
         return null;
@@ -127,13 +140,18 @@
       el.classList.toggle('round', !!round);
     }
     function render(){
-      var m = modeBy[S.mode], k = kind(), sp = spec();
+      var m = modeBy[S.mode], k = kind(), sp = spec(), ask = k === 'ask';
       $$('[data-mode]').forEach(function(b){ var on = b.dataset.mode === S.mode; b.setAttribute('aria-checked', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
-      var label = sp && sp.items_label ? 'Review' : m.noun.charAt(0).toUpperCase() + m.noun.slice(1);
+      var label = ask ? 'What you want to make' : sp && sp.items_label ? 'Review' : m.noun.charAt(0).toUpperCase() + m.noun.slice(1);
       $('[data-text-label]').textContent = label;
-      text.placeholder = noHeadline() ? 'This preset has no words on it' : (sp && sp.items_label ? 'Paste the review exactly as the customer wrote it' : (recipe() && recipe().shape) || m.placeholder);
-      text.disabled = noHeadline();
-      var pin = $('[data-pin]'); pin.hidden = !S.preset; if(S.preset) $('[data-pin-name]').textContent = S.preset.name;
+      text.placeholder = ask ? m.placeholder : noHeadline() ? 'This preset has no words on it' : (sp && sp.items_label ? 'Paste the review exactly as the customer wrote it' : (recipe() && recipe().shape) || m.placeholder);
+      text.disabled = !ask && noHeadline();
+      root.classList.toggle('asking', ask);
+      var so = $('[data-settings-open]'); so.hidden = ask;
+      if(ask){ $('[data-settings]').hidden = true; so.setAttribute('aria-expanded', 'false'); }
+      $('[data-send]').setAttribute('aria-label', ask ? 'Ask' : 'See the price');
+      $('[data-foot]').textContent = ask ? 'Asking is free. You get a set of ads back with the price, and nothing is made until you confirm it.' : 'Send shows the price first. Nothing is made until you confirm it.';
+      var pin = $('[data-pin]'); pin.hidden = !S.preset || ask; if(S.preset) $('[data-pin-name]').textContent = S.preset.name;
       var p = product();
       var es = $('[data-empty-step]'), ea = $('[data-empty-add]');
       if(es && p){ es.classList.add('done'); $('b', es).textContent = 'Product added'; $('span', es).textContent = 'Change it any time from the composer.'; if(ea) ea.hidden = true; }
@@ -363,7 +381,7 @@
     roving($('[data-modes]'), '[data-mode]', function(b){ setMode(b.dataset.mode); $('[data-mode="' + b.dataset.mode + '"]').focus(); });
     root.addEventListener('input', function(e){
       var t = e.target;
-      if(t === text){ count(); say(''); return; }
+      if(t === text){ count(); say(''); var al = $('[data-ask-also]'); if(al) al.hidden = true; return; }
       if(t.dataset.layer){ readLayer(t); return; }
       if(t.dataset.set){ S[t.dataset.set] = t.value; if(t.dataset.set === 'duration') count(); }
     });
@@ -443,6 +461,8 @@
     if(busy || !src) return;
     var stop = src.check();
     if(stop){ say(stop.msg); if(stop.focus) stop.focus.focus(); return; }
+    var a = asking();
+    if(a){ if(asked && asked.text === a.text && asked.product === a.product) requote(); else ask(a); return; }
     say(''); working(true);
     post(B.urls.quote, payload()).then(function(q){
       working(false);
@@ -451,10 +471,74 @@
       lastQuote = q; showPrice(q);
     }).catch(function(){ working(false); say('The price didn\'t load. Try again.'); });
   }
+  // ---------------------------------------------------------------- ask: a sentence in, a priced set back
+  // Where the other things the sentence asked for live (studio_v2.ask_also): links, never a spend.
+  function alsoRows(el, list){
+    if(!el) return;
+    el.hidden = !(list && list.length);
+    el.innerHTML = (list || []).map(function(a){ return '<li><span><b>' + esc(a.name) + '</b><span class="small muted">' + esc(a.line) + (a.locked ? ' On a paid plan.' : '') + '</span></span><a class="btn dark sm" href="' + esc(a.href) + '">Open</a></li>'; }).join('');
+  }
+  function waiting(on){ var w = $('[data-asking]'); if(w) w.hidden = !on; var b = $('[data-q-again]'); if(b) b.disabled = on; }
+  function ask(a){
+    var inBox = dlg('price').open, fail = inBox ? qerr : say;
+    say(''); working(true); waiting(true);
+    post(B.urls.ask, {ask: a.text, product: a.product}).then(function(r){
+      working(false); waiting(false);
+      alsoRows($('[data-ask-also]'), r.plan ? [] : r.also);
+      if(r.error || !r.plan || !r.quote){ fail(r.error || 'That didn\'t come back. Try again.'); return; }
+      asked = {also: r.also || [], text: a.text, product: r.product, note: r.note || '', skipped: r.skipped || [], plan: r.plan.map(function(it){ it.on = true; return it; })};
+      planRows(); lastQuote = r.quote; showPrice(r.quote);
+      if(inBox) $$('[data-plan-text]').forEach(fit);
+    }).catch(function(){ working(false); waiting(false); fail('That didn\'t come back. Try again.'); });
+  }
+  function planRows(){
+    $('[data-q-asknote]').textContent = asked.note || 'Here is a set for that.';
+    $('[data-q-skipped]').textContent = asked.skipped.length ? 'Left out: ' + asked.skipped.join(' ') : '';
+    alsoRows($('[data-q-also]'), asked.also);
+    $('[data-q-plan]').innerHTML = asked.plan.map(function(it, i){
+      var what = it.make === 'image' ? 'Headline' : it.make === 'product_video' ? 'Shot' : 'Script';
+      return '<li data-plan-row="' + i + '"><input type="checkbox" checked data-plan-on="' + i + '" aria-label="Make this: ' + esc(it.name) + '">' +
+        '<b>' + esc(it.name) + '</b><span class="v2-plan-cr" data-plan-cr="' + i + '"></span>' +
+        '<textarea rows="1" maxlength="900" data-plan-text="' + i + '" aria-label="' + what + ' for ' + esc(it.name) + '">' + esc(it.text) + '</textarea></li>';
+    }).join('');
+  }
+  // A part's words show in full: the box is as tall as what is in it (set once the dialog is laid out, and as it is typed in).
+  function fit(el){ el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px'; }
+  // Each part's price, from the quote of the parts still ticked (they are quoted in the order shown).
+  function planPrices(q){
+    var j = 0;
+    asked.plan.forEach(function(it, i){
+      var row = $('[data-plan-row="' + i + '"]'), on = it.on && !!it.text;
+      row.classList.toggle('off', !on);
+      $('[data-plan-cr="' + i + '"]').textContent = on ? credits((q.parts || [])[j++]) : 'Not made';
+    });
+  }
+  function requote(){
+    var p = askPayload(), n = ++qseq, inBox = dlg('price').open, fail = inBox ? qerr : say, ok = $('[data-confirm-make]');
+    if(!p.plan.length){ lastQuote = {count: 0, ads: 0, total: 0, lines: [], parts: [], balance: (lastQuote || {}).balance || B.balance || 0, short: 0}; showPrice(lastQuote); return; }
+    ok.disabled = true;
+    post(B.urls.quote, p).then(function(q){
+      if(n !== qseq) return;                    // a newer tick or edit is already being priced
+      if(q.error || !q.count){ fail(q.error || 'That can\'t be priced. Change it and try again.'); return; }
+      lastQuote = q; showPrice(q);
+    }).catch(function(){ if(n === qseq) fail('The price didn\'t load. Try again.'); });
+  }
+  dlg('price').addEventListener('change', function(e){
+    var t = e.target;
+    if(!asked) return;
+    if(t.dataset.planOn != null){ asked.plan[+t.dataset.planOn].on = t.checked; requote(); }
+    else if(t.dataset.planText != null){ asked.plan[+t.dataset.planText].text = t.value.trim().replace(/\s+/g, ' '); requote(); }
+  });
+  dlg('price').addEventListener('input', function(e){ if(e.target.dataset.planText != null) fit(e.target); });
+  var again = $('[data-q-again]'); if(again) again.addEventListener('click', function(){ var a = asking(); if(a && !busy){ qerr(''); ask(a); } });
+
   function showPrice(q){
     var d = dlg('price'), k = src.kind(), noun = k === 'image' ? 'image ad' : k === 'mixed' ? 'ad' : 'video', n = q.ads || q.count * (k === 'image' ? src.count() : 1);
-    $('[data-q-title]').textContent = 'Make ' + plural(n, noun) + ' for ' + credits(q.total) + '?';
-    $('[data-q-lines]').innerHTML = q.lines.filter(function(l){ return l.on; }).map(function(l){ return '<li><span><b>' + esc(l.label) + '</b><span class="small muted">' + esc(l.hook) + '</span></span><span>' + credits(l.credits) + '</span></li>'; }).join('');
+    var set = !!(asking() && asked);
+    d.classList.toggle('asked', set); $('[data-q-ask]').hidden = !set; $('[data-q-lines]').hidden = set;
+    $('[data-q-title]').textContent = n ? 'Make ' + plural(n, noun) + ' for ' + credits(q.total) + '?' : 'Tick at least one thing to make';
+    if(set) planPrices(q);
+    else $('[data-q-lines]').innerHTML = q.lines.filter(function(l){ return l.on; }).map(function(l){ return '<li><span><b>' + esc(l.label) + '</b><span class="small muted">' + esc(l.hook) + '</span></span><span>' + credits(l.credits) + '</span></li>'; }).join('');
     $('[data-q-total]').textContent = credits(q.total);
     $('[data-q-bal]').textContent = credits(q.balance);
     $('[data-q-after]').textContent = q.short ? 'Not enough' : credits(q.balance - q.total);
@@ -467,10 +551,12 @@
     if(q.confirm) $('[data-q-many-text]').textContent = 'Yes, make all ' + q.count + ' videos.';
     var short = $('[data-q-short]'); short.hidden = !q.short;
     if(q.short){ short.innerHTML = 'You need ' + credits(q.short) + ' more. ' + (q.pack ? 'The ' + esc(q.pack.name) + ' pack ($' + q.pack.usd + ', ' + credits(q.pack.credits) + ') covers it. ' : '') + '<a href="' + esc(B.urls.billing) + '">Get credits</a>'; }
-    var ok = $('[data-confirm-make]'); ok.textContent = (n === 1 ? 'Make it' : 'Make them') + ' · ' + credits(q.total);
-    ok.disabled = !!q.short || !!q.confirm; ok.dataset.total = q.total;
+    var ok = $('[data-confirm-make]'); ok.textContent = !n ? 'Nothing ticked' : (n === 1 ? 'Make it' : 'Make them') + ' · ' + credits(q.total);
+    ok.disabled = !n || !!q.short || !!q.confirm; ok.dataset.total = q.total;
     $('[data-q-err]').hidden = true;
-    open('price'); (q.short ? $('[data-close]', d) : ok).focus();
+    if(d.open) return;                          // an ask's box re-prices in place as parts are ticked or edited
+    open('price'); if(set) $$('[data-plan-text]', d).forEach(fit);
+    (set ? $('[data-plan-on]', d) || ok : q.short ? $('[data-close]', d) : ok).focus();
   }
   $('[data-q-many]').addEventListener('change', function(e){ $('[data-confirm-make]').disabled = !e.target.checked || !!(lastQuote && lastQuote.short); });
   function qerr(msg){ var e = $('[data-q-err]'); e.hidden = !msg; e.textContent = msg || ''; }
@@ -491,6 +577,7 @@
       back();
       if(r.card_required){ location.href = r.url; return; }
       if(r.verify && window.cfyVerify && window.CFY_VERIFY){ window.cfyVerify(r.reason).then(function(yes){ if(yes) generate(btn); else qerr(r.error); }); return; }
+      if(r._status === 409 && asking() && asked){ requote(); qerr(r.error || 'The price changed. Check it and confirm again.'); return; }
       if(r._status === 409){ close(dlg('price')); say((r.error || 'The price changed.') + ' Press send to see it again.'); return; }
       qerr(r.error || 'It couldn\'t start. Try again.');
     }).catch(function(){ back(); qerr('Something went wrong. Try again.'); });

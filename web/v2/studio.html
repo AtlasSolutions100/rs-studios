@@ -2,6 +2,8 @@
 {% block title %}Studio · Campaignify{% endblock %}
 {# Studio (studio_v2.py, M14): the canvas of the latest ads and one composer. Send asks for the price
    (/app/studio/quote) and opens the confirm box; only its button starts anything (/app/studio/generate).
+   Ask (M16) is the composer's first tab: a sentence goes to /app/studio/ask and the same confirm box opens on the
+   set it proposes, each part with its words (editable) and its price, each one tickable.
    The canvas scrolls by itself and the composer sits under it, so the last row of cards is never covered (M15). #}
 {% set ICO = {
   'presenter': '<circle cx="12" cy="9" r="3.5"/><path d="M5 20c.8-3.6 3.5-5.5 7-5.5s6.2 1.9 7 5.5"/>',
@@ -45,7 +47,9 @@
     <p class="cmp-note" data-note {{ 'hidden' if not boot.note }}>{{ boot.note }}</p>
     <div class="cmp-top">
       <div class="cmp-modes" role="radiogroup" aria-label="What to make" data-modes>
-        {% for m in modes %}<button type="button" role="radio" aria-checked="{{ 'true' if m.id == boot.mode else 'false' }}" tabindex="{{ '0' if m.id == boot.mode else '-1' }}" data-mode="{{ m.id }}" title="{{ m.line }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ ICO[m.id]|safe }}</svg><span>{{ m.name }}</span></button>{% endfor %}
+        {% set asking = boot.start == 'ask' %}
+        {% if boot.ask_on %}<button type="button" role="radio" aria-checked="{{ 'true' if asking else 'false' }}" tabindex="{{ '0' if asking else '-1' }}" data-mode="ask" title="Say what you want. You get a set of ads back with the price, and nothing is made until you confirm."><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11 3l1.9 5.6 5.6 1.9-5.6 1.9L11 18l-1.9-5.6L3.5 10.5l5.6-1.9z"/><path d="M18.5 14.5l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z"/></svg><span>Ask</span></button>{% endif %}
+        {% for m in modes %}<button type="button" role="radio" aria-checked="{{ 'true' if m.id == boot.mode and not asking else 'false' }}" tabindex="{{ '0' if m.id == boot.mode and not asking else '-1' }}" data-mode="{{ m.id }}" title="{{ m.line }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ ICO[m.id]|safe }}</svg><span>{{ m.name }}</span></button>{% endfor %}
       </div>
       <span class="cmp-pin" data-pin hidden><span data-pin-name></span><button type="button" data-pin-x aria-label="Remove this preset">{{ X|safe }}</button></span>
       <button type="button" class="cmp-more" data-more-open aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><path d="M16.75 14v5.5M14 16.75h5.5"/></svg><span>More</span></button>
@@ -55,12 +59,14 @@
       <textarea id="cmp-text" rows="2" maxlength="900" data-text placeholder=""></textarea>
       <div class="cmp-fields" data-fields hidden></div>
       <p class="cmp-err" role="alert" data-err hidden></p>
+      <ul class="v2-also in-cmp" data-ask-also hidden></ul>
       <div class="cmp-settings" id="cmp-settings" data-settings hidden></div>
       <div class="cmp-bar">
         <button type="button" class="cmp-chip" data-product-open aria-haspopup="dialog"><span class="cmp-thumb" data-product-thumb aria-hidden="true"></span><span data-product-name>Add product</span></button>
         <button type="button" class="cmp-chip" data-presenter-open aria-haspopup="dialog" hidden><span class="cmp-thumb round" data-presenter-thumb aria-hidden="true"></span><span data-presenter-name>Presenter</span></button>
         <span class="cmp-chip sel" data-voice-wrap hidden><label class="sr" for="cmp-voice">Narrator voice</label><select id="cmp-voice" data-voice></select></span>
         <span class="cmp-grow"></span>
+        <span class="cmp-asking" role="status" data-asking hidden><span class="spinner sm"></span> Putting a set together</span>
         <span class="cmp-count" data-count aria-live="polite"></span>
         <div class="cmp-step" role="group" aria-label="How many image ads" data-stepper hidden>
           <button type="button" data-less aria-label="One fewer">−</button><output data-n aria-live="polite">1</output><button type="button" data-plus aria-label="One more">+</button>
