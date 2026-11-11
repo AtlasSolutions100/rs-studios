@@ -306,6 +306,89 @@ for pr in (p1, p2, p3):
     if pr.stdout:
         pr.stdout.close()
 
+# ================================================================ 5b. the watchdog: a hung pass restarts the worker
+print("the watchdog")
+import threading  # noqa: E402
+
+gone = []
+hang = threading.Event()
+
+
+def stuck_call():           # stands in for a vendor call that never returns
+    hang.wait(30)
+
+
+loop_thread = threading.Thread(target=stuck_call, name="fake-loop", daemon=True)
+loop_thread.start()
+ex("DELETE FROM meta WHERE key=?", workerproc.STALL_META)
+now = time.time()
+alerts._beat["at"] = now - 5000
+workerproc._pass["started"] = 0.0
+check(workerproc.stalled(now) == 0.0 and not workerproc.check_stall(loop_thread, 1200, gone.append, now) and not gone,
+      "no pass running (between passes, or standing by for the lease): never restarted, however old the last beat")
+workerproc._pass["started"] = now - 100
+check(workerproc.stalled(now) == 100 and not workerproc.check_stall(loop_thread, 1200, gone.append, now) and not gone,
+      "a pass 100 s in is left alone")
+workerproc._pass["started"] = now - 3000
+alerts._beat["at"] = now - 60
+check(workerproc.stalled(now) == 60 and not workerproc.check_stall(loop_thread, 1200, gone.append, now) and not gone,
+      "a long pass that still beats (a call inside alerts.busy) is left alone")
+alerts._beat["at"] = now - 1300
+alerts._busy.update(what="flows", since=now - 2200, depth=1)
+check(workerproc.check_stall(loop_thread, 1200, gone.append, now) and gone == [workerproc.STALL_EXIT],
+      "a pass with no beat for 1300 s is hung: the worker leaves with exit 70, and docker starts it again")
+alerts._busy.update(what=None, since=0.0, depth=0)
+with db.connect() as conn:
+    st = workerproc.last_stall(conn)
+check(st and st["age_s"] == 1300 and st["busy"] == "flows" and any("stuck_call" in x for x in st["stack"])
+      and st["where"].endswith("stuck_call") and st["at_iso"].endswith("+00:00"),
+      "and it wrote down where the loop was: the stage and the call stack")
+check(all(re.fullmatch(r"[\w.<>-]+:\d+ [\w<>.]+", x) for x in st["stack"]),
+      "the note is file:line function only: no source text and no values")
+gone.clear()
+check(not workerproc.check_stall(loop_thread, 0, gone.append, now) and not gone, "RS_WORKER_WATCHDOG_S=0 switches it off")
+os.environ["RS_WORKER_WATCHDOG_S"] = "0"
+check(workerproc.watchdog_limit() == 0 and workerproc.start_watchdog(loop_thread) is None, "and no watchdog thread starts")
+os.environ.pop("RS_WORKER_WATCHDOG_S")
+check(workerproc.watchdog_limit() == workerproc.WATCHDOG_S == 1200
+      and workerproc.WATCHDOG_S > alerts._num("RS_HEALTH_BUSY_MAX_S", 900),
+      "by default 20 minutes, longer than a busy call may keep the beat going")
+workerproc._pass["started"] = 0.0
+hang.set()
+# the whole thing in a real process: a pass that never returns, and the worker leaves by itself
+ex("DELETE FROM worker_leases")
+ex("DELETE FROM meta WHERE key=?", workerproc.STALL_META)
+hung = ("import time, worker, workerproc\n"
+        "def never_returns():\n    time.sleep(600)\n"
+        "worker.loop_once = never_returns\n"
+        "workerproc.WATCHDOG_EVERY_S = 0.5\n"
+        "raise SystemExit(workerproc.run())\n")
+p4 = subprocess.Popen([sys.executable, "-c", hung], cwd=ROOT, env=dict(env, RS_WORKER_WATCHDOG_S="2"),
+                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+try:
+    out4, _ = p4.communicate(timeout=60)
+except subprocess.TimeoutExpired:
+    p4.kill()
+    out4, _ = p4.communicate()
+with db.connect() as conn:
+    st4 = workerproc.last_stall(conn)
+check(p4.returncode == workerproc.STALL_EXIT and "restarting" in out4 and "never_returns" in out4,
+      "a real worker whose pass never returns exits 70 within seconds of the limit, with every thread's stack in its log")
+check(st4 and st4["where"].endswith("never_returns") and st4["age_s"] >= 2, "and leaves the note for the admin page")
+ex("DELETE FROM worker_leases")
+import admin_funnel  # noqa: E402
+with db.connect() as conn:
+    ws_ = admin_funnel._worker_status(conn)
+check(ws_["stall"]["where"].endswith("never_returns"), "the admin page's worker row gets the last stall")
+html = cl.get("/admin").get_data(as_text=True)
+check('id="worker-stall"' in html and "Last restart by the watchdog" in html and "never_returns</code>" in html,
+      "and the admin System card shows it")
+ex("DELETE FROM meta WHERE key=?", workerproc.STALL_META)
+check('id="worker-stall"' not in cl.get("/admin").get_data(as_text=True), "nothing is shown when it never had to")
+src = open(os.path.join(ROOT, "workerproc.py")).read()
+check("_pass[\"started\"] = time.time()" in src and "finally:\n                _pass[\"started\"] = 0.0" in src
+      and "start_watchdog(threading.current_thread())" in src, "run() marks each pass and starts the watchdog")
+
 # ================================================================ 6. the compose file and the image
 print("docker-compose and the image")
 compose = open(os.path.join(ROOT, "docker-compose.yml")).read()      # (no YAML parser in requirements: read as text)
