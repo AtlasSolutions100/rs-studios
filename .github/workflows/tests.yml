@@ -46,7 +46,8 @@ jobs:
   # only, so pull requests stay fast. Providers and Stripe are faked; nothing leaves the runner.
   golden-path:
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    # pinned: Playwright 1.56 has no chromium build for the ubuntu 26.04 image that ubuntu-latest now gives
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
