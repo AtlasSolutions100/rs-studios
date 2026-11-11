@@ -862,13 +862,17 @@ def guide(slug: str) -> dict:
 
 def footer_groups() -> list:
     """The footer's link columns: (heading, [(href, label)])."""
-    use = [s for s in SOLUTION_ORDER if s not in COMPARE]
+    feats = [s for s in public_pages.FEATURE_PAGES if s in SOLUTIONS]
+    inds = [s for s in public_pages.INDUSTRY_PAGES if s in SOLUTIONS]
+    inds += [s for s in SOLUTION_ORDER if s not in COMPARE and s not in feats and s not in inds]   # nothing is left out
     comp = COMPARE + [k for k in GUIDE_ORDER if GUIDES[k].get("path")]
     guides = [k for k in GUIDE_ORDER if not GUIDES[k].get("path")]
-    return [("Use cases", [(f"/{s}", SOLUTIONS[s]["nav"]) for s in use]),
+    return [("Features", [(f"/{s}", SOLUTIONS[s]["nav"]) for s in feats]),
+            ("Industries", [(f"/{s}", SOLUTIONS[s]["nav"]) for s in inds]),
             ("Compare", [(f"/{s}", SOLUTIONS[s]["nav"]) if s in SOLUTIONS else (guide_path(s), GUIDES[s]["nav"])
                          for s in comp]),
-            ("Guides", [("/guides", "All guides")] + [(guide_path(k), GUIDES[k]["nav"]) for k in guides])]
+            ("Guides", [("/guides", "All guides")] + [(guide_path(k), GUIDES[k]["nav"]) for k in guides]
+             + [(PAGES["hook_tool"][0], "Free AI hook generator")])]
 
 
 def solution(slug: str) -> dict:
@@ -1007,6 +1011,9 @@ PAGES = {  # endpoint -> (path, title, description)
     "pricing": ("/pricing", "Pricing: Plans From ${starter} a Month · Campaignify",
                 "Free sign-up includes {sc_images} image ads, nothing charged. Plans at ${starter}, ${growth} and ${scale} a month, or "
                 "one-time credit packs. See every price before you generate."),
+    "hook_tool": ("/tools/ai-hook-generator", "Free AI Hook Generator for Ads · Campaignify",
+                  "Type what you sell and who it is for, and get eight opening lines for TikTok, Reels and Facebook "
+                  "ads. Free, no sign-up."),
     "for_reps": ("/for-reps", "For Independent Reps: Compliance Checks · Campaignify",
                  "Selling as an independent rep? Campaignify blocks income, recruiting, health and discount claims in "
                  "every ad brief, copy variant and landing page."),
@@ -1036,6 +1043,9 @@ def sitemap_paths() -> list[str]:
     paths = [PAGES[e][0] for e in ("index", "features", "pricing")]
     paths += [f"/{s}" for s in SOLUTION_ORDER]
     paths += ["/guides"] + [guide_path(k) for k in GUIDE_ORDER]
+    import hooktool
+    if hooktool.enabled():
+        paths += [PAGES["hook_tool"][0]]
     paths += [PAGES[e][0] for e in ("for_reps", "llm_info", "privacy", "terms", "messaging.policy")]
     import mcpserver
     if mcpserver.enabled():   # /docs/mcp is noindex until the MCP server is on (SEO-5)

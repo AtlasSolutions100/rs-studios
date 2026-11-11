@@ -662,9 +662,449 @@ SOLUTIONS = {
         ],
         "related": ["ai-marketing-platform-for-small-business", "research-competitor-ads", "blaze-alternative"],
     },
+    # ---- Feature and industry pages, Nov 10 2026. Same shape as the pages above; every number is a placeholder
+    # filled from the live rates, and nothing here names a feature the product does not have.
+    "ai-image-ad-generator": {
+        "query": "AI image ad generator",
+        "nav": "AI image ad generator",
+        "title": "AI Image Ad Generator from Your Product Photo · Campaignify",
+        "description": "Turn one product photo into finished image ads in feed, story and listing sizes. {image} credits "
+                       "an ad, price shown first. {sc_images} image ads free, nothing charged.",
+        "eyebrow": "Image ads",
+        "h1": "AI image ad generator that starts from your product photo",
+        "answer": "Campaignify's AI image ad generator makes a finished ad from your own product photo: pick a format such "
+                  "as an offer, a callout list, a comparison or a seasonal scene, write the headline, and get the ad in "
+                  "the sizes the feeds, stories and listings ask for. An image ad costs {image} credits, and you see the "
+                  "price before anything is made. Free sign-up includes {sc_images} image ads, {with_nothing_charged}.",
+        "clips": ["ad_image", "product-video", "ugc-coffee"],
+        "price_line": "Image ad: {image} credits. Shown before you press Generate.",
+        "steps": [
+            ("Add your product", "Paste your product page or upload a photo. Campaignify reads the name, the price and what "
+                                 "the page says, and you approve the claims your ads may make."),
+            ("Pick a format and write the headline", "Choose from the image presets: offers, callouts, comparisons, reviews "
+                                                     "you supply, seasonal scenes and more. Each shows its price in credits."),
+            ("Download in every size", "Each ad comes in the shapes you picked: {image_shapes}. A render that fails is "
+                                       "refunded automatically."),
+        ],
+        "gets": [
+            ("Your real product in the picture", "The ad is built on your own photo, so the label and the shape stay yours."),
+            ("Formats that already work", "Presets for the layouts advertisers use most, from a price badge to a side by "
+                                          "side comparison."),
+            ("Checked before it is made", "Income, health, discount and recruiting claims are blocked at the brief."),
+            ("No subscription needed", "Use your free credits or a credit pack. Plans add monthly credits and the campaign "
+                                       "tools, from ${starter_usd} a month."),
+            ('Several versions at once',
+             'Make two or more versions of the same headline in one go and keep the one that reads best. Each version is priced before you confirm, and a batch shows its total first.'),
+            ('A brand you set once',
+             'Save the product with its photo, its offer and the claims you approved, and every new ad starts from it instead of from a blank page.'),
+        ],
+        "h2": {"how": "How the AI image ad generator works", "gets": "What the AI image ad generator gives you",
+               "faq": "AI image ad generator questions"},
+        "faq": [
+            ("Does it invent a picture of my product?",
+             "No. It starts from the product photo you upload, so the ad shows your real product."),
+            ("Which sizes do I get?",
+             "You choose from {image_shapes} when you make the ad, and each size is priced before you confirm."),
+            ("Can it write a customer review for the ad?",
+             "No. The review format only takes a review you supply, word for word. Campaignify never writes one."),
+            ("Does it post the ad for me?",
+             "No. You download the ad and launch it in the platform's own ads manager. See [how the hooks guide pairs "
+             "with image ads](/guides/ugc-ad-hooks)."),
+            ('How long does an image ad take?',
+             'Usually one to three minutes. You can leave the page; the ad is waiting in your library when it is done, and a render that fails is refunded automatically.'),
+        ],
+        "related": ["ai-ugc-ad-generator", "ai-ad-copy-generator", "credit-based-ai-ad-pricing"],
+    },
+    "ai-product-video-generator": {
+        "query": "AI product video generator",
+        "nav": "AI product video generator",
+        "title": "AI Product Video Generator from One Photo · Campaignify",
+        "description": "Make a 5 or 10 second product video from one product photo. {video5} credits for 5 seconds, "
+                       "price shown first. Start free with {sc} credits.",
+        "eyebrow": "Product videos",
+        "h1": "AI product video generator that needs one photo",
+        "answer": "Campaignify's AI product video generator turns a single product photo into a short video for your ads "
+                  "or your product page: a turn, a label read, a how-it-works shot or a scene you describe. A 5 second "
+                  "video costs {video5} credits and a 10 second one {video10}, shown before you press Generate. Free "
+                  "sign-up includes {sc} credits, {with_nothing_charged}.",
+        "clips": ["product-video", "photo_to_video", "show-amber"],
+        "price_line": "5-second product video: {video5} credits. 10 seconds: {video10}. Shown before you press Generate.",
+        "steps": [
+            ("Upload one product photo", "A clean photo of the product is enough. Add the product once and reuse it for "
+                                         "every video."),
+            ("Pick a template or describe the scene", "Choose a ready shot or write what should happen. Pick 5 or 10 "
+                                                      "seconds and whether you want sound."),
+            ("See the price, then make it", "The price in credits is on the button. Videos take a few minutes, and a "
+                                            "render that fails is refunded automatically."),
+        ],
+        "gets": [
+            ("Video without a shoot", "No studio, no camera and no editor. The video is made from the photo you have."),
+            ("Shots built for ads", "Templates for the product turn, the label, the swap and the how-it-works shot."),
+            ("Sized for where it runs", "Vertical for Reels, TikTok and Shorts, or the shape your listing needs."),
+            ('One product, many videos',
+             'Save the product once with its photo and offer, then make a turn for the product page, a label read for an ad and a how-it-works shot for a listing from the same record.'),
+            ('The price before the video',
+             'Every video shows its price in credits on the button. Nothing is made, and nothing is charged, until you press it.'),
+            ('Claims checked first',
+             'The brief is checked for income, health, discount and recruiting claims before a video is made, so an ad is not built on a line a platform will reject.'),
+        ],
+        "h2": {"how": "How the AI product video generator works", "gets": "What the AI product video generator gives you",
+               "faq": "AI product video generator questions"},
+        "faq": [
+            ("How long can a product video be?", "5 or 10 seconds. For longer talking videos, use an AI presenter video, "
+                                                 "which runs up to {talk_max} seconds."),
+            ("Do I need more than one photo?", "No. One clear product photo is enough to start."),
+            ("Can I use the video on my product page?", "Yes. The video is yours to download and use in ads, on your "
+                                                        "product page or in a marketplace listing."),
+            ('Does the video have sound?',
+             'You choose. A product video can be made silent or with sound, and the price for each is shown before you confirm.'),
+            ('What if the video comes out wrong?',
+             'A render that fails is refunded automatically. If the product in the video does not match your photo, make it again from a clearer photo or a different template.'),
+        ],
+        "related": ["ai-product-ads-for-shopify", "ai-image-ad-generator", "credit-based-ai-ad-pricing"],
+    },
+    "ai-avatar-ads": {
+        "query": "AI avatar ads",
+        "nav": "AI presenters and avatars",
+        "title": "AI Avatar Ads: Presenters Who Say Your Script · Campaignify",
+        "description": "{presenters} AI presenters say your script to camera with your product beside them. An 8 second "
+                       "video is {talk8} credits, price shown first. None is a real person.",
+        "eyebrow": "AI presenters",
+        "h1": "AI avatar ads: presenters who say your script",
+        "answer": "Campaignify makes AI avatar ads with {presenters} original presenters. Pick a presenter and a place "
+                  "they film in, such as a kitchen, a car or a desk, write what they say, and get a selfie-style video "
+                  "with your product in the shot. An 8 second video costs {talk8} credits, shown before you press "
+                  "Generate. None of the presenters is a real person, and they never speak as customers.",
+        "clips": ["ugc-coffee", "ugc-serum", "ugc-app"],
+        "price_line": "8-second AI presenter video: {talk8} credits. Shown before you press Generate.",
+        "steps": [
+            ("Pick a presenter and a setting", "Choose from {presenters} presenters, each with a few places they film "
+                                               "in: a kitchen, a car, a desk and more."),
+            ("Write the script", "Write what they say, or start from a hook. Scripts are checked for claims the product "
+                                 "cannot make."),
+            ("See the price, then make it", "Pick the length, from 8 to {talk_max} seconds. The price is on the button, "
+                                            "and a failed render is refunded automatically."),
+        ],
+        "gets": [
+            ("Presenters without a shoot", "No casting, no filming and no usage rights to chase."),
+            ("Your product in the shot", "The product sits beside the presenter or in their hand, from your own photo."),
+            ("Honest by design", "Presenters explain the offer. They never give testimonials or describe personal results."),
+            ('Several presenters, one script',
+             'Run the same script with up to four presenters and see which one your audience watches. Each video is priced on its own line before you confirm.'),
+            ('Captions when you want them',
+             'Video presets made in beats can burn the spoken words in as captions, so the ad still works with the sound off.'),
+            ('The price before the video',
+             'Every video shows its price in credits before it is made, priced by its length. Free sign-up includes {sc} credits, {with_nothing_charged}, and a render that fails is refunded automatically.'),
+        ],
+        "h2": {"how": "How AI avatar ads are made", "gets": "What you get with AI avatar ads", "faq": "AI avatar ads questions"},
+        "faq": [
+            ("Are the presenters real people?", "No. Every presenter is an original AI character made for Campaignify. "
+                                                "None is based on a real person."),
+            ("Can a presenter give a testimonial?",
+             "No. The FTC bans testimonials from people who don't exist. See [the guide to FTC and Meta rules]"
+             "(/guides/ftc-meta-rules-for-ai-ads)."),
+            ("How long can the video be?", "From 8 to {talk_max} seconds, priced by length before you confirm."),
+            ("Can I pick the voice?", "Yes. Each presenter has a voice, and you can choose another from the voice list."),
+            ('Can the presenter hold my product?',
+             'You choose where the product is: on the table beside the presenter, or held up in their hand. Both start from your own product photo.'),
+        ],
+        "related": ["ai-ugc-ad-generator", "make-ai-ugc-ads-that-dont-look-fake", "ftc-meta-rules-for-ai-ads"],
+    },
+    "ai-facebook-ad-generator": {
+        "query": "AI Facebook ad generator",
+        "nav": "AI Facebook ad generator",
+        "title": "AI Facebook Ad Generator: Image, Video, Copy · Campaignify",
+        "description": "Make Facebook and Instagram ads from your product page: image ads, presenter videos and the "
+                       "primary text and headlines to go with them. {sc_images} image ads free.",
+        "eyebrow": "Facebook and Instagram",
+        "h1": "AI Facebook ad generator for the picture, the video and the words",
+        "answer": "Campaignify is an AI Facebook ad generator that makes the whole ad: image ads and short videos in feed "
+                  "and story sizes, plus primary text and headlines written for Meta. It starts from your product page, "
+                  "shows the price of every ad in credits before it is made, and blocks income, health, discount and "
+                  "recruiting claims at the brief. You upload the finished ads in Meta Ads Manager; Campaignify does not run them.",
+        "clips": ["ad_image", "ugc-serum", "product-video"],
+        "price_line": "Image ad: {image} credits. 8-second AI presenter video: {talk8} credits. Shown before you press Generate.",
+        "steps": [
+            ("Paste your product page", "Campaignify reads the product, the price and the claims, and you approve what "
+                                        "your ads may say."),
+            ("Make the creative", "Image ads in 4:5 and 1:1 for the feed and 9:16 for stories and Reels, or a presenter "
+                                  "video. Each shows its price first."),
+            ("Add the copy and launch", "Get primary text and headlines for each ad, then upload everything in Meta Ads "
+                                        "Manager."),
+        ],
+        "gets": [
+            ("Feed and story sizes", "Every ad in the shapes Facebook and Instagram placements ask for."),
+            ("Copy written for Meta", "Primary text and headlines within Meta's limits, in several variants to test."),
+            ("Claims checked first", "Income, health, discount and recruiting claims are blocked before an ad is made."),
+            ("A plan to test with", "On a plan, the campaign planner lays out angles, hooks and a first test."),
+            ('Your product, not a stock picture',
+             'Image ads are built on your own product photo, and presenter videos show the product from that same photo, so what people see is what they get.'),
+            ('Sized before you download',
+             'Pick the placements you run and get each ad in those shapes, so nothing is cropped by the feed or cut off in stories.'),
+        ],
+        "h2": {"how": "How the AI Facebook ad generator works", "gets": "What the AI Facebook ad generator gives you",
+               "faq": "AI Facebook ad generator questions"},
+        "faq": [
+            ("Does Campaignify publish to Facebook?", "No. It makes the ads and the copy. You upload and launch them in "
+                                                      "Meta Ads Manager, and your ad spend stays there."),
+            ("Do the ads work for Instagram too?", "Yes. The feed, story and Reels sizes are the same placements Meta "
+                                                   "uses across Facebook and Instagram."),
+            ("Will Meta approve AI-made ads?",
+             "Meta allows AI-made ads that follow its rules. See [what the FTC and Meta expect]"
+             "(/guides/ftc-meta-rules-for-ai-ads)."),
+            ('How much does a Facebook ad cost to make?',
+             'An image ad is {image} credits and an 8 second presenter video is {talk8}. Free sign-up includes {sc_images} image ads, {with_nothing_charged}. What you spend on running the ad is paid to Meta.'),
+            ('Can it help me set up my ad account?',
+             "On a plan, the ad-account setup hub walks you through each step in Meta's own tools. Campaignify does not log in to your ad account."),
+        ],
+        "related": ["ai-ad-copy-generator", "ftc-meta-rules-for-ai-ads", "ai-image-ad-generator"],
+    },
+    "ai-tiktok-ad-generator": {
+        "query": "AI TikTok ad generator",
+        "nav": "AI TikTok ad generator",
+        "title": "AI TikTok Ad Generator: Videos and Hooks · Campaignify",
+        "description": "Make vertical TikTok ads from your product page: presenter videos, product videos, hooks and "
+                       "captions. An 8 second video is {talk8} credits, price first.",
+        "eyebrow": "TikTok",
+        "h1": "AI TikTok ad generator for vertical videos that open with a hook",
+        "answer": "Campaignify is an AI TikTok ad generator: it makes 9:16 presenter videos and product videos from your "
+                  "product page, and writes the hooks and captions to go with them. An 8 second presenter video costs "
+                  "{talk8} credits and a 5 second product video {video5}, shown before anything is made. You upload the "
+                  "finished videos in TikTok Ads Manager; Campaignify does not run them.",
+        "clips": ["ugc-sneakers", "ugc-coffee", "product-video"],
+        "price_line": "8-second AI presenter video: {talk8} credits. 5-second product video: {video5}. Shown before you press Generate.",
+        "steps": [
+            ("Paste your product page", "Campaignify reads the product and what the page says, and you approve the claims."),
+            ("Start from a hook", "Pick a video recipe and write the opening line, or get hook drafts first. A presenter "
+                                  "says it to camera with your product in the shot."),
+            ("Download vertical", "Videos come out 9:16 with captions when the recipe has them, ready to upload."),
+        ],
+        "gets": [
+            ("Videos that look native", "Selfie-style presenter videos in everyday settings, not studio spots."),
+            ("Hooks and captions", "Hook drafts and captions with hashtags from the copy studio on a plan."),
+            ("Several versions to test", "Make the same script with different presenters or hooks and see each price first."),
+            ('Your product in every video',
+             'Presenter videos and product videos both start from your own product photo, so the thing in the ad is the thing you sell.'),
+            ('The price before the video',
+             'Each video shows its price in credits before it is made, and a batch shows its total first. A render that fails is refunded automatically.'),
+            ('Claims checked first',
+             'Scripts are checked for income, health, discount and recruiting claims before a video is made.'),
+        ],
+        "h2": {"how": "How the AI TikTok ad generator works", "gets": "What the AI TikTok ad generator gives you",
+               "faq": "AI TikTok ad generator questions"},
+        "faq": [
+            ("Does Campaignify post to TikTok?", "No. It makes the videos. You upload and launch them in TikTok Ads Manager."),
+            ("How long are the videos?", "Presenter videos run from 8 to {talk_max} seconds and product videos 5 or 10."),
+            ("How do I write a hook that holds?",
+             "Start with the problem or the result in the first second. See [hooks for UGC ads](/guides/ugc-ad-hooks)."),
+            ('Do the videos have captions?',
+             'Video presets made in beats can burn the spoken words in as captions, which helps on a feed most people watch with the sound off.'),
+            ('Can I make the same ad for Reels and Shorts?',
+             'Yes. The vertical 9:16 video you make for TikTok is the same shape Reels and Shorts use.'),
+        ],
+        "related": ["ugc-ad-hooks", "ai-ugc-ad-generator", "ai-avatar-ads"],
+    },
+    "ai-ads-for-saas": {
+        "query": "AI ads for SaaS",
+        "nav": "AI ads for SaaS",
+        "title": "AI Ads for SaaS from Your Own Screens · Campaignify",
+        "description": "Ads for your software from your own screenshots: image ads, presenter videos, copy and a page "
+                       "with a sign-up form. {sc_images} image ads free, nothing charged.",
+        "eyebrow": "For SaaS",
+        "h1": "AI ads for SaaS, made from your own screens",
+        "answer": "Campaignify makes AI ads for SaaS from what you already have: your product page and your screenshots. "
+                  "It makes image ads built around your screenshot, presenter videos that explain the offer, copy for "
+                  "each platform, and on a plan a landing page with a sign-up form and follow-up emails. In the videos "
+                  "that use them, your screens are shown as you uploaded them. Every ad shows its price in credits first.",
+        "clips": ["ugc-app", "ad_image", "ugc-coffee"],
+        "price_line": "Image ad: {image} credits. 8-second AI presenter video: {talk8} credits. Shown before you press Generate.",
+        "steps": [
+            ("Add your product and screenshots", "Paste your site and upload the screens you want to show. Approve the "
+                                                 "claims your ads may make."),
+            ("Make the ads", "Image ads with your screen in the frame, or a presenter who explains what the product does."),
+            ("Send clicks to a sign-up page", "On a plan, build a landing page with a form, and let a flow email each new "
+                                              "lead."),
+        ],
+        "gets": [
+            ("Your real interface", "Videos that show your screens use the screenshots you uploaded, as they are."),
+            ("A presenter for the pitch", "AI presenters explain the offer in a short vertical video."),
+            ("Copy for each platform", "Ad copy, hooks, headlines and emails from the copy studio on a plan."),
+            ("Leads in one place", "Forms and a contacts list with tags on Growth."),
+            ('A plan for the first test',
+             'On a plan, the campaign planner turns a brief into angles, hooks, scripts and a launch checklist, so the first two weeks of ads have an order to them.'),
+            ('The price before each ad',
+             'Every ad shows its price in credits before it is made. Free sign-up includes {sc_images} image ads, {with_nothing_charged}.'),
+            ('Claims checked first',
+             'Briefs and copy are checked for income, health, discount and recruiting claims before anything is made.'),
+        ],
+        "h2": {"how": "How SaaS teams use AI ads", "gets": "What SaaS teams get from AI ads", "faq": "AI ads for SaaS questions"},
+        "faq": [
+            ("Will it make up screenshots of my app?", "No. The videos that show your screens use the screenshots you "
+                                                       "uploaded, as they are."),
+            ("Can it promise results like 10x productivity?",
+             "Describe what the product does, not a number you cannot back. Income and earnings claims are blocked."),
+            ("Does it connect to my CRM?", "Forms can send each submission out by webhook on Growth, and contacts live in "
+                                           "Campaignify with tags."),
+            ('Does it run the ads or track sign-ups from them?',
+             "No. You launch the ads in each platform's ads manager. Campaignify shows page views, form submissions and smart-link clicks for what runs on Campaignify."),
+            ('Can it compare us with a competitor in an ad?',
+             'Competitor research gives you a brief on what a competitor offers and how they pitch it, each point with its source. Keep the ad about what your product does.'),
+        ],
+        "related": ["ai-ad-copy-generator", "plan-a-campaign-with-ai", "ai-marketing-platform-for-small-business"],
+    },
+    "ai-ads-for-mobile-apps": {
+        "query": "AI ads for mobile apps",
+        "nav": "AI ads for mobile apps",
+        "title": "AI Ads for Mobile Apps from Your Screenshots · Campaignify",
+        "description": "App ads from your own screenshots: vertical presenter videos, image ads and hooks for TikTok, "
+                       "Reels and Shorts. 8 seconds is {talk8} credits, price first.",
+        "eyebrow": "For mobile apps",
+        "h1": "AI ads for mobile apps that show the real app",
+        "answer": "Campaignify makes AI ads for mobile apps from your own screenshots. A presenter talks about the app "
+                  "in a vertical video with your screens shown as you uploaded them, or an image ad pairs your screen "
+                  "with a headline. An 8 second presenter video costs "
+                  "{talk8} credits and an image ad {image}, shown before anything is made.",
+        "clips": ["ugc-app", "ugc-sneakers", "ad_image"],
+        "price_line": "Image ad: {image} credits. 8-second AI presenter video: {talk8} credits. Shown before you press Generate.",
+        "steps": [
+            ("Add the app and its screenshots", "Add the app as a product and upload the screens you want people to see."),
+            ("Pick the ad", "A presenter video, or an image ad with your screen and a headline."),
+            ("Download vertical and launch", "Upload the ads in the ad platform you use. Campaignify does not run them."),
+        ],
+        "gets": [
+            ("The real app on screen", "Videos that show your screens use the screenshots you uploaded, as they are."),
+            ("Vertical by default", "9:16 for TikTok, Reels and Shorts."),
+            ("Hooks to test", "Several openings for the same app, each priced before it is made."),
+            ('Several presenters, one script',
+             'Run the same script with different presenters and see which one people watch. Each video is priced on its own line before you confirm.'),
+            ('Claims checked first',
+             'Scripts are checked for income, health, discount and recruiting claims before a video is made, which matters most for finance and wellness apps.'),
+            ('The price before each ad',
+             'Every ad shows its price in credits first. Free sign-up includes {sc_images} image ads, {with_nothing_charged}.'),
+            ('A plan for the first test',
+             'On a plan, the campaign planner turns a brief into angles, hooks and scripts, so you know which three openings to try first and what to keep.'),
+        ],
+        "h2": {"how": "How app teams use AI ads", "gets": "What app teams get from AI ads", "faq": "AI ads for mobile apps questions"},
+        "faq": [
+            ("Can it record a screen walkthrough?", "No. It shows the screenshots you upload. For a moving walkthrough, "
+                                                    "record your screen and post it alongside."),
+            ("Can the presenter hold a phone with my app?", "The presenter talks to camera with your screens shown as "
+                                                            "they are in the video."),
+            ("Does it handle health or finance app claims?",
+             "Health and income claims are blocked. Describe what the app does, not what someone will gain or lose."),
+            ('Which sizes do the ads come in?',
+             'Videos are vertical 9:16. Image ads come in the shapes you pick when you make them: {image_shapes}.'),
+            ('Does it link to the App Store?',
+             'The ad is a file you upload to the ad platform, where you set the install link. Smart links on a plan give you a short link with click counts.'),
+        ],
+        "related": ["ai-tiktok-ad-generator", "ugc-ad-hooks", "ai-avatar-ads"],
+    },
+    "ai-ads-for-lead-generation": {
+        "query": "AI ads for lead generation",
+        "nav": "AI ads for lead generation",
+        "title": "AI Ads for Lead Generation, Page and Form · Campaignify",
+        "description": "The whole lead path in one place: ads, a landing page with a form, a contacts list and "
+                       "follow-up emails. Plans from ${starter_usd} a month; {sc_images} image ads free.",
+        "eyebrow": "For lead generation",
+        "h1": "AI ads for lead generation, with the page and the follow-up",
+        "answer": "Campaignify covers the lead path from the ad to the follow-up. It makes the ads, builds a landing page "
+                  "with a form, keeps every lead in a contacts list with tags, and sends the emails you wrote when "
+                  "someone signs up. Landing pages and flows come with Starter; forms, contacts and email sending come "
+                  "with Growth. You see the price of every ad before it is made.",
+        "clips": ["ugc-bakery", "ad_image", "ugc-app"],
+        "price_line": "Image ad: {image} credits. 8-second AI presenter video: {talk8} credits. Shown before you press Generate.",
+        "steps": [
+            ("Make the ads", "Image ads and short videos for the offer: a guide, a quote, a call or a trial."),
+            ("Build the page and the form", "A landing page from blocks with a form on it, published on campaignify.ai."),
+            ("Follow up on its own", "A flow emails each new lead: right away, then on the days you set."),
+        ],
+        "gets": [
+            ("One path, not five tools", "The ad, the page, the form, the contact and the email in the same place."),
+            ("Every lead kept", "A contacts list with tags and each contact's history."),
+            ("Numbers for what you run here", "Page views, form submissions and smart-link clicks."),
+            ("Leads sent where you work", "Webhooks out from forms on Growth."),
+            ('Copy for every step',
+             'On a plan, the copy studio writes the ad copy, the page copy and the follow-up emails in the same voice, so the promise in the ad matches the page it lands on.'),
+            ('Claims checked along the way',
+             'Ad briefs, copy and pages are checked for income, health, discount and recruiting claims before they go out.'),
+            ('The price before each ad',
+             'Every ad shows its price in credits before it is made. Free sign-up includes {sc_images} image ads, {with_nothing_charged}.'),
+        ],
+        "h2": {"how": "How AI ads for lead generation work", "gets": "What you get for lead generation with AI ads",
+               "faq": "AI ads for lead generation questions"},
+        "faq": [
+            ("Does it use Facebook lead forms?", "No. Leads come through the form on your Campaignify page. You launch "
+                                                 "the ads in the platform's ads manager and point them at that page."),
+            ("Can it text my leads?", "Text messages in flows come with Scale. Email sending comes with Growth."),
+            ("Can I see cost per lead?", "Campaignify shows page views, submissions and link clicks. Ad spend and cost "
+                                         "per lead are in the ad platform."),
+            ('Which plan do I need for lead generation?',
+             'Starter has landing pages, flows and smart links. Growth adds forms, the contacts list and email sending. Text messages in flows come with Scale.'),
+            ('Where do my leads go?',
+             'Into your contacts list in Campaignify, each with tags and its history. On Growth a form can also send every submission out by webhook.'),
+        ],
+        "related": ["ai-ads-for-local-businesses", "plan-a-campaign-with-ai", "ai-ad-copy-generator"],
+    },
+    "ai-ads-for-real-estate": {
+        "query": "AI ads for real estate",
+        "nav": "AI ads for real estate",
+        "title": "AI Ads for Real Estate Agents and Teams · Campaignify",
+        "description": "Listing and lead ads from your own photos, with a page and a form to catch the enquiry. "
+                       "{sc_images} image ads free, nothing charged.",
+        "eyebrow": "For real estate",
+        "h1": "AI ads for real estate agents and teams",
+        "answer": "Campaignify makes AI ads for real estate from your own photos: image ads for a listing or your "
+                  "service, short videos with an AI presenter, the copy for each platform, and on a plan a landing page "
+                  "with an enquiry form and follow-up emails. Housing ads carry extra rules on Meta and under fair "
+                  "housing law; Campaignify does not check those for you, so keep the wording about the property.",
+        "clips": ["ad_image", "ugc-bakery", "product-video"],
+        "price_line": "Image ad: {image} credits. 8-second AI presenter video: {talk8} credits. Shown before you press Generate.",
+        "steps": [
+            ("Add the listing or your service", "Upload your own photos and the facts: the area, the price, what is "
+                                                "included."),
+            ("Make the ads", "Image ads in feed and story sizes, or a presenter who introduces the listing or your team."),
+            ("Catch the enquiry", "On a plan, send clicks to a page with a form and let a flow reply to each lead."),
+        ],
+        "gets": [
+            ("Ads from your own photos", "The property in the ad is the property in your photo."),
+            ("An enquiry page", "A landing page on Starter; forms and a contacts list on Growth."),
+            ("Follow-up that does not slip", "Emails go out on their own when someone fills in the form."),
+            ('Copy for each platform',
+             'On a plan, the copy studio writes the ad copy, headlines and follow-up emails for the listing or the service, in several variants to test.'),
+            ('The price before each ad',
+             'Every ad shows its price in credits before it is made. Free sign-up includes {sc_images} image ads, {with_nothing_charged}.'),
+            ('One place for enquiries',
+             'Each enquiry lands in a contacts list with tags, so a lead from one listing can be followed up about the next.'),
+        ],
+        "h2": {"how": "How real estate teams use AI ads", "gets": "What real estate teams get from AI ads",
+               "faq": "AI ads for real estate questions"},
+        "faq": [
+            ("Does it check fair housing wording?",
+             "No. Campaignify blocks income, health, discount and recruiting claims, but not housing wording. Describe "
+             "the property, not who should live there, and choose Meta's housing category in Ads Manager."),
+            ("Can it make a video tour?", "No. It makes short videos from photos and presenter videos, not a walk-through "
+                                          "of the home."),
+            ("Can an AI presenter pose as a client?", "No. Presenters never speak as customers or give testimonials."),
+            ('Does it post to the listing sites?',
+             "No. It makes the ads, the page and the emails. You upload the ads in each ad platform's own ads manager."),
+            ('Which plan do I need?',
+             'Free sign-up makes ads with your starter credits. Starter adds the landing page and flows; Growth adds forms, contacts and email sending.'),
+        ],
+        "related": ["ai-ads-for-local-businesses", "ai-ads-for-lead-generation", "ftc-meta-rules-for-ai-ads"],
+    },
 }
 SOLUTION_ORDER = ["ai-ads-for-local-businesses", "ai-ads-for-coaches", "ai-ads-for-ecommerce", "ai-marketing-for-agencies",
-                  "blaze-alternative", "predis-ai-alternative", "heygen-alternative", "topview-alternative"]
+                  "blaze-alternative", "predis-ai-alternative", "heygen-alternative", "topview-alternative",
+                  "ai-image-ad-generator", "ai-product-video-generator", "ai-avatar-ads", "ai-facebook-ad-generator",
+                  "ai-tiktok-ad-generator", "ai-ads-for-saas", "ai-ads-for-mobile-apps", "ai-ads-for-lead-generation",
+                  "ai-ads-for-real-estate"]
+# The footer's two columns of answer-first pages: what it does, and who it is for (public_site.footer_groups).
+FEATURE_PAGES = ["ai-ugc-ad-generator", "ai-image-ad-generator", "ai-product-video-generator", "ai-avatar-ads",
+                 "ai-ad-copy-generator", "ai-facebook-ad-generator", "ai-tiktok-ad-generator",
+                 "ai-marketing-platform-for-small-business"]
+INDUSTRY_PAGES = ["ai-ads-for-ecommerce", "ai-product-ads-for-shopify", "ai-ads-for-saas", "ai-ads-for-mobile-apps",
+                  "ai-ads-for-lead-generation", "ai-ads-for-local-businesses", "ai-ads-for-real-estate",
+                  "ai-ads-for-coaches", "ai-marketing-for-agencies"]
 
 
 # ---------------------------------------------------------------- guides and the roundup

@@ -492,6 +492,19 @@ words") are covered by captions, not written. Deleting a workspace deletes each 
 (`wsdelete.py`). Tests: `tests/test_keyframe_video.py` (the stitching
 checks need ffmpeg; `tests.yml` installs it).
 
+## Feature and industry pages, and the free hook generator (Nov 10 2026)
+
+Nine more answer-first pages in `public_pages.SOLUTIONS`, under the same rules as the rest (600+ words, three steps,
+3 to 5 FAQs, every number from `facts()`, nothing the product does not do): image ads, product videos, AI presenters,
+Facebook ads, TikTok ads, SaaS, mobile apps, lead generation and real estate. The footer groups every page under
+Features, Industries, Compare and Guides (`public_site.footer_groups`, from `FEATURE_PAGES` and `INDUSTRY_PAGES`).
+
+`/tools/ai-hook-generator` (`hooktool.py`, `web/tool_hooks.html`) is a free public tool: what you sell, who it is for,
+eight hooks back. It is the one place the public site spends on the text model with no member behind it, so it is
+capped three ways: `HOOK_TOOL=0` turns it off, each visitor gets 5 runs a day, and the whole site gets
+`HOOK_TOOL_DAILY_MAX` runs a day (default 300). Briefs and hooks pass the same claim rules as the studio.
+`tests/test_hook_tool.py` covers it with the model stubbed.
+
 ## The neutral look, Studio and onboarding (`ui_v2.py`, `studio_v2.py`, `onboarding.py`; `UI_V2`, default off)
 
 **The home page is live in it (`HOME_V2`, Nov 10 2026).** The public home page renders in the new look for everyone

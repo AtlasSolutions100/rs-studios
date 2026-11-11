@@ -1,0 +1,71 @@
+{% extends "public_base.html" %}
+{# The free hook generator (hooktool.py). One form, eight hooks, no account. Limits and the claim rules are in the module. #}
+{% block main %}
+{% set so = signup_offer() %}
+<section class="lp-hero lp-hero-sm">
+  <div class="lp-wrap" style="max-width:760px">
+    <p class="eyebrow">Free tool</p>
+    <h1>AI hook generator for ads</h1>
+    <p class="lp-lede">Type what you sell and who it is for. Get eight opening lines to test, each from a different angle. Free, no sign-up, {{ per_visitor }} runs a day.</p>
+    <form method="post" action="{{ path }}#hooks" class="card" style="margin-top:22px;text-align:left">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <div class="hp" aria-hidden="true"><label for="website">Website</label><input id="website" type="text" name="website" tabindex="-1" autocomplete="off"></div>
+      <label for="hk-product">What do you sell?</label>
+      <input id="hk-product" type="text" name="product" required maxlength="{{ max_len }}" value="{{ form.product }}" placeholder="A 12 oz steel travel mug with a press-fit lid">
+      <label for="hk-audience">Who is it for? (optional)</label>
+      <input id="hk-audience" type="text" name="audience" maxlength="{{ max_len }}" value="{{ form.audience }}" placeholder="People who leave the house before the coffee is finished">
+      <label for="hk-platform">Where will the ad run?</label>
+      <select id="hk-platform" name="platform">
+        {% for k, label in platforms.items() %}<option value="{{ k }}" {{ 'selected' if form.platform == k }}>{{ label }}</option>{% endfor %}
+      </select>
+      <p style="margin:18px 0 0"><button class="btn lg">Write 8 hooks</button></p>
+      <p class="small dim" style="margin:10px 0 0">Hooks never promise income, health results or discounts you did not state, and never quote a customer.</p>
+    </form>
+  </div>
+</section>
+
+{% if result %}
+<section class="lp-sec" id="hooks" aria-labelledby="hk-h">
+  <div class="lp-wrap" style="max-width:760px">
+    {% if result.error %}
+    <h2 class="lp-h2" id="hk-h">Not this time</h2>
+    <p class="flash warn" role="alert">{{ result.error }}</p>
+    {% else %}
+    <h2 class="lp-h2" id="hk-h">Your {{ result.hooks|length }} hooks</h2>
+    <ol class="sol-steps">
+      {% for h in result.hooks %}
+      <li><span class="lp-num">{{ loop.index }}</span><div><h3 style="font-weight:600">{{ h.text }}</h3><p class="muted small">{{ h.angle }}</p></div></li>
+      {% endfor %}
+    </ol>
+    <div class="lp-cta" style="margin-top:22px">
+      <a class="btn lg" href="{{ url_for('signup') }}" data-cta="hook-tool">{{ so.cta }}</a>
+    </div>
+    <p class="small muted lp-note">Pick the hook you like and make the ad that opens with it. {{ so.body }}</p>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+<section class="lp-sec" id="how">
+  <div class="lp-wrap" style="max-width:760px">
+    <p class="eyebrow">How it works</p>
+    <h2 class="lp-h2">What makes a hook hold</h2>
+    <ol class="sol-steps">
+      <li><span class="lp-num">1</span><div><h3>Start with the viewer</h3><p class="muted">Open on the problem they have or the moment they are in, not on your brand name.</p></div></li>
+      <li><span class="lp-num">2</span><div><h3>Say one thing</h3><p class="muted">One sentence a person could say out loud. Save the details for the next line.</p></div></li>
+      <li><span class="lp-num">3</span><div><h3>Test several</h3><p class="muted">Run the same ad with three different hooks and keep the one people watch past. <a href="{{ guide_href }}">The guide to UGC ad hooks</a> has examples by angle.</p></div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="lp-sec" id="faq">
+  <div class="lp-wrap" style="max-width:760px">
+    <h2 class="lp-h2">Hook generator questions</h2>
+    <div class="lp-faq">
+      <details><summary>Is the hook generator free?</summary><p>Yes. {{ per_visitor }} runs a day with no account. Making the ad itself uses credits, and free sign-up includes some.</p></details>
+      <details><summary>Do you keep what I type?</summary><p>No. The brief is sent to the text model to write the hooks and is not saved with anything about you.</p></details>
+      <details><summary>Why did it refuse my brief?</summary><p>Briefs with income, health, discount or recruiting claims are refused, the same as in the ad studio, because ads built on them get rejected.</p></details>
+    </div>
+  </div>
+</section>
+{% endblock %}
