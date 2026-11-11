@@ -1232,10 +1232,31 @@ def start_import():
     try:
         with fetcher.budget(IMPORT_BUDGET_S):
             if service_path.on() and str((request.get_json(silent=True) or {}).get("sells") or "") == "service":
-                return _start_import_site(url)
-            return _start_import_page(url)
+                out = _start_import_site(url)
+            else:
+                out = _start_import_page(url)
     finally:
         _IMPORT_SLOTS.release()
+    _read_brand_after_import(out, url)
+    return out
+
+
+def _read_brand_after_import(out, url):
+    """A link that imported also has its brand read (brand_identity.py): the logo, colours and voice into the
+    brand, who it competes with, and on a paid plan the full research. Queued, never in this request's way, and
+    never a reason for the import to fail."""
+    try:
+        resp, status = out if isinstance(out, tuple) else (out, 200)
+        data = resp.get_json(silent=True) or {}
+        if status != 200 or not data.get("product_id"):
+            return
+        import brand_identity
+        with db.connect() as conn:
+            p = products.get_product(conn, g.ws["id"], data["product_id"])
+        if p is not None:
+            brand_identity.start(g.ws["id"], p["brand_id"], p["id"], url)
+    except Exception:  # noqa: BLE001
+        log.exception("reading the brand after an import failed to start")
 
 
 def _env_num(name, default, cast=int):

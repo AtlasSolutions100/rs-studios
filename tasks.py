@@ -36,7 +36,7 @@ log = logging.getLogger("campaignify.tasks")
 LEASE_S = 180.0          # a running task's claim lapses this long after the last renewal
 RENEW_S = 60.0
 KEEP_DAYS = 14           # finished rows kept for the System card
-KINDS = ("planner", "competitors", "free_plan")
+KINDS = ("planner", "competitors", "free_plan", "brand_enrich")
 
 _running = {}            # task id -> thread (this process)
 _lock = threading.Lock()
@@ -109,6 +109,9 @@ def still_wanted(conn, kind: str, p: dict) -> bool:
     if kind == "competitors":
         r = conn.execute("SELECT status FROM competitor_reports WHERE id=?", (int(p.get("rid") or 0),)).fetchone()
         return bool(r and r["status"] == "running")
+    if kind == "brand_enrich":                      # the reading of a brand after an import (brand_identity.py)
+        r = conn.execute("SELECT enrich_json FROM brands WHERE id=?", (int(p.get("brand") or 0),)).fetchone()
+        return bool(r and '"running"' in (r["enrich_json"] or ""))
     return False
 
 
@@ -126,6 +129,9 @@ def run_task(kind: str, p: dict):
     if kind == "free_plan":
         import paywall_routes
         return paywall_routes.run(int(p["claim"]), int(p["cid"]), int(p["rid"]) if p.get("rid") else None)
+    if kind == "brand_enrich":
+        import brand_identity
+        return brand_identity._safe_run(p)
     raise ValueError(f"unknown task kind {kind}")
 
 

@@ -36,6 +36,7 @@ for k in ("UI_V2", "HOME_V2", "RS_CARD_REQUIRED", "SIGNUP_CREDITS_ADS", "CLAIMS_
 import app as appmod  # noqa: E402
 import catalog  # noqa: E402
 import copywriter  # noqa: E402
+import desk  # noqa: E402
 import db  # noqa: E402
 import hf  # noqa: E402
 import llm  # noqa: E402
@@ -188,8 +189,12 @@ check(re.search(r'<a class="nav v2-desk on" href="/app/desk" aria-current=page>'
       and re.search(r'<a class="nav v2-desk " href="/app/desk" >', home) is not None, "and it is marked as where you are, only on the desk")
 check("Burns for 40 hours. Hand poured in Texas" in d and "Free shipping this week" in d
       and "People who light a candle every evening" in d, "the brand panel shows the claims, the offer and who it is for")
-check(d.count("data-try>") == 3 and "Launch Ember Candle: three image ads and one presenter video" in d,
-      "three sentences to start from, written for the product")
+check("Start from an example" in d and d.count('data-try="') == len(desk.EXAMPLES) and "Launch kit" in d
+      and 'data-try="Launch Ember Candle: three image ads, one presenter video, the ad copy, a page to collect emails and a follow-up"' in d,
+      "example cards to start from, each with a sentence written for the product")
+check(d.count('class="dk-ex-media"><img src="/static/showcase/') == len(desk.EXAMPLES) and 'src="/static/showcase/team-skincare.mp4"' in d,
+      "every card shows a picture from our own gallery, and a clip where there is one")
+check("New campaign" in d and ">Campaigns</h2>" in d and "None yet." in d, "the sidebar starts a campaign and lists them (none yet)")
 boot = json.loads(re.search(r"window\.CFY_DESK = (\{.*?\});</script>", d, re.S).group(1))
 check(boot["product"] == pid and boot["urls"]["run"] == "/app/desk/run" and boot["starters"]["image"]
       and {x["kind"] for x in boot["add"]} >= {"image", "copy", "page", "flow"}, "the page knows the product and what can be added")
@@ -217,6 +222,10 @@ sq = jpost(a, "/app/studio/quote", {"plan": ADS["parts"], "product": pid}).get_j
 check(p["ads"] == sq["total"] == p["total"] and k["image"][0]["price"] + k["image"][1]["price"] == sq["total"] and one,
       "the ads cost what Studio quotes for the same set")
 check(p["left"] == studio_v2.ASK_DAILY - 1 and p["balance"] == bal("a@example.com") and p["short"] == 0, "the ask is counted, the balance is shown")
+check(p["url"] == f"/app/desk/c/{p['thread']}#t{p['turn']}" and count("desk_threads", "a@example.com") == 1
+      and count("desk_turns", "a@example.com") == 2, "the sentence started a campaign: a conversation with what was said and the plan")
+check(count("desk_threads", "a@example.com") == 1 and "This continues a campaign" not in calls[-1]["prompt"],
+      "a first sentence is planned with no earlier campaign in mind")
 
 set_plan("a@example.com", "growth")
 p = jpost(a, "/app/desk/plan", {"ask": SAID, "product": pid}).get_json()
@@ -274,6 +283,27 @@ check(blank["parts"][0]["on"] is False and blank["parts"][0]["label"] == "Add th
 b, pid_b = member("b@example.com")
 check(jpost(a, "/app/desk/quote", {"product": pid_b, "parts": parts}).status_code == 400, "another workspace's product is refused")
 
+print("== the campaign is a conversation")
+T, PLAN = p["thread"], p["turn"]
+tp = page(a, f"/app/desk/c/{T}")
+tb = json.loads(re.search(r"window\.CFY_DESK = (\{.*?\});</script>", tp, re.S).group(1))
+check("<h1 id=\"dk-h\">Holiday launch for the candle</h1>" in tp and desk.platform_in("for Instagram and TikTok") == "tiktok"
+      and desk.platform_in("a few image ads") == "", "the campaign is named from the sentence; a platform is read from it when it names one")
+check(SAID in tp and "data-plan-wrap" in tp and tb["thread"] == T and tb["plan"]["turn"] == PLAN
+      and [x["kind"] for x in tb["plan"]["parts"]] == [x["kind"] for x in p["parts"]] and tb["plan"]["note"] == ADS["note"],
+      "its page shows what was said and the plan, still open to edit")
+edit = [dict(x) for x in tb["plan"]["parts"]]
+edit[0].update(text="A candle for every evening", count=2)
+jpost(a, "/app/desk/quote", {"product": pid, "parts": edit, "turn": PLAN})
+tb2 = json.loads(re.search(r"window\.CFY_DESK = (\{.*?\});</script>", page(a, f"/app/desk/c/{T}"), re.S).group(1))
+check(tb2["plan"]["parts"][0]["text"] == "A candle for every evening" and tb2["plan"]["parts"][0]["name"] == "2 image ads",
+      "an edit to the open plan is still there after a reload")
+check(jpost(b, "/app/desk/plan", {"ask": "Two more image ads please", "product": pid_b, "thread": T}).status_code == 404
+      and b.get(f"/app/desk/c/{T}").status_code == 302 and count("desk_turns", "a@example.com") == 8,
+      "another workspace can neither read nor add to it")
+check(f'href="/app/desk/c/{T}"' in page(a, "/app/desk") and "Your campaigns" in page(a, "/app/desk"),
+      "the desk and the sidebar list the campaign")
+
 print("== making it")
 parts = p["parts"]
 parts[1]["on"] = True
@@ -288,9 +318,10 @@ written = []
 copywriter.write = lambda brief, kind, platform, b_, n_, usage: (written.append((kind, platform, n_, b_)), [{"Primary text": "A candle for the evening."}] * n_)[1]
 q["parts"][-1]["on"] = True                                  # the launch step too
 q2 = jpost(a, "/app/desk/quote", {"product": pid, "parts": q["parts"]}).get_json()
-r = jpost(a, "/app/desk/run", {"product": pid, "ask": SAID, "parts": q2["parts"], "total": q2["total"]})
+r = jpost(a, "/app/desk/run", {"product": pid, "ask": SAID, "parts": q2["parts"], "total": q2["total"], "thread": T, "turn": PLAN})
 out = r.get_json()
-check(r.status_code == 200 and out["ok"] and out["url"].startswith("/app/desk?done="), "the right total starts it")
+check(r.status_code == 200 and out["ok"] and out["thread"] == T and out["url"] == f"/app/desk/c/{T}#t{out['turn']}",
+      "the right total starts it, as the next turn of the campaign")
 jobs = jobs_of("a@example.com")
 check(len(jobs) == 2 and len({j["batch_id"] for j in jobs}) == 1, "both image parts start (three ads in all), as one batch")
 check(bal("a@example.com") == before - q2["ads"], "the ads are charged at the price shown; the copy's hold is settled at what it used (nothing here)")
@@ -316,10 +347,44 @@ check([m["kind"] for m in made] == ["ads", "copy", "page", "form", "flow", "laun
       and made[0]["name"] == "3 ads" and made[-1]["state"] == "Next", "what was made is kept, in order, with the launch step as what's next")
 done = page(a, out["url"])
 check("Started. Here is each part." in done and f'/app/pages/{pg["id"]}' in done and f'/app/flows/{fl["id"]}' in done
-      and f'/app/copy/{cr["id"]}' in done and "Your campaigns" in done and SAID in done, "the desk shows the campaign with a link to each part")
+      and f'/app/copy/{cr["id"]}' in done and "In this campaign" in done and SAID in done, "the campaign shows what was made, each part a link")
+check("data-plan-wrap" not in done and "Made." in done and "2 being made" in done and "data-busy" in done and dr["thread_id"] == T,
+      "the plan is closed and shown as it was made; the ads still being made are shown as that")
+check(a.get(f"/app/desk?done={dr['id']}").headers["Location"].endswith(f"/app/desk/c/{T}"), "an address from before conversations still finds the campaign")
+
+n, nthreads = len(calls), count("desk_threads", "a@example.com")
+answer[0] = {"note": "Two more on the gift angle.", "parts": [{"make": "image", "text": "The gift that smells like home", "count": 2}]}
+f = jpost(a, "/app/desk/plan", {"ask": "Two more image ads on the gift angle, and the captions for TikTok", "product": pid, "thread": T}).get_json()
+fk = by_kind(f["parts"])
+check(f["thread"] == T and len(calls) == n + 1 and "This continues a campaign" in calls[-1]["prompt"] and SAID in calls[-1]["prompt"]
+      and "Already made: 3 ads" in calls[-1]["prompt"] and "only what the new request adds" in calls[-1]["prompt"],
+      "a later sentence is planned knowing what the campaign already holds")
+check([x["kind"] for x in f["parts"]] == ["image", "copy"] and fk["copy"][0]["on"] and count("desk_threads", "a@example.com") == nthreads
+      and fk["copy"][0]["platform"] == "tiktok" and fk["copy"][0]["name"] == "Ad copy for TikTok",
+      "and answers with only what it adds: the ads and the copy it asked for, not every stage again")
+later = page(a, f["url"])
+lb = json.loads(re.search(r"window\.CFY_DESK = (\{.*?\});</script>", later, re.S).group(1))
+check(lb["plan"]["turn"] == f["turn"] and later.count("data-plan-wrap") == 1 and "Two more on the gift angle." in json.dumps(lb["plan"]),
+      "the new plan is the one open; the one before stays as it was made")
+g2 = jpost(a, "/app/desk/plan", {"ask": "Actually make it three product photos instead", "product": pid, "thread": T}).get_json()
+again = page(a, g2["url"])
+check("Not made. A later plan replaced it." in again and again.count("data-plan-wrap") == 1, "a plan left unmade is marked as replaced by the next one")
+answer[0] = {"note": "", "parts": []}
+nn = jpost(a, "/app/desk/plan", {"ask": "What should we name the dog", "product": pid, "thread": T}).get_json()
+check(not nn["parts"] and "couldn't turn that into a part of the campaign" in page(a, nn["url"]),
+      "a sentence that adds nothing gets a plain answer in the conversation")
+answer[0] = ADS
+with db.connect() as conn:
+    wsid = user("a@example.com")["workspace_id"]
+    conn.execute("INSERT INTO desk_runs (workspace_id, user_id, product_id, ask, made_json, credits, created_at) VALUES (?,?,?,?,?,?,?)",
+                 (wsid, user("a@example.com")["id"], pid, "An older campaign from before", json.dumps([{"kind": "page", "name": "Page: Old", "state": "Draft", "href": "/app/pages/1"}]), 0, db.now()))
+    conn.commit()
+home2 = page(a, "/app/desk")
+check("An older campaign from before" in home2 and count("desk_threads", "a@example.com") == nthreads + 1 and "Page: Old" in home2,
+      "a campaign made before conversations existed becomes one, with what it made")
 check("data-desk" in page(a, "/app") and "CFY_STUDIO" in page(a, "/app?mode=image") and "CFY_STUDIO" in page(a, "/app/studio"),
       "now that something was made, Home is the desk; a link that asks Studio for something still gets Studio")
-check("Waiting for you" in done and "being made" in done, "what is waiting is listed: the ads being made")
+check("Waiting for you" in home2 and "being made" in home2, "what is waiting is listed on the desk: the ads being made")
 
 print("== the plan decides what can be made")
 c, pid_c = member("c@example.com")
