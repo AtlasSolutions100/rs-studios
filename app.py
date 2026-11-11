@@ -2019,9 +2019,13 @@ def billing_page():
     elif request.args.get("plan") == "success":
         flash("You're subscribed, thank you. Your plan and its monthly credits switch on in a few seconds; "
               "refresh if they haven't yet.")
-    if request.args.get("plan") == "success":
-        # back from Stripe, maybe ahead of its webhook: note the subscription so the sync below can read it
-        _adopt_plan_checkout((request.args.get("session_id") or "").strip()[:200])
+    if request.args.get("plan") == "success" and plan_gate.on():
+        # back from Stripe, maybe ahead of its webhook: note the subscription, so the member isn't asked to pick
+        # a plan they just picked (plan_gate.py). Never breaks the page.
+        try:
+            _adopt_plan_checkout((request.args.get("session_id") or "").strip()[:200])
+        except Exception:  # noqa: BLE001
+            log.exception("couldn't apply the checkout session on the way back")
     if "success" in (request.args.get("checkout"), request.args.get("plan")):
         _report_purchase((request.args.get("session_id") or "").strip()[:200], request.args.get("plan") == "success")
     if request.args.get("plan") == "success":
