@@ -2688,5 +2688,53 @@
    "sha256": "ce09ca11f8c90cbcd317aa31d3353f34f375f6fee9567b9f00c407f9b7150f62",
    "bytes": 246261
   }
+ },
+ {
+  "path": "showcase/ex-accountant-presenter.mp4",
+  "kind": "showcase_video",
+  "title": "Bookkeeper, presenter",
+  "caption": "A bookkeeper at her desk talks about monthly bookkeeping for small businesses.",
+  "alt": "An AI presenter: a woman with glasses and a blue sweater sits at a desk with a laptop and a small plant, talking to the camera.",
+  "poster": "showcase/ex-accountant-presenter.webp",
+  "model": "seedance_2_5",
+  "prompt": "Vertical talking-to-camera video. A woman of about 40 with shoulder-length dark hair and glasses, wearing a soft blue sweater, sitting at a tidy desk with a closed laptop and a plant in a small home office. She looks into the camera and says in a calm, clear voice: \"I do the monthly bookkeeping for small businesses, so you can spend your time on the work.\" Phone-camera look, natural light, realistic, clear voice. No text, no captions, no logos, no watermark.",
+  "job_id": "4dad54c7-623d-42cd-99d7-1e6c3a221f8b",
+  "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GvdxB9gfwtge4rv79iuyoXAckR/hf_20261112_141842_4dad54c7-623d-42cd-99d7-1e6c3a221f8b.mp4",
+  "credits": 0,
+  "qa": "ok (5 frames; transcript matches). The prompt asked for a closed laptop; it is open with the screen facing away.",
+  "notes": "Run 2 (free lane): made in the web app with Unlimited mode (720p, 8 s, 9:16).",
+  "presenter": true,
+  "style": "presenter",
+  "script": "I do the monthly bookkeeping for small businesses, so you can spend your time on the work.",
+  "transcript": "I do the monthly bookkeeping for small businesses so you can spend your time on the work.",
+  "served": {
+   "path": "assets_staging/showcase_540/ex-accountant-presenter.mp4",
+   "sha256": "9e73bfda59a6c74d26e04fddf0375b99751b41ac4090549c6708713b894f3620",
+   "bytes": 233648
+  }
+ },
+ {
+  "path": "showcase/ex2-unboxing-pov-throw.mp4",
+  "kind": "showcase_video",
+  "title": "Knit throw unboxing, first-person",
+  "caption": "Hands unbox a chunky-knit throw and set it on a sofa.",
+  "alt": "Seen from above, two hands open a plain cardboard box on a wooden floor, lift out a folded cream chunky-knit throw and lay it on a cream sofa, smoothing it with one hand.",
+  "poster": "showcase/ex2-unboxing-pov-throw.webp",
+  "model": "seedance_2_5",
+  "prompt": "Vertical first-person POV video looking down at a pale wooden floor next to a sofa. Two adult hands open the flaps of a plain brown cardboard box with no printing and lift out a folded chunky-knit oatmeal-coloured throw blanket with no tags, letting it unfold over the arm of a grey sofa, then smoothing it with one hand. Nobody speaks. Cardboard and soft fabric sounds, quiet room. Soft afternoon light, realistic, shallow depth of field. No speech, no voiceover. No on-screen text, no subtitles, no captions, no labels, no tags, no logos, no brand names, no watermark.",
+  "job_id": "517650e5-9f75-44b6-98d5-8b0947282e45",
+  "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GvdxB9gfwtge4rv79iuyoXAckR/hf_20261112_142050_517650e5-9f75-44b6-98d5-8b0947282e45.mp4",
+  "credits": 56,
+  "qa": "ok (5 frames; no speech). The throw is set on the sofa seat rather than unfolded over the arm.",
+  "notes": "Run 2 (credits lane): Seedance 2.5, 720p, 8 s, 9:16, with audio, via the Higgsfield MCP tools. Extra clip.",
+  "presenter": false,
+  "style": "unboxing",
+  "script": "",
+  "transcript": "",
+  "served": {
+   "path": "assets_staging/showcase_540/ex2-unboxing-pov-throw.mp4",
+   "sha256": "751ef7cba1a217b6bfe13c639762416a3552ff0a0431dbf4b56c7cc77dfb4610",
+   "bytes": 496060
+  }
  }
 ]
