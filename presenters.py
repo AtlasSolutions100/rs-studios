@@ -164,6 +164,23 @@ VOICES = [
      "desc": "a mellow, rounded male voice, relaxed and good-humoured, natural American accent"},
     {"id": "clear_f40", "name": "Clear & direct", "who": "female",
      "desc": "a clear, direct female voice in her forties, level and confident, natural American accent"},
+    # the eight who joined on Nov 12 2026 (library 2)
+    {"id": "young_bright_m", "name": "Young & bright", "who": "male",
+     "desc": "a young, bright male voice in his early twenties, clear and upbeat, natural American accent"},
+    {"id": "low_calm_f", "name": "Low & calm", "who": "female",
+     "desc": "a low, calm female voice, unhurried and reassuring, natural American accent"},
+    {"id": "warm_f60", "name": "Warm, older", "who": "female",
+     "desc": "a warm, rounded older female voice in her sixties with a smile in it, natural American accent"},
+    {"id": "quick_m", "name": "Quick & energetic", "who": "male",
+     "desc": "a quick, energetic male voice in his late thirties, punchy but friendly, natural American accent"},
+    {"id": "deep_m60", "name": "Deep & grounded", "who": "male",
+     "desc": "a deep, slow older male voice, warm and grounded, natural American accent"},
+    {"id": "raspy_m60", "name": "Easygoing, older", "who": "male",
+     "desc": "a friendly, slightly raspy male voice in his sixties, easy-going and chatty, natural American accent"},
+    {"id": "crisp_m40", "name": "Crisp & professional", "who": "male",
+     "desc": "a crisp, articulate male voice in his early forties, calm and professional, natural American accent"},
+    {"id": "husky_f50", "name": "Husky & chatty", "who": "female",
+     "desc": "a slightly husky, upbeat female voice around fifty, chatty and warm, natural American accent"},
 ]
 VOICE_BY_ID = {v["id"]: v for v in VOICES}
 # Labels of the four older presenter voices (catalog.VOICES holds their descriptors).
@@ -373,6 +390,94 @@ _ROSTER = [
         ("car", "a black turtleneck"),
         ("sofa", "a soft grey wrap cardigan"),
         ("shop-floor", "a denim shirt with the sleeves rolled")]),
+    # Library 2 (Nov 12 2026): eight more, for the ages and trades the first twenty were thin on: older men, a man
+    # in his twenties, people who look like they run a shop, a van or a practice.
+    _p("ray", "Ray", "55-64", "male",
+       "man in his late 50s, short grey hair, grey moustache, work jacket", "Steady, practical",
+       "a quiet residential street on an overcast day", 30, "deep_m60",
+       "A man of about 58 with dark brown skin, a broad square face with deep lines across the forehead, warm "
+       "brown eyes with slightly heavy lids, short tightly curled grey hair receding at the temples and a neat "
+       "grey moustache. Stocky, thick-set, strong hands. A small scar across one knuckle and a few grey hairs in "
+       "his eyebrows.",
+       [("outdoor", "a tan canvas work jacket over a navy t-shirt"),
+        ("car", "a grey hooded sweatshirt under an open quilted vest"),
+        ("shop-floor", "a dark green work shirt with the sleeves rolled"),
+        ("kitchen", "a light grey polo shirt")]),
+    _p("luis", "Luis", "55-64", "male",
+       "man in his early 60s, thick grey hair, clean shaven, plaid overshirt", "Friendly, easygoing",
+       "the floor of a small independent shop, behind its wooden counter", 65, "raspy_m60",
+       "A man of about 61 with warm tan skin, a round face with full cheeks and deep smile lines, dark brown "
+       "eyes, thick grey hair combed back with a few darker strands, and a clean-shaven jaw. Medium height, a "
+       "soft middle, broad shoulders. A small mole under his left eye and slightly rough, sun-darkened hands.",
+       [("shop-floor", "a brown-and-cream plaid overshirt over a white tee"),
+        ("kitchen", "a light blue short-sleeve button-up shirt"),
+        ("outdoor", "a navy zip-up jacket"),
+        ("car", "a grey crew-neck sweater")]),
+    _p("omar", "Omar", "35-44", "male",
+       "man in his late 30s, short black hair, trimmed beard, henley", "Quick, upbeat",
+       "the floor of a small independent shop, behind its wooden counter", 150, "quick_m",
+       "A man of about 37 with light brown skin, an oval face with a strong nose, dark brown eyes under thick "
+       "brows, short black hair cut close at the sides and slightly longer on top, and a closely trimmed black "
+       "beard. Medium height, broad-chested. A thin scar through the beard on his chin and a little grey at the "
+       "temples.",
+       [("shop-floor", "a charcoal henley under a dark canvas apron"),
+        ("gym", "a plain black training t-shirt"),
+        ("kitchen", "a white t-shirt with a dish towel over one shoulder"),
+        ("car", "an olive bomber jacket over a grey tee")]),
+    _p("ben", "Ben", "35-44", "male",
+       "man in his early 40s, neat short black hair, clean shaven, navy blazer", "Calm, professional",
+       "a plain home desk by a window", 235, "crisp_m40",
+       "A man of about 41 with light skin with a warm undertone, a long oval face, dark brown monolid eyes, short "
+       "neat black hair parted on one side with a few early grey strands, and a clean-shaven face. Slim, tall, "
+       "upright posture. Faint lines at the corners of his eyes and a small mole near his right ear.",
+       [("desk", "a navy blazer over a plain white t-shirt"),
+        ("outdoor", "a light grey quarter-zip pullover"),
+        ("car", "a light blue oxford shirt, collar open"),
+        ("kitchen", "a dark green crew-neck sweater")]),
+    _p("dana", "Dana", "45-54", "female",
+       "woman around 50, short ash-blonde pixie cut, small silver earrings, black top", "Chatty, warm",
+       "the floor of a small independent shop, behind its wooden counter", 330, "husky_f50",
+       "A woman of about 50 with fair skin with light freckles, a heart-shaped face, bright hazel eyes with "
+       "crow's feet, and a short choppy ash-blonde pixie cut with grey coming through at the roots. Slim, quick- "
+       "moving, square shoulders. Small silver hoop earrings, a thin line of eyeliner and faint creases around "
+       "her mouth.",
+       [("shop-floor", "a fitted black t-shirt under a dark grey apron"),
+        ("kitchen", "a striped navy-and-white long-sleeve top"),
+        ("car", "a denim jacket over a black tee"),
+        ("desk", "a soft burgundy sweater")]),
+    _p("gloria", "Gloria", "55-64", "female",
+       "woman around 60, shoulder-length dark hair with grey, warm smile, cardigan", "Warm, trusted",
+       "an ordinary, lived-in home kitchen", 12, "warm_f60",
+       "A woman of about 60 with medium-brown skin, a round face with soft cheeks and deep laugh lines, dark "
+       "brown eyes, and shoulder-length wavy dark hair with wide streaks of grey, pinned back on one side. Short, "
+       "solidly built, rounded shoulders. Small gold stud earrings, a few dark spots on her cheeks and slightly "
+       "uneven brows.",
+       [("kitchen", "a coral cardigan over a cream blouse"),
+        ("sofa", "a soft teal sweater"),
+        ("shop-floor", "a plain navy polo shirt under a light apron"),
+        ("outdoor", "a camel quilted jacket")]),
+    _p("kai", "Kai", "18-24", "male",
+       "man in his early 20s, dark wavy hair tied back, light stubble, hoodie", "Bright, easygoing",
+       "a corner of an ordinary gym", 175, "young_bright_m",
+       "A man of about 22 with medium-brown skin, a wide face with high cheekbones, dark brown eyes, thick dark "
+       "wavy hair pulled back into a short low knot with a few loose strands, and light, uneven stubble along the "
+       "jaw. Tall, broad-shouldered, athletic. A small healed scar through one eyebrow and a slightly crooked "
+       "nose.",
+       [("gym", "a grey sleeveless training top"),
+        ("outdoor", "a faded blue hoodie"),
+        ("car", "a black zip-up track jacket"),
+        ("sofa", "a loose white tee")]),
+    _p("tess", "Tess", "25-34", "female",
+       "woman around 30, dark brown hair in a low bun, navy scrubs top", "Calm, reassuring",
+       "a plain home desk by a window", 205, "low_calm_f",
+       "A woman of about 30 with light skin with a neutral undertone, a narrow oval face, blue-grey eyes, a "
+       "straight nose with a slight bump, and straight dark brown hair pulled back into a low bun with a side "
+       "part. Average height, slim build. Faint freckles across her nose, short unpainted nails and small pearl "
+       "studs.",
+       [("desk", "a plain navy scrubs top over a white long-sleeve tee"),
+        ("bathroom-mirror", "a plain grey crew-neck sweatshirt, hair still in its bun"),
+        ("kitchen", "a cream cable-knit sweater"),
+        ("car", "a black puffer jacket over a grey tee")]),
 ]
 BY_ID = {p["id"]: p for p in _ROSTER}
 assert len(BY_ID) == len(_ROSTER), "presenter ids must be unique"

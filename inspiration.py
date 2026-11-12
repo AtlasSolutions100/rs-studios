@@ -15,19 +15,28 @@ An example whose preset is gone still shows, as a sentence. A category with noth
 from flask import url_for
 
 CATS = [("campaigns", "Campaigns"), ("presenter", "Presenter videos"), ("product", "Product videos"),
-        ("image", "Image ads")]
+        ("local", "Local businesses"), ("image", "Image ads")]
 PER_CAT = 12
 ASKS = {
     "presenter": "One presenter video for {name}, selfie style, talking to camera",
     "product": "A product video for {name}: the product on screen, no person",
+    "local": "A short video for {name}: the work being done, no one talking",
     "image": "An image ad for {name}",
 }
 
 
 def _cat(item) -> str:
+    """Local businesses and services have a row of their own (the manifest's group: "local"), people talking or not."""
     if item["kind"] == "image":
         return "image"
+    if item.get("group") == "local":
+        return "local"
     return "presenter" if item.get("presenter") else "product"
+
+
+def _ask(item, cat: str) -> str:
+    """The sentence a card puts in the desk's box: a presenter example asks for a presenter, wherever it is listed."""
+    return ASKS["presenter"] if item.get("presenter") else ASKS[cat]
 
 
 def groups(product) -> list[dict]:
@@ -50,7 +59,7 @@ def groups(product) -> list[dict]:
         if it["preset"] and presets.get(it["preset"]) is not None:
             card.update(href=url_for("studio_v2.page", preset=it["preset"]), where="studio")
         else:
-            card.update(ask=ASKS[cat].format(name=name), where="desk")
+            card.update(ask=_ask(it, cat).format(name=name), where="desk")
         if len(by[cat]) < PER_CAT:
             by[cat].append(card)
     return [{"key": key, "name": label, "items": by[key]} for key, label in CATS if by[key]]

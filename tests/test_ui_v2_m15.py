@@ -459,9 +459,9 @@ real_presenters = sys.modules["presenters"]
 with appmod.app.test_request_context("/app"):
     rows = studio_v2.roster()
 keys = {"id", "name", "age_band", "gender", "look", "voice", "portrait", "voice_sample", "situations"}
-check([r["id"] for r in rows] == [r["id"] for r in presenters.roster()] and len(rows) == 20
+check([r["id"] for r in rows] == [r["id"] for r in presenters.roster()] and len(rows) == 28
       and [r["id"] for r in rows[:8]] == [p["id"] for p in catalog.PRESENTERS],
-      "the picker's roster is presenters.roster(): 20 presenters, the first eight first")
+      "the picker's roster is presenters.roster(): 28 presenters, the first eight first")
 check(all(keys <= set(r) and set(r["voice"]) == {"id", "label"} and r["voice"]["label"] and r["situations"]
           and all({"id", "label", "still"} <= set(x) and x["id"] in presenters.SITUATIONS for x in r["situations"]) for r in rows),
       "each with a voice and its situations; a missing portrait, still or voice sample is an empty value, not an error")
@@ -531,9 +531,9 @@ finally:
     sys.modules["presenters"] = real_presenters
 hh = n.get("/app?mode=presenter").get_data(as_text=True)
 pb = boot_of(hh)
-check(len(pb["presenters"]) == 20 and 'data-pf-pills="gender"' in hh and 'data-pf-pills="age_band"' in hh
+check(len(pb["presenters"]) == 28 and 'data-pf-pills="gender"' in hh and 'data-pf-pills="age_band"' in hh
       and "data-pres-none" in hh and pb["situation_labels"] == {k: v["label"] for k, v in presenters.SITUATIONS.items()},
-      "Studio's picker gets the 20, with the gender and age filters, an empty state and the places' names")
+      "Studio's picker gets the 28, with the gender and age filters, an empty state and the places' names")
 check(all(x in js for x in ("data-voice-play", "role=\"radiogroup\" aria-label=\"Where ", "d.situation =", "d.situations = sits",
                             "aria-pressed=\"' + (playing === p.id)", "nonbinary: 'Nonbinary'")),
       "studio_v2.js draws the voice preview and the situation chips and sends the chosen situation")
@@ -629,7 +629,7 @@ pick = boot_of(n.get(f"/app/studio?preset={ugc.id}").get_data(as_text=True))
 check(pick["prefill"] == {"pick": ugc.id} and "x.opens === 'recipe'" in js and "if(recipe()) d.preset = recipe().id;" in js,
       "a video preset can be opened by link and is sent as the composer's preset")
 check("', free.'" in js and mb["claims_credits"] == 0, "the claims check is free, and the price box says so instead of 'about 0 credits'")
-check(public_site.facts()["presenters"] == len(presenters.roster()) == 20, "the public copy counts the roster's presenters")
+check(public_site.facts()["presenters"] == len(presenters.roster()) == 28, "the public copy counts the roster's presenters")
 
 print("== Workflow: the planner's box and packs of presets")
 wf = n.get("/app/studio/workflow")

@@ -1,5 +1,5 @@
 {
-  "_about": "The home page's gallery (public_site.showcase): image ads and video ads in one grid, in this order. Only our own generated work goes here: no stock, no other companies' ads, no real people. Put each file in this folder and add one entry to items; the first SHOWCASE_MAX (16) are shown.",
+  "_about": "The home page's gallery (public_site.showcase): image ads and video ads in one grid, in this order. Only our own generated work goes here: no stock, no other companies' ads, no real people. Put each file in this folder and add one entry to items; the first SHOWCASE_MAX (16) are shown on the home page (keep videos and pictures mixed there, never more than two videos in a row); the app's Inspiration shows the rest too.",
   "_shape": {
     "file": "name-of-the-file-in-this-folder.webp or .mp4",
     "kind": "image or video",
@@ -10,7 +10,8 @@
     "poster": "videos only: a still in this folder, shown before the clip loads",
     "aspect": "videos only: 9:16, 4:5, 1:1 or 16:9 (images are measured)",
     "presenter": "videos only: true when a person is on screen; the tile is tagged AI presenter",
-    "sound": "videos only: true when the clip has speech; the tile gets a Sound button"
+    "sound": "videos only: true when the clip has speech; the tile gets a Sound button",
+    "group": "optional: local for a local business or service (roofing, a salon, a food truck); the app's Inspiration lists those together"
   },
   "_sizes": "Images: JPEG or WebP, 1080 px on the short side, under 400 KB. Videos: MP4 (H.264), 720x1280 or smaller, 5 to 10 seconds, under 3 MB, each with a poster. A mix of images and videos fills the grid best; at most 16 are shown.",
   "items": [
@@ -26,6 +27,16 @@
       "sound": true
     },
     {
+      "file": "ex-roofing.mp4",
+      "kind": "video",
+      "poster": "ex-roofing.webp",
+      "aspect": "9:16",
+      "title": "Roof replacement",
+      "caption": "A new shingle roof as a roofer nails the last shingle.",
+      "alt": "A newly shingled house roof while a roofer nails down the last shingle.",
+      "group": "local"
+    },
+    {
       "file": "season-autumn.webp",
       "kind": "image",
       "preset": "season-autumn",
@@ -33,15 +44,24 @@
       "alt": "A candle on a wooden table with a blanket, a small pumpkin and autumn leaves; headline \"Made for slow afternoons\" and a Shop now button."
     },
     {
-      "file": "preset-talk-to-camera.mp4",
+      "file": "ex-coffee-presenter.mp4",
       "kind": "video",
-      "poster": "preset-talk-to-camera.webp",
+      "poster": "ex-coffee-presenter.webp",
       "aspect": "9:16",
-      "caption": "Presenter video",
-      "alt": "An AI presenter in a kitchen talks to the camera with a green travel mug on the counter in front of her.",
-      "preset": "talk-to-camera",
+      "title": "Coffee beans",
+      "caption": "A woman in her kitchen talks about a bag of coffee beans.",
+      "alt": "An AI presenter: a woman standing in a home kitchen holds a bag of coffee beans and talks to the camera.",
       "presenter": true,
       "sound": true
+    },
+    {
+      "file": "ex-running-shoes.mp4",
+      "kind": "video",
+      "poster": "ex-running-shoes.webp",
+      "aspect": "9:16",
+      "title": "Running shoes",
+      "caption": "Running shoes splashing through a puddle at dawn.",
+      "alt": "A runner's shoes splashing through a puddle on a path at dawn."
     },
     {
       "file": "compare.webp",
@@ -51,15 +71,16 @@
       "alt": "A green travel mug above a two-column table comparing a paper cup with the mug; headline \"One mug, every day\"."
     },
     {
-      "file": "team-streamer.mp4",
+      "file": "ex-lawn-care-presenter.mp4",
       "kind": "video",
-      "poster": "team-streamer.webp",
+      "poster": "ex-lawn-care-presenter.webp",
       "aspect": "9:16",
-      "caption": "Streamer to camera",
-      "alt": "An AI presenter with a headset around his neck, in a room lit purple and blue, points at a phone and talks to the camera.",
-      "title": "Presenter video",
+      "title": "Lawn care",
+      "caption": "A man on a freshly mowed lawn talks about weekly lawn care.",
+      "alt": "An AI presenter: a man standing on a freshly mowed lawn talks to the camera about a weekly lawn care service.",
       "presenter": true,
-      "sound": true
+      "sound": true,
+      "group": "local"
     },
     {
       "file": "preset-pov-unboxing.mp4",
@@ -77,6 +98,16 @@
       "preset": "callouts",
       "caption": "Feature callouts",
       "alt": "A green travel mug on a rock with three feature labels beside it; headline \"What you get\" and a See more button."
+    },
+    {
+      "file": "ex-taco-truck.mp4",
+      "kind": "video",
+      "poster": "ex-taco-truck.webp",
+      "aspect": "9:16",
+      "title": "Taco truck",
+      "caption": "Tacos made and handed out of a food truck window.",
+      "alt": "Tacos being assembled inside a food truck and handed out through the service window.",
+      "group": "local"
     },
     {
       "file": "team-app-demo.mp4",
@@ -97,6 +128,104 @@
       "alt": "A candle sitting in an open delivery box on a doormat; headline \"It's here.\""
     },
     {
+      "file": "ex-serum.mp4",
+      "kind": "video",
+      "poster": "ex-serum.webp",
+      "aspect": "9:16",
+      "title": "Face serum",
+      "caption": "A serum bottle and dropper on wet stone.",
+      "alt": "A glass serum bottle with a dropper resting on wet stone."
+    },
+    {
+      "file": "ex-cleaning-presenter.mp4",
+      "kind": "video",
+      "poster": "ex-cleaning-presenter.webp",
+      "aspect": "9:16",
+      "title": "Home cleaning",
+      "caption": "A woman in a tidy living room talks about a home cleaning visit.",
+      "alt": "An AI presenter: a woman standing in a clean living room talks to the camera about a home cleaning visit.",
+      "presenter": true,
+      "sound": true,
+      "group": "local"
+    },
+    {
+      "file": "marketplace.webp",
+      "kind": "image",
+      "preset": "marketplace",
+      "caption": "Marketplace image",
+      "alt": "A green travel mug alone on a pure white background, with no text."
+    },
+    {
+      "file": "ex-hair-salon.mp4",
+      "kind": "video",
+      "poster": "ex-hair-salon.webp",
+      "aspect": "9:16",
+      "title": "Hair salon",
+      "caption": "Hair trimmed, blow-dried and shown in a hand mirror at a small salon.",
+      "alt": "Long brown hair being trimmed with scissors, blow-dried into soft waves, then shown from behind in a hand mirror.",
+      "group": "local"
+    },
+    {
+      "file": "preset-talk-to-camera.mp4",
+      "kind": "video",
+      "poster": "preset-talk-to-camera.webp",
+      "aspect": "9:16",
+      "caption": "Presenter video",
+      "alt": "An AI presenter in a kitchen talks to the camera with a green travel mug on the counter in front of her.",
+      "preset": "talk-to-camera",
+      "presenter": true,
+      "sound": true
+    },
+    {
+      "file": "ex-plumbing.mp4",
+      "kind": "video",
+      "poster": "ex-plumbing.webp",
+      "aspect": "9:16",
+      "title": "Plumbing repair",
+      "caption": "A new pipe fitting under a kitchen sink is tightened, then the tap runs clean.",
+      "alt": "Gloved hands open the cabinet under a kitchen sink, tighten a new chrome pipe fitting with a wrench, then the tap runs into a clean sink.",
+      "group": "local"
+    },
+    {
+      "file": "ex-cold-brew.mp4",
+      "kind": "video",
+      "poster": "ex-cold-brew.webp",
+      "aspect": "9:16",
+      "title": "Cold brew",
+      "caption": "A bottle of cold brew taken from an ice bucket and poured over ice.",
+      "alt": "A bottle of cold brew coffee lifted from an ice bucket and poured into a glass of ice."
+    },
+    {
+      "file": "team-streamer.mp4",
+      "kind": "video",
+      "poster": "team-streamer.webp",
+      "aspect": "9:16",
+      "caption": "Streamer to camera",
+      "alt": "An AI presenter with a headset around his neck, in a room lit purple and blue, points at a phone and talks to the camera.",
+      "title": "Presenter video",
+      "presenter": true,
+      "sound": true
+    },
+    {
+      "file": "ex-bakery.mp4",
+      "kind": "video",
+      "poster": "ex-bakery.webp",
+      "aspect": "9:16",
+      "title": "Neighborhood bakery",
+      "caption": "Croissants from the oven, tarts dusted with sugar, bread handed over the counter.",
+      "alt": "A tray of croissants comes out of the oven, fruit tarts are dusted with powdered sugar, and a loaf in a paper bag is handed across a bakery counter.",
+      "group": "local"
+    },
+    {
+      "file": "ex-gold-hoops.mp4",
+      "kind": "video",
+      "poster": "ex-gold-hoops.webp",
+      "aspect": "9:16",
+      "title": "Gold hoop earrings",
+      "caption": "Gold hoop earrings on a stone tray, then one is put on.",
+      "alt": "A pair of gold hoop earrings on a stone tray, then one is picked up and put on."
+    },
+    {
       "file": "preset-hands-only-demo.mp4",
       "kind": "video",
       "poster": "preset-hands-only-demo.webp",
@@ -105,6 +234,34 @@
       "alt": "Two hands pick up and turn a green travel mug on a pale table.",
       "preset": "hands-only-demo",
       "sound": true
+    },
+    {
+      "file": "ex-car-detailing.mp4",
+      "kind": "video",
+      "poster": "ex-car-detailing.webp",
+      "aspect": "9:16",
+      "title": "Car detailing",
+      "caption": "Foam rinsed off a dark blue SUV, then the hood is buffed.",
+      "alt": "Soap foam rinsed off a dark blue SUV and the hood buffed by hand.",
+      "group": "local"
+    },
+    {
+      "file": "ex-soy-candle.mp4",
+      "kind": "video",
+      "poster": "ex-soy-candle.webp",
+      "aspect": "9:16",
+      "title": "Soy candle",
+      "caption": "A soy candle lit on a bedside table.",
+      "alt": "A soy candle in a jar being lit on a bedside table."
+    },
+    {
+      "file": "ex-travel-mug.mp4",
+      "kind": "video",
+      "poster": "ex-travel-mug.webp",
+      "aspect": "9:16",
+      "title": "Travel mug at sunrise",
+      "caption": "A ceramic travel mug on a camp table at sunrise as coffee is poured in.",
+      "alt": "A ceramic travel mug on a folding camp table at sunrise while coffee is poured into it."
     },
     {
       "file": "team-desk-talk.mp4",
@@ -118,11 +275,34 @@
       "sound": true
     },
     {
-      "file": "marketplace.webp",
-      "kind": "image",
-      "preset": "marketplace",
-      "caption": "Marketplace image",
-      "alt": "A green travel mug alone on a pure white background, with no text."
+      "file": "ex-coffee-shop.mp4",
+      "kind": "video",
+      "poster": "ex-coffee-shop.webp",
+      "aspect": "9:16",
+      "title": "Coffee shop",
+      "caption": "Espresso pulled and latte art poured in a small cafe.",
+      "alt": "An espresso shot being pulled and latte art poured in a small cafe.",
+      "group": "local"
+    },
+    {
+      "file": "ex-dog-treats.mp4",
+      "kind": "video",
+      "poster": "ex-dog-treats.webp",
+      "aspect": "9:16",
+      "title": "Dog treats",
+      "caption": "A golden retriever gets a biscuit from a kraft bag.",
+      "alt": "A golden retriever being handed a dog biscuit taken from a plain kraft paper bag."
+    },
+    {
+      "file": "ex-tote-presenter.mp4",
+      "kind": "video",
+      "poster": "ex-tote-presenter.webp",
+      "aspect": "9:16",
+      "title": "Canvas tote",
+      "caption": "A woman in a small boutique shows a canvas tote bag.",
+      "alt": "An AI presenter: a woman in a small boutique holds up a plain canvas tote bag and talks to the camera.",
+      "presenter": true,
+      "sound": true
     },
     {
       "file": "preset-vo-product-shots.mp4",
@@ -133,6 +313,18 @@
       "alt": "Three calm shots of a green travel mug on a wooden table, one close on its label.",
       "preset": "vo-product-shots",
       "sound": true
+    },
+    {
+      "file": "ex-trainer-presenter.mp4",
+      "kind": "video",
+      "poster": "ex-trainer-presenter.webp",
+      "aspect": "9:16",
+      "title": "Personal trainer",
+      "caption": "A trainer in a small gym talks about one-to-one sessions.",
+      "alt": "An AI presenter: a woman in workout clothes in a small gym talks to the camera about one-to-one training sessions.",
+      "presenter": true,
+      "sound": true,
+      "group": "local"
     },
     {
       "file": "team-product-film.mp4",
