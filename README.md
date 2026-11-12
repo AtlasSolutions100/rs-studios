@@ -777,6 +777,21 @@ page says "we".
 
 Tests: `tests/test_tools_page.py`.
 
+## Inspiration by category, and the brand step's example cards (`inspiration.py`; behind `UI_V2`)
+
+`inspiration.groups(product)` gives our own example ads by kind: Campaigns (the desk's examples), Presenter videos,
+Product videos and Image ads (the home page's gallery, `static/showcase/manifest.json`). Only our own generated
+work is in there. Nothing is fetched, generated or charged.
+
+- A card either fills the desk's box with a sentence written for the member's product (they then read the priced
+  plan), or, when the example was made with a preset, opens Studio with that preset picked.
+- The desk: a chip per kind over "Start from an example", one row showing, six cards a row, "More examples".
+- The Tools page: an Inspiration section with every card as a link. `/app/desk?ask=...` puts a sentence in the box.
+- The brand step, before a link is read, shows four example cards (What you sell, Brand kit, Who buys it, How you
+  sound) for a made-up brand, and says so.
+
+Tests: `tests/test_inspiration.py`.
+
 ## Plans only and the percent-off price (`plan_gate.py`, `plan_gate_routes.py`, `plans.sale`; `PLANS_ONLY`, `PLAN_SALE`, both default off in code)
 
 Asked for by Koby on Nov 11 2026. `deploy.yml` turns both on in production unless the repo variable says `0`.

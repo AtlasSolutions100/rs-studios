@@ -12,11 +12,16 @@
     <label for="bb-url">Your website or product page</label>
     <div class="bb-linkrow"><input id="bb-url" type="text" name="url" maxlength="500" inputmode="url" autocomplete="url" required value="{{ website }}" placeholder="https://"><button class="btn">Read my page</button></div>
   </form>
-  <ul class="bb-will">
-    <li>What you sell, the price and any offer on the page</li>
-    <li>Photos of the product</li>
-    <li>What the page says about it, for you to approve before any ad says it</li>
-  </ul>
+  <section class="bb-get" aria-labelledby="bb-get-h">
+    <h2 id="bb-get-h">What you'll get</h2>
+    <ul class="bb-get-row">
+      <li><div class="bb-get-pic"><b>Trail Mug, $28</b><span>A steel camp mug that keeps coffee hot.</span></div><span class="bb-get-cap">What you sell</span></li>
+      <li><div class="bb-get-pic bb-get-kit"><span class="bb-get-sw" role="img" aria-label="Three brand colours"><i style="background:#1F3D2B"></i><i style="background:#E9E2D0"></i><i style="background:#C96F2D"></i></span><span class="bb-get-type" aria-hidden="true">Aa</span><span>Logo, colours, photos</span></div><span class="bb-get-cap">Brand kit</span></li>
+      <li><div class="bb-get-pic"><b>Weekend campers</b><span>And people buying a gift for one.</span></div><span class="bb-get-cap">Who buys it</span></li>
+      <li><div class="bb-get-pic bb-get-say"><q>Coffee that outlasts the climb.</q><span>Warm, plain-spoken</span></div><span class="bb-get-cap">How you sound</span></li>
+    </ul>
+    <p class="bb-note">The cards show a made-up brand as an example. Yours come from your own page: what you sell with its price and any offer, your photos, and what the page says about it, for you to approve before any ad says it.</p>
+  </section>
   <form method="post" action="{{ url_for('onboarding.brief') }}" class="ob-under"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
     <a class="ob-link" href="{{ url_for('onboarding.profile') }}">Back</a><button class="ob-link" name="do" value="skip">No website yet? Skip and add it by hand</button></form>
 </div>
