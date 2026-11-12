@@ -7,6 +7,9 @@
   * the cards edit what every prompt reads (core.brand): what you sell, who buys it, what you can say, how you sound;
     the brand's colors are left alone; a blocked claim isn't saved
   * claims found on the page are only used once the member ticks them
+  * a workspace already set up for another business: the brief says the website typed is not the brand on screen,
+    and offers to read it as a new brand (the plan's brand limit applies; the first brand is left as it was) or to
+    keep the brand shown; the same site, or a link read in this step, shows no such note
   * angles: your own are free; "Suggest five" shows its price, holds and settles credits like Create does, says so
     when the balance can't cover it, and isn't offered when AI writing is off
 
@@ -238,6 +241,101 @@ check(r.status_code == 302 and r.headers["Location"].rstrip("/").endswith("/app"
 r = a.get("/app")
 check(not (r.status_code == 302 and "/app/welcome" in r.headers.get("Location", "")), "Studio no longer sends them back")
 check("Here is what I understood" in page(a), "the brief can still be opened by hand")
+print("== a workspace already set up for another business")
+check("data-bb-other" not in page(a), "the site they typed and read themselves: no note")
+
+
+def set_up_for_clipwell(email, plan):
+    """An account whose workspace already has a brand and product, answering the questions with another website."""
+    c, w, u = signup(email)
+    with db.connect() as conn:
+        conn.execute("UPDATE workspaces SET plan_override=? WHERE id=?", (plan, w))
+        conn.commit()
+        row = conn.execute("SELECT * FROM workspaces WHERE id=?", (w,)).fetchone()
+        bid = products.ensure_brand(conn, w)
+        conn.execute("UPDATE brands SET brand_name='Clipwell', website='https://clipwell.example' WHERE id=?", (bid,))
+        pid = products.create_product(conn, row, bid, {"name": "Clipwell", "description": "Clips from long videos.",
+                                                       "url": "https://clipwell.example"},
+                                      import_json={"url": "https://clipwell.example", "images": []})
+        products.activate(conn, row, product_id=pid)
+        conn.commit()
+    c.post("/app/welcome/profile", data={"csrf": csrf(c), "first_name": "Tee", "last_name": "Rowe", "company": "Roof Longevity",
+                                         "website": "www.RoofLongevity.example"})
+    return c, w, u, bid, pid
+
+
+def brand_names(w):
+    with db.connect() as conn:
+        return [r["brand_name"] for r in conn.execute("SELECT brand_name FROM brands WHERE workspace_id=? ORDER BY id", (w,))]
+
+
+t1, wt, ut, bt, pt = set_up_for_clipwell("tee@example.com", "growth")
+html = page(t1)
+check("You entered rooflongevity.example." in html and "already set up for Clipwell, so that is the brand shown here" in html,
+      "the brief says the website typed is not the brand on screen")
+check("Read rooflongevity.example as a new brand" in html and "Keep Clipwell" in html and "Clipwell" in html.split("bb-head")[1],
+      "it offers both choices, and still shows the brand the workspace has")
+post(t1, do="other", url="https://somewhere-else.example")
+check(brand_names(wt) == ["Clipwell"] and ws_row(wt)["product_id"] == pt, "a different address in the form makes nothing")
+seen = {}
+
+
+def fake_roof_import():
+    from flask import g, request
+    seen["url"], seen["brand"] = request.form.get("url"), g.ws["brand_id"]
+    with db.connect() as conn:
+        w = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone()
+        pid = products.create_product(conn, w, g.ws["brand_id"], {"name": "Roof check", "description": "A yearly roof inspection.",
+                                                                   "url": "https://rooflongevity.example"},
+                                      import_json={"url": "https://rooflongevity.example", "images": []})
+        products.activate(conn, w, product_id=pid)
+        conn.commit()
+    return jsonify({"ok": True, "product_id": pid, "name": "Roof check"})
+
+
+appmod.app.view_functions["start_import"] = fake_roof_import
+r = t1.post("/app/welcome/brand", data={"csrf": csrf(t1), "do": "other", "url": "https://www.RoofLongevity.example"},
+            follow_redirects=True)
+html = text(r)
+check(brand_names(wt) == ["Clipwell", "Roof Longevity"] and seen["brand"] != bt and "rooflongevity" in seen["url"].lower(),
+      "read as a new brand: a second brand, named as they named their company, and the page is read into it")
+check(ws_row(wt)["brand_id"] == seen["brand"] and "Roof check" in html and "Read from rooflongevity.example" in html
+      and "data-bb-other" not in html, "the new brand is the one on screen, with no note left")
+with db.connect() as conn:
+    old = products.get_product(conn, wt, pt)
+    check(old["name"] == "Clipwell" and old["brand_id"] == bt and conn.execute(
+        "SELECT website FROM brands WHERE id=?", (bt,)).fetchone()[0] == "https://clipwell.example",
+        "the first brand and its product are as they were")
+
+k1, wk, uk, bk, pk = set_up_for_clipwell("kept@example.com", "growth")
+post(k1, do="keep")
+html = page(k1)
+check("data-bb-other" not in html and brand_names(wk) == ["Clipwell"] and ws_row(wk)["product_id"] == pk
+      and "Here is what I understood" in html, "keep: the note goes, nothing is made, the brand stays")
+check(seen["brand"] != bk, "(and nothing was read)")
+
+o1, wo, uo, bo, po = set_up_for_clipwell("one@example.com", "starter")
+r = o1.post("/app/welcome/brand", data={"csrf": csrf(o1), "do": "other", "url": "https://rooflongevity.example"},
+            follow_redirects=True)
+html = text(r)
+check(brand_names(wo) == ["Clipwell"] and ws_row(wo)["product_id"] == po and "Your plan includes 1 brand." in html
+      and "choose to keep Clipwell" in html and "data-bb-other" in html,
+      "a plan with one brand: said so, nothing made, both choices still there")
+
+appmod.app.view_functions["start_import"] = lambda: (jsonify({"error": "That page couldn't be read.", "manual": True}), 422)
+f1, wf, uf, bf, pf = set_up_for_clipwell("fail@example.com", "growth")
+r = f1.post("/app/welcome/brand", data={"csrf": csrf(f1), "do": "other", "url": "https://rooflongevity.example"},
+            follow_redirects=True)
+html = text(r)
+check("That page couldn't be read." in html and "Start with your link" in html and brand_names(wf) == ["Clipwell", "Roof Longevity"],
+      "the page can't be read: the new brand waits for a link, and says why")
+with db.connect() as conn:
+    check(products.get_product(conn, wf, pf)["brand_id"] == bf, "and the first brand still has its product")
+appmod.app.view_functions["start_import"] = real_import
+check(onboarding._host("https://www.Roof-Longevity.example/roofs?x=1") == "roof-longevity.example"
+      and onboarding._host("RoofLongevity.example") == "rooflongevity.example" and onboarding._host("") == "",
+      "an address is compared by its site, without www or capitals")
+
 os.environ.pop("UI_V2")
 
 shutil.rmtree(TMP, ignore_errors=True)

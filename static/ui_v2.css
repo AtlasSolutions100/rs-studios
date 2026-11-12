@@ -1038,6 +1038,10 @@ html[data-ui="v2"]:root{--v2-pop:#BDFA25;--v2-pop-hover:#CDFF52;--v2-pop-ink:#14
 .ob-wide .btn:not(.dark):not(.sm){background:var(--v2-spark);color:var(--v2-spark-ink);border-color:rgba(20,20,20,.28)}
 .ob-wide .btn:not(.dark):not(.sm):hover{background:#CDFF52}
 .bb-start{max-width:620px;margin:0 auto}
+.bb-other{margin:0 0 var(--s5);padding:16px 18px;border:1px solid var(--v2-line2);border-radius:14px;background:var(--v2-raise);box-shadow:inset 3px 0 0 var(--v2-spark)}
+.bb-other p{margin:0 0 12px;line-height:1.5}
+.bb-other form{display:flex;align-items:center;gap:8px 18px;flex-wrap:wrap}
+.bb-other .btn{min-height:44px}
 .bb-link label{display:block;margin:0 0 6px;font-size:13px;color:var(--muted)}
 .bb-linkrow{display:flex;gap:var(--s2);flex-wrap:wrap}
 .bb-linkrow input{flex:1 1 260px;min-width:0;min-height:44px}
