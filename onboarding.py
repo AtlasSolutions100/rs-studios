@@ -20,6 +20,11 @@ page can be opened by hand at any time (an owner previewing the look), and "Skip
 Nothing here charges, grants or changes credits, plans or anything at Stripe, with one exception that says its price
 on the button: "Suggest angles" on the brand brief is the same paid AI call as in Create (creator.angles).
 
+A workspace that already has a brand (Nov 11 2026): the brief shows that brand, because every prompt reads it. When
+the website the member typed in the questions is not that brand's site, the brief says so instead of leaving them to
+wonder why another business is on screen, and offers two plain choices: read the typed site as a new brand of this
+workspace (the plan's brand limit applies), or keep the brand shown (other_site, do=other / do=keep).
+
 The brand brief (Nov 11 2026) is not a new store of facts. Each card edits the product and brand columns every prompt
 already reads through core.brand() (products.as_brief): what you sell (name, description, price, offer), who buys
 it (audience), what you can say (approved claims, plus the ones the import suggested), how you sound (the brand's
@@ -193,6 +198,41 @@ def _import_link():
     return False, data.get("error") or "That page couldn't be read. Try another link, or skip and add it by hand."
 
 
+def _host(url) -> str:
+    """The site of an address, lower case and without www: "rooflongevity.example" for
+    "https://www.RoofLongevity.example/roofs". "" for nothing usable."""
+    from urllib.parse import urlsplit
+    u = str(url or "").strip()
+    if not u:
+        return ""
+    try:
+        host = (urlsplit(u if "://" in u else "https://" + u).hostname or "").lower()
+    except ValueError:
+        return ""
+    return host[4:] if host.startswith("www.") else host
+
+
+def other_site(user, p, b) -> str:
+    """The site the member typed in the questions when it is not the site of the brand on screen: the workspace was
+    set up for another business before they answered. "" when they typed none, when it is this brand's site, or
+    when they already chose here (read a link in this step, or kept the brand shown)."""
+    import products
+    a = answers(user)
+    typed = _host(a.get("website"))
+    if not typed or p is None or a.get("site_kept") == typed:
+        return ""
+    info = products.import_info(p)
+    have = {_host(info.get("url") if isinstance(info, dict) else ""), _host(p["url"] if "url" in p.keys() else ""),
+            _host(b["website"] if b is not None else "")}
+    return "" if typed in have else typed
+
+
+def _brand_name_for(user, host: str) -> str:
+    """What to call the new brand until its page is read: the company they typed, else the site's own name."""
+    company = " ".join(str(answers(user).get("company") or "").split())
+    return (company or host.split(".")[0].replace("-", " ").replace("_", " ").title() or "New brand")[:80]
+
+
 def _suggest_angles(conn, pid) -> str:
     """The paid step: the same call, hold and settle as Create's angle ideas. Returns the words for the member."""
     import core
@@ -246,6 +286,28 @@ def brief():
                 return redirect(url_for("onboarding.first" if first_ads.on() and p is not None else "studio"))
             if do == "import":
                 ok, words = _import_link()
+                if ok:      # what is on screen now is what they just asked to be read
+                    save(conn, g.user, site_kept=_host(answers(g.user).get("website")))
+                    conn.commit()
+                flash(words, "ok") if ok else flash(words)
+                return redirect(here)
+            other = other_site(g.user, p, b)
+            if do == "keep" and other:
+                save(conn, g.user, site_kept=other)
+                conn.commit()
+                return redirect(here)
+            if do == "other" and other and _host(f.get("url")) == other:
+                try:
+                    bid = products.create_brand(conn, ws, _brand_name_for(g.user, other),
+                                                website=answers(g.user).get("website") or "")
+                    products.activate(conn, ws, brand_id=bid)
+                except products.ProductError as e:
+                    flash(f"{e} To keep working here, choose to keep {(b['brand_name'] if b is not None else '') or p['name']}.")
+                    return redirect(here)
+                save(conn, g.user, site_kept=other)
+                conn.commit()
+                g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws["id"],)).fetchone()   # the new brand is active
+                ok, words = _import_link()
                 flash(words, "ok") if ok else flash(words)
                 return redirect(here)
             if p is None:
@@ -285,7 +347,7 @@ def brief():
                            source=source,
                            website=answers(g.user).get("website") or (b["website"] if b is not None else "") or "",
                            angle_price=creator.estimate_angles() if (llm.anthropic_ready() and not no_plan) else None,
-                           gift=gift, no_plan=no_plan)
+                           gift=gift, no_plan=no_plan, other=other_site(g.user, p, b))
 
 
 # ---------------------------------------------------------------- the first ads, on us
