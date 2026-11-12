@@ -794,6 +794,24 @@ work is in there. Nothing is fetched, generated or charged.
 
 Tests: `tests/test_inspiration.py`.
 
+## Use it from Claude, find things in the Library, and the desk's nudge (behind `UI_V2`)
+
+- **`/app/tools/assistant`** (`tools_page.assistant`, while `MCP_SERVER` is on): the MCP server's address with a Copy
+  button, the steps for Claude, Claude Team or Enterprise, Claude Code and other apps (the same steps the public
+  `/mcp` page and `/docs/mcp` give; no client is named that those pages do not cover), and the prompts from
+  `CLAUDE_PROMPTS`, each with Copy. Three of them can be done on the desk instead for the member's product.
+- **The Library** (`app.library`): `q` searches the words of an ad (its brief, and the headline and label kept with
+  the job; a `%` or `_` a member types is a plain character) and `when` filters by date (`day`, `week`, `month`: the
+  last 24 hours, 7 days, 30 days). Both are plain GET parameters that combine with the existing filters. The search
+  box and the Date row are shown in the new look only. On a phone the new look's two Library columns can now shrink,
+  so a card no longer pushes the page sideways.
+- **The desk's nudge** (`desk.nudge`): one dismissible line above the box once the workspace has a finished ad and
+  no ad account connected. It leads to Connections where launching is on (`AD_LAUNCH`), else to the setup hub when
+  the plan includes it. Never during the first steps (brand, brief, first ads). Dismissed for good per member
+  (`POST /app/desk/nudge/off`, kept in the member's answers).
+
+Tests: `tests/test_tools_page.py` (the assistant page), `tests/test_library_find.py`.
+
 ## Plans only and the percent-off price (`plan_gate.py`, `plan_gate_routes.py`, `plans.sale`; `PLANS_ONLY`, `PLAN_SALE`, both default off in code)
 
 Asked for by Koby on Nov 11 2026. `deploy.yml` turns both on in production unless the repo variable says `0`.

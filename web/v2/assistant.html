@@ -1,0 +1,86 @@
+{% extends "base.html" %}{% block title %}Make ads from Claude · Campaignify{% endblock %}
+{# Use Campaignify from Claude and other MCP clients (tools_page.assistant). The steps are the ones the public page
+   (web/claude.html) and the docs (web/mcp_docs.html) give; nothing here claims a client those pages do not cover. #}
+{% block body %}
+<div class="page as">
+  <p class="dfy-back"><a href="{{ url_for('tools.page') }}">Tools</a></p>
+  <h1>Make ads from Claude</h1>
+  <p class="dfy-sub">Connect Campaignify to Claude and ask in plain words. Claude shows you the credit total first, and nothing is made until you agree. It uses the same credits as the app.</p>
+
+  <div class="as-copy">
+    <label for="as-url">Server address</label>
+    <div class="as-copyrow"><input id="as-url" type="text" readonly value="{{ url }}" data-select-all><button type="button" class="btn dark sm" data-copy="as-url">Copy</button></div>
+  </div>
+
+  <section class="as-how" aria-labelledby="as-how-h" data-clients>
+    <div class="dk-exs-top">
+      <h2 id="as-how-h">Connect it</h2>
+      <div class="dk-cats" role="group" aria-label="Where you use Claude">
+        <button type="button" class="dk-cat" data-cat-pick="claude" aria-pressed="true">Claude</button>
+        <button type="button" class="dk-cat" data-cat-pick="team" aria-pressed="false">Claude Team or Enterprise</button>
+        <button type="button" class="dk-cat" data-cat-pick="code" aria-pressed="false">Claude Code</button>
+        <button type="button" class="dk-cat" data-cat-pick="other" aria-pressed="false">Other apps</button>
+      </div>
+    </div>
+    <div class="as-panel" data-cat="claude">
+      <p class="as-note">Claude on the web, desktop or phone, on any plan. On Claude's Free plan you can add one custom connector.</p>
+      <ol>
+        <li>In Claude, open <b>Customize</b>, then <b>Connectors</b>.</li>
+        <li>Click <b>+ Add</b>, then <b>Add custom connector</b>.</li>
+        <li>Name it <b>Campaignify</b>, paste the server address and click <b>Continue</b>.</li>
+        <li>Keep the settings Claude detects and click <b>Add</b>.</li>
+        <li>Log in to Campaignify and choose <b>read only</b> or <b>read and write</b> (read and write can spend credits).</li>
+        <li>In a chat, click <b>+</b>, then <b>Connectors</b>, and switch Campaignify on.</li>
+      </ol>
+    </div>
+    <div class="as-panel" data-cat="team" hidden>
+      <ol>
+        <li>An owner opens <b>Organization settings</b>, then <b>Connectors</b>.</li>
+        <li>Click <b>Add</b>, then <b>Custom</b>, then <b>Web</b>, and paste the server address.</li>
+        <li>Each member then finds Campaignify under <b>Customize</b>, <b>Connectors</b> and clicks <b>Connect</b> to log in with their own Campaignify account.</li>
+      </ol>
+    </div>
+    <div class="as-panel" data-cat="code" hidden>
+      <div class="as-copy">
+        <label for="as-cmd">Add it</label>
+        <div class="as-copyrow"><input id="as-cmd" type="text" readonly value="claude mcp add --transport http campaignify {{ url }}" data-select-all><button type="button" class="btn dark sm" data-copy="as-cmd">Copy</button></div>
+      </div>
+      <p class="as-note">Then run <code>/mcp</code> in Claude Code and pick Campaignify to log in.{% if keys_on %} Prefer a key? Make one under <a href="{{ url_for('mcp.settings') }}">MCP access</a>.{% endif %}</p>
+    </div>
+    <div class="as-panel" data-cat="other" hidden>
+      <p class="as-note">Most apps that support remote MCP servers can add the server address and sign in. If yours only runs local servers, the <code>mcp-remote</code> bridge works with a key{% if keys_on %} from <a href="{{ url_for('mcp.settings') }}">MCP access</a>{% endif %}; the config is in the <a href="/docs/mcp">docs</a>.</p>
+    </div>
+  </section>
+
+  <section class="as-ask" aria-labelledby="as-ask-h">
+    <h2 id="as-ask-h">What to ask</h2>
+    <p class="as-note">Plain words work. Copy one to start; swap the parts in angle brackets for your own.</p>
+    <ul class="as-prompts">
+      {% for q in prompts %}
+      <li>
+        <span class="as-kind">{{ q.kind }}</span>
+        <input id="as-p{{ loop.index }}" type="text" readonly value="{{ q.text }}" data-select-all aria-label="{{ q.kind }} prompt">
+        <button type="button" class="btn dark sm" data-copy="as-p{{ loop.index }}">Copy</button>
+        {% if q.desk %}<a class="as-desk" href="{{ q.desk }}">Or do this on your desk</a>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <p class="as-note">{% if keys_on %}Keys and connected apps are under <a href="{{ url_for('mcp.settings') }}">MCP access</a>, where you can disconnect at any time. {% endif %}The <a href="/docs/mcp">docs</a> have every setup in full.</p>
+  <p class="dfy-note">Claude is made by Anthropic. Campaignify is an independent app that connects to Claude through the Model Context Protocol (MCP), and isn't made or endorsed by Anthropic.</p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function(){
+  var root = document.querySelector('[data-clients]'); if(!root) return;
+  root.querySelectorAll('[data-cat-pick]').forEach(function(chip){
+    chip.addEventListener('click', function(){
+      root.querySelectorAll('[data-cat-pick]').forEach(function(c){ c.setAttribute('aria-pressed', c === chip ? 'true' : 'false'); });
+      root.querySelectorAll('[data-cat]').forEach(function(p){ p.hidden = p.dataset.cat !== chip.dataset.catPick; });
+    });
+  });
+})();
+</script>
+{% endblock %}
