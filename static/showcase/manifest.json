@@ -16,7 +16,7 @@
   },
   "_sizes": "Images: JPEG or WebP, 1080 px on the short side, under 400 KB. Videos: MP4 (H.264), 540x960, 5 to 10 seconds, under 600 KB (about 400 kbit/s), each with a poster. Everything here rides in the deploy bundle, which has a size limit (tests/test_bundle_size.py), so keep clips small. A mix of images and videos fills the grid best; at most 16 are shown on the home page.",
   "_store": {
-    "commit": "6a01d574be04c8ec4c5b37d6155a0ef2d2e006d7",
+    "commit": "998064890b98983530bd2698baec416264fe1eca",
     "dir": "assets_staging/showcase_540",
     "_about": "Where store items come from (libstore.py): this repository's own tree at exactly this commit. An item with a store block is not in this folder or the deploy bundle; the server fetches it once and keeps it only if its size and SHA-256 match."
   },
@@ -344,6 +344,20 @@
       "group": "local"
     },
     {
+      "file": "ex-pressure-washing.mp4",
+      "kind": "video",
+      "poster": "ex-pressure-washing.webp",
+      "aspect": "9:16",
+      "title": "Pressure washing",
+      "caption": "A pressure washer cleans a stained concrete driveway in one pass.",
+      "alt": "A pressure washer wand sweeping across a dark, stained concrete driveway, leaving it clean and pale.",
+      "group": "local",
+      "store": {
+        "sha256": "05c410f583584184ef82d5e4f43ff731aa3a4ed9e27f83b75f61d35d31c9f77a",
+        "bytes": 480350
+      }
+    },
+    {
       "file": "ex-cold-brew.mp4",
       "kind": "video",
       "poster": "ex-cold-brew.webp",
@@ -372,6 +386,20 @@
       "caption": "Croissants from the oven, tarts dusted with sugar, bread handed over the counter.",
       "alt": "A tray of croissants comes out of the oven, fruit tarts are dusted with powdered sugar, and a loaf in a paper bag is handed across a bakery counter.",
       "group": "local"
+    },
+    {
+      "file": "ex-pizza-oven.mp4",
+      "kind": "video",
+      "poster": "ex-pizza-oven.webp",
+      "aspect": "9:16",
+      "title": "Wood-fired pizza",
+      "caption": "A pizza goes into a wood-fired oven, comes out bubbling and is sliced.",
+      "alt": "A margherita pizza slid into a glowing wood-fired oven, then sliced on a wooden board with basil on top.",
+      "group": "local",
+      "store": {
+        "sha256": "e560c33b5e73aaf5be58f4679270a4b6d0249904705a50be3f2b7f8cd6b9feac",
+        "bytes": 444695
+      }
     },
     {
       "file": "ex-gold-hoops.mp4",
@@ -403,6 +431,22 @@
       "group": "local"
     },
     {
+      "file": "ex-realtor-presenter.mp4",
+      "kind": "video",
+      "poster": "ex-realtor-presenter.webp",
+      "aspect": "9:16",
+      "title": "Real estate agent",
+      "caption": "An agent on a front porch invites you in to see a house.",
+      "alt": "An AI presenter: a man in a navy jacket stands on the porch of a house with the door open and invites the viewer inside.",
+      "presenter": true,
+      "sound": true,
+      "group": "local",
+      "store": {
+        "sha256": "394caf6ef5ecc39da750a5a14c913d47597308c16c132f50562844418470878f",
+        "bytes": 292724
+      }
+    },
+    {
       "file": "ex-soy-candle.mp4",
       "kind": "video",
       "poster": "ex-soy-candle.webp",
@@ -419,6 +463,20 @@
       "title": "Travel mug at sunrise",
       "caption": "A ceramic travel mug on a camp table at sunrise as coffee is poured in.",
       "alt": "A ceramic travel mug on a folding camp table at sunrise while coffee is poured into it."
+    },
+    {
+      "file": "ex-flower-shop.mp4",
+      "kind": "video",
+      "poster": "ex-flower-shop.webp",
+      "aspect": "9:16",
+      "title": "Flower shop",
+      "caption": "Tulips and roses picked, arranged and wrapped in brown paper.",
+      "alt": "Hands pick pink tulips and white roses from metal buckets, trim the stems and wrap the bouquet in brown paper with twine.",
+      "group": "local",
+      "store": {
+        "sha256": "99999e0d6becdccd3ba1a2767d8dcc10532c3f2d0c30d8ed93421cef511cff4a",
+        "bytes": 421170
+      }
     },
     {
       "file": "team-desk-talk.mp4",
@@ -440,6 +498,20 @@
       "caption": "Espresso pulled and latte art poured in a small cafe.",
       "alt": "An espresso shot being pulled and latte art poured in a small cafe.",
       "group": "local"
+    },
+    {
+      "file": "ex-pet-grooming.mp4",
+      "kind": "video",
+      "poster": "ex-pet-grooming.webp",
+      "aspect": "9:16",
+      "title": "Pet grooming",
+      "caption": "A small white dog is bathed, dried and brushed.",
+      "alt": "A small fluffy white dog rinsed in a grooming tub, then dried and brushed on a grooming table.",
+      "group": "local",
+      "store": {
+        "sha256": "9b446a13e6eeccf0c2fb5afc611bb4779bfa22af7900db6a31ea22564d8f6399",
+        "bytes": 431640
+      }
     },
     {
       "file": "ex-dog-treats.mp4",
@@ -464,6 +536,22 @@
       "alt": "An AI presenter: a woman in a small boutique holds up a plain canvas tote bag and talks to the camera.",
       "presenter": true,
       "sound": true
+    },
+    {
+      "file": "ex-accountant-presenter.mp4",
+      "kind": "video",
+      "poster": "ex-accountant-presenter.webp",
+      "aspect": "9:16",
+      "title": "Bookkeeper",
+      "caption": "A bookkeeper at her desk talks about monthly bookkeeping for small businesses.",
+      "alt": "An AI presenter: a woman in glasses and a blue sweater at a home-office desk talks to the camera about monthly bookkeeping.",
+      "presenter": true,
+      "sound": true,
+      "group": "local",
+      "store": {
+        "sha256": "9e73bfda59a6c74d26e04fddf0375b99751b41ac4090549c6708713b894f3620",
+        "bytes": 233648
+      }
     },
     {
       "file": "preset-vo-product-shots.mp4",
@@ -492,6 +580,20 @@
       }
     },
     {
+      "file": "ex-house-painter.mp4",
+      "kind": "video",
+      "poster": "ex-house-painter.webp",
+      "aspect": "9:16",
+      "title": "House painter",
+      "caption": "A beige wall rolled sage green, the trim cut in, the room finished.",
+      "alt": "A paint roller covering a beige wall in sage green, a brush cutting in along white trim, then the finished empty room.",
+      "group": "local",
+      "store": {
+        "sha256": "a360c71f89f434ad8496925dad19c5733af3913a5fb2254e91cdcee8ea775ee4",
+        "bytes": 262079
+      }
+    },
+    {
       "file": "team-product-film.mp4",
       "kind": "video",
       "poster": "team-product-film.webp",
@@ -499,6 +601,19 @@
       "caption": "Product film",
       "alt": "A small 3D model of a floor of rooms rises from a dark floor plan; one room is outlined in yellow.",
       "title": "Product video"
+    },
+    {
+      "file": "ex-handmade-soap.mp4",
+      "kind": "video",
+      "poster": "ex-handmade-soap.webp",
+      "aspect": "9:16",
+      "title": "Handmade soap",
+      "caption": "A block of lavender soap sliced into bars and wrapped in paper.",
+      "alt": "A knife slicing a block of lavender soap into bars on a wooden board, then one bar wrapped in plain paper.",
+      "store": {
+        "sha256": "4e9a77dd32bf5f8c205c94103141313ad9bda4f7d038b6e7b1d2598fd5250ac6",
+        "bytes": 357263
+      }
     },
     {
       "file": "problem-answer.webp",
