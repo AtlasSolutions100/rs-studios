@@ -759,6 +759,12 @@ at the foot. With the gift on, the desk is Home from the first minute (`desk.is_
 Tests: `tests/test_first_ads.py` (the order, the gift's bookkeeping, once only, a refused start, first means first,
 the agent's states, off without plans only).
 
+**A workspace that already has a brand** keeps showing it on the brief. When the website typed in the questions is
+not that brand's site, the brief says so and offers two choices: read the typed site as a new brand of this
+workspace (`do=other`; the plan's brand limit applies and the first brand is left as it was), or keep the brand
+shown (`do=keep`). A link read in this step, or the brand's own site, shows no note (`onboarding.other_site`).
+Tests: `tests/test_brand_brief.py`.
+
 ## The Tools page and the done-for-you request (`tools_page.py`, `web/v2/tools.html`, `web/v2/done_for_you.html`; behind `UI_V2`)
 
 In the new look the menu is short and the tools live on one page.
