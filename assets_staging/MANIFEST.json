@@ -2369,5 +2369,20 @@
   "credits": 0,
   "qa": "copy of presenters/marcus/voice.mp3",
   "notes": "The sample given to the video as its audio reference (vendor original, before padding)."
+ },
+ {
+  "path": "showcase/ex-bakery.mp4",
+  "kind": "showcase_video",
+  "title": "Neighborhood bakery",
+  "caption": "Croissants from the oven, tarts dusted with sugar, bread handed over the counter.",
+  "alt": "A tray of croissants comes out of the oven, fruit tarts are dusted with powdered sugar, and a loaf in a paper bag is handed across a bakery counter.",
+  "poster": "showcase/ex-bakery.webp",
+  "model": "seedance_2_5",
+  "prompt": "Vertical ad for a small neighborhood bakery, no faces. Early morning, warm light through the shop window. Shot 1: a tray of golden croissants slides out of the oven. Shot 2: hands dust powdered sugar over a row of fruit tarts on a wooden counter. Shot 3: a loaf of crusty bread is placed in a plain paper bag and handed across the counter. Oven hum, soft crackle of crust, quiet chatter. Warm, realistic, shallow depth of field. No text, no logos, no watermark.",
+  "job_id": "1c40e2da-f5e1-4482-8b3f-506bfa17eda3",
+  "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GvdxB9gfwtge4rv79iuyoXAckR/hf_20261112_063409_1c40e2da-f5e1-4482-8b3f-506bfa17eda3.mp4",
+  "credits": 0,
+  "qa": "ok",
+  "notes": "Phase 4: made in the web app with Unlimited mode (720p, 8 s, 9:16)."
  }
 ]
