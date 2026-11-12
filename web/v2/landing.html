@@ -8,7 +8,7 @@
 {%- endmacro %}
 {# What the studio makes (each is a real output: catalog.py, copywriter.py, planner, competitors) and the features in the
    billing config, as two rows that drift past. The second list in each row is a copy for the loop, hidden from readers. #}
-{% set makes = [('image', 'Image ads'), ('person', 'Presenter videos'), ('video', 'Product videos'), ('video', 'Voiceover videos'), ('text', 'Ad copy'), ('text', 'Hooks'), ('text', 'Captions'), ('text', 'Headlines'), ('mail', 'Emails'), ('page', 'Landing-page copy'), ('plan', 'Campaign plans'), ('search', 'Competitor snapshots'), ('person', 'AI presenters'), ('image', 'Image presets'), ('video', 'Video recipes')] %}
+{% set makes = [('image', 'Image ads'), ('person', 'Presenter videos'), ('person', 'Try-on videos'), ('video', 'App demos'), ('video', 'Unboxing videos'), ('video', 'Product videos'), ('video', 'Voiceover videos'), ('text', 'Ad copy'), ('text', 'Hooks'), ('text', 'Captions'), ('text', 'Headlines'), ('mail', 'Emails'), ('page', 'Landing-page copy'), ('plan', 'Campaign plans'), ('search', 'Competitor snapshots'), ('person', 'AI presenters'), ('image', 'Image presets'), ('video', 'Video recipes')] %}
 {% set fx_icon = {'studio': 'video', 'brand_kit': 'image', 'compliance': 'shield', 'copy': 'text', 'planner': 'plan', 'competitors': 'search', 'pages': 'page', 'links': 'link', 'flows_email': 'mail', 'flows_sms': 'mail', 'seo': 'search', 'optimizer': 'text', 'link_analytics': 'chart', 'forms': 'page', 'community': 'people'} %}
 <div class="cfh">
 <section class="cfh-stage" data-run="a" aria-labelledby="cfh-h">
@@ -68,11 +68,12 @@
 <section class="lv-sec cfk" id="makes" aria-labelledby="cfk-h">
   <div class="lv-wrap">
     <h2 id="cfk-h">The link goes in once. This is what comes back out.</h2>
-    <p class="lv-sub">Every picture below was made by Campaignify from one product photo of a made-up mug brand.</p>
+    <p class="lv-sub">Everything below was made by Campaignify, for made-up brands.</p>
     <div class="cfk-two">
       <nav class="cfk-rail" aria-label="What it makes">
         <a href="#k-ads" data-k="ads" class="on">Image ads</a>
         <a href="#k-video" data-k="video">Presenter videos</a>
+        <a href="#k-formats" data-k="formats">Try-ons, app demos, unboxings</a>
         <a href="#k-copy" data-k="copy">Copy and a plan</a>
         <a href="#k-research" data-k="research">Competitor research</a>
         <a href="#k-leads" data-k="leads">Lead pages and follow-up</a>
@@ -105,6 +106,20 @@
             <figure><img src="{{ url_for('static', filename='presenters/nia/desk.webp') }}" alt="Nia, an AI presenter, at her desk" loading="lazy" width="720" height="1280"><figcaption>Nia, desk</figcaption></figure>
             <figure><img src="{{ url_for('static', filename='presenters/lena/gym.webp') }}" alt="Lena, an AI presenter, in a gym" loading="lazy" width="720" height="1280"><figcaption>Lena, gym</figcaption></figure>
           </div>
+        </article>
+
+        <article id="k-formats" data-row="formats" class="cfk-row">
+          <div>
+            <h3>Try-ons, app demos and unboxings, one click each</h3>
+            <p>Ready-made video formats for what you sell: a presenter wears your clothing, your app's own screen recording plays above a presenter, or two hands open the box and lift your product out.</p>
+            <p class="cfk-fact">{{ home_counts.recipes }} video formats. In an app demo your screens are shown as you recorded them.</p>
+            {{ plan_note('studio') }}
+          </div>
+          {% if format_clips %}
+          <div class="cfk-pics three tall cfk-clips">
+            {% for label, it in format_clips %}<figure><div class="lv-vid"><video data-inview muted loop playsinline preload="none" data-poster="{{ it.poster_url }}" width="{{ it.width }}" height="{{ it.height }}" aria-label="{{ it.alt }}"><source src="{{ it.url }}" type="video/mp4"></video>{% if it.presenter %}<span class="lv-clip-tag">AI presenter</span>{% endif %}</div><figcaption>{{ label }}</figcaption></figure>{% endfor %}
+          </div>
+          {% endif %}
         </article>
 
         <article id="k-copy" data-row="copy" class="cfk-row">

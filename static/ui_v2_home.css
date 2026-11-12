@@ -122,6 +122,7 @@ div.cfh-t .go{height:28px;margin-top:8px;padding-top:4px;box-sizing:border-box;b
 .cfk-pics img{display:block;width:100%;height:auto;aspect-ratio:4/5;object-fit:cover;border-radius:12px;border:1px solid var(--line)}
 .cfk-pics.tall img{aspect-ratio:9/16}
 .cfk-pics figure{margin:0}
+.cfk-clips video{display:block;width:100%;height:auto;aspect-ratio:9/16;object-fit:cover;border-radius:12px;border:1px solid var(--line);background:var(--thumb-bg)}
 .cfk-pics figcaption{margin-top:8px;color:var(--muted);font-size:13.5px}
 .cfk-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .cfk-cards.one{grid-template-columns:minmax(0,1fr)}

@@ -227,7 +227,11 @@
       "aspect": "9:16",
       "title": "Face serum",
       "caption": "A serum bottle and dropper on wet stone.",
-      "alt": "A glass serum bottle with a dropper resting on wet stone."
+      "alt": "A glass serum bottle with a dropper resting on wet stone.",
+      "store": {
+        "sha256": "e3723858501e25f8c4463540aa415cf59989950d5e11c9adb629b453cca9b6ab",
+        "bytes": 314939
+      }
     },
     {
       "file": "ex-cleaning-presenter.mp4",
@@ -364,7 +368,11 @@
       "aspect": "9:16",
       "title": "Cold brew",
       "caption": "A bottle of cold brew taken from an ice bucket and poured over ice.",
-      "alt": "A bottle of cold brew coffee lifted from an ice bucket and poured into a glass of ice."
+      "alt": "A bottle of cold brew coffee lifted from an ice bucket and poured into a glass of ice.",
+      "store": {
+        "sha256": "1498353515746a362fbc0ff82bd3e6d7cf74d6e2188be6463278eaeebedbfe9a",
+        "bytes": 447923
+      }
     },
     {
       "file": "team-streamer.mp4",
@@ -408,7 +416,11 @@
       "aspect": "9:16",
       "title": "Gold hoop earrings",
       "caption": "Gold hoop earrings on a stone tray, then one is put on.",
-      "alt": "A pair of gold hoop earrings on a stone tray, then one is picked up and put on."
+      "alt": "A pair of gold hoop earrings on a stone tray, then one is picked up and put on.",
+      "store": {
+        "sha256": "11f80d39b06f6e4efe9040e58f1b6765e3b1dabb07c09a499d7e4df04480aee1",
+        "bytes": 219898
+      }
     },
     {
       "file": "preset-hands-only-demo.mp4",
@@ -453,7 +465,11 @@
       "aspect": "9:16",
       "title": "Soy candle",
       "caption": "A soy candle lit on a bedside table.",
-      "alt": "A soy candle in a jar being lit on a bedside table."
+      "alt": "A soy candle in a jar being lit on a bedside table.",
+      "store": {
+        "sha256": "b63b7163f4d052cb3ceb7073489b36f4e3cb24b4e022fa49276101fa42fdcad5",
+        "bytes": 261749
+      }
     },
     {
       "file": "ex-travel-mug.mp4",
@@ -462,7 +478,11 @@
       "aspect": "9:16",
       "title": "Travel mug at sunrise",
       "caption": "A ceramic travel mug on a camp table at sunrise as coffee is poured in.",
-      "alt": "A ceramic travel mug on a folding camp table at sunrise while coffee is poured into it."
+      "alt": "A ceramic travel mug on a folding camp table at sunrise while coffee is poured into it.",
+      "store": {
+        "sha256": "d6c0d571756cc6925d21c3129051a0b50920f135ec9e70a667ad9fcb03b31090",
+        "bytes": 354594
+      }
     },
     {
       "file": "ex-flower-shop.mp4",
@@ -535,7 +555,11 @@
       "caption": "A woman in a small boutique shows a canvas tote bag.",
       "alt": "An AI presenter: a woman in a small boutique holds up a plain canvas tote bag and talks to the camera.",
       "presenter": true,
-      "sound": true
+      "sound": true,
+      "store": {
+        "sha256": "9f702760442e9610c42293817fc6bd8cb5c41b8b18e3f9d800df3c2c12b7cebc",
+        "bytes": 459360
+      }
     },
     {
       "file": "ex-accountant-presenter.mp4",
