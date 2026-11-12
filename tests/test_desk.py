@@ -189,11 +189,12 @@ check(re.search(r'<a class="nav v2-desk on" href="/app/desk" aria-current=page>'
       and re.search(r'<a class="nav v2-desk " href="/app/desk" >', home) is not None, "and it is marked as where you are, only on the desk")
 check("Burns for 40 hours. Hand poured in Texas" in d and "Free shipping this week" in d
       and "People who light a candle every evening" in d, "the brand panel shows the claims, the offer and who it is for")
-check("Start from an example" in d and d.count('class="dk-ex" data-try="') == len(desk.EXAMPLES) and "Launch kit" in d
-      and 'data-try="Launch Ember Candle: three image ads, one presenter video, the ad copy, a page to collect emails and a follow-up"' in d,
+first_row = re.search(r'<div class="dk-ex-row" data-cat="campaigns" >.*?</div>', d, re.S).group(0)     # the row that shows
+check("Start from an example" in d and first_row.count('class="dk-ex" data-try="') == len(desk.EXAMPLES) and "Launch kit" in first_row
+      and 'data-try="Launch Ember Candle: three image ads, one presenter video, the ad copy, a page to collect emails and a follow-up"' in first_row,
       "example cards to start from, each with a sentence written for the product")
-check(d.count('class="dk-ex-media"><img src="/static/showcase/') == len(desk.EXAMPLES) and 'src="/static/showcase/team-skincare.mp4"' in d,
-      "every card shows a picture from our own gallery, and a clip where there is one")
+check(first_row.count('class="dk-ex-media"><img src="/static/showcase/') == len(desk.EXAMPLES) and 'src="/static/showcase/team-skincare.mp4"' in first_row,
+      "every card shows a picture from our own gallery, and a clip where there is one (the other kinds: tests/test_inspiration.py)")
 check("New campaign" in d and ">Campaigns</h2>" in d and "None yet." in d, "the sidebar starts a campaign and lists them (none yet)")
 boot = json.loads(re.search(r"window\.CFY_DESK = (\{.*?\});</script>", d, re.S).group(1))
 check(boot["product"] == pid and boot["urls"]["run"] == "/app/desk/run" and boot["starters"]["image"]
