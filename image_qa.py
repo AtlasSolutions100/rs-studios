@@ -250,6 +250,16 @@ def _why_not(conn, path, p) -> str:
     return ""
 
 
+# What decides for a video that keeps its product out of the generated pictures (an app or a website: the presenter
+# alone, catalog.PRODUCT_AT "none"). The product checks are still answered and recorded; they just don't fail it.
+NO_PRODUCT_CHECKS = ("no_extra_text", "no_deformed_hands_faces", "keyframe", "same_person")
+
+
+def _only(p: dict):
+    import keyframe_video
+    return NO_PRODUCT_CHECKS if keyframe_video.no_product(p) else None
+
+
 def check_keyframe(conn, job, p: dict, attempt: int, url: str, path: str | None, presenter: bool = True) -> dict:
     """The check of a video's keyframe, run whatever IMAGE_QA says (a keyframe is the cheapest place to stop a bad
     video): the product is there, its label is right, nothing else is written anywhere, hands and face are fine,
@@ -263,7 +273,8 @@ def check_keyframe(conn, job, p: dict, attempt: int, url: str, path: str | None,
     if why:
         return _skip(conn, job, p, attempt, 1, why, url, path, "keyframe")
     try:
-        res = inspect(path, ref, (), kind="keyframe" if presenter else "image", product=p.get("product") or "")
+        res = inspect(path, ref, (), kind="keyframe" if presenter else "image", product=p.get("product") or "",
+                      only=_only(p))
     except Exception as e:  # noqa: BLE001 — a check never holds a video hostage
         log.warning("keyframe check for job %s could not run: %s", job["id"], str(e)[:160])
         return _skip(conn, job, p, attempt, 1, "the check couldn't run", url, path, "keyframe")
@@ -298,7 +309,7 @@ def check_beat(conn, job, p: dict, beat: int, attempt: int, clip: str | None, fa
                                path=shot, kind="frame"))
             continue
         try:
-            res = inspect(shot, ref, (), kind="frame", product=p.get("product") or "", face=face)
+            res = inspect(shot, ref, (), kind="frame", product=p.get("product") or "", face=face, only=_only(p))
         except Exception as e:  # noqa: BLE001
             log.warning("frame check for job %s beat %s could not run: %s", job["id"], beat, str(e)[:160])
             rows.append(record(conn, job, p, attempt, beat * 10 + n, "skipped", ["the check couldn't run"], path=shot,

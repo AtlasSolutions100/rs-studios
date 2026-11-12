@@ -33,6 +33,7 @@ UPLOAD_MB = 155
 BODY_LIMITS = {   # endpoint -> bytes; anything not listed gets DEFAULT_BODY
     "start": UPLOAD_MB * MB, "upload_photos": UPLOAD_MB * MB, "admin_refs": UPLOAD_MB * MB,
     "products.new": UPLOAD_MB * MB, "products.edit": UPLOAD_MB * MB, "cpools.index": UPLOAD_MB * MB,
+    "recordings.save": UPLOAD_MB * MB,
     "messaging.import_contacts": 5 * MB,
     "stripe_webhook": 256 * 1024, "messaging.resend_webhook": 256 * 1024, "sms.inbound": 256 * 1024,
     "sms.status": 256 * 1024, "cpools.partner_event": 256 * 1024, "cpools.partner_asset_url": 256 * 1024,

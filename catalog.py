@@ -514,13 +514,36 @@ PRODUCT_AT = {
             "visible and none over the label, the label facing the camera, sharp and fully readable.",
     "shelf": "It stands on a shelf just behind their shoulder at eye level, in clear view, its label facing the "
              "camera, sharp and fully readable. Their hands stay off it.",
+    # a try-on: the member's garment (or bag, shoes, hat, jewellery) is ON the person, never beside them
+    "worn": "They are wearing it the way it is meant to be worn (a bag is carried on the shoulder it hangs from), and "
+            "it is the clearest thing in the picture: all of it in view, nothing folded over it, no hand, hair or "
+            "strap across it. Everything else they wear is plain, in quiet colours, with no logo and no print.",
+    # an app or a website: there is nothing to put in the room, and no screen of it is ever drawn
+    "none": "",
 }
+PRODUCT_AT_FRAMING = {      # how a presenter's keyframe is framed, by where the product is (default: chest up)
+    "worn": "The phone is propped a few steps away at chest height and they stand facing it, relaxed, arms loose at "
+            "their sides, looking into the lens with an easy, friendly expression, the mouth closed, as if about to "
+            "start talking. Framed so that the whole of what they are trying on is in view on them with room around "
+            "it: head to knee for a top, a dress or a jacket, head to toe for trousers, a skirt or shoes. The whole "
+            "face is clear and nothing covers it.",
+    "none": "They look into the lens with a relaxed, friendly expression, the mouth closed, as if about to start "
+            "talking. Framed from the chest up: the whole face is clear and nothing covers it. Nothing is in their "
+            "hands. No phone, tablet, laptop or monitor shows its screen to the camera, and there is no readable "
+            "text anywhere.",
+}
+NO_SCREEN = ("No phone, tablet, laptop or monitor ever shows its screen to the camera, and nothing is held up to it.")
 KEYFRAME_LOOK = ("Real-phone look: natural skin texture with visible pores, slight softness rather than razor-sharp "
                  "focus, ordinary mixed light from the room, no studio lighting, no beauty filter. The only readable "
                  "text anywhere is what is printed on the product itself. No captions, no watermark, no border.")
 
 
-def _product_line(product: str, refs: str) -> str:
+def _product_line(product: str, refs: str, product_at: str = "table") -> str:
+    if product_at == "worn":
+        return (f"What they are trying on is the {product} from {refs}: the same cut, length, fabric, colours, "
+                "pattern, stitching, hardware and any print or logo, unchanged. Never restyle it, never change its "
+                "colour and never invent a logo or a print it doesn't have. If the photo shows it on a model or a "
+                "hanger, take only the item itself from it, never that person.")
     return (f"The product is the {product} from {refs}: the same shape, packaging, label, printed text and colors, "
             "unchanged. Never invent other branding and never redraw its label.")
 
@@ -550,24 +573,34 @@ def keyframe_prompt(ad_type: str, product: str, *, presenter_id: str = "", situa
     pr = presenters.record(presenter_id) or presenters.record(PRESENTERS[0]["id"])
     sit = presenters.situation(pr["id"], situation) or presenters.situation(pr["id"], presenters.default_situation(pr["id"]))
     surface = sit["surface"] if sit else "the table beside them"
-    place = PRODUCT_AT.get(product_at, PRODUCT_AT["table"]).format(surface=surface)
+    product_at = product_at if product_at in PRODUCT_AT else "table"
+    place = PRODUCT_AT[product_at].format(surface=surface)
+    worn, bare = product_at == "worn", product_at == "none"
     if has_still:
-        lines = ["Image 1 shows a person in a room. Make a new photo of exactly the same person in the same room: the "
-                 "same face, bone structure, skin, hair, age, build and clothes, the same place, the same light and "
-                 "the same phone framing.",
-                 _product_line(product, "the other reference images"), place]
+        same = ("Image 1 shows a person in a room. Make a new photo of exactly the same person in the same room: the "
+                "same face, bone structure, skin, hair, age and build, the same place and the same light. Only what "
+                "they wear and how far the phone is from them change."
+                if worn else
+                "Image 1 shows a person in a room. Make a new photo of exactly the same person in the same room: the "
+                "same face, bone structure, skin, hair, age, build and clothes, the same place, the same light and "
+                "the same phone framing.")
+        lines = [same] + ([] if bare else [_product_line(product, "the other reference images", product_at), place])
     else:
-        wear = f" Wearing {sit['wardrobe']}." if sit and sit["wardrobe"] else ""
+        wear = f" Wearing {sit['wardrobe']}." if sit and sit["wardrobe"] and not worn else ""
         where = setting or (sit["scene"] if sit else pr["setting"])
-        lines = ["Photo taken with the front camera of an ordinary phone, a little above eye level, as the first frame "
-                 "of a selfie video.",
+        lines = [("Photo taken with an ordinary phone propped a few steps away, as the first frame of a try-on video."
+                  if worn else
+                  "Photo taken with the front camera of an ordinary phone, a little above eye level, as the first frame "
+                  "of a selfie video."),
                  f"{pr['appearance']}{wear}",
-                 f"The place is {where}." + (f" They are {sit['pose']}." if sit and not setting else ""),
-                 _product_line(product, "the reference photos"), place]
-    lines += ["They look into the lens with a relaxed, friendly expression, the mouth closed, as if about to start "
+                 f"The place is {where}." + (f" They are {sit['pose']}." if sit and not setting and not worn else "")]
+        lines += [] if bare else [_product_line(product, "the reference photos", product_at), place]
+    lines += [PRODUCT_AT_FRAMING.get(product_at) or
+              "They look into the lens with a relaxed, friendly expression, the mouth closed, as if about to start "
               "talking. Framed from the chest up: the whole face is clear and nothing covers it, the product least "
               "of all.",
-              KEYFRAME_LOOK + " One person only.", presenters.FICTIONAL]
+              (KEYFRAME_LOOK.replace("The only readable text anywhere is what is printed on the product itself. ", "")
+               if bare else KEYFRAME_LOOK) + " One person only.", presenters.FICTIONAL]
     return "\n".join(lines)
 
 
@@ -586,6 +619,11 @@ def beat_prompt(ad_type: str, product: str, line: str, *, presenter_id: str = ""
     say = " ".join((line or "").split()).replace('"', "'")
     keep = (f"The {product} looks exactly as in the reference images: same packaging, label, text and colors; never "
             "invent other branding.")
+    if product_at == "worn" and ad_type == "ugc":
+        keep = (f"The {product} they are wearing looks exactly as in image 1 and the reference images: the same cut, "
+                "fabric, colours, pattern and any print; it never changes and nothing else they wear does.")
+    elif product_at == "none" and ad_type == "ugc":
+        keep = NO_SCREEN
     fix = ""
     if note:
         asked = " ".join(str(note).split())[:300].replace('"', "'").rstrip()
@@ -611,15 +649,32 @@ def beat_prompt(ad_type: str, product: str, line: str, *, presenter_id: str = ""
                  "that image), the same room and the same product where it is.")
     hold = "They keep holding it as in image 1, its label never covered." if product_at == "hand" else \
         "Their hands stay off the product."
+    if product_at == "worn":
+        scene = ("Image 1 is its first frame: the same person (their face, hair, age and build exactly as in that "
+                 "image), wearing exactly what they wear in it, in the same room, the phone where it was.")
+        if sit:
+            scene = (f"Image 1 shows the presenter wearing the {product}. This shot is the same person (their face, "
+                     f"hair, age and build exactly as in that image) wearing exactly the same things, now in "
+                     f"{sit['place']}, standing a few steps from the phone.")
+        hold = (f"{(shot[:1].upper() + shot[1:] + '. ') if shot else ''}They stay standing, and any movement is small "
+                "and slow: nothing they do covers it, pulls it out of shape or takes it off.")
+    elif product_at == "none":
+        scene = ("Image 1 is its first frame: the same person (their face, hair, age, build and clothes exactly as in "
+                 "that image) in the same room." if not sit else
+                 f"Image 1 shows the presenter. This shot is the same person (their face, hair, age and build exactly "
+                 f"as in that image), now in {sit['place']}: they are {sit['pose']}.")
+        hold = "Their hands are empty."
     extra = ""
     if voice_ref:
         extra = ("Their voice is the voice heard in audio 1: the same timbre, pitch, pace and accent. Audio 1 is only a "
                  "sample of the voice: never repeat its words and never play it. ")
-    return (f"Vertical selfie-style UGC video filmed on a phone, one shot of a longer video. {scene} They talk directly "
+    style = "Vertical try-on video filmed on a phone propped a few steps away" if product_at == "worn" else \
+        "Vertical selfie-style UGC video filmed on a phone"
+    return (f"{style}, one shot of a longer video. {scene} They talk directly "
             f"to the viewer in a natural, unscripted tone with {voice['desc']}. They say: \"{say}\" Lip movements match "
             f"the speech exactly, and they stop talking when the line ends. {extra}{keep} {hold} {UNPOLISHED} Natural "
-            "light, slight handheld movement, the framing stays the same from start to end, no on-screen text, no "
-            f"subtitles, no music.{fix}")
+            f"light, {'the phone never moves' if product_at == 'worn' else 'slight handheld movement'}, the framing "
+            f"stays the same from start to end, no on-screen text, no subtitles, no music.{fix}")
 
 
 def broll_prompt(product: str, shot: str) -> str:

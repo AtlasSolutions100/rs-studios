@@ -3,7 +3,7 @@
   * KEYFRAME_VIDEO off (the default): nothing about a talking video changes. The jobs Create queues, their params
     and prices and exactly what the worker sends the vendor are compared with a snapshot taken before the pipeline
     existed (tests/fixtures/keyframe_off_snapshot.json), and the eight recipes that need the pipeline stay hidden
-  * on: "keyframe_video" is in presets.PIPELINES, all fifteen recipes are offered, and a recipe's video is planned
+  * on: "keyframe_video" is in presets.PIPELINES, all seventeen recipes are offered, and a recipe's video is planned
     (beats of 4 to 8 seconds that add up to the length sold, the script cut into one line a beat, cutaways within
     the seconds a 30% margin allows, the end card); the member's price is the same per-duration price
   * the worker: the keyframe first (the presenter's still and the product photo as references, the product placed
@@ -400,13 +400,13 @@ try:
             return [j["id"] for j in conn.execute("SELECT id FROM jobs WHERE batch_id=? ORDER BY id", (r["batch"],))], q
 
     # ------------------------------------------------------------------ 2. on: the plan
-    print("== KEYFRAME_VIDEO on: fifteen recipes, each planned in beats")
+    print("== KEYFRAME_VIDEO on: seventeen recipes, each planned in beats")
     os.environ["KEYFRAME_VIDEO"] = "1"
     check(kfv.on() and "keyframe_video" in presets.PIPELINES and list(presets.PIPELINES) == ["single_take", "keyframe_video"]
-          and len(presets.recipes_for()) == 15 and all(presets.runnable(r) for r in presets.RECIPES)
+          and len(presets.recipes_for()) == 17 and all(presets.runnable(r) for r in presets.RECIPES)
           and all(presets.pipeline_for(r) == "keyframe_video" for r in presets.RECIPES)
           and presets.pipeline_for(presets.get("ugc")) == "single_take" and presets.pipeline_for(None) == "single_take",
-          "the switch puts keyframe_video in PIPELINES: all 15 recipes are offered and take that path; a plain "
+          "the switch puts keyframe_video in PIPELINES: all 17 recipes are offered and take that path; a plain "
           "presenter video or voiceover (no recipe) stays one take")
     for rec in presets.RECIPES:
         own = rec.price["duration"]
@@ -485,7 +485,7 @@ try:
         r = table[rec.id]
         if r["credits"] != catalog.price_credits("ugc_video", duration=rec.price["duration"]) or r["credits"] != rec.price_credits():
             check(False, f"{rec.id}: the member's price changed")
-    check(len(table) == 15 and {r["credits"] for r in table.values()} == {740, 1387, 1849},
+    check(len(table) == 17 and {r["credits"] for r in table.values()} == {740, 1387, 1849},
           "member prices are the per-duration prices they were: 740, 1,387 and 1,849 credits")
     c8, c15, c20, cut = table["talk-to-camera"], table["street-interview"], table["how-to-steps"], table["talking-head-cutaways"]
     check(abs(c8["usd"] - (8 * 0.4622 + 0.23 + kfv.check_usd() * (1 + 3 * 1.4))) < 0.011
@@ -547,9 +547,12 @@ try:
     for bad, why in (({"type": "ugc", "preset": "green-screen-product-page", "items": ["This is the page."], "presenters": ["maya"]},
                       "a screenshot of your product page"),
                      ({"type": "ugc", "preset": "show-your-app", "items": ["This is the app."], "presenters": ["maya"]},
-                      "your app's screenshots")):
+                      "your app's screenshots or a screen recording"),
+                     ({"type": "ugc", "preset": "web-app-demo", "items": ["This is the app."], "presenters": ["maya"]},
+                      "your app's screenshots or a screen recording")):
         r = post(mem, "/app/create/quote", dict(bad, product=PID)).get_json()
-        check(r["count"] == 0 and why in r["error"] and "nothing of it is ever generated" in r["error"] and r["step"] == "format",
+        check(r["count"] == 0 and why in r["error"] and r["step"] == "format"
+              and ("nothing of it is ever generated" in r["error"] or "nothing of your app is ever generated" in r["error"]),
               f"a recipe that shows the member's own screens says what it needs: {why}")
     r = post(mem, "/app/create/quote", {"type": "ugc", "preset": "green-screen-product-page", "items": ["This is the page."],
                                         "presenters": ["maya"], "product": PID, "screens": [PAGE]}).get_json()
@@ -938,6 +941,116 @@ try:
               and "screens" not in params_of(J16),
               "show your app: the presenter introduces it full frame, then the app's own picture is shown whole (an "
               "app's photos are its screens; none had to be passed)")
+        # m38: no screen is ever drawn. The app's pictures never go to a model, in the keyframe or in a beat.
+        k16 = json.loads(next(p for p in parts_of(J16) if p["kind"] == "keyframe")["inputs_json"])
+        b16 = [json.loads(p["inputs_json"]) for p in parts_of(J16) if p["kind"] == "beat"]
+        pk16 = params_of(J16)["kf"]
+        check(pk16["keyframe"]["product_at"] == "none" and pk16["keyframe"]["refs"] == len(k16["image_urls"]) <= 1
+              and "The product is" not in k16["prompt"] and "shows its screen to the camera" in k16["prompt"]
+              and "Nothing is in their hands" in k16["prompt"]
+              and all(len(b["image_urls"]) == 1 for b in b16)
+              and all("ever shows its screen to the camera" in b["prompt"] and "Their hands are empty." in b["prompt"]
+                      and "same product" not in b["prompt"] for b in b16),
+              "show your app: the keyframe and both beats are the presenter alone. The app's picture is never sent "
+              "to a model, and the prompts forbid any device showing a screen")
+        check(image_qa._only(params_of(J16)) == image_qa.NO_PRODUCT_CHECKS and image_qa._only(params_of(J15)) is None
+              and image_qa.judge({"product_present": False, "label_matches": False, "other_text": [], "garbled_text": False,
+                                  "deformed_hands": False, "deformed_faces": False, "one_clear_face": True},
+                                 kind="keyframe", only=image_qa.NO_PRODUCT_CHECKS)["pass"]
+              and not image_qa.judge({"product_present": False, "label_matches": False, "other_text": ["Dashboard"],
+                                      "garbled_text": False, "deformed_hands": False, "deformed_faces": False,
+                                      "one_clear_face": True}, kind="keyframe", only=image_qa.NO_PRODUCT_CHECKS)["pass"]
+              and not image_qa.judge({"product_present": False, "label_matches": False, "other_text": [],
+                                      "garbled_text": False, "deformed_hands": False, "deformed_faces": False,
+                                      "one_clear_face": True}, kind="keyframe")["pass"],
+              "its checks don't ask for the product in the picture, and still fail on any text, a bad hand or face; "
+              "every other recipe's checks are what they were")
+
+        # ---- m38: web app demo, with the product's screen recording across the top
+        print("== web app demo: the member's screen recording across the top, the presenter below")
+        import recordings
+        rec_path = os.path.join(TMP, "screen-recording.mp4")
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=0x1e3cdc:s=640x360:r=24:d=8",
+                        "-f", "lavfi", "-i", "color=c=0x1ea03c:s=640x360:r=24:d=8", "-filter_complex",
+                        "[0:v][1:v]concat=n=2:v=1:a=0", "-pix_fmt", "yuv420p", rec_path], check=True)
+        r = mem.post(f"/app/products/{APID}/recording", data={"csrf": csrf(mem), "recording": (open(rec_path, "rb"), "screen.mp4", "video/mp4")},
+                     content_type="multipart/form-data")
+        with db.connect() as conn:
+            RID = recordings.of_product(conn, MWS, APID)["id"]
+        web = {"type": "ugc", "preset": "web-app-demo", "presenters": ["maya"], "product": APID, "photos": [APH],
+               "items": ["Still planning your week on sticky notes? Open Northwind Planner, tap a day and add a task. "
+                         "It is free to start."]}
+        n0 = len(V.submits)
+        (J18,), q18 = queue(web)
+        p18 = params_of(J18)
+        j = run(J18)
+        f18 = outputs_of(J18)[0]["path"]
+        sx, sy, sw, sh, band = stitch.split_box((180, 320), (640, 360))
+        mid, low = (sx + sw // 2, sy + sh // 2), (6, band + 30)
+        beat2 = COLORS["beat"][(sum(1 for s in V.submits[:n0 + 3] if "reference-to-video" in s["model"]) - 1) % 4]
+        check(r.status_code == 302 and j["status"] == "done" and q18["total"] == 1387 and p18["recording"] == RID
+              and "screens" not in p18 and p18["kf"]["screen_layout"] == "split" and p18["kf"]["captions"]
+              and p18["kf"]["keyframe"]["product_at"] == "none"
+              and [b["screen"] for b in p18["kf"]["beats"]] == [False, True] and [b["seconds"] for b in p18["kf"]["beats"]] == [7, 8]
+              and abs(stitch.probe(f18)["duration"] - 17.0) < 0.2,
+              "the product's recording is what the job shows (no screenshots named), 15 seconds and an end card, at "
+              "the 15-second price")
+        check(near(frame_px(f18, 8.0, mid), (30, 60, 220)) and near(frame_px(f18, 13.5, mid), (30, 160, 60))
+              and near(frame_px(f18, 10.0, low), beat2, 60) and not near(frame_px(f18, 3.0, mid), (30, 60, 220), 60)
+              and near(frame_px(f18, 10.0, (90, 6)), (17, 17, 17), 30)
+              and not any("image-to-video" in s["model"] for s in V.since(n0)),
+              "the hook is the presenter full frame; then the recording plays across the top, twice as fast so all 16 "
+              "seconds of it fit the 8-second beat (blue, then green), with the presenter filling the frame below")
+        got = call(make_key(mem, "read"), "get_product", {"product_id": APID})
+        check(got["structuredContent"].get("screen_recording") == {"seconds": 16.0, "width": 640, "height": 360},
+              "get_product (MCP) says the product has a screen recording, with its length and size")
+        cap_low, cap_high = frame_px(f18, 8.0, (90, 240)), frame_px(f18, 8.0, (90, 40))
+        check(not near(cap_low, beat2, 60) and near(cap_high, (30, 60, 220)),
+              "its captions sit low over the presenter, not over the screen")
+        (J19,), _q = queue(dict(web, recording=False))
+        check("recording" not in params_of(J19) and "screens" not in params_of(J19) and run(J19)["status"] == "done"
+              and near(frame_px(outputs_of(J19)[0]["path"], 10.0, (160, 150)), (250, 250, 250), 30),
+              '"recording": false keeps the screenshots: the app\'s own tall picture, full frame, the presenter in the corner')
+        with db.connect() as conn:
+            recordings.remove(conn, MWS, APID)
+        (J20,), _q = queue(web)
+        check("recording" not in params_of(J20)
+              and "screen_recording" not in call(make_key(mem, "read"), "get_product", {"product_id": APID})["structuredContent"],
+              "with no recording the same preset shows the app's screenshots (and get_product no longer lists one)")
+        with db.connect() as conn:
+            worker._fail(conn, job_row(J20), worker.CANCELED)
+
+        # ---- m38: try-on
+        print("== try-on: the presenter wears the member's item")
+        TPID, TPH = add_product(mu, MWS, "Northwind", "Linen Overshirt", "apparel")
+        (J21,), q21 = queue({"type": "ugc", "preset": "try-on", "presenters": ["maya"], "product": TPID, "photos": [TPH],
+                             "placement": "holding",
+                             "items": ["Okay, this is the Linen Overshirt. It is a relaxed cut in washed linen. "
+                                       "Find it at Northwind."]})
+        j = run(J21)
+        p21 = params_of(J21)
+        k21 = json.loads(next(p for p in parts_of(J21) if p["kind"] == "keyframe")["inputs_json"])
+        b21 = [json.loads(p["inputs_json"]) for p in parts_of(J21) if p["kind"] == "beat"]
+        check(j["status"] == "done" and q21["total"] == 1387 and p21["kf"]["keyframe"]["product_at"] == "worn"
+              and p21["kf"]["captions"] and not p21["kf"]["cutaways"] and len(b21) == 2
+              and "What they are trying on is the Linen Overshirt" in k21["prompt"] and "They are wearing it" in k21["prompt"]
+              and "head to knee for a top" in k21["prompt"] and "It stands upright" not in k21["prompt"]
+              and "hold it up" not in k21["prompt"] and len(k21["image_urls"]) >= 1
+              and all("Vertical try-on video" in b["prompt"] and "they are wearing looks exactly as in image 1" in b["prompt"]
+                      and "nothing they do covers it" in b["prompt"] and "the phone never moves" in b["prompt"]
+                      and "Their hands stay off the product" not in b["prompt"] for b in b21)
+              and "They turn a little to one side and back to the front." in b21[1]["prompt"]
+              and abs(stitch.probe(outputs_of(J21)[0]["path"])["duration"] - 17.0) < 0.2,
+              "the keyframe is the presenter wearing the item from its photo, framed to show all of it; both beats "
+              "keep it on and uncovered; a \"holding\" placement doesn't replace it; the real photo closes the video")
+        check(kfv.plan(presets.get("try-on"), {"duration": 15, "placement": "holding"}, "A b.")["keyframe"]["product_at"] == "worn"
+              and kfv.plan(presets.get("web-app-demo"), {"duration": 15, "placement": "holding"}, "A b.")["keyframe"]["product_at"] == "none"
+              and kfv.plan(presets.get("web-app-demo"), {"duration": 15}, "A b.", n_photos=3, has_still=True)["keyframe"]["refs"] == 1
+              and kfv.plan(presets.get("try-on"), {"duration": 15}, "A b.", n_photos=3, has_still=True)["keyframe"]["refs"] == 3
+              and kfv.plan(presets.get("talk-to-camera"), {"duration": 8}, "Hi.")["screen_layout"] == "pip"
+              and [r.id for r in presets.recipes_for({"category": "apparel"}) if r.id in ("try-on", "web-app-demo", "show-your-app")] == ["try-on"]
+              and [r.id for r in presets.recipes_for({"category": "app_service"}) if r.id in ("try-on", "web-app-demo", "show-your-app")] == ["show-your-app", "web-app-demo"],
+              "a try-on is offered for apparel and the two app recipes for apps; neither placement can be overridden")
     else:
         print("  SKIPPED: the screens are composited with ffmpeg")
 

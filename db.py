@@ -874,6 +874,14 @@ CREATE TABLE IF NOT EXISTS video_parts (
     url TEXT, path TEXT, remote_url TEXT, error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_video_parts_job ON video_parts(job_id, kind, idx, attempt);
 CREATE INDEX IF NOT EXISTS idx_video_parts_status ON video_parts(status);
+-- m38, recordings.py: a product's screen recording (the member's own capture of their app or site), played as it is
+-- in the screen beats of a video preset. One per product; the file is in the workspace's uploads folder.
+CREATE TABLE IF NOT EXISTS recordings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, product_id INTEGER NOT NULL,
+    path TEXT NOT NULL, filename TEXT, content_type TEXT,
+    seconds REAL NOT NULL DEFAULT 0, width INTEGER NOT NULL DEFAULT 0, height INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_recordings_product ON recordings(workspace_id, product_id);
 """
 
 # Columns added after the first release: (table, column, definition).
