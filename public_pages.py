@@ -425,7 +425,7 @@ SOLUTIONS = {
                   "product videos and UGC-style videos with an AI presenter. On paid plans it writes the ad copy, "
                   "publishes a landing page with a form and sends follow-up emails. You launch the ads yourself in "
                   "each platform's ads manager.",
-        "clips": ["ugc-bakery", "ugc-coffee", "product-video"],
+        "clips": ["ex-pressure-washing", "ugc-bakery", "ex-pet-grooming"],
         "price_line": "Image ad: {image} credits. 5-second product video: {video5} credits. Shown before you press "
                       "Generate.",
         "steps": [
@@ -483,7 +483,7 @@ SOLUTIONS = {
                   "copy for each platform, a landing page with a sign-up form, and follow-up emails. On Scale it "
                   "also hosts your community and courses. Every brief and page is checked for income and health "
                   "claims, and AI presenters never pose as your clients.",
-        "clips": ["ugc-app", "ugc-serum", "ugc-coffee"],
+        "clips": ["ex-trainer-presenter", "ugc-app", "ugc-coffee"],
         "price_line": "Image ad: {image} credits. 8-second AI presenter video: {talk8} credits. Shown before you "
                       "press Generate.",
         "steps": [
@@ -540,7 +540,7 @@ SOLUTIONS = {
                   "{max_batch} variants at once to test hooks, see every price in credits first, and keep each "
                   "product's photos and approved claims in one place. It works with any store whose product pages "
                   "state their details, not just Shopify.",
-        "clips": ["ugc-sneakers", "show-amber", "product-video"],
+        "clips": ["ex2-tryon-denim-jacket", "ex2-unboxing-pov-bottle", "show-amber"],
         "price_line": "Image ad: {image} credits. 5-second product video: {video5} credits. 8-second AI presenter "
                       "video: {talk8} credits.",
         "steps": [
@@ -726,7 +726,7 @@ SOLUTIONS = {
         "answer": "Campaignify's AI product video generator turns a single product photo into a short video for your ads "
                   "or your product page: a turn, a label read, a how-it-works shot or a scene you describe. A 5 second "
                   "video costs {video5} credits and a 10 second one {video10}, shown before you press Generate. {signup_includes} {sc} credits, {with_nothing_charged}.",
-        "clips": ["product-video", "photo_to_video", "show-amber"],
+        "clips": ["product-video", "ex2-showcase-steel-bottle", "ex2-showcase-planter"],
         "price_line": "5-second product video: {video5} credits. 10 seconds: {video10}. Shown before you press Generate.",
         "steps": [
             ("Upload one product photo", "A clean photo of the product is enough. Add the product once and reuse it for "
@@ -869,7 +869,7 @@ SOLUTIONS = {
                   "product page, and writes the hooks and captions to go with them. An 8 second presenter video costs "
                   "{talk8} credits and a 5 second product video {video5}, shown before anything is made. You upload the "
                   "finished videos in TikTok Ads Manager; Campaignify does not run them.",
-        "clips": ["ugc-sneakers", "ugc-coffee", "product-video"],
+        "clips": ["ex2-tryon-midi-dress", "ugc-sneakers", "ex2-unboxing-mug"],
         "price_line": "8-second AI presenter video: {talk8} credits. 5-second product video: {video5}. Shown before you press Generate.",
         "steps": [
             ("Paste your product page", "Campaignify reads the product and what the page says, and you approve the claims."),
@@ -914,7 +914,7 @@ SOLUTIONS = {
                   "It makes image ads built around your screenshot, presenter videos that explain the offer, copy for "
                   "each platform, and on a plan a landing page with a sign-up form and follow-up emails. In the videos "
                   "that use them, your screens are shown as you uploaded them. Every ad shows its price in credits first.",
-        "clips": ["ugc-app", "ad_image", "ugc-coffee"],
+        "clips": ["ex2-web-app-demo", "ugc-app", "ad_image"],
         "price_line": "Image ad: {image} credits. 8-second AI presenter video: {talk8} credits. Shown before you press Generate.",
         "steps": [
             ("Add your product and screenshots", "Paste your site and upload the screens you want to show. Approve the "
@@ -964,7 +964,7 @@ SOLUTIONS = {
                   "in a vertical video with your screens shown as you uploaded them, or an image ad pairs your screen "
                   "with a headline. An 8 second presenter video costs "
                   "{talk8} credits and an image ad {image}, shown before anything is made.",
-        "clips": ["ugc-app", "ugc-sneakers", "ad_image"],
+        "clips": ["ugc-app", "team-app-demo", "ad_image"],
         "price_line": "Image ad: {image} credits. 8-second AI presenter video: {talk8} credits. Shown before you press Generate.",
         "steps": [
             ("Add the app and its screenshots", "Add the app as a product and upload the screens you want people to see."),
@@ -1011,7 +1011,7 @@ SOLUTIONS = {
                   "with a form, keeps every lead in a contacts list with tags, and sends the emails you wrote when "
                   "someone signs up. Landing pages and flows come with Starter; forms, contacts and email sending come "
                   "with Growth. You see the price of every ad before it is made.",
-        "clips": ["ugc-bakery", "ad_image", "ugc-app"],
+        "clips": ["ugc-bakery", "ad_image", "ex-accountant-presenter"],
         "price_line": "Image ad: {image} credits. 8-second AI presenter video: {talk8} credits. Shown before you press Generate.",
         "steps": [
             ("Make the ads", "Image ads and short videos for the offer: a guide, a quote, a call or a trial."),
@@ -1057,7 +1057,7 @@ SOLUTIONS = {
                   "service, short videos with an AI presenter, the copy for each platform, and on a plan a landing page "
                   "with an enquiry form and follow-up emails. Housing ads carry extra rules on Meta and under fair "
                   "housing law; Campaignify does not check those for you, so keep the wording about the property.",
-        "clips": ["ad_image", "ugc-bakery", "product-video"],
+        "clips": ["ex-realtor-presenter", "ad_image", "ex-house-painter"],
         "price_line": "Image ad: {image} credits. 8-second AI presenter video: {talk8} credits. Shown before you press Generate.",
         "steps": [
             ("Add the listing or your service", "Upload your own photos and the facts: the area, the price, what is "

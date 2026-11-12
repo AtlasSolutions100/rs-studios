@@ -1243,6 +1243,15 @@ def showcase(limit: int = SHOWCASE_MAX) -> list[dict]:
     return list(_showcase["items"][:max(0, limit)])
 
 
+def showcase_clip(file: str) -> dict | None:
+    """One gallery video by its file name, from the whole manifest (not only the home page's first ones), or None
+    while it isn't there (a store clip that hasn't arrived yet is left out, as in the grid)."""
+    for it in showcase(limit=10_000):
+        if it["kind"] == "video" and it["src"] == "showcase/" + file:
+            return it
+    return None
+
+
 # ---------------------------------------------------------------- per-page meta
 
 PAGES = {  # endpoint -> (path, title, description)

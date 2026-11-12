@@ -19,7 +19,7 @@
     <figure class="sol-media sol-clips">
       {% for gi in clips %}
       <div class="lp-g-media{{ ' talk' if gi.talk }}">
-        <video data-inview muted loop playsinline preload="{{ 'metadata' if loop.first else 'none' }}" poster="{{ url_for('static', filename=gi.poster) }}" aria-label="{{ gi.alt }}"><source src="{{ url_for('static', filename=gi.src) }}" type="video/mp4"></video>
+        <video data-inview muted loop playsinline preload="{{ 'metadata' if loop.first else 'none' }}" poster="{{ gi.poster_url }}" aria-label="{{ gi.alt }}"><source src="{{ gi.url }}" type="video/mp4"></video>
         {% if gi.talk %}<span class="lp-g-badge">AI presenter</span>
         <button type="button" class="lp-snd" aria-pressed="false" aria-label="Play {{ gi.title|lower }} with sound"><svg class="off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M22 9l-6 6M16 9l6 6"/></svg><svg class="on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13"/></svg></button>
         {% else %}<span class="lp-g-badge">{{ gi.title }}</span>{% endif %}

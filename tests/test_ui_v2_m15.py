@@ -205,9 +205,9 @@ shipped = [f["name"] for f in plans.FEATURES.values() if f.get("shipped")]
 import presenters  # noqa: E402
 kb = re.search(r'<section class="lv-sec cfk".*?</section>', hv, re.S).group(0)
 n_img = sum(1 for p in presets.LIBRARY if p.ad_type == "image" and p.kind != "type")
-check("The link goes in once. This is what comes back out." in kb and kb.count('class="cfk-row"') == 5
+check("The link goes in once. This is what comes back out." in kb and kb.count('class="cfk-row"') == 6
       and f"{n_img} formats" in kb and f"{len(presenters.roster())} AI presenters" in kb and "None of them is a real person." in kb,
-      "what comes back out: five rows, with the preset and presenter counts from the catalog")
+      "what comes back out: six rows, with the preset and presenter counts from the catalog")
 check(all(f"{plans.FEATURES[k]['name'].replace('&', '&amp;')}: " in kb for k in ("studio", "copy", "planner", "competitors", "pages", "forms", "flows")),
       "each row says which plan its tools come with, from the billing config")
 rows = re.search(r'<section class="cfm".*?</section>', hv, re.S).group(0)
