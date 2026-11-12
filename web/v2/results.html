@@ -25,6 +25,7 @@
   <dl class="rs-nums" data-rs-nums>
     <div><dt>Leads</dt><dd>{{ '{:,}'.format(mine.leads) }}</dd><p>{{ 'person' if mine.leads == 1 else 'people' }} who sent one of your forms</p></div>
     <div><dt>Link clicks</dt><dd>{{ '{:,}'.format(mine.clicks) }}</dd><p>on your smart links</p></div>
+    {% if seen.first %}<div><dt>Page views</dt><dd>{{ '{:,}'.format(seen.total) }}</dd><p>on your pages{% if seen.partial %}, counted since {{ seen.first.strftime('%b') }} {{ seen.first.day }}{% endif %}</p></div>{% endif %}
     <div><dt>Ads made</dt><dd>{{ '{:,}'.format(mine.made) }}</dd><p>{{ '{:,}'.format(mine.approved) }} approved</p></div>
     {% if ad %}{% for t in ad.totals %}
     <div><dt>Spent on ads{% if ad.totals|length > 1 %}, {{ t.cur }}{% endif %}</dt><dd>{{ t.spend }}</dd><p>on campaigns launched from Campaignify</p></div>
@@ -56,7 +57,7 @@
             <th scope="row"><a href="{{ c.href }}">{{ c.title }}</a></th>
             <td class="num">{{ c.ads }}{% if c.busy %} <span class="rs-dim">and {{ c.busy }} being made</span>{% endif %}</td>
             <td class="num">{{ c.approved }}</td>
-            <td>{% for p in c.pages %}<a href="{{ p.href }}">{{ p.title }}</a> <span class="rs-dim">{% if p.live %}{{ '{:,}'.format(p.views) }} {{ 'view' if p.views == 1 else 'views' }}, all time{% else %}not published yet{% endif %}</span>{% if not loop.last %}<br>{% endif %}{% else %}<span class="rs-dim">No page</span>{% endfor %}</td>
+            <td>{% for p in c.pages %}<a href="{{ p.href }}">{{ p.title }}</a> <span class="rs-dim">{% if p.live %}{% if p.recent is not none %}{{ '{:,}'.format(p.recent) }} in {{ span }}, {% endif %}{{ '{:,}'.format(p.views) }} {{ 'view' if p.views == 1 else 'views' }}{{ ' all time' if p.recent is not none else ', all time' }}{% else %}not published yet{% endif %}</span>{% if not loop.last %}<br>{% endif %}{% else %}<span class="rs-dim">No page</span>{% endfor %}</td>
             <td class="num">{% if c.leads is none %}<span class="rs-dim">No form</span>{% else %}{{ '{:,}'.format(c.leads) }}{% endif %}</td>
           </tr>
           {% endfor %}
@@ -140,6 +141,6 @@
     </section>
   </div>
 
-  <p class="rs-foot">How this is counted: a person who sends a form twice is one lead. Page views are a running count with no dates, so they show as all time. Ads made are the ads finished in the range. Nothing on this page is an estimate.</p>
+  <p class="rs-foot">How this is counted: a person who sends a form twice is one lead. {% if seen.first %}Page views are counted by date from {{ seen.first.strftime('%b') }} {{ seen.first.day }}, {{ seen.first.year }}; before that only the all-time count exists.{% else %}Page views by date start with the next view of one of your pages; until then they show as all time.{% endif %} Ads made are the ads finished in the range. Nothing on this page is an estimate.</p>
 </div>
 {% endblock %}

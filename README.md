@@ -842,8 +842,11 @@ compared with anyone else's, and the page changes nothing: it has no form.
   and per Meta ad, in the ad account's days and currency. "What stands out" states facts with a link: the ad with the
   lowest cost per lead, ads wearing out (`adfatigue.py`), a campaign that spent with nothing to show, a change
   waiting for approval. Leads from ads not launched here are named, with no spend set against them.
-- **Not there, and why**: page views have no dates (`pages.views` is a running count), so they never enter the
-  range. Spend is not shown per desk campaign: a launch does not record which desk campaign its ads came from.
+- **Page views by date** (`page_views_daily`, written by `pages_routes.public` with each counted view, in the
+  workspace's own day): counted from Nov 12 2026 on, with no history before. A range that starts earlier says from
+  which day it counts. `pages.views`, the running count, still shows beside a page as "all time".
+- **Not there, and why**: spend is not shown per desk campaign: a launch does not record which desk campaign its ads
+  came from.
 - Each part with no numbers says what to make or connect to get them.
 
 Tests: `tests/test_results.py` (every figure seeded and checked; another workspace's numbers never show).

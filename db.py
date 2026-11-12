@@ -768,6 +768,17 @@ CREATE TABLE IF NOT EXISTS weekly_reports (
     status TEXT NOT NULL, subject TEXT, error TEXT,
     created_at TEXT NOT NULL, sent_at TEXT,
     UNIQUE (workspace_id, user_id, week));
+-- Page views by date (results.py, pages_routes.public). pages.views is a running count with no dates; this keeps one
+-- row per page per day, in the workspace's own day, so a date range can count views. Counted from the release that
+-- added it (Nov 12 2026) on: there is no history before that. No visitor data: a number per page per day.
+CREATE TABLE IF NOT EXISTS page_views_daily (
+    page_id INTEGER NOT NULL,
+    workspace_id INTEGER NOT NULL,
+    day TEXT NOT NULL,
+    views INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (page_id, day));
+CREATE INDEX IF NOT EXISTS idx_page_views_daily_ws ON page_views_daily(workspace_id, day);
+
 -- Conversion tracking on members' own pages and forms (conversions.py, site_events.py; roadmap M3.4).
 -- page_events: the first-party collector. One row per page view sent server side and per form lead, with the
 -- UUID the browser pixels fire with. No IP address, no raw email or phone: hashes_json holds SHA-256 values only.
