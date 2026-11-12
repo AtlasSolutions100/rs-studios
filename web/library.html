@@ -5,7 +5,7 @@
   <p class="eyebrow">Library</p>
   <h1>Everything you've <span class="gold">made</span></h1>
   <p class="muted">Full-quality downloads, yours to post. Tap or hover to play; approve the keepers.</p>
-  {% set fresh = not jobs and not f_product and not f_brand and not f_batch and not (filters.values()|select|list) %}
+  {% set fresh = not jobs and not f_product and not f_brand and not f_batch and not q and not (filters.values()|select|list) %}
   {% if not fresh %}
   <form class="filters" method="get" data-autosubmit>
     <label class="sr" for="lf">Show</label>
@@ -16,6 +16,16 @@
     <noscript><button class="btn dark sm">Show</button></noscript>
     <span class="small muted">{{ jobs|length }} item{{ 's' if jobs|length != 1 }}</span>
   </form>
+  {% if ui_v2 %}
+  <form class="filters lib-find" method="get" action="{{ url_for('library') }}" role="search">
+    {% for k in ('product', 'brand', 'batch') %}{% if request.args.get(k) %}<input type="hidden" name="{{ k }}" value="{{ request.args.get(k) }}">{% endif %}{% endfor %}
+    {% for k, v in filters.items() %}{% if v %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
+    <label class="sr" for="lq">Search your ads</label>
+    <input id="lq" type="search" name="q" value="{{ q }}" maxlength="80" placeholder="Search by headline or words in the ad">
+    <button class="btn dark sm">Search</button>
+    {% if q %}<a class="small" href="{{ filter_url('q', '') }}">Clear</a>{% endif %}
+  </form>
+  {% endif %}
   <nav class="fchips" aria-label="Filter">
     {% for key, opts in chips %}<div class="fchip-row"><span class="small muted">{{ opts.label }}</span>{% for val, name in opts['items'] %}<a class="fchip {{ 'on' if filters.get(key, '') == val }}" href="{{ filter_url(key, val) }}" {{ 'aria-current=true' if filters.get(key, '') == val }}>{{ name }}</a>{% endfor %}</div>{% endfor %}
     {% if f_batch %}<div class="fchip-row"><span class="small muted">Batch</span><a class="fchip on" href="{{ filter_url('batch', '') }}">#{{ f_batch }} ×</a></div>{% endif %}
@@ -30,7 +40,7 @@
     {% else %}<a class="btn" href="{{ url_for('create.index') }}">Make an ad</a>{% endif %}
     <p class="small dim" style="margin:12px 0 0">Nothing is charged until you press Generate, and failed renders are refunded.</p>
   </div>
-  {% elif not jobs %}<div class="empty" style="margin-top:20px">{% if f_product or f_brand %}Nothing made for this yet. <a href="{{ url_for('create.index', product=f_product) if f_product else url_for('studio') }}">Make an ad for it</a>.{% else %}Nothing yet. <a href="{{ url_for('studio') }}">Make your first ad</a>.{% endif %}</div>{% endif %}
+  {% elif not jobs %}<div class="empty" style="margin-top:20px">{% if q %}Nothing matches "{{ q }}". <a href="{{ filter_url('q', '') }}">Clear the search</a>.{% elif f_product or f_brand %}Nothing made for this yet. <a href="{{ url_for('create.index', product=f_product) if f_product else url_for('studio') }}">Make an ad for it</a>.{% else %}Nothing yet. <a href="{{ url_for('studio') }}">Make your first ad</a>.{% endif %}</div>{% endif %}
   <div class="lgrid" style="margin-top:24px" data-live-cards="library" data-keyreview>
     {% for j in jobs %}{{ card(j, outs, templates, tools, ctx='library', verdict=verdicts.get(j.id), price=prices.get(j.id, 0), names=names, eta=eta, hl=highlight == j.id) }}{% endfor %}
   </div>

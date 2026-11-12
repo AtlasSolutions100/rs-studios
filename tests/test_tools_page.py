@@ -7,6 +7,8 @@ throwaway database with email faked:
   * nothing is lost: every item of the first look's menu that this workspace can open is in the new menu or on the
     Tools page
   * on a tool's own page the menu lists that tool's group, with the tool marked
+  * use it from Claude: an in-app page with the server address, the steps for each client and prompts to copy, only
+    while the MCP server is on
   * done for you: one button and nothing to fill in; a press saves a request with what the workspace already holds
     and emails it to whoever handles them, with the member's address as the reply-to; no person is named; a few a
     day; saved even when email is off, and the page then gives the site's address; DONE_FOR_YOU_EMAIL says who gets it
@@ -151,10 +153,34 @@ check(re.search(r"<b>Forms</b>.*?</span>\s*<em class=\"lock\" title=\"Included i
       and re.search(r"<b>Studio</b>.*?</span>\s*</a>", body, re.S) is not None,
       "a tool the plan does not include carries the plan that does; the others carry no mark")
 check("We make the ads for you" in body and 'href="/app/done-for-you"' in body, "done for you leads the page")
-check("Make ads from Claude or ChatGPT" in body and 'href="/mcp"' in body, "with how to use it from an assistant, while that is on")
+check("Make ads from Claude" in body and 'href="/app/tools/assistant"' in body and "ChatGPT" not in body,
+      "with how to use it from Claude, while that is on (no client is named that the docs do not cover)")
 os.environ["MCP_SERVER"] = "off"
-check("Make ads from Claude or ChatGPT" not in page(a, "/app/tools"), "and not while it is off")
+check("Make ads from Claude" not in page(a, "/app/tools"), "and not while it is off")
+r = a.get("/app/tools/assistant")
+check(r.status_code == 302 and r.headers["Location"].endswith("/app/tools"), "the assistant page is closed while it is off")
 os.environ["MCP_SERVER"] = "on"
+
+print("== use it from Claude")
+asst = page(a, "/app/tools/assistant")
+check("<h1>Make ads from Claude</h1>" in asst and 'id="as-url" type="text" readonly value="https://campaignify.test/mcp"' not in asst
+      and re.search(r'id="as-url" type="text" readonly value="http://localhost/mcp"', asst) is not None,
+      "the page gives this site's server address, ready to copy")
+check('data-copy="as-url"' in asst and 'data-copy="as-cmd"' in asst
+      and 'value="claude mcp add --transport http campaignify http://localhost/mcp"' in asst, "and the Claude Code command")
+check([x for x in re.findall(r'data-cat-pick="([a-z]+)"', asst)] == ["claude", "team", "code", "other"],
+      "steps for Claude, Claude Team or Enterprise, Claude Code and other apps")
+check("Add custom connector" in asst and "Organization settings" in asst and "mcp-remote" in asst and 'href="/docs/mcp"' in asst,
+      "the same steps the public page and the docs give")
+check(asst.count('class="as-kind"') == len(appmod.CLAUDE_PROMPTS) and asst.count("data-copy=\"as-p") == len(appmod.CLAUDE_PROMPTS),
+      "every prompt can be copied")
+desk_links = re.findall(r'<a class="as-desk" href="([^"]+)"', asst)
+check(len(desk_links) == 3 and all(x.startswith("/app/desk?ask=") and "Ember" in x for x in desk_links),
+      "three of them can be done on the desk instead, for this product")
+check(all(a.get(x.replace("&amp;", "&")).status_code == 200 for x in desk_links), "and those links open")
+check('href="/app/settings/mcp"' in asst or "MCP access" in asst, "with the way to the keys and connected apps")
+check("isn't made or endorsed by Anthropic" in asst, "and the note that Campaignify is independent of Anthropic")
+check(re.search(r'<a class="nav v2-tools on" href="/app/tools"', side_of(asst)) is not None, "Tools stays lit in the menu")
 
 side = side_of(body)
 check(re.search(r'<a class="nav v2-tools on" href="/app/tools" aria-current=page>', side) is not None, "Tools is in the menu, lit on its page")
