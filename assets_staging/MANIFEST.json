@@ -2832,5 +2832,29 @@
    "sha256": "9b446a13e6eeccf0c2fb5afc611bb4779bfa22af7900db6a31ea22564d8f6399",
    "bytes": 431640
   }
+ },
+ {
+  "path": "showcase/ex-house-painter.mp4",
+  "kind": "showcase_video",
+  "title": "House painter",
+  "caption": "A beige wall is rolled sage green and the trim is cut in by brush.",
+  "alt": "A paint roller covers a beige wall in sage green, a brush paints along white trim, then the finished green room is shown while a drop cloth is folded.",
+  "poster": "showcase/ex-house-painter.webp",
+  "model": "seedance_2_5",
+  "prompt": "Vertical ad for a house painting service, no faces. An empty living room with drop cloths on the floor, daylight through a window. Shot 1: a roller rolls a smooth stripe of sage green paint over an old beige wall. Shot 2: close-up of a brush cutting a clean line along the white trim. Shot 3: wide shot of the finished sage wall in soft light, drop cloths being folded. Roller sounds, quiet music. Realistic, calm. No text, no logos, no watermark.",
+  "job_id": "3032242b-833e-44d4-be69-d7d7c5b60e98",
+  "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GvdxB9gfwtge4rv79iuyoXAckR/hf_20261112_152433_3032242b-833e-44d4-be69-d7d7c5b60e98.mp4",
+  "credits": 0,
+  "qa": "ok (5 frames + zoom on the roller pole: no markings; no speech)",
+  "notes": "Run 2 (free lane): made in the web app with Unlimited mode (720p, 8 s, 9:16).",
+  "presenter": false,
+  "style": "service-broll",
+  "script": "",
+  "transcript": "",
+  "served": {
+   "path": "assets_staging/showcase_540/ex-house-painter.mp4",
+   "sha256": "a360c71f89f434ad8496925dad19c5733af3913a5fb2254e91cdcee8ea775ee4",
+   "bytes": 262079
+  }
  }
 ]
