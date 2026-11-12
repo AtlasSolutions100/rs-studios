@@ -1,5 +1,5 @@
 {
-  "_about": "The home page's gallery (public_site.showcase): image ads and video ads in one grid, in this order. Only our own generated work goes here: no stock, no other companies' ads, no real people. Put each file in this folder and add one entry to items; the first SHOWCASE_MAX (16) are shown on the home page (keep videos and pictures mixed there, never more than two videos in a row); the app's Inspiration shows the rest too.",
+  "_about": "The home page's gallery (public_site.showcase): image ads and video ads in one grid, in this order. Only our own generated work goes here: no stock, no other companies' ads, no real people. Put each file in this folder (or, for a clip, in the library store: see _store) and add one entry to items; the first SHOWCASE_MAX (16) are shown on the home page (keep videos and pictures mixed there, never more than two videos in a row); the app's Inspiration shows the rest too.",
   "_shape": {
     "file": "name-of-the-file-in-this-folder.webp or .mp4",
     "kind": "image or video",
@@ -11,9 +11,15 @@
     "aspect": "videos only: 9:16, 4:5, 1:1 or 16:9 (images are measured)",
     "presenter": "videos only: true when a person is on screen; the tile is tagged AI presenter",
     "sound": "videos only: true when the clip has speech; the tile gets a Sound button",
-    "group": "optional: local for a local business or service (roofing, a salon, a food truck); the app's Inspiration lists those together"
+    "group": "optional: local for a local business or service (roofing, a salon, a food truck); the app's Inspiration lists those together",
+    "store": "optional, videos: {sha256, bytes} of a file that lives in the library store instead of this folder (libstore.py). Its poster still goes in this folder."
   },
   "_sizes": "Images: JPEG or WebP, 1080 px on the short side, under 400 KB. Videos: MP4 (H.264), 540x960, 5 to 10 seconds, under 600 KB (about 400 kbit/s), each with a poster. Everything here rides in the deploy bundle, which has a size limit (tests/test_bundle_size.py), so keep clips small. A mix of images and videos fills the grid best; at most 16 are shown on the home page.",
+  "_store": {
+    "commit": "6d8bf1d3573bb22fe19c3166eb8440bc5cf3ade2",
+    "dir": "assets_staging/showcase_540",
+    "_about": "Where store items come from (libstore.py): this repository's own tree at exactly this commit. An item with a store block is not in this folder or the deploy bundle; the server fetches it once and keeps it only if its size and SHA-256 match."
+  },
   "items": [
     {
       "file": "team-skincare.mp4",
@@ -291,7 +297,11 @@
       "aspect": "9:16",
       "title": "Dog treats",
       "caption": "A golden retriever gets a biscuit from a kraft bag.",
-      "alt": "A golden retriever being handed a dog biscuit taken from a plain kraft paper bag."
+      "alt": "A golden retriever being handed a dog biscuit taken from a plain kraft paper bag.",
+      "store": {
+        "sha256": "db43abda3a45c7f2146dd74dab8807c9a517bfcac297699c6fb3f3d24c583f7e",
+        "bytes": 357898
+      }
     },
     {
       "file": "ex-tote-presenter.mp4",
@@ -324,7 +334,11 @@
       "alt": "An AI presenter: a woman in workout clothes in a small gym talks to the camera about one-to-one training sessions.",
       "presenter": true,
       "sound": true,
-      "group": "local"
+      "group": "local",
+      "store": {
+        "sha256": "0e4c4ed98be1d11288858877bffdcc8fdbe6e4992b65f49adf4adbae160b30e0",
+        "bytes": 229333
+      }
     },
     {
       "file": "team-product-film.mp4",

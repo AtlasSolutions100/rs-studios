@@ -105,6 +105,10 @@ RS_MAIL_DOMAIN=mail.campaignify.ai
 # (static/presenters/<id>/angle-left.webp, angle-right.webp, angle-profile.webp) follow the still as reference images
 # so the face holds from every side. Run the paid test in the README before switching it on.
 # PRESENTER_ANGLES=1
+# LIB_STORE (default on): gallery clips listed in static/showcase/manifest.json with a "store" block are not in the
+# deploy bundle. The server fetches each once from this repository's own tree at the commit the manifest pins, keeps
+# it on the data volume only if its size and SHA-256 match, and serves it at /lib/<name> (libstore.py). 0 = off.
+# LIB_STORE=1
 # The admin library's own image model (never sold to members) and, when the vendor's price for it is known, what one
 # still costs us in dollars (default: our table in catalog.LIBRARY_STILL_USD, $0.20 for a high-quality 1k still).
 # RS_LIBRARY_STILL_MODEL=marketing-studio/image/sunburst
