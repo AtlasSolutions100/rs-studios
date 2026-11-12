@@ -4,6 +4,7 @@ faked. Nothing leaves the machine.
   * the rule: on while plans only is on, RS_EMAIL_VERIFY=all / video / 0 say otherwise
   * a new sign-up is sent to the step before the plan page; no checkout starts and nothing spends until it confirms
   * the code and the emailed link both confirm; a wrong code says how many tries are left
+  * the step's address carries no query, so the sign-up conversion still fires on it (the first page after sign-up)
   * the library, Billing and logging out stay open; scripts get JSON that opens the code box
   * a member already on a plan is asked too, and nothing they paid for is locked away
   * "Send a new code" and its limits; a dead code is replaced when the page opens
@@ -30,7 +31,8 @@ sys.path.insert(0, ROOT)
 TMP = tempfile.mkdtemp(prefix="rs_confirm_")
 os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret", RS_PLAN_SYNC="0", RS_NUDGE_LOOP="0",
                   RS_SIGNUP_CONFIRM="0", RS_DISK_MIN_GB="0.2", RS_PUBLIC_URL="https://campaignify.test",
-                  STRIPE_SECRET_KEY="sk_test_cf", STRIPE_WEBHOOK_SECRET="whsec_cf", PLANS_ONLY="1", IMPORT_ENRICH="0")
+                  STRIPE_SECRET_KEY="sk_test_cf", STRIPE_WEBHOOK_SECRET="whsec_cf", PLANS_ONLY="1", IMPORT_ENRICH="0",
+                  META_PIXEL_ID="1234567890")
 for k in ("UI_V2", "HOME_V2", "RS_CARD_REQUIRED", "RS_PLAN_PAYWALL", "RS_EMAIL_VERIFY", "ANTHROPIC_API_KEY",
           "GROQ_API_KEY", "AD_LAUNCH", "RS_OWNER_INVITES", "RS_FIRST_OWNER_EMAIL", "SIGNUP_CREDITS_ADS",
           "RS_STARTER_CREDITS", "STRIPE_SETUP", "PLAN_SALE", "FIRST_RUN_NUDGES"):
@@ -44,9 +46,10 @@ import db  # noqa: E402
 import login_security  # noqa: E402
 import mailer  # noqa: E402
 import nudges  # noqa: E402
+import pixels  # noqa: E402
 import plan_gate  # noqa: E402
 import verify  # noqa: E402
-from flask import g  # noqa: E402
+from flask import g, request  # noqa: E402
 
 passed = 0
 SECRET = appmod.app.secret_key
@@ -183,13 +186,16 @@ check(verify.WHY_CONFIRM in m[0]["text"] and "credits" not in m[0]["text"] and "
 r = a.get("/app")
 check(r.status_code == 302 and r.headers["Location"].endswith("/app/plan"), "home sends a sign-up to the plan step")
 r = a.get("/app/plan")
-check(r.status_code == 302 and r.headers["Location"].split("?")[0].endswith("/app/confirm")
-      and r.headers["Location"].split("?")[1] in ("next=/app/plan", "next=%2Fapp%2Fplan"),
-      "the plan step sends an unconfirmed sign-up to Confirm your email, and remembers where it was going")
-r = a.get("/app/confirm?next=/app/plan")
+check(r.status_code == 302 and r.headers["Location"].endswith("/app/confirm"),
+      "the plan step sends an unconfirmed sign-up to Confirm your email")
+with appmod.app.test_request_context(r.headers["Location"]):
+    check(pixels.page_ok(request), "the step's address carries no query, so the ad pixels may load on it")
+r = a.get("/app/confirm")
 body = r.get_data(as_text=True)
 check(r.status_code == 200 and "data-confirm-step" in body and A in body, "the step shows the address the code went to")
-check('name="next" value="/app/plan"' in body, "the step keeps where to go on to")
+check("fbevents.js" in body and '"name": "SignUp"' in body and f"signup-{ua['id']}" in body,
+      "the sign-up conversion fires here: the first page a sign-up sees in the current look")
+check('"name": "SignUp"' not in a.get("/app/confirm").get_data(as_text=True), "once")
 check(len(mail_to(A)) == 1, "opening the step sends nothing while the sign-up's code still works")
 check("data-confirm-looking" not in body, "a member is not told they are only looking")
 
@@ -217,25 +223,27 @@ with appmod.app.test_request_context("/app"):
               "every kind of ad waits for the confirmation, image ads too")
 
 code = code_in(m[0])
-r = post(a, do="check", code=wrong_code(code), next="/app/plan")
+r = post(a, do="check", code=wrong_code(code))
 check(r.status_code == 400 and "That code isn't right. 4 tries left." in text(r) and 'aria-invalid="true"' in r.get_data(as_text=True),
       "a wrong code says how many tries are left")
-r = post(a, do="check", code="12", next="/app/plan")
+r = post(a, do="check", code="12")
 check(r.status_code == 400 and "Enter the 6-digit code" in text(r), "half a code is asked for again")
 check(not user_of(A)["email_verified_at"], "neither confirmed anything")
-r = post(a, do="check", code=f"{code[:3]} {code[3:]}", next="/app/plan")
+r = post(a, do="check", code=f"{code[:3]} {code[3:]}")
 check(r.status_code == 302 and r.headers["Location"].endswith("/app/plan") and user_of(A)["email_verified_at"],
-      "the right code confirms the email (a space in it is fine) and goes on to the plan step")
+      "the right code confirms the email (a space in it is fine) and goes on to where they were headed, the plan step")
 check(flashes(a) == ["Email confirmed."], "and says so, with nothing about video")
 r = a.get("/app/plan")
 check(r.status_code == 200 and "data-plan-step" in r.get_data(as_text=True), "the plan step opens now")
 r = a.post("/app/billing/subscribe", data={"csrf": csrf(a), "plan": "starter"})
 check(r.status_code == 303 and "checkout.stripe.test" in r.headers["Location"] and posts == ["/checkout/sessions"],
       "and a plan checkout starts")
-r = a.get("/app/confirm?next=/app/library")
-check(r.status_code == 302 and r.headers["Location"].endswith("/app/library"), "a confirmed member is sent on from the step")
-check(a.get("/app/confirm?next=//evil.example").headers["Location"].endswith("/app"),
-      "the step never sends anyone to another site")
+r = a.get("/app/confirm")
+check(r.status_code == 302 and r.headers["Location"].endswith("/app"), "a confirmed member is sent on from the step")
+check(a.get("/app/confirm?next=//evil.example").headers["Location"].endswith("/app")
+      and confirm_step._next("//evil.example") == "" and confirm_step._next("https://evil.example/app") == ""
+      and confirm_step._next("/app/confirm") == "" and confirm_step._next("/app/library?q=1") == "/app/library?q=1",
+      "the step only ever goes on to a page of ours, and never takes that from the address")
 with db.connect() as conn:
     check(conn.execute("SELECT 1 FROM site_events WHERE name='verify_completed' AND workspace_id=?",
                        (ua["workspace_id"],)).fetchone() is not None, "the funnel records the confirmation")
@@ -423,11 +431,11 @@ check(r.status_code == 302, "the second answer is kept")
 check(n.get("/app/welcome/brand").status_code == 200, "the brand brief opens unconfirmed")
 r = n.get("/app/plan")
 check(r.status_code == 302 and "/app/confirm" in r.headers["Location"], "then the step comes before the plan")
-r = n.get("/app/confirm?next=/app/plan")
+r = n.get("/app/confirm")
 body = r.get_data(as_text=True)
 check(r.status_code == 200 and 'class="ob' in body and "data-confirm-step" in body and "ob-btn" in body,
       "in the new look the step sits in the onboarding frame")
-r = post(n, do="check", code=code_in(mail_to(N)[0]), next="/app/plan")
+r = post(n, do="check", code=code_in(mail_to(N)[0]))
 check(r.status_code == 302 and r.headers["Location"].endswith("/app/plan"), "the code confirms and goes on to the plan")
 check(n.get("/app/plan").status_code == 200, "and the plan step opens")
 os.environ.pop("UI_V2")

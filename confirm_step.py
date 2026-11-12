@@ -24,10 +24,15 @@ Everything else under /app and /api answers with this page, or for a script with
 Nothing that spends gets past it on any channel: core.hold_check raises verify.ConfirmRequired before a job is queued
 or an AI call is reserved, which covers the API and the MCP tools as well as the pages.
 
+The step's address carries nothing: where the member was going is kept in the session (NEXT_KEY), not in the
+query. That matters for measurement, not only tidiness: in the current look this is the first page after sign-up,
+where the sign-up conversion fires, and the ad pixels do not load on a page whose query has anything they do not
+know (pixels.page_ok).
+
 The page works without script. It sends a fresh code by itself only when the last one can no longer be used, under the
 same limits as Resend (verify.resend_wait). A site admin can open it to look at it; their email is already confirmed.
 """
-from flask import Blueprint, current_app, flash, g, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, g, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
 
 import db
@@ -51,9 +56,12 @@ def _wants_json() -> bool:
             or request.headers.get("X-Requested-With") == "fetch" or request.path.startswith("/api/"))
 
 
-def _next(raw=None) -> str:
+NEXT_KEY = "confirm_next"       # where the member was going, kept in the session: the step's address carries nothing
+
+
+def _next(raw) -> str:
     """A page of ours to go on to afterwards, or "" (never this step itself, never another site)."""
-    raw = (raw if raw is not None else request.values.get("next")) or ""
+    raw = raw or ""
     ok = raw.startswith("/") and not raw.startswith("//") and "\\" not in raw and not raw.startswith("/app/confirm")
     return raw if ok else ""
 
@@ -63,8 +71,9 @@ def _refuse():
         to = verify.address(g.get("user"))
         return jsonify({"error": verify.needs_message("confirm", to), "verify": True, "reason": "confirm",
                         "url": url_for("confirm.page")}), 403
-    nxt = _next(request.full_path.rstrip("?")) if request.method == "GET" else ""
-    return redirect(url_for("confirm.page", next=nxt or None))
+    if request.method == "GET":
+        session[NEXT_KEY] = _next(request.full_path.rstrip("?"))
+    return redirect(url_for("confirm.page"))
 
 
 @bp.before_app_request
@@ -115,33 +124,36 @@ def _send_if_needed(user) -> str:
     return "" if sent else mailer.COULD_NOT_SEND_CODE
 
 
-def _render(user, nxt, err="", change_err="", new_email="", status=200):
+def _render(user, err="", change_err="", new_email="", status=200):
     with db.connect() as conn:
         import plans
         ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (user["workspace_id"],)).fetchone()
         has_plan = ws is not None and plans.plan_code(ws) != "free"
-    return render_template("confirm_email.html", addr=verify.address(user), next=nxt, err=err, change_err=change_err,
+    return render_template("confirm_email.html", addr=verify.address(user), err=err, change_err=change_err,
                            new_email=new_email, has_plan=has_plan, looking=not verify.must(user),
                            why=verify.WHY_CONFIRM, minutes=verify.CODE_TTL_S // 60), status
+
+
+def _onward():
+    """Go on to where the member was headed when the step stopped them (Home when it was nowhere)."""
+    return redirect(_next(session.pop(NEXT_KEY, "")) or url_for("studio"))
 
 
 @bp.route("/app/confirm", methods=["GET", "POST"])
 @login_required
 def page():
-    nxt = _next()
-    onward = nxt or url_for("studio")
     with db.connect() as conn:
         user = conn.execute("SELECT * FROM users WHERE id=?", (g.user["id"],)).fetchone()
     if not verify.must(user):
         if request.method == "GET" and user["is_admin"]:
-            return _render(user, nxt)           # an admin looking at the step
+            return _render(user)           # an admin looking at the step
         if request.method == "POST":
             flash("Your email is already confirmed.", "ok")
-        return redirect(onward)
-    here = url_for("confirm.page", next=nxt or None)
+        return _onward()
+    here = url_for("confirm.page")
     ip = request.remote_addr or "unknown"
     if request.method == "GET":
-        return _render(user, nxt, err=_send_if_needed(user))
+        return _render(user, err=_send_if_needed(user))
 
     do = request.form.get("do") or "check"
     if do == "resend":
@@ -158,15 +170,15 @@ def page():
     if do == "change":
         new = (request.form.get("email") or "").strip().lower()
         if db.throttled(f"verify-change-pw:{user['id']}", WRONG_PASSWORDS, WRONG_WINDOW_S):
-            return _render(user, nxt, change_err="Too many wrong passwords. Wait 15 minutes and try again.",
+            return _render(user, change_err="Too many wrong passwords. Wait 15 minutes and try again.",
                            new_email=new, status=429)
         if not verify.valid_address(new):
-            return _render(user, nxt, change_err="Enter the email address you want to use.", new_email=new, status=400)
+            return _render(user, change_err="Enter the email address you want to use.", new_email=new, status=400)
         if not check_password_hash(user["pw_hash"], request.form.get("password") or ""):
             db.hit(f"verify-change-pw:{user['id']}")
-            return _render(user, nxt, change_err="That password isn't right.", new_email=new, status=400)
+            return _render(user, change_err="That password isn't right.", new_email=new, status=400)
         if db.throttled(f"verify-change:{user['id']}", verify.CHANGES_PER_HOUR, 3600):
-            return _render(user, nxt, change_err="You've changed it a few times already. Try again in an hour.",
+            return _render(user, change_err="You've changed it a few times already. Try again in an hour.",
                            new_email=new, status=429)
         db.hit(f"verify-change:{user['id']}")
         db.hit(f"verify:{user['id']}")
@@ -177,13 +189,13 @@ def page():
 
     ipkey = f"verify-check-ip:{ip}"
     if db.throttled(ipkey, verify.CHECKS_PER_IP_HOUR, 3600):
-        return _render(user, nxt, err="Too many tries from here. Use the link in the email, or try again in an hour.",
+        return _render(user, err="Too many tries from here. Use the link in the email, or try again in an hour.",
                        status=429)
     db.hit(ipkey)
     with db.connect() as conn:
         outcome, left = verify.check_code(conn, current_app.secret_key, user, request.form.get("code") or "")
     if outcome in ("ok", "already"):
         flash(verify.done_message(), "ok")
-        return redirect(onward)
+        return _onward()
     msg = verify.code_message(outcome, left).replace("Press Resend code", "Press Send a new code")
-    return _render(user, nxt, err=msg, status=400)
+    return _render(user, err=msg, status=400)
