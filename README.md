@@ -708,6 +708,47 @@ when it is ready, an angle to test with a button that puts it in the sentence bo
 
 Tests: `tests/test_brand_identity.py`.
 
+## The guided first run and the first ads on us (`first_ads.py`, `onboarding.first`, `desk.guide`; behind `UI_V2`, and the gift only with `PLANS_ONLY`)
+
+A new account in the new look is walked from sign-up to its first ads, and the desk then keeps telling it the next
+step. Nothing here is switched on by a flag of its own: it shows wherever the new look shows (today an admin's
+preview), and the gift needs plans only as well (`first_ads.on()`).
+
+**The order** (while plans only is on): the two questions, the brand brief, the plan step, the first ads.
+- The brief (`/app/welcome/brand`) now comes before the plan step, so a new account sees its own brand read back
+  before it is asked for a card. Reading a link costs the member nothing. The brief's one paid action (angle ideas)
+  is not offered, and is refused, until the workspace has a plan.
+- The first ads (`/app/welcome/first`): two image ads (two different looks, each with an editable headline) and an
+  8-second talking video (an editable script and a presenter), drafted from the brief with no AI call. One button
+  makes what is ticked through Studio's own start and opens "Your first campaign" on the desk. A workspace with no
+  plan is sent to the plan step from here by the gate. Skipping leaves the offer open.
+
+**How "on us" works.** Pricing, queueing and refunds are untouched. The ads are quoted and started exactly as a paid
+set is; the credits they cost are put into the workspace first as their own ledger row (reason `first_ads`), into
+the plan bucket when there is a plan. So the ledger reads plus N, then the ads, and both buckets end where they
+were. An ad that fails is refunded to the member like any other.
+- Once only: each gifted ad takes a slot in `first_gifts` (workspace, kind, slot: unique). Slots are claimed before
+  anything is granted, so two requests at once can not both take one. A start that is refused keeps no slot, and
+  what was granted for it is taken back.
+- One person, once: a slot used by the same owner email in another workspace closes it.
+- First means first: the image ads are on us only while the workspace has made no image ad outside the gift, the
+  talking video only while it has made no talking video outside it. A site admin is let past this (still once per
+  slot) so the step can be looked at on an account that has made ads.
+- At today's prices that is 2 x 12 + 400 = 424 credits, about $3.93 of generation, per new workspace that uses all
+  of it.
+
+**The desk** (`web/v2/desk.html`): your campaigns and the examples are on top; at the foot, docked, the agent's next
+step and the box to say what you are launching. On a phone the agent speaks first and only the box (one line) stays
+at the foot. With the gift on, the desk is Home from the first minute (`desk.is_home`).
+- `desk.guide()` works the agent's line out from the workspace's own state, in this order: no product yet (read my
+  website), the brief still to check, the first ads on us, ads being made, what is next, the first campaign. No
+  model is called to draw the page, so it costs nothing and never says something that is not so. Its buttons are
+  links, or example sentences that fill the box.
+- A campaign's card shows its ads as "Being made" or "Ready" from the jobs as they are now.
+
+Tests: `tests/test_first_ads.py` (the order, the gift's bookkeeping, once only, a refused start, first means first,
+the agent's states, off without plans only).
+
 ## Plans only and the percent-off price (`plan_gate.py`, `plan_gate_routes.py`, `plans.sale`; `PLANS_ONLY`, `PLAN_SALE`, both default off in code)
 
 Asked for by Koby on Nov 11 2026. `deploy.yml` turns both on in production unless the repo variable says `0`.
