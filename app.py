@@ -570,6 +570,34 @@ HERO_MEDIA = [_IN_HAND, _PRODUCT_HERO, _FLOATING_HERO]
 # Clips the answer-first pages can put in their hero (public_site.SOLUTIONS[...]["clips"]), by a short key.
 CLIP_BY_KEY = {g["poster"].rsplit("/", 1)[-1].rsplit(".", 1)[0]: g for g in GALLERY}
 CLIP_BY_KEY["product-video"] = dict(_FLOATING_HERO, title="5-second product video")
+CLIP_FALLBACK = ("ugc-coffee", "product-video", "ugc-app")
+
+
+def _site_clip(k: str) -> dict:
+    c = CLIP_BY_KEY[k]
+    return dict(c, key=k, url=url_for("static", filename=c["src"]), poster_url=url_for("static", filename=c["poster"]))
+
+
+def page_clips(keys) -> list[dict]:
+    """The clips an answer-first page or a guide plays in its hero, each with its "url" and "poster_url". A key is a
+    site clip (CLIP_BY_KEY) or a gallery video's file name without .mp4 (static/showcase/manifest.json, which may be a
+    library-store clip). One that isn't on this server yet is replaced by a site clip, so the hero keeps its count."""
+    out, want = [], list(keys)
+    for k in want:
+        if k in CLIP_BY_KEY:
+            out.append(_site_clip(k))
+            continue
+        it = public_site.showcase_clip(k + ".mp4")
+        if it is not None:
+            out.append({"key": k, "url": it["url"], "poster_url": it["poster_url"], "src": it["src"],
+                        "poster": it["poster"], "title": it["preset_name"], "alt": it["alt"],
+                        "talk": it["presenter"] and it["sound"]})
+    for k in CLIP_FALLBACK:
+        if len(out) >= len(want):
+            break
+        if all(c["key"] != k for c in out):
+            out.append(_site_clip(k))
+    return out
 
 # The landing page's spine: one campaign, start to finish. `features` are
 # plans.FEATURES keys (their plan tags come from there); `shot` is a real
@@ -616,6 +644,11 @@ JOURNEY = [
 ]
 
 
+# The home page's "Try-ons, app demos, unboxings" row: gallery videos by file (a store clip shows once it is here).
+HOME_FORMAT_CLIPS = (("Try-on", "ex2-tryon-denim-jacket.mp4"), ("Web app demo", "ex2-web-app-demo.mp4"),
+                     ("Unboxing", "ex2-unboxing-pov-bottle.mp4"))
+
+
 @app.route("/")
 def index():
     """Logged in: the studio. Logged out: the public landing page."""
@@ -626,8 +659,10 @@ def index():
     import presets
     counts = {"image_presets": sum(1 for p in presets.LIBRARY if p.ad_type == "image" and p.kind != "type"),
               "recipes": len(presets.RECIPES), "presenters": len(presenters.roster())}
+    formats = [(label, public_site.showcase_clip(f)) for label, f in HOME_FORMAT_CLIPS]
     return render_template("landing.html", gallery=GALLERY, hero=HERO_MEDIA, journey=JOURNEY,
-                           faq=public_site.home_faq(), home_counts=counts)
+                           faq=public_site.home_faq(), home_counts=counts,
+                           format_clips=[(label, it) for label, it in formats if it is not None])
 
 
 # Extra lines for the public features page, by feature key (only shipped ones show).
@@ -717,14 +752,14 @@ def pricing():
 def solution(slug):
     """The answer-first pages for search intent (public_site.SOLUTIONS)."""
     sol = public_site.solution(slug)
-    return render_template("solution.html", s=sol, clips=[CLIP_BY_KEY[k] for k in sol.get("clips", [])],
+    return render_template("solution.html", s=sol, clips=page_clips(sol.get("clips", [])),
                            others=[public_site.card(o) for o in public_site.SOLUTIONS[slug]["related"]])
 
 
 def guide(slug):
     """The guides and the roundup (public_pages.GUIDES)."""
     g = public_site.guide(slug)
-    return render_template("guide.html", gd=g, clips=[CLIP_BY_KEY[k] for k in g.get("clips", [])],
+    return render_template("guide.html", gd=g, clips=page_clips(g.get("clips", [])),
                            others=[public_site.card(o) for o in g["related"]])
 
 

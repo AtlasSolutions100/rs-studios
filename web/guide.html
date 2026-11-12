@@ -18,7 +18,7 @@
     <figure class="sol-media sol-clips">
       {% for gi in clips %}
       <div class="lp-g-media{{ ' talk' if gi.talk }}">
-        <video data-inview muted loop playsinline preload="{{ 'metadata' if loop.first else 'none' }}" poster="{{ url_for('static', filename=gi.poster) }}" aria-label="{{ gi.alt }}"><source src="{{ url_for('static', filename=gi.src) }}" type="video/mp4"></video>
+        <video data-inview muted loop playsinline preload="{{ 'metadata' if loop.first else 'none' }}" poster="{{ gi.poster_url }}" aria-label="{{ gi.alt }}"><source src="{{ gi.url }}" type="video/mp4"></video>
         <span class="lp-g-badge">{{ 'AI presenter' if gi.talk else gi.title }}</span>
       </div>
       {% endfor %}
