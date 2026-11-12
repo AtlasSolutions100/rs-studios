@@ -318,5 +318,202 @@
    "surface": "the counter top in front of them"
   }
  ],
- "voice_samples": []
+ "voice_samples": [
+  {
+   "presenter": "maya",
+   "voice_id_used": "eba85120-4ed5-5202-a6f6-696e2c6fe2b6",
+   "voice_name": "Bella",
+   "descriptor_id": "warm_f",
+   "vendor_tags": "female, young"
+  },
+  {
+   "presenter": "jordan",
+   "voice_id_used": "b847bc29-f184-583a-8ad9-d1f1e16d1a60",
+   "voice_name": "Dylan",
+   "descriptor_id": "chatty_m",
+   "vendor_tags": "male, young"
+  },
+  {
+   "presenter": "priya",
+   "voice_id_used": "3c2b83c0-2e0a-5ae8-998a-a5fe71b7eccd",
+   "voice_name": "Helena",
+   "descriptor_id": "warm_f",
+   "vendor_tags": "female, middle aged"
+  },
+  {
+   "presenter": "sam",
+   "voice_id_used": "80914268-dfae-4f76-8306-36f2d55f58f8",
+   "voice_name": "Quinn",
+   "descriptor_id": "upbeat_f",
+   "vendor_tags": "female, young"
+  },
+  {
+   "presenter": "elena",
+   "voice_id_used": "1550321e-7f5b-526e-b001-02328b03e9bc",
+   "voice_name": "Delia",
+   "descriptor_id": "warm_f",
+   "vendor_tags": "female, old"
+  },
+  {
+   "presenter": "marcus",
+   "voice_id_used": "66469f5a-10db-586a-bab1-72f6ee66ba69",
+   "voice_name": "Reid",
+   "descriptor_id": "calm_m",
+   "vendor_tags": "male, middle aged"
+  },
+  {
+   "presenter": "lena",
+   "voice_id_used": "d0374db1-44b9-4f05-939e-0a9ae9dbbe6a",
+   "voice_name": "Zoe",
+   "descriptor_id": "upbeat_f",
+   "vendor_tags": "female, young"
+  },
+  {
+   "presenter": "theo",
+   "voice_id_used": "f7a46aa0-183a-5327-b554-e71d8c0071bb",
+   "voice_name": "Evan",
+   "descriptor_id": "chatty_m",
+   "vendor_tags": "male, young"
+  },
+  {
+   "presenter": "walt",
+   "voice_id_used": "30fc8796-ceb6-4a66-b3a7-4a145ef7f346",
+   "voice_name": "Arthur",
+   "descriptor_id": "steady_m60",
+   "vendor_tags": "male, old"
+  },
+  {
+   "presenter": "nia",
+   "voice_id_used": "a3ce02fe-4d3e-55bc-b4d4-a4801b9acdb4",
+   "voice_name": "Juno",
+   "descriptor_id": "smooth_f",
+   "vendor_tags": "female, middle aged"
+  },
+  {
+   "presenter": "dev",
+   "voice_id_used": "95429266-c0ac-4137-a209-63b8812b0f23",
+   "voice_name": "Julian",
+   "descriptor_id": "even_m",
+   "vendor_tags": "male, young"
+  },
+  {
+   "presenter": "rosa",
+   "voice_id_used": "1c3a4775-9afb-52c1-a2bf-b6543231a9a1",
+   "voice_name": "Raina",
+   "descriptor_id": "bright_f40",
+   "vendor_tags": "female, middle aged"
+  },
+  {
+   "presenter": "gus",
+   "voice_id_used": "195e386a-cb61-5c1b-a53b-0e2f0669c408",
+   "voice_name": "Knox",
+   "descriptor_id": "gruff_m",
+   "vendor_tags": "male, middle aged"
+  },
+  {
+   "presenter": "hana",
+   "voice_id_used": "032386ec-491b-5bdc-81ac-49e9a6a2c89d",
+   "voice_name": "Daisy",
+   "descriptor_id": "soft_f",
+   "vendor_tags": "female, young"
+  },
+  {
+   "presenter": "otis",
+   "voice_id_used": "1ffcdbb3-078b-5491-959d-359e3021e917",
+   "voice_name": "Cody",
+   "descriptor_id": "lively_m",
+   "vendor_tags": "male, young"
+  },
+  {
+   "presenter": "june",
+   "voice_id_used": "d198dc0b-c4e5-5198-aa1d-ecf5ca0927c4",
+   "voice_name": "Faye",
+   "descriptor_id": "gentle_f60",
+   "vendor_tags": "female, old"
+  },
+  {
+   "presenter": "cal",
+   "voice_id_used": "dc382508-c8bd-443c-8cb2-46e57b8d2e6f",
+   "voice_name": "Sterling",
+   "descriptor_id": "measured_m50",
+   "vendor_tags": "male, middle aged"
+  },
+  {
+   "presenter": "bex",
+   "voice_id_used": "0c63637d-2ecb-5bda-9bbe-38894aa9a876",
+   "voice_name": "Petra",
+   "descriptor_id": "brisk_f",
+   "vendor_tags": "female, middle aged"
+  },
+  {
+   "presenter": "mateo",
+   "voice_id_used": "c2acff45-84b2-4974-892d-89fa2d4e5598",
+   "voice_name": "Brooks",
+   "descriptor_id": "mellow_m",
+   "vendor_tags": "male, middle aged"
+  },
+  {
+   "presenter": "ivy",
+   "voice_id_used": "165d9309-bb17-56ff-964a-5d6a38dab92f",
+   "voice_name": "Nadine",
+   "descriptor_id": "clear_f40",
+   "vendor_tags": "female, middle aged"
+  },
+  {
+   "presenter": "ray",
+   "voice_id_used": "d9d5c263-f84e-4752-97b5-3750fcc6fd2f",
+   "voice_name": "Alistair",
+   "descriptor_id": "deep_m60",
+   "vendor_tags": "male, old"
+  },
+  {
+   "presenter": "luis",
+   "voice_id_used": "e2a2d2e6-9ed2-59cd-82af-feaa27f8a678",
+   "voice_name": "Grady",
+   "descriptor_id": "raspy_m60",
+   "vendor_tags": "male, middle aged"
+  },
+  {
+   "presenter": "omar",
+   "voice_id_used": "a7b8abe9-47f1-553e-a9df-87945a7e5bc8",
+   "voice_name": "Jasper",
+   "descriptor_id": "quick_m",
+   "vendor_tags": "male, middle aged"
+  },
+  {
+   "presenter": "ben",
+   "voice_id_used": "e18664a7-ee4f-5273-acf8-533eb24cd366",
+   "voice_name": "Miles",
+   "descriptor_id": "crisp_m40",
+   "vendor_tags": "male, middle aged"
+  },
+  {
+   "presenter": "dana",
+   "voice_id_used": "64cf4f1a-61c8-5938-9aea-83d12b2e1d13",
+   "voice_name": "Maeve",
+   "descriptor_id": "husky_f50",
+   "vendor_tags": "female, middle aged"
+  },
+  {
+   "presenter": "gloria",
+   "voice_id_used": "9d3128b8-dd25-5158-9bdb-2e69ac8998b9",
+   "voice_name": "Giselle",
+   "descriptor_id": "warm_f60",
+   "vendor_tags": "female, old"
+  },
+  {
+   "presenter": "tess",
+   "voice_id_used": "7367e919-3069-5a0b-939e-dfb1c0fd91b4",
+   "voice_name": "Isla",
+   "descriptor_id": "low_calm_f",
+   "vendor_tags": "female, middle aged"
+  },
+  {
+   "presenter": "kai",
+   "voice_id_used": "e6f9b893-51b1-51d3-afe9-9e0482cb7ac1",
+   "voice_name": "Benji",
+   "descriptor_id": "young_bright_m",
+   "vendor_tags": "male, young"
+  }
+ ]
 }

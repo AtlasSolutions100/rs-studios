@@ -30,3 +30,18 @@
   people or a different place behind them). Retried portraits use a stricter background line ("Nobody else is in the picture").
 - QA note: gloria/sofa has a few small items on the coffee table near the product space (kept, noted in MANIFEST).
 - Balance after Phase 2: 5244.56 (Phase 2 ~91.5 cr incl. the 12 cr first stills counted above).
+
+## Phase 3: voices
+- Model: seed_audio (Seed Audio 1.0) with Higgsfield preset voices; preflight 0.5 cr per sample, so all 28 were made.
+- 8 new voice descriptors in roster_additions.json (new_voices).
+- Voice choice: list_voices gives names only. Gender and age band were read from the web app's voice picker filter
+  (Gender: Female/Male; Age: Young/Middle aged/Old) and recorded per sample (voice_samples[].vendor_tags). Each presenter got a
+  different preset voice; tone (warm, brisk, gruff, ...) could not be judged by ear.
+- First picks by name were partly wrong for age/gender (e.g. "Remy" is a female voice, "Celine" is an old female voice), so
+  maya/priya/elena/nia/rosa/marcus etc. were re-picked from the filter lists before staging. Extra samples made and not used: ~5.
+- seed_audio rate-limited batches above ~4-8 requests (HTTP 429); resubmitted in groups of 4 with pauses. One 400 "Voice not
+  found" from a mistyped voice id, fixed and resubmitted.
+- Staged 28 presenters/<id>/voice.mp3 (mono MP3 96k). Most lines were spoken in 3.4-5 s, so silence was trimmed and then padded
+  (0.3 s lead-in, quiet tail) to reach >= 5.3 s; marcus and rosa run 7.4-7.5 s of speech (file 8.0 s).
+- Pitch check (automatic, rough): the male samples Dylan (jordan), Evan (theo) and Cody (otis) measured unusually high for male
+  voices; the app labels them male/young. Koby should listen to those three first.
