@@ -2912,6 +2912,7 @@ def admin():
         funnel = admin_funnel.signups(conn, 30)["totals"]
         holds = billing_holds.holds(conn)
         parked = billing_holds.parked(conn)
+        admins = site_admins.listed(conn)
     vendor = json.loads(row["value"]) if row else None
     return render_template("admin.html", wss=wss, invites=invites, refs=refs, jobs=jobs, purchases=purchases,
                            billing_on=billing.configured(), vendor=vendor,
@@ -2919,7 +2920,7 @@ def admin():
                            base=request.host_url, stills=stills, presenters=presenter_stills.with_photos(url_for),
                            stills_cap=presenter_stills.CAP_USD,
                            ai_status=llm.status(), health=sys_health, funnel=funnel, holds=holds, parked=parked,
-                           holds_on=billing_holds.enabled())
+                           holds_on=billing_holds.enabled(), admins=admins, admin_can=site_admins.CAN)
 
 
 @app.route("/admin/workspaces/<int:wid>/view", methods=["POST"])
@@ -3297,6 +3298,8 @@ import plan_gate_routes  # noqa: E402
 app.register_blueprint(plan_gate_routes.bp)     # PLANS_ONLY (plan_gate.py): before the card step, which it replaces
 import tools_page  # noqa: E402
 app.register_blueprint(tools_page.bp)           # the Tools page and the done-for-you request (new look)
+import site_admins  # noqa: E402
+app.register_blueprint(site_admins.bp)          # one admin makes another (the admin page's Site admins card)
 app.register_blueprint(card_routes.bp)
 app.register_blueprint(paywall_routes.bp)
 import deletion_routes  # noqa: E402  (M7.5: Team > Delete this workspace)

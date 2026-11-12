@@ -668,6 +668,16 @@ a conversation listed in the sidebar.
 
 Tests: `tests/test_desk.py`.
 
+## Site admins (`site_admins.py`, the admin page's Site admins card)
+
+A site admin (`users.is_admin`) opens `/admin` and may preview the new look. An admin makes another account a site
+admin on the admin page: the whole email of an existing account whose email is confirmed, with a box ticked. An admin
+can remove another admin's access, never their own. Every change is logged (user ids only) and, when email is
+connected, emailed to every site admin and the person concerned. A few changes an hour for each admin. No address is
+written in the source: the admin types it. Owner setup links (`owners.py`) still cover an address with no account.
+
+Tests: `tests/test_site_admins.py`.
+
 ## One sidebar in the new look (`web/base.html`, `desk_campaigns()`; behind `UI_V2`)
 
 Since Nov 11 the new look's sidebar is one list instead of a Desk link above four tabs:

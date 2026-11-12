@@ -3277,6 +3277,8 @@ if __name__ == "__main__" and not os.environ.get("RS_TEST_ONE"):
     subprocess.run([sys.executable, os.path.join(HERE, "test_library_find.py")], check=True)
     # Re-audit L-2, L-3, L-10: one trial per confirmed email, the indexed users.email_norm, the import budget and cap.
     subprocess.run([sys.executable, os.path.join(HERE, "test_card_import_hardening.py")], check=True)
+    # Site admins (site_admins.py): one admin makes another, by the whole email of a confirmed account; never silent.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_site_admins.py")], check=True)
     # Site copy (M5.8, L-4): the hero, one pricing sum on /pricing and Billing, sign-up, the 404, card-on-file copy.
     subprocess.run([sys.executable, os.path.join(HERE, "test_site_copy.py")], check=True)
     # The pip-audit gate (tools/audit_gate.py): severity from OSV, fail only on High or Critical (OSV faked).
