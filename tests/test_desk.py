@@ -307,16 +307,20 @@ check(f'href="/app/desk/c/{T}"' in page(a, "/app/desk") and "Your campaigns" in 
 print("== one sidebar in the new look")
 lib = page(a, "/app/library")
 side = re.search(r'<aside class="side".*?</aside>', lib, re.S).group(0)
-marks = ["New campaign", "<span>Desk</span>", "<span>Library</span>", "<span>Brand</span>", 'id="side-camps-h"',
-         "<summary>Tools", "<span>Studio</span>", "<span>Workflow</span>", "<span>Advanced</span>", "<span>Products</span>"]
+marks = ["New campaign", "<span>Desk</span>", "<span>Library</span>", "<span>Brand</span>", "<span>Tools</span>",
+         'id="side-camps-h"']
 at = [side.find(m) for m in marks]
-check(min(at) >= 0 and at == sorted(at), "New campaign, Desk, Library, Brand, the campaigns, then the tools, in that order on every page")
+check(min(at) >= 0 and at == sorted(at), "New campaign, Desk, Library, Brand, Tools, then the campaigns, in that order on every page")
+check(all(f"<span>{x}</span>" not in side for x in ("Studio", "Workflow", "Advanced", "Products", "Flows", "Pages")),
+      "the tools themselves are on the Tools page (tests/test_tools_page.py), not in the menu")
 check('class="v2-tabs"' not in side and all(side.count(m) == 1 for m in marks[1:]), "the four tabs are gone and nothing is listed twice")
 check(re.search(r'<a class="nav on" href="/app/library" aria-current=page>', side) is not None
       and re.search(r'<a class="nav v2-desk " href="/app/desk" >', side) is not None, "the page you are on is the one that is lit")
 check(("<span>Connections</span>" in side) != ("<span>Ad accounts</span>" in side),
       "ad accounts have one link: Connections where launching is on, the setup hub otherwise")
-check("<span>Planner</span>" in side and "<span>Campaigns</span>" not in side, "the planner is called Planner; Campaigns means the desk's")
+plan_side = re.search(r'<aside class="side".*?</aside>', page(a, "/app/campaigns"), re.S).group(0)
+check("<span>Planner</span>" in plan_side and "<span>Campaigns</span>" not in side and "<span>Campaigns</span>" not in plan_side,
+      "the planner is called Planner; Campaigns means the desk's")
 check(f'<a href="/app/desk/c/{T}" ><span>' in side, "the campaign shows in the sidebar away from the desk")
 here = re.search(r'<aside class="side".*?</aside>', page(a, f"/app/desk/c/{T}"), re.S).group(0)
 check(f'<a href="/app/desk/c/{T}" aria-current=page><span>' in here and here.count('data-campaigns') == 1,

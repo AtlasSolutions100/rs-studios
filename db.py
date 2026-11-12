@@ -501,6 +501,11 @@ CREATE TABLE IF NOT EXISTS first_gifts (
     job_id INTEGER, credits INTEGER NOT NULL DEFAULT 0, email_norm TEXT, created_at TEXT NOT NULL,
     UNIQUE(workspace_id, kind, slot));
 CREATE INDEX IF NOT EXISTS idx_first_gifts_email ON first_gifts(email_norm);
+-- Done-for-you requests (tools_page.py): saved before they are emailed, so one is never lost to a mail failure.
+CREATE TABLE IF NOT EXISTS service_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, user_id INTEGER, name TEXT, email TEXT NOT NULL,
+    phone TEXT, sells TEXT, wants TEXT NOT NULL, created_at TEXT NOT NULL, sent_at TEXT);
+CREATE INDEX IF NOT EXISTS idx_service_requests_ws ON service_requests(workspace_id);
 -- The free campaign plan of an out-of-credits workspace (plan_paywall.py, RS_PLAN_PAYWALL): 1 per 30 days.
 CREATE TABLE IF NOT EXISTS free_plans (
     id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, campaign_id INTEGER, report_id INTEGER,
