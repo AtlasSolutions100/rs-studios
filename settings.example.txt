@@ -98,6 +98,10 @@ RS_MAIL_DOMAIN=mail.campaignify.ai
 # model's audio reference (audio_urls) and the prompt says to speak in that voice. What the vendor does with an audio
 # reference is not documented: run the paid test in the README before switching it on.
 # PRESENTER_VOICE_REF=1
+# PRESENTER_ANGLES (default off): with PRESENTER_STILLS on, a presenter's look-lock pictures
+# (static/presenters/<id>/angle-left.webp, angle-right.webp, angle-profile.webp) follow the still as reference images
+# so the face holds from every side. Run the paid test in the README before switching it on.
+# PRESENTER_ANGLES=1
 # The admin library's own image model (never sold to members) and, when the vendor's price for it is known, what one
 # still costs us in dollars (default: our table in catalog.LIBRARY_STILL_USD, $0.20 for a high-quality 1k still).
 # RS_LIBRARY_STILL_MODEL=marketing-studio/image/sunburst

@@ -563,6 +563,43 @@ try:
         check("audio_urls" not in other and "audio 1" not in other["prompt"],
               "a member who picked another voice doesn't get the presenter's sample")
         conn.rollback()
+        # PRESENTER_ANGLES: the look-lock pictures (the same person from other sides) follow the still
+        check(presenters.angles_on() is False and presenters.angle_paths("walt") == [], "the angles switch is off by default")
+        for a in ("angle-profile", "angle-left"):
+            open(os.path.join(STATIC, "presenters", "walt", a + ".webp"), "wb").write(b"RIFFxxxxWEBP" + a.encode() * 40)
+        check([os.path.basename(x) for x in presenters.angle_paths("walt")] == ["angle-left.webp", "angle-profile.webp"]
+              and presenters.angle_paths("../walt") == [] and presenters.angle_paths("nobody") == [],
+              "angle_paths: the pictures that exist, in the order they are sent; nothing for an unknown presenter")
+        check(worker.build_inputs(conn, jw) == w2, "angles off, with the pictures there: exactly the same")
+        os.environ["PRESENTER_ANGLES"] = "1"
+        n_up = len(V.uploads)
+        w3 = worker.build_inputs(conn, jw)
+        check(len(w3["image_urls"]) == 4 and w3["image_urls"][0] == w2["image_urls"][0] and w3["image_urls"][3:] == w0["image_urls"]
+              and len(set(w3["image_urls"])) == 4 and len(V.uploads) == n_up + 2 and w3["audio_urls"] == w2["audio_urls"],
+              "PRESENTER_ANGLES on: the still first, then the angle pictures, then the product's photos")
+        check("Reference images 2 to 3 show the same person from other sides" in w3["prompt"]
+              and "never show that plain wall, those clothes or those poses" in w3["prompt"]
+              and "every reference image after the first 3" in w3["prompt"]
+              and "The presenter is the person in the first reference image" in w3["prompt"],
+              "the prompt says which pictures are the person and that the product's own photos come after them")
+        check(worker.build_inputs(conn, jw)["image_urls"] == w3["image_urls"] and len(V.uploads) == n_up + 2,
+              "each angle picture is uploaded once, then its link is reused")
+        os.remove(os.path.join(STATIC, "presenters", "walt", "angle-profile.webp"))
+        one = worker.build_inputs(conn, jw)
+        check(len(one["image_urls"]) == 3 and "Reference image 2 shows the same person" in one["prompt"]
+              and "every reference image after the first 2" in one["prompt"], "one angle picture: it reads right")
+        check(len(worker.build_inputs(conn, jo)["image_urls"]) == 1, "a presenter with no still gets no angle pictures")
+        os.environ.pop("PRESENTER_STILLS")
+        off = worker.build_inputs(conn, jw)
+        check(len(off["image_urls"]) == 1 and "other sides" not in off["prompt"],
+              "angles do nothing without PRESENTER_STILLS (there is no still to follow)")
+        os.environ["PRESENTER_STILLS"] = "1"
+        os.environ.pop("PRESENTER_ANGLES")
+        check(worker.build_inputs(conn, jw) == w2, "angles off again: back to the still and the voice alone")
+        check(catalog.talking_prompt("ugc", "Trail Mug", "Hi.", "walt", "steady_m60", situation="shop-floor", still=True)
+              == catalog.talking_prompt("ugc", "Trail Mug", "Hi.", "walt", "steady_m60", situation="shop-floor", still=True, angles=0)
+              and "other sides" not in catalog.talking_prompt("ugc", "Trail Mug", "Hi.", "walt", "steady_m60", angles=3),
+              "the prompt is word for word what it was with no angles, and angles without a still add nothing")
         os.environ.pop("PRESENTER_STILLS")
         os.environ.pop("PRESENTER_VOICE_REF")
         check(worker.build_inputs(conn, jw) == w0, "switched off again: back to before")
@@ -844,6 +881,8 @@ try:
     Image.new("RGB", (1200, 900), (10, 120, 90)).save(os.path.join(src, "preset__closeup.jpg"))
     open(os.path.join(src, "presenter__nobody__kitchen.png"), "wb").write(png_bytes())
     open(os.path.join(src, "presenter__maya__gym.png"), "wb").write(png_bytes())
+    Image.new("RGB", (900, 1600), (120, 110, 100)).save(os.path.join(src, "presenter__nia__angle-left.png"))
+    open(os.path.join(src, "presenter__nia__angle-up.png"), "wb").write(png_bytes())
     open(os.path.join(src, "preset__nope.png"), "wb").write(png_bytes())
     open(os.path.join(src, "notes.txt"), "w").write("x")
     for f in os.listdir(src):                         # clips and voice samples need ffmpeg and a real file: not here
@@ -859,6 +898,11 @@ try:
           and "no presenter" in skipped["presenter__nobody__kitchen.png"] and "no situation" in skipped["presenter__maya__gym.png"]
           and "no preset" in skipped["preset__nope.png"] and "stays in the workspace" in skipped["demo__mug.png"]
           and "notes.txt" in skipped, "tagged files land in the static layout; unknown names are skipped and listed")
+    with Image.open(os.path.join(STATIC, "presenters", "nia", "angle-left.webp")) as im:
+        check("presenters/nia/angle-left.webp" in wrote and im.format == "WEBP" and im.size == (720, 1280)
+              and "no situation" in skipped["presenter__nia__angle-up.png"]
+              and [os.path.basename(x) for x in presenters.angle_paths("nia")] == ["angle-left.webp"],
+              "a look-lock picture lands beside the stills as 9:16 WebP; an angle that isn't one is skipped")
     sizes = {}
     for rel in wrote:
         with Image.open(os.path.join(STATIC, rel)) as im:
