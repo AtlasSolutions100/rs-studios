@@ -26,6 +26,16 @@
     <a class="ob-link" href="{{ url_for('onboarding.profile') }}">Back</a><button class="ob-link" name="do" value="skip">No website yet? Skip and add it by hand</button></form>
 </div>
 {% else %}
+{% if other %}{% set shown = (b.brand_name if b else '') or p.name %}
+<div class="bb-other" role="note" data-bb-other>
+  <p><b>You entered {{ other }}.</b> This workspace is already set up for {{ shown }}, so that is the brand shown here.</p>
+  <form method="post" action="{{ url_for('onboarding.brief') }}">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="url" value="{{ website }}">
+    <button class="btn" name="do" value="other">Read {{ other }} as a new brand</button>
+    <button class="ob-link" name="do" value="keep">Keep {{ shown }}</button>
+  </form>
+</div>
+{% endif %}
 <div class="bb-head">
   <h1>Here is what I understood. Fix anything I got wrong.</h1>
   <p class="ob-sub">{% if source %}Read from {{ source|replace('https://', '')|replace('http://', '')|truncate(60, True, '…') }}. {% endif %}Everything written for you starts from this, so a correction here improves every ad, caption and email.</p>
