@@ -1510,7 +1510,8 @@ html[data-ui="v2"][data-theme="light"]:root{--v2-dot:rgba(20,20,20,.13)}
 .rs-table thead th{font-size:13px;font-weight:500;color:var(--muted);white-space:nowrap}
 .rs-table tbody tr{border-top:1px solid var(--line)}
 .rs-table tbody th{font-weight:600;color:var(--ink)}
-.rs-table .num{text-align:right}
+.rs-table .num{text-align:right;white-space:nowrap}
+.rs-table tbody th{white-space:nowrap}
 .rs-table a{color:var(--ink);text-underline-offset:3px;text-decoration-thickness:1px}
 .rs-table .rs-ad th{font-weight:400;padding-left:32px}
 .rs-table .rs-ad td,.rs-table .rs-ad th{padding-top:9px;padding-bottom:9px}
