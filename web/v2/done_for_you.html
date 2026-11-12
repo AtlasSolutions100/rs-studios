@@ -1,32 +1,25 @@
 {% extends "base.html" %}{% block title %}Done for you · Campaignify{% endblock %}
-{# The done-for-you request (tools_page.done_for_you): a short form that reaches a person. Nothing here promises a
-   turnaround, a price or a result: the reply does that. #}
+{# The done-for-you request (tools_page.done_for_you): one button. Pressing it sends our team what the workspace
+   already holds, so there is nothing to fill in. Nothing here promises a turnaround, a price or a result, and no
+   person is named: the reply does that. #}
 {% block body %}
 <div class="page dfy">
   <p class="dfy-back"><a href="{{ url_for('tools.page') }}">Tools</a></p>
   {% if sent %}
-  <h1>{{ ('Sent. ' ~ (who or 'We') ~ ' will reply by email.') if emailed else 'Saved. One more step to be sure it is seen.' }}</h1>
+  <h1>{{ 'Request sent. Our team will reply by email.' if emailed else 'Saved. One more step to be sure it is seen.' }}</h1>
   {% if emailed %}
-  <p class="dfy-sub">Your request went to {{ (who ~ ' at Rector & Stull') if who else 'our team at Rector & Stull' }}. The reply comes to {{ sent.email }} with what it would take and what it would cost, before anything starts.</p>
+  <p class="dfy-sub">Our team of professionals has your workspace details. They reply to {{ sent.email }} with what it would take and what it would cost, before anything starts.</p>
   {% else %}
-  <p class="dfy-sub">Your request is saved, but our email is not connected right now. To be sure it is seen, write to <a href="mailto:{{ contact }}">{{ contact }}</a> and say what you need.</p>
+  <p class="dfy-sub">Your request is saved, but our email is not connected right now. To be sure it is seen, write to <a href="mailto:{{ contact }}">{{ contact }}</a> and say you asked for our team.</p>
   {% endif %}
   <p><a class="btn" href="{{ url_for('desk.page') }}">Back to your desk</a></p>
   {% else %}
   <h1>We make the ads for you</h1>
-  <p class="dfy-sub">Rector &amp; Stull, the team behind Campaignify, can plan and make your ads for you. Say what you sell and what you want. {{ (who ~ ' replies') if who else 'We reply' }} by email with what it would take and what it would cost, before anything starts.</p>
+  <p class="dfy-sub">Short on time? Our team of professionals plans and makes your ads for you. They reply by email with what it would take and what it would cost, before anything starts.</p>
   <form method="post" action="{{ url_for('tools.done_for_you') }}" class="dfy-form">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-    <label for="dfy-sells">What you sell</label>
-    <input id="dfy-sells" type="text" name="sells" maxlength="300" value="{{ kept.sells }}">
-    <label for="dfy-wants">What you want made</label>
-    <textarea id="dfy-wants" name="wants" rows="5" maxlength="2000" required placeholder="For example: 10 video ads a month for our holiday sale, on TikTok and Instagram">{{ kept.wants }}</textarea>
-    <div class="dfy-two">
-      <div><label for="dfy-email">Email to reply to</label><input id="dfy-email" type="email" name="email" maxlength="200" required autocomplete="email" value="{{ kept.email }}"></div>
-      <div><label for="dfy-phone">Phone <span class="dfy-opt">(optional)</span></label><input id="dfy-phone" type="tel" name="phone" maxlength="40" autocomplete="tel" value="{{ kept.phone }}"></div>
-    </div>
-    <button class="btn">{{ ('Send to ' ~ who) if who else 'Send my request' }}</button>
-    <p class="dfy-note">This goes to a person. Asking costs nothing and starts nothing.</p>
+    <button class="btn lg" data-dfy-send>Contact our team of professionals</button>
+    <p class="dfy-note">Nothing to fill in. One press sends our team what your workspace already holds (your brand, your products and what you have made here) and your email, {{ g.user.email }}, so they can reply. Asking costs nothing and starts nothing.</p>
   </form>
   {% if last %}<p class="dfy-note">You last asked on {{ last.created_at|localtime('date') }}.</p>{% endif %}
   {% endif %}

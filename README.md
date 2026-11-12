@@ -765,15 +765,17 @@ In the new look the menu is short and the tools live on one page.
 - Nothing is lost: a test compares the first look's menu with the new menu plus the Tools page.
 - The menu's icons moved to `web/_icons.html` so the sidebar and the Tools page share them.
 
-**Done for you** (`/app/done-for-you`): a member says what they sell and what they want made. The request is saved
-first (`service_requests`) and then emailed to whoever handles them, with the member's address as the reply-to.
-Three requests a day per workspace. With email off the request is still saved and the page gives the address to
-write to. The page promises no turnaround, price or result: the reply does that.
+**Done for you** (`/app/done-for-you`): one button, "Contact our team of professionals", and nothing to fill in.
+A press saves a request (`service_requests`, with the details in `details`) and emails it to whoever handles them,
+with the member's own address as the reply-to. The email carries what the workspace already holds
+(`tools_page.snapshot`): who is asking and their plan, what they said at sign-up, the brand, up to 8 products with
+price, offer, page, approved claims and audience, and what they have made. Empty fields are left out and everything
+the member wrote is escaped. Three requests a day per workspace. With email off the request is still saved and the
+page gives the site's contact address. The page names no person and promises no turnaround, price or result.
 
-Who handles them is the setting `DONE_FOR_YOU_EMAIL` (a repository variable, sent by `deploy.yml`): an address, or
-`Name <address>` so the page can say who replies ("Send to Travis"). No owner address is written in the source
-(SEC-9, `tests/test_liveids.py`), so there is no default: unset, requests go to the site's contact address and the
-page says "we".
+Who handles them is the setting `DONE_FOR_YOU_EMAIL` (a repository variable, sent by `deploy.yml`). No owner
+address is written in the source (SEC-9, `tests/test_liveids.py`), so there is no default: unset, requests go to
+the site's contact address.
 
 Tests: `tests/test_tools_page.py`.
 

@@ -921,6 +921,7 @@ COLUMNS = [
     ("workspaces", "trial_open", "INTEGER NOT NULL DEFAULT 0"),   # a plan trial began and nothing is paid yet (plan_gate.py)
     ("workspaces", "trial_ends_at", "TEXT"),                       # when that trial ends (the first charge)
     ("plan_trials", "reminded_at", "TEXT"),                        # when the trial's reminder email was claimed
+    ("service_requests", "details", "TEXT"),                       # what the workspace held when it asked (tools_page.snapshot)
     ("brands", "rivals_json", "TEXT"),              # competitors found at import: [{name, website, why, sources}]
     ("brands", "enrich_json", "TEXT"),              # the last reading of the brand's site (brand_identity.py)
     ("contacts", "phone_e164", "TEXT"),

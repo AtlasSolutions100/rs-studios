@@ -1402,15 +1402,10 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 [data-ui="v2"] .shell .dfy h1{font-size:30px;line-height:1.15;font-weight:600;letter-spacing:-.025em;margin:0}
 .dfy-sub{margin:0;color:var(--muted);font-size:15.5px;line-height:1.55;max-width:60ch}
 .dfy-form{display:flex;flex-direction:column;gap:8px;padding-top:8px}
-[data-ui="v2"] .dfy-form label{margin:8px 0 0;font-size:13px;color:var(--muted)}
-[data-ui="v2"] .dfy-form input,[data-ui="v2"] .dfy-form textarea{width:100%;box-sizing:border-box;font-size:15px}
-.dfy-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.dfy-two>div{display:flex;flex-direction:column;gap:8px}
-.dfy-opt{color:var(--dim)}
 .dfy-form .btn{align-self:flex-start;margin-top:12px;min-height:44px}
-.dfy-note{margin:0;font-size:13px;color:var(--dim)}
+.dfy-note{margin:0;font-size:13.5px;line-height:1.5;color:var(--dim);max-width:62ch}
 @media (max-width:900px){.tp-feat{grid-template-columns:minmax(0,1fr)}}
-@media (max-width:640px){.dfy-two{grid-template-columns:minmax(0,1fr)}.tp-find{flex-basis:100%}}
+@media (max-width:640px){.tp-find{flex-basis:100%}}
 
 /* ---- inspiration by category (the desk's example row and the Tools page) ---- */
 .dk-exs-top{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap}
