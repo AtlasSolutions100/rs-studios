@@ -99,7 +99,7 @@ def own(conn, ws_id: int, lo: str) -> dict:
         else:
             label = "Not tagged"
         by.setdefault(label, set()).add(_who(s))
-    sources = sorted(((k, len(v)) for k, v in by.items()), key=lambda x: (x[0] == "Not tagged", -x[1], x[0]))
+    sources = sorted(((k, len(v)) for k, v in by.items()), key=lambda x: (x[0] == "Not tagged", -x[1], x[0].lower()))
     clicks = conn.execute("SELECT COUNT(*) FROM link_clicks c JOIN links l ON l.id=c.link_id WHERE l.workspace_id=? AND "
                           "c.at>=?", (ws_id, lo)).fetchone()[0]
     links = [{"name": r["title"] or f"/l/{r['code']}", "n": r["n"]} for r in conn.execute(
@@ -272,8 +272,11 @@ def ads(conn, ws, user, days: int) -> dict | None:
                               "results": weekly_report._n(f["results"], f["words"][0]) if f["n"] and f["results"] else None,
                               "leads": lf["total"], "cpl": money(lf["cpl"]) if lf["cpl"] is not None else None})
         if f["n"] and f["spend"] and not f["results"] and not lf["total"]:
+            word = f["words"][0].lower()
+            what = (f"no leads, by {s['platform_word']}'s count or on your forms" if word == "leads"
+                    else f"no {word} and no leads on your forms")
             empty.append({"kind": "none", "label": "No leads", "text": f"{s['name']} spent {money(f['spend'])} in these "
-                          f"{days} days and brought no {f['words'][0].lower()} and no leads on your forms.",
+                          f"{days} days and brought {what}.",
                           "href": href, "cta": "Open the campaign" if inside else f"Open {s['manager_word']}"})
     best = []
     for cur, cands in by_cur.items():

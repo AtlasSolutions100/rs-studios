@@ -1,0 +1,145 @@
+{% extends "base.html" %}{% block title %}Results · Campaignify{% endblock %}
+{# The results screen (results.py): what the campaigns brought in, from numbers Campaignify holds itself. Every figure
+   is a count or a sum of stored rows; nothing is estimated, projected or compared with anyone else's. A part with no
+   numbers says what to make or connect to get them. #}
+{% block body %}
+{% set span = '%s days'|format(days) %}
+<div class="page full rs" data-results>
+  <header class="rs-head">
+    <div>
+      <h1>Results</h1>
+      <p class="rs-sub">What your campaigns brought in from {{ since.strftime('%b') }} {{ since.day }} to {{ until.strftime('%b') }} {{ until.day }}, counted from your own forms, links and pages{% if ad and ad.conns %}, with the spend your ad accounts report{% endif %}.</p>
+    </div>
+    <nav class="rs-range" aria-label="Date range">
+      {% for k, label in ranges %}<a href="{{ url_for('results.page', range=k) }}" {{ 'aria-current=true' if k == key }}>{{ label }}</a>{% endfor %}
+    </nav>
+  </header>
+
+  {% if ad and (ad.conns or ad.connect) %}
+  <ul class="rs-accts" aria-label="Ad accounts">
+    {% for c in ad.conns %}<li class="{{ 'ok' if c.ok else 'off' }}"><span aria-hidden="true"></span>{{ c.word }}, {{ 'connected' if c.ok else 'needs reconnecting' }}</li>{% endfor %}
+    {% if ad.connect %}<li><a href="{{ ad.connect }}">{{ 'Connect another ad account' if ad.conns else 'Connect an ad account' }}</a></li>{% endif %}
+  </ul>
+  {% endif %}
+
+  <dl class="rs-nums" data-rs-nums>
+    <div><dt>Leads</dt><dd>{{ '{:,}'.format(mine.leads) }}</dd><p>{{ 'person' if mine.leads == 1 else 'people' }} who sent one of your forms</p></div>
+    <div><dt>Link clicks</dt><dd>{{ '{:,}'.format(mine.clicks) }}</dd><p>on your smart links</p></div>
+    <div><dt>Ads made</dt><dd>{{ '{:,}'.format(mine.made) }}</dd><p>{{ '{:,}'.format(mine.approved) }} approved</p></div>
+    {% if ad %}{% for t in ad.totals %}
+    <div><dt>Spent on ads{% if ad.totals|length > 1 %}, {{ t.cur }}{% endif %}</dt><dd>{{ t.spend }}</dd><p>on campaigns launched from Campaignify</p></div>
+    <div><dt>{{ 'Cost per lead' if t.cpl else 'Leads from ads' }}{% if ad.totals|length > 1 %}, {{ t.cur }}{% endif %}</dt><dd>{{ t.cpl or '{:,}'.format(t.leads) }}</dd><p>{% if t.cpl %}{{ '{:,}'.format(t.leads) }} {{ 'lead' if t.leads == 1 else 'leads' }} from ads on your forms{% else %}on your forms, matched to an ad{% endif %}</p></div>
+    {% endfor %}{% endif %}
+  </dl>
+
+  {% if ad and ad.read %}
+  <section class="rs-read" aria-labelledby="rs-read-h">
+    <h2 id="rs-read-h">What stands out</h2>
+    <ul>
+      {% for r in ad.read %}
+      <li data-read="{{ r.kind }}"><span class="rs-tag rs-tag-{{ r.kind }}">{{ r.label }}</span><span class="rs-read-tx">{{ r.text }}</span>{% if r.href %}<a href="{{ r.href }}">{{ r.cta }}</a>{% endif %}</li>
+      {% endfor %}
+    </ul>
+    <p class="rs-note">Nothing changes in an ad account from this page. A change you ask for on a campaign waits for the owner's approval.</p>
+  </section>
+  {% endif %}
+
+  <section class="rs-sec" aria-labelledby="rs-camps-h">
+    <h2 id="rs-camps-h">Your campaigns</h2>
+    {% if camps %}
+    <div class="rs-scroll">
+      <table class="rs-table" data-rs-camps>
+        <thead><tr><th scope="col">Campaign</th><th scope="col" class="num">Ads made</th><th scope="col" class="num">Approved</th><th scope="col">Page</th><th scope="col" class="num">Leads, {{ span }}</th></tr></thead>
+        <tbody>
+          {% for c in camps %}
+          <tr>
+            <th scope="row"><a href="{{ c.href }}">{{ c.title }}</a></th>
+            <td class="num">{{ c.ads }}{% if c.busy %} <span class="rs-dim">and {{ c.busy }} being made</span>{% endif %}</td>
+            <td class="num">{{ c.approved }}</td>
+            <td>{% for p in c.pages %}<a href="{{ p.href }}">{{ p.title }}</a> <span class="rs-dim">{% if p.live %}{{ '{:,}'.format(p.views) }} {{ 'view' if p.views == 1 else 'views' }}, all time{% else %}not published yet{% endif %}</span>{% if not loop.last %}<br>{% endif %}{% else %}<span class="rs-dim">No page</span>{% endfor %}</td>
+            <td class="num">{% if c.leads is none %}<span class="rs-dim">No form</span>{% else %}{{ '{:,}'.format(c.leads) }}{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="rs-note">A campaign's leads are the people who sent the form or the page the desk made for it. Add a page with a sign-up form to a campaign to count its leads.</p>
+    {% else %}
+    <p class="rs-empty">No campaigns yet. <a href="{{ to.desk }}">Start one on the desk</a> and its ads, page and leads are counted here.</p>
+    {% endif %}
+  </section>
+
+  <section class="rs-sec" aria-labelledby="rs-ads-h">
+    <h2 id="rs-ads-h">Ads in your ad accounts</h2>
+    {% if not ad %}
+    <p class="rs-empty" data-rs-ads="off">Campaignify does not read ad accounts for this workspace, so what your ads spend and bring in stays in each platform's ads manager. Leads, link clicks and pages are counted here however people arrive.{% if to.setup %} <a href="{{ to.setup }}">Set up your ad accounts</a>{% endif %}</p>
+    {% elif not ad.conns %}
+    <p class="rs-empty" data-rs-ads="connect">No ad account is connected. {% if ad.connect %}<a href="{{ ad.connect }}">Connect one</a> to see what each ad spent and what each lead cost.{% else %}Connect one to see what each ad spent and what each lead cost.{% endif %}</p>
+    {% elif not ad.launched %}
+    <p class="rs-empty" data-rs-ads="launch">Nothing has been launched from Campaignify yet. Spend and cost per lead show here for campaigns launched from Campaignify. Ads you start in a platform's own ads manager are not read.</p>
+    {% elif not ad.groups %}
+    <p class="rs-empty" data-rs-ads="quiet">None of your launched campaigns delivered in these {{ span }}.{% if ad.all %} <a href="{{ ad.all }}">See every campaign</a>{% endif %}</p>
+    {% else %}
+    <div class="rs-scroll">
+      <table class="rs-table rs-ads" data-rs-ads="rows">
+        <thead><tr><th scope="col">Campaign and ad</th><th scope="col">Where</th><th scope="col" class="num">Spent, {{ span }}</th><th scope="col" class="num">Counted by the platform</th><th scope="col" class="num">Leads on your forms</th><th scope="col" class="num">Cost per lead</th><th scope="col">State</th></tr></thead>
+        {% for grp in ad.groups %}
+        <tbody>
+          <tr class="rs-camp">
+            <th scope="row">{% if grp.href %}<a href="{{ grp.href }}"{% if not grp.inside %} rel="noopener" target="_blank"{% endif %}>{{ grp.name }}</a>{% else %}{{ grp.name }}{% endif %}</th>
+            <td>{{ grp.where }}</td>
+            <td class="num">{% if grp.spend %}{{ grp.spend }}{% else %}<span class="rs-dim">No delivery</span>{% endif %}</td>
+            <td class="num">{% if grp.results %}{{ grp.results }}{% else %}<span class="rs-dim">None</span>{% endif %}</td>
+            <td class="num">{{ '{:,}'.format(grp.leads) }}</td>
+            <td class="num">{% if grp.cpl %}{{ grp.cpl }}{% else %}<span class="rs-dim">No leads</span>{% endif %}</td>
+            <td>{{ grp.state }}</td>
+          </tr>
+          {% for a in grp.rows %}
+          <tr class="rs-ad">
+            <th scope="row">{{ a.name }}</th>
+            <td></td>
+            <td class="num">{% if a.spend %}{{ a.spend }}{% else %}<span class="rs-dim">No delivery</span>{% endif %}</td>
+            <td class="num">{% if a.results %}{{ a.results }}{% else %}<span class="rs-dim">None</span>{% endif %}</td>
+            <td class="num">{{ '{:,}'.format(a.leads) }}</td>
+            <td class="num">{% if a.cpl %}{{ a.cpl }}{% else %}<span class="rs-dim">No leads</span>{% endif %}</td>
+            <td>{% if a.worn %}<span class="rs-worn">{{ a.state }}</span>{% else %}{{ a.state }}{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        {% endfor %}
+      </table>
+    </div>
+    <p class="rs-note">Spend and the platform's count come from each ad account, in its currency and its days, today so far included.{% if ad.status.at %} Updated {{ ad.status.at|localtime }}.{% endif %} Leads on your forms are counted by Campaignify and matched to the ad that sent them.{% if ad.quiet %} {{ ad.quiet }} more {{ 'campaign' if ad.quiet == 1 else 'campaigns' }} did not deliver in these {{ span }}.{% endif %}{% if ad.all %} <a href="{{ ad.all }}">See every campaign</a>{% endif %}</p>
+    {% endif %}
+    {% if ad and ad.status.error %}<p class="rs-note rs-warn">{{ ad.status.error }}</p>{% endif %}
+    {% if ad and ad.other %}<p class="rs-note" data-rs-other>{% for word, n in ad.other.items() %}{{ '{:,}'.format(n) }} {{ 'lead' if n == 1 else 'leads' }} came from {{ word }} ads that were not launched from Campaignify{{ '. ' if loop.last else ', ' }}{% endfor %}They are counted in your leads, with no spend to set against them.</p>{% endif %}
+  </section>
+
+  <div class="rs-two">
+    <section class="rs-sec" aria-labelledby="rs-src-h">
+      <h2 id="rs-src-h">Where your leads came from</h2>
+      {% if mine.sources %}
+      <ol class="rs-list" data-rs-sources>
+        {% for name, n in mine.sources %}<li><span>{{ name }}</span><b>{{ '{:,}'.format(n) }}</b></li>{% endfor %}
+      </ol>
+      <p class="rs-note">A lead carries the source of the link that brought it: an ad, a smart link, or a link with a source written on it. Without one it is not tagged.</p>
+      {% else %}
+      <p class="rs-empty">No leads in these {{ span }}. A lead is counted when someone sends one of your forms.{% if not has_form %} {% if to.forms %}<a href="{{ to.forms }}">Make a form</a>{% else %}Make a form{% endif %} or ask the desk for a page with a sign-up form.{% elif to.leads %} <a href="{{ to.leads }}">See every lead</a>{% endif %}</p>
+      {% endif %}
+    </section>
+    <section class="rs-sec" aria-labelledby="rs-links-h">
+      <h2 id="rs-links-h">Smart links clicked most</h2>
+      {% if mine.links %}
+      <ol class="rs-list" data-rs-links>
+        {% for l in mine.links %}<li><span>{{ l.name }}</span><b>{{ '{:,}'.format(l.n) }}</b></li>{% endfor %}
+      </ol>
+      {% if to.links %}<p class="rs-note"><a href="{{ to.links }}">See every link</a></p>{% endif %}
+      {% else %}
+      <p class="rs-empty">No clicks in these {{ span }}. {% if has_link %}Put a smart link in your bio, a post or an email and its clicks are counted here.{% else %}A smart link is a short address that counts every click. {% if to.links %}<a href="{{ to.links }}">Make one</a>{% else %}Make one{% endif %} for your bio, a post or an email.{% endif %}</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <p class="rs-foot">How this is counted: a person who sends a form twice is one lead. Page views are a running count with no dates, so they show as all time. Ads made are the ads finished in the range. Nothing on this page is an estimate.</p>
+</div>
+{% endblock %}
