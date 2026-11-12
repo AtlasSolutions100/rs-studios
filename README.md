@@ -749,6 +749,34 @@ at the foot. With the gift on, the desk is Home from the first minute (`desk.is_
 Tests: `tests/test_first_ads.py` (the order, the gift's bookkeeping, once only, a refused start, first means first,
 the agent's states, off without plans only).
 
+## The Tools page and the done-for-you request (`tools_page.py`, `web/v2/tools.html`, `web/v2/done_for_you.html`; behind `UI_V2`)
+
+In the new look the menu is short and the tools live on one page.
+
+- `/app/tools`: everything Campaignify makes and does as tiles, grouped by the job (Make ads, Plan, Capture leads,
+  Follow up, Launch), with a search box that matches a tool's name, its line, its group and a few related words.
+  The catalog (`tools_page.CATALOG`) is the menu's own list regrouped. A tile shows exactly when its menu item
+  would (`app._has_endpoint`) and carries the plan that includes it when the workspace's plan does not.
+- The row on top is what is worth knowing about now: done for you, "Make ads from Claude or ChatGPT" while
+  `MCP_SERVER` is on, and the first ads on us while they are open.
+- The sidebar (new look): New campaign, Desk, Library, Leads, Brand, Ad accounts, Tools, the campaigns, Settings.
+  The Plan, Grow and Launch groups and the Tools group are gone from it. On a tool's own page the sidebar lists that
+  tool's group under Tools, with the tool marked, so its neighbours are one click away (`tools_page.side`).
+- Nothing is lost: a test compares the first look's menu with the new menu plus the Tools page.
+- The menu's icons moved to `web/_icons.html` so the sidebar and the Tools page share them.
+
+**Done for you** (`/app/done-for-you`): a member says what they sell and what they want made. The request is saved
+first (`service_requests`) and then emailed to whoever handles them, with the member's address as the reply-to.
+Three requests a day per workspace. With email off the request is still saved and the page gives the address to
+write to. The page promises no turnaround, price or result: the reply does that.
+
+Who handles them is the setting `DONE_FOR_YOU_EMAIL` (a repository variable, sent by `deploy.yml`): an address, or
+`Name <address>` so the page can say who replies ("Send to Travis"). No owner address is written in the source
+(SEC-9, `tests/test_liveids.py`), so there is no default: unset, requests go to the site's contact address and the
+page says "we".
+
+Tests: `tests/test_tools_page.py`.
+
 ## Plans only and the percent-off price (`plan_gate.py`, `plan_gate_routes.py`, `plans.sale`; `PLANS_ONLY`, `PLAN_SALE`, both default off in code)
 
 Asked for by Koby on Nov 11 2026. `deploy.yml` turns both on in production unless the repo variable says `0`.

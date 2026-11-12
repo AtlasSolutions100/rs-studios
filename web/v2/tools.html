@@ -1,0 +1,69 @@
+{% extends "base.html" %}{% block title %}Tools · Campaignify{% endblock %}
+{# The Tools page (tools_page.py): everything Campaignify makes and does, as tiles grouped by the job, with a search
+   box. The row on top is what is worth knowing about now. The sidebar's groups live here in the new look. #}
+{% block body %}
+{% from "_icons.html" import ICONS %}
+<div class="page full tp" data-tools>
+  <header class="tp-head">
+    <div>
+      <h1>Tools</h1>
+      <p class="tp-sub">Everything Campaignify makes and does, by the job.</p>
+    </div>
+    <div class="tp-find">
+      <label class="sr" for="tp-q">Search tools</label>
+      <input id="tp-q" type="search" placeholder="Search {{ count }} tools" autocomplete="off" data-tools-q>
+    </div>
+  </header>
+
+  {% if cards %}
+  <section class="tp-feat" aria-label="Worth knowing" data-tools-feat>
+    {% for c in cards %}
+    <a class="tp-card tp-card-{{ c.key }}" href="{{ c.href }}">
+      <b>{{ c.title }}</b>
+      <span>{{ c.line }}</span>
+      <em>{{ c.cta }}</em>
+    </a>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% for grp in groups %}
+  <section class="tp-grp" aria-labelledby="tp-g{{ loop.index }}" data-tools-grp>
+    <h2 id="tp-g{{ loop.index }}">{{ grp.title }}</h2>
+    <ul class="tp-tiles">
+      {% for t in grp.tools %}
+      <li data-tool="{{ (t.name ~ ' ' ~ t.line ~ ' ' ~ t.words ~ ' ' ~ grp.title)|lower }}">
+        <a href="{{ t.href }}">
+          <span class="tp-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ICONS[t.icon]|safe }}</svg></span>
+          <span class="tp-tx"><b>{{ t.name }}</b><span>{{ t.line }}</span></span>
+          {% if t.lock %}<em class="lock" title="Included in {{ t.lock }}">{{ t.lock }}</em>{% endif %}
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endfor %}
+  <p class="tp-none" data-tools-none role="status" hidden>No tool matches that. Try another word, or say what you want on <a href="{{ url_for('desk.page') }}">your desk</a>.</p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function(){
+  var root = document.querySelector('[data-tools]'); if(!root) return;
+  var q = root.querySelector('[data-tools-q]'), none = root.querySelector('[data-tools-none]'), feat = root.querySelector('[data-tools-feat]');
+  function run(){
+    var words = q.value.toLowerCase().trim().split(/\s+/).filter(Boolean), any = false;
+    root.querySelectorAll('[data-tools-grp]').forEach(function(grp){
+      var shown = 0;
+      grp.querySelectorAll('[data-tool]').forEach(function(li){
+        var hit = words.every(function(w){ return li.dataset.tool.indexOf(w) !== -1; });
+        li.hidden = !hit; if(hit) shown++;
+      });
+      grp.hidden = !shown; if(shown) any = true;
+    });
+    none.hidden = any; if(feat) feat.hidden = words.length > 0;
+  }
+  q.addEventListener('input', run);
+})();
+</script>
+{% endblock %}

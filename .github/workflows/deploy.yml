@@ -151,6 +151,9 @@ name: Deploy Campaignify (campaignify.ai)
 #                          3-day trial, Scale is charged at once, packs top up a plan. On here unless the variable says 0
 #   PLAN_SALE              show each plan's price next to the price it is going to, struck through, with the percent off
 #                          (plans.sale). Display only. On here unless the variable says 0
+#   DONE_FOR_YOU_EMAIL     who gets a done-for-you request (tools_page.py), as an address or "Name <address>". No
+#                          default here or in the code (no owner address in the source); unset, requests go to the
+#                          site's contact address
 #   RS_CARD_STARTS_PER_HOUR  optional variable: card checkouts the whole app may start per hour (card-testing
 #                          guard, card_on_file.py), default 300
 #   RS_STORAGE_PURGE_DELETED  remove files of ads deleted over 30 days ago (storage.py), default off
@@ -351,6 +354,7 @@ jobs:
           RS_PLAN_PAYWALL: ${{ vars.RS_PLAN_PAYWALL }}
           PLANS_ONLY: ${{ vars.PLANS_ONLY || '1' }}
           PLAN_SALE: ${{ vars.PLAN_SALE || '1' }}
+          DONE_FOR_YOU_EMAIL: ${{ vars.DONE_FOR_YOU_EMAIL }}
           RS_CARD_STARTS_PER_HOUR: ${{ vars.RS_CARD_STARTS_PER_HOUR }}
           RS_STORAGE_PURGE_DELETED: ${{ vars.RS_STORAGE_PURGE_DELETED }}
           RS_SERVICE_PATH: ${{ vars.RS_SERVICE_PATH }}
@@ -431,6 +435,7 @@ jobs:
                                              "RS_LOGIN_HARDENING", "RS_SIGNUP_CONFIRM", "RS_NEXT_STEPS", "RS_STORAGE_QUOTAS",
                                              "RS_JOB_CANCEL", "RS_STORAGE_PURGE_DELETED", "RS_SERVICE_PATH", "OPS_ALERTS", "BACKUPS",
                                              "RS_CARD_REQUIRED", "RS_PLAN_PAYWALL", "RS_CARD_STARTS_PER_HOUR", "PLANS_ONLY", "PLAN_SALE",
+                                             "DONE_FOR_YOU_EMAIL",
                                              "BACKUP_MEDIA", "RS_DISK_MIN_GB", "RS_HEALTH_WORKER_MAX_AGE", "RS_LAUNCH_KIT", "UI_V2", "HOME_V2", "HOOK_TOOL", "HOOK_TOOL_DAILY_MAX",
                                              "TEXT_LAYERS", "CLAIMS_CHECK", "IMAGE_QA", "IMAGE_QA_DAILY_MAX", "IMAGE_QA_MODEL", "FREE_FIX",
                                              "FREE_FIX_MONTHLY_CAP",
