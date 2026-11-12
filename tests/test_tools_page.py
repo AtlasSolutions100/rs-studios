@@ -7,9 +7,9 @@ throwaway database with email faked:
   * nothing is lost: every item of the first look's menu that this workspace can open is in the new menu or on the
     Tools page
   * on a tool's own page the menu lists that tool's group, with the tool marked
-  * done for you: the request is saved, then emailed to the address that handles them with the member's address as
-    the reply-to; it needs words and an address; a few a day; saved even when email is off, and the page then gives
-    the address to write to; DONE_FOR_YOU_EMAIL changes who gets it
+  * done for you: one button and nothing to fill in; a press saves a request with what the workspace already holds
+    and emails it to whoever handles them, with the member's address as the reply-to; no person is named; a few a
+    day; saved even when email is off, and the page then gives the site's address; DONE_FOR_YOU_EMAIL says who gets it
 
     python tests/test_tools_page.py      (tests/test_app.py runs it too)
 """
@@ -188,58 +188,70 @@ check('aria-label="Make ads"' in prod and re.search(r'<a class="nav on" href="/a
 check("v2-toolgrp" not in side_of(page(a, "/app/library")) and "v2-toolgrp" not in side_of(page(a, "/app/billing")),
       "Library and Billing are not tools: no group")
 
-print("== done for you")
+print("== done for you: one button")
+with db.connect() as conn:
+    wid = user("a@example.com")["workspace_id"]
+    conn.execute("UPDATE products SET description=?, price='$34', offer='Free shipping this week', claims=?, audience=?, url=? "
+                 "WHERE workspace_id=?", ("A soy wax candle with <b>amber</b> and cedar.", "Burns for 40 hours\nHand poured in Texas",
+                                          "People who light a candle most evenings", "https://hearth.example/p/ember", wid))
+    conn.execute("UPDATE brands SET brand_name='Hearth & Co', tone='Calm and warm', website='https://hearth.example' WHERE workspace_id=?", (wid,))
+    conn.execute("INSERT INTO jobs (workspace_id, user_id, tool, brief, params_json, status, credits, cost_usd, created_at, updated_at) "
+                 "VALUES (?,?,?,?,?,?,?,?,?,?)", (wid, user("a@example.com")["id"], "ad_image", "x", "{}", "done", 12, 0.1, db.now(), db.now()))
+    conn.commit()
 body = page(a, "/app/done-for-you")
-check("We make the ads for you" in body and 'name="wants"' in body and 'value="Ember Candle"' in body and 'value="a@example.com"' in body,
-      "the form starts with the product and the account's address")
-check("tee@studio.example" not in body and "Send to Tee" in body and "Tee replies by email" in body,
-      "it names who replies; their address is not printed while email works")
-r = a.post("/app/done-for-you", data={"csrf": csrf(a), "sells": "Candles", "wants": "", "email": "a@example.com"})
-check(r.status_code == 200 and "Say what you want made" in r.get_data(as_text=True) and not requests_of("a@example.com"),
-      "it needs what you want made")
-r = a.post("/app/done-for-you", data={"csrf": csrf(a), "sells": "Candles", "wants": "Ten video ads", "email": "nope"})
-check(r.status_code == 200 and "email address we can reply to" in r.get_data(as_text=True) and not requests_of("a@example.com")
-      and 'Ten video ads' in r.get_data(as_text=True), "and an address to reply to; what was typed is kept")
-r = a.post("/app/done-for-you", data={"csrf": csrf(a), "sells": "Candles", "wants": "Ten video ads a month for <b>our</b> sale",
-                                       "email": "kay@hearth.example", "phone": "555 0100"})
+check("We make the ads for you" in body and "Contact our team of professionals</button>" in body, "the page is one button")
+check(not re.search(r'<(input|textarea)[^>]*name="(wants|sells|email|phone)"', body), "with nothing to fill in")
+check("a@example.com" in body and "what your workspace already holds" in body, "it says what is sent and where the reply goes")
+check("Travis" not in body and "tee@studio.example" not in body, "no person is named and no address of ours is printed")
+check("Contact our team of professionals" in page(a, "/app/tools"), "the Tools card says the same")
+r = a.post("/app/done-for-you", data={"csrf": csrf(a)})
 rows = requests_of("a@example.com")
-check(r.status_code == 302 and len(rows) == 1 and rows[0]["wants"].startswith("Ten video ads") and rows[0]["sent_at"],
-      "a request is saved and marked sent")
+check(r.status_code == 302 and len(rows) == 1 and rows[0]["sent_at"] and rows[0]["email"] == "a@example.com",
+      "one press saves a request and marks it sent")
 m = sent[-1]
-check(len(sent) == 1 and m["to"] == "tee@studio.example" and m["reply_to"] == "kay@hearth.example",
-      "it is emailed to the person who handles them, with the member's address as the reply-to")
-check("Hearth & Co" in m["subject"] and "Ten video ads a month" in m["text"] and "555 0100" in m["text"] and "Kay Lee" in m["text"],
-      "with the workspace, the words, the phone and the name")
-check("<b>our</b>" not in m["html"] and "&lt;b&gt;our&lt;/b&gt;" in m["html"], "what the member typed is escaped in the email")
+check(len(sent) == 1 and m["to"] == "tee@studio.example" and m["reply_to"] == "a@example.com",
+      "it is emailed to whoever handles them, with the member's address as the reply-to")
+txt = m["text"]
+check("Hearth & Co (#" in txt and "Kay Lee" in txt and "Plan: Starter" in txt and "Hearth & Co" in m["subject"],
+      "the email says who is asking: the name, the workspace and its plan")
+check("Ember Candle" in txt and "$34" in txt and "Free shipping this week" in txt and "https://hearth.example/p/ember" in txt
+      and "Burns for 40 hours; Hand poured in Texas" in txt and "People who light a candle most evenings" in txt,
+      "the product: its price, offer, page, approved claims and who buys it")
+check("Voice: Calm and warm" in txt and "Website: https://hearth.example" in txt, "the brand: its voice and website")
+check("Finished ads: 1 image ad\n" in txt + "\n", "and what they have made here")
+check("Offer: \n" not in txt and "Also said" not in txt, "a field with nothing in it is left out")
+check("<b>amber</b>" not in m["html"] and "&lt;b&gt;amber&lt;/b&gt;" in m["html"], "what the member wrote is escaped in the email")
+check(rows[0]["details"] and "Ember Candle" in rows[0]["details"], "the same details are kept with the request")
 done = page(a, r.headers["Location"])
-check("Sent. Tee will reply by email." in done and "kay@hearth.example" in done, "the page says it went and where the reply goes")
+check("Request sent. Our team will reply by email." in done and "a@example.com" in done and "Travis" not in done,
+      "the page says it went and where the reply goes")
 for i in range(2):
-    a.post("/app/done-for-you", data={"csrf": csrf(a), "wants": f"More ads {i}", "email": "a@example.com"})
-r = a.post("/app/done-for-you", data={"csrf": csrf(a), "wants": "And more", "email": "a@example.com"})
-check(len(requests_of("a@example.com")) == 3 and len(sent) == 3 and "already sent a few requests today" in r.get_data(as_text=True),
+    a.post("/app/done-for-you", data={"csrf": csrf(a)})
+r = a.post("/app/done-for-you", data={"csrf": csrf(a)})
+check(len(requests_of("a@example.com")) == 3 and len(sent) == 3 and "already asked a few times today" in r.get_data(as_text=True),
       "three a day: a fourth is not saved or sent, and says why")
+check("You last asked on" in page(a, "/app/done-for-you"), "and the page remembers the last request")
 
 b = member("b@example.com", "growth")
 mail_on[0] = False
-r = b.post("/app/done-for-you", data={"csrf": csrf(b), "wants": "A launch video", "email": "b@example.com"})
+r = b.post("/app/done-for-you", data={"csrf": csrf(b)})
 rows = requests_of("b@example.com")
 check(r.status_code == 302 and len(rows) == 1 and rows[0]["sent_at"] is None and len(sent) == 3, "with email off the request is still saved")
+import public_site  # noqa: E402
 done = page(b, r.headers["Location"])
-check("Saved." in done and 'href="mailto:tee@studio.example"' in done, "and the page gives the address to write to")
+check("Saved." in done and f'href="mailto:{public_site.CONTACT}"' in done and "tee@studio.example" not in done,
+      "and the page gives the site's contact address to write to")
 mail_on[0] = True
 os.environ["DONE_FOR_YOU_EMAIL"] = "studio@example.org"
-b.post("/app/done-for-you", data={"csrf": csrf(b), "wants": "Another", "email": "b@example.com"})
-check(sent[-1]["to"] == "studio@example.org", "DONE_FOR_YOU_EMAIL changes who gets it")
-check("Send my request" in page(b, "/app/done-for-you") and "We reply by email" in page(b, "/app/done-for-you"),
-      "a bare address names nobody: the page says we")
+b.post("/app/done-for-you", data={"csrf": csrf(b)})
+check(sent[-1]["to"] == "studio@example.org" and "Plan: Growth" in sent[-1]["text"], "DONE_FOR_YOU_EMAIL changes who gets it (a bare address works)")
 os.environ.pop("DONE_FOR_YOU_EMAIL", None)
-import public_site  # noqa: E402
-b.post("/app/done-for-you", data={"csrf": csrf(b), "wants": "One more", "email": "b@example.com"})
-check(sent[-1]["to"] == public_site.CONTACT and tools_page.dfy_contact() == ("", public_site.CONTACT),
+b.post("/app/done-for-you", data={"csrf": csrf(b)})
+check(sent[-1]["to"] == public_site.CONTACT and tools_page.dfy_email() == public_site.CONTACT,
       "unset, requests go to the site's contact address (no owner address in the source)")
 os.environ["DONE_FOR_YOU_EMAIL"] = "Tee <tee@studio.example>"
 check(b.get(f"/app/done-for-you?sent={requests_of('a@example.com')[0]['id']}").status_code == 200
-      and "kay@hearth.example" not in page(b, f"/app/done-for-you?sent={requests_of('a@example.com')[0]['id']}"),
+      and "a@example.com" not in page(b, f"/app/done-for-you?sent={requests_of('a@example.com')[0]['id']}"),
       "another workspace's request is never shown")
 check(re.search(r"<b>Forms</b>.*?</span>\s*</a>", page(b, "/app/tools"), re.S) is not None, "on Growth, Forms carries no mark")
 
