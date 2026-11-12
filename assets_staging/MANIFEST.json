@@ -2384,5 +2384,21 @@
   "credits": 0,
   "qa": "ok",
   "notes": "Phase 4: made in the web app with Unlimited mode (720p, 8 s, 9:16)."
+ },
+ {
+  "path": "showcase/ex-trainer-presenter.mp4",
+  "kind": "showcase_video",
+  "title": "Personal trainer, presenter",
+  "caption": "A trainer in a small gym talks about one-to-one sessions.",
+  "alt": "A woman in workout clothes in a small gym talks to the camera about one-to-one training sessions.",
+  "poster": "showcase/ex-trainer-presenter.webp",
+  "model": "seedance_2_5",
+  "prompt": "Vertical talking-to-camera video. A fit woman of about 35 with a dark ponytail, plain grey training top, in a small bright gym with plain dumbbells behind her. She looks into the camera and says in an upbeat, friendly voice: \"I run one-to-one training sessions. We start where you are and build a plan around your week.\" Phone-camera look, natural light, realistic, clear voice. No text, no captions, no logos, no watermark.",
+  "job_id": "798b848c-c5cf-48e3-9b0b-3d104b0ef30f",
+  "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GvdxB9gfwtge4rv79iuyoXAckR/hf_20261112_065557_798b848c-c5cf-48e3-9b0b-3d104b0ef30f.mp4",
+  "credits": 0,
+  "qa": "ok (picture); speech not checked",
+  "notes": "Phase 4: made in the web app with Unlimited mode (720p, 8 s, 9:16).",
+  "presenter": true
  }
 ]
