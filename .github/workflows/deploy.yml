@@ -47,8 +47,10 @@ name: Deploy Campaignify (campaignify.ai)
 #   RS_HD_MARKUP           optional repo variable: 1080p markup, default 1.4
 #   RS_VIDEO_UPSCALE_MODEL / RS_VIDEO_UPSCALE_USD_PER_SECOND  optional variables: switch on upscaling
 #   RS_FREE_PREVIEW / RS_FREE_PREVIEWS_PER_DAY               optional variables: the free 480p preview (cap default 30/day)
-#   RS_EMAIL_VERIFY / RS_ACCOUNT_MAIL_FROM                  optional variables: confirm-your-email for free accounts
-#                          (0 switches it off) and its From (default "Campaignify" <no-reply@RS_MAIL_DOMAIN>)
+#   RS_EMAIL_VERIFY / RS_ACCOUNT_MAIL_FROM                  optional variables: confirm-your-email (0 switches it off;
+#                          unset or 1: everyone confirms while PLANS_ONLY is on, free accounts only otherwise; all:
+#                          everyone, always; video: free accounts only) and its From (default "Campaignify"
+#                          <no-reply@RS_MAIL_DOMAIN>)
 #   FIRST_RUN_NUDGES       optional variable: "0" switches off the "your free ads are waiting" emails (nudges.py)
 #   EMAIL_DAILY_LIMIT / EMAIL_TRANSACTIONAL_RESERVE / EMAIL_NURTURE_DAILY_MAX  optional variables: the email
 #                          budget (mailer.py; defaults 100, 30, 60). Nurture stops at its cap or once today's

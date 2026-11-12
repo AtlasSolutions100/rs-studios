@@ -23,7 +23,7 @@ bp = Blueprint("card", __name__)
 # confirmation, the Home page's job polling and signing out.
 ALLOWED = {"logout", "library", "media", "photo", "api_jobs", "jobs.cards", "jobs.delete",
            "billing_page", "subscribe", "checkout", "billing_portal", "billing_code",
-           "verify_email", "verify_resend", "verify_code_send", "verify_code_check",
+           "verify_email", "verify_resend", "verify_code_send", "verify_code_check", "confirm.page",
            "adhub.export_page", "adhub.export_file", "share.create", "share.revoke",
            "admin_view_exit",
            # M14: the onboarding questions come before the card step, and an admin can always switch the look

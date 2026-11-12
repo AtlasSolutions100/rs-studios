@@ -966,6 +966,7 @@ COLUMNS = [
     ("users", "verify_code_hash", "TEXT"),      # HMAC of the 6-digit code (verify.py), never the code itself
     ("users", "verify_code_exp", "INTEGER"),    # epoch seconds
     ("users", "verify_code_tries", "INTEGER NOT NULL DEFAULT 0"),
+    ("users", "pending_email", "TEXT"),         # the address an unconfirmed member asked to change to (verify.change_address)
     # private share links for a finished ad (share_routes.py)
     ("outputs", "share_token", "TEXT"),
     ("outputs", "shared_at", "TEXT"),

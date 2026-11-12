@@ -7,6 +7,11 @@ gets one email 10 minutes after signing up (STEP_1_MIN) and one more a day later
 Ad-grant sign-ups (adoffer.py, the 500-credit offer) are told their free video
 ad is waiting; everyone else their 2 free image ads.
 
+While plans only is on (plan_gate.py) a sign-up has no free credits, so the two
+emails say what is true then (_copy_plans): the account stopped before picking a
+plan, the link logs it in and confirms the email address (which now comes before
+the plan, verify.everyone()), and what the plan step says about the trial.
+
 Rules: one email per step per person (first_run_nudges), only accounts made in
 the last MAX_AGE_DAYS (so a deploy never mails old dead sign-ups), only when
 email is connected, never to admins, invitees or paid workspaces. The magic link
@@ -163,11 +168,50 @@ def _copy(step: int, grant: bool, link: str) -> tuple[str, str, str]:
     return subject, text, html
 
 
+PLAN_SUBJECTS = {1: {False: "Finish setting up Campaignify", True: "Confirm your email to finish setting up Campaignify"},
+                 2: {False: "Your Campaignify account is waiting for a plan",
+                     True: "Still to do: confirm your email for Campaignify"}}
+
+
+def _copy_plans(step: int, days: int, unconfirmed: bool, link: str) -> tuple[str, str, str]:
+    """(subject, text, html) for a step while plans only is on (plan_gate.py). A sign-up has no free credits
+    then, so nothing here says it does: it says what is left to do (confirm the email, pick a plan) and what
+    the plan step itself says about the trial and the charge. `days` is the trial this account would start
+    with (0: it has had one, so no trial is mentioned)."""
+    hours = link_hours()
+    import login_security
+    once = " once" if login_security.enabled() else ""
+    subject = PLAN_SUBJECTS[step][bool(unconfirmed)]
+    opener = "You signed up for Campaignify and stopped before picking a plan." if step == 1 else \
+        "A day on, your Campaignify account is still waiting for a plan."
+    confirm = " Opening the link below also confirms this email address, which comes before the plan." if unconfirmed else ""
+    plan = (f"Starter and Growth are free for {days} days: your card is saved on Stripe's page and charged when "
+            "the trial ends, unless you cancel first." if days else "Plans are monthly, and you can cancel any time.")
+    text = (f"Hi,\n\n{opener}{confirm}\n\n{plan}\n\nOpen Campaignify (this link logs you in{once}, and works for "
+            f"{hours} hours):\n\n{link}\n\nNothing is charged unless you pick a plan. If you didn't sign up, "
+            "ignore this email.\n\nCampaignify")
+    html = ('<div style="font-family:Inter,Arial,sans-serif;font-size:15px;line-height:1.5;color:#111">'
+            f"<p>Hi,</p><p>{opener}{confirm}</p><p>{plan}</p>"
+            f'<p><a href="{link}" style="display:inline-block;background:#111;color:#fff;padding:12px 20px;'
+            'border-radius:8px;text-decoration:none;font-weight:600">Carry on in Campaignify</a></p>'
+            f'<p style="font-size:13px;color:#555">The link logs you in{once} and works for {hours} hours. '
+            f"Or paste it into your browser:<br>{link}</p>"
+            '<p style="font-size:13px;color:#555">Nothing is charged unless you pick a plan. If you didn\'t sign up for '
+            "Campaignify, ignore this email.</p></div>")
+    return subject, text, html
+
+
 def send(conn, secret: str, user, step: int) -> bool:
     """One nudge to one person (records the step whether or not the provider took it,
     so a failing mailer never mails anyone twice)."""
-    grant = is_grant(conn, user["workspace_id"])
-    subject, text, html = _copy(step, grant, magic_link(secret, user))
+    import plan_gate
+    if plan_gate.on():      # no free credits to point at: the plan step is what is waiting
+        ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (user["workspace_id"],)).fetchone()
+        subject, text, html = _copy_plans(step, plan_gate.trial_days(conn, ws, user, plan_gate.TRIAL_PLANS[0]),
+                                          not verify.is_verified(user), magic_link(secret, user))
+    else:
+        grant = is_grant(conn, user["workspace_id"])
+        subject, text, html = _copy(step, grant, magic_link(secret, user))
     conn.execute("INSERT OR IGNORE INTO first_run_nudges (user_id, step, sent_at) VALUES (?,?,?)",
                  (user["id"], step, db.now()))
     conn.commit()
