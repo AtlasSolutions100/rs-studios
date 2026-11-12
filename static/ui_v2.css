@@ -1447,7 +1447,9 @@ a.dk-ex{text-decoration:none}
 .as-prompts li{display:grid;grid-template-columns:104px minmax(0,1fr) auto;gap:8px 12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
 .as-kind{font-size:13px;font-weight:600;color:var(--muted)}
 [data-ui="v2"] .as-prompts input{width:100%;box-sizing:border-box;border:0;background:transparent;padding:0;font-size:14.5px;color:var(--ink);min-height:0}
-.as-acts{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
+.as-desk{grid-column:2/-1;font-size:13px;color:var(--muted);margin-top:-4px}
 .lib-find{margin-top:10px}
+/* a phone: two Library columns that can shrink (a card's own contents no longer push the page sideways) */
+@media (max-width:760px){[data-ui="v2"] .lgrid{grid-template-columns:repeat(2,minmax(0,1fr))}[data-ui="v2"] .lgrid .litem{min-width:0}[data-ui="v2"] .lgrid .litem .acts{flex-wrap:wrap}}
 [data-ui="v2"] .lib-find input[type=search]{flex:0 1 340px;min-width:200px;min-height:36px;padding:7px 12px}
-@media (max-width:640px){.as-prompts li{grid-template-columns:minmax(0,1fr)}.as-acts{justify-content:flex-start}.as-copyrow{flex-wrap:wrap}}
+@media (max-width:640px){.as-prompts li{grid-template-columns:minmax(0,1fr) auto}.as-kind{grid-column:1/-1}.as-desk{grid-column:1/-1}.as-copyrow{flex-wrap:wrap}}

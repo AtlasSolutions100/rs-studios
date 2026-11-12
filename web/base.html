@@ -73,7 +73,7 @@
     {# Tools is one place (tools_page.py). On a tool's own page its group is listed here, so its
        neighbours are one click away; everything else is on the Tools page. #}
     {% set tside = tools_side() %}
-    <a class="nav v2-tools {{ 'on' if request.endpoint == 'tools.page' or request.endpoint == 'tools.done_for_you' }}" href="{{ url_for('tools.page') }}" {{ 'aria-current=page' if request.endpoint == 'tools.page' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ICONS['tools']|safe }}</svg><span>Tools</span></a>
+    <a class="nav v2-tools {{ 'on' if request.endpoint in ('tools.page', 'tools.done_for_you', 'tools.assistant') }}" href="{{ url_for('tools.page') }}" {{ 'aria-current=page' if request.endpoint == 'tools.page' }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ICONS['tools']|safe }}</svg><span>Tools</span></a>
     {% if tside %}<div class="v2-toolgrp" role="group" aria-label="{{ tside.title }}">
       <p class="v2-toolgrp-h">{{ tside.title }}</p>
       {% for t in tside.tools %}<a class="nav {{ 'on' if request.endpoint in t.lit }}" href="{{ t.href }}" {{ 'aria-current=page' if request.endpoint in t.lit }}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ICONS[t.icon]|safe }}</svg><span>{{ t.name }}</span>{% if t.lock %}<em class="lock" title="Included in {{ t.lock }}">{{ t.lock }}</em>{% endif %}</a>{% endfor %}

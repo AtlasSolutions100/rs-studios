@@ -60,7 +60,8 @@
       <li>
         <span class="as-kind">{{ q.kind }}</span>
         <input id="as-p{{ loop.index }}" type="text" readonly value="{{ q.text }}" data-select-all aria-label="{{ q.kind }} prompt">
-        <span class="as-acts"><button type="button" class="btn dark sm" data-copy="as-p{{ loop.index }}">Copy</button>{% if q.desk %}<a class="ob-link" href="{{ q.desk }}">Do this on my desk</a>{% endif %}</span>
+        <button type="button" class="btn dark sm" data-copy="as-p{{ loop.index }}">Copy</button>
+        {% if q.desk %}<a class="as-desk" href="{{ q.desk }}">Or do this on your desk</a>{% endif %}
       </li>
       {% endfor %}
     </ul>
