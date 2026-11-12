@@ -252,6 +252,11 @@ def mail_tick(app, n: int):
             log.info("email resend: %s", st)
     except Exception:  # noqa: BLE001
         log.exception("email resend failed")
+    try:                # gallery clips kept outside the deploy bundle: fetch any the manifest lists and we lack
+        import libstore
+        libstore.tick()
+    except Exception:  # noqa: BLE001
+        log.exception("library store pass failed")
     if n % max(1, TICK_S // RETRY_TICK_S) == 0:
         with app.app_context():
             run_once(app.secret_key)

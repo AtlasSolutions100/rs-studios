@@ -3281,6 +3281,8 @@ if __name__ == "__main__" and not os.environ.get("RS_TEST_ONE"):
     subprocess.run([sys.executable, os.path.join(HERE, "test_card_import_hardening.py")], check=True)
     # Site admins (site_admins.py): one admin makes another, by the whole email of a confirmed account; never silent.
     subprocess.run([sys.executable, os.path.join(HERE, "test_site_admins.py")], check=True)
+    # Gallery clips kept outside the deploy bundle (libstore.py): fetched once from a pinned commit, checked by hash.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_libstore.py")], check=True)
     # The deploy bundle fits the deploy hook's body limit (git archive, base64, 64 MiB), with room to spare.
     subprocess.run([sys.executable, os.path.join(HERE, "test_bundle_size.py")], check=True)
     # Everyone confirms their email (verify.everyone, confirm_step.py): the step before the plan, the wrong-address fix.

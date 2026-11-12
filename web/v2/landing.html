@@ -188,8 +188,8 @@
     <div class="lv-show" data-showcase="{{ shots|length }}">
       {% for it in shots %}
       <figure class="lv-shot">
-        {% if it.kind == 'video' %}<div class="lv-vid"><video class="a{{ (it.aspect or '9:16')|replace(':', 'x') }}" data-inview muted loop playsinline preload="none" {% if it.poster %}data-poster="{{ url_for('static', filename=it.poster) }}"{% endif %} width="{{ it.width }}" height="{{ it.height }}" aria-label="{{ it.alt }}"><source src="{{ url_for('static', filename=it.src) }}" type="video/mp4"></video>{% if it.presenter %}<span class="lv-clip-tag">AI presenter</span>{% endif %}{% if it.sound %}<button type="button" class="lv-clip-snd" data-sound aria-pressed="false" aria-label="Sound for {{ it.preset_name or it.caption }}">Sound off</button>{% endif %}</div>
-        {% else %}<img src="{{ url_for('static', filename=it.src) }}" alt="{{ it.alt }}" width="{{ it.width }}" height="{{ it.height }}" loading="lazy" decoding="async">{% endif %}
+        {% if it.kind == 'video' %}<div class="lv-vid"><video class="a{{ (it.aspect or '9:16')|replace(':', 'x') }}" data-inview muted loop playsinline preload="none" {% if it.poster %}data-poster="{{ it.poster_url }}"{% endif %} width="{{ it.width }}" height="{{ it.height }}" aria-label="{{ it.alt }}"><source src="{{ it.url }}" type="video/mp4"></video>{% if it.presenter %}<span class="lv-clip-tag">AI presenter</span>{% endif %}{% if it.sound %}<button type="button" class="lv-clip-snd" data-sound aria-pressed="false" aria-label="Sound for {{ it.preset_name or it.caption }}">Sound off</button>{% endif %}</div>
+        {% else %}<img src="{{ it.url }}" alt="{{ it.alt }}" width="{{ it.width }}" height="{{ it.height }}" loading="lazy" decoding="async">{% endif %}
         <figcaption>{% if it.preset_name %}<b>{{ it.preset_name }}</b>{% endif %}{% if it.caption and it.caption != it.preset_name %}<span>{{ it.caption }}</span>{% endif %}</figcaption>
       </figure>
       {% endfor %}
