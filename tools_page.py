@@ -18,7 +18,7 @@ customers. If email isn't connected the request is still saved and the page give
 import logging
 import os
 
-from flask import Blueprint, current_app, flash, g, redirect, render_template, request, url_for
+from flask import Blueprint, flash, g, redirect, render_template, request, url_for
 
 import db
 import ui_v2
@@ -123,10 +123,10 @@ def featured(conn) -> list[dict]:
             "cta": "Tell us what you need", "href": url_for("tools.done_for_you")}]
     try:
         import mcpserver
-        if mcpserver.enabled() and "mcp_page" in current_app.view_functions:
+        if mcpserver.enabled():
             out.append({"key": "mcp", "title": "Make ads from Claude or ChatGPT",
                         "line": "Connect Campaignify to the assistant you already use and ask it for ads there.",
-                        "cta": "See how to connect", "href": url_for("mcp_page")})
+                        "cta": "See how to connect", "href": "/mcp"})
     except Exception as e:  # noqa: BLE001  (a featured card is never a reason for the page to fail)
         log.warning("the MCP card was left out: %s", str(e)[:120])
     try:
