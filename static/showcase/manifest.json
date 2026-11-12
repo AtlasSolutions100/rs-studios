@@ -11,12 +11,12 @@
     "aspect": "videos only: 9:16, 4:5, 1:1 or 16:9 (images are measured)",
     "presenter": "videos only: true when a person is on screen; the tile is tagged AI presenter",
     "sound": "videos only: true when the clip has speech; the tile gets a Sound button",
-    "group": "optional: local for a local business or service (roofing, a salon, a food truck); the app's Inspiration lists those together",
+    "group": "optional: the app's Inspiration lists these together. local for a local business or service (roofing, a salon, a food truck); tryon for clothing worn by a presenter; apps for an app or software; unboxing for a box being opened",
     "store": "optional, videos: {sha256, bytes} of a file that lives in the library store instead of this folder (libstore.py). Its poster still goes in this folder."
   },
   "_sizes": "Images: JPEG or WebP, 1080 px on the short side, under 400 KB. Videos: MP4 (H.264), 540x960, 5 to 10 seconds, under 600 KB (about 400 kbit/s), each with a poster. Everything here rides in the deploy bundle, which has a size limit (tests/test_bundle_size.py), so keep clips small. A mix of images and videos fills the grid best; at most 16 are shown on the home page.",
   "_store": {
-    "commit": "6d8bf1d3573bb22fe19c3166eb8440bc5cf3ade2",
+    "commit": "6a01d574be04c8ec4c5b37d6155a0ef2d2e006d7",
     "dir": "assets_staging/showcase_540",
     "_about": "Where store items come from (libstore.py): this repository's own tree at exactly this commit. An item with a store block is not in this folder or the deploy bundle; the server fetches it once and keeps it only if its size and SHA-256 match."
   },
@@ -33,14 +33,20 @@
       "sound": true
     },
     {
-      "file": "ex-roofing.mp4",
+      "file": "ex2-tryon-denim-jacket.mp4",
       "kind": "video",
-      "poster": "ex-roofing.webp",
+      "poster": "ex2-tryon-denim-jacket.webp",
       "aspect": "9:16",
-      "title": "Roof replacement",
-      "caption": "A new shingle roof as a roofer nails the last shingle.",
-      "alt": "A newly shingled house roof while a roofer nails down the last shingle.",
-      "group": "local"
+      "title": "Denim jacket try-on",
+      "caption": "A mirror try-on of a plain denim jacket, showing the sleeve length.",
+      "alt": "An AI presenter: a woman films herself in a bedroom mirror wearing a denim jacket over a white tee and jeans, turning and showing the sleeve at her wrist.",
+      "presenter": true,
+      "sound": true,
+      "group": "tryon",
+      "store": {
+        "sha256": "08ff8e708edd1a225c8c66bc9008c8d1b00dcedbb5c553d7b42f1f717d7062f3",
+        "bytes": 411265
+      }
     },
     {
       "file": "season-autumn.webp",
@@ -50,15 +56,20 @@
       "alt": "A candle on a wooden table with a blanket, a small pumpkin and autumn leaves; headline \"Made for slow afternoons\" and a Shop now button."
     },
     {
-      "file": "ex-coffee-presenter.mp4",
+      "file": "ex2-web-app-demo.mp4",
       "kind": "video",
-      "poster": "ex-coffee-presenter.webp",
+      "poster": "ex2-web-app-demo.webp",
       "aspect": "9:16",
-      "title": "Coffee beans",
-      "caption": "A woman in her kitchen talks about a bag of coffee beans.",
-      "alt": "An AI presenter: a woman standing in a home kitchen holds a bag of coffee beans and talks to the camera.",
+      "preset": "web-app-demo",
+      "caption": "A hook to camera, then the app's own screen above the presenter.",
+      "alt": "An AI presenter in a grey hoodie opens with a line to camera in an office hallway; then a made-up planner web app plays across the top of the frame, tasks being ticked off, while he talks below it. Captions follow his words.",
       "presenter": true,
-      "sound": true
+      "sound": true,
+      "group": "apps",
+      "store": {
+        "sha256": "1c4d53622caa22a3fc6d2147cada74913810be4fe50d291e2b0dc02350a8f190",
+        "bytes": 388924
+      }
     },
     {
       "file": "ex-running-shoes.mp4",
@@ -75,6 +86,104 @@
       "preset": "compare",
       "caption": "Comparison",
       "alt": "A green travel mug above a two-column table comparing a paper cup with the mug; headline \"One mug, every day\"."
+    },
+    {
+      "file": "ex2-unboxing-mug.mp4",
+      "kind": "video",
+      "poster": "ex2-unboxing-mug.webp",
+      "aspect": "9:16",
+      "title": "Mug unboxing",
+      "caption": "A presenter in his kitchen unwraps a speckled stoneware mug.",
+      "alt": "An AI presenter: a man in a kitchen opens a plain cardboard box, unwraps paper and holds up a speckled cream mug while talking to the camera.",
+      "presenter": true,
+      "sound": true,
+      "group": "unboxing",
+      "store": {
+        "sha256": "006b665b41397721bf3497ccffed979647f5fddceb8b8b136340fc453377b2f7",
+        "bytes": 422209
+      }
+    },
+    {
+      "file": "ex-roofing.mp4",
+      "kind": "video",
+      "poster": "ex-roofing.webp",
+      "aspect": "9:16",
+      "title": "Roof replacement",
+      "caption": "A new shingle roof as a roofer nails the last shingle.",
+      "alt": "A newly shingled house roof while a roofer nails down the last shingle.",
+      "group": "local"
+    },
+    {
+      "file": "callouts.webp",
+      "kind": "image",
+      "preset": "callouts",
+      "caption": "Feature callouts",
+      "alt": "A green travel mug on a rock with three feature labels beside it; headline \"What you get\" and a See more button."
+    },
+    {
+      "file": "ex-coffee-presenter.mp4",
+      "kind": "video",
+      "poster": "ex-coffee-presenter.webp",
+      "aspect": "9:16",
+      "title": "Coffee beans",
+      "caption": "A woman in her kitchen talks about a bag of coffee beans.",
+      "alt": "An AI presenter: a woman standing in a home kitchen holds a bag of coffee beans and talks to the camera.",
+      "presenter": true,
+      "sound": true
+    },
+    {
+      "file": "ex2-showcase-steel-bottle.mp4",
+      "kind": "video",
+      "poster": "ex2-showcase-steel-bottle.webp",
+      "aspect": "9:16",
+      "title": "Steel water bottle",
+      "caption": "A matte green steel bottle on wet stone, water running down its sides.",
+      "alt": "A matte green steel water bottle stands on wet dark stone while water drops run down it and the camera slowly moves closer.",
+      "sound": true,
+      "store": {
+        "sha256": "6a953555ba27365688980b9329f2efb5d75a954933d8529e24738b9779877e03",
+        "bytes": 252592
+      }
+    },
+    {
+      "file": "doorstep.webp",
+      "kind": "image",
+      "preset": "doorstep",
+      "caption": "Just arrived",
+      "alt": "A candle sitting in an open delivery box on a doormat; headline \"It's here.\""
+    },
+    {
+      "file": "ex-taco-truck.mp4",
+      "kind": "video",
+      "poster": "ex-taco-truck.webp",
+      "aspect": "9:16",
+      "title": "Taco truck",
+      "caption": "Tacos made and handed out of a food truck window.",
+      "alt": "Tacos being assembled inside a food truck and handed out through the service window.",
+      "group": "local"
+    },
+    {
+      "file": "ex2-tryon-midi-dress.mp4",
+      "kind": "video",
+      "poster": "ex2-tryon-midi-dress.webp",
+      "aspect": "9:16",
+      "title": "Midi dress try-on",
+      "caption": "A hallway mirror try-on of an olive midi dress with pockets.",
+      "alt": "An AI presenter: a woman in an olive midi dress films herself in a hallway mirror, puts a hand in a pocket and turns around once.",
+      "presenter": true,
+      "sound": true,
+      "group": "tryon",
+      "store": {
+        "sha256": "d89a2b041e732b53348102de00ba8edd55fd7f2dfb00897eb299bb0e7216004b",
+        "bytes": 408802
+      }
+    },
+    {
+      "file": "marketplace.webp",
+      "kind": "image",
+      "preset": "marketplace",
+      "caption": "Marketplace image",
+      "alt": "A green travel mug alone on a pure white background, with no text."
     },
     {
       "file": "ex-lawn-care-presenter.mp4",
@@ -96,24 +205,8 @@
       "caption": "Unboxing, no presenter",
       "alt": "Two hands open a plain cardboard box and lift out a candle in an amber jar.",
       "preset": "pov-unboxing",
-      "sound": true
-    },
-    {
-      "file": "callouts.webp",
-      "kind": "image",
-      "preset": "callouts",
-      "caption": "Feature callouts",
-      "alt": "A green travel mug on a rock with three feature labels beside it; headline \"What you get\" and a See more button."
-    },
-    {
-      "file": "ex-taco-truck.mp4",
-      "kind": "video",
-      "poster": "ex-taco-truck.webp",
-      "aspect": "9:16",
-      "title": "Taco truck",
-      "caption": "Tacos made and handed out of a food truck window.",
-      "alt": "Tacos being assembled inside a food truck and handed out through the service window.",
-      "group": "local"
+      "sound": true,
+      "group": "unboxing"
     },
     {
       "file": "team-app-demo.mp4",
@@ -124,14 +217,8 @@
       "alt": "An AI presenter in a navy hoodie holds up a phone showing a to-do list, ticks a box and talks to the camera.",
       "title": "Presenter video",
       "presenter": true,
-      "sound": true
-    },
-    {
-      "file": "doorstep.webp",
-      "kind": "image",
-      "preset": "doorstep",
-      "caption": "Just arrived",
-      "alt": "A candle sitting in an open delivery box on a doormat; headline \"It's here.\""
+      "sound": true,
+      "group": "apps"
     },
     {
       "file": "ex-serum.mp4",
@@ -155,13 +242,6 @@
       "group": "local"
     },
     {
-      "file": "marketplace.webp",
-      "kind": "image",
-      "preset": "marketplace",
-      "caption": "Marketplace image",
-      "alt": "A green travel mug alone on a pure white background, with no text."
-    },
-    {
       "file": "ex-hair-salon.mp4",
       "kind": "video",
       "poster": "ex-hair-salon.webp",
@@ -170,6 +250,77 @@
       "caption": "Hair trimmed, blow-dried and shown in a hand mirror at a small salon.",
       "alt": "Long brown hair being trimmed with scissors, blow-dried into soft waves, then shown from behind in a hand mirror.",
       "group": "local"
+    },
+    {
+      "file": "ex2-tryon-wool-coat.mp4",
+      "kind": "video",
+      "poster": "ex2-tryon-wool-coat.webp",
+      "aspect": "9:16",
+      "title": "Wool coat try-on",
+      "caption": "A mirror try-on of a camel wool coat.",
+      "alt": "An AI presenter: a bearded man films himself in a mirror wearing a camel wool coat, turns to show its length and puts a hand in a pocket.",
+      "presenter": true,
+      "sound": true,
+      "group": "tryon",
+      "store": {
+        "sha256": "7fda788fba513b7283e19d50964fbe93f851f4353be6ca64f586aba86a73dc1e",
+        "bytes": 390464
+      }
+    },
+    {
+      "file": "ex2-unboxing-pov-bottle.mp4",
+      "kind": "video",
+      "poster": "ex2-unboxing-pov-bottle.webp",
+      "aspect": "9:16",
+      "title": "Unboxing, first person",
+      "caption": "Hands open a plain kraft box and lift out a frosted glass bottle.",
+      "alt": "Seen from above, two hands open a plain kraft box on a wooden table, pull back tissue paper and lift out a frosted glass bottle with a silver cap.",
+      "group": "unboxing",
+      "store": {
+        "sha256": "b65d4461dedb57af3d4909285c05f56318450b54cfb747fcf584897581f064ee",
+        "bytes": 377142
+      }
+    },
+    {
+      "file": "ex2-unboxing-pov-throw.mp4",
+      "kind": "video",
+      "poster": "ex2-unboxing-pov-throw.webp",
+      "aspect": "9:16",
+      "title": "Knit throw unboxing",
+      "caption": "Hands unbox a chunky-knit throw and set it on a sofa.",
+      "alt": "Seen from above, two hands open a plain cardboard box on a wooden floor, lift out a folded cream chunky-knit throw and lay it on a cream sofa, smoothing it with one hand.",
+      "group": "unboxing",
+      "store": {
+        "sha256": "751ef7cba1a217b6bfe13c639762416a3552ff0a0431dbf4b56c7cc77dfb4610",
+        "bytes": 496060
+      }
+    },
+    {
+      "file": "ex2-showcase-planter.mp4",
+      "kind": "video",
+      "poster": "ex2-showcase-planter.webp",
+      "aspect": "9:16",
+      "title": "Ceramic planter",
+      "caption": "A ribbed ceramic planter with a trailing plant in window light.",
+      "alt": "A ribbed off-white ceramic planter holding a trailing green plant on a wooden surface by a window; a hand turns it slightly.",
+      "store": {
+        "sha256": "e95220f4972832a6cd13cd4478c7589c234d226b5e6cf51b7991ea6b1f1c1874",
+        "bytes": 392511
+      }
+    },
+    {
+      "file": "ex2-showcase-cutting-board.mp4",
+      "kind": "video",
+      "poster": "ex2-showcase-cutting-board.webp",
+      "aspect": "9:16",
+      "title": "Olive-wood cutting board",
+      "caption": "An olive-wood cutting board on a stone counter with lemons.",
+      "alt": "An olive-wood cutting board on a light stone counter beside lemon halves and rosemary; a hand sets a wooden-handled knife down.",
+      "sound": true,
+      "store": {
+        "sha256": "ce09ca11f8c90cbcd317aa31d3353f34f375f6fee9567b9f00c407f9b7150f62",
+        "bytes": 246261
+      }
     },
     {
       "file": "preset-talk-to-camera.mp4",
