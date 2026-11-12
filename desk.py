@@ -117,8 +117,11 @@ def wanted(text: str) -> set:
 def is_home() -> bool:
     """Is the desk this member's home? Yes once they have made something, unless the link asks Studio for
     something (a mode, a batch to edit, a preset)."""
-    if any(request.args.get(k) for k in ("mode", "batch", "preset")):
+    if any(request.args.get(k) for k in ("mode", "batch", "preset", "made")):
         return False
+    import first_ads
+    if first_ads.on():              # the guided first run: the desk (and its guide) is home from the first minute
+        return True
     with db.connect() as conn:
         return conn.execute("SELECT 1 FROM jobs WHERE workspace_id=? LIMIT 1", (g.ws["id"],)).fetchone() is not None
 
@@ -398,7 +401,15 @@ def threads(conn, limit: int = THREADS_SHOWN) -> list[dict]:
                           "LIMIT ?", (g.ws["id"], limit)).fetchall():
         last = conn.execute("SELECT body_json FROM desk_turns WHERE thread_id=? AND kind='made' ORDER BY id DESC LIMIT 1",
                             (t["id"],)).fetchone()
-        made = [m for m in (_body(last).get("made") or []) if isinstance(m, dict) and m.get("href")] if last else []
+        body = _body(last) if last else {}
+        made = [dict(m) for m in (body.get("made") or []) if isinstance(m, dict) and m.get("href")]
+        if body.get("batch") and any(m.get("kind") == "ads" for m in made):
+            # what was said when they started ("Being made") is checked against the jobs as they are now
+            busy = conn.execute("SELECT COUNT(*) FROM jobs WHERE batch_id=? AND workspace_id=? AND deleted_at IS NULL AND "
+                                "status IN ('pending','running','made')", (body["batch"], g.ws["id"])).fetchone()[0]
+            for m in made:
+                if m.get("kind") == "ads":
+                    m["state"] = "Being made" if busy else "Ready"
         out.append({"id": t["id"], "title": t["title"] or "A campaign", "at": t["updated_at"], "made": made,
                     "href": url_for("desk.thread", tid=t["id"])})
     return out
@@ -702,6 +713,61 @@ def _now(conn) -> list[dict]:
     return out
 
 
+GUIDE_ASKS = 3            # example asks the guide offers as one-tap starts
+
+
+def guide(conn, ws, user, product, market, campaigns, shown) -> dict:
+    """What the agent says above the box: the next step for this workspace, from where it actually is (Koby, Nov 11
+    2026: "our campaignify ai agent that helps users set things up and talks them through and onboards"). Every
+    line is worked out from the workspace's own state: no model is called to draw the page, so it costs nothing and
+    never says something that isn't so. {"state", "text", "also", "acts": [{"label", "href"} | {"label", "ask"}]};
+    an "ask" fills the box below with that sentence.
+
+    In order: no product yet (read my website) -> the brief still to check -> the first ads on us (first_ads.py)
+    -> ads being made -> a campaign to pick up -> the first campaign."""
+    import first_ads
+    import onboarding
+    first = ((user["name"] or "").split() or [""])[0] if user is not None else ""
+    hi = f"Hi {first}. " if first else ""
+    asks = [{"label": e["title"], "ask": e["ask"]} for e in (shown or [])[:GUIDE_ASKS]]
+    also = ""
+    if market and market.get("reading"):
+        also = ("I'm still reading your site for your logo, colours, voice and who you compete with. "
+                "You can start now; what I learn shows up beside this.")
+    if product is None:
+        return {"state": "brand", "also": "", "acts": [{"label": "Read my website", "href": url_for("onboarding.brief")}],
+                "text": hi + "I'm your Campaignify agent. Start by pasting your website or product page and I'll learn "
+                             "the business: what you sell, how you sound and who buys it. Reading it costs nothing."}
+    name = product["name"]
+    if onboarding.answers(user).get("brief") == "due":
+        return {"state": "brief", "also": also, "acts": [{"label": "Check my brand", "href": url_for("onboarding.brief")}],
+                "text": hi + f"I read your page. Check what I understood about {name} before I write anything from "
+                             "it: a fix there improves every ad, caption and email."}
+    if first_ads.open_for(conn, ws, user):
+        room = first_ads.left(conn, ws["id"], user)
+        what = " and ".join(x for x in (_plural(room["image"], "image ad") if room["image"] else "",
+                                        "a short talking video" if room["talk"] else "") if x)
+        are = "is" if (room["image"] == 1 and not room["talk"]) or (not room["image"] and room["talk"]) else "are"
+        return {"state": "first", "also": also,
+                "acts": [{"label": "Review my first ads", "href": url_for("onboarding.first")}],
+                "text": hi + f"Your first {what} {are} on us. I drafted {'it' if are == 'is' else 'them'} for {name} from "
+                             "your page. Change any of the words, then make them."}
+    busy = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=? AND deleted_at IS NULL AND status IN "
+                        "('pending','running')", (ws["id"],)).fetchone()[0]
+    if busy and campaigns:
+        return {"state": "making", "also": also, "acts": [{"label": "Open " + _short(campaigns[0]["title"], 40),
+                                                         "href": campaigns[0]["href"]}],
+                "text": f"{_plural(busy, 'ad')} {'is' if busy == 1 else 'are'} being made. Open the campaign to watch "
+                        "them come in, or tell me what to plan next."}
+    if campaigns:
+        return {"state": "next", "also": also, "acts": asks,
+                "text": hi + f"What's next for {name}? Say it in a sentence below and I'll plan it: the ads, the "
+                             "words, a page and the follow-up, each with its price before anything is made."}
+    return {"state": "start", "also": also, "acts": asks,
+            "text": hi + f"Tell me what you're launching for {name} in a sentence and I'll plan the campaign: the ads, "
+                         "the words, a page and the follow-up. You see every price before anything is made."}
+
+
 def _boot(ws, product, conn) -> dict:
     """What the desk's script needs on either page: the product, what can be added, the pickers, the addresses."""
     have = {m["id"] for m in studio_v2.available_modes()}
@@ -743,7 +809,8 @@ def _brand_ctx(conn, ws, product) -> dict:
 @bp.route("/app/desk")
 @login_required
 def page():
-    """The desk: say what you are launching, or start from an example; your campaigns underneath."""
+    """The desk: your campaigns and the examples on top; at the foot, the agent's next step (guide) and the box
+    to say what you are launching."""
     if not ui_v2.on():
         return redirect(url_for("studio"))
     g.v2_tab = "desk"
@@ -762,8 +829,10 @@ def page():
         boot = _boot(ws, product, conn)
         brand_ctx = _brand_ctx(conn, ws, product)
         now = _now(conn)
-    return render_template("v2/desk.html", boot=boot, product=product, examples=examples(product), campaigns=campaigns,
-                           now=now, **brand_ctx)
+        shown = examples(product)
+        say = guide(conn, ws, g.user, product, brand_ctx.get("market"), campaigns, shown)
+    return render_template("v2/desk.html", boot=boot, product=product, examples=shown, campaigns=campaigns,
+                           now=now, guide=say, **brand_ctx)
 
 
 @bp.route("/app/desk/c/<int:tid>")
