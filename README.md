@@ -794,6 +794,13 @@ work is in there. Nothing is fetched, generated or charged.
 
 Tests: `tests/test_inspiration.py`.
 
+## The app's dotted background (new look)
+
+The working area of the app shell (`.shell .main`) carries a quiet grid of small grey dots (`--v2-dot`, 22 px apart)
+in both themes. The sidebar and every card keep their own surface. Where a pointer is used the pattern is fixed to
+the window, so the desk's docked box draws the same dots in the same places; on touch screens it scrolls with the
+page. `static/ui_v2.css` only: the first look is untouched.
+
 ## Use it from Claude, find things in the Library, and the desk's nudge (behind `UI_V2`)
 
 - **`/app/tools/assistant`** (`tools_page.assistant`, while `MCP_SERVER` is on): the MCP server's address with a Copy
