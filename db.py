@@ -494,6 +494,13 @@ CREATE INDEX IF NOT EXISTS idx_plan_trials_fp ON plan_trials(fingerprint);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_plan_trials_sub ON plan_trials(subscription_id);
 CREATE INDEX IF NOT EXISTS idx_plan_trials_ws ON plan_trials(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_plan_trials_email ON plan_trials(email_norm);
+-- The first ads on us (first_run.py): one row per gifted ad. A row is claimed (job_id NULL) before anything is
+-- granted, so two requests at once can never both take the same slot; a slot whose ad did not start is given back.
+CREATE TABLE IF NOT EXISTS first_gifts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, kind TEXT NOT NULL, slot INTEGER NOT NULL,
+    job_id INTEGER, credits INTEGER NOT NULL DEFAULT 0, email_norm TEXT, created_at TEXT NOT NULL,
+    UNIQUE(workspace_id, kind, slot));
+CREATE INDEX IF NOT EXISTS idx_first_gifts_email ON first_gifts(email_norm);
 -- The free campaign plan of an out-of-credits workspace (plan_paywall.py, RS_PLAN_PAYWALL): 1 per 30 days.
 CREATE TABLE IF NOT EXISTS free_plans (
     id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, campaign_id INTEGER, report_id INTEGER,
