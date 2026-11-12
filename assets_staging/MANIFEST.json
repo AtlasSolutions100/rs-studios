@@ -2760,5 +2760,29 @@
    "sha256": "006b665b41397721bf3497ccffed979647f5fddceb8b8b136340fc453377b2f7",
    "bytes": 422209
   }
+ },
+ {
+  "path": "showcase/ex-pizza-oven.mp4",
+  "kind": "showcase_video",
+  "title": "Wood-fired pizza",
+  "caption": "A pizza bakes in a wood-fired oven and comes out topped with basil.",
+  "alt": "A pizza goes into a glowing wood-fired oven, the crust puffs by the flames, then it sits on a wooden board with basil and a slice is lifted.",
+  "poster": "showcase/ex-pizza-oven.webp",
+  "model": "seedance_2_5",
+  "prompt": "Vertical ad for a small pizzeria, no faces. A warm restaurant kitchen at night. Shot 1: a pizza with tomato sauce and fresh mozzarella slides into a glowing wood-fired oven on a peel. Shot 2: close-up of the crust puffing and the cheese bubbling, flames behind. Shot 3: the pizza is pulled out, basil scattered on top, and sliced on a wooden board. Crackling fire, sizzling. Warm, realistic, shallow depth of field. No text, no logos, no watermark.",
+  "job_id": "c8829b79-d43a-4c58-b0d1-3190ced6f08f",
+  "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GvdxB9gfwtge4rv79iuyoXAckR/hf_20261112_143221_c8829b79-d43a-4c58-b0d1-3190ced6f08f.mp4",
+  "credits": 0,
+  "qa": "ok (5 frames, no text/logos; no speech)",
+  "notes": "Run 2 (free lane): made in the web app with Unlimited mode (720p, 8 s, 9:16).",
+  "presenter": false,
+  "style": "service-broll",
+  "script": "",
+  "transcript": "",
+  "served": {
+   "path": "assets_staging/showcase_540/ex-pizza-oven.mp4",
+   "sha256": "e560c33b5e73aaf5be58f4679270a4b6d0249904705a50be3f2b7f8cd6b9feac",
+   "bytes": 444695
+  }
  }
 ]
