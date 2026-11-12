@@ -50,11 +50,10 @@ def groups(product) -> list[dict]:
                                 "alt": "", "ask": e["ask"], "href": "", "where": "desk"})
     for it in public_site.showcase(64):
         cat = _cat(it)
-        still = it["poster"] if it["kind"] == "video" else it["src"]
         card = {"title": it["preset_name"] or it["caption"], "alt": it["alt"],
                 "line": it["caption"] if it["caption"] and it["caption"] != it["preset_name"] else "",
-                "image": url_for("static", filename=still) if still else "",
-                "video": url_for("static", filename=it["src"]) if it["kind"] == "video" else "",
+                "image": it["poster_url"] if it["kind"] == "video" else it["url"],
+                "video": it["url"] if it["kind"] == "video" else "",
                 "ask": "", "href": "", "where": ""}
         if it["preset"] and presets.get(it["preset"]) is not None:
             card.update(href=url_for("studio_v2.page", preset=it["preset"]), where="studio")

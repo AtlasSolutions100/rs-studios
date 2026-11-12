@@ -1166,13 +1166,16 @@ def _image_size(path: str):
 
 
 def showcase(limit: int = SHOWCASE_MAX) -> list[dict]:
-    """The home page's gallery, from the manifest: [{"src" (under static/), "kind", "preset", "preset_name" (the
+    """The home page's gallery, from the manifest: [{"url" and "poster_url" (the addresses a page uses: /static/...,
+    or /lib/... for a store item, libstore.py), "store", "src" (under static/; a store item has no file there),
+    "kind", "preset", "preset_name" (the
     preset's name, else the entry's own title), "caption", "alt", "aspect", "width", "height", "poster", "presenter",
     "sound", "group" ("local" for a local business or service, else "")}]. An item is dropped when its file is missing, its kind or extension is wrong, or it has neither a
     caption nor an alt text. Read again when the manifest changes."""
+    import libstore
     path = os.path.join(SHOWCASE_DIR, SHOWCASE_MANIFEST)
     try:
-        key = (path, os.path.getmtime(path))
+        key = (path, os.path.getmtime(path), libstore.version())     # a store file that arrives shows without a restart
     except OSError:
         return []
     if _showcase["key"] != key:
@@ -1186,7 +1189,12 @@ def showcase(limit: int = SHOWCASE_MAX) -> list[dict]:
         for it in (raw.get("items") if isinstance(raw, dict) else None) or []:
             if not isinstance(it, dict):
                 continue
-            kind, name = str(it.get("kind") or "").lower(), _showcase_file(it.get("file"))
+            # A store item's file is on the data volume, not in this folder (libstore.py); until it has been
+            # fetched the item is left out, like any entry whose file is missing.
+            stored = isinstance(it.get("store"), dict)
+            kind = str(it.get("kind") or "").lower()
+            name = _showcase_file(it.get("file")) if not stored else \
+                (str(it.get("file")) if libstore.have(it.get("file")) else None)
             caption, alt = " ".join(str(it.get("caption") or "").split())[:140], " ".join(str(it.get("alt") or "").split())[:220]
             if kind not in SHOWCASE_EXT or name is None or not name.lower().endswith(SHOWCASE_EXT[kind]) or not (caption or alt):
                 continue
@@ -1203,6 +1211,8 @@ def showcase(limit: int = SHOWCASE_MAX) -> list[dict]:
                 poster = None
             title = pre.name if pre is not None else " ".join(str(it.get("title") or "").split())[:60]
             items.append({"src": "showcase/" + name, "kind": kind, "preset": pre.id if pre is not None else "",
+                          "url": libstore.url(name) if stored else "/static/showcase/" + name,
+                          "poster_url": "/static/showcase/" + poster if poster else "", "store": stored,
                           "preset_name": title, "caption": caption, "alt": alt or caption,
                           "aspect": aspect, "width": size[0], "height": size[1],
                           "poster": "showcase/" + poster if poster else "",

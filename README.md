@@ -436,9 +436,23 @@ imported like stills (`presenter__<id>__angle-left.png` and so on) and are never
 deploy hook, which refuses a body over 64 MiB. Pictures and clips under `static/` are nearly all of it. The first
 try at library 2 added 36 MB and main could not be deployed, so the clips were made smaller, the look-lock pictures
 came back out, and `tests/` is left out of the bundle (`.gitattributes`; the server image never had it).
-`tests/test_bundle_size.py` now fails a pull request that would not fit or would leave under 3 MiB free. More
-example media than that needs a home outside the bundle (the server's data volume or object storage), or a higher
-limit on the hook, which is a change on the server.
+`tests/test_bundle_size.py` now fails a pull request that would not fit or would leave under 3 MiB free.
+
+**The library store** (`libstore.py`, `LIB_STORE`, on by default) is where gallery clips go from now on, so the
+gallery can grow without the bundle. A manifest entry with a `"store": {"sha256", "bytes"}` block is a store item: its
+clip is not in `static/showcase/` (its small poster still is). The manifest's `_store` names one commit of this
+repository and a folder, today the served 540x960 encodes on branch `assets/library-2`
+(`assets_staging/showcase_540/`). The server fetches each store file once from
+`raw.githubusercontent.com/AtlasSolutions100/rs-studios/<commit>/<dir>/<file>`, keeps it on the data volume
+(`RS_DATA/libstore/`) only if its size and SHA-256 are the manifest's, and serves it at `/lib/<name>?v=<hash>`,
+cached for a year. The worker's mail loop tries within a minute of a deploy and again every 10 minutes while
+anything is missing; until a file is there its item is left out of the gallery, so a failed fetch never breaks a
+page. `/admin/library` shows "N of M on this server" and a "Fetch them now" button.
+
+To add a clip: encode it like the others (540x960, about 400 kbit/s, under 600 KB), commit it to the assets branch,
+put its poster in `static/showcase/`, add the manifest entry with its `store` block, and set `_store.commit` to the
+assets commit that has every store file. Keep the assets branch: the pinned commit must stay reachable. Two clips
+are store items today, neither among the home page's sixteen; `tests/test_libstore.py` covers the rest.
 
 **Library assets** (`library.py`, `/admin/library`, admin-only MCP tools). A site admin makes presenter stills, voice
 samples, the demo brand's packshots and preset examples as ordinary jobs in their own workspace, price first:

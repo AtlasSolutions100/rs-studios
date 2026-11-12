@@ -174,6 +174,8 @@ name: Deploy Campaignify (campaignify.ai)
 #   PRESENTER_STILLS       a presenter's approved situation still is the video model's first reference image
 #                          (presenters.py, worker.py), default off
 #   PRESENTER_VOICE_REF    a presenter's voice sample is sent as the audio reference, default off (needs a paid test first)
+#   LIB_STORE              gallery clips kept outside this bundle (libstore.py): the server fetches them from the repo's
+#                          own tree at the commit the manifest pins and checks each by SHA-256. On by default; 0 = off
 #   PRESENTER_ANGLES       with PRESENTER_STILLS: a presenter's look-lock pictures (the same person from three sides)
 #                          follow the still as reference images, default off (needs a paid test first)
 #   CLAIMS_CHECK_DAILY_MAX / CLAIMS_CHECK_WS_DAILY_MAX   the free claims check's daily caps (defaults 3000 and 150)
@@ -381,6 +383,7 @@ jobs:
           PRESENTER_STILLS: ${{ vars.PRESENTER_STILLS }}
           PRESENTER_VOICE_REF: ${{ vars.PRESENTER_VOICE_REF }}
           PRESENTER_ANGLES: ${{ vars.PRESENTER_ANGLES }}
+          LIB_STORE: ${{ vars.LIB_STORE }}
           CLAIMS_CHECK_DAILY_MAX: ${{ vars.CLAIMS_CHECK_DAILY_MAX }}
           CLAIMS_CHECK_WS_DAILY_MAX: ${{ vars.CLAIMS_CHECK_WS_DAILY_MAX }}
           RS_LIBRARY_STILL_MODEL: ${{ vars.RS_LIBRARY_STILL_MODEL }}
@@ -444,7 +447,7 @@ jobs:
                                              "BACKUP_MEDIA", "RS_DISK_MIN_GB", "RS_HEALTH_WORKER_MAX_AGE", "RS_LAUNCH_KIT", "UI_V2", "HOME_V2", "HOOK_TOOL", "HOOK_TOOL_DAILY_MAX",
                                              "TEXT_LAYERS", "CLAIMS_CHECK", "IMAGE_QA", "IMAGE_QA_DAILY_MAX", "IMAGE_QA_MODEL", "FREE_FIX",
                                              "FREE_FIX_MONTHLY_CAP",
-                                             "PRESENTER_STILLS", "PRESENTER_VOICE_REF", "PRESENTER_ANGLES", "CLAIMS_CHECK_DAILY_MAX",
+                                             "PRESENTER_STILLS", "PRESENTER_VOICE_REF", "PRESENTER_ANGLES", "LIB_STORE", "CLAIMS_CHECK_DAILY_MAX",
                                              "CLAIMS_CHECK_WS_DAILY_MAX", "RS_LIBRARY_STILL_MODEL", "RS_LIBRARY_STILL_USD",
                                              "KEYFRAME_VIDEO", "VIDEO_QA", "VIDEO_QA_DAILY_MAX", "FREE_FIX_VIDEO_MONTHLY_CAP",
                                              "RS_WORKER_PROCESS", "RS_TASK_THREADS",

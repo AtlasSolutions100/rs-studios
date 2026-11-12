@@ -944,6 +944,11 @@ def _library_form():
     return (f.get("kind") or ""), ids, options
 
 
+def _store_status() -> dict:
+    import libstore
+    return libstore.status()
+
+
 @bp.route("/admin/library", methods=["GET", "POST"])
 @admin_required
 def library_admin():
@@ -960,7 +965,15 @@ def library_admin():
         if request.method == "POST":
             do = request.form.get("do")
             try:
-                if do == "vendor_presets":
+                if do == "store_sync":
+                    import libstore                                # gallery clips kept outside the deploy bundle
+                    res = libstore.sync()
+                    left = len(libstore.missing())
+                    flash(f"Gallery store: {res['fetched']} fetched, {left} still missing."
+                          + (" Failed: " + ", ".join(res["failed"][:6]) + "." if res["failed"] else ""),
+                          "ok" if not left else "message")
+                    return redirect(url_for("create.library_admin") + "#status")
+                elif do == "vendor_presets":
                     vendor_presets = hf.vendor_presets()          # a free read of the vendor's own preset catalog
                 elif do == "generate":
                     res = library.generate(conn, ws, kind, ids, options, request.form.get("total"))
@@ -986,7 +999,7 @@ def library_admin():
                            still_usd=catalog.LIBRARY_STILL_USD, video_resolutions=library.VIDEO_RESOLUTIONS,
                            voice_range=library.VOICE_SECONDS_RANGE, voice_default=library.VOICE_SECONDS,
                            usd_480p=catalog.LIBRARY_USD_PER_SECOND_480P, keyframe_on=presets.keyframe_on(),
-                           ffmpeg_there=stitch.have())
+                           ffmpeg_there=stitch.have(), store=_store_status())
 
 
 @bp.route("/admin/library/file/<int:oid>")
