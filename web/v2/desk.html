@@ -1,53 +1,71 @@
 {% extends "base.html" %}{% block title %}Desk · Campaignify{% endblock %}
-{# The desk (desk.py): say what you are launching, or start from an example. The sentence starts a campaign, which
-   opens as a conversation (v2/desk_thread.html) with the priced plan in it. #}
+{# The desk (desk.py). On top: your campaigns and the examples. At the foot, docked: what the agent suggests next
+   (desk.guide: worked out from the workspace's own state, no model call) and the box to say what you are launching.
+   The sentence starts a campaign, which opens as a conversation (v2/desk_thread.html) with the priced plan in it. #}
 {% block body %}
-<div class="page full dk" data-desk>
+<div class="page full dk dk-home" data-desk>
   <div class="dk-main">
-    <h1 id="dk-h">What are we launching?</h1>
-    {% if product %}
-    <form class="dk-ask" data-ask-form>
-      <label class="sr" for="dk-ask">Say what you want to launch</label>
-      <textarea id="dk-ask" rows="3" maxlength="600" placeholder="Say it in a sentence" data-ask></textarea>
-      <div class="dk-ask-foot">
-        <div class="dk-chips">
-          <button type="button" class="dk-chip" data-sw-open aria-haspopup="dialog" aria-controls="sw-panel">{% if product.primary_photo_id %}<img src="{{ url_for('photo', pid=product.primary_photo_id) }}" alt="">{% endif %}{{ product.name }}</button>
-          {% if brief.offer %}<span class="dk-chip quiet">Offer: {{ brief.offer|truncate(48, true) }}</span>{% endif %}
+    <h1 id="dk-h" class="sr">Your desk</h1>
+    <div class="dk-top">
+      {% if campaigns %}
+      <section class="dk-camps" aria-labelledby="dk-runs-h">
+        <h2 id="dk-runs-h">Your campaigns</h2>
+        <ul>
+          {% for c in campaigns[:4] %}
+          <li><a href="{{ c.href }}">
+            <b>{{ c.title }}</b>
+            <span class="dk-camp-made">{% if c.made %}{% for m in c.made[:2] %}<span>{{ m.name }} · {{ m.state }}</span>{% endfor %}{% else %}Planned, nothing made yet{% endif %}</span>
+            <span class="dk-camp-at">{{ c.at|localtime }}</span>
+          </a></li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+      {% if product %}
+      <section class="dk-exs" aria-labelledby="dk-ex-h">
+        <h2 id="dk-ex-h">Start from an example</h2>
+        <div class="dk-ex-row">
+          {% for e in examples %}
+          <button type="button" class="dk-ex" data-try="{{ e.ask }}">
+            <span class="dk-ex-media">{% if e.image %}<img src="{{ e.image }}" alt="" loading="lazy">{% endif %}{% if e.video %}<video src="{{ e.video }}" muted loop playsinline preload="none" aria-hidden="true"></video>{% endif %}</span>
+            <b>{{ e.title }}</b>
+            <span>{{ e.line }}</span>
+          </button>
+          {% endfor %}
         </div>
-        <button class="btn" data-plan>Plan it</button>
-      </div>
-    </form>
-    <p class="dk-say" data-say role="status" hidden></p>
+      </section>
+      {% endif %}
+    </div>
 
-    <section class="dk-exs" aria-labelledby="dk-ex-h">
-      <h2 id="dk-ex-h">Start from an example</h2>
-      <div class="dk-ex-row">
-        {% for e in examples %}
-        <button type="button" class="dk-ex" data-try="{{ e.ask }}">
-          <span class="dk-ex-media">{% if e.image %}<img src="{{ e.image }}" alt="" loading="lazy">{% endif %}{% if e.video %}<video src="{{ e.video }}" muted loop playsinline preload="none" aria-hidden="true"></video>{% endif %}</span>
-          <b>{{ e.title }}</b>
-          <span>{{ e.line }}</span>
-        </button>
-        {% endfor %}
-      </div>
-    </section>
-    {% else %}
-    <div class="empty">Add your product first: the desk plans from what it knows about it. <a href="{{ url_for('onboarding.brief') }}">Set up your brand</a></div>
-    {% endif %}
-
-    {% if campaigns %}
-    <section class="dk-runs" aria-labelledby="dk-runs-h">
-      <h2 id="dk-runs-h">Your campaigns</h2>
-      <ul>
-        {% for c in campaigns %}
-        <li>
-          <div class="dk-run-top"><a href="{{ c.href }}"><b>{{ c.title }}</b></a><span>{{ c.at|localtime }}</span></div>
-          {% if c.made %}<div class="dk-run-made">{% for m in c.made %}<a href="{{ m.href }}">{{ m.name }}<span>{{ m.state }}</span></a>{% endfor %}</div>{% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-    </section>
-    {% endif %}
+    <div class="dk-dock">
+      <section class="dk-guide" aria-label="Your Campaignify agent" data-guide="{{ guide.state }}">
+        <span class="dk-guide-mark" aria-hidden="true"><svg viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0B0C0E"/><path d="M32 9C33.6 25 39 30.4 55 32C39 33.6 33.6 39 32 55C30.4 39 25 33.6 9 32C25 30.4 30.4 25 32 9Z" fill="#BDFA25"/></svg></span>
+        <div class="dk-guide-body">
+          <p class="dk-guide-who">Campaignify</p>
+          <p class="dk-guide-text">{{ guide.text }}</p>
+          {% if guide.also %}<p class="dk-guide-also" role="status">{{ guide.also }}</p>{% endif %}
+          {% if guide.acts %}
+          <div class="dk-guide-acts">
+            {% for a in guide.acts %}{% if a.href %}<a class="btn sm" href="{{ a.href }}">{{ a.label }}</a>{% else %}<button type="button" class="dk-chip" data-try="{{ a.ask }}">{{ a.label }}</button>{% endif %}{% endfor %}
+          </div>
+          {% endif %}
+        </div>
+      </section>
+      {% if product %}
+      <form class="dk-ask" data-ask-form>
+        <label class="sr" for="dk-ask">Say what you want to launch</label>
+        <textarea id="dk-ask" rows="2" maxlength="600" placeholder="Say what you're launching in a sentence" data-ask></textarea>
+        <div class="dk-ask-foot">
+          <div class="dk-chips">
+            <button type="button" class="dk-chip" data-sw-open aria-haspopup="dialog" aria-controls="sw-panel">{% if product.primary_photo_id %}<img src="{{ url_for('photo', pid=product.primary_photo_id) }}" alt="">{% endif %}{{ product.name }}</button>
+            {% if brief.offer %}<span class="dk-chip quiet">Offer: {{ brief.offer|truncate(48, true) }}</span>{% endif %}
+          </div>
+          <button class="btn" data-plan>Plan it</button>
+        </div>
+      </form>
+      <p class="dk-say" data-say role="status" hidden></p>
+      {% endif %}
+    </div>
   </div>
 
   <aside class="dk-side" aria-label="Your brand and what is waiting">
