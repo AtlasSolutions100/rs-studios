@@ -7,7 +7,7 @@ Every person in these files is an invented, AI-generated adult. No real brands, 
 
 | Folder / file | What | Count |
 |---|---|---|
-| `showcase/<name>.mp4` + `.webp` | Example ad videos (H.264 720x1280, ~1 Mbit/s, AAC 80k, 8 s, faststart) and posters (WebP 540x960 from ~1 s) | see MANIFEST (`kind: showcase_video`) |
+| `showcase/<name>.mp4` + `.webp` | Example ad videos (H.264 720x1280, ~1 Mbit/s, AAC 80k, 8 s, faststart) and posters (WebP 540x960 from ~1 s) | 19 (15 approved earlier + 4 new) |
 | `presenters/<id>/angle-left.webp`, `angle-right.webp`, `angle-profile.webp` | "Look-lock" angle pictures, 720x1280 WebP | 20 existing + 8 new presenters |
 | `presenters/<new id>/portrait.webp`, `<situation>.webp` | Portrait (864x1080) and 4 situation stills (720x1280) for the 8 new presenters | 8 x 5 |
 | `presenters/<id>/voice.mp3` | 5-8 s voice sample, mono MP3 96k, saying `presenters.voice_line(id)` | 28 |
