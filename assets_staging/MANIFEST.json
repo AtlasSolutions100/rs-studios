@@ -2736,5 +2736,29 @@
    "sha256": "751ef7cba1a217b6bfe13c639762416a3552ff0a0431dbf4b56c7cc77dfb4610",
    "bytes": 496060
   }
+ },
+ {
+  "path": "showcase/ex2-unboxing-mug.mp4",
+  "kind": "showcase_video",
+  "title": "Mug unboxing",
+  "caption": "A presenter in his kitchen unwraps a speckled stoneware mug.",
+  "alt": "An AI presenter: a man in a kitchen opens a plain cardboard box, unwraps paper and holds up a speckled cream mug while talking to the camera.",
+  "poster": "showcase/ex2-unboxing-mug.webp",
+  "model": "seedance_2_5",
+  "prompt": "Vertical phone video of the man in the reference image, same face and hair, in the same kitchen, wearing a completely plain light grey t-shirt with no print, no emblem and no logo. He opens a completely plain brown cardboard box with no printing, unwraps plain white paper and lifts out a speckled cream stoneware mug with no markings, turning it toward the camera. He looks into the lens and says in a warm, easy voice, exactly: \"Just arrived. A speckled mug, packed in plain paper.\" He says nothing else. Natural light, realistic, clear voice. No on-screen text, no subtitles, no captions, no labels, no logos, no brand names, no watermark.",
+  "job_id": "457f07af-189c-4ef3-bc51-404b852ee7e0",
+  "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GvdxB9gfwtge4rv79iuyoXAckR/hf_20261112_143135_457f07af-189c-4ef3-bc51-404b852ee7e0.mp4",
+  "credits": 56,
+  "qa": "ok on the redo (5 frames + zoom; transcript matches). First take had a small logo-like emblem on the t-shirt. Background shelf items are blurred, nothing readable.",
+  "notes": "Run 2 (credits lane): Seedance 2.5, 720p, 8 s, 9:16, with audio, via the Higgsfield MCP tools. Extra clip (own line). Presenter omar (kitchen still as image reference, omni_reference).",
+  "presenter": true,
+  "style": "unboxing",
+  "script": "Just arrived. A speckled mug, packed in plain paper.",
+  "transcript": "Just arrived, a speckled mug packed in plain paper.",
+  "served": {
+   "path": "assets_staging/showcase_540/ex2-unboxing-mug.mp4",
+   "sha256": "006b665b41397721bf3497ccffed979647f5fddceb8b8b136340fc453377b2f7",
+   "bytes": 422209
+  }
  }
 ]
