@@ -1168,7 +1168,7 @@ def _image_size(path: str):
 def showcase(limit: int = SHOWCASE_MAX) -> list[dict]:
     """The home page's gallery, from the manifest: [{"src" (under static/), "kind", "preset", "preset_name" (the
     preset's name, else the entry's own title), "caption", "alt", "aspect", "width", "height", "poster", "presenter",
-    "sound"}]. An item is dropped when its file is missing, its kind or extension is wrong, or it has neither a
+    "sound", "group" ("local" for a local business or service, else "")}]. An item is dropped when its file is missing, its kind or extension is wrong, or it has neither a
     caption nor an alt text. Read again when the manifest changes."""
     path = os.path.join(SHOWCASE_DIR, SHOWCASE_MANIFEST)
     try:
@@ -1207,7 +1207,8 @@ def showcase(limit: int = SHOWCASE_MAX) -> list[dict]:
                           "aspect": aspect, "width": size[0], "height": size[1],
                           "poster": "showcase/" + poster if poster else "",
                           "presenter": kind == "video" and it.get("presenter") is True,
-                          "sound": kind == "video" and it.get("sound") is True})
+                          "sound": kind == "video" and it.get("sound") is True,
+                          "group": "local" if it.get("group") == "local" else ""})
         _showcase.update(key=key, items=items)
     return list(_showcase["items"][:max(0, limit)])
 

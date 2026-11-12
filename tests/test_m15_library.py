@@ -442,6 +442,19 @@ try:
           and sum(p["gender"] == "male" for p in ro) >= 5 and sum(p["gender"] == "female" for p in ro) >= 5
           and presenters.get("nobody") is None and len({p["voice"]["id"] for p in ro}) >= 12,
           "eight situations, all used; five age bands or more; men and women; at least twelve distinct voices")
+    # Library 2 (Nov 12 2026): eight more presenters, and three look-lock pictures for everyone, shipped in the repo.
+    shipped = os.path.join(ROOT, "static", "presenters")
+    eight = ("ray", "luis", "omar", "ben", "dana", "gloria", "kai", "tess")
+    check(len(ro) == 28 and tuple(p["id"] for p in ro[20:]) == eight and len(presenters.VOICES) == 20
+          and len({p["voice"]["id"] for p in ro}) == 24 and all(presenters.record(i)["voice"] in presenters.VOICE_BY_ID for i in eight),
+          "28 presenters: the twenty as they were, then eight more, each with a voice of their own")
+    check(all(os.path.isfile(os.path.join(shipped, i, f"{n}.webp")) for i in eight
+              for n in ["portrait"] + presenters.situation_ids(i)),
+          "each of the eight ships with a portrait and a still for every one of their situations")
+    check(all(os.path.isfile(os.path.join(shipped, p["id"], f"{a}.webp")) for p in ro for a in presenters.ANGLES),
+          "every presenter ships with three look-lock pictures (used only while PRESENTER_ANGLES is on)")
+    check(not any(os.path.isfile(os.path.join(shipped, p["id"], "voice.mp3")) for p in ro),
+          "no voice sample ships yet: they wait until someone has listened to them")
     check(catalog.PRESENTERS == snap["catalog_presenters"] and len(catalog.PRESENTERS) == 8
           and set(catalog.PRESENTER_BY_ID) == set(presenters.IDS) == set(catalog.PRESENTER_VOICE)
           and [p["id"] for p in ro][:8] == [p["id"] for p in catalog.PRESENTERS]

@@ -415,6 +415,22 @@ ideally a script where they turn their head. Check that the face holds at least 
 plain wall and the neutral top never appear, and that the product still looks like its photos. The angle pictures are
 imported like stills (`presenter__<id>__angle-left.png` and so on) and are never shown to members.
 
+**Library 2** (Nov 12 2026; made on the owner's own Higgsfield account, staged on branch `assets/library-2` under
+`assets_staging/`, where `MANIFEST.json` has every file's model, prompt and job id). In the repo now:
+
+- 8 more presenters (`ray`, `luis`, `omar`, `ben`, `dana`, `gloria`, `kai`, `tess`: 28 in all), each with a portrait,
+  four situation stills and a voice descriptor of their own (20 descriptors in `presenters.VOICES`).
+- Three look-lock pictures for every one of the 28. `PRESENTER_ANGLES` is still off; its paid test above stands.
+- 19 example clips in `static/showcase/` (products and local businesses; 5 have a presenter talking), listed in the manifest.
+  The first 16 entries are the new look's home page gallery, so that part of the order keeps videos and pictures
+  mixed. An entry with `"group": "local"` is listed under **Local businesses** in the app's Inspiration
+  (`inspiration.py`), which now has five rows.
+- Not in the repo yet: the 28 voice samples (`voice.mp3`) and the audio-reference test clips. A local transcript
+  check found every sample says its line and every talking clip says only its script, but nobody has listened to
+  them. They stay staged until the owner has, because a sample in `static/presenters/<id>/` gets a play button in
+  the picker and a link in the MCP roster, and with `PRESENTER_VOICE_REF` off it is not the voice a video will have.
+  Three proposed places (work van, front yard, front counter) are text only in `roster_additions.json`.
+
 **Library assets** (`library.py`, `/admin/library`, admin-only MCP tools). A site admin makes presenter stills, voice
 samples, the demo brand's packshots and preset examples as ordinary jobs in their own workspace, price first:
 `quote_library_assets(kind, ids, options)` returns total credits and our estimate of the vendor's bill in USD

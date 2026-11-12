@@ -23,7 +23,7 @@ M15 adds, on the same two routes and with no new paid path:
                              run's own choice), and the Workflow tab's packs (PACKS). Each part is priced by
                              create_routes.quote_for and started by create_routes.generate_for with its own total, so
                              every rule Create has still applies to each one; the member confirms the sum once.
-    the presenter picker     `roster()` reads presenters.roster() (20 presenters, each with situations) and falls
+    the presenter picker     `roster()` reads presenters.roster() (28 presenters, each with situations) and falls
                              back to the first eight if that module is missing or fails; the chosen presenter and
                              situation ride along as `presenters` and `situation`.
     video presets            presets.recipes_for(): fixed video formats, pinned on a presenter video or a voiceover
