@@ -43,6 +43,28 @@
     </ul>
   </section>
   {% endfor %}
+  {% if insp %}
+  <section class="tp-insp" id="inspiration" aria-labelledby="tp-insp-h" data-tools-insp>
+    <div class="dk-exs-top">
+      <h2 id="tp-insp-h">Inspiration</h2>
+      <div class="dk-cats" role="group" aria-label="Kind of example">
+        {% for grp in insp %}<button type="button" class="dk-cat" data-cat-pick="{{ grp.key }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">{{ grp.name }}</button>{% endfor %}
+      </div>
+    </div>
+    <p class="tp-sub">Ads made here, by Campaignify. Pick one to start from it with your own product.</p>
+    {% for grp in insp %}
+    <div class="dk-ex-row tp-insp-row" data-cat="{{ grp.key }}" {{ 'hidden' if not loop.first }}>
+      {% for e in grp['items'] %}
+      <a class="dk-ex" href="{{ e.href or (url_for('desk.page', ask=e.ask) if has_product else url_for('onboarding.brief')) }}">
+        <span class="dk-ex-media">{% if e.image %}<img src="{{ e.image }}" alt="{{ e.alt }}" loading="lazy">{% endif %}{% if e.video %}<video src="{{ e.video }}" muted loop playsinline preload="none" aria-hidden="true"></video>{% endif %}</span>
+        <b>{{ e.title }}</b>
+        <span>{{ e.line or ('Opens in Studio with this look picked.' if e.where == 'studio' else 'Starts on your desk.') }}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
   <p class="tp-none" data-tools-none role="status" hidden>No tool matches that. Try another word, or say what you want on <a href="{{ url_for('desk.page') }}">your desk</a>.</p>
 </div>
 {% endblock %}
@@ -62,8 +84,22 @@
       grp.hidden = !shown; if(shown) any = true;
     });
     none.hidden = any; if(feat) feat.hidden = words.length > 0;
+    var insp = root.querySelector('[data-tools-insp]'); if(insp) insp.hidden = words.length > 0;
   }
   q.addEventListener('input', run);
+  var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  root.querySelectorAll('.dk-ex').forEach(function(b){
+    var v = b.querySelector('video'); if(!v || still) return;
+    function on(){ b.classList.add('playing'); var p = v.play(); if(p && p.catch) p.catch(function(){ b.classList.remove('playing'); }); }
+    function off(){ b.classList.remove('playing'); v.pause(); }
+    b.addEventListener('mouseenter', on); b.addEventListener('mouseleave', off); b.addEventListener('focus', on); b.addEventListener('blur', off);
+  });
+  root.querySelectorAll('[data-cat-pick]').forEach(function(chip){
+    chip.addEventListener('click', function(){
+      root.querySelectorAll('[data-cat-pick]').forEach(function(c){ c.setAttribute('aria-pressed', c === chip ? 'true' : 'false'); });
+      root.querySelectorAll('[data-cat]').forEach(function(row){ row.hidden = row.dataset.cat !== chip.dataset.catPick; });
+    });
+  });
 })();
 </script>
 {% endblock %}

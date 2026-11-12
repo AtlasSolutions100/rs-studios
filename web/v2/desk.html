@@ -22,17 +22,34 @@
       </section>
       {% endif %}
       {% if product %}
-      <section class="dk-exs" aria-labelledby="dk-ex-h">
-        <h2 id="dk-ex-h">Start from an example</h2>
-        <div class="dk-ex-row">
-          {% for e in examples %}
+      <section class="dk-exs" aria-labelledby="dk-ex-h" data-insp>
+        <div class="dk-exs-top">
+          <h2 id="dk-ex-h">Start from an example</h2>
+          {% if insp|length > 1 %}
+          <div class="dk-cats" role="group" aria-label="Kind of example">
+            {% for grp in insp %}<button type="button" class="dk-cat" data-cat-pick="{{ grp.key }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">{{ grp.name }}</button>{% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% for grp in insp %}
+        <div class="dk-ex-row" data-cat="{{ grp.key }}" {{ 'hidden' if not loop.first }}>
+          {% for e in grp['items'] %}
+          {% if e.href %}
+          <a class="dk-ex" href="{{ e.href }}">
+            <span class="dk-ex-media">{% if e.image %}<img src="{{ e.image }}" alt="{{ e.alt }}" loading="lazy">{% endif %}{% if e.video %}<video src="{{ e.video }}" muted loop playsinline preload="none" aria-hidden="true"></video>{% endif %}</span>
+            <b>{{ e.title }}</b>
+            <span>{{ e.line or 'Opens in Studio with this look picked.' }}</span>
+          </a>
+          {% else %}
           <button type="button" class="dk-ex" data-try="{{ e.ask }}">
-            <span class="dk-ex-media">{% if e.image %}<img src="{{ e.image }}" alt="" loading="lazy">{% endif %}{% if e.video %}<video src="{{ e.video }}" muted loop playsinline preload="none" aria-hidden="true"></video>{% endif %}</span>
+            <span class="dk-ex-media">{% if e.image %}<img src="{{ e.image }}" alt="{{ e.alt }}" loading="lazy">{% endif %}{% if e.video %}<video src="{{ e.video }}" muted loop playsinline preload="none" aria-hidden="true"></video>{% endif %}</span>
             <b>{{ e.title }}</b>
             <span>{{ e.line }}</span>
           </button>
+          {% endif %}
           {% endfor %}
         </div>
+        {% endfor %}
       </section>
       {% endif %}
     </div>
@@ -54,7 +71,7 @@
       {% if product %}
       <form class="dk-ask" data-ask-form>
         <label class="sr" for="dk-ask">Say what you want to launch</label>
-        <textarea id="dk-ask" rows="2" maxlength="600" placeholder="Say what you're launching" data-ask></textarea>
+        <textarea id="dk-ask" rows="2" maxlength="600" placeholder="Say what you're launching" data-ask>{{ ask }}</textarea>
         <div class="dk-ask-foot">
           <div class="dk-chips">
             <button type="button" class="dk-chip" data-sw-open aria-haspopup="dialog" aria-controls="sw-panel">{% if product.primary_photo_id %}<img src="{{ url_for('photo', pid=product.primary_photo_id) }}" alt="">{% endif %}{{ product.name }}</button>

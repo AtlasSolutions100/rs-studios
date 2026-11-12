@@ -1398,3 +1398,17 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 .dfy-note{margin:0;font-size:13px;color:var(--dim)}
 @media (max-width:900px){.tp-feat{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:640px){.dfy-two{grid-template-columns:minmax(0,1fr)}.tp-find{flex-basis:100%}}
+
+/* ---- inspiration by category (the desk's example row and the Tools page) ---- */
+.dk-exs-top{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap}
+.dk-cats{display:flex;gap:6px;flex-wrap:wrap}
+.dk-cat{min-height:32px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted);font:500 13px var(--body);cursor:pointer}
+.dk-cat:hover{border-color:var(--v2-line2);color:var(--ink)}
+.dk-cat[aria-pressed="true"]{background:var(--v2-inv);border-color:var(--v2-inv);color:var(--v2-inv-ink)}
+.dk-ex-row[hidden]{display:none}
+a.dk-ex{text-decoration:none}
+.tp-insp{display:flex;flex-direction:column;gap:12px;padding-top:8px}
+.tp-insp[hidden]{display:none}
+[data-ui="v2"] .tp .tp-insp h2{font-size:18px;color:var(--ink);letter-spacing:-.01em}
+.tp-insp-row{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+@media (max-width:640px){.dk-ex-row{grid-template-columns:repeat(2,minmax(0,1fr))}.tp-insp-row{grid-template-columns:repeat(2,minmax(0,1fr))}}

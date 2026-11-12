@@ -150,8 +150,13 @@ def page():
     g.v2_tab = "tools"
     with db.connect() as conn:
         cards = featured(conn)
+        ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone() or g.ws
+        import products
+        product = products.get_product(conn, ws["id"], ws["product_id"]) if ws["product_id"] else None
     groups = catalog()
-    return render_template("v2/tools.html", groups=groups, cards=cards, count=sum(len(x["tools"]) for x in groups))
+    import inspiration
+    return render_template("v2/tools.html", groups=groups, cards=cards, count=sum(len(x["tools"]) for x in groups),
+                           insp=inspiration.groups(product), has_product=product is not None)
 
 
 # ---------------------------------------------------------------- done for you
