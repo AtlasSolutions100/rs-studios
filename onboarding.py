@@ -318,7 +318,7 @@ def first():
                 return redirect(out["url"])
             flash(out.get("error") or "The ads could not be started. Nothing was used.")
             kept = request.form
-        room = first_ads.left(conn, ws["id"])
+        room = first_ads.left(conn, ws["id"], g.user)
         is_open = first_ads.open_for(conn, ws, g.user)
         d = first_ads.draft(conn, p)
         cost = first_ads.price(conn, p) if (p is not None and is_open) else {"image": 0, "talk": 0, "total": 0}

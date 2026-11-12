@@ -54,7 +54,7 @@
       {% if product %}
       <form class="dk-ask" data-ask-form>
         <label class="sr" for="dk-ask">Say what you want to launch</label>
-        <textarea id="dk-ask" rows="2" maxlength="600" placeholder="Say what you're launching in a sentence" data-ask></textarea>
+        <textarea id="dk-ask" rows="2" maxlength="600" placeholder="Say what you're launching" data-ask></textarea>
         <div class="dk-ask-foot">
           <div class="dk-chips">
             <button type="button" class="dk-chip" data-sw-open aria-haspopup="dialog" aria-controls="sw-panel">{% if product.primary_photo_id %}<img src="{{ url_for('photo', pid=product.primary_photo_id) }}" alt="">{% endif %}{{ product.name }}</button>

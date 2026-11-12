@@ -401,7 +401,15 @@ def threads(conn, limit: int = THREADS_SHOWN) -> list[dict]:
                           "LIMIT ?", (g.ws["id"], limit)).fetchall():
         last = conn.execute("SELECT body_json FROM desk_turns WHERE thread_id=? AND kind='made' ORDER BY id DESC LIMIT 1",
                             (t["id"],)).fetchone()
-        made = [m for m in (_body(last).get("made") or []) if isinstance(m, dict) and m.get("href")] if last else []
+        body = _body(last) if last else {}
+        made = [dict(m) for m in (body.get("made") or []) if isinstance(m, dict) and m.get("href")]
+        if body.get("batch") and any(m.get("kind") == "ads" for m in made):
+            # what was said when they started ("Being made") is checked against the jobs as they are now
+            busy = conn.execute("SELECT COUNT(*) FROM jobs WHERE batch_id=? AND workspace_id=? AND deleted_at IS NULL AND "
+                                "status IN ('pending','running','made')", (body["batch"], g.ws["id"])).fetchone()[0]
+            for m in made:
+                if m.get("kind") == "ads":
+                    m["state"] = "Being made" if busy else "Ready"
         out.append({"id": t["id"], "title": t["title"] or "A campaign", "at": t["updated_at"], "made": made,
                     "href": url_for("desk.thread", tid=t["id"])})
     return out
@@ -736,7 +744,7 @@ def guide(conn, ws, user, product, market, campaigns, shown) -> dict:
                 "text": hi + f"I read your page. Check what I understood about {name} before I write anything from "
                              "it: a fix there improves every ad, caption and email."}
     if first_ads.open_for(conn, ws, user):
-        room = first_ads.left(conn, ws["id"])
+        room = first_ads.left(conn, ws["id"], user)
         what = " and ".join(x for x in (_plural(room["image"], "image ad") if room["image"] else "",
                                         "a short talking video" if room["talk"] else "") if x)
         are = "is" if (room["image"] == 1 and not room["talk"]) or (not room["image"] and room["talk"]) else "are"

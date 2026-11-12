@@ -184,7 +184,7 @@ home = page(a, "/app")
 check("data-desk" not in home and "CFY_STUDIO" in home, "the first run keeps Studio as Home")
 check('href="/app/desk"' in home and "<span>Desk</span></a>" in home, "the desk has its own link above the tabs")
 d = page(a, "/app/desk")
-check("data-desk" in d and "What are we launching?" in d and "desk.js" in d, "the desk opens at /app/desk")
+check("data-desk" in d and "Your desk" in d and "desk.js" in d, "the desk opens at /app/desk")
 check(re.search(r'<a class="nav v2-desk on" href="/app/desk" aria-current=page>', d) is not None
       and re.search(r'<a class="nav v2-desk " href="/app/desk" >', home) is not None, "and it is marked as where you are, only on the desk")
 check("Burns for 40 hours. Hand poured in Texas" in d and "Free shipping this week" in d

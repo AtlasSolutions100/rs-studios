@@ -67,7 +67,7 @@ def page():
         trials = {p["code"]: plan_gate.trial_days(conn, g.ws, g.user, p["code"]) for p in plans.PAID}
         made = conn.execute("SELECT 1 FROM jobs WHERE workspace_id=? LIMIT 1", (g.ws["id"],)).fetchone() is not None
         import first_ads            # the first ads on us (the guided first run): said here when they are still open
-        gift = (first_ads.on() and any(first_ads.left(conn, g.ws["id"]).values())
+        gift = (first_ads.on() and any(first_ads.left(conn, g.ws["id"], g.user).values())
                 and not first_ads.used_elsewhere(conn, g.ws, g.user))
     terms = {code: plan_gate.terms(code, days) for code, days in trials.items()}
     return render_template("plan_pick.html", trials=trials, terms=terms, new=not made, owner=is_owner(),

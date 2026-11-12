@@ -21,6 +21,12 @@ same owner email in another workspace closes it here too.
 
 Who. A workspace with a plan (a trial counts: plan_gate.exempt), or a site admin looking at the step. Never a
 workspace that still has to pick a plan: the gate (plan_gate_routes) sends it to the plan step first.
+
+First means first. The image ads are on us only while the workspace has made no image ad outside the gift, and the
+talking video only while it has made no talking video outside it. So a member who skips the step and makes ads in
+Studio at the shown price has used "first" for that kind; one who made image ads but never a talking video still
+has the video on us. A site admin is let past this rule (still once per slot), so the step can be looked at on an
+account that has made ads before.
 """
 import json
 import logging
@@ -42,6 +48,7 @@ REASON = "first_ads"            # the ledger rows: the grant, and anything taken
 TITLE = "Your first campaign"
 CAST_SHOWN = 6
 KIND_OF_TOOL = {"ad_image": "image", "ugc_video": "talk"}
+TOOL_OF_KIND = {v: k for k, v in KIND_OF_TOOL.items()}
 
 
 def on() -> bool:
@@ -59,11 +66,23 @@ def _owner_email(conn, ws, user=None):
     return plan_gate._email_norm(row if row is not None else user)
 
 
-def left(conn, ws_id) -> dict:
+def _admin(user) -> bool:
+    return bool(user is not None and plan_gate._key(user, "is_admin"))
+
+
+def left(conn, ws_id, user=None) -> dict:
+    """How many of each are still on us. A kind the workspace has already made outside the gift is closed (it is
+    no longer a first), except for a site admin looking at the step."""
     out = dict(ALLOW)
     for r in conn.execute("SELECT kind, COUNT(*) AS n FROM first_gifts WHERE workspace_id=? GROUP BY kind", (ws_id,)):
         if r["kind"] in out:
             out[r["kind"]] = max(0, out[r["kind"]] - r["n"])
+    if not _admin(user):
+        for kind, tool in TOOL_OF_KIND.items():
+            if out[kind] and conn.execute("SELECT 1 FROM jobs j WHERE j.workspace_id=? AND j.tool=? AND NOT EXISTS "
+                                          "(SELECT 1 FROM first_gifts f WHERE f.job_id = j.id) LIMIT 1",
+                                          (ws_id, tool)).fetchone():
+                out[kind] = 0
     return out
 
 
@@ -77,7 +96,7 @@ def open_for(conn, ws, user=None) -> bool:
     """Something is still on us for this workspace, and it may take it now."""
     if ws is None or not on() or plan_gate.needs_plan(conn, ws, user):
         return False
-    return any(left(conn, ws["id"]).values()) and not used_elsewhere(conn, ws, user)
+    return any(left(conn, ws["id"], user).values()) and not used_elsewhere(conn, ws, user)
 
 
 def started(conn, ws_id) -> bool:
@@ -233,7 +252,7 @@ def make(conn, ws, user, product, form) -> dict:
     import studio_v2
     if not open_for(conn, ws, user):
         return {"error": "Your first ads have already been made. Anything more is made from your desk."}
-    parts, why = _parts(conn, product, form, left(conn, ws["id"]))
+    parts, why = _parts(conn, product, form, left(conn, ws["id"], user))
     if why:
         return {"error": why}
     only = [p for _k, p in parts]

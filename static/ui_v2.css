@@ -1282,6 +1282,7 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 /* ---- the first ads, on us (web/v2/onboard_first.html) ---- */
 .fa-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;align-items:start}
 .fa-card{display:flex;flex-direction:column;gap:10px;transition:opacity .15s}
+.fa-grid .fa-card{padding:20px 22px 22px}
 .fa-card.off{opacity:.55}
 .fa-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
 [data-ui="v2"] .fa-card h2{margin:0}
@@ -1302,6 +1303,7 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 .fa-face img{width:100%;height:100%;object-fit:cover;display:block}
 .fa-card .bb-note.over{color:var(--bad)}
 .fa-done{margin-top:24px}
+.fa-ways{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
 .fa-done .ob-link{margin-top:6px}
 @media (prefers-reduced-motion:reduce){.fa-card{transition:none}}
 
@@ -1333,4 +1335,18 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 .dk-home .dk-say{margin-top:0}
 @media (max-width:1320px){.dk-camps ul{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:1080px){.dk-home .dk-main{min-height:0}.dk-home .dk-side{padding-bottom:24px}}
-@media (max-width:640px){.dk-camps ul{grid-template-columns:minmax(0,1fr)}.dk-guide{padding:12px 14px}.dk-guide-text{font-size:15px}.dk-dock{padding-bottom:12px}}
+@media (max-height:700px) and (min-width:641px){.dk-home .dk-main{min-height:0}.dk-dock{position:static}}
+/* a phone: the agent speaks first, the campaigns and examples follow, and only the box (one line) stays at the foot */
+@media (max-width:640px){
+  .dk-camps ul{grid-template-columns:minmax(0,1fr)}
+  .dk-home .dk-main{gap:20px}
+  .dk-home .dk-dock{display:contents}
+  .dk-home .dk-top{padding-bottom:0;gap:24px}
+  .dk-home .dk-guide{order:-1;padding:12px 14px;max-width:none}
+  .dk-guide-text{font-size:15px}
+  .dk-home .dk-ask{position:sticky;bottom:10px;z-index:5;flex-direction:row;align-items:flex-end;gap:10px;padding:10px 10px 10px 14px}
+  [data-ui="v2"] .dk-home .dk-ask textarea{min-height:44px;height:44px;font-size:16px;padding:10px 0;resize:none}
+  .dk-home .dk-ask .dk-chips{display:none}
+  .dk-home .dk-ask .dk-ask-foot{flex:none}
+  .dk-home .dk-say{order:6}
+}

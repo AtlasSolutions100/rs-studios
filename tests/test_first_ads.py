@@ -349,6 +349,67 @@ check("Make my first ads" not in body and "not available here" in body, "and the
 r = f.post("/app/welcome/first", data=form(f))
 check(not jobs_of("f@example.com"), "posting anyway makes nothing")
 
+print("== first means first")
+h = ready("h@example.com")
+start_h = buckets("h@example.com")
+r = h.post("/app/studio/quote", json={"mode": "image", "product": ws_of("h@example.com")["product_id"], "text": "A headline",
+                                       "count": 1}, headers={"X-CSRF": csrf(h)})
+total_h = r.get_json()["total"]
+r = h.post("/app/studio/generate", json={"mode": "image", "product": ws_of("h@example.com")["product_id"], "text": "A headline",
+                                          "count": 1, "total": total_h}, headers={"X-CSRF": csrf(h)})
+check(r.status_code == 200 and sum(buckets("h@example.com")) == sum(start_h) - total_h,
+      "an image ad made in Studio is charged at the price shown")
+with db.connect() as conn:
+    check(first_ads.left(conn, user("h@example.com")["workspace_id"], user("h@example.com")) == {"image": 0, "talk": 1},
+          "after it the image ads are no longer a first; the talking video still is")
+body = page(h, "/app/welcome/first")
+check("Talking video, 8 seconds" in body and "Image ad 1" not in body, "the step offers only the video")
+r = h.post("/app/welcome/first", data=form(h))
+check(r.status_code == 302 and [j["tool"] for j in jobs_of("h@example.com")] == ["ad_image", "ugc_video"],
+      "ticked image ads that are not on us are not made")
+check(sum(buckets("h@example.com")) == sum(start_h) - total_h, "and the video cost nothing")
+with db.connect() as conn:
+    conn.execute("UPDATE users SET is_admin=1 WHERE email='h@example.com'")
+    conn.commit()
+    check(first_ads.left(conn, user("h@example.com")["workspace_id"], user("h@example.com")) == {"image": 2, "talk": 0},
+          "a site admin can still look at the step on an account that has made ads (each slot once)")
+
+print("== the agent on the desk")
+k = signup("k@example.com")
+with db.connect() as conn:
+    import onboarding
+    onboarding.finish(conn, user("k@example.com"))
+    conn.execute("UPDATE users SET name='Kay Lee' WHERE email='k@example.com'")
+    conn.commit()
+on_plan("k@example.com")
+body = page(k, "/app/desk")
+check('data-guide="brand"' in body and "Hi Kay." in body and "Read my website" in body and "data-ask-form" not in body,
+      "no product yet: the agent asks for the website, and there is no box to plan from")
+answer_questions(k)
+read_link(k)
+body = page(k, "/app/desk")
+check('data-guide="brief"' in body and "Check my brand" in body, "the link was read: the agent asks you to check the brief")
+k.post("/app/welcome/brand", data={"csrf": csrf(k), "do": "done"})
+k.post("/app/welcome/first", data={"csrf": csrf(k), "do": "skip"})
+body = page(k, "/app/desk")
+check('data-guide="first"' in body and "Your first 2 image ads and a short talking video are on us." in body
+      and "Review my first ads" in body and "/app/welcome/first" in body, "then it offers the first ads, on us")
+check(body.index("Start from an example") < body.index('data-guide="first"') < body.index("data-ask-form"),
+      "the examples are on top; the agent sits above the box at the foot")
+k.post("/app/welcome/first", data=form(k))
+body = page(k, "/app/desk")
+check('data-guide="making"' in body and "3 ads are being made" in body and "Your campaigns" in body,
+      "while they are made it says so and points at the campaign")
+check(body.index("Your campaigns") < body.index("Start from an example"), "your campaigns lead the page")
+check("2 image ads and 1 talking video · Being made" in body, "the campaign card shows what is being made")
+with db.connect() as conn:
+    conn.execute("UPDATE jobs SET status='done' WHERE workspace_id=?", (user("k@example.com")["workspace_id"],))
+    conn.commit()
+body = page(k, "/app/desk")
+check('data-guide="next"' in body and "What's next for Ember Candle?" in body, "when they are done it asks what is next")
+check("2 image ads and 1 talking video · Ready" in body, "and the card says they are ready")
+check(body.count('class="dk-chip" data-try="') >= 3, "with example asks one tap away")
+
 # ---------------------------------------------------------------- off
 print("== off without plans only")
 os.environ["PLANS_ONLY"] = "0"

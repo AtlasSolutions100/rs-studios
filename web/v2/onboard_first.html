@@ -7,7 +7,7 @@
 <div class="bb-start">
   <h1>Tell me what you sell first.</h1>
   <p class="ob-sub">Your first ads are drafted from your product, so that comes first. Paste your link and I read the page.</p>
-  <p><a class="btn" href="{{ url_for('onboarding.brief') }}">Set up your brand</a></p>
+  <p class="fa-ways"><a class="btn" href="{{ url_for('onboarding.brief') }}">Read my website</a><a class="ob-link" href="{{ url_for('products.new') }}">No website? Add it by hand</a></p>
 </div>
 {% elif not is_open %}
 <div class="bb-start">
@@ -18,9 +18,10 @@
 {% else %}
 {% set n_img = [d.looks|length, room.image]|min %}
 {% set has_talk = room.talk and d.cast %}
+{% set an = 'an' if seconds in (8, 11, 18) else 'a' %}
 <div class="bb-head">
   <h1>Your first ads are on us.</h1>
-  <p class="ob-sub">{% if n_img and has_talk %}{{ n_img }} image ad{{ '' if n_img == 1 else 's' }} and a {{ seconds }}-second talking video{% elif n_img %}{{ n_img }} image ad{{ '' if n_img == 1 else 's' }}{% else %}A {{ seconds }}-second talking video{% endif %} for {{ p.name }}, drafted from what you just checked. Change any of the words, then make them. They use none of your plan's credits.</p>
+  <p class="ob-sub">{% if n_img and has_talk %}{{ n_img }} image ad{{ '' if n_img == 1 else 's' }} and {{ an }} {{ seconds }}-second talking video{% elif n_img %}{{ n_img }} image ad{{ '' if n_img == 1 else 's' }}{% else %}{{ an|capitalize }} {{ seconds }}-second talking video{% endif %} for {{ p.name }}, drafted from what you just checked. Change any of the words, then make them. They use none of your plan's credits.</p>
 </div>
 <form method="post" action="{{ url_for('onboarding.first') }}" class="fa" data-first>
   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
