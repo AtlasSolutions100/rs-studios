@@ -420,16 +420,25 @@ imported like stills (`presenter__<id>__angle-left.png` and so on) and are never
 
 - 8 more presenters (`ray`, `luis`, `omar`, `ben`, `dana`, `gloria`, `kai`, `tess`: 28 in all), each with a portrait,
   four situation stills and a voice descriptor of their own (20 descriptors in `presenters.VOICES`).
-- Three look-lock pictures for every one of the 28. `PRESENTER_ANGLES` is still off; its paid test above stands.
-- 19 example clips in `static/showcase/` (products and local businesses; 5 have a presenter talking), listed in the manifest.
-  The first 16 entries are the new look's home page gallery, so that part of the order keeps videos and pictures
-  mixed. An entry with `"group": "local"` is listed under **Local businesses** in the app's Inspiration
-  (`inspiration.py`), which now has five rows.
+- 19 example clips in `static/showcase/` (products and local businesses; 5 have a presenter talking), listed in the
+  manifest, at 540x960 and about 400 kbit/s. The first 16 entries are the new look's home page gallery, so that part
+  of the order keeps videos and pictures mixed. An entry with `"group": "local"` is listed under **Local
+  businesses** in the app's Inspiration (`inspiration.py`), which now has five rows.
+- Not in the repo: the three look-lock pictures made for each of the 28 (84 files, 9 MB). Nothing uses them while
+  `PRESENTER_ANGLES` is off, and the deploy bundle has no room for them (below). They stay staged.
 - Not in the repo yet: the 28 voice samples (`voice.mp3`) and the audio-reference test clips. A local transcript
   check found every sample says its line and every talking clip says only its script, but nobody has listened to
   them. They stay staged until the owner has, because a sample in `static/presenters/<id>/` gets a play button in
   the picker and a link in the MCP roster, and with `PRESENTER_VOICE_REF` off it is not the voice a video will have.
   Three proposed places (work van, front yard, front counter) are text only in `roster_additions.json`.
+
+**The deploy bundle's limit.** `deploy.yml` sends the whole repo (`git archive`, base64 in one JSON body) to the
+deploy hook, which refuses a body over 64 MiB. Pictures and clips under `static/` are nearly all of it. The first
+try at library 2 added 36 MB and main could not be deployed, so the clips were made smaller, the look-lock pictures
+came back out, and `tests/` is left out of the bundle (`.gitattributes`; the server image never had it).
+`tests/test_bundle_size.py` now fails a pull request that would not fit or would leave under 3 MiB free. More
+example media than that needs a home outside the bundle (the server's data volume or object storage), or a higher
+limit on the hook, which is a change on the server.
 
 **Library assets** (`library.py`, `/admin/library`, admin-only MCP tools). A site admin makes presenter stills, voice
 samples, the demo brand's packshots and preset examples as ordinary jobs in their own workspace, price first:
