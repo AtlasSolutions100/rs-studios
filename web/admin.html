@@ -84,6 +84,20 @@
   <td><form method="post" action="{{ url_for('admin_credits') }}" class="row"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="workspace_id" value="{{ w.id }}"><input type="number" name="amount" value="1000" style="width:100px" aria-label="Credits to add or remove"><input type="text" name="reason" placeholder="reason" style="width:140px"><button class="btn sm">Add</button></form></td></tr>{% endfor %}
   </table></div>
 </div>
+<div class="panel scrollx" id="admins">
+  <h2>Site admins</h2>
+  <p class="small muted" style="margin:0 0 10px">{{ admin_can }} Add only someone who should have all of that.</p>
+  <table><tr><th>Email</th><th>Name</th><th>Workspace</th><th></th></tr>
+  {% for a in admins %}<tr><td>{{ a.email }}</td><td>{{ a.name or '' }}</td><td>{{ a.ws_name or '' }}</td><td>{% if a.id == g.user.id %}<span class="muted">You</span>{% else %}<form method="post" action="{{ url_for('site_admins.change') }}" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="remove"><input type="hidden" name="user" value="{{ a.id }}"><button class="btn sm">Remove</button></form>{% endif %}</td></tr>{% endfor %}</table>
+  <form method="post" action="{{ url_for('site_admins.change') }}" class="row" style="margin-top:12px;align-items:center">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="action" value="add">
+    <label class="sr" for="sa-email">Email of the account to make a site admin</label>
+    <input id="sa-email" type="email" name="email" placeholder="their account's email" required style="width:260px" autocomplete="off">
+    <label style="display:inline-flex;align-items:center;gap:6px;margin:0"><input type="checkbox" name="sure" value="1" required style="width:auto"> Give this account full admin access</label>
+    <button class="btn sm">Make a site admin</button>
+  </form>
+  <p class="small muted" style="margin:10px 0 0">The account must exist and have a confirmed email. Every site admin gets an email when this list changes.</p>
+</div>
 <div class="panel scrollx">
   <h2>Invites</h2>
   <form method="post" action="{{ url_for('admin_invite') }}" class="row">
