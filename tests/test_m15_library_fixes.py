@@ -737,10 +737,10 @@ try:
     print("== the bathroom-mirror situation is dressed for an ad platform")
     bath = [(p["id"], s["wardrobe"]) for p in presenters.all_presenters() for s in p["situations"]
             if s["id"] == "bathroom-mirror"]
-    check(len(bath) == 5 and {b[0] for b in bath} >= {"nia", "bex"}
-          and all(re.search(r"crew-neck tee|robe closed high|zip hoodie zipped", w) for _i, w in bath)
+    check(len(bath) == 6 and {b[0] for b in bath} >= {"nia", "bex", "tess"}
+          and all(re.search(r"crew-neck (tee|sweatshirt)|robe closed high|zip hoodie zipped", w) for _i, w in bath)
           and not any(re.search(r"tank|vest|low|strap|crop|towel wrap|bra\b", w) for _i, w in bath),
-          "every presenter with that situation wears a crew-neck tee, a closed robe or a zipped hoodie")
+          "every presenter with that situation wears a crew-neck tee or sweatshirt, a closed robe or a zipped hoodie")
     dress = presenters.SITUATIONS["bathroom-mirror"]["dress"]
     check("high, round neckline" in dress and "covers the shoulders" in dress
           and not re.search(r"\b(no|not|never|without)\b", dress.lower())
@@ -749,9 +749,10 @@ try:
           and dress not in presenters.still_prompt("maya", "kitchen"),
           "its stills say so, as what to draw (never a list of what not to); no other situation changed")
     check(presenters.situation("maya", "kitchen")["wardrobe"] == "an oatmeal-coloured knit sweater with the sleeves pushed up"
-          and presenters.situation("walt", "shop-floor")["wardrobe"] and len(presenters.all_presenters()) == 20
-          and sum(len(p["situations"]) for p in presenters.all_presenters()) == 70,
-          "the roster is otherwise what it was: 20 presenters, 70 situations")
+          and presenters.situation("walt", "shop-floor")["wardrobe"] and len(presenters.all_presenters()) == 28
+          and sum(len(p["situations"]) for p in presenters.all_presenters()[:20]) == 70
+          and sum(len(p["situations"]) for p in presenters.all_presenters()) == 102,
+          "the first twenty are what they were (70 situations); with library 2 there are 28 presenters, 102 situations")
 
     # ------------------------------------------------------------------ 6. an example's words are about its own product
     print("== every example's product matches its copy")
