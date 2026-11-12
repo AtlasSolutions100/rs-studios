@@ -1,0 +1,58 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Dapplewood Planner</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html{zoom:1.3333}body{width:960px;height:540px;overflow:hidden;font-family:"Inter","Helvetica Neue",Arial,sans-serif;background:#f4f2ec;color:#1d2a22}
+.top{height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;background:#fff;border-bottom:1px solid #e3dfd3}
+.brand{display:flex;align-items:center;gap:12px;font-weight:700;font-size:24px;color:#1f4d3a}
+.brand i{width:26px;height:26px;border-radius:8px;background:#1f4d3a;display:block}
+.week{font-size:20px;color:#55635b}
+.done{display:flex;align-items:center;gap:12px;font-size:20px;font-weight:600;color:#1f4d3a}
+.bar{width:180px;height:12px;border-radius:6px;background:#e3dfd3;overflow:hidden}.bar b{display:block;height:100%;width:22%;background:#1f4d3a;border-radius:6px;transition:width .6s ease}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding:22px 28px}
+.col h3{font-size:19px;font-weight:600;color:#55635b;margin-bottom:12px;display:flex;justify-content:space-between}
+.col h3 span{font-weight:500;color:#9aa39d}
+.card{background:#fff;border:1px solid #e3dfd3;border-radius:14px;padding:16px 14px;margin-bottom:12px;font-size:21px;font-weight:500;line-height:1.25;display:flex;gap:12px;align-items:flex-start;transition:opacity .4s,transform .4s,background .3s}
+.card u{flex:none;width:24px;height:24px;border-radius:50%;border:2px solid #b9c2bb;margin-top:1px;position:relative;transition:all .25s}
+.card.ok{background:#eef3ee}.card.ok u{background:#1f4d3a;border-color:#1f4d3a}
+.card.ok u:after{content:"";position:absolute;left:7px;top:3px;width:6px;height:11px;border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(45deg)}
+.card.ok span{color:#8a948d;text-decoration:line-through}
+.card.new{opacity:0;transform:translateY(-8px)}
+.add{border:2px dashed #cfd6d0;border-radius:14px;padding:12px;font-size:18px;color:#7c8780;text-align:center;transition:all .2s}
+.add.hot{border-color:#1f4d3a;color:#1f4d3a;background:#fff}
+.tag{display:inline-block;font-size:14px;font-weight:600;border-radius:20px;padding:2px 10px;margin-top:6px;background:#f5e6b8;color:#6b5210}
+#cur{position:absolute;left:520px;top:400px;width:26px;height:26px;z-index:9;transition:left .7s cubic-bezier(.3,.1,.2,1),top .7s cubic-bezier(.3,.1,.2,1)}
+#cur svg{display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
+#cur.tap{transform:scale(.86)}
+</style></head><body>
+<div class="top"><div class="brand"><i></i>Dapplewood Planner</div><div class="week">This week</div>
+<div class="done"><span id="n">2 of 9 done</span><div class="bar"><b id="b"></b></div></div></div>
+<div class="grid">
+ <div class="col"><h3>Mon <span>3</span></h3><div class="card ok"><u></u><span>Count the till</span></div><div class="card ok"><u></u><span>Unpack the delivery</span></div><div class="card"><u></u><span>Price the sale rail</span></div></div>
+ <div class="col"><h3>Tue <span>3</span></h3><div class="card" id="c1"><u></u><span>Restock the shelves</span></div><div class="card"><u></u><span>Call the supplier</span></div><div class="card"><u></u><span>Bank run</span></div></div>
+ <div class="col"><h3>Wed <span id="wn">1</span></h3><div class="card" id="c2"><u></u><span>Post the new arrivals</span></div><div class="card new" id="c3"><u></u><span id="t3"></span></div><div class="add" id="add">+ Add a task</div></div>
+ <div class="col"><h3>Thu <span>3</span></h3><div class="card"><u></u><span>Window display<br><em class="tag">Shared with Sam</em></span></div><div class="card"><u></u><span>Weekend rota</span></div><div class="card"><u></u><span>Tidy the stockroom</span></div></div>
+ 
+</div>
+<div id="cur"><svg width="26" height="26" viewBox="0 0 24 24"><path d="M5 2l14 9-6 1.5 3.5 7-2.8 1.3-3.4-7L6 18z" fill="#111" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg></div>
+<script>
+const $=id=>document.getElementById(id),cur=$('cur');
+const at=(ms,f)=>setTimeout(f,ms);
+const Z=1.3333;function go(el,dx,dy){const r=el.getBoundingClientRect();cur.style.left=(r.left/Z+(dx||20))+'px';cur.style.top=(r.top/Z+(dy||16))+'px'}
+function tap(){cur.classList.add('tap');setTimeout(()=>cur.classList.remove('tap'),160)}
+function done(n){$('n').textContent=n+' of 10 done';$('b').style.width=(n/10*100)+'%'}
+function run(){
+ at(500,()=>go($('add'),96,18));
+ at(1300,()=>{tap();$('add').classList.add('hot')});
+ at(1600,()=>{$('c3').classList.remove('new');$('wn').textContent='2';$('n').textContent='2 of 10 done';$('b').style.width='20%';
+   const s='Order more packaging';let i=0;const t=setInterval(()=>{$('t3').textContent=s.slice(0,++i);if(i>=s.length)clearInterval(t)},60)});
+ at(3300,()=>$('add').classList.remove('hot'));
+ at(3600,()=>go($('c1'),22,26));
+ at(4500,()=>{tap();$('c1').classList.add('ok');done(3)});
+ at(5300,()=>go($('c2'),22,26));
+ at(6200,()=>{tap();$('c2').classList.add('ok');done(4)});
+ at(7100,()=>go($('c3'),22,26));
+ at(8000,()=>{tap();$('c3').classList.add('ok');done(5)});
+ at(8900,()=>{cur.style.left='760px';cur.style.top='96px'});
+}
+window.addEventListener('load',()=>setTimeout(run,300));
+</script></body></html>
