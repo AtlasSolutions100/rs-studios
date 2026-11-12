@@ -768,6 +768,46 @@ def guide(conn, ws, user, product, market, campaigns, shown) -> dict:
                          "the words, a page and the follow-up. You see every price before anything is made."}
 
 
+NUDGE_KEY = "nudge_ad_accounts"       # kept with the member's answers (users.onboarding_json): "off" once dismissed
+
+
+def nudge(conn, ws, user, say) -> dict | None:
+    """One dismissible line above the box, for the single most useful next connection: the ad accounts, once the
+    workspace has a finished ad and nothing is connected. Where launching is on (AD_LAUNCH) it leads to Connections;
+    otherwise to the setup hub, when the plan includes it. Never while the agent is still walking the account
+    through its first steps, and never again for a member who dismissed it. {"text", "cta", "href"} or None."""
+    import adplatforms
+    import app as appmod
+    import onboarding
+    if user is None or (say or {}).get("state") in ("brand", "brief", "first"):
+        return None
+    if onboarding.answers(user).get(NUDGE_KEY) == "off":
+        return None
+    if conn.execute("SELECT 1 FROM jobs WHERE workspace_id=? AND status='done' AND deleted_at IS NULL LIMIT 1",
+                    (ws["id"],)).fetchone() is None:
+        return None
+    if adplatforms.enabled(ws, user) and appmod._has_endpoint("adconnect.settings"):
+        if adplatforms.has_stored(conn, ws["id"]):
+            return None
+        return {"text": "Your ads are ready. Connect your ad accounts to launch them from here.",
+                "cta": "Connect accounts", "href": url_for("adconnect.settings")}
+    if appmod._has_endpoint("adhub.index") and plans.has(ws, "adhub"):
+        return {"text": "Your ads are ready. Set up your ad accounts and export each ad in the platform's sizes.",
+                "cta": "Set up ad accounts", "href": url_for("adhub.index")}
+    return None
+
+
+@bp.route("/app/desk/nudge/off", methods=["POST"])
+@login_required
+def nudge_off():
+    """Dismiss the desk's nudge, for this member, for good."""
+    import onboarding
+    with db.connect() as conn:
+        onboarding.save(conn, g.user, **{NUDGE_KEY: "off"})
+        conn.commit()
+    return redirect(url_for("desk.page"))
+
+
 def _boot(ws, product, conn) -> dict:
     """What the desk's script needs on either page: the product, what can be added, the pickers, the addresses."""
     have = {m["id"] for m in studio_v2.available_modes()}
@@ -831,10 +871,11 @@ def page():
         now = _now(conn)
         shown = examples(product)
         say = guide(conn, ws, g.user, product, brand_ctx.get("market"), campaigns, shown)
+        tip = nudge(conn, ws, g.user, say)
     import inspiration
     ask = studio_v2._clean(request.args.get("ask"), 600)        # a sentence handed over by the Tools page's examples
     return render_template("v2/desk.html", boot=boot, product=product, examples=shown, campaigns=campaigns,
-                           now=now, guide=say, insp=inspiration.groups(product), ask=ask,
+                           now=now, guide=say, nudge=tip, insp=inspiration.groups(product), ask=ask,
                            has_tools="tools.page" in current_app.view_functions, **brand_ctx)
 
 

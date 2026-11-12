@@ -1712,6 +1712,24 @@ def start():
 
 LIB_TYPES = {"image": ("ad_image",), "video": ("photo_to_video", "motion_copy"), "talking": ("ugc_video",)}
 LIB_STATUS = {"done": ("done",), "making": ("pending", "running"), "failed": ("failed",)}
+LIB_WHEN = {"day": 1, "week": 7, "month": 30}       # the Date filter: made in the last N days
+LIB_Q_MAX = 80
+
+
+def _library_jobs(conn, where, args, q):
+    """The Library's rows, newest first. `q` matches the words of the ad: its brief, and the headline and label kept
+    with the job (where SQLite can read JSON; the brief alone otherwise)."""
+    import sqlite3
+    base = "SELECT j.* FROM jobs j WHERE " + " AND ".join(where)
+    tail = " ORDER BY j.id DESC LIMIT 200"
+    if not q:
+        return conn.execute(base + tail, args).fetchall()
+    like = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+    try:
+        return conn.execute(base + " AND (j.brief LIKE ? ESCAPE '\\' OR json_extract(j.params_json, '$.hook') LIKE ? ESCAPE '\\' "
+                            "OR json_extract(j.params_json, '$.label') LIKE ? ESCAPE '\\')" + tail, (*args, like, like, like)).fetchall()
+    except sqlite3.Error:
+        return conn.execute(base + " AND j.brief LIKE ? ESCAPE '\\'" + tail, (*args, like)).fetchall()
 
 
 @app.route("/app/library")
@@ -1724,8 +1742,14 @@ def library():
     pid = request.args.get("product", type=int)
     bid = request.args.get("brand", type=int)
     batch_id = request.args.get("batch", type=int)
-    filters = {k: request.args.get(k, "") for k in ("type", "status", "review")}
+    filters = {k: request.args.get(k, "") for k in ("type", "status", "review", "when")}
     where, args = ["j.workspace_id=?", "j.deleted_at IS NULL"], [g.ws["id"]]
+    q = " ".join((request.args.get("q") or "").split())[:LIB_Q_MAX]
+    if filters["when"] in LIB_WHEN:
+        from datetime import datetime, timedelta, timezone
+        since = datetime.now(timezone.utc) - timedelta(days=LIB_WHEN[filters["when"]])
+        where.append("j.created_at>=?")
+        args.append(since.replace(microsecond=0).isoformat())
     if pid:
         where.append("j.product_id=?")
         args.append(pid)
@@ -1749,8 +1773,7 @@ def library():
     elif filters["review"] == "unreviewed":
         where.append("j.status='done' AND NOT EXISTS (SELECT 1 FROM job_reviews r WHERE r.job_id=j.id)")
     with db.connect() as conn:
-        jobs = conn.execute(f"SELECT j.* FROM jobs j WHERE {' AND '.join(where)} ORDER BY j.id DESC LIMIT 200",
-                            args).fetchall()
+        jobs = _library_jobs(conn, where, args, q)
         outs = _outputs(conn, [j["id"] for j in jobs])
         names = {p["id"]: p["name"] for p in products.products(conn, g.ws["id"])}
         tree = products.tree(conn, g.ws)
@@ -1766,13 +1789,17 @@ def library():
             q.pop(key, None)
         return url_for("library", **q)
 
+    import ui_v2
     chips = [("type", {"label": "Type", "items": [("", "All"), ("talking", "Talking videos"), ("video", "Product videos"),
                                                   ("image", "Image ads")]}),
              ("status", {"label": "Status", "items": [("", "Any"), ("done", "Ready"), ("making", "Making"),
                                                       ("failed", "Failed")]}),
              ("review", {"label": "Review", "items": [("", "Any"), ("approved", "Approved"), ("rejected", "Rejected"),
                                                       ("unreviewed", "Not reviewed")]})]
-    return render_template("library.html", jobs=jobs, outs=outs, templates=catalog.TEMPLATE_BY_ID,
+    if ui_v2.on():      # the new look also filters by date (and searches: `q`)
+        chips.append(("when", {"label": "Date", "items": [("", "Any time"), ("day", "Last 24 hours"), ("week", "Last 7 days"),
+                                                          ("month", "Last 30 days")]}))
+    return render_template("library.html", jobs=jobs, outs=outs, templates=catalog.TEMPLATE_BY_ID, q=q,
                            highlight=request.args.get("highlight", type=int), tree=tree, names=names,
                            f_product=pid, f_brand=bid if not pid else None, f_batch=batch_id, filters=filters,
                            chips=chips, filter_url=filter_url, verdicts=verdicts, prices=prices, eta=eta)

@@ -2,6 +2,7 @@
 ad tool's app: a short menu and one catalog, instead of a long menu of groups).
 
     /app/tools            everything Campaignify makes and does, as tiles grouped by the job, with a search box
+    /app/tools/assistant  how to use Campaignify from Claude and other MCP clients (while MCP_SERVER is on)
     /app/done-for-you     "we make the ads for you": a short form that reaches the person who handles it
 
 The catalog is the sidebar's own list (app.NAV_GROUPS) regrouped by job, plus the new look's Studio tools. A tile
@@ -127,9 +128,9 @@ def featured(conn) -> list[dict]:
     try:
         import mcpserver
         if mcpserver.enabled():
-            out.append({"key": "mcp", "title": "Make ads from Claude or ChatGPT",
-                        "line": "Connect Campaignify to the assistant you already use and ask it for ads there.",
-                        "cta": "See how to connect", "href": "/mcp"})
+            out.append({"key": "mcp", "title": "Make ads from Claude",
+                        "line": "Connect Campaignify to Claude, or another assistant that supports MCP, and ask for ads there.",
+                        "cta": "See how to connect", "href": url_for("tools.assistant")})
     except Exception as e:  # noqa: BLE001  (a featured card is never a reason for the page to fail)
         log.warning("the MCP card was left out: %s", str(e)[:120])
     try:
@@ -158,6 +159,37 @@ def page():
     import inspiration
     return render_template("v2/tools.html", groups=groups, cards=cards, count=sum(len(x["tools"]) for x in groups),
                            insp=inspiration.groups(product), has_product=product is not None)
+
+
+# ---------------------------------------------------------------- use it from an assistant
+
+# A prompt that also makes sense on the desk: the sentence the desk's box gets ({name} is the product).
+DESK_ASK = {"Price": "Three image ads for {name}", "Video": "One presenter video for {name}",
+            "Copy": "Ad copy for {name} for Meta"}
+
+
+@bp.route("/app/tools/assistant")
+@login_required
+def assistant():
+    """How to use Campaignify from Claude and other MCP clients, inside the app: the server address, the steps for
+    each client (the same ones the public page and the docs give: web/claude.html, web/mcp_docs.html) and prompts
+    to copy. Only while the MCP server is on (MCP_SERVER)."""
+    if not ui_v2.on():
+        return redirect(url_for("studio"))
+    import app as appmod
+    import mcpserver
+    import products
+    if not mcpserver.enabled():
+        return redirect(url_for("tools.page"))
+    g.v2_tab = "tools"
+    with db.connect() as conn:
+        ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone() or g.ws
+        p = products.get_product(conn, ws["id"], ws["product_id"]) if ws["product_id"] else None
+    prompts = [{"kind": kind, "text": text,
+                "desk": url_for("desk.page", ask=DESK_ASK[kind].format(name=p["name"])) if (p is not None and kind in DESK_ASK) else ""}
+               for kind, text in appmod.CLAUDE_PROMPTS]
+    return render_template("v2/assistant.html", url=request.host_url.rstrip("/") + "/mcp", prompts=prompts,
+                           keys_on=appmod._has_endpoint("mcp.settings"))
 
 
 # ---------------------------------------------------------------- done for you
