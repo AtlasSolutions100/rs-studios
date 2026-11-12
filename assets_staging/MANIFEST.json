@@ -2616,5 +2616,77 @@
    "sha256": "6a953555ba27365688980b9329f2efb5d75a954933d8529e24738b9779877e03",
    "bytes": 252592
   }
+ },
+ {
+  "path": "showcase/ex2-app-in-hand-budget.mp4",
+  "kind": "showcase_video",
+  "title": "Budget app in hand",
+  "caption": "A presenter in her kitchen holds up a phone showing coloured bars.",
+  "alt": "An AI presenter: a woman with short grey hair in a kitchen holds a phone beside her face; the screen shows coloured bars.",
+  "poster": "showcase/ex2-app-in-hand-budget.webp",
+  "model": "seedance_2_5",
+  "prompt": "Vertical phone video of the woman in the reference image, same face, hair and clothes, in the same kitchen. She holds a phone up beside her face with its screen toward the camera. The screen is a plain illustration: a flat white background with four solid coloured horizontal bars of different lengths, nothing else; no status bar, no clock, no heading, no words, no letters, no numbers, no icons. She looks into the lens and says in a calm, matter-of-fact voice, exactly: \"Every subscription I pay for is on one screen.\" She says nothing else. Natural light, realistic, clear voice. No on-screen text, no subtitles, no captions, no logos, no brand names, no watermark.",
+  "job_id": "b77ae284-6709-4855-873c-4b4931eaadde",
+  "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GvdxB9gfwtge4rv79iuyoXAckR/hf_20261112_141748_b77ae284-6709-4855-873c-4b4931eaadde.mp4",
+  "credits": 56,
+  "qa": "ok on the redo (5 frames + zoom: screen shows only four coloured bars; transcript matches). First take had a garbled heading and status-bar digits on the screen.",
+  "notes": "Run 2 (credits lane): Seedance 2.5, 720p, 8 s, 9:16, with audio, via the Higgsfield MCP tools. Presenter dana (kitchen still as image reference, omni_reference).",
+  "presenter": true,
+  "style": "app-in-hand",
+  "script": "Every subscription I pay for is on one screen.",
+  "transcript": "Every subscription I pay for is on one screen.",
+  "served": {
+   "path": "assets_staging/showcase_540/ex2-app-in-hand-budget.mp4",
+   "sha256": "91b810297259da073512e7288fb8c6f234a5bce634d52e1f85c64383b3dcaa88",
+   "bytes": 384915
+  }
+ },
+ {
+  "path": "showcase/ex2-tryon-wool-coat.mp4",
+  "kind": "showcase_video",
+  "title": "Wool coat try-on",
+  "caption": "A mirror try-on of a camel wool coat.",
+  "alt": "An AI presenter: a bearded man films himself in a mirror wearing a camel wool coat, turns to show its length and puts a hand in a pocket.",
+  "poster": "showcase/ex2-tryon-wool-coat.webp",
+  "model": "seedance_2_5",
+  "prompt": "Vertical phone video filmed in a full-length mirror by a front door. An invented, AI-generated man of about 42 with short salt-and-pepper hair and a short beard holds a plain phone with a plain case, filming his reflection. He wears a plain camel wool overcoat with dark buttons over a plain navy sweater and grey trousers; no labels, no patches. He turns to the side to show the length, slides a hand into a pocket, and says in a relaxed, easy voice, exactly: \"It's a camel coat, it falls past the hip, and it has two deep pockets.\" He says nothing else. Soft daylight, realistic, clear voice. No on-screen text, no subtitles, no captions, no logos, no brand names, no watermark.",
+  "job_id": "c8e1f1e8-eda0-4bfb-8a74-cef9a62a1136",
+  "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GvdxB9gfwtge4rv79iuyoXAckR/hf_20261112_142050_c8e1f1e8-eda0-4bfb-8a74-cef9a62a1136.mp4",
+  "credits": 56,
+  "qa": "ok (5 frames; transcript matches). Phone has a generic triple-lens camera, no logo visible.",
+  "notes": "Run 2 (credits lane): Seedance 2.5, 720p, 8 s, 9:16, with audio, via the Higgsfield MCP tools. Extra clip (own line). Invented presenter.",
+  "presenter": true,
+  "style": "try-on",
+  "script": "It's a camel coat, it falls past the hip, and it has two deep pockets.",
+  "transcript": "It's a camel coat. It falls past the hip and it has two deep pockets.",
+  "served": {
+   "path": "assets_staging/showcase_540/ex2-tryon-wool-coat.mp4",
+   "sha256": "7fda788fba513b7283e19d50964fbe93f851f4353be6ca64f586aba86a73dc1e",
+   "bytes": 390464
+  }
+ },
+ {
+  "path": "showcase/ex2-showcase-cutting-board.mp4",
+  "kind": "showcase_video",
+  "title": "Olive-wood cutting board",
+  "caption": "An olive-wood cutting board on a stone counter with lemons.",
+  "alt": "An olive-wood cutting board on a light stone counter beside lemon halves and rosemary; a hand sets a wooden-handled knife down.",
+  "poster": "showcase/ex2-showcase-cutting-board.webp",
+  "model": "seedance_2_5",
+  "prompt": "Vertical product video. A rounded olive-wood cutting board with a visible wood grain lies on a light stone kitchen counter beside a few lemon halves and a sprig of rosemary, morning window light. Slow, smooth camera slide along the board; an adult hand sets down a knife with a plain wooden handle beside it. Nobody speaks. Soft kitchen room sound and quiet calm music. Warm, realistic, shallow depth of field. No speech. No on-screen text, no subtitles, no captions, no labels, no engraving, no logos, no brand names, no watermark.",
+  "job_id": "7817bd53-4646-4334-80d0-175d9d50fb1f",
+  "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GvdxB9gfwtge4rv79iuyoXAckR/hf_20261112_142050_7817bd53-4646-4334-80d0-175d9d50fb1f.mp4",
+  "credits": 56,
+  "qa": "ok (5 frames; no speech, whisper returned only dots)",
+  "notes": "Run 2 (credits lane): Seedance 2.5, 720p, 8 s, 9:16, with audio, via the Higgsfield MCP tools. Extra clip.",
+  "presenter": false,
+  "style": "product-showcase",
+  "script": "",
+  "transcript": ". . . . . .",
+  "served": {
+   "path": "assets_staging/showcase_540/ex2-showcase-cutting-board.mp4",
+   "sha256": "ce09ca11f8c90cbcd317aa31d3353f34f375f6fee9567b9f00c407f9b7150f62",
+   "bytes": 246261
+  }
  }
 ]
