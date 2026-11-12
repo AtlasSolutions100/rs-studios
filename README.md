@@ -361,13 +361,13 @@ and nothing else (`tests/fixtures/presets_m15_snapshot.json` holds their prompts
   autumn, back to routine, a gift for them, seasonal offer), problem-then-answer, three reasons, how it works, the
   honest switch ("the old way, the new way": never for food, supplements or skincare, and the house rule against
   before-and-after wording still applies to every line) and an app-screen hero.
-- 15 fixed video formats (`RECIPES`), each with explicit beats of 6 to 8 seconds (shot, what is said, on-screen
+- 17 fixed video formats (`RECIPES`), each with explicit beats of 6 to 8 seconds (shot, what is said, on-screen
   text, where its first frame comes from) and an end card. Seven run today as one take through the talking-video
   path (`needs` is ""): voiceover over product shots, hands-only demo, POV unboxing, talk to camera, car talk,
-  seasonal gift moment, founder story (narrated; no AI person plays the founder). Eight need the keyframe-first
+  seasonal gift moment, founder story (narrated; no AI person plays the founder). Ten need the keyframe-first
   pipeline that renders beat by beat and stitches (`needs: "keyframe_video"`): talking head with cutaways,
-  problem-solution, over the product page, show your app, street interview (labelled "AI presenter" throughout),
-  three reasons, offer with no countdown, how-to in three steps. Until that pipeline is in `presets.PIPELINES` they
+  problem-solution, over the product page, show your app, web app demo, try-on, street interview (labelled "AI
+  presenter" throughout), three reasons, offer with no countdown, how-to in three steps. Until that pipeline is in `presets.PIPELINES` they
   are hidden from members (`presets.offered`, `recipes_for`) and refused by Create. The stitcher is not built here.
 - House rules every recipe is written to: no invented reviews (the review card only takes a review the member pastes
   and attests to), no countdowns or made-up urgency, no before/after health or body claims, no real people or
@@ -491,7 +491,7 @@ its price (the markup is 2x):
 | How to make it (10 s) | $4.62 | 925 |
 | Copy a trending video (per 5 s of reference) | $0.50 | 100 |
 | Talk to camera, Car talk, Seasonal gift moment (8 s); Offer, no countdown (8 s, later) | $3.70 | 740 |
-| Voiceover over product shots, Hands-only demo, POV unboxing (15 s); Over the product page, Show your app, Street interview (15 s, later) | $6.93 | 1,387 |
+| Voiceover over product shots, Hands-only demo, POV unboxing (15 s); Over the product page, Show your app, Web app demo, Try-on, Street interview (15 s, later) | $6.93 | 1,387 |
 | Founder story (20 s); Talking head with cutaways, Problem-solution, Three reasons, How-to in three steps (20 s, later) | $9.24 | 1,849 |
 
 What we absorb with no price at all: the claims check ($0.004 a script), and, as before, an IMAGE_QA check and silent
@@ -538,7 +538,9 @@ path (a plain presenter video or voiceover with no recipe stays one take). A job
    product photo while the seconds allow it, else a slow push-in on the packshot itself (free; the label can't
    change). Recipes that show the member's screens (over the product page, show your app) put their real
    screenshots full frame with the presenter small in the bottom-left corner; nothing of a page is generated.
-   Without a screenshot those recipes are refused for that product with the reason.
+   Without a screenshot those recipes are refused for that product with the reason. See "Try-on, web app demo
+   and screen recordings" below for the two newer recipes, a recording in place of screenshots and the layout
+   with the screen across the top.
 5. **Stitch** (ffmpeg): every beat at one size and rate with its sound levelled (`loudnorm`), hard cuts (a recipe
    can ask for a crossfade of 4 to 6 frames: founder story), captions, step tags and the "AI presenter" label as
    real type inside the safe area, then a 2-second end card from the real packshot and the brand kit (the product's
@@ -578,7 +580,9 @@ table and a test compares it with the lines below:
 | Talking head with cutaways | 20 s | 3 | 5 s generated | $11.84 | 1,849 | 36% | $15.30, 17% **under 30%** |
 | Problem, then solution | 20 s | 3 | 5 s generated + 1 packshot | $11.84 | 1,849 | 36% | $15.30, 17% **under 30%** |
 | Over the product page | 15 s | 2 | none | $7.20 | 1,387 | 48% | $11.13, 20% **under 30%** |
-| Show your app | 15 s | 2 | none | $7.20 | 1,387 | 48% | $11.13, 20% **under 30%** |
+| Show your app | 15 s | 2 | none | $7.18 | 1,387 | 48% | $11.10, 20% **under 30%** |
+| Web app demo | 15 s | 2 | none | $7.18 | 1,387 | 48% | $11.10, 20% **under 30%** |
+| Try-on | 15 s | 2 | none | $7.20 | 1,387 | 48% | $11.13, 20% **under 30%** |
 | Street interview | 15 s | 2 | none | $7.20 | 1,387 | 48% | $11.13, 20% **under 30%** |
 | Three reasons | 20 s | 3 | none | $9.51 | 1,849 | 49% | $12.96, 29.9% **under 30%** |
 | Offer, no countdown | 8 s | 1 | none | $3.93 | 740 | 47% | $7.85, -6% **negative** |
@@ -609,6 +613,40 @@ one person (presenters have `PRESENTER_VOICE_REF`); the recipes' free-form on-sc
 words") are covered by captions, not written. Deleting a workspace deletes each part's request at the vendor too
 (`wsdelete.py`). Tests: `tests/test_keyframe_video.py` (the stitching
 checks need ffmpeg; `tests.yml` installs it).
+
+### Try-on, web app demo and screen recordings (m38, `recordings.py`)
+
+Two more recipes on this pipeline, and one new thing a member can add to a product.
+
+- **Try-on** (`try-on`, clothing, shoes, bags and accessories). `product_at: "worn"`: the keyframe is the presenter
+  wearing the member's item, drawn from its photo, with the phone propped a few steps away and framed so the whole
+  item shows (`catalog.PRODUCT_AT`, `PRODUCT_AT_FRAMING`). With the presenter's approved still, the person, the
+  room and the light are kept and only what they wear and the framing change. Each beat keeps the item as it is in
+  the keyframe; they stand, turn a little, and nothing covers it. The member's own photo closes the video on the
+  end card. A member's "holding" placement never replaces it. Its card tells the member the picture of the item on
+  the presenter is generated and to check it against the real thing.
+- **Web app demo** (`web-app-demo`, apps and services): a hook to camera, then the member's screen across the top
+  of the frame with the presenter filling the frame below it (`screen_layout: "split"`), captions on.
+- **No screen is ever drawn.** Both app recipes (this one and Show your app) carry `product_at: "none"`: the
+  keyframe and every beat are the presenter alone, the product's pictures are never sent to a model, the prompts
+  forbid any device showing its screen, and the checks stop asking for the product in the picture
+  (`image_qa.NO_PRODUCT_CHECKS`: text, hands and faces, and the same person still decide). Before m38 Show your
+  app sent the app's screenshot as "the product on the table".
+- **Screen recordings.** An app's product page has a "Screen recording" section: one MP4, MOV or WebM per product,
+  3 seconds to 3 minutes, up to 150 MB. A recipe that shows an app's screens plays it in its screen beats in place
+  of screenshots (`params.recording`; `"recording": false` in a config, or `screen_recording: false` over MCP,
+  keeps the screenshots). It is shown as it is: scaled, silent, and at most twice as fast so more of it fits
+  (`recordings.window`); a second screen beat carries on where the first stopped, and a recording that runs out
+  holds its last picture. The container is read from the file's own first bytes and ffprobe and ffmpeg are told
+  it outright, so a playlist or a script labelled as a video is refused and never opened. The file is in the
+  workspace's uploads (it counts toward storage and goes when the workspace is deleted); rows in `recordings`.
+- **The layout** (`stitch.screen_layout`, `split_box`): "split" is used when the recipe asks for it, the frame is
+  upright and everything shown is wide; the screen is fitted whole across the top under what a platform covers,
+  its band never more than half the frame, and the presenter is cut from their own frame just above the head down.
+  A tall phone screen keeps the corner layout. Captions sit low over the presenter in a split beat and high over a
+  full-frame screen.
+
+Tests: `tests/test_recordings.py` (26 checks), and the end-to-end runs in `tests/test_keyframe_video.py`.
 
 ## Feature and industry pages, and the free hook generator (Nov 10 2026)
 

@@ -181,7 +181,12 @@ def edit(pid):
                                (pid, g.ws["id"])).fetchall()
         ads = conn.execute("SELECT COUNT(*) FROM jobs WHERE product_id=? AND workspace_id=?", (pid, g.ws["id"])).fetchone()[0]
     imp = products.import_info(p)
+    import recordings
+    with db.connect() as conn:
+        rec = recordings.of_product(conn, g.ws["id"], pid)
     return render_template("product_edit.html", p=p, b=b, form=p, photos=photos, pend=products.pending(p), imp=imp,
+                           recording=rec, recording_note=recordings.summary(rec) if rec is not None else "",
+                           is_app=products.category_of(p) == "app_service",
                            angles=angles, scripts=scripts, ads=ads,
                            candidates=products.import_candidates(p)[0], more_candidates=products.import_candidates(p)[1])
 
