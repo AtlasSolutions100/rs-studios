@@ -33,3 +33,10 @@ Every person in these files is an invented, AI-generated adult. No real brands, 
   into `VOICES`), then move `presenters/<id>/*` to `static/presenters/<id>/`.
 - Angle pictures and `voice.mp3` drop straight into `static/presenters/<id>/` (same names).
 - `new_situations` need stills before they can be offered.
+
+## showcase_540 (added Nov 12 2026)
+
+The 19 example clips as the site serves them: 540x960, H.264 at about 400 kbit/s, AAC 48k mono. The app's library
+store (`libstore.py` on main) fetches gallery clips from this folder at a pinned commit and checks each file's size
+and SHA-256 against `static/showcase/manifest.json`, so a clip here is not in the deploy bundle. Keep this branch:
+the pinned commit must stay reachable.
