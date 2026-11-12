@@ -126,4 +126,32 @@
 
 ### Free lane (web app, Unlimited mode)
 - ex-pressure-washing (run-1 job 6d2e2fb6) had finished: staged.
-FREE_LANE_PLACEHOLDER
+- Done in the free lane this run (each checked on a 5-frame sheet, no speech): ex-realtor-presenter (talking, ~6 min),
+  ex-accountant-presenter (talking, ~9 min), ex-pizza-oven (~14 min), ex-flower-shop (~16 min), ex-pet-grooming (~21 min),
+  ex-house-painter (~21 min), ex-handmade-soap (~25 min). Credits did not move for these (balance stayed 3912.06 while they ran;
+  the Generate button read "Generate Unlimited" every time).
+- ex-smoothie-bar (~21 min) was DROPPED for now: the blender jar has garbled embossed lettering that reads like a real blender
+  brand. Its one allowed redo was not run (the lane stopped first). Suggested redo wording: "a plain clear blender jar with no
+  markings, no measurement lines and no embossed letters".
+- ex-bike-repair was submitted at ~16:34 UTC and was still "Processing" after 90 minutes (also after a page reload); it blocked
+  the queue (a second Unlimited job is refused: "You can generate 1 unlimited ... at a time"). Its job id is most likely
+  2ccc7ae6-f5ea-4798-8c1d-9ec6821f9c82 (read from the page, not confirmed through the API). It is NOT staged; it should
+  finish on its own. The free lane was stopped there (one >60-minute wait; no later job could start).
+- Not run (prompts above, still ready): ex-window-cleaning (refused while bike was rendering), ex-yoga-studio,
+  ex-headphones, ex-electrician, ex-moving-crew, ex-pool-cleaning, ex-water-bottle, plus the smoothie redo.
+- Render times grew through the session (6 -> 25 min, then >90 min), the same pattern as run 1.
+- The Higgsfield MCP session expired at ~15:00 UTC (lookups returned "session has expired"); after that, result URLs were read
+  from the page's video elements in my own tab. The final balance (3912.06) was read before the expiry; no credit job was
+  submitted after it.
+- After a page reload the Unlimited switch was OFF and the button showed "Generate 56"; it was switched back on and the button
+  checked for "Generate Unlimited" before every press. A "How was video generation?" rating popup was ignored. No offer,
+  upgrade or purchase dialog was used.
+
+### Run 2 totals
+- Credits: 5144.06 -> 3912.06 = 1,232 used (cap 1,500). Free lane: 0.
+- Staged this run: 20 clips (12 credits-lane: 8 of the 12 asked + 4 extras; 8 free-lane incl. ex-pressure-washing).
+  Dropped: ex2-tryon-sneakers, ex2-unboxing-headphones, ex2-app-in-hand-workout, ex2-saas-screen-over-shoulder, ex-smoothie-bar.
+- Showcase now holds 39 clips (19 from run 1 + 20).
+- For Koby's ears: talking clips were checked by transcript only. ex2-saas-hook-desk transcribed as "I use this for a week"
+  (line is "I used this"), most likely the ASR; ex2-app-in-hand-budget and the try-on clips match closely.
+- Commit attribution used the session's Co-Authored-By line (Claude Opus 5.5) from the system instructions.

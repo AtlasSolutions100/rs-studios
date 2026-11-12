@@ -7,7 +7,7 @@ Every person in these files is an invented, AI-generated adult. No real brands, 
 
 | Folder / file | What | Count |
 |---|---|---|
-| `showcase/<name>.mp4` + `.webp` | Example ad videos (H.264 720x1280, ~1 Mbit/s, AAC 80k, 8 s, faststart) and posters (WebP 540x960 from ~1 s) | 19 (15 approved earlier + 4 new) |
+| `showcase/<name>.mp4` + `.webp` | Example ad videos (H.264 720x1280, ~1 Mbit/s, AAC 80k, 8 s, faststart) and posters (WebP 540x960 from ~1 s) | 39 (15 approved earlier + 4 run-1 Unlimited + 20 from run 2) |
 | `presenters/<id>/angle-left.webp`, `angle-right.webp`, `angle-profile.webp` | "Look-lock" angle pictures, 720x1280 WebP | 20 existing + 8 new presenters |
 | `presenters/<new id>/portrait.webp`, `<situation>.webp` | Portrait (864x1080) and 4 situation stills (720x1280) for the 8 new presenters | 8 x 5 |
 | `presenters/<id>/voice.mp3` | 5-8 s voice sample, mono MP3 96k, saying `presenters.voice_line(id)` | 28 |
@@ -34,9 +34,15 @@ Every person in these files is an invented, AI-generated adult. No real brands, 
 - Angle pictures and `voice.mp3` drop straight into `static/presenters/<id>/` (same names).
 - `new_situations` need stills before they can be offered.
 
+## Run 2 (Nov 12 2026)
+
+20 more example clips: `ex2-*` (new styles: try-on, unboxing, app-in-hand, saas-hook, product-showcase; credits lane) and
+`ex-*` service clips from the Unlimited lane. Their MANIFEST entries also carry `style`, `script`, `transcript` and `served`
+(path, sha256, bytes of the 540x960 file). Details, costs, redos and drops are in LOG.md under "Run 2".
+
 ## showcase_540 (added Nov 12 2026)
 
-The 19 example clips as the site serves them: 540x960, H.264 at about 400 kbit/s, AAC 48k mono. The app's library
+The example clips as the site serves them: 540x960, H.264 at about 400 kbit/s, AAC 48k mono. The app's library
 store (`libstore.py` on main) fetches gallery clips from this folder at a pinned commit and checks each file's size
 and SHA-256 against `static/showcase/manifest.json`, so a clip here is not in the deploy bundle. Keep this branch:
 the pinned commit must stay reachable.
