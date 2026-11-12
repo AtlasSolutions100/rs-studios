@@ -20,10 +20,13 @@ reviewed, exported and committed under static/presenters/ (tools/import_library_
     static/presenters/<id>/portrait.webp          the picker's card
     static/presenters/<id>/<situation>.webp       the approved still of that situation (9:16)
     static/presenters/<id>/voice.mp3              a few seconds of their voice
+    static/presenters/<id>/angle-left.webp        the look-lock pictures (ANGLES): the same person turned to their
+    static/presenters/<id>/angle-right.webp       left, to their right and in profile, on a plain wall. They are never
+    static/presenters/<id>/angle-profile.webp     shown to members; they only help the video model hold the face
 
 roster() and get() return a url for each only when the file is there, so the front end shows what exists.
 
-Two switches, both off by default (off = exactly what a talking video sent before):
+Three switches, all off by default (off = exactly what a talking video sent before):
 
     PRESENTER_STILLS      when a presenter + situation has an approved still, the worker passes it to the video model
                           as the first reference image and the prompt says to keep that person
@@ -31,6 +34,9 @@ Two switches, both off by default (off = exactly what a talking video sent befor
                           reference-to-video takes audio_urls) and the prompt says to speak in that voice. What the
                           vendor does with an audio reference is not documented: it needs a paid test before it is
                           switched on (README, "m15 library").
+    PRESENTER_ANGLES      with PRESENTER_STILLS on and a still in use: the presenter's look-lock pictures that exist go
+                          to the video model after the still, and the prompt says they show the same person from
+                          other sides. It needs a paid test before it is switched on (README, "m15 library").
 """
 import os
 
@@ -51,6 +57,13 @@ def stills_on() -> bool:
 
 def voice_ref_on() -> bool:
     return _flag("PRESENTER_VOICE_REF")
+
+
+def angles_on() -> bool:
+    return _flag("PRESENTER_ANGLES")
+
+
+ANGLES = ("angle-left", "angle-right", "angle-profile")     # the look-lock pictures, in the order they are sent
 
 
 # ---------------------------------------------------------------- where a presenter can be
@@ -445,6 +458,11 @@ def portrait_path(pid) -> str | None:
 def voice_path(pid) -> str | None:
     """The presenter's voice sample (the voice_ref), when it has been imported."""
     return _file(str(pid or ""), "voice.mp3")
+
+
+def angle_paths(pid) -> list:
+    """The presenter's look-lock pictures that have been imported, in ANGLES order (none, some or all three)."""
+    return [p for p in (_file(str(pid or ""), f"{a}.webp") for a in ANGLES) if p]
 
 
 def _public(p: dict) -> dict:
