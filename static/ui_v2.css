@@ -1278,3 +1278,29 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 .v2-rec.v2-camps{border-bottom:0;padding-bottom:4px}
 .v2-rec .v2-new.v2-new-ad{font-weight:400;color:var(--muted)}
 [data-ui="v2"] .side .navs{border-top:1px solid var(--line);padding-top:6px}
+
+/* ---- the first ads, on us (web/v2/onboard_first.html) ---- */
+.fa-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;align-items:start}
+.fa-card{display:flex;flex-direction:column;gap:10px;transition:opacity .15s}
+.fa-card.off{opacity:.55}
+.fa-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+[data-ui="v2"] .fa-card h2{margin:0}
+.fa-on{display:inline-flex;align-items:center;gap:8px;min-height:32px;font-size:13.5px;color:var(--muted);cursor:pointer}
+.fa-on input{width:18px;height:18px;margin:0;accent-color:var(--ink)}
+.fa-media{margin:0;display:flex;flex-direction:column;gap:6px}
+.fa-media img{display:block;width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:10px;background:var(--thumb-bg);border:1px solid var(--line)}
+.fa-media figcaption{font-size:12.5px;color:var(--dim)}
+[data-ui="v2"] .fa-card label[for]{margin:0;font-size:13px;color:var(--muted)}
+[data-ui="v2"] .fa-card input[type=text],[data-ui="v2"] .fa-card textarea{width:100%;box-sizing:border-box;font-size:15px}
+.fa-cast{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px;min-width:0}
+.fa-cast legend{padding:0;margin:0 0 6px;font-size:13px;color:var(--muted)}
+.fa-who{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:4px 12px 4px 4px;border:1px solid var(--line);border-radius:999px;background:var(--btn2);font-size:14px;cursor:pointer}
+.fa-who input{position:absolute;opacity:0;width:1px;height:1px}
+.fa-who:has(input:checked){border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.fa-who:has(input:focus-visible){outline:2px solid var(--v2-focus);outline-offset:2px}
+.fa-face{display:block;width:34px;height:34px;border-radius:50%;overflow:hidden;background:var(--thumb-bg);flex:none}
+.fa-face img{width:100%;height:100%;object-fit:cover;display:block}
+.fa-card .bb-note.over{color:var(--bad)}
+.fa-done{margin-top:24px}
+.fa-done .ob-link{margin-top:6px}
+@media (prefers-reduced-motion:reduce){.fa-card{transition:none}}

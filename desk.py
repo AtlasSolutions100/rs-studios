@@ -117,8 +117,11 @@ def wanted(text: str) -> set:
 def is_home() -> bool:
     """Is the desk this member's home? Yes once they have made something, unless the link asks Studio for
     something (a mode, a batch to edit, a preset)."""
-    if any(request.args.get(k) for k in ("mode", "batch", "preset")):
+    if any(request.args.get(k) for k in ("mode", "batch", "preset", "made")):
         return False
+    import first_ads
+    if first_ads.on():              # the guided first run: the desk (and its guide) is home from the first minute
+        return True
     with db.connect() as conn:
         return conn.execute("SELECT 1 FROM jobs WHERE workspace_id=? LIMIT 1", (g.ws["id"],)).fetchone() is not None
 

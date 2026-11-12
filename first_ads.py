@@ -33,7 +33,7 @@ import plan_gate
 import plans
 import ui_v2
 
-log = logging.getLogger("campaignify.first_run")
+log = logging.getLogger("campaignify.first_ads")
 
 IMAGES, TALKS = 2, 1
 ALLOW = {"image": IMAGES, "talk": TALKS}
