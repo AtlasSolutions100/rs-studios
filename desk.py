@@ -834,7 +834,8 @@ def page():
     import inspiration
     ask = studio_v2._clean(request.args.get("ask"), 600)        # a sentence handed over by the Tools page's examples
     return render_template("v2/desk.html", boot=boot, product=product, examples=shown, campaigns=campaigns,
-                           now=now, guide=say, insp=inspiration.groups(product), ask=ask, **brand_ctx)
+                           now=now, guide=say, insp=inspiration.groups(product), ask=ask,
+                           has_tools="tools.page" in current_app.view_functions, **brand_ctx)
 
 
 @bp.route("/app/desk/c/<int:tid>")

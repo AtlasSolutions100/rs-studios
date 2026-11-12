@@ -58,7 +58,7 @@
       <a class="dk-ex" href="{{ e.href or (url_for('desk.page', ask=e.ask) if has_product else url_for('onboarding.brief')) }}">
         <span class="dk-ex-media">{% if e.image %}<img src="{{ e.image }}" alt="{{ e.alt }}" loading="lazy">{% endif %}{% if e.video %}<video src="{{ e.video }}" muted loop playsinline preload="none" aria-hidden="true"></video>{% endif %}</span>
         <b>{{ e.title }}</b>
-        <span>{{ e.line or ('Opens in Studio with this look picked.' if e.where == 'studio' else 'Starts on your desk.') }}</span>
+        <span>{{ e.line or ('Opens in Studio' if e.where == 'studio' else 'Starts on your desk') }}</span>
       </a>
       {% endfor %}
     </div>

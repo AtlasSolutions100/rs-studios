@@ -3271,6 +3271,8 @@ if __name__ == "__main__" and not os.environ.get("RS_TEST_ONE"):
     subprocess.run([sys.executable, os.path.join(HERE, "test_first_ads.py")], check=True)
     # The Tools page (one catalog, a slimmer menu in the new look) and the done-for-you request (tools_page.py).
     subprocess.run([sys.executable, os.path.join(HERE, "test_tools_page.py")], check=True)
+    # Inspiration by category on the desk and the Tools page (inspiration.py), and the brand step's example cards.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_inspiration.py")], check=True)
     # Re-audit L-2, L-3, L-10: one trial per confirmed email, the indexed users.email_norm, the import budget and cap.
     subprocess.run([sys.executable, os.path.join(HERE, "test_card_import_hardening.py")], check=True)
     # Site copy (M5.8, L-4): the hero, one pricing sum on /pricing and Billing, sign-up, the 404, card-on-file copy.

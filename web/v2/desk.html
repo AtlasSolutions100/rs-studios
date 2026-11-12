@@ -33,12 +33,12 @@
         </div>
         {% for grp in insp %}
         <div class="dk-ex-row" data-cat="{{ grp.key }}" {{ 'hidden' if not loop.first }}>
-          {% for e in grp['items'] %}
+          {% for e in grp['items'][:6] %}
           {% if e.href %}
           <a class="dk-ex" href="{{ e.href }}">
             <span class="dk-ex-media">{% if e.image %}<img src="{{ e.image }}" alt="{{ e.alt }}" loading="lazy">{% endif %}{% if e.video %}<video src="{{ e.video }}" muted loop playsinline preload="none" aria-hidden="true"></video>{% endif %}</span>
             <b>{{ e.title }}</b>
-            <span>{{ e.line or 'Opens in Studio with this look picked.' }}</span>
+            <span>{{ e.line or 'Opens in Studio' }}</span>
           </a>
           {% else %}
           <button type="button" class="dk-ex" data-try="{{ e.ask }}">
@@ -50,6 +50,7 @@
           {% endfor %}
         </div>
         {% endfor %}
+        {% if has_tools %}<p class="dk-exs-more"><a href="{{ url_for('tools.page') }}#inspiration">More examples</a></p>{% endif %}
       </section>
       {% endif %}
     </div>
