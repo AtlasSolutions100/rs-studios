@@ -2808,5 +2808,29 @@
    "sha256": "99999e0d6becdccd3ba1a2767d8dcc10532c3f2d0c30d8ed93421cef511cff4a",
    "bytes": 421170
   }
+ },
+ {
+  "path": "showcase/ex-pet-grooming.mp4",
+  "kind": "showcase_video",
+  "title": "Pet grooming",
+  "caption": "A small white dog is bathed, blow-dried and brushed at a grooming salon.",
+  "alt": "A small fluffy white dog is rinsed in a steel tub, dried on a grooming table and brushed until its coat is fluffy.",
+  "poster": "showcase/ex-pet-grooming.webp",
+  "model": "seedance_2_5",
+  "prompt": "Vertical ad for a local pet grooming salon, no faces. A clean, bright grooming room. Shot 1: a small fluffy white dog stands calmly in a tub while warm water rinses away suds. Shot 2: a gentle dryer fluffs its fur on a grooming table. Shot 3: a brush finishes the coat and the dog looks up, clean and happy. Running water, soft dryer hum, light music. Warm, realistic, shallow depth of field. No text, no logos, no watermark.",
+  "job_id": "a1f15e8f-0069-4212-956c-67a9b2c9333b",
+  "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GvdxB9gfwtge4rv79iuyoXAckR/hf_20261112_150240_a1f15e8f-0069-4212-956c-67a9b2c9333b.mp4",
+  "credits": 0,
+  "qa": "ok (5 frames, no text/logos; no speech)",
+  "notes": "Run 2 (free lane): made in the web app with Unlimited mode (720p, 8 s, 9:16).",
+  "presenter": false,
+  "style": "service-broll",
+  "script": "",
+  "transcript": "",
+  "served": {
+   "path": "assets_staging/showcase_540/ex-pet-grooming.mp4",
+   "sha256": "9b446a13e6eeccf0c2fb5afc611bb4779bfa22af7900db6a31ea22564d8f6399",
+   "bytes": 431640
+  }
  }
 ]
