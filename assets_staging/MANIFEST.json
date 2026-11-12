@@ -2856,5 +2856,29 @@
    "sha256": "a360c71f89f434ad8496925dad19c5733af3913a5fb2254e91cdcee8ea775ee4",
    "bytes": 262079
   }
+ },
+ {
+  "path": "showcase/ex-handmade-soap.mp4",
+  "kind": "showcase_video",
+  "title": "Handmade soap",
+  "caption": "A block of lavender soap is sliced, stacked and wrapped in plain paper.",
+  "alt": "A knife slices a block of lilac soap flecked with lavender, the bars are stacked, then one is wrapped in brown paper and tied with string beside dried lavender.",
+  "poster": "showcase/ex-handmade-soap.webp",
+  "model": "seedance_2_5",
+  "prompt": "Vertical ad for handmade soap, no faces. A wooden workbench with dried lavender, soft window light. Shot 1: a knife slices a block of creamy lavender soap into even bars. Shot 2: the bars are stacked, flecks of lavender visible. Shot 3: one bar is wrapped in plain paper and tied with string. Gentle slicing sounds, soft music. Warm, calm, realistic, shallow depth of field. No text, no logos, no watermark.",
+  "job_id": "595029be-171b-48bb-8861-ab26d4314d4a",
+  "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GvdxB9gfwtge4rv79iuyoXAckR/hf_20261112_160754_595029be-171b-48bb-8861-ab26d4314d4a.mp4",
+  "credits": 0,
+  "qa": "ok (5 frames + 4 extra frames of the wrapping hands; no text/logos; no speech)",
+  "notes": "Run 2 (free lane): made in the web app with Unlimited mode (720p, 8 s, 9:16).",
+  "presenter": false,
+  "style": "service-broll",
+  "script": "",
+  "transcript": "",
+  "served": {
+   "path": "assets_staging/showcase_540/ex-handmade-soap.mp4",
+   "sha256": "4e9a77dd32bf5f8c205c94103141313ad9bda4f7d038b6e7b1d2598fd5250ac6",
+   "bytes": 357263
+  }
  }
 ]
