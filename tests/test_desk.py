@@ -326,6 +326,10 @@ check(f'<a href="/app/desk/c/{T}" ><span>' in side, "the campaign shows in the s
 here = re.search(r'<aside class="side".*?</aside>', page(a, f"/app/desk/c/{T}"), re.S).group(0)
 check(f'<a href="/app/desk/c/{T}" aria-current=page><span>' in here and here.count('data-campaigns') == 1,
       "and is marked on its own page, listed once")
+css = open(os.path.join(ROOT, "static", "ui_v2.css"), encoding="utf-8").read()
+check('[data-ui="v2"] .shell .main{background-image:radial-gradient(circle,var(--v2-dot) 1px' in css and "--v2-dot:" in css
+      and ".side{background-image" not in css and 'href="/static/ui_v2.css' in page(a, "/app/library"),
+      "the new look's working area has a quiet grid of dots: not the sidebar, not the first look")
 os.environ.pop("UI_V2", None)
 old_side = re.search(r'<aside class="side".*?</aside>', page(a, "/app/library"), re.S).group(0)
 check("New campaign" not in old_side and "data-campaigns" not in old_side and "<span>Home</span>" in old_side, "the first look's sidebar is as it was")

@@ -1453,3 +1453,18 @@ a.dk-ex{text-decoration:none}
 @media (max-width:760px){[data-ui="v2"] .lgrid{grid-template-columns:repeat(2,minmax(0,1fr))}[data-ui="v2"] .lgrid .litem{min-width:0}[data-ui="v2"] .lgrid .litem .acts{flex-wrap:wrap}}
 [data-ui="v2"] .lib-find input[type=search]{flex:0 1 340px;min-width:200px;min-height:36px;padding:7px 12px}
 @media (max-width:640px){.as-prompts li{grid-template-columns:minmax(0,1fr) auto}.as-kind{grid-column:1/-1}.as-desk{grid-column:1/-1}.as-copyrow{flex-wrap:wrap}}
+
+/* ---- the app's background: a quiet grid of small grey dots (Koby, Nov 11 2026) ----
+   Only the working area of the app shell, never the sidebar and never a card (cards keep their own surface). The
+   pattern is fixed to the window where a pointer is used, so the desk's docked box, which hides what scrolls under
+   it, can draw the same dots in the same places. On touch screens it scrolls with the page. */
+html[data-ui="v2"]:root{--v2-dot:rgba(20,20,20,.13)}
+html[data-ui="v2"][data-surface="app"]:not([data-theme]):root{--v2-dot:rgba(255,255,255,.11)}
+html[data-ui="v2"][data-theme="dark"]:root{--v2-dot:rgba(255,255,255,.11)}
+html[data-ui="v2"][data-theme="light"]:root{--v2-dot:rgba(20,20,20,.13)}
+[data-ui="v2"] .shell .main{background-image:radial-gradient(circle,var(--v2-dot) 1px,transparent 1.6px);background-size:22px 22px;background-attachment:fixed}
+[data-ui="v2"] .dk-home .dk-dock{background:radial-gradient(circle,var(--v2-dot) 1px,transparent 1.6px) 0 0/22px 22px fixed,linear-gradient(to bottom,transparent,var(--bg) 22px)}
+@media (hover:none){
+  [data-ui="v2"] .shell .main{background-attachment:scroll}
+  [data-ui="v2"] .dk-home .dk-dock{background:linear-gradient(to bottom,transparent,var(--bg) 22px)}
+}
