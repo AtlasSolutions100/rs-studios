@@ -64,6 +64,7 @@ BEAT_MIN, BEAT_MAX = 4, 8          # the vendor's shortest take; no lip-synced s
 END_CARD_SECONDS = 2.0
 BROLL_SECONDS = 5                  # one generated cutaway: the image-to-video model's shortest clip
 BROLL_LEAD, BROLL_TAIL = 0.8, 1.2  # the presenter is on screen this long before a cutaway and after it
+FIXED_PLACES = ("worn", "none")    # recipe placements a member's "holding" never replaces (catalog.PRODUCT_AT)
 PLAN_MARGIN = 0.30                 # a plan keeps at least this margin: it caps how many seconds are generated
 HARD_FACTOR = 1.05                 # one job's vendor seconds, re-renders included: this x the markup x the seconds sold
 PART_TRIES = 3                     # tries at a busy vendor before one attempt of a part counts as failed
@@ -240,12 +241,17 @@ def plan(rec, p: dict, script: str, *, n_photos: int = 1, has_still: bool = Fals
     end = next((b for b in rec.beats if b.get("beat") == "end card"), None)
     first = beats[0].get("source") if beats else ""
     captions = p.get("captions")
+    at = rec.extra.get("product_at") or "table"
+    if at not in FIXED_PLACES and p.get("placement") == "holding":     # a try-on stays worn, an app stays out of frame
+        at = "hand"
     return {"v": 1, "recipe": rec.id, "ad_type": rec.ad_type, "seconds": sold, "resolution": res,
             "aspect": p.get("aspect") or "9:16",
             "keyframe": {"kind": "presenter" if ugc else "scene", "hands": (not ugc) and first == "hands",
-                         "product_at": ("hand" if p.get("placement") == "holding" else rec.extra.get("product_at") or "table"),
+                         "product_at": at,
                          "shot": (beats[0].get("shot") if beats and not ugc else "") or "",
-                         "refs": (1 if (ugc and has_still) else 0) + min(max(0, n_photos), catalog.KEYFRAME_MAX_PHOTOS)},
+                         "refs": (1 if (ugc and has_still) else 0)
+                         + (0 if (ugc and at == "none") else min(max(0, n_photos), catalog.KEYFRAME_MAX_PHOTOS))},
+            "screen_layout": rec.extra.get("screen_layout") or "pip",
             "beats": out_beats, "cutaways": cutaways,
             "end_card": ({"seconds": END_CARD_SECONDS, "badge": "price or offer" in (end.get("text") or "")}
                          if end is not None else None),
@@ -406,6 +412,37 @@ def _screen_paths(conn, job, p: dict, photos: list) -> list:
     return [r["path"] for r in rows if r["path"] and os.path.exists(r["path"])]
 
 
+def no_product(p: dict) -> bool:
+    """Is the product kept out of this video's generated pictures (an app or a website: catalog.PRODUCT_AT "none")?
+    Its photos are then never sent to a model, and its checks don't look for it (image_qa.py)."""
+    kf = p.get("kf") if isinstance(p.get("kf"), dict) else {}
+    return kf.get("ad_type") == "ugc" and (kf.get("keyframe") or {}).get("product_at") == "none"
+
+
+def screen_for(conn, job, p: dict, photos: list, b: dict) -> dict:
+    """What a screen beat shows (stitch.render_beat's `screen`): the product's screen recording when the job
+    carries one, its share of it for this beat, else the member's screenshots. Raises hf.GenError when it is gone."""
+    import recordings
+    kf = p["kf"]
+    layout = kf.get("screen_layout") or "pip"
+    if p.get("recording"):
+        rec = recordings.get(conn, job["workspace_id"], p["recording"])
+        fmt = recordings.container(rec["path"]) if rec is not None else ""
+        if not fmt:
+            raise hf.GenError("The screen recording this video shows isn't there any more.")
+        shown = [x for x in kf["beats"] if x.get("screen")]
+        speed, _ = recordings.window(rec["seconds"], sum(x["seconds"] for x in shown))
+        before = sum(x["seconds"] for x in shown if x["i"] < b["i"])
+        # a recording shorter than its beats holds its last picture: a later beat never starts past its end
+        at = min(before * speed, max(0.0, float(rec["seconds"] or 0) - 1.0))
+        return {"video": rec["path"], "format": fmt, "start": round(at, 3), "speed": speed, "layout": layout,
+                "size": (rec["width"], rec["height"])}
+    shots = _screen_paths(conn, job, p, photos)
+    if not shots:
+        raise hf.GenError("The screenshot this video shows isn't there any more.")
+    return {"images": shots, "layout": layout}
+
+
 def _still_url(conn, job, p: dict):
     """The presenter's approved still as a URL the image model can read, or None: the one a library job names,
     else the committed file of this presenter in this situation."""
@@ -436,8 +473,9 @@ def keyframe_inputs(conn, job, p: dict) -> tuple:
     import worker
     kf = p["kf"]
     photos = _photos(conn, job, p)
-    urls = [worker._remote_url(conn, "photos", ph) for ph in photos][: catalog.KEYFRAME_MAX_PHOTOS]
-    if not urls:
+    bare = no_product(p)          # an app or a website: the presenter alone, and no picture of it goes to the model
+    urls = [] if bare else [worker._remote_url(conn, "photos", ph) for ph in photos][: catalog.KEYFRAME_MAX_PHOTOS]
+    if not urls and not bare:
         raise hf.GenError("Pick a product photo first.")
     still = _still_url(conn, job, p) if kf["keyframe"]["kind"] == "presenter" else None
     sid = p.get("situation") or presenters.default_situation(p.get("presenter") or "")
@@ -473,7 +511,7 @@ def beat_inputs(conn, job, p: dict, i: int, kf_url: str) -> tuple:
     import worker
     kf = p["kf"]
     b = kf["beats"][i]
-    urls = [worker._remote_url(conn, "photos", ph) for ph in _photos(conn, job, p)][:3]
+    urls = [] if no_product(p) else [worker._remote_url(conn, "photos", ph) for ph in _photos(conn, job, p)][:3]
     who = p.get("presenter") or ""
     voice = None
     if kf["ad_type"] == "ugc" and presenters.voice_ref_on() and presenters.voice_path(who) and \
@@ -848,10 +886,14 @@ def _stitch(conn, job, p: dict) -> None:
                 path = os.path.join(work, f"tag-{i}.png")
                 videotext.tag_png(b["tag"], size, path, kit, aspect, corner="left")
                 overlays.append({"path": path, "start": 0, "end": secs})
+            screen = screen_for(conn, job, p, photos, b) if b.get("screen") else None
             if kf.get("captions"):
+                # over a full-frame screen the presenter's small picture sits low, so the words go high; with the
+                # screen across the top (split) they stay where they always are, over the presenter
+                high = screen is not None and stitch.screen_layout(screen, size) == "pip"
                 for j, ch in enumerate(videotext.caption_chunks(b["line"], secs)):
                     path = os.path.join(work, f"cap-{i}-{j}.png")
-                    videotext.caption_png(ch["text"], size, path, kit, aspect, high=bool(b.get("screen")))
+                    videotext.caption_png(ch["text"], size, path, kit, aspect, high=high)
                     overlays.append({"path": path, "start": ch["start"], "end": ch["end"]})
             cuts = []
             for c in kf["cutaways"]:
@@ -862,12 +904,6 @@ def _stitch(conn, job, p: dict) -> None:
                     cuts.append({"path": made["path"], "start": c["start"], "seconds": c["seconds"], "kind": "video"})
                 elif packshot:
                     cuts.append({"path": packshot, "start": c["start"], "seconds": c["seconds"], "kind": "still"})
-            screen = None
-            if b.get("screen"):
-                shots = _screen_paths(conn, job, p, photos)
-                if not shots:
-                    raise hf.GenError("The screenshot this video shows isn't there any more.")
-                screen = {"images": shots}
             dst = os.path.join(work, f"beat-{i}.mp4")
             stitch.render_beat(parts[("beat", i)]["path"], dst, size=size, fps=fps, seconds=secs, cutaways=cuts,
                                screen=screen, overlays=overlays, safe_bottom=safe_bottom)

@@ -98,6 +98,10 @@ def get_product(ctx, args):
     st.pop("photos", None)
     with ctx.as_user() as conn:
         st["photo_ids"] = [x["id"] for x in products.photos_for(conn, g.ws["id"], args["product_id"])]
+        import recordings
+        rec = recordings.of_product(conn, g.ws["id"], args["product_id"])
+        if rec is not None:     # played by the video presets that show an app's screens (added on the product's page)
+            st["screen_recording"] = {"seconds": rec["seconds"], "width": rec["width"], "height": rec["height"]}
     return st
 
 
@@ -250,6 +254,8 @@ def _ad_config(args):
                      ("screen_photo_ids", "screens"), ("captions", "captions")):
         if args.get(src) not in (None, "", []):
             d[dst] = args[src]
+    if args.get("screen_recording") is False:        # show screenshots even though the product has a recording
+        d["recording"] = False
     if args.get("presenter") and not d.get("presenters"):        # one presenter (with `situation`), or the list
         d["presenters"] = [args["presenter"]]
     if args.get("title"):
@@ -368,6 +374,10 @@ def _ad_schema(kinds, generating):
                              "description": "Video presets that show your own screens (over the product page, show "
                                             "your app): photo ids of the screenshots, uploaded with the product's "
                                             "photos. They are shown as they are; nothing of them is generated."},
+        "screen_recording": {"type": "boolean",
+                             "description": "Video presets that show an app's screens (show your app, web app demo) "
+                                            "play the product's screen recording when it has one (added on the "
+                                            "product's page). false: show its screenshots instead."},
         "captions": {"type": "boolean", "description": "Video presets made in beats: burn the spoken words in as "
                                                        "captions (default: the preset's own choice)."},
         "only": {"type": "array", "maxItems": 12, "items": {"type": "string", "maxLength": 40},

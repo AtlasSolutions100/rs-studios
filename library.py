@@ -213,6 +213,10 @@ _SCRIPTS = {
                                          "the page says. Scroll down for the photos, and the button is right there."),
     "show-your-app": ("app", "This is Dapplewood Planner, a simple weekly planner. Tap a day, add a task, and share a "
                              "list with someone. It is free to start."),
+    "web-app-demo": ("app", "Still planning your week on sticky notes? Open Dapplewood Planner, tap a day and add a "
+                            "task. It is free to start."),
+    "try-on": ("tote", "Okay, this is the Dapplewood Canvas Tote. Heavy cotton canvas, with a pocket inside. Find it "
+                       "at Dapplewood."),
     "street-interview": ("mug", "What is the Dapplewood Trail Mug? A twelve ounce insulated steel mug with a press-fit "
                                 "lid. It is for anyone who takes a hot drink out the door. Find it at Dapplewood."),
     "three-reasons-video": ("mug", "Three reasons to try the Dapplewood Trail Mug. One, double-wall stainless steel. Two, "
@@ -235,6 +239,8 @@ _SHORT_SCRIPTS = {
     "problem-solution": "Lid gone again? The Trail Mug's lid presses in.",
     "green-screen-product-page": "This is the page for the Dapplewood Trail Mug.",
     "show-your-app": "This is Dapplewood Planner, a simple weekly planner.",
+    "web-app-demo": "Sticky notes everywhere? Open Dapplewood Planner.",
+    "try-on": "This is the Dapplewood Canvas Tote. Heavy canvas.",
     "street-interview": "What is the Dapplewood Trail Mug? An insulated mug.",
     "three-reasons-video": "Steel, a lid that stays, twelve ounces: the Trail Mug.",
     "offer-promo": "The Dapplewood Trail Mug, with a free lid.",

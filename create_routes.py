@@ -516,7 +516,13 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
         if keyframe:
             import keyframe_video
             screens = [int(x) for x in d.get("screens") or [] if str(x).isdigit() and int(x) in owned][:4]
-            ok, why = presets.recipe_ready(rec, p, len(photo_ids), len(screens))
+            # the product's own screen recording plays in a recipe that shows an app's screens, unless the config
+            # says not to ("recording": false) or names screenshots instead
+            recording = None
+            if presets.screens_needed(rec) == "app_screens" and not screens and d.get("recording") is not False:
+                import recordings
+                recording = recordings.of_product(conn, g.ws["id"], p["id"])
+            ok, why = presets.recipe_ready(rec, p, len(photo_ids), len(screens) + (1 if recording is not None else 0))
             if not ok:          # a recipe that shows the member's own screens needs them: say what to add
                 raise ConfigError(why, "format")
             end_cta = " ".join(str(d.get("cta") or "").split())[:catalog.TEXT_LIMITS["cta"]].replace('"', "'")
@@ -584,6 +590,8 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
                         params["pipeline"] = keyframe_video.PIPELINE
                         if screens:
                             params["screens"] = screens
+                        if recording is not None:
+                            params["recording"] = recording["id"]
                         if d.get("captions") is not None:
                             params["captions"] = bool(d.get("captions"))
                         if end_cta:
@@ -865,7 +873,7 @@ def generate_for(d):
         cfg = {k: d.get(k) for k in ("type", "angle", "items", "body", "presenters", "voices", "voice", "duration",
                                      "aspects", "platforms", "versions", "ref", "photos", "setting", "audio", "resolution",
                                      "subline", "cta", "placement", "preset", "layers", "situation", "label",
-                                     "screens", "captions")}
+                                     "screens", "captions", "recording")}
         cfg["made"] = [j["key"] for j in jobs]
         cfg["every"] = meta["every"]
         cfg["product"] = p["id"]

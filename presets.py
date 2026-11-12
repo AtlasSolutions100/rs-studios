@@ -437,8 +437,13 @@ for _l in _STATICS_M15:
 #   captions   burn the spoken words in, a few at a time (a member's config can turn them on or off)
 #   crossfade  frames each join dissolves over (0 = hard cuts, the default; 4 to 6 otherwise)
 #   product_at where the product is in a presenter's keyframe: "table" (on the situation's surface, the default),
-#              "hand" or "shelf"
-#   extra_inputs  ("page_screenshot",) / ("app_screens",): the member's own screenshots, shown as they are
+#              "hand" or "shelf"; "worn" (a try-on: the member's garment is on the presenter, framed to show all of
+#              it) and "none" (an app or a website: the presenter alone, and no screen of it is ever drawn)
+#   extra_inputs  ("page_screenshot",) / ("app_screens",): the member's own screenshots, shown as they are. For
+#              "app_screens" the product's screen recording (recordings.py) plays instead when it has one
+#   screen_layout  how a "screen" beat is laid out: "pip" (the screen full frame, the presenter small in a corner,
+#              the default) or "split" (a wide screen across the top, the presenter filling the frame below it;
+#              a tall phone screen still gets "pip")
 # Everything here is written for Campaignify; nothing is taken from another tool's prompts.
 _END_CARD = {"beat": "end card", "seconds": 2, "source": "packshot",
              "shot": "the real product photo on the brand colour, the logo under it",
@@ -600,7 +605,7 @@ _RECIPES = [
                 "say": "one detail from the page and where the button is", "text": ""},
                _END_CARD)},
     {"id": "show-your-app", "name": "Show your app", "ad_type": "ugc", "duration": 15, "needs": "keyframe_video",
-     "fits": ("app_service",), "extra_inputs": ("app_screens",),
+     "fits": ("app_service",), "extra_inputs": ("app_screens",), "product_at": "none",
      "line": "A presenter introduces it, then your real screens",
      "what_for": "For apps and software: a presenter introduces it, then your real screens fill the frame. No invented "
                  "interface.",
@@ -613,6 +618,44 @@ _RECIPES = [
                {"beat": "screens", "seconds": 8, "source": "screen",
                 "shot": "your screenshots full frame, one after another, as they are",
                 "say": "one thing you can do in it, then where to get it", "text": ""},
+               _END_CARD)},
+    {"id": "web-app-demo", "name": "Web app demo", "ad_type": "ugc", "duration": 15, "needs": "keyframe_video",
+     "fits": ("app_service",), "extra_inputs": ("app_screens",), "product_at": "none", "screen_layout": "split",
+     "line": "A hook to camera, then your real screen above the presenter",
+     "what_for": "For software people use in a browser: a presenter opens with the problem, then your own screen "
+                 "recording or screenshots play across the top of the frame while they talk you through it. No "
+                 "invented interface.",
+     "use": ("show-your-app",),
+     "direction": "",
+     "captions": True,
+     "script": {"shape": "The problem as a hook, then what you do on the screen shown, then where to try it. Say only "
+                         "what the screen shows.", "starter": "If you still"},
+     "beats": ({"beat": "hook", "seconds": 7, "source": "presenter", "shot": "the presenter to camera at a desk, close",
+                "say": "the hook: the problem it takes away", "text": "the hook in five words or fewer"},
+               {"beat": "demo", "seconds": 8, "source": "screen",
+                "shot": "your screen recording or screenshots across the top of the frame, as they are, the presenter "
+                        "below, talking",
+                "say": "what you do on the screen shown, then where to try it", "text": ""},
+               _END_CARD)},
+    {"id": "try-on", "name": "Try-on", "ad_type": "ugc", "duration": 15, "needs": "keyframe_video",
+     "fits": ("apparel",), "product_at": "worn",
+     "line": "A presenter wears it and talks through the look",
+     "what_for": "For clothing, shoes, bags and accessories: an AI presenter wears yours, drawn from your product "
+                 "photo, and talks through how it looks. Your real photo closes the video. Check the picture of it "
+                 "against the real thing before you post.",
+     "use": ("try-on",),
+     "direction": "",
+     "captions": True,
+     "script": {"shape": "What it is and the first thing you notice, then the fabric, the cut or one approved fact, "
+                         "then where to get it. The presenter speaks for the brand, never as someone who bought it, "
+                         "and says nothing about sizing you haven't listed.", "starter": "Okay, this is {product}."},
+     "beats": ({"beat": "the look", "seconds": 7, "source": "presenter",
+                "shot": "they stand facing the phone, wearing it, and settle it with one hand",
+                "say": "what it is and the first thing you notice", "text": "the product's name"},
+               {"beat": "the detail", "seconds": 8, "source": "presenter",
+                "shot": "they turn a little to one side and back to the front",
+                "say": "the fabric, the cut or one approved fact, then where to get it",
+                "text": "one fact, as the product page says it"},
                _END_CARD)},
     {"id": "street-interview", "name": "Street interview", "ad_type": "ugc", "duration": 15, "needs": "keyframe_video",
      "situation": "outdoor", "labels": ("AI presenter",),
@@ -684,7 +727,7 @@ USES = {
     "seasonal": "Seasonal", "problem-solution": "Problem, then solution", "listicle": "List of reasons",
     "how-to": "How-to", "before-after-honest": "The switch, honestly told", "show-your-app": "Show your app",
     "talking-head": "Talking head", "talking-head-cutaways": "Talking head with cutaways", "voiceover": "Voiceover",
-    "hands-only-demo": "Hands-only demo", "unboxing-pov": "Unboxing, first person",
+    "hands-only-demo": "Hands-only demo", "unboxing-pov": "Unboxing, first person", "try-on": "Try-on",
     "green-screen-product-page": "Over the product page", "street-interview": "Street interview",
     "founder-story": "Founder story", "product-motion": "Product in motion", "trend": "Trend",
 }
@@ -963,6 +1006,7 @@ def _from_recipe(d: dict) -> Preset:
                          # read only by the keyframe-first pipeline (keyframe_video.py)
                          "captions": bool(d.get("captions")), "crossfade": int(d.get("crossfade") or 0),
                          "product_at": d.get("product_at") or "table",
+                         "screen_layout": d.get("screen_layout") or "pip",
                          "screens": tuple(d.get("extra_inputs") or ())},
                   category=_category(fits), use=tuple(d["use"]), needs=d["needs"], season=d.get("season") or "")
 
@@ -1023,7 +1067,8 @@ def pipeline_for(p) -> str:
     return "keyframe_video" if (p is not None and p.kind == "recipe" and keyframe_on()) else "single_take"
 
 
-SCREEN_NEEDS = {"page_screenshot": "a screenshot of your product page", "app_screens": "your app's screenshots"}
+SCREEN_NEEDS = {"page_screenshot": "a screenshot of your product page",
+                "app_screens": "your app's screenshots or a screen recording"}
 
 
 def screens_needed(p) -> str:
@@ -1033,9 +1078,9 @@ def screens_needed(p) -> str:
 
 def recipe_ready(p, product=None, n_photos: int = 0, n_screens: int = 0) -> tuple[bool, str]:
     """(can this recipe be made for this product now, why not). A recipe that shows the member's own screens needs
-    them: screenshots passed with the config (`screens`), or, for an app, the product's own pictures (an app's
-    photos are its screens). Nothing of a page or an app is ever generated, so without them the recipe stays
-    unavailable for that product, and the reason says what to add."""
+    them: screenshots passed with the config (`screens`; a screen recording counts as one), or, for an app, the
+    product's own pictures (an app's photos are its screens). Nothing of a page or an app is ever generated, so
+    without them the recipe stays unavailable for that product, and the reason says what to add."""
     if p is None or p.kind != "recipe":
         return False, "That isn't a video preset."
     if not runnable(p):
@@ -1045,6 +1090,9 @@ def recipe_ready(p, product=None, n_photos: int = 0, n_screens: int = 0) -> tupl
         return True, ""
     if need == "app_screens" and category(product) == "app_service" and n_photos:
         return True, ""
+    if need == "app_screens":
+        return False, (f"{p.name} needs {SCREEN_NEEDS[need]}: add them on the product's page. They are shown as they "
+                       "are; nothing of your app is ever generated.")
     return False, (f"{p.name} needs {SCREEN_NEEDS[need]}: upload it with the product's photos and pick it as the "
                    "screenshot. It is shown as it is; nothing of it is ever generated.")
 

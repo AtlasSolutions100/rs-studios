@@ -3292,6 +3292,8 @@ import site_admins  # noqa: E402
 app.register_blueprint(site_admins.bp)          # one admin makes another (the admin page's Site admins card)
 import libstore  # noqa: E402
 app.register_blueprint(libstore.bp)             # /lib/<name>: gallery clips kept outside the deploy bundle
+import recordings  # noqa: E402
+app.register_blueprint(recordings.bp)           # a product's screen recording (video presets that show your screens)
 import confirm_step  # noqa: E402
 app.register_blueprint(confirm_step.bp)         # "Confirm your email" for everyone (verify.everyone): after the plan gate
 app.register_blueprint(card_routes.bp)

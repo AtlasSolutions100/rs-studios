@@ -924,7 +924,8 @@ SOLUTIONS = {
                                               "lead."),
         ],
         "gets": [
-            ("Your real interface", "Videos that show your screens use the screenshots you uploaded, as they are."),
+            ("Your real interface", "Videos that show your screens use the screenshots or the screen recording you "
+                                    "uploaded, as they are."),
             ("A presenter for the pitch", "AI presenters explain the offer in a short vertical video."),
             ("Copy for each platform", "Ad copy, hooks, headlines and emails from the copy studio on a plan."),
             ("Leads in one place", "Forms and a contacts list with tags on Growth."),
@@ -937,8 +938,9 @@ SOLUTIONS = {
         ],
         "h2": {"how": "How SaaS teams use AI ads", "gets": "What SaaS teams get from AI ads", "faq": "AI ads for SaaS questions"},
         "faq": [
-            ("Will it make up screenshots of my app?", "No. The videos that show your screens use the screenshots you "
-                                                       "uploaded, as they are."),
+            ("Will it make up screenshots of my app?", "No. The videos that show your screens use the screenshots or "
+                                                       "the screen recording you uploaded, as they are. Nothing of "
+                                                       "your interface is generated."),
             ("Can it promise results like 10x productivity?",
              "Describe what the product does, not a number you cannot back. Income and earnings claims are blocked."),
             ("Does it connect to my CRM?", "Forms can send each submission out by webhook on Growth, and contacts live in "

@@ -3285,6 +3285,8 @@ if __name__ == "__main__" and not os.environ.get("RS_TEST_ONE"):
     subprocess.run([sys.executable, os.path.join(HERE, "test_libstore.py")], check=True)
     # The deploy bundle fits the deploy hook's body limit (git archive, base64, 64 MiB), with room to spare.
     subprocess.run([sys.executable, os.path.join(HERE, "test_bundle_size.py")], check=True)
+    # A product's screen recording (recordings.py): what is kept, one per product, its owner only, the split layout.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_recordings.py")], check=True)
     # Everyone confirms their email (verify.everyone, confirm_step.py): the step before the plan, the wrong-address fix.
     subprocess.run([sys.executable, os.path.join(HERE, "test_confirm_step.py")], check=True)
     # Site copy (M5.8, L-4): the hero, one pricing sum on /pricing and Billing, sign-up, the 404, card-on-file copy.

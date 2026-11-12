@@ -271,7 +271,7 @@ def _child_deletes(conn, ws_id: int) -> dict:
         for o in conn.execute(f"SELECT path FROM outputs WHERE job_id IN ({marks})", part).fetchall():
             freed += _remove_file(o["path"])
         n["outputs"] = n.get("outputs", 0) + conn.execute(f"DELETE FROM outputs WHERE job_id IN ({marks})", part).rowcount
-    for table in ("photos", "creator_pool_assets"):
+    for table in ("photos", "creator_pool_assets", "recordings"):
         if _has(conn, table):
             for r in conn.execute(f"SELECT path FROM {table} WHERE workspace_id=?", (ws_id,)).fetchall():
                 freed += _remove_file(r["path"])

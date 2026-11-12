@@ -27,6 +27,10 @@ AUDIO_RATE = 48000
 LOUDNORM = "loudnorm=I=-16:TP=-1.5:LRA=11"
 INTER_CRF, FINAL_CRF = 14, 20        # beats are kept near-lossless; the one delivered file is encoded once more
 PIP_WIDTH = 0.36                     # the presenter's share of the frame's width over a screenshot
+SPLIT_TOP = 0.07                     # a screen across the top starts this far down (what a platform covers)
+SPLIT_MAX = 0.5                      # and the band it sits in is never more than this share of the frame's height
+SPLIT_WIDE = 1.15                    # a screen at least this much wider than tall counts as wide
+SPLIT_FACE = 0.08                    # how far down the presenter's own frame the cut for the lower part starts
 BACKDROP = "0x111111"
 
 
@@ -127,6 +131,68 @@ def pip_box(size: tuple, aspect_safe_bottom: float = 0.06) -> tuple:
     return even(W * 0.05), even(H * (1 - aspect_safe_bottom) - h), w, h
 
 
+def video_size(path: str, fmt: str = "") -> tuple | None:
+    """(width, height) of a video as it is shown (a clip filmed sideways and marked as turned counts turned), read
+    as the container `fmt` when one is given. None when it can't be read."""
+    try:
+        r = subprocess.run(["ffprobe", "-v", "error", *(["-f", fmt] if fmt else []), "-select_streams", "v:0",
+                            "-show_entries", "stream=width,height:stream_tags=rotate:stream_side_data=rotation",
+                            "-of", "json", path], capture_output=True, timeout=60)
+        st = (json.loads(r.stdout or b"{}").get("streams") or [{}])[0]
+        w, h = int(st.get("width") or 0), int(st.get("height") or 0)
+        turn = (st.get("tags") or {}).get("rotate") or next(
+            (d.get("rotation") for d in st.get("side_data_list") or [] if d.get("rotation") is not None), 0)
+        if not w or not h:
+            return None
+        return (h, w) if abs(int(float(turn or 0))) % 180 == 90 else (w, h)
+    except (subprocess.TimeoutExpired, ValueError, TypeError, OSError):
+        return None
+
+
+def _screen_sizes(screen: dict) -> list:
+    """(width, height) of each thing a screen beat shows: its recording, or each of its pictures that is there."""
+    if screen.get("video"):
+        if not os.path.exists(screen["video"]):
+            return []
+        size = tuple(screen["size"]) if screen.get("size") else video_size(screen["video"], screen.get("format") or "")
+        return [size] if size and size[0] and size[1] else []
+    out = []
+    for p in screen.get("images") or []:
+        if p and os.path.exists(p):
+            try:
+                out.append(_image_size(p))
+            except Exception:  # noqa: BLE001 — a picture Pillow can't open is reported by the render itself
+                pass
+    return out
+
+
+def screen_layout(screen: dict | None, size: tuple) -> str:
+    """How a screen beat is laid out: "split" (the screen across the top, the presenter filling the frame below)
+    when the recipe asks for it, the frame is upright and everything shown is wide; else "pip" (the screen full
+    frame, the presenter small in a corner). A tall phone screen across the top would be a postage stamp."""
+    if not screen or screen.get("layout") != "split" or size[1] <= size[0]:
+        return "pip"
+    sizes = _screen_sizes(screen)
+    return "split" if sizes and all(w >= h * SPLIT_WIDE for w, h in sizes) else "pip"
+
+
+def split_box(size: tuple, source: tuple) -> tuple:
+    """(x, y, w, h, band) for a wide screen across the top of an upright frame: the screen whole, as wide as the
+    frame allows inside a small margin, and `band`, the height it takes with its margins (the presenter starts
+    there). The band is capped at SPLIT_MAX of the frame, so a squarer screen is shown narrower instead."""
+    W, H = size
+    sw, sh = source
+    m = even(W * 0.03)
+    top = even(H * SPLIT_TOP)
+    w = W - 2 * m
+    h = w * sh / max(1, sw)
+    most = H * SPLIT_MAX - top - m
+    if h > most:
+        h, w = most, most * sw / max(1, sh)
+    w, h = even(w), even(h)
+    return even((W - w) / 2), top, w, h, even(top + h + m)
+
+
 def render_beat(src: str, dst: str, *, size: tuple, fps, seconds: float | None = None, cutaways=(), screen=None,
                 overlays=(), loudnorm: bool = True, safe_bottom: float = 0.06) -> dict:
     """`src` (one rendered beat) as `dst` in the video's standard form, with what is laid over its picture.
@@ -134,7 +200,10 @@ def render_beat(src: str, dst: str, *, size: tuple, fps, seconds: float | None =
     cutaways  [{"path", "start", "seconds", "kind": "video" | "still"}]: shown full frame from `start` for `seconds`
               while the beat's own sound carries on; a "still" is a slow push-in on that picture
     screen    {"images": [paths]}: the pictures fill the frame one after another (a tall one scrolls), the beat's own
-              picture is small in the bottom-left corner
+              picture is small in the bottom-left corner. Or {"video": path, "format": its container, "start":
+              seconds into it, "speed": 1 to 2}: the member's screen recording plays instead, silent. With
+              "layout": "split" and wide sources (screen_layout) the screen runs across the top and the beat's own
+              picture fills the frame below it.
     overlays  [{"path": full-frame RGBA png, "start", "end"}]
     Returns probe(dst). Raises StitchError."""
     W, H = size
@@ -145,29 +214,53 @@ def render_beat(src: str, dst: str, *, size: tuple, fps, seconds: float | None =
     args, n = ["-i", src], 1
     fc = [f"[0:v]{_cover(W, H, fps)},tpad=stop_mode=clone:stop_duration=3[v0]"]
     last = "v0"
-    if screen and screen.get("images"):
-        imgs = [p for p in screen["images"] if p and os.path.exists(p)]
-        if not imgs:
-            raise StitchError("the screenshot isn't there")
-        each = dur / len(imgs)
-        parts = []
-        for path in imgs:
-            iw, ih = _image_size(path)
-            args += ["-loop", "1", "-framerate", str(fps), "-t", f"{each + 0.5:.3f}", "-i", path]
-            tall = ih * W / iw > H * 1.02
-            if tall:        # a page longer than the frame: fit its width and scroll down it over its time
-                chain = (f"scale={W}:-2:flags=lanczos,crop={W}:{H}:0:'min(ih-{H}\\,(ih-{H})*t/{each:.3f})',setsar=1,"
-                         f"fps={fps},format=yuv420p")
-            else:           # it fits: whole, centred, on a dark backdrop
-                chain = (f"scale={W}:{H}:force_original_aspect_ratio=decrease:flags=lanczos,"
-                         f"pad={W}:{H}:(ow-iw)/2:(oh-ih)/2:color={BACKDROP},setsar=1,fps={fps},format=yuv420p")
-            fc.append(f"[{n}:v]{chain},trim=duration={each:.3f},setpts=PTS-STARTPTS[s{n}]")
-            parts.append(f"[s{n}]")
+    if screen and (screen.get("images") or screen.get("video")):
+        split = screen_layout(screen, size) == "split"
+        sizes = _screen_sizes(screen)
+        if not sizes:
+            raise StitchError("the screen recording isn't there" if screen.get("video") else "the screenshot isn't there")
+        # where the screen goes: the whole frame, or (split) the box every source fits across the top
+        box = min((split_box(size, s) for s in sizes), key=lambda b: b[3]) if split else (0, 0, W, H, 0)
+        bx, by, bw, bh, band = box
+        fit = (f"scale={bw}:{bh}:force_original_aspect_ratio=decrease:flags=lanczos,"
+               f"pad={bw}:{bh}:(ow-iw)/2:(oh-ih)/2:color={BACKDROP},setsar=1,fps={fps},format=yuv420p")
+        if screen.get("video"):
+            speed = min(4.0, max(1.0, float(screen.get("speed") or 1)))
+            args += (["-f", screen["format"]] if screen.get("format") else []) + \
+                ["-ss", f"{max(0.0, float(screen.get('start') or 0)):.3f}", "-t", f"{dur * speed + 0.5:.3f}",
+                 "-i", screen["video"]]
+            fc.append(f"[{n}:v]setpts=(PTS-STARTPTS)/{speed:.3f},{fit},trim=duration={dur:.3f},setpts=PTS-STARTPTS,"
+                      "tpad=stop_mode=clone:stop_duration=30[bg]")
             n += 1
-        fc.append(f"{''.join(parts)}concat=n={len(parts)}:v=1:a=0,tpad=stop_mode=clone:stop_duration=3[bg]")
-        x, y, pw, ph = pip_box(size, safe_bottom)
-        fc.append(f"[{last}]scale={pw - 8}:{ph - 8}:flags=lanczos,pad={pw}:{ph}:4:4:color=white[pip]")
-        fc.append(f"[bg][pip]overlay={x}:{y}[vs]")
+        else:
+            imgs = [p for p in screen["images"] if p and os.path.exists(p)]
+            each = dur / len(imgs)
+            parts = []
+            for path in imgs:
+                iw, ih = _image_size(path)
+                args += ["-loop", "1", "-framerate", str(fps), "-t", f"{each + 0.5:.3f}", "-i", path]
+                tall = (not split) and ih * W / iw > H * 1.02
+                if tall:        # a page longer than the frame: fit its width and scroll down it over its time
+                    chain = (f"scale={W}:-2:flags=lanczos,crop={W}:{H}:0:'min(ih-{H}\\,(ih-{H})*t/{each:.3f})',setsar=1,"
+                             f"fps={fps},format=yuv420p")
+                else:           # it fits: whole, centred, on a dark backdrop
+                    chain = fit
+                fc.append(f"[{n}:v]{chain},trim=duration={each:.3f},setpts=PTS-STARTPTS[s{n}]")
+                parts.append(f"[s{n}]")
+                n += 1
+            fc.append(f"{''.join(parts)}concat=n={len(parts)}:v=1:a=0,tpad=stop_mode=clone:stop_duration=3[bg]")
+        if split:
+            # the presenter fills the frame under the band: cut from their own frame a little below its top, so
+            # the face stays in; the screen sits above on the backdrop with a thin white edge, like the corner one
+            low = H - band
+            off = f"min(ih-{low}\\,ih*{SPLIT_FACE})"
+            fc.append(f"[{last}]crop={W}:{low}:0:'{off}',pad={W}:{H}:0:{band}:color={BACKDROP}[low]")
+            fc.append(f"[bg]pad={bw + 4}:{bh + 4}:2:2:color=white[scr]")
+            fc.append(f"[low][scr]overlay={bx - 2}:{by - 2}[vs]")
+        else:
+            x, y, pw, ph = pip_box(size, safe_bottom)
+            fc.append(f"[{last}]scale={pw - 8}:{ph - 8}:flags=lanczos,pad={pw}:{ph}:4:4:color=white[pip]")
+            fc.append(f"[bg][pip]overlay={x}:{y}[vs]")
         last = "vs"
     for i, c in enumerate(cutaways or ()):
         start, secs = max(0.0, float(c["start"])), float(c["seconds"])

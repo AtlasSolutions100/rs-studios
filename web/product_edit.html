@@ -104,6 +104,25 @@
       </section>
       {% endif %}
 
+      {% if is_app or recording %}
+      <section class="panel" id="recording">
+        <div class="block-h"><h2>Screen recording</h2><span class="small muted">{{ recording_note if recording else 'optional' }}</span></div>
+        <p class="small muted" style="margin:4px 0 12px">Record your own screen using your app or site, and the video presets that show your screens (Show your app, Web app demo) play it as it is. Nothing of it is generated, and its sound isn't used. Keep the part you want seen in the first 15 seconds.</p>
+        {% if recording %}
+        <video class="rec-view" src="{{ url_for('recordings.view', rid=recording.id) }}" controls muted playsinline preload="metadata" width="{{ recording.width }}" height="{{ recording.height }}"></video>
+        {% endif %}
+        <div class="row" style="margin-top:10px">
+          <form method="post" action="{{ url_for('recordings.save', pid=p.id) }}" enctype="multipart/form-data" class="row" data-busy>
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <label class="sr" for="rec-up">{{ 'Replace the screen recording' if recording else 'Add a screen recording' }}</label><input id="rec-up" type="file" name="recording" accept="video/mp4,video/quicktime,video/webm" required>
+            <button class="btn sm">{{ 'Replace' if recording else 'Upload' }}</button>
+          </form>
+          {% if recording %}<form method="post" action="{{ url_for('recordings.save', pid=p.id) }}" data-confirm="Remove this screen recording?"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="do" value="remove"><button class="btn dark sm">Remove</button></form>{% endif %}
+        </div>
+        <p class="small dim" style="margin:8px 0 0">MP4, MOV or WebM, up to 3 minutes and 150 MB. Check that it shows nothing private: no customer names, emails or keys.</p>
+      </section>
+      {% endif %}
+
       <section class="panel" id="photos">
         <div class="block-h"><h2>Photos</h2><span class="small muted">{{ photos|length }} · the starred one is used first</span></div>
         <form method="post" action="{{ url_for('upload_photos') }}" enctype="multipart/form-data" class="row" style="margin:6px 0 14px">
