@@ -45,3 +45,11 @@
   (0.3 s lead-in, quiet tail) to reach >= 5.3 s; marcus and rosa run 7.4-7.5 s of speech (file 8.0 s).
 - Pitch check (automatic, rough): the male samples Dylan (jordan), Evan (theo) and Cody (otis) measured unusually high for male
   voices; the app labels them male/young. Koby should listen to those three first.
+
+### Phase 3 audio-reference test (Seedance 2.5, omni_reference)
+- Preflight: 42 cr per 6 s 720p clip; 2 clips = 84 cr (cap for this test was 150).
+- maya (portrait + Bella sample) and marcus (portrait + Reid sample). The vendor ACCEPTED the audio_references media
+  (passed as the audio job id); both jobs completed with sound. Files in voice_test/ (clip + the sample it was given).
+- Picture: both hold the presenter's face from the portrait, lip movement visible, no text/logos.
+- Rough automatic pitch comparison (not a listening test): marcus clip median ~158 Hz vs sample ~163 Hz (close);
+  maya clip ~198 Hz vs sample ~232 Hz (lower than the sample). Whether the voice really matches needs Koby's ears.

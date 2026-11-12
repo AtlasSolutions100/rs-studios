@@ -2321,5 +2321,53 @@
   "credits": 0.5,
   "qa": "ok (length and format); voice not checked by ear",
   "notes": "Higgsfield preset voice Benji (male, young in the web app's voice filter). Descriptor: young_bright_m. Silence padded at the start (0.3 s) and end to reach at least 5 s; the speech itself is 6.6 s."
+ },
+ {
+  "path": "voice_test/maya-talking.mp4",
+  "kind": "voice_test_video",
+  "presenter": "maya",
+  "model": "seedance_2_5 (omni_reference, 720p, 6 s)",
+  "prompt": "Vertical phone video. The woman from the reference image stands in her ordinary home kitchen, holding the phone at arm's length. She looks into the camera and says, in the same voice as the reference audio, in a warm, relaxed tone: \"This is a quick look at a small kitchen scale. It's simple to use and easy to clean.\" Natural light, realistic, clear voice, lips in sync with the words. No music. No text, no captions, no logos, no watermark.",
+  "job_id": "feddc0ce-ef1c-42dd-a6e2-5c4997b509ea",
+  "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GvdxB9gfwtge4rv79iuyoXAckR/hf_20261112_064709_feddc0ce-ef1c-42dd-a6e2-5c4997b509ea.mp4",
+  "credits": 42,
+  "qa": "ok (picture); voice match NOT checked by ear",
+  "notes": "References: image = static/presenters/maya/portrait.webp (media 1d2efdbb-78da-406f-92d8-f20d1e8dee34); audio_references = the Bella voice sample job 0c826807-5c97-4b2c-8981-5d07326dca68. The vendor accepted the audio reference."
+ },
+ {
+  "path": "voice_test/maya-voice-sample.mp3",
+  "kind": "voice_test_sample",
+  "presenter": "maya",
+  "model": "seed_audio",
+  "prompt": null,
+  "job_id": "0c826807-5c97-4b2c-8981-5d07326dca68",
+  "source_url": null,
+  "credits": 0,
+  "qa": "copy of presenters/maya/voice.mp3",
+  "notes": "The sample given to the video as its audio reference (vendor original, before padding)."
+ },
+ {
+  "path": "voice_test/marcus-talking.mp4",
+  "kind": "voice_test_video",
+  "presenter": "marcus",
+  "model": "seedance_2_5 (omni_reference, 720p, 6 s)",
+  "prompt": "Vertical phone video. The man from the reference image stands in his ordinary home kitchen, holding the phone at arm's length. He looks into the camera and says, in the same voice as the reference audio, in a calm, assured tone: \"Here's a quick look at a weekly meal kit. It comes with the recipes and the ingredients.\" Natural light, realistic, clear voice, lips in sync with the words. No music. No text, no captions, no logos, no watermark.",
+  "job_id": "4bd60509-24a0-4a21-a5b6-e414ebe975bc",
+  "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GvdxB9gfwtge4rv79iuyoXAckR/hf_20261112_064710_4bd60509-24a0-4a21-a5b6-e414ebe975bc.mp4",
+  "credits": 42,
+  "qa": "ok (picture); voice match NOT checked by ear",
+  "notes": "References: image = static/presenters/marcus/portrait.webp (media ab3eddb9-40a7-4536-bf81-464e61e68445); audio_references = the Reid voice sample job 61298498-1772-4a52-87a1-64f062ef4f31. The vendor accepted the audio reference."
+ },
+ {
+  "path": "voice_test/marcus-voice-sample.mp3",
+  "kind": "voice_test_sample",
+  "presenter": "marcus",
+  "model": "seed_audio",
+  "prompt": null,
+  "job_id": "61298498-1772-4a52-87a1-64f062ef4f31",
+  "source_url": null,
+  "credits": 0,
+  "qa": "copy of presenters/marcus/voice.mp3",
+  "notes": "The sample given to the video as its audio reference (vendor original, before padding)."
  }
 ]
