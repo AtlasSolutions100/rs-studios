@@ -44,11 +44,20 @@
   // An example card puts its sentence in the box; its clip plays while the card is pointed at.
   var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   $$('[data-try]').forEach(function(b){
-    b.addEventListener('click', function(){ ask.value = b.dataset.try; ask.focus(); ask.setSelectionRange(ask.value.length, ask.value.length); });
+    b.addEventListener('click', function(){ if(!ask) return; ask.value = b.dataset.try; ask.focus(); ask.setSelectionRange(ask.value.length, ask.value.length); });
+  });
+  $$('.dk-ex').forEach(function(b){
     var v = b.querySelector('video'); if(!v || still) return;
     function on(){ b.classList.add('playing'); var p = v.play(); if(p && p.catch) p.catch(function(){ b.classList.remove('playing'); }); }
     function off(){ b.classList.remove('playing'); v.pause(); }
     b.addEventListener('mouseenter', on); b.addEventListener('mouseleave', off); b.addEventListener('focus', on); b.addEventListener('blur', off);
+  });
+  // The kinds of example: one row shows at a time.
+  $$('[data-cat-pick]').forEach(function(chip){
+    chip.addEventListener('click', function(){
+      $$('[data-cat-pick]').forEach(function(c){ c.setAttribute('aria-pressed', c === chip ? 'true' : 'false'); });
+      $$('[data-cat]').forEach(function(row){ row.hidden = row.dataset.cat !== chip.dataset.catPick; });
+    });
   });
 
   // ---------------------------------------------------------------- ads still being made: refresh them in place
