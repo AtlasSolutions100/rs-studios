@@ -442,7 +442,7 @@ try:
           and sum(p["gender"] == "male" for p in ro) >= 5 and sum(p["gender"] == "female" for p in ro) >= 5
           and presenters.get("nobody") is None and len({p["voice"]["id"] for p in ro}) >= 12,
           "eight situations, all used; five age bands or more; men and women; at least twelve distinct voices")
-    # Library 2 (Nov 12 2026): eight more presenters, and three look-lock pictures for everyone, shipped in the repo.
+    # Library 2 (Nov 12 2026): eight more presenters, shipped in the repo with their pictures.
     shipped = os.path.join(ROOT, "static", "presenters")
     eight = ("ray", "luis", "omar", "ben", "dana", "gloria", "kai", "tess")
     check(len(ro) == 28 and tuple(p["id"] for p in ro[20:]) == eight and len(presenters.VOICES) == 20
@@ -451,8 +451,8 @@ try:
     check(all(os.path.isfile(os.path.join(shipped, i, f"{n}.webp")) for i in eight
               for n in ["portrait"] + presenters.situation_ids(i)),
           "each of the eight ships with a portrait and a still for every one of their situations")
-    check(all(os.path.isfile(os.path.join(shipped, p["id"], f"{a}.webp")) for p in ro for a in presenters.ANGLES),
-          "every presenter ships with three look-lock pictures (used only while PRESENTER_ANGLES is on)")
+    check(not any(os.path.isfile(os.path.join(shipped, p["id"], f"{a}.webp")) for p in ro for a in presenters.ANGLES),
+          "no look-lock picture ships yet: nothing uses them while PRESENTER_ANGLES is off, and the bundle has no room")
     check(not any(os.path.isfile(os.path.join(shipped, p["id"], "voice.mp3")) for p in ro),
           "no voice sample ships yet: they wait until someone has listened to them")
     check(catalog.PRESENTERS == snap["catalog_presenters"] and len(catalog.PRESENTERS) == 8

@@ -13,7 +13,7 @@
     "sound": "videos only: true when the clip has speech; the tile gets a Sound button",
     "group": "optional: local for a local business or service (roofing, a salon, a food truck); the app's Inspiration lists those together"
   },
-  "_sizes": "Images: JPEG or WebP, 1080 px on the short side, under 400 KB. Videos: MP4 (H.264), 720x1280 or smaller, 5 to 10 seconds, under 3 MB, each with a poster. A mix of images and videos fills the grid best; at most 16 are shown.",
+  "_sizes": "Images: JPEG or WebP, 1080 px on the short side, under 400 KB. Videos: MP4 (H.264), 540x960, 5 to 10 seconds, under 600 KB (about 400 kbit/s), each with a poster. Everything here rides in the deploy bundle, which has a size limit (tests/test_bundle_size.py), so keep clips small. A mix of images and videos fills the grid best; at most 16 are shown on the home page.",
   "items": [
     {
       "file": "team-skincare.mp4",

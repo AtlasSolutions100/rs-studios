@@ -52,7 +52,8 @@ images = [s for s in shots if s["kind"] == "image"]
 print("== what ships")
 check("videos" not in shipped and len(shots) == public_site.SHOWCASE_MAX == 16, "one list, and the grid shows sixteen tiles")
 check(len(videos) >= 8 and len(images) >= 4, f"image ads and video ads share the grid ({len(images)} images, {len(videos)} videos)")
-check(all(os.path.getsize(os.path.join(ROOT, "static", v["src"])) < 3_000_000 for v in videos), "each clip is under 3 MB")
+check(all(os.path.getsize(os.path.join(ROOT, "static", v["src"])) < 600_000 for v in videos),
+      "each clip is under 600 KB: they ride in the deploy bundle, which has a limit (test_bundle_size.py)")
 check(all(v["poster"] and os.path.getsize(os.path.join(ROOT, "static", v["poster"])) < 120_000 for v in videos), "each clip has a small poster")
 check(all(s["preset_name"] and len(s["alt"]) > 30 for s in shots), "every tile has a title and alt text")
 check(sum(v["presenter"] for v in videos) >= 4 and sum(not v["presenter"] for v in videos) >= 4, "there are videos with a presenter and videos without")
