@@ -3,7 +3,13 @@
     /app/welcome            "What do you want to make?"  pick any, or type something else
     /app/welcome/profile    name, company, website (optional)
     then the card step if the workspace needs one (card_routes.py, RS_CARD_REQUIRED)
-    /app/welcome/brand      the brand brief: paste a link, see what was read, fix it, pick angles; then Studio
+    /app/welcome/brand      the brand brief: paste a link, see what was read, fix it, pick angles
+    /app/welcome/first      the first ads, on us (first_ads.py): two image ads and a short talking video, drafted
+                            from the brief; one button makes them and opens the campaign on the desk
+
+While plans only is on (plan_gate.py) the order is: the two questions, the brand brief, the plan step, the first
+ads. The brief comes before the plan so a new account sees its own brand read back before it is asked for a card;
+reading a link costs the member nothing, and the one paid thing on the brief (angle ideas) waits for a plan.
 
 The answers are kept on the member (users.onboarding_json, users.onboarded_at) and used for the first run:
 the composer opens on the first thing they said they want that their credits cover (studio_v2.first_mode),
@@ -102,8 +108,12 @@ def _start():
         if due(conn, g.user, g.ws):
             return redirect(url_for("onboarding.intent"))
         # not from the card page: the brief sits behind the card step, so sending the card page there would loop
-        if request.endpoint not in ("card.page", "plangate.page") and brief_due(conn, g.user, g.ws):
-            return redirect(url_for("onboarding.brief"))
+        if request.endpoint not in ("card.page", "plangate.page"):
+            if brief_due(conn, g.user, g.ws):
+                return redirect(url_for("onboarding.brief"))
+            import first_ads
+            if first_ads.due(conn, g.user, g.ws):        # a plan is picked and nothing is made: the first ads
+                return redirect(url_for("onboarding.first"))
     return None
 
 
@@ -215,7 +225,9 @@ def brief():
     if not ui_v2.on():
         return redirect(url_for("studio"))
     import creator
+    import first_ads
     import llm
+    import plan_gate
     import products
     from flask import flash
     here = url_for("onboarding.brief")
@@ -230,7 +242,8 @@ def brief():
                 save(conn, g.user, brief="done")
                 finish(conn, g.user)
                 conn.commit()
-                return redirect(url_for("studio"))
+                # the first ads come next (the gate sends a workspace with no plan to the plan step on the way)
+                return redirect(url_for("onboarding.first" if first_ads.on() and p is not None else "studio"))
             if do == "import":
                 ok, words = _import_link()
                 flash(words, "ok") if ok else flash(words)
@@ -254,7 +267,7 @@ def brief():
                     import create_routes
                     aid = create_routes.save_angle(conn, p["id"], {"title": f.get("title"), "hook": f.get("hook")}, "user")
                     flash("Angle added.", "ok") if aid else flash("Not added: give it a name, and keep to what you can truthfully say.")
-                elif do == "angles":
+                elif do == "angles" and not plan_gate.needs_plan(conn, ws, g.user):
                     flash(_suggest_angles(conn, p["id"]), "ok")
             except products.ProductError as e:
                 flash(str(e))
@@ -262,6 +275,8 @@ def brief():
         angles = conn.execute("SELECT * FROM angles WHERE product_id=? AND workspace_id=? ORDER BY id DESC LIMIT 12",
                               (p["id"], ws["id"])).fetchall() if p is not None else []
         photos = conn.execute("SELECT COUNT(*) FROM photos WHERE product_id=?", (p["id"],)).fetchone()[0] if p is not None else 0
+        no_plan = plan_gate.needs_plan(conn, ws, g.user)          # the paid step (angle ideas) waits for a plan
+        gift = first_ads.on() and (no_plan or first_ads.open_for(conn, ws, g.user))
     info = products.import_info(p) if p is not None else {}
     source = (info.get("url") if isinstance(info, dict) else "") or (p["url"] if p is not None and "url" in p.keys() else "") or ""
     return render_template("v2/onboard_brief.html", p=p, b=b, angles=angles, photos=photos,
@@ -269,5 +284,46 @@ def brief():
                            pending=products.pending(p) if p is not None else [],
                            source=source,
                            website=answers(g.user).get("website") or (b["website"] if b is not None else "") or "",
-                           angle_price=creator.estimate_angles() if llm.anthropic_ready() else None)
+                           angle_price=creator.estimate_angles() if (llm.anthropic_ready() and not no_plan) else None,
+                           gift=gift, no_plan=no_plan)
+
+
+# ---------------------------------------------------------------- the first ads, on us
+
+@bp.route("/app/welcome/first", methods=["GET", "POST"])
+@login_required
+def first():
+    """The first ads, on us (first_ads.py). GET shows the drafts; POST makes what is ticked and opens the campaign.
+    Skipping leaves them on us: the desk keeps offering them until they are made."""
+    if not ui_v2.on():
+        return redirect(url_for("studio"))
+    import first_ads
+    import products
+    from flask import flash
+    if not first_ads.on():
+        return redirect(url_for("studio"))
+    kept = {}
+    with db.connect() as conn:
+        ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone() or g.ws
+        p = products.get_product(conn, ws["id"], ws["product_id"]) if ws["product_id"] else None
+        if request.method == "POST":
+            if request.form.get("do") == "skip":
+                save(conn, g.user, first="skip")
+                conn.commit()
+                return redirect(url_for("studio"))
+            if p is None:
+                return redirect(url_for("onboarding.brief"))
+            out = first_ads.make(conn, ws, g.user, p, request.form)
+            if out.get("ok"):
+                return redirect(out["url"])
+            flash(out.get("error") or "The ads could not be started. Nothing was used.")
+            kept = request.form
+        room = first_ads.left(conn, ws["id"], g.user)
+        is_open = first_ads.open_for(conn, ws, g.user)
+        d = first_ads.draft(conn, p)
+        cost = first_ads.price(conn, p) if (p is not None and is_open) else {"image": 0, "talk": 0, "total": 0}
+        tid = first_ads.thread_of(conn, ws["id"])
+    return render_template("v2/onboard_first.html", p=p, d=d, room=room, is_open=is_open, cost=cost, kept=kept,
+                           thread=url_for("desk.thread", tid=tid) if tid else "",
+                           seconds=first_ads.TALK_SECONDS, images=first_ads.IMAGES)
 

@@ -1,0 +1,72 @@
+{% extends "v2/onboard_base.html" %}{% block title %}Your first ads · Campaignify{% endblock %}
+{% block ob_class %} ob-wide{% endblock %}
+{# The first ads, on us (onboarding.first, first_ads.py): two image ads and a short talking video drafted from the
+   brand brief. One form, no scripts needed; static/first_ads.js only counts the script's words. #}
+{% block ob %}
+{% if p is none %}
+<div class="bb-start">
+  <h1>Tell me what you sell first.</h1>
+  <p class="ob-sub">Your first ads are drafted from your product, so that comes first. Paste your link and I read the page.</p>
+  <p class="fa-ways"><a class="btn" href="{{ url_for('onboarding.brief') }}">Read my website</a><a class="ob-link" href="{{ url_for('products.new') }}">No website? Add it by hand</a></p>
+</div>
+{% elif not is_open %}
+<div class="bb-start">
+  <h1>{{ 'Your first ads are made.' if thread else 'Your first ads are not available here.' }}</h1>
+  <p class="ob-sub">{% if thread %}They are in your first campaign, along with everything you make next.{% else %}They were already made on another workspace of yours. Everything else is made from your desk, with the price shown first.{% endif %}</p>
+  <p><a class="btn" href="{{ thread or url_for('studio') }}">{{ 'Open the campaign' if thread else 'Open your desk' }}</a></p>
+</div>
+{% else %}
+{% set n_img = [d.looks|length, room.image]|min %}
+{% set has_talk = room.talk and d.cast %}
+{% set an = 'an' if seconds in (8, 11, 18) else 'a' %}
+<div class="bb-head">
+  <h1>Your first ads are on us.</h1>
+  <p class="ob-sub">{% if n_img and has_talk %}{{ n_img }} image ad{{ '' if n_img == 1 else 's' }} and {{ an }} {{ seconds }}-second talking video{% elif n_img %}{{ n_img }} image ad{{ '' if n_img == 1 else 's' }}{% else %}{{ an|capitalize }} {{ seconds }}-second talking video{% endif %} for {{ p.name }}, drafted from what you just checked. Change any of the words, then make them. They use none of your plan's credits.</p>
+</div>
+<form method="post" action="{{ url_for('onboarding.first') }}" class="fa" data-first>
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  <div class="fa-grid">
+    {% for t in d.looks[:room.image] %}
+    {% set i = loop.index0 %}
+    <section class="bb-card fa-card" aria-labelledby="fa-h{{ i }}">
+      <div class="fa-top">
+        <h2 id="fa-h{{ i }}">Image ad {{ loop.index }}</h2>
+        <label class="fa-on"><input type="checkbox" name="image{{ i }}" value="1" {{ 'checked' if not kept or kept.get('image' ~ i) }}><span>Make it</span></label>
+      </div>
+      {% if t.preview %}<figure class="fa-media"><img src="{{ t.preview }}" alt="" loading="lazy"><figcaption>An example of this look. Yours shows {{ p.name }}.</figcaption></figure>{% endif %}
+      <p class="bb-main">{{ t.name }}</p>
+      <label for="fa-hl{{ i }}">The headline on it</label>
+      <input id="fa-hl{{ i }}" type="text" name="headline{{ i }}" maxlength="120" value="{{ kept.get('headline' ~ i) if kept else t.headline }}">
+    </section>
+    {% endfor %}
+    {% if has_talk %}
+    <section class="bb-card fa-card fa-talk" aria-labelledby="fa-ht">
+      <div class="fa-top">
+        <h2 id="fa-ht">Talking video, {{ seconds }} seconds</h2>
+        <label class="fa-on"><input type="checkbox" name="talk" value="1" {{ 'checked' if not kept or kept.get('talk') }}><span>Make it</span></label>
+      </div>
+      <fieldset class="fa-cast">
+        <legend>Who says it</legend>
+        {% set chosen = kept.get('presenter') if kept else d.cast[0].id %}
+        {% for c in d.cast %}
+        <label class="fa-who"><input type="radio" name="presenter" value="{{ c.id }}" {{ 'checked' if c.id == chosen or (loop.first and not chosen) }}>
+          <span class="fa-face">{% if c.portrait %}<img src="{{ c.portrait }}" alt="" loading="lazy">{% endif %}</span><span>{{ c.name }}</span></label>
+        {% endfor %}
+      </fieldset>
+      <label for="fa-script">What they say</label>
+      <textarea id="fa-script" name="script" rows="4" maxlength="900" data-words="{{ d.words }}" aria-describedby="fa-count">{{ kept.get('script') if kept else d.script }}</textarea>
+      <p class="bb-note" id="fa-count" data-count>About {{ d.words }} words fit in {{ seconds }} seconds.</p>
+    </section>
+    {% endif %}
+  </div>
+  <div class="bb-done fa-done">
+    <button class="btn lg" name="do" value="make">Make my first ads</button>
+    <p class="bb-note">On us{% if cost.total %}: {{ '{:,}'.format(cost.total) }} credits of ads{% endif %}. Your plan's credits stay as they are. After these, you see the price before anything is made.</p>
+    <button class="ob-link" name="do" value="skip">Skip for now</button>
+  </div>
+</form>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='first_ads.js') }}" defer></script>
+{% endblock %}

@@ -8,7 +8,7 @@
 {% block pick %}
 <div class="pk" data-plan-step>
   <h1>{% if new %}Pick a plan to start{% else %}Pick a plan to keep making ads{% endif %}</h1>
-  <p class="pk-sub">{% if not new %}Your ads, products and credits are all still here. {% endif %}{% if any_trial %}Starter and Growth are free for {{ days }} days. Your card is charged when the trial ends, unless you cancel first.{% else %}Monthly, and you can cancel any time.{% endif %}</p>
+  <p class="pk-sub">{% if not new %}Your ads, products and credits are all still here. {% endif %}{% if any_trial %}Starter and Growth are free for {{ days }} days. Your card is charged when the trial ends, unless you cancel first.{% else %}Monthly, and you can cancel any time.{% endif %}{% if gift %} Your first 2 image ads and a short talking video are on us.{% endif %}</p>
 
   {% if canceled %}<p class="pk-note" role="status" data-plan-canceled>Checkout canceled. Nothing was charged.</p>{% endif %}
   {% if not checkout_open %}<p class="pk-note" role="status">Plan checkout isn't switched on yet. Check back shortly.</p>{% endif %}
