@@ -70,7 +70,8 @@ def account_status(ctx, args):
             unconfirmed = bool(verify.blocked(conn, ws, g.user))
         return {"workspace": {"id": ws["id"], "name": ws["name"]}, "plan": {"code": plans.plan_code(ws), "name": p["name"]},
                 "credits": db.balance(ws), "features": feats, "email_confirmed": not unconfirmed,
-                "note": "Videos need a confirmed email." if unconfirmed else None,
+                "note": (("Confirm the email address in the app before making anything." if verify.everyone()
+                          else "Videos need a confirmed email.") if unconfirmed else None),
                 "packs": [{"name": x["name"], "credits": x["credits"]} for x in catalog.PACKS]}
 
 

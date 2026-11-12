@@ -309,6 +309,15 @@ def signup_email_taken(email: str, ip: str, pw_hash: str = None, secret: str = N
     return check_email_page(email)
 
 
+def note_taken(email: str):
+    """An unconfirmed account asked to move to an address that already has an account (verify.change_address):
+    that inbox gets the same note a second sign-up would, at the same rate, and the asker is told nothing."""
+    email = _norm(email)
+    if not db.throttled(f"signup-taken:{email}", TAKEN_MAILS_PER_EMAIL_HOUR, 3600):
+        db.hit(f"signup-taken:{email}")
+        later(_send_taken, email)
+
+
 def _send_taken(email: str, pw_hash: str = None, secret: str = None):
     with db.connect() as conn:
         u = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()

@@ -310,8 +310,9 @@ def _verify_banner():
     if g.get("user") is not None and g.get("ws") is not None and request.endpoint not in (None, "static"):
         with db.connect() as conn:
             if verify.blocked(conn, g.ws, g.user):
-                return {"verify_banner": {"email": g.user["email"], "message": verify.message(g.user["email"]),
-                                          "box": {"email": g.user["email"], "csrf": csrf_token(),
+                to = verify.address(g.user)
+                return {"verify_banner": {"email": to, "message": verify.message(to),
+                                          "box": {"email": to, "csrf": csrf_token(), "all": verify.everyone(),
                                                   "send": url_for("verify_code_send"),
                                                   "check": url_for("verify_code_check")}}}
     return {}
@@ -1004,7 +1005,7 @@ def verify_email():
             return accounts.first_login(conn, u, request)
     mine = bool(g.user and u is not None and g.user["id"] == u["id"])
     if outcome == "ok":
-        flash("Email confirmed. Video ads are unlocked." if mine else
+        flash(verify.done_message() if mine else
               "That email is confirmed." if g.user else "Email confirmed. Log in to make your ads.", "ok")
     elif outcome == "already":
         flash("Your email is already confirmed.", "ok")
@@ -1018,16 +1019,8 @@ def verify_email():
 
 
 def _resend_wait():
-    """Why a confirmation email can't go out right now (once a minute, three an
-    hour per account, ten an hour per network), or None after recording the send."""
-    key, ipkey = f"verify:{g.user['id']}", f"verify-ip:{client_ip()}"
-    if db.throttled(key, 1, verify.RESEND_GAP_S):
-        return "We just sent one. Give it a minute, and check your spam folder."
-    if db.throttled(key, verify.RESEND_PER_HOUR, 3600) or db.throttled(ipkey, verify.RESEND_PER_IP_HOUR, 3600):
-        return "We've sent a few links already. Check your spam folder, or try again in an hour."
-    db.hit(key)
-    db.hit(ipkey)
-    return None
+    """Why a confirmation email can't go out right now, or None after recording the send (verify.resend_wait)."""
+    return verify.resend_wait(g.user, client_ip())
 
 
 @app.route("/app/verify/resend", methods=["POST"])
@@ -1045,7 +1038,7 @@ def verify_resend():
         return redirect(dest)
     with db.connect() as conn:
         sent = verify.send_link(conn, app.secret_key, g.user)
-    flash(f"Sent a new link and code to {g.user['email']}. It can take a minute; check spam too." if sent else
+    flash(f"Sent a new link and code to {verify.address(g.user)}. It can take a minute; check spam too." if sent else
           mailer.COULD_NOT_SEND_CODE, "ok" if sent else "message")
     return redirect(dest)
 
@@ -1060,7 +1053,7 @@ def verify_code_send():
         return jsonify({"ok": True, "verified": True})
     auto = bool((request.get_json(silent=True) or {}).get("auto"))
     if auto and verify.code_live(g.user) and verify.code_sent(g.user):
-        return jsonify({"ok": True, "sent": False, "message": f"We sent a code to {g.user['email']}."})
+        return jsonify({"ok": True, "sent": False, "message": f"We sent a code to {verify.address(g.user)}."})
     wait = _resend_wait()
     if wait:
         if auto:   # the signup email (or the last Resend) is still on its way
@@ -1070,7 +1063,7 @@ def verify_code_send():
         sent = verify.send_link(conn, app.secret_key, g.user)
     if not sent:
         return jsonify({"error": mailer.COULD_NOT_SEND_CODE, "retry": 60}), 503
-    return jsonify({"ok": True, "sent": True, "message": f"We sent a new code to {g.user['email']}. "
+    return jsonify({"ok": True, "sent": True, "message": f"We sent a new code to {verify.address(g.user)}. "
                                                          "It can take a minute; check spam too."})
 
 
@@ -1086,13 +1079,8 @@ def verify_code_check():
     with db.connect() as conn:
         outcome, left = verify.check_code(conn, app.secret_key, g.user, code)
     if outcome in ("ok", "already"):
-        return jsonify({"ok": True, "message": "Email confirmed. Video ads are unlocked."})
-    msg = {"format": "Enter the 6-digit code from the email.",
-           "none": "Press Resend code and we'll email you one.",
-           "expired": "That code has expired. Press Resend code for a new one.",
-           "locked": "Too many wrong tries. Press Resend code for a new one.",
-           "wrong": f"That code isn't right. {left} {'try' if left == 1 else 'tries'} left."}[outcome]
-    return jsonify({"error": msg, "outcome": outcome, "left": left}), 400
+        return jsonify({"ok": True, "message": verify.done_message()})
+    return jsonify({"error": verify.code_message(outcome, left), "outcome": outcome, "left": left}), 400
 
 
 @app.route("/logout", methods=["POST"])
@@ -3302,6 +3290,8 @@ import results  # noqa: E402
 app.register_blueprint(results.bp)              # the results screen (new look)
 import site_admins  # noqa: E402
 app.register_blueprint(site_admins.bp)          # one admin makes another (the admin page's Site admins card)
+import confirm_step  # noqa: E402
+app.register_blueprint(confirm_step.bp)         # "Confirm your email" for everyone (verify.everyone): after the plan gate
 app.register_blueprint(card_routes.bp)
 app.register_blueprint(paywall_routes.bp)
 import deletion_routes  # noqa: E402  (M7.5: Team > Delete this workspace)

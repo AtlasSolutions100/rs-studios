@@ -62,7 +62,7 @@
     if(vdlg.open) return Promise.resolve(false);
     var form = vdlg.querySelector('[data-vform]'), inp = vdlg.querySelector('.vcode'), err = vdlg.querySelector('[data-verr]'),
         msg = vdlg.querySelector('[data-vmsg]'), ok = vdlg.querySelector('[data-vok]'), again = vdlg.querySelector('[data-vresend]');
-    vdlg.querySelector('.cdlg-t').textContent = reason === 'cap' ? 'Confirm your email to keep making ads' : 'Confirm your email to make video ads';
+    vdlg.querySelector('.cdlg-t').textContent = (V.all || reason === 'confirm') ? 'Confirm your email to keep going' : reason === 'cap' ? 'Confirm your email to keep making ads' : 'Confirm your email to make video ads';
     msg.textContent = 'We\'re emailing a 6-digit code to ' + V.email + '.';
     inp.value = ''; err.hidden = true; ok.disabled = false; ok.textContent = 'Confirm';
     function say(t, bad){ err.hidden = !t; err.textContent = t || ''; err.classList.toggle('warnc', !!bad); }
@@ -100,7 +100,8 @@
   };
   document.addEventListener('click', function(e){
     if(!e.target.closest('[data-verify-open]')) return;
-    window.cfyVerify('video').then(function(yes){ if(yes) vdone('Email confirmed. Video ads are unlocked.'); });
+    var all = window.CFY_VERIFY && window.CFY_VERIFY.all;   // everyone confirms (verify.everyone): nothing about video
+    window.cfyVerify('video').then(function(yes){ if(yes) vdone(all ? 'Email confirmed.' : 'Email confirmed. Video ads are unlocked.'); });
   });
   function vdone(text){
     var m = document.querySelector('main') || document.body, d = document.createElement('div');
