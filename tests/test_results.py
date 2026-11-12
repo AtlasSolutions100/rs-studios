@@ -6,6 +6,9 @@ Meta. Every number on the page is seeded here and checked to the unit.
   * Campaignify's own counts by range (7, 30, 90 days, the edges included): a person who sends twice is one lead;
     link clicks; ads made and how many of those are approved; where the leads came from; the links clicked most
   * per campaign (a desk conversation): its ads, its page with views as all time, the leads of its form
+  * page views by date: a counted view of a public page adds one to that page's day (not a repeat visit, not a bot,
+    never in the page's way); the range's views, "counted since" when the range starts before the first counted day,
+    and the page's own row; deleting a page removes its days
   * ad accounts: off for the workspace, none connected, nothing launched, then real spend per campaign and per ad,
     the leads on the member's own forms and what each cost, totals, and what stands out (the best ad, a worn ad, a
     campaign that spent with nothing to show, a change waiting for approval); leads from ads not launched here
@@ -199,6 +202,56 @@ check(" 4" in text(re.findall(r"<tr>(.*?)</tr>", b30[b30.index("data-rs-camps"):
 ex("UPDATE pages SET status='draft' WHERE id=?", PG)
 check("Winter sale not published yet" in text(page(a)), "a page that is not live shows no views")
 ex("UPDATE pages SET status='published' WHERE id=?", PG)
+
+# ================================================================ 4b. page views by date
+print("page views by date")
+
+
+def days_of(pid):
+    return {r["day"]: r["views"] for r in S.q("SELECT day, views FROM page_views_daily WHERE page_id=?", pid)}
+
+
+body = page(a)
+check("Page views" not in nums(body) and "Page views by date start with the next view of one of your pages" in text(body)
+      and "1,234 views, all time" in text(body), "before any view is counted by date: no figure, and the page says so")
+v1 = S.client()
+r = v1.get("/p/winter-sale")
+check(r.status_code == 200 and days_of(PG) == {S.day(0): 1} and S.q("SELECT views FROM pages WHERE id=?", PG)[0]["views"] == 1235,
+      "a view of the public page adds one to today, in the workspace's own day, and to the running count")
+v1.get("/p/winter-sale")
+check(days_of(PG) == {S.day(0): 1}, "the same visitor again within the half hour is not counted twice")
+bot = S.client()
+bot.get("/p/winter-sale", headers={"User-Agent": "Googlebot/2.1 (+http://www.google.com/bot.html)"})
+check(days_of(PG) == {S.day(0): 1}, "a crawler is not counted")
+S.client().get("/p/winter-sale")
+check(days_of(PG) == {S.day(0): 2}, "another visitor is")
+real_today = results.today
+results.today = lambda conn, ws_id: (_ for _ in ()).throw(RuntimeError("no clock"))
+r = S.client().get("/p/winter-sale")
+results.today = real_today
+check(r.status_code == 200 and days_of(PG) == {S.day(0): 2} and S.q("SELECT views FROM pages WHERE id=?", PG)[0]["views"] == 1237,
+      "a problem counting the day never stops the page: it shows, and the running count still moves")
+ex("INSERT INTO page_views_daily (page_id, workspace_id, day, views) VALUES (?,?,?,?)", PG, WS, S.day(3), 40)
+ex("INSERT INTO page_views_daily (page_id, workspace_id, day, views) VALUES (?,?,?,?)", 99999, WS + 999, S.day(1), 5000)
+body = page(a)
+main = text(main_of(body))
+check(nums(body)["Page views"] == "42" and "on your pages, counted since" in main,
+      "7 days: 42 views; the count starts inside the range, so it says since when; another workspace's views are not added")
+tbl = body[body.index("data-rs-camps"):body.index("</table>", body.index("data-rs-camps"))]
+check("Winter sale 42 in 7 days, 1,237 views all time" in text(tbl), "the campaign's page shows its views in the range and all time")
+check("Page views are counted by date from" in text(body) and "start with the next view" not in text(body),
+      "the footnote says from which day")
+ex("INSERT INTO page_views_daily (page_id, workspace_id, day, views) VALUES (?,?,?,?)", PG, WS, S.day(10), 100)
+body = page(a)
+check(nums(body)["Page views"] == "42" and "counted since" not in text(main_of(body)),
+      "once the first counted day is before the range, nothing is qualified")
+check(nums(page(a, "30"))["Page views"] == "142", "30 days: the day-10 views too")
+TMPPG = ex("INSERT INTO pages (workspace_id, slug, title, description, status, blocks_json, created_at, updated_at) VALUES "
+           "(?,?,?,?,?,?,?,?)", WS, "gone-soon", "Gone soon", "", "draft", "[]", db.now(), db.now())
+ex("INSERT INTO page_views_daily (page_id, workspace_id, day, views) VALUES (?,?,?,?)", TMPPG, WS, S.day(1), 7)
+a.post(f"/app/pages/{TMPPG}/delete", data={"csrf": S.csrf(a)})
+check(not S.q("SELECT 1 FROM pages WHERE id=?", TMPPG) and days_of(TMPPG) == {} and nums(page(a))["Page views"] == "42",
+      "deleting a page removes its days")
 
 # ================================================================ 5. ad accounts
 print("ad accounts")

@@ -394,6 +394,7 @@ when the file exists under `static/presenters/<id>/` (`portrait.webp`, `<situati
 |---|---|---|
 | `PRESENTER_STILLS` | off | A presenter video whose presenter + situation has an approved still passes it to the video model as the first reference image and says to keep that person. Off: exactly what was sent before. No extra vendor cost. |
 | `PRESENTER_VOICE_REF` | off | A presenter with a `voice.mp3` gets it sent as `audio_urls[0]` with "speak in that voice" (not when the member picked another voice). Needs the paid test below first. |
+| `PRESENTER_ANGLES` | off | With `PRESENTER_STILLS` on and a still in use: the presenter's look-lock pictures that exist (`angle-left`, `angle-right`, `angle-profile`: the same person from three sides on a plain wall) follow the still in `image_urls`, before the product's photos, and the prompt says they are the same person and are never to be shown. Needs the paid test below first. |
 | `CLAIMS_CHECK` | off | Unchanged, but free to members now. |
 | `CLAIMS_CHECK_DAILY_MAX` / `CLAIMS_CHECK_WS_DAILY_MAX` | 3000 / 150 | Checks a day for the site / one workspace; past either the check is "skipped" (about $12 a day at most). |
 | `RS_LIBRARY_STILL_MODEL` | `marketing-studio/image/sunburst` | The library's own image model (internal, `catalog.INTERNAL_TOOLS`; never in `TOOLS`). |
@@ -405,6 +406,14 @@ least one image). Whether it holds a voice's timbre for generated speech is docu
 switching `PRESENTER_VOICE_REF` on: one presenter, their still and a 6-second voice sample, two 8-second videos with
 different scripts (about $7.40), plus the same two without the sample; check that the voice matches the sample in
 both, that it differs from the control, and that the sample's own words are never spoken or played.
+
+Look-lock pictures, what is known: the worker has always sent up to four product photos after the still, so the model
+takes several reference images; how many more it takes, and whether extra views of a face hold it better than the
+still alone, is not documented. The paid test before switching `PRESENTER_ANGLES` on: one presenter with all three
+angle pictures, the same script and place made twice with the switch off and twice with it on (four 8-second videos),
+ideally a script where they turn their head. Check that the face holds at least as well with the pictures, that the
+plain wall and the neutral top never appear, and that the product still looks like its photos. The angle pictures are
+imported like stills (`presenter__<id>__angle-left.png` and so on) and are never shown to members.
 
 **Library assets** (`library.py`, `/admin/library`, admin-only MCP tools). A site admin makes presenter stills, voice
 samples, the demo brand's packshots and preset examples as ordinary jobs in their own workspace, price first:
@@ -833,8 +842,11 @@ compared with anyone else's, and the page changes nothing: it has no form.
   and per Meta ad, in the ad account's days and currency. "What stands out" states facts with a link: the ad with the
   lowest cost per lead, ads wearing out (`adfatigue.py`), a campaign that spent with nothing to show, a change
   waiting for approval. Leads from ads not launched here are named, with no spend set against them.
-- **Not there, and why**: page views have no dates (`pages.views` is a running count), so they never enter the
-  range. Spend is not shown per desk campaign: a launch does not record which desk campaign its ads came from.
+- **Page views by date** (`page_views_daily`, written by `pages_routes.public` with each counted view, in the
+  workspace's own day): counted from Nov 12 2026 on, with no history before. A range that starts earlier says from
+  which day it counts. `pages.views`, the running count, still shows beside a page as "all time".
+- **Not there, and why**: spend is not shown per desk campaign: a launch does not record which desk campaign its ads
+  came from.
 - Each part with no numbers says what to make or connect to get them.
 
 Tests: `tests/test_results.py` (every figure seeded and checked; another workspace's numbers never show).

@@ -292,6 +292,7 @@ def delete(pid):
     _page(pid)
     with db.connect() as conn:
         conn.execute("DELETE FROM pages WHERE id=? AND workspace_id=?", (pid, g.ws["id"]))
+        conn.execute("DELETE FROM page_views_daily WHERE page_id=? AND workspace_id=?", (pid, g.ws["id"]))
         conn.commit()
     flash("Page deleted.")
     return redirect(url_for("pages.index"))
@@ -353,6 +354,19 @@ def _page_forms(conn, p, blocks):
     return out
 
 
+def _count_day(conn, p) -> None:
+    """One more view of this page today, in its workspace's own day, so the results screen can count views in a date
+    range (page_views_daily; no commit). Never in the page's way: a problem here is logged and the page still shows."""
+    try:
+        import results
+        conn.execute("INSERT INTO page_views_daily (page_id, workspace_id, day, views) VALUES (?,?,?,1) "
+                     "ON CONFLICT(page_id, day) DO UPDATE SET views=views+1",
+                     (p["id"], p["workspace_id"], results.today(conn, p["workspace_id"]).isoformat()))
+    except Exception as e:  # noqa: BLE001
+        import logging
+        logging.getLogger("campaignify.pages").warning("a page view was not counted by day: %s", str(e)[:120])
+
+
 @bp.route("/p/<slug>")
 def public(slug):
     with db.connect() as conn:
@@ -363,6 +377,7 @@ def public(slug):
         counted = False
         if not BOT_RX.search(request.headers.get("User-Agent", "")) and not db.throttled(key, 1, 1800):
             conn.execute("UPDATE pages SET views=views+1 WHERE id=?", (p["id"],))
+            _count_day(conn, p)
             conn.commit()
             db.hit(key)
             counted = True

@@ -425,7 +425,7 @@ def with_fidelity(scene: str) -> str:
 
 def talking_prompt(ad_type: str, product: str, script: str, presenter_id: str = "", voice_id: str = "",
                    setting: str = "", placement: str = "", *, situation: str = "", direction: str = "",
-                   still: bool = False, voice_ref: bool = False) -> str:
+                   still: bool = False, voice_ref: bool = False, angles: int = 0) -> str:
     """The prompt for a talking video (built by the worker from the job's params).
 
     The keyword arguments are m15's and all default to "as before":
@@ -433,7 +433,9 @@ def talking_prompt(ad_type: str, product: str, script: str, presenter_id: str = 
       direction   a video preset's own shot (presets.RECIPES): what the camera sees in a voiceover, or what the
                   presenter does in a presenter video ("{product}" is filled in)
       still       the first reference image is the presenter's approved still (PRESENTER_STILLS): keep that person
-      voice_ref   audio 1 is the presenter's voice sample (PRESENTER_VOICE_REF): speak in that voice"""
+      voice_ref   audio 1 is the presenter's voice sample (PRESENTER_VOICE_REF): speak in that voice
+      angles      how many look-lock pictures follow the still (PRESENTER_ANGLES): the same person from other sides,
+                  used only to hold the face; the product's own photos come after them"""
     product = product or "the product"
     voice = VOICE_BY_ID.get(voice_id) or VOICES[0]
     say = " ".join((script or "").split())
@@ -469,6 +471,13 @@ def talking_prompt(ad_type: str, product: str, script: str, presenter_id: str = 
                   "clothes exactly as in that image. ")
         keep = (f"The {product} looks exactly as in its own reference photos (every reference image after the first): "
                 "same packaging, label, text and colors; never invent other branding.")
+        if angles > 0:
+            last = 1 + int(angles)
+            which = "Reference image 2 shows" if last == 2 else f"Reference images 2 to {last} show"
+            extra += (f"{which} the same person from other sides, only so their face, hair and build stay the same "
+                      "from every angle: never show that plain wall, those clothes or those poses. ")
+            keep = (f"The {product} looks exactly as in its own reference photos (every reference image after the first "
+                    f"{last}): same packaging, label, text and colors; never invent other branding.")
     if voice_ref:
         extra += ("Their voice is the voice heard in audio 1: the same timbre, pitch, pace and accent. Audio 1 is only "
                   "a sample of the voice: never repeat its words and never play it. ")

@@ -9,6 +9,8 @@ names list_library_assets gives), each named by its tags:
 
     presenter__<presenter>__<situation>.png|jpg|webp   -> static/presenters/<presenter>/<situation>.webp   (9:16)
     presenter__<presenter>__portrait.png|jpg|webp      -> static/presenters/<presenter>/portrait.webp      (4:5)
+    presenter__<presenter>__angle-left.png|jpg|webp    -> static/presenters/<presenter>/angle-left.webp    (9:16; also
+                                                          angle-right and angle-profile: the look-lock pictures)
     voice__<presenter>.mp4|mp3|wav|m4a                 -> static/presenters/<presenter>/voice.mp3
     preset__<preset>.png|jpg|webp                      -> static/presets/<preset>.webp      (4:5, or 9:16 for a tall one)
     preset__<preset>.mp4|mov                           -> static/presets/<preset>.mp4       (and its first frame as the
@@ -136,6 +138,8 @@ def plan(folder: str) -> tuple[list, list]:
             pid, sid = parts[1], parts[2]
             if presenters.record(pid) is None:
                 skipped.append((name, f"no presenter {pid!r}"))
+            elif sid in presenters.ANGLES:
+                todo.append((path, "angle", pid, sid))
             elif sid != "portrait" and sid not in presenters.situation_ids(pid):
                 skipped.append((name, f"{pid} has no situation {sid!r}"))
             else:
@@ -182,6 +186,8 @@ def run(folder: str, static: str | None = None, dry: bool = False) -> dict:
             elif kind == "portrait":
                 save(webp_bytes(crop_to(open_image(path), "4:5", top=True)), "presenters", a, "portrait.webp")
                 portraits.add(a)
+            elif kind == "angle":                       # a look-lock picture: never a portrait's source
+                save(webp_bytes(crop_to(open_image(path), "9:16")), "presenters", a, b + ".webp")
             elif kind == "preset_image":
                 im = open_image(path)
                 save(webp_bytes(crop_to(im, shape_for(im))), "presets", a + ".webp")

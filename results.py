@@ -7,8 +7,9 @@ What is counted, and from where:
                          sends twice is one lead, as on the Ad campaigns page)
     Link clicks          clicks on its smart links (link_clicks)
     Ads made, approved   the ads finished in the range (jobs), and how many of those a member approved (job_reviews)
-    Page views           pages.views: a running count with no dates, so it is shown as "all time" beside a page and
-                         never inside the date range
+    Page views           page_views_daily: one number per page per day, counted since Nov 12 2026 (pages_routes.public).
+                         A range that starts before the first counted day says from which day it counts. pages.views,
+                         the older running count with no dates, is still shown beside a page as "all time"
     Spent, cost per lead ad_insights_daily (adinsights.py) and lead_sources (adleads.py): only for campaigns launched
                          from Campaignify on a connected ad account, and only while AD_LAUNCH lets the workspace see
                          ad accounts at all
@@ -64,6 +65,29 @@ def _who(r) -> str:
 
 def _n(n: int, one: str, many: str | None = None) -> str:
     return f"{n:,} {one if n == 1 else (many or one + 's')}"
+
+
+def today(conn, ws_id: int):
+    """Today's date in the workspace's own day (what a page view is counted under)."""
+    import adinsights
+    ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (int(ws_id),)).fetchone()
+    return adinsights.today(getattr(_tz(conn, ws), "key", None))
+
+
+def views(conn, ws_id: int, since) -> dict:
+    """Page views by date: {"first": the first day ever counted for this workspace (None when none yet), "total": views
+    from `since` on, "by_page": {page id: views from `since` on}, "partial": the count starts after `since`}."""
+    from datetime import date
+    first = conn.execute("SELECT MIN(day) FROM page_views_daily WHERE workspace_id=?", (ws_id,)).fetchone()[0]
+    by = {r["page_id"]: r["n"] for r in conn.execute(
+        "SELECT page_id, SUM(views) n FROM page_views_daily WHERE workspace_id=? AND day>=? GROUP BY page_id",
+        (ws_id, since.isoformat())).fetchall()}
+    try:
+        first_day = date.fromisoformat(first) if first else None
+    except ValueError:
+        first_day = None
+    return {"first": first_day, "total": sum(by.values()), "by_page": by,
+            "partial": bool(first_day and first_day > since)}
 
 
 def window(tz, days: int) -> tuple:
@@ -153,10 +177,12 @@ def _made_of(conn, ws_id: int, tid: int) -> tuple:
     return batches, page_ids, form_ids
 
 
-def campaigns(conn, ws_id: int, lo: str) -> list:
+def campaigns(conn, ws_id: int, lo: str, seen: dict | None = None) -> list:
     """The workspace's desk campaigns, the one touched last first: its ads (made, being made, approved), its page
-    (with its views, all time) and the leads its form or page brought since `lo`."""
+    (with its views: all time, and in the range once views are counted by date: `seen` is views()) and the leads
+    its form or page brought since `lo`."""
     out = []
+    dated = bool(seen and seen["first"])
     for t in conn.execute("SELECT * FROM desk_threads WHERE workspace_id=? AND archived=0 ORDER BY updated_at DESC, id DESC "
                           "LIMIT ?", (ws_id, CAMPAIGNS_SHOWN)).fetchall():
         batches, page_ids, form_ids = _made_of(conn, ws_id, t["id"])
@@ -184,6 +210,7 @@ def campaigns(conn, ws_id: int, lo: str) -> list:
                     "ads": len(done), "busy": sum(1 for j in jobs if j["status"] in BUSY),
                     "approved": len(_approved(conn, ws_id, done)), "leads": leads,
                     "pages": [{"title": p["title"], "live": p["status"] == "published", "views": p["views"],
+                               "recent": seen["by_page"].get(p["id"], 0) if dated else None,
                                "href": url_for("pages.edit", pid=p["id"])} for p in pages_]})
     return out
 
@@ -325,7 +352,8 @@ def page():
         ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone() or g.ws
         since, until, lo = window(_tz(conn, ws), days)
         mine = own(conn, ws["id"], lo)
-        camps = campaigns(conn, ws["id"], lo)
+        seen = views(conn, ws["id"], since)
+        camps = campaigns(conn, ws["id"], lo, seen)
         ad = ads(conn, ws, g.user, days)
         has_form = conn.execute("SELECT 1 FROM forms WHERE workspace_id=? AND archived=0 LIMIT 1", (ws["id"],)).fetchone()
         has_link = conn.execute("SELECT 1 FROM links WHERE workspace_id=? AND archived=0 LIMIT 1", (ws["id"],)).fetchone()
@@ -335,4 +363,4 @@ def page():
           "library": url_for("library"), "desk": url_for("desk.page"),
           "setup": url_for("adhub.index") if has("adhub.index") else None}
     return render_template("v2/results.html", key=key, days=days, ranges=RANGES, since=since, until=until, mine=mine,
-                           camps=camps, ad=ad, to=to, has_form=bool(has_form), has_link=bool(has_link))
+                           camps=camps, ad=ad, to=to, has_form=bool(has_form), has_link=bool(has_link), seen=seen)

@@ -221,6 +221,7 @@ def build_inputs(conn, job) -> dict:
         pre = presets.get(p.get("preset"))
         rec = pre if pre is not None and pre.kind == "recipe" else None     # a fixed video format (presets.RECIPES)
         still = voice = None
+        angles = []
         sid = p.get("situation") or ""
         if typ == "ugc":
             who = p.get("presenter") or ""
@@ -236,6 +237,9 @@ def build_inputs(conn, job) -> dict:
             elif presenters.stills_on() and presenters.still_path(who, sid):
                 # PRESENTER_STILLS: the approved still of this presenter in this situation is the first reference
                 still = _static_remote(conn, presenters.still_path(who, sid))
+                if presenters.angles_on():
+                    # PRESENTER_ANGLES: the same person from other sides, right after the still, to hold the face
+                    angles = [_static_remote(conn, a) for a in presenters.angle_paths(who)]
             if presenters.voice_ref_on() and presenters.voice_path(who) and \
                     (p.get("voice") or presenters.voice_of(who)) == presenters.voice_of(who):
                 # PRESENTER_VOICE_REF: their voice sample as the audio reference (not when the member picked another voice)
@@ -246,8 +250,8 @@ def build_inputs(conn, job) -> dict:
                                         p.get("placement") or (rec.extra.get("placement") if rec else "") or "",
                                         situation=sid,
                                         direction=(rec.extra.get("direction") if rec else "") or "",
-                                        still=bool(still), voice_ref=bool(voice))
-        inp = {"prompt": prompt, "image_urls": ([still] if still else []) + urls[:4],
+                                        still=bool(still), voice_ref=bool(voice), angles=len(angles))
+        inp = {"prompt": prompt, "image_urls": ([still] if still else []) + angles + urls[:4],
                "duration": int(p.get("duration") or 10),
                "aspect_ratio": p.get("aspect") or "9:16", "resolution": p.get("resolution") or "720p",
                "bitrate_mode": "high",
