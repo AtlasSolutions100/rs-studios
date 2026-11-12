@@ -37,6 +37,9 @@ RS_MAIL_DOMAIN=mail.campaignify.ai
 # (paid plans and pack buyers never wait). Unconfirmed accounts can spend up to RS_UNVERIFIED_CREDITS
 # (default 250) on generations. The email is sent from no-reply@RS_MAIL_DOMAIN unless set;
 # replies go to hello@campaignify.ai. RS_EMAIL_VERIFY=0 switches the check off.
+# While PLANS_ONLY is on, every member confirms their email before the plan step and before anything is made
+# (verify.everyone, confirm_step.py). RS_EMAIL_VERIFY=all keeps that on with the free tier too;
+# RS_EMAIL_VERIFY=video keeps only the free-account rule above.
 # RS_UNVERIFIED_CREDITS=250
 # RS_ACCOUNT_MAIL_FROM="Campaignify" <no-reply@mail.campaignify.ai>
 # RS_ACCOUNT_MAIL_REPLY_TO=hello@campaignify.ai
@@ -118,7 +121,7 @@ RS_MAIL_DOMAIN=mail.campaignify.ai
 # EMAIL_TRANSACTIONAL_RESERVE=30
 # EMAIL_NURTURE_DAILY_MAX=60
 # EMAIL_MAX_PER_SEC=3
-# RS_EMAIL_VERIFY=1
+# RS_EMAIL_VERIFY=1     (0 = off, all = everyone confirms, video = only the free-account rule)
 # A form sign-up logs in first from its emailed link, so sign-up says nothing about which emails
 # have accounts (login_security.py). 0 logs a new sign-up straight in again.
 # RS_SIGNUP_CONFIRM=0   (1 = a form sign-up logs in first from its emailed link; off by default)

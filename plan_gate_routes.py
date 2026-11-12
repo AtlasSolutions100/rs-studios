@@ -11,13 +11,14 @@ from core import is_owner, login_required
 bp = Blueprint("plangate", __name__)
 
 # What a workspace with no plan can still open: its library, downloads and sharing, Billing (where a plan is
-# picked, a code is entered and a card is fixed), email confirmation, the first two onboarding questions and the
+# picked, a code is entered and a card is fixed), email confirmation (its step comes before this one:
+# confirm_step.py), the first two onboarding questions and the
 # brand brief (they come before this step: a new account sees its brand read back before it is asked for a card;
 # the brief's one paid action waits for a plan, onboarding.brief), the look switch, workspace deletion and logging
 # out.
 ALLOWED = {"logout", "library", "media", "photo", "api_jobs", "jobs.cards",
            "billing_page", "subscribe", "checkout", "billing_portal", "billing_code",
-           "verify_email", "verify_resend", "verify_code_send", "verify_code_check",
+           "verify_email", "verify_resend", "verify_code_send", "verify_code_check", "confirm.page",
            "adhub.export_page", "adhub.export_file", "share.create", "share.revoke",
            "admin_view_exit", "onboarding.intent", "onboarding.profile", "onboarding.brief", "ui_v2.set_look"}
 OPEN_PREFIXES = ("plangate.", "wsdelete.")

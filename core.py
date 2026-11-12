@@ -240,11 +240,15 @@ def hold_reason(ws):
 
 
 def hold_check(ws=None):
-    """Raise BillingHold when the workspace is on a billing hold."""
+    """Raise BillingHold when the workspace is on a billing hold, verify.ConfirmRequired when the member has
+    to confirm their email first, plan_gate.PlanRequired or card_on_file.CardRequired when a plan or a card
+    comes first."""
     ws = ws if ws is not None else g.get("ws")
     why = hold_reason(ws)
     if why:
         raise BillingHold(why)
+    import verify         # everyone confirms their email before anything is spent (verify.everyone)
+    verify.check(g.get("user"))
     import plan_gate      # no plan while PLANS_ONLY is on: pick one first (its checkout saves the card too)
     if plan_gate.on():
         plan_gate.check(ws, g.get("user"))
@@ -294,7 +298,7 @@ def verify_block(conn, tool, credits: int = 0):
     ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone() or g.ws
     reason = verify.needs(conn, ws, g.user, tool, credits)
     g.verify_reason = reason
-    return verify.needs_message(reason, g.user["email"]) if reason else None
+    return verify.needs_message(reason, verify.address(g.user)) if reason else None
 
 
 def verify_json(msg):
