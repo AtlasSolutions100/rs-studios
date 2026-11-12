@@ -1,7 +1,7 @@
 """Inspiration by category (inspiration.py) on the desk and the Tools page, and the brand step's "what you'll get"
 cards, on a throwaway database:
 
-  * the groups: campaigns, presenter videos, product videos, local businesses, image ads, in that order (a local
+  * the groups: campaigns, presenter videos, try-ons, apps and software, unboxing, product videos, local businesses, image ads, in that order (a local
     business's example sits in its own row, and one with a presenter still asks for a presenter); every card is one of our own
     files under static/showcase; a card either fills the desk's box with a sentence for this product or opens Studio
     with its preset picked, never both and never neither
@@ -114,8 +114,15 @@ with appmod.app.test_request_context("/app/desk"), db.connect() as conn:
     g.ws, g.user = w, user("a@example.com")
     groups = inspiration.groups(p)
     bare = inspiration.groups(None)
-check([x["key"] for x in groups] == ["campaigns", "presenter", "product", "local", "image"],
-      "campaigns, presenter videos, product videos, local businesses, image ads")
+# store clips (libstore.py) haven't arrived on a test machine, so the try-on row (store clips only) is left out here
+check([x["key"] for x in groups] == ["campaigns", "presenter", "apps", "unboxing", "product", "local", "image"]
+      and [k for k, _n in inspiration.CATS] == ["campaigns", "presenter", "tryon", "apps", "unboxing", "product", "local", "image"],
+      "campaigns, presenter videos, (try-ons), apps and software, unboxing, product videos, local businesses, image ads")
+apps = next(x for x in groups if x["key"] == "apps")
+unbox = next(x for x in groups if x["key"] == "unboxing")
+check(any(c["title"] == "Presenter video" for c in apps["items"]) and all("real screen" in c["ask"] for c in apps["items"] if c["ask"])
+      and any(c["href"].endswith("preset=pov-unboxing") for c in unbox["items"]),
+      "the app demo and the unboxing clip have rows of their own, and an app card asks for the format, not a plain presenter video")
 local = next(x for x in groups if x["key"] == "local")
 check(local["name"] == "Local businesses" and len(local["items"]) >= 8 and all(c["video"] and c["where"] == "desk" for c in local["items"]),
       "local businesses have a row of their own: roofing, a salon, a food truck and the like")
@@ -141,10 +148,11 @@ check(all("your product" in c["ask"] for x in bare for c in x["items"] if c["ask
 print("== on the desk")
 body = page(a, "/app/desk")
 chips = re.findall(r'data-cat-pick="([a-z]+)" aria-pressed="(true|false)">([^<]+)<', body)
-check(chips == [("campaigns", "true", "Campaigns"), ("presenter", "false", "Presenter videos"), ("product", "false", "Product videos"),
+check(chips == [("campaigns", "true", "Campaigns"), ("presenter", "false", "Presenter videos"),
+                ("apps", "false", "Apps and software"), ("unboxing", "false", "Unboxing"), ("product", "false", "Product videos"),
                 ("local", "false", "Local businesses"), ("image", "false", "Image ads")], "a chip for each kind, the first one on")
 rows = re.findall(r'<div class="dk-ex-row" data-cat="([a-z]+)" (hidden)?', body)
-check(rows == [("campaigns", ""), ("presenter", "hidden"), ("product", "hidden"), ("local", "hidden"), ("image", "hidden")],
+check(rows == [("campaigns", "")] + [(k, "hidden") for k in ("presenter", "apps", "unboxing", "product", "local", "image")],
       "one row shows at a time")
 for key in ("campaigns", "presenter", "product", "image"):
     row = re.search(rf'<div class="dk-ex-row" data-cat="{key}".*?</div>\s*(?=<div class="dk-ex-row"|\s*<p class="dk-exs-more"|\s*</section>)', body, re.S).group(0)
@@ -162,7 +170,7 @@ check(len(re.search(r"data-ask>(.*?)</textarea>", long, re.S).group(1)) <= 600, 
 print("== on the Tools page")
 body = page(a, "/app/tools")
 sec = re.search(r'<section class="tp-insp" id="inspiration".*?</section>', body, re.S).group(0)
-check("Ads made here, by Campaignify." in sec and sec.count("data-cat-pick=") == 5, "the Inspiration section, with the five kinds")
+check("Ads made here, by Campaignify." in sec and sec.count("data-cat-pick=") == 7, "the Inspiration section, with the seven kinds that have examples")
 links = re.findall(r'<a class="dk-ex" href="([^"]+)"', sec)
 check(len(links) == len(cards) and all(x.startswith(("/app/studio?preset=", "/app/desk?ask=")) for x in links),
       "every card is a link: to Studio with its preset, or to the desk with its sentence")

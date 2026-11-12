@@ -63,7 +63,11 @@ check(not any(os.path.exists(os.path.join(ROOT, "static", "showcase", w["name"])
 check(all(it.get("kind") == "video" and os.path.isfile(os.path.join(ROOT, "static", "showcase", it["poster"])) for it in stored),
       "its poster is: the tile has a picture at once")
 first16 = [it["file"] for it in raw["items"][:public_site.SHOWCASE_MAX]]
-check(not any(w["name"] in first16 for w in want), "none of the home page's sixteen depends on the store yet")
+_home = public_site.showcase()      # no store file has arrived on this machine
+check(len(_home) == public_site.SHOWCASE_MAX and not any(it["store"] for it in _home)
+      and max(len(m.group()) for m in re.finditer(r"v+", "".join(it["kind"][0] for it in _home))) <= 2,
+      "store clips may be among the home page's sixteen: until they arrive the grid is filled from further down "
+      "and still never runs three videos in a row")
 
 # ================================================================ nothing fetched yet
 print("before the first fetch")

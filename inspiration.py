@@ -14,29 +14,36 @@ An example whose preset is gone still shows, as a sentence. A category with noth
 """
 from flask import url_for
 
-CATS = [("campaigns", "Campaigns"), ("presenter", "Presenter videos"), ("product", "Product videos"),
+CATS = [("campaigns", "Campaigns"), ("presenter", "Presenter videos"), ("tryon", "Try-ons"),
+        ("apps", "Apps and software"), ("unboxing", "Unboxing"), ("product", "Product videos"),
         ("local", "Local businesses"), ("image", "Image ads")]
 PER_CAT = 12
 ASKS = {
     "presenter": "One presenter video for {name}, selfie style, talking to camera",
+    "tryon": "A try-on video for {name}: a presenter wearing it and talking through the look",
+    "apps": "A video for {name}: a presenter's hook, then the real screen",
+    "unboxing": "An unboxing video for {name}: the box opened and the product lifted out",
     "product": "A product video for {name}: the product on screen, no person",
     "local": "A short video for {name}: the work being done, no one talking",
     "image": "An image ad for {name}",
 }
+OWN_ASK = ("tryon", "apps", "unboxing")     # rows whose sentence says the format, with a presenter in it or not
 
 
 def _cat(item) -> str:
-    """Local businesses and services have a row of their own (the manifest's group: "local"), people talking or not."""
+    """A video with a group in the manifest ("local", "tryon", "apps", "unboxing") has that row, people talking or
+    not; the rest are presenter videos or product videos."""
     if item["kind"] == "image":
         return "image"
-    if item.get("group") == "local":
-        return "local"
+    if item.get("group") in ASKS:
+        return item["group"]
     return "presenter" if item.get("presenter") else "product"
 
 
 def _ask(item, cat: str) -> str:
-    """The sentence a card puts in the desk's box: a presenter example asks for a presenter, wherever it is listed."""
-    return ASKS["presenter"] if item.get("presenter") else ASKS[cat]
+    """The sentence a card puts in the desk's box: a presenter example asks for a presenter, wherever it is listed
+    (a try-on, an app video and an unboxing say their own format)."""
+    return ASKS[cat] if cat in OWN_ASK or not item.get("presenter") else ASKS["presenter"]
 
 
 def groups(product) -> list[dict]:

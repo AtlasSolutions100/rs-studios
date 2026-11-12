@@ -1165,12 +1165,32 @@ def _image_size(path: str):
         return None
 
 
+SHOWCASE_GROUPS = ("local", "tryon", "apps", "unboxing")     # an item's row on the Inspiration page (inspiration.py)
+SHOWCASE_RUN = 2             # never more videos than this in a row in the grid
+
+
+def _mixed(items: list) -> list:
+    """The manifest's order, with one repair: where a third video in a row would come (a store clip that hasn't
+    arrived yet leaves a gap its neighbours close), the next picture further down is brought forward instead. An
+    order that already alternates is returned as it is; with no picture left, the videos simply follow."""
+    out, rest, run = [], list(items), 0
+    while rest:
+        i = 0
+        if run >= SHOWCASE_RUN and rest[0]["kind"] == "video":
+            i = next((n for n, it in enumerate(rest) if it["kind"] != "video"), 0)
+        it = rest.pop(i)
+        run = run + 1 if it["kind"] == "video" else 0
+        out.append(it)
+    return out
+
+
 def showcase(limit: int = SHOWCASE_MAX) -> list[dict]:
     """The home page's gallery, from the manifest: [{"url" and "poster_url" (the addresses a page uses: /static/...,
     or /lib/... for a store item, libstore.py), "store", "src" (under static/; a store item has no file there),
     "kind", "preset", "preset_name" (the
     preset's name, else the entry's own title), "caption", "alt", "aspect", "width", "height", "poster", "presenter",
-    "sound", "group" ("local" for a local business or service, else "")}]. An item is dropped when its file is missing, its kind or extension is wrong, or it has neither a
+    "sound", "group" (one of SHOWCASE_GROUPS: "local" for a local business or service, "tryon", "apps",
+    "unboxing"; else "")}]. An item is dropped when its file is missing, its kind or extension is wrong, or it has neither a
     caption nor an alt text. Read again when the manifest changes."""
     import libstore
     path = os.path.join(SHOWCASE_DIR, SHOWCASE_MANIFEST)
@@ -1218,8 +1238,8 @@ def showcase(limit: int = SHOWCASE_MAX) -> list[dict]:
                           "poster": "showcase/" + poster if poster else "",
                           "presenter": kind == "video" and it.get("presenter") is True,
                           "sound": kind == "video" and it.get("sound") is True,
-                          "group": "local" if it.get("group") == "local" else ""})
-        _showcase.update(key=key, items=items)
+                          "group": it.get("group") if it.get("group") in SHOWCASE_GROUPS else ""})
+        _showcase.update(key=key, items=_mixed(items))
     return list(_showcase["items"][:max(0, limit)])
 
 
