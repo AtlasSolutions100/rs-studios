@@ -1,0 +1,322 @@
+{
+ "_about": "Proposed additions to presenters.py, made by the asset run on branch assets/library-2. Same field shapes as _ROSTER, VOICES and SITUATIONS. Pictures for new_presenters are under presenters/<id>/; new_situations are proposals only (no pictures yet).",
+ "new_presenters": [
+  {
+   "id": "ray",
+   "name": "Ray",
+   "age_band": "55-64",
+   "gender": "male",
+   "look": "man in his late 50s, short grey hair, grey moustache, work jacket",
+   "vibe": "Steady, practical",
+   "setting": "a quiet residential street on an overcast day",
+   "hue": 30,
+   "voice": "deep_m60",
+   "appearance": "A man of about 58 with dark brown skin, a broad square face with deep lines across the forehead, warm brown eyes with slightly heavy lids, short tightly curled grey hair receding at the temples and a neat grey moustache. Stocky, thick-set, strong hands. A small scar across one knuckle and a few grey hairs in his eyebrows.",
+   "situations": [
+    {
+     "id": "outdoor",
+     "wardrobe": "a tan canvas work jacket over a navy t-shirt"
+    },
+    {
+     "id": "car",
+     "wardrobe": "a grey hooded sweatshirt under an open quilted vest"
+    },
+    {
+     "id": "shop-floor",
+     "wardrobe": "a dark green work shirt with the sleeves rolled"
+    },
+    {
+     "id": "kitchen",
+     "wardrobe": "a light grey polo shirt"
+    }
+   ]
+  },
+  {
+   "id": "luis",
+   "name": "Luis",
+   "age_band": "55-64",
+   "gender": "male",
+   "look": "man in his early 60s, thick grey hair, clean shaven, plaid overshirt",
+   "vibe": "Friendly, easygoing",
+   "setting": "the floor of a small independent shop, behind its wooden counter",
+   "hue": 65,
+   "voice": "raspy_m60",
+   "appearance": "A man of about 61 with warm tan skin, a round face with full cheeks and deep smile lines, dark brown eyes, thick grey hair combed back with a few darker strands, and a clean-shaven jaw. Medium height, a soft middle, broad shoulders. A small mole under his left eye and slightly rough, sun-darkened hands.",
+   "situations": [
+    {
+     "id": "shop-floor",
+     "wardrobe": "a brown-and-cream plaid overshirt over a white tee"
+    },
+    {
+     "id": "kitchen",
+     "wardrobe": "a light blue short-sleeve button-up shirt"
+    },
+    {
+     "id": "outdoor",
+     "wardrobe": "a navy zip-up jacket"
+    },
+    {
+     "id": "car",
+     "wardrobe": "a grey crew-neck sweater"
+    }
+   ]
+  },
+  {
+   "id": "omar",
+   "name": "Omar",
+   "age_band": "35-44",
+   "gender": "male",
+   "look": "man in his late 30s, short black hair, trimmed beard, henley",
+   "vibe": "Quick, upbeat",
+   "setting": "the floor of a small independent shop, behind its wooden counter",
+   "hue": 150,
+   "voice": "quick_m",
+   "appearance": "A man of about 37 with light brown skin, an oval face with a strong nose, dark brown eyes under thick brows, short black hair cut close at the sides and slightly longer on top, and a closely trimmed black beard. Medium height, broad-chested. A thin scar through the beard on his chin and a little grey at the temples.",
+   "situations": [
+    {
+     "id": "shop-floor",
+     "wardrobe": "a charcoal henley under a dark canvas apron"
+    },
+    {
+     "id": "gym",
+     "wardrobe": "a plain black training t-shirt"
+    },
+    {
+     "id": "kitchen",
+     "wardrobe": "a white t-shirt with a dish towel over one shoulder"
+    },
+    {
+     "id": "car",
+     "wardrobe": "an olive bomber jacket over a grey tee"
+    }
+   ]
+  },
+  {
+   "id": "ben",
+   "name": "Ben",
+   "age_band": "35-44",
+   "gender": "male",
+   "look": "man in his early 40s, neat short black hair, clean shaven, navy blazer",
+   "vibe": "Calm, professional",
+   "setting": "a plain home desk by a window",
+   "hue": 235,
+   "voice": "crisp_m40",
+   "appearance": "A man of about 41 with light skin with a warm undertone, a long oval face, dark brown monolid eyes, short neat black hair parted on one side with a few early grey strands, and a clean-shaven face. Slim, tall, upright posture. Faint lines at the corners of his eyes and a small mole near his right ear.",
+   "situations": [
+    {
+     "id": "desk",
+     "wardrobe": "a navy blazer over a plain white t-shirt"
+    },
+    {
+     "id": "outdoor",
+     "wardrobe": "a light grey quarter-zip pullover"
+    },
+    {
+     "id": "car",
+     "wardrobe": "a light blue oxford shirt, collar open"
+    },
+    {
+     "id": "kitchen",
+     "wardrobe": "a dark green crew-neck sweater"
+    }
+   ]
+  },
+  {
+   "id": "dana",
+   "name": "Dana",
+   "age_band": "45-54",
+   "gender": "female",
+   "look": "woman around 50, short ash-blonde pixie cut, small silver earrings, black top",
+   "vibe": "Chatty, warm",
+   "setting": "the floor of a small independent shop, behind its wooden counter",
+   "hue": 330,
+   "voice": "husky_f50",
+   "appearance": "A woman of about 50 with fair skin with light freckles, a heart-shaped face, bright hazel eyes with crow's feet, and a short choppy ash-blonde pixie cut with grey coming through at the roots. Slim, quick-moving, square shoulders. Small silver hoop earrings, a thin line of eyeliner and faint creases around her mouth.",
+   "situations": [
+    {
+     "id": "shop-floor",
+     "wardrobe": "a fitted black t-shirt under a dark grey apron"
+    },
+    {
+     "id": "kitchen",
+     "wardrobe": "a striped navy-and-white long-sleeve top"
+    },
+    {
+     "id": "car",
+     "wardrobe": "a denim jacket over a black tee"
+    },
+    {
+     "id": "desk",
+     "wardrobe": "a soft burgundy sweater"
+    }
+   ]
+  },
+  {
+   "id": "gloria",
+   "name": "Gloria",
+   "age_band": "55-64",
+   "gender": "female",
+   "look": "woman around 60, shoulder-length dark hair with grey, warm smile, cardigan",
+   "vibe": "Warm, trusted",
+   "setting": "an ordinary, lived-in home kitchen",
+   "hue": 12,
+   "voice": "warm_f60",
+   "appearance": "A woman of about 60 with medium-brown skin, a round face with soft cheeks and deep laugh lines, dark brown eyes, and shoulder-length wavy dark hair with wide streaks of grey, pinned back on one side. Short, solidly built, rounded shoulders. Small gold stud earrings, a few dark spots on her cheeks and slightly uneven brows.",
+   "situations": [
+    {
+     "id": "kitchen",
+     "wardrobe": "a coral cardigan over a cream blouse"
+    },
+    {
+     "id": "sofa",
+     "wardrobe": "a soft teal sweater"
+    },
+    {
+     "id": "shop-floor",
+     "wardrobe": "a plain navy polo shirt under a light apron"
+    },
+    {
+     "id": "outdoor",
+     "wardrobe": "a camel quilted jacket"
+    }
+   ]
+  },
+  {
+   "id": "kai",
+   "name": "Kai",
+   "age_band": "18-24",
+   "gender": "male",
+   "look": "man in his early 20s, dark wavy hair tied back, light stubble, hoodie",
+   "vibe": "Bright, easygoing",
+   "setting": "a corner of an ordinary gym",
+   "hue": 175,
+   "voice": "young_bright_m",
+   "appearance": "A man of about 22 with medium-brown skin, a wide face with high cheekbones, dark brown eyes, thick dark wavy hair pulled back into a short low knot with a few loose strands, and light, uneven stubble along the jaw. Tall, broad-shouldered, athletic. A small healed scar through one eyebrow and a slightly crooked nose.",
+   "situations": [
+    {
+     "id": "gym",
+     "wardrobe": "a grey sleeveless training top"
+    },
+    {
+     "id": "outdoor",
+     "wardrobe": "a faded blue hoodie"
+    },
+    {
+     "id": "car",
+     "wardrobe": "a black zip-up track jacket"
+    },
+    {
+     "id": "sofa",
+     "wardrobe": "a loose white tee"
+    }
+   ]
+  },
+  {
+   "id": "tess",
+   "name": "Tess",
+   "age_band": "25-34",
+   "gender": "female",
+   "look": "woman around 30, dark brown hair in a low bun, navy scrubs top",
+   "vibe": "Calm, reassuring",
+   "setting": "a plain home desk by a window",
+   "hue": 205,
+   "voice": "low_calm_f",
+   "appearance": "A woman of about 30 with light skin with a neutral undertone, a narrow oval face, blue-grey eyes, a straight nose with a slight bump, and straight dark brown hair pulled back into a low bun with a side part. Average height, slim build. Faint freckles across her nose, short unpainted nails and small pearl studs.",
+   "situations": [
+    {
+     "id": "desk",
+     "wardrobe": "a plain navy scrubs top over a white long-sleeve tee"
+    },
+    {
+     "id": "bathroom-mirror",
+     "wardrobe": "a plain grey crew-neck sweatshirt, hair still in its bun"
+    },
+    {
+     "id": "kitchen",
+     "wardrobe": "a cream cable-knit sweater"
+    },
+    {
+     "id": "car",
+     "wardrobe": "a black puffer jacket over a grey tee"
+    }
+   ]
+  }
+ ],
+ "new_voices": [
+  {
+   "id": "young_bright_m",
+   "name": "Young & bright",
+   "who": "male",
+   "desc": "a young, bright male voice in his early twenties, clear and upbeat, natural American accent"
+  },
+  {
+   "id": "low_calm_f",
+   "name": "Low & calm",
+   "who": "female",
+   "desc": "a low, calm female voice, unhurried and reassuring, natural American accent"
+  },
+  {
+   "id": "warm_f60",
+   "name": "Warm, older",
+   "who": "female",
+   "desc": "a warm, rounded older female voice in her sixties with a smile in it, natural American accent"
+  },
+  {
+   "id": "quick_m",
+   "name": "Quick & energetic",
+   "who": "male",
+   "desc": "a quick, energetic male voice in his late thirties, punchy but friendly, natural American accent"
+  },
+  {
+   "id": "deep_m60",
+   "name": "Deep & grounded",
+   "who": "male",
+   "desc": "a deep, slow older male voice, warm and grounded, natural American accent"
+  },
+  {
+   "id": "raspy_m60",
+   "name": "Easygoing, older",
+   "who": "male",
+   "desc": "a friendly, slightly raspy male voice in his sixties, easy-going and chatty, natural American accent"
+  },
+  {
+   "id": "crisp_m40",
+   "name": "Crisp & professional",
+   "who": "male",
+   "desc": "a crisp, articulate male voice in his early forties, calm and professional, natural American accent"
+  },
+  {
+   "id": "husky_f50",
+   "name": "Husky & chatty",
+   "who": "female",
+   "desc": "a slightly husky, upbeat female voice around fifty, chatty and warm, natural American accent"
+  }
+ ],
+ "new_situations": [
+  {
+   "id": "van-door",
+   "label": "Work van",
+   "place": "the open side door of a plain white work van parked on a driveway",
+   "scene": "the open sliding side door of a plain, unmarked white work van: tidy shelves of unlabelled tool cases and coiled hoses inside, a driveway and a garage door softly out of focus, flat morning daylight",
+   "pose": "standing beside the open door, one shoulder near the van",
+   "surface": "the van's floor sill at the bottom of the frame"
+  },
+  {
+   "id": "front-yard",
+   "label": "Front yard",
+   "place": "the front yard of an ordinary suburban house",
+   "scene": "the front yard of an ordinary suburban house: a trimmed lawn, a low shrub border and a plain front porch with no house number softly out of focus behind them, bright overcast daylight",
+   "pose": "standing on the lawn near the porch steps, the phone held at arm's length",
+   "surface": "the top of a plain wooden porch rail beside them"
+  },
+  {
+   "id": "front-counter",
+   "label": "Front counter",
+   "place": "behind the front counter of a small service business",
+   "scene": "the front desk of a small service business such as a salon or clinic: a plain counter with a closed appointment book and a small plant, a few chairs and a blank wall behind, soft ceiling light mixed with daylight",
+   "pose": "standing behind the counter, hands resting on it",
+   "surface": "the counter top in front of them"
+  }
+ ],
+ "voice_samples": []
+}
