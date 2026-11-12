@@ -811,6 +811,28 @@ in both themes. The sidebar and every card keep their own surface. Where a point
 the window, so the desk's docked box draws the same dots in the same places; on touch screens it scrolls with the
 page. `static/ui_v2.css` only: the first look is untouched.
 
+## The results screen (`results.py`, `web/v2/results.html`; behind `UI_V2`)
+
+`/app/results`, in the menu between Leads and Brand: what the workspace's campaigns brought in over 7, 30 or 90 days
+(today and the days before it). Every figure is a count or a sum of stored rows. Nothing is estimated, projected or
+compared with anyone else's, and the page changes nothing: it has no form.
+
+- **Campaignify's own counts**: leads (people who sent a form; twice is once), smart-link clicks, ads made and how
+  many of those are approved, where the leads came from (an ad platform, the link's source, a smart link, or not
+  tagged) and the links clicked most. Days are the workspace's (`weekly_report._tz`).
+- **Per campaign** (a desk conversation): its ads from the batches its confirmations started, its page and form from
+  the links its made turns kept, the page's views as all time, and the leads its form or page brought in the range.
+- **Ad accounts** (only while `AD_LAUNCH` lets the workspace see them): spend and the platform's own count from
+  `ad_insights_daily`, the leads on the member's forms and cost per lead from `lead_sources`, per launched campaign
+  and per Meta ad, in the ad account's days and currency. "What stands out" states facts with a link: the ad with the
+  lowest cost per lead, ads wearing out (`adfatigue.py`), a campaign that spent with nothing to show, a change
+  waiting for approval. Leads from ads not launched here are named, with no spend set against them.
+- **Not there, and why**: page views have no dates (`pages.views` is a running count), so they never enter the
+  range. Spend is not shown per desk campaign: a launch does not record which desk campaign its ads came from.
+- Each part with no numbers says what to make or connect to get them.
+
+Tests: `tests/test_results.py` (every figure seeded and checked; another workspace's numbers never show).
+
 ## Use it from Claude, find things in the Library, and the desk's nudge (behind `UI_V2`)
 
 - **`/app/tools/assistant`** (`tools_page.assistant`, while `MCP_SERVER` is on): the MCP server's address with a Copy

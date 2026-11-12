@@ -3298,6 +3298,8 @@ import plan_gate_routes  # noqa: E402
 app.register_blueprint(plan_gate_routes.bp)     # PLANS_ONLY (plan_gate.py): before the card step, which it replaces
 import tools_page  # noqa: E402
 app.register_blueprint(tools_page.bp)           # the Tools page and the done-for-you request (new look)
+import results  # noqa: E402
+app.register_blueprint(results.bp)              # the results screen (new look)
 import site_admins  # noqa: E402
 app.register_blueprint(site_admins.bp)          # one admin makes another (the admin page's Site admins card)
 app.register_blueprint(card_routes.bp)
