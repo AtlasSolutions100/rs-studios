@@ -460,6 +460,20 @@ def _desk_campaigns() -> list:
 app.jinja_env.globals["desk_campaigns"] = _desk_campaigns
 
 
+def _tools_side():
+    """For the new look's sidebar: the group of the tool this page belongs to (tools_page.side), or None. Never
+    breaks a page."""
+    try:
+        import tools_page
+        return tools_page.side() if g.get("ws") is not None else None
+    except Exception:  # noqa: BLE001
+        log.exception("sidebar tools not read")
+        return None
+
+
+app.jinja_env.globals["tools_side"] = _tools_side
+
+
 @app.context_processor
 def _public_meta():
     """Title, description, canonical, share card and JSON-LD for the public pages
@@ -3254,6 +3268,8 @@ import card_routes  # noqa: E402
 import paywall_routes  # noqa: E402
 import plan_gate_routes  # noqa: E402
 app.register_blueprint(plan_gate_routes.bp)     # PLANS_ONLY (plan_gate.py): before the card step, which it replaces
+import tools_page  # noqa: E402
+app.register_blueprint(tools_page.bp)           # the Tools page and the done-for-you request (new look)
 app.register_blueprint(card_routes.bp)
 app.register_blueprint(paywall_routes.bp)
 import deletion_routes  # noqa: E402  (M7.5: Team > Delete this workspace)
