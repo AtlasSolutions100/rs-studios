@@ -2784,5 +2784,29 @@
    "sha256": "e560c33b5e73aaf5be58f4679270a4b6d0249904705a50be3f2b7f8cd6b9feac",
    "bytes": 444695
   }
+ },
+ {
+  "path": "showcase/ex-flower-shop.mp4",
+  "kind": "showcase_video",
+  "title": "Flower shop",
+  "caption": "Tulips and roses are trimmed, bunched and wrapped in brown paper.",
+  "alt": "Hands pick pink tulips from metal buckets, trim the stems of a tulip and white rose bunch, then wrap it in brown paper and tie it with twine.",
+  "poster": "showcase/ex-flower-shop.webp",
+  "model": "seedance_2_5",
+  "prompt": "Vertical ad for a small flower shop, no faces. A bright shop with buckets of fresh flowers, morning light. Shot 1: hands pick pink tulips and white roses from metal buckets. Shot 2: the stems are trimmed and arranged into a round bouquet. Shot 3: the bouquet is wrapped in plain brown paper and tied with twine on a wooden counter. Soft snips, rustling paper, quiet music. Warm, realistic, shallow depth of field. No text, no logos, no watermark.",
+  "job_id": "ef6f5d13-4482-4069-9e09-e9155dd7b175",
+  "source_url": "https://d8j0ntlcm91z4.cloudfront.net/user_3GvdxB9gfwtge4rv79iuyoXAckR/hf_20261112_144640_ef6f5d13-4482-4069-9e09-e9155dd7b175.mp4",
+  "credits": 0,
+  "qa": "ok (5 frames, no text/logos; no speech, whisper caught a single stray 'You')",
+  "notes": "Run 2 (free lane): made in the web app with Unlimited mode (720p, 8 s, 9:16).",
+  "presenter": false,
+  "style": "service-broll",
+  "script": "",
+  "transcript": "You",
+  "served": {
+   "path": "assets_staging/showcase_540/ex-flower-shop.mp4",
+   "sha256": "99999e0d6becdccd3ba1a2767d8dcc10532c3f2d0c30d8ed93421cef511cff4a",
+   "bytes": 421170
+  }
  }
 ]

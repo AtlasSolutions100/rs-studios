@@ -90,3 +90,40 @@
 - Staged: 19 example videos (15 approved + 4 Unlimited), 84 angle pictures (60 existing + 24 new), 32 situation stills and
   8 portraits for 8 new presenters, 28 voice samples, 2 voice-test clips.
 - Nothing purchased, no plan or auto-refill change, nothing posted or sent.
+
+## Run 2 (Nov 12 2026): new styles + free lane
+- Balance before: 5144.06. Hard cap for this run: 1,500 credits (do not go below 3644.06).
+- The worktree folder /dev/shm/rs-assets was gone at the start (the branch was intact locally and on the remote at 6d8bf1d);
+  it was re-created with `git worktree add` on the same branch.
+- Credits lane: Seedance 2.5, 720p, 8 s, 9:16, with audio, through the MCP tools; preflight 56 credits per clip, with or without
+  an image reference. Presenter clips used the roster situation still as `image_references` (mode omni_reference).
+- New manifest fields on run-2 video entries: `style`, `script`, `transcript` (faster-whisper base.en, int8, vad_filter),
+  `served` (path, sha256, bytes of the 540x960 encode). Served encodes all used crf 29 (all under 600,000 bytes).
+- QA: 5-frame contact sheet per clip plus zoomed crops of products, screens and phones; transcript checked against the line.
+
+### Credits-lane clips (56 credits per job)
+| Clip | Jobs | Credits | Result |
+|---|---|---|---|
+| ex2-tryon-denim-jacket | 1 | 56 | kept |
+| ex2-tryon-midi-dress | 1 | 56 | kept |
+| ex2-tryon-sneakers | 2 | 112 | DROPPED: garbled lettering stamped on the shoe tongue, both takes |
+| ex2-unboxing-pov-bottle | 1 | 56 | kept |
+| ex2-unboxing-headphones (ben) | 2 | 112 | DROPPED: take 1 had a logo-like embossed mark on the box and headphones close to a real product's design; take 2 had red lettering on the hinges and again a real-product look |
+| ex2-app-in-hand-workout (kai) | 2 | 112 | DROPPED: phone screen showed small garbled labels, a status-bar clock and tab icons, both takes |
+| ex2-app-in-hand-budget (dana) | 2 | 112 | kept (redo); take 1 had a garbled heading and status-bar digits |
+| ex2-saas-hook-hallway | 1 | 56 | kept |
+| ex2-saas-hook-desk (tess) | 1 | 56 | kept |
+| ex2-saas-screen-over-shoulder | 2 | 112 | DROPPED: take 1 showed a browser bar with a browser-like icon and garbled labels; take 2 showed a chart with numbers |
+| ex2-showcase-planter | 1 | 56 | kept |
+| ex2-showcase-steel-bottle | 1 | 56 | kept |
+| ex2-tryon-wool-coat (extra) | 1 | 56 | kept. Line: "It's a camel coat, it falls past the hip, and it has two deep pockets." |
+| ex2-unboxing-mug (extra, omar) | 2 | 112 | kept (redo); take 1 had a small logo-like emblem on the t-shirt. Line: "Just arrived. A speckled mug, packed in plain paper." |
+| ex2-showcase-cutting-board (extra) | 1 | 56 | kept, no speech |
+| ex2-unboxing-pov-throw (extra) | 1 | 56 | kept, no speech |
+- Total credits lane: 22 jobs x 56 = 1,232 credits. Balance after: 3912.06 (checked with `balance`).
+- Lesson: phone/laptop screens and small product surfaces (shoe tongues, hinges, box lids) are where Seedance adds text
+  or logos; "no status bar, no clock" plus a "plain illustration" screen description worked once (budget) and failed once (workout).
+
+### Free lane (web app, Unlimited mode)
+- ex-pressure-washing (run-1 job 6d2e2fb6) had finished: staged.
+FREE_LANE_PLACEHOLDER
