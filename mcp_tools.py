@@ -17,6 +17,7 @@ from flask import current_app, g
 
 import ad_skills
 import catalog
+import consultant
 import competitors
 import copywriter
 import core
@@ -608,6 +609,13 @@ LIB_PROPS = {
 PRODUCT = {"type": "integer", "minimum": 1}
 
 
+def mr_campaign(ctx, args):
+    """consultant.py: Mr. Campaign's brief for this chat, with the focus and the member's question."""
+    return {"consultant": consultant.NAME, "focus": args.get("focus") or "general",
+            "brief": consultant.opening(args.get("focus") or "general", args.get("question") or ""),
+            "how_to_use": "Take on this role now and answer the member as Mr. Campaign, following the brief."}
+
+
 def ad_playbook(ctx, args):
     """ad_skills.py: the setup, launch and after-launch playbook for one ad platform. No platform: the list."""
     key = args.get("platform")
@@ -621,6 +629,14 @@ def ad_playbook(ctx, args):
                           "nothing launches until each one is done or the user decides to skip it."}
 
 TOOLS = [
+    Tool("mr_campaign", "Mr. Campaign, marketing consultant",
+         "Turns this chat into a session with Mr. Campaign, Campaignify's marketing consultant: he learns the "
+         "business (using the workspace's products and plan), finds the one thing holding sales back (offer, "
+         "leads, ads, content, pricing or funnel) and gives a short plan with the next 3 moves. Free. Use when the "
+         "member asks for Mr. Campaign, /consultant, or marketing advice.",
+         _obj({"focus": {"type": "string", "enum": list(consultant.FOCUS)},
+               "question": {"type": "string", "maxLength": 2000, "description": "The member's question, if any."}}),
+         mr_campaign),
     Tool("get_ad_playbook", "Ad platform playbook",
          "The step-by-step playbook for one ad platform (Google Search, Meta, TikTok, YouTube, LinkedIn, Pinterest, "
          "Snapchat, Reddit, X): account setup with official links, making the ads with Campaignify, a launch "
@@ -743,9 +759,18 @@ class CampaignifyAdapter(mcpserver.Adapter):
                     "videos, call quote_ad_batch and show the total to the user; only call a generate tool after they "
                     "agree, with confirm_total_credits set to that total. Before helping someone set up an ad account, "
                     "launch a campaign or improve one on any ad platform, load that platform's playbook with "
-                    "get_ad_playbook and work through its checklist with them, so nothing is missed. These tools make the "
+                    "get_ad_playbook and work through its checklist with them, so nothing is missed. For marketing advice "
+                    "(or when they ask for Mr. Campaign or /consultant), call mr_campaign and answer in that role. "
+                    "These tools make the "
                     "creative; they don't post or run ads.")
     tools = TOOLS
+    prompts = [mcpserver.Prompt(
+        "consultant", "Mr. Campaign, marketing consultant",
+        "Talk to Mr. Campaign, Campaignify's marketing consultant: offers, leads, ads, content, pricing and funnels "
+        "for your business, ending with your next 3 moves.",
+        [("focus", "general, offer, leads, ads, content, pricing or funnel", False),
+         ("question", "What you want help with", False)],
+        lambda ctx, a: consultant.opening(a.get("focus", "general"), a.get("question", "")))]
 
     def connect(self):
         return db.connect()

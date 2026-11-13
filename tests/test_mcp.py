@@ -222,6 +222,22 @@ pb = call(rkey, "get_ad_playbook", {"platform": "google-search"})["structuredCon
 check("One website per ad group" in pb["playbook"] and "Before you launch" in pb["playbook"],
       "a read-only key gets the Google Search playbook")
 check(call(rkey, "get_ad_playbook", {"platform": "myspace"})["isError"], "an unknown platform is refused")
+mc = call(rkey, "mr_campaign", {"focus": "leads", "question": "How do I get my first 10 customers?"})["structuredContent"]
+check(mc["consultant"] == "Mr. Campaign" and "first 10 customers" in mc["brief"] and "Four ways to get leads" in mc["brief"],
+      "mr_campaign: a read-only key gets the consultant brief with the question")
+init = rpc("initialize", {"protocolVersion": "2025-06-18"}, key=rkey).get_json()["result"]
+check(init["capabilities"].get("prompts") == {"listChanged": False}, "initialize: prompts capability")
+pl_ = rpc("prompts/list", {}, key=rkey).get_json()["result"]["prompts"]
+check([p_["name"] for p_ in pl_] == ["consultant"] and [a_["name"] for a_ in pl_[0]["arguments"]] == ["focus", "question"]
+      and not any(a_["required"] for a_ in pl_[0]["arguments"]), "prompts/list: /consultant with optional focus and question")
+pg = rpc("prompts/get", {"name": "consultant", "arguments": {"focus": "ads", "question": "Meta or Google first?"}},
+         key=rkey).get_json()["result"]
+check(pg["messages"][0]["role"] == "user" and "You are Mr. Campaign" in pg["messages"][0]["content"]["text"]
+      and "Meta or Google first?" in pg["messages"][0]["content"]["text"], "prompts/get: the consultant opening")
+check(rpc("prompts/get", {"name": "nope"}, key=rkey).get_json()["error"]["code"] == -32602, "prompts/get: unknown prompt")
+check(rpc("prompts/get", {"name": "consultant", "arguments": {"focus": 3}}, key=rkey).get_json()["error"]["code"] == -32602,
+      "prompts/get: arguments must be strings")
+check(rpc("resources/list", {}, key=rkey).get_json()["result"] == {"resources": []}, "resources/list: empty")
 check(tools["quote_ad_batch"]["annotations"]["readOnlyHint"] and not tools["generate_video_ads"]["annotations"]["readOnlyHint"],
       "quote is read-only, generate is not")
 check("confirm_total_credits" in tools["generate_video_ads"]["inputSchema"]["required"], "generate needs the quoted total")

@@ -15,7 +15,7 @@ and these apps are Flask under sync gunicorn workers. Mounting it would need an
 ASGI bridge, an async event loop per worker and a dozen new dependencies, and
 its tools would still have to step back into Flask to reach the app's own
 route functions. The protocol surface used here (initialize, ping,
-tools/list, tools/call, notifications) is small and is implemented below.
+tools/list, tools/call, prompts/list, prompts/get, notifications) is small and is implemented below.
 
 Auth, two ways, both ending in the same Bearer token check:
   * Personal API keys made in the app's settings page: random 32 bytes,
@@ -377,6 +377,18 @@ class ToolContext:
             raise ToolError("This connection is read-only. Make a key with read and write access in Settings to do this.")
 
 
+class Prompt:
+    """A prompt template (MCP prompts/list and prompts/get): clients show these as slash commands. `arguments` is
+    a list of (name, description, required); `fn(ctx, args)` returns the text of the one user message."""
+
+    def __init__(self, name, title, description, arguments, fn):
+        self.name, self.title, self.description, self.arguments, self.fn = name, title, description, arguments, fn
+
+    def describe(self):
+        return {"name": self.name, "title": self.title, "description": self.description,
+                "arguments": [{"name": n, "description": d, "required": bool(r)} for n, d, r in self.arguments]}
+
+
 class Adapter:
     """What the core needs from the app. mcp_tools.py subclasses it."""
     name = "app"
@@ -392,6 +404,7 @@ class Adapter:
     # shows it on the connector; square PNGs on a solid background read best at small sizes.
     icons: list = []
     tools: list = []
+    prompts: list = []           # Prompt objects (slash commands in clients that show MCP prompts)
     # A function returning the human page for GET /mcp in a browser (see wants_page), or None for a plain 405.
     web_page = None
 
@@ -583,7 +596,8 @@ def blueprint(adapter: Adapter) -> Blueprint:
         if method == "initialize":
             want = str(params.get("protocolVersion") or "")
             return _ok(mid, {"protocolVersion": want if want in PROTOCOL_VERSIONS else LATEST,
-                             "capabilities": {"tools": {"listChanged": False}},
+                             "capabilities": dict({"tools": {"listChanged": False}},
+                                                  **({"prompts": {"listChanged": False}} if adapter.prompts else {})),
                              "serverInfo": _server_info(adapter),
                              "instructions": adapter.instructions})
         if method == "ping":
@@ -601,8 +615,23 @@ def blueprint(adapter: Adapter) -> Blueprint:
             return _ok(mid, res)
         if method == "tools/call":
             return _ok(mid, call_tool(ctx, str(params.get("name") or ""), params.get("arguments")))
-        if method in ("resources/list", "prompts/list"):
-            return _ok(mid, {method.split("/")[0]: []})
+        if method == "prompts/list":
+            return _ok(mid, {"prompts": [p.describe() for p in adapter.prompts]})
+        if method == "prompts/get":
+            p = next((x for x in adapter.prompts if x.name == params.get("name")), None)
+            if not p:
+                return _err(mid, -32602, f"Unknown prompt: {str(params.get('name'))[:60]}")
+            pargs = params.get("arguments") or {}
+            if not isinstance(pargs, dict) or not all(isinstance(v, str) for v in pargs.values()):
+                return _err(mid, -32602, "arguments must be an object of strings")
+            missing = [n for n, _, r in p.arguments if r and not pargs.get(n)]
+            if missing:
+                return _err(mid, -32602, f"Missing argument: {missing[0]}")
+            text = p.fn(ctx, {k: v[:4000] for k, v in pargs.items()})
+            return _ok(mid, {"description": p.description,
+                             "messages": [{"role": "user", "content": {"type": "text", "text": text}}]})
+        if method == "resources/list":
+            return _ok(mid, {"resources": []})
         if method == "resources/templates/list":
             return _ok(mid, {"resourceTemplates": []})
         return _err(mid, -32601, f"Method not found: {str(method)[:60]}")
