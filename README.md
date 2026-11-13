@@ -648,6 +648,39 @@ Two more recipes on this pipeline, and one new thing a member can add to a produ
 
 Tests: `tests/test_recordings.py` (26 checks), and the end-to-end runs in `tests/test_keyframe_video.py`.
 
+## Auto-edit (`motion_edit.py`; `AUTO_EDIT`, default off)
+
+A presenter video comes back from the video model as one plain take. With `AUTO_EDIT=1`, every presenter video in a
+new batch is edited the way a short-form editor would, from what Campaignify already has, and at no extra price:
+
+| What | When it shows | From |
+|---|---|---|
+| Hook banner | the first line, without a leading "Okay"/"So", last two words highlighted in the accent colour | the script |
+| Captions | word by word, at most three words, the spoken word lit | the script, timed to the speech |
+| Brand chip | the first two times the brand is said | brand kit: name, logo, colours |
+| Name chip | another name or acronym said mid-sentence (an app, "MCP") | the script |
+| Connection scene | "connect it to Claude", "plugs into Shopify": brand tile, line drawn in, "Connected" | the script, brand kit |
+| Checklist | a spoken list ("make ads, write the copy, plan my launch"), ticked as each item is said | the script |
+| Claim card | an approved claim the presenter actually says | the product's approved claims |
+| Product card | the product's name said, or a quiet stretch | the job's own product photo |
+| Offer badge | when price or offer words are said, only if an offer is saved | the product's saved offer |
+| End card | from the last line that names the brand or a call to action | logo, web address, a short line from the description, the button text |
+| AI presenter label | the whole video | always (platform AI-disclosure rules) |
+| Sound | pops, whooshes and dings under each graphic, made with ffmpeg (no sound files) | — |
+
+Nothing on screen is invented: every word comes from the script, the brand kit, the product's saved claims and
+offer, or the batch's button text (tests/test_motion_edit.py checks it). The raw take is kept beside the edit as
+`<name>-raw.mp4`, and a failed edit leaves the take untouched. Voice samples, keyframe videos and free previews are
+never edited. A batch can opt out with `"auto_edit": false` in its config.
+
+Timing: with the `faster-whisper` package installed (not in the image yet) the speech's word timings are matched to
+the script with difflib, so a brand said oddly is still captioned with its real spelling. Without it, the script's
+clauses are matched to the take's stretches of speech (ffmpeg's silence detection) by syllable count, which lands
+within about 0.2 s on a clear take.
+
+"Say it as" (brands.say_as, on the brand page): a spelling of the brand as it sounds ("Cam-pain-ih-fy"). The video
+model gets it in place of the written name, so presenters stop saying "Campaign-fy"; captions keep the real name.
+
 ## Feature and industry pages, and the free hook generator (Nov 10 2026)
 
 Nine more answer-first pages in `public_pages.SOLUTIONS`, under the same rules as the rest (600+ words, three steps,

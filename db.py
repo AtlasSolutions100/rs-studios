@@ -1056,6 +1056,9 @@ COLUMNS = [
     ("workspaces", "free_fix_cap", "INTEGER"),
     ("asset_fixes", "kind", "TEXT NOT NULL DEFAULT 'image'"),   # m15: 'video' = one beat of a keyframe-first video
     ("asset_fixes", "beat", "INTEGER"),                         # which beat (0-based) a video fix re-renders
+    # how the brand name is said aloud ("Cam-pain-ih-fy"): sent to the video model in place of the written name,
+    # so presenters don't mispronounce it (motion_edit.spoken); captions keep the written name
+    ("brands", "say_as", "TEXT"),
 ]
 
 
