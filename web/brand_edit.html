@@ -14,6 +14,7 @@
         <div><label for="bw">Website</label><input id="bw" type="text" name="website" maxlength="300" inputmode="url" value="{{ b.website or '' }}" placeholder="https://"></div>
         <div><label for="bt">Tone</label><select id="bt" name="tone">{% for t in ['', 'Friendly', 'Bold', 'Calm and premium', 'Playful', 'Straight-talking', 'Expert'] %}<option value="{{ t }}" {{ 'selected' if (b.tone or '') == t }}>{{ t or 'No preference' }}</option>{% endfor %}</select></div>
       </div>
+      <label for="bsa">Say it as <span class="dim">(only if AI presenters say your name wrong: spell it how it sounds, like Cam-pain-ih-fy)</span></label><input id="bsa" type="text" name="say_as" maxlength="80" value="{{ b.say_as or '' }}" placeholder="{{ b.brand_name or '' }}">
       <label for="bau">Default audience <span class="dim">(products can set their own)</span></label><input id="bau" type="text" name="audience" maxlength="300" value="{{ b.audience or '' }}">
       <h3 style="margin:22px 0 4px">Look <span class="dim small">(the type on your image ads)</span></h3>
       <p class="small muted" style="margin:0 0 10px">Headlines, badges and buttons on image presets with a text layer are set in these colours and this font, with your logo when you add one.</p>

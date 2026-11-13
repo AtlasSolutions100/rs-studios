@@ -62,7 +62,7 @@ def guess_category(text: str) -> str:
         if n > hits:
             best, hits = cat, n
     return best
-BRAND_FIELDS = (("brand_name", 80), ("about", 600), ("website", 300), ("tone", 80), ("audience", 300))
+BRAND_FIELDS = (("brand_name", 80), ("about", 600), ("website", 300), ("tone", 80), ("audience", 300), ("say_as", 80))
 MAX_PENDING = 20
 
 
