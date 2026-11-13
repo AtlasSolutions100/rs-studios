@@ -7,6 +7,12 @@ COPY requirements.txt .
 # requirements.txt is the locked, hashed list (compiled from requirements.in): pip installs
 # exactly those files or the build fails (SEC-3).
 RUN pip install --no-cache-dir --require-hashes -r requirements.txt
+# The auto-edit's speech model (motion_edit.py, AUTO_EDIT): baked into the image so no container downloads it at
+# run time. AUTO_EDIT_MODEL picks another size; that one is downloaded on first use.
+ENV HF_HOME=/opt/hf HF_HUB_DISABLE_TELEMETRY=1
+RUN (python -c "from faster_whisper import WhisperModel; WhisperModel('base.en', compute_type='int8')" \
+     || echo "speech model not baked in: the auto-edit times captions from the take's pauses until it downloads") \
+    && mkdir -p /opt/hf && chmod -R a+rX /opt/hf
 COPY . .
 # BUILD_ID: one random id per image. The web and worker containers of a release share it, so the web's /health
 # waits for its own release's worker heartbeat after a deploy (alerts.worker_state, roadmap M7.2).

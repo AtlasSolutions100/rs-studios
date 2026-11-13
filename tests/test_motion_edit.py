@@ -206,6 +206,16 @@ if HAVE_FF:
     check(abs(info["duration"] - 4.0) < 0.25, "same length as the take")
     check(any(e["kind"] == "hook" for e in p["events"]) and any(e["kind"] == "end" for e in p["events"]),
           "a short take still gets a hook and an end card")
+    # no usable speech model (not installed, offline, or it heard nothing): timing comes from the take's pauses
+    saved = (m.has_whisper, m.transcribe)
+    m.has_whisper = lambda: True
+    m.transcribe = lambda path, model=None: (_ for _ in ()).throw(OSError("model not downloaded"))
+    p2 = m.auto_edit(src, os.path.join(TMP, "edit2.mp4"), dict(CTX, script=short, duration=None))
+    check(any(e["kind"] == "hook" for e in p2["events"]) and p2["captions"], "a failed speech model falls back")
+    m.transcribe = lambda path, model=None: []
+    p3 = m.auto_edit(src, os.path.join(TMP, "edit3.mp4"), dict(CTX, script=short, duration=None))
+    check(sum(len(g) for g in p3["captions"]) == len(m.script_tokens(short)), "a model that heard nothing falls back")
+    m.has_whisper, m.transcribe = saved
     stills = m.render(src, os.path.join(TMP, "prev"), p, CTX, preview_at=[0.8, 3.6])
     check(len(stills) == 2 and all(os.path.getsize(s) > 1000 for s in stills), "preview stills")
     wav = os.path.join(TMP, "sfx.wav")

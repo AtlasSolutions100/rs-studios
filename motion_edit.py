@@ -59,6 +59,9 @@ def norm(token: str) -> str:
     return re.sub(r"[^a-z0-9$%]", "", token.lower())
 
 
+_MODELS = {}
+
+
 def transcribe(path: str, model: str | None = None) -> list:
     """Word timings for the speech in a video: [{"w", "s", "e"}]. faster-whisper on the CPU, offline once the model
     is cached (AUTO_EDIT_MODEL, default base.en)."""
@@ -66,8 +69,13 @@ def transcribe(path: str, model: str | None = None) -> list:
     with tempfile.TemporaryDirectory() as td:
         wav = os.path.join(td, "a.wav")
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", path, "-vn", "-ac", "1", "-ar", "16000", wav], check=True)
-        m = WhisperModel(model or os.environ.get("AUTO_EDIT_MODEL", "base.en"), compute_type="int8")
-        segs, _ = m.transcribe(wav, word_timestamps=True)
+        name = model or os.environ.get("AUTO_EDIT_MODEL", "base.en")
+        if name not in _MODELS:
+            try:            # the copy baked into the image first; download only if it isn't there
+                _MODELS[name] = WhisperModel(name, compute_type="int8", local_files_only=True)
+            except Exception:  # noqa: BLE001
+                _MODELS[name] = WhisperModel(name, compute_type="int8")
+        segs, _ = _MODELS[name].transcribe(wav, word_timestamps=True, language="en" if name.endswith(".en") else None)
         return [{"w": x.word.strip(), "s": round(float(x.start), 3), "e": round(float(x.end), 3)}
                 for seg in segs for x in seg.words if x.word.strip()]
 
@@ -1124,11 +1132,22 @@ def auto_edit(src: str, out: str, ctx: dict, words: list | None = None) -> dict:
     """The whole pass: words (or the given ones), aligned to ctx["script"], a plan, the render. Returns the plan."""
     info = probe(src)
     ctx = dict(ctx, duration=ctx.get("duration") or info.get("duration"))
-    if words is None and not has_whisper() and ctx.get("script"):
+    aligned = None
+    if words is not None:
+        aligned = align(words, ctx.get("script") or "") if ctx.get("script") else words
+    elif has_whisper():
+        try:
+            heard = transcribe(src)
+            aligned = align(heard, ctx.get("script") or "") if ctx.get("script") else heard
+        except Exception as e:  # noqa: BLE001 — no model (offline, not downloaded): time it from the pauses
+            import logging
+            logging.getLogger("campaignify.motion_edit").warning("transcribe failed, using pauses: %s", e)
+    if not aligned and ctx.get("script"):
+        # no speech model, or it heard almost nothing of the script: the script's clauses on the take's pauses
         aligned = estimate(src, ctx["script"], ctx["duration"])
-    else:
-        heard = words if words is not None else transcribe(src)
-        aligned = align(heard, ctx.get("script") or "") if ctx.get("script") else heard
+    elif aligned and ctx.get("script") and len(aligned) < 0.6 * len(script_tokens(ctx["script"])):
+        aligned = estimate(src, ctx["script"], ctx["duration"])
+    aligned = aligned or []
     plan = make_plan(aligned, ctx)
     render(src, out, plan, ctx)
     return plan
