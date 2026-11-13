@@ -156,6 +156,8 @@ check(anon.get("/mcp", headers={"Accept": "text/event-stream"}).status_code == 4
 check('<link rel="canonical" href="https://campaignify.ai/mcp">' in body or 'rel="canonical" href="http://localhost/mcp"' in body,
       "the page's canonical address is /mcp")
 check("/mcp</code>" in body, "/claude shows the server address")
+check('id="expert"' in body and "<code>/consultant</code>" in body and 'href="/claude-skills.zip"' in body
+      and "Launch playbooks for 9 ad platforms" in body, "/mcp page: Mr. Campaign, the playbooks and the skills download")
 check(all(str(_esc(t)) in body for _, t in _appmod.CLAUDE_PROMPTS) and body.count('class="cl-prompt"') == len(_appmod.CLAUDE_PROMPTS),
       "/claude lists every example prompt")
 check("Customize" in body and "Add custom connector" in body and "claude mcp add --transport http campaignify" in body,
