@@ -1737,3 +1737,652 @@ GUIDES = {
 }
 GUIDE_ORDER = ["best-ai-ugc-ad-generators", "make-ai-ugc-ads-that-dont-look-fake", "ftc-meta-rules-for-ai-ads",
                "research-competitor-ads", "credit-based-ai-ad-pricing", "plan-a-campaign-with-ai", "ugc-ad-hooks"]
+
+
+# ---------------------------------------------------------------- answer-first guides, Nov 12, 2026
+# Ten more pages for questions buyers ask search and AI assistants. Campaignify facts only, all from the live
+# numbers ({placeholders} filled by public_site.facts(), so they follow the plan switch); no other company's
+# facts, so no sources to date. Same house rules: digits, no long dashes, every page opens with the answer.
+AS_OF_NEW = "2026-11-12"
+AS_OF_NEW_LABEL = "Nov 12, 2026"
+_NEW = {"published": AS_OF_NEW, "updated_label": AS_OF_NEW_LABEL, "sources_date": AS_OF_NEW_LABEL, "sources": [],
+        "about_app": True}
+
+GUIDES.update({
+    "what-is-campaignify": dict(_NEW, **{
+        "nav": "What is Campaignify?",
+        "eyebrow": "About",
+        "title": "What Is Campaignify? The AI Ad Studio, Explained",
+        "description": "Campaignify is an AI marketing platform for small businesses: UGC-style video and image ads "
+                       "from a product page, plus copy, pages and follow-up.",
+        "h1": "What is Campaignify?",
+        "answer": "Campaignify is an AI marketing platform for small businesses. Paste a product page and it makes "
+                  "UGC-style video ads with AI presenters, product videos and image ads, writes the ad copy for "
+                  "{platform_count} ad platforms, and keeps the campaign plan, landing page, smart links, forms and "
+                  "follow-up in one workspace. Every ad shows its price in credits before you make it, and failed "
+                  "generations are refunded. Plans are ${starter_usd}, ${growth_usd} and ${scale_usd} a month.",
+        "sections": [
+            ("Who it's for", [
+                "Campaignify is built for people who sell something and run their own ads without an agency: "
+                "online stores, local businesses, coaches, apps and SaaS products, and the small agencies and "
+                "freelancers who run ads for them. You don't need to film anything, hire creators or learn a video "
+                "editor. You need a product page or a few photos and a clear offer.",
+            ]),
+            ("What it makes", [
+                ("ul", [
+                    "Image ads: your product photo becomes a finished ad, with the headline, price and callouts set "
+                    "in real type on top, in {image_shapes}. {image} credits each.",
+                    "Presenter videos: pick one of {presenters} AI presenters, write what they say, and get a "
+                    "selfie-style video with your product beside them. {talk_lengths} seconds, in {talk_shapes}. "
+                    "An 8-second one is {talk8} credits.",
+                    "Ready-made formats: try-ons where a presenter wears your clothing, app demos where your own "
+                    "screen recording plays above a presenter, and unboxings where two hands open the box.",
+                    "Product videos with no person at all: a 5-second one is {video5} credits.",
+                    "Ad copy: hooks, primary text, captions, headlines and emails in your brand's voice, sized for "
+                    "{platform_list}.",
+                ]),
+                "None of the presenters is a real person, and every ad is checked against the claims you approved "
+                "for the product, so it doesn't promise something you can't back up.",
+            ]),
+            ("What else is in the workspace", [
+                "Around the ads, Campaignify plans the campaign (what to run, on which platform, week by week), "
+                "researches competitors' ads, walks you through setting up each ad account, and builds the landing "
+                "page, smart links and forms that catch the click. On Growth, follow-up emails go out from flows "
+                "and an SEO, AEO and GEO optimizer checks your pages for search engines and AI assistants. On "
+                "Scale, flows can send text messages too.",
+                "{runs_short}",
+            ]),
+            ("What it doesn't do", [
+                "It doesn't buy media for you: your ad spend stays in your own ad account. It isn't a managed "
+                "service, so there's no one writing your strategy for you. And it can't make claims true: if your "
+                "product doesn't do something, the compliance check keeps it out of the ad.",
+            ]),
+            ("How pricing works", [
+                "Every ad has a fixed price in credits, shown on the button before you generate. Plans come with "
+                "monthly credits: Starter is ${starter_usd} a month with {starter_credits} credits. Credit packs "
+                "({pack_usd}, one-time) top up any plan. {trial_turns_answer}",
+                "See every number on the [pricing page](/pricing).",
+            ]),
+        ],
+        "faq_h2": "Questions about Campaignify",
+        "faq": [
+            ("Is Campaignify an agency?", "No. It's software you use yourself. It plans, makes and writes; you approve "
+             "every ad and launch it."),
+            ("Are the presenters real people?", "No. All {presenters} AI presenters are made with AI. None of them is "
+             "a real person, so there are no creator fees or usage rights to buy."),
+            ("Does Campaignify run my ads?", "{runs_short}"),
+            ("What does it cost to try?", "{trial_turns_answer}"),
+        ],
+        "related": ["/pricing", "ai-ugc-ad-generator", "best-ai-ugc-ad-generators"],
+    }),
+    "how-much-do-ai-ugc-ads-cost": dict(_NEW, **{
+        "nav": "What AI UGC ads cost",
+        "eyebrow": "Pricing",
+        "title": "How Much Do AI UGC Ads Cost? Per Ad, Worked Out",
+        "description": "What an AI image ad, product video and presenter video cost in Campaignify credits, and what "
+                       "a month of ad testing costs on each plan.",
+        "h1": "How much do AI UGC ads cost?",
+        "answer": "In Campaignify every ad has a fixed price in credits that you see before you make it: {image} "
+                  "credits for an image ad, {video5} for a 5-second product video, {talk8} for an 8-second AI "
+                  "presenter video and {talk10} for a 10-second one. Plans start at ${starter_usd} a month with "
+                  "{starter_credits} credits, and failed generations are refunded, so you only pay for ads that "
+                  "finish.",
+        "sections": [
+            ("The price of each kind of ad", [
+                ("ul", [
+                    "Image ad: {image} credits. Your product photo with the headline, price and callouts set in real "
+                    "type.",
+                    "Product video, 5 seconds: {video5} credits; 10 seconds: {video10}.",
+                    "AI presenter video, 8 seconds: {talk8} credits; 10 seconds: {talk10}. Longer ones, up to "
+                    "{talk_max} seconds, cost more and show their price before you generate.",
+                    "Ad copy, hooks and headlines: AI writing tools charge what the AI actually used, with the most "
+                    "a run can cost shown first.",
+                ]),
+                "The price is on the Generate button, so there's no surprise afterwards. If a generation fails, the "
+                "credits come back automatically.",
+            ]),
+            ("What a month of testing costs", [
+                "A simple test plan is 3 image ads, 1 per hook, in week 1, then a presenter video of the hook that "
+                "wins. On Starter's {starter_credits} monthly credits that's a small part of the month, which leaves "
+                "room for more image variations, product videos and a second round. Growth (${growth_usd} a month) "
+                "and Scale (${scale_usd} a month) add more credits and the tools that follow the click: forms, "
+                "follow-up flows and link analytics.",
+                "If you need a burst of ads in one month, credit packs ({pack_usd}, one-time) top up any plan. "
+                "{credits_never_expire}.",
+            ]),
+            ("Compared with hiring creators", [
+                "With human UGC creators you pay per video, plus usage rights if you run it as an ad, and you wait "
+                "for filming and edits. AI presenter videos cost the credits above and arrive in minutes, but they "
+                "aren't real customers: they can't hold your product in their hands or give a real testimonial. "
+                "Many sellers use AI ads to find the hook that works, then pay a creator to film that one.",
+            ]),
+            ("What isn't in the price", [
+                "Credits pay for making ads, not for showing them. Your ad spend is separate and stays in your own "
+                "ad account on each platform. {limits_run}",
+            ]),
+            ("Hidden costs to check in any AI ad tool", [
+                ("ol", [
+                    "Does the trial turn into a paid plan by itself?",
+                    "What does 1 ad of the kind you want cost?",
+                    "Do you see the cost before you generate?",
+                    "Are failed generations refunded?",
+                    "Do credits expire, and when?",
+                ]),
+                "More on this in [how credit-based AI ad pricing works](/guides/credit-based-ai-ad-pricing).",
+            ]),
+        ],
+        "faq_h2": "AI ad cost questions",
+        "faq": [
+            ("How much is one AI image ad in Campaignify?", "{image} credits, shown on the button before you make it."),
+            ("How much is an AI presenter video?", "{talk8} credits for 8 seconds and {talk10} for 10 seconds. Longer "
+             "ones show their price before you generate."),
+            ("Do I pay for failed ads?", "No. Failed generations are refunded automatically."),
+            ("Is ad spend included?", "No. Credits pay for making ads. What you spend to show them stays in your own "
+             "ad account."),
+        ],
+        "related": ["/pricing", "credit-based-ai-ad-pricing", "ai-ugc-ad-generator"],
+    }),
+    "ai-ugc-ads-vs-real-creators": dict(_NEW, **{
+        "nav": "AI UGC vs real creators",
+        "eyebrow": "Compare",
+        "title": "AI UGC Ads vs Real UGC Creators: Which to Use",
+        "description": "When AI presenter ads beat hiring UGC creators, when they don't, and how to use both: test "
+                       "hooks with AI, then film the winner.",
+        "h1": "AI UGC ads vs real UGC creators: which should you use?",
+        "answer": "Use AI UGC ads to test many hooks, angles and formats quickly and cheaply, and use real creators "
+                  "when the ad needs a real person: a genuine testimonial, hands-on use of the product, or a face "
+                  "your audience knows. Most small businesses get the best of both by testing with AI first, then "
+                  "paying a creator to film the hook that already won.",
+        "sections": [
+            ("Where AI presenter ads win", [
+                ("ul", [
+                    "Speed: a presenter video arrives in minutes, not after a shipping, filming and editing cycle.",
+                    "Volume: you can try 5 hooks for the cost of a few credits each instead of 5 shoots.",
+                    "Control: you write every word, and the compliance check keeps out claims you haven't approved.",
+                    "No usage rights to negotiate: the presenters aren't real people.",
+                    "Every size: the same idea in {talk_shapes} for each placement.",
+                ]),
+            ]),
+            ("Where real creators win", [
+                ("ul", [
+                    "Testimonials: only a real customer can honestly say they used the product. An AI presenter "
+                    "must never pretend to be one.",
+                    "Hands-on proof: texture, fit, taste and results on a real body or in a real kitchen.",
+                    "Trust from a known face: an influencer's audience already knows them.",
+                    "Unscripted moments that feel lived-in.",
+                ]),
+            ]),
+            ("The rules that apply to AI ads", [
+                "Ad platforms and regulators care about honesty. Don't present an AI presenter as a real customer, "
+                "don't invent reviews, and label AI-made content where a platform asks you to. Our guide to the "
+                "[FTC and Meta rules for AI ads](/guides/ftc-meta-rules-for-ai-ads) covers what's required, with "
+                "sources. In Campaignify, every line in a script is checked against the claims you approved for the "
+                "product.",
+            ]),
+            ("A plan that uses both", [
+                ("ol", [
+                    "Write 3 to 5 hooks from real buyer worries.",
+                    "Make an image ad for each, then a presenter video of the 2 that get the most clicks.",
+                    "Run them side by side for a week on a small budget.",
+                    "Send the winning hook to a real creator to film, or to a customer who agrees to a testimonial.",
+                    "Keep the AI versions running for new sizes and placements.",
+                ]),
+                "See [10 UGC ad hooks that work](/guides/ugc-ad-hooks) for starting points.",
+            ]),
+            ("What it costs", [
+                "In Campaignify an 8-second presenter video is {talk8} credits and an image ad {image}. Plans start "
+                "at ${starter_usd} a month. A human creator's price depends on the creator, so ask for the video fee "
+                "and the ad usage rights separately before you compare.",
+            ]),
+        ],
+        "faq_h2": "AI vs creator questions",
+        "faq": [
+            ("Are AI UGC ads allowed on Facebook and TikTok?", "Yes, when they're honest: no fake customers or reviews, "
+             "and AI labels where the platform asks for them. Check each platform's current rules."),
+            ("Do AI UGC ads look fake?", "They can if the script sounds like an ad. Write like a person talking and "
+             "show the product. See [how to make AI UGC ads that don't look fake](/guides/make-ai-ugc-ads-that-dont-look-fake)."),
+            ("Can an AI presenter give a testimonial?", "No. Only a real customer can say they used the product. AI "
+             "presenters talk about the product, not as a customer."),
+        ],
+        "related": ["make-ai-ugc-ads-that-dont-look-fake", "ftc-meta-rules-for-ai-ads", "ai-avatar-ads"],
+    }),
+    "product-video-from-product-page": dict(_NEW, **{
+        "nav": "Product video from a product page",
+        "eyebrow": "How to",
+        "title": "How to Make a Product Video From a Product Page",
+        "description": "Turn a product page into a product video ad: pick the shots, write a hook, choose a format "
+                       "and size it for each platform. With or without AI.",
+        "h1": "How to make a product video ad from your product page",
+        "answer": "Start from the page you already have: its photos, name, price and the 2 or 3 benefits buyers care "
+                  "about. Pick a format (a product-only video, an unboxing, or a presenter holding up the product), "
+                  "write a 1-line hook for the first second, and export it in each platform's size. In Campaignify "
+                  "you paste the product page link and it reads the photos and details for you; a 5-second product "
+                  "video is {video5} credits.",
+        "sections": [
+            ("Step 1: Pull what you need from the page", [
+                "You need clean product photos (one with a plain background helps), the product's name and price, "
+                "and the benefits in plain words. Skip the long description; a video ad has room for 1 idea. In "
+                "Campaignify, paste the link and it imports the photos and details into a product, where you "
+                "approve the claims the ads may use.",
+            ]),
+            ("Step 2: Pick a format", [
+                ("ul", [
+                    "Product only: the product moves through a scene with no person. Good for looks and design.",
+                    "Unboxing: two hands open the box and lift the product out. Good for gifts and packaging.",
+                    "Try-on: a presenter wears your clothing. Good for fit and how it looks on.",
+                    "Presenter: one of {presenters} AI presenters talks about the product beside it. Good for "
+                    "explaining why it's better.",
+                    "App demo: your own screen recording plays above a presenter. Good for apps and software.",
+                ]),
+            ]),
+            ("Step 3: Write the hook", [
+                "The first second decides if anyone keeps watching. Lead with the buyer's problem or the one thing "
+                "that's different, not your brand name. \"Lid gone missing again? This one presses in and stays\" "
+                "beats \"Introducing our new mug\". Write 3 and test them.",
+            ]),
+            ("Step 4: Size it for each platform", [
+                "Vertical 9:16 for Reels, Stories, TikTok and Shorts, square or 4:5 for feeds, and 16:9 where a "
+                "platform wants landscape. Campaignify makes presenter videos in {talk_shapes} and exports every ad "
+                "at each platform's sizes, so you don't crop by hand.",
+            ]),
+            ("Step 5: Add the copy and launch", [
+                "Write the primary text, headline and a clear call to action for each platform. {runs_short}",
+            ]),
+            ("What it costs in Campaignify", [
+                "A 5-second product video is {video5} credits and a 10-second one {video10}. An 8-second presenter "
+                "video is {talk8}. Prices are on the button before you generate, and failed generations are "
+                "refunded. Plans start at ${starter_usd} a month.",
+            ]),
+        ],
+        "faq_h2": "Product video questions",
+        "faq": [
+            ("Do I need to film anything?", "No. Campaignify works from your product photos and page. The presenters "
+             "are AI, and none of them is a real person."),
+            ("How long should a product video ad be?", "Short. Most product videos work at 5 to 15 seconds: one "
+             "idea, one product, one call to action."),
+            ("Can I use my Shopify product page?", "Yes. Paste the product link and Campaignify reads the photos and "
+             "details. There's no app to install."),
+        ],
+        "related": ["ai-product-video-generator", "ai-product-ads-for-shopify", "ai-ads-for-ecommerce"],
+    }),
+    "virtual-try-on-ads": dict(_NEW, **{
+        "nav": "Try-on ads without a photoshoot",
+        "eyebrow": "How to",
+        "title": "How to Make Try-On Video Ads Without a Photoshoot",
+        "description": "Try-on ads for clothing and accessories with an AI presenter instead of a model shoot: what "
+                       "to upload, how to script it, and what to check.",
+        "h1": "How to make try-on video ads without a photoshoot",
+        "answer": "Upload clear photos of the garment, pick an AI presenter, and choose the try-on format: the "
+                  "presenter wears your clothing and shows the fit, like a mirror try-on, with a short line about "
+                  "what makes it worth buying. In Campaignify it's one click from your product, priced in credits "
+                  "before you generate. Check every frame against the real garment before you run it.",
+        "sections": [
+            ("Why try-on ads work", [
+                "Shoppers buying clothes online want to see how it fits, how long the sleeves are and how it moves. "
+                "A try-on answers that in a few seconds, in the same selfie style people already watch on Reels "
+                "and TikTok, without booking a model, a studio and a photographer.",
+            ]),
+            ("Step 1: Upload good garment photos", [
+                "Use a flat lay or a ghost-mannequin photo on a plain background, front and back if you have them. "
+                "The clearer the photo, the closer the try-on stays to the real color, print and cut.",
+            ]),
+            ("Step 2: Pick the presenter and the scene", [
+                "Choose one of {presenters} AI presenters whose look fits your buyer, and a place they film in. "
+                "None of them is a real person, so there are no model fees or usage rights.",
+            ]),
+            ("Step 3: Script one detail", [
+                "Say one thing the photo can't: \"the sleeves actually reach my wrists\", \"it doesn't cling\", "
+                "\"heavy enough for October\". Keep it true to the product: Campaignify's compliance check holds "
+                "each line to the claims you approved for it.",
+            ]),
+            ("Step 4: Check it against the real thing", [
+                ("ul", [
+                    "The color and print match the garment.",
+                    "The length and fit aren't flattering beyond what the real cut does.",
+                    "Logos and text on the garment are right.",
+                    "Nothing suggests a real customer is speaking.",
+                ]),
+                "If a detail is off, change the photo or the prompt and generate again. Failed generations are "
+                "refunded automatically.",
+            ]),
+            ("Where to run them", [
+                "Try-ons are made for the vertical feeds where people shop by scrolling: Reels, Stories, TikTok and "
+                "Shorts. Use the 9:16 version there and a square or 4:5 one in feeds. Pair each video with copy that "
+                "answers the next question a shopper has, such as sizes, fabric or delivery, and send the click to "
+                "the product page for that exact item, not your home page. Test 2 or 3 hooks on the same garment "
+                "before you make try-ons for the whole range.",
+            ]),
+            ("Sizes and cost", [
+                "Presenter videos come in {talk_shapes}, {talk_lengths} seconds. An 8-second one is {talk8} "
+                "credits. Plans start at ${starter_usd} a month.",
+            ]),
+        ],
+        "faq_h2": "Try-on ad questions",
+        "faq": [
+            ("What products work for try-on ads?", "Clothing and wearables: tops, jackets, dresses, hats and similar. "
+             "Products you hold or use work better as presenter or unboxing videos."),
+            ("Is the presenter a real model?", "No. Every presenter is made with AI. None of them is a real person."),
+            ("Will it look exactly like my garment?", "It follows your photos closely, but check color, print and "
+             "fit in every video before you run it, and regenerate anything that's off."),
+        ],
+        "related": ["ai-ads-for-ecommerce", "ai-avatar-ads", "make-ai-ugc-ads-that-dont-look-fake"],
+    }),
+    "demo-video-ads-for-apps": dict(_NEW, **{
+        "nav": "App demo video ads",
+        "eyebrow": "How to",
+        "title": "How to Make App Demo Video Ads From Screen Recordings",
+        "description": "App and SaaS demo ads that show your real screens: record the flow, add a presenter hook "
+                       "and size it for each feed. Step by step.",
+        "h1": "How to make app demo video ads from your screen recordings",
+        "answer": "Record the one flow that shows your app's main benefit, keep it under 20 seconds, and put a "
+                  "presenter's hook to camera before it so people know why to watch. In Campaignify's app demo "
+                  "format your own screen recording plays above an AI presenter, and your screens are shown as you "
+                  "recorded them, so the ad shows the real product.",
+        "sections": [
+            ("Why show real screens", [
+                "People install apps and buy software when they can see it working. A generated mockup of your "
+                "app can misrepresent what it does; a real recording can't. That's why Campaignify never redraws "
+                "your screens: the recording you upload is what plays.",
+            ]),
+            ("Step 1: Pick one flow", [
+                "One ad, one job. Pick the flow that delivers the result fastest: creating the first invoice, "
+                "finding a match, logging a workout. Start the recording one tap before the good part.",
+            ]),
+            ("Step 2: Record it clean", [
+                ("ul", [
+                    "Use demo data that looks real but contains nobody's personal information.",
+                    "Turn off notifications and set the clock and battery to something tidy.",
+                    "Move slowly enough to follow; pause a beat on the result.",
+                    "Record in portrait for a phone app and landscape for a web app.",
+                ]),
+            ]),
+            ("Step 3: Write the hook", [
+                "The presenter opens with the problem, to camera, in a line: \"I used to spend Sunday night on "
+                "invoices.\" Then the screens show the fix. Keep the claim to what the recording proves.",
+            ]),
+            ("Step 4: Size and copy", [
+                "Make vertical 9:16 for Reels, TikTok and Shorts and square or 4:5 for feeds. Then write the copy "
+                "for each platform, including the store or sign-up link. Campaignify writes hooks, primary text and "
+                "headlines for {platform_list}.",
+            ]),
+            ("Mistakes that sink app ads", [
+                ("ul", [
+                    "Opening on a logo or a splash screen instead of the problem.",
+                    "Showing 5 features in 20 seconds, so none of them lands.",
+                    "Claiming a result the recording doesn't show, such as \"saves 10 hours a week\".",
+                    "Tiny text: zoom in on the part of the screen that matters, or record on a larger font.",
+                    "Sending the click to a home page instead of the store listing or sign-up.",
+                ]),
+            ]),
+            ("Cost and limits", [
+                "App demos are priced in credits like every format, shown on the button before you generate, and "
+                "failed generations are refunded. {runs_short}",
+            ]),
+        ],
+        "faq_h2": "App demo ad questions",
+        "faq": [
+            ("Will Campaignify change how my app looks?", "No. In an app demo your screens are shown as you recorded "
+             "them."),
+            ("How long should an app demo ad be?", "Usually 15 to 30 seconds: a hook, the flow and the result."),
+            ("Does it work for web apps and SaaS?", "Yes. Record the web app in the browser and use the same format."),
+        ],
+        "related": ["ai-ads-for-mobile-apps", "ai-ads-for-saas", "ugc-ad-hooks"],
+    }),
+    "how-many-ad-creatives-to-test": dict(_NEW, **{
+        "nav": "How many ads to test",
+        "eyebrow": "Strategy",
+        "title": "How Many Ad Creatives Should You Test at Once?",
+        "description": "How many ad creatives a small budget can test, how to vary them so you learn something, and "
+                       "when to retire an ad. A plain testing plan.",
+        "h1": "How many ad creatives should you test at once?",
+        "answer": "Test 3 to 5 creatives at a time, each with a different hook, and change only one thing between "
+                  "them so you can tell what worked. A small budget can't give 20 ads a fair chance. Keep the "
+                  "winner, replace the rest with new hooks, and repeat every week or two. Campaignify's planner "
+                  "lays out this cycle for you, and an image ad is {image} credits, so a round of tests is cheap "
+                  "to make.",
+        "sections": [
+            ("Why fewer is better on a small budget", [
+                "Every ad needs enough people to see it before its numbers mean anything. Split a small daily "
+                "budget across 20 ads and none of them gets there. 3 to 5 ads, each with a real difference, give "
+                "you an answer within days instead of weeks.",
+            ]),
+            ("What to vary", [
+                ("ol", [
+                    "The hook first: the problem or promise in the first line or first second.",
+                    "Then the format: image ad, presenter video, product video, unboxing or try-on.",
+                    "Then the offer or call to action.",
+                    "Last, details like colors and backgrounds.",
+                ]),
+                "Change one of these at a time. If two ads differ in hook and format, you won't know which one "
+                "did the work.",
+            ]),
+            ("A 3-week cycle", [
+                ("ul", [
+                    "Week 1: 3 image ads, one per hook.",
+                    "Week 2: a presenter video of the best hook, next to the winning image.",
+                    "Week 3: keep the winner, retire the rest, write 2 new hooks.",
+                ]),
+                "That's the shape of the plan Campaignify's AI campaign planner writes, adjusted to your budget "
+                "and platforms.",
+            ]),
+            ("When to retire an ad", [
+                "Retire an ad when its cost per result climbs well above your others for several days, or when "
+                "frequency rises and clicks fall, which usually means the same people have seen it too often. "
+                "Don't kill an ad on day 1; give it the budget you planned.",
+            ]),
+            ("Read the results the right way", [
+                "Judge each ad on the result you actually want, such as purchases, leads or sign-ups, not on likes or "
+                "views. A cheap click that never buys is an expensive ad. Compare ads over the same days and the same "
+                "audience, write down what each one tested, and keep a running list of hooks that won and lost. After "
+                "a few rounds that list is worth more than any single ad, because it tells you what your buyers care "
+                "about.",
+            ]),
+            ("Making enough variations", [
+                "Variation is where AI helps most. In Campaignify, one product makes image ads in "
+                "{image_shapes}, presenter videos and product videos, and you can make up to {max_batch} at once. "
+                "Every ad shows its price before you generate.",
+            ]),
+        ],
+        "faq_h2": "Creative testing questions",
+        "faq": [
+            ("How long should I run a creative test?", "Long enough for each ad to get the budget you planned, often "
+             "about a week. Decide the budget before you start."),
+            ("Should every ad have a different hook?", "Yes, when you're testing hooks. Keep everything else the same."),
+            ("How many ads can Campaignify make at once?", "Up to {max_batch} in one batch, each priced before you "
+             "generate."),
+        ],
+        "related": ["plan-a-campaign-with-ai", "ugc-ad-hooks", "ai-facebook-ad-generator"],
+    }),
+    "landing-page-for-ads": dict(_NEW, **{
+        "nav": "Do ads need a landing page?",
+        "eyebrow": "How to",
+        "title": "Do You Need a Landing Page for Your Ads?",
+        "description": "When ads should send people to a landing page instead of your home page, what the page needs, "
+                       "and how to track which ad brought each lead.",
+        "h1": "Do you need a landing page for your ads?",
+        "answer": "Yes, whenever the ad makes one specific offer. A landing page that repeats the ad's promise and "
+                  "asks for one action converts the click better than a home page full of other choices, and it "
+                  "tells you which ad brought each lead. Campaignify builds the landing page, the smart link and "
+                  "the form in the same workspace as the ads, so the claims match.",
+        "sections": [
+            ("When a home page is fine", [
+                "If you sell one product and your product page already leads with the same promise as the ad, "
+                "send people there. For an online store, the product page often is the landing page.",
+            ]),
+            ("When you need a landing page", [
+                ("ul", [
+                    "The ad offers something specific: a free consult, a quote, a discount, a download.",
+                    "You run ads for one service out of many.",
+                    "You want leads (a name and email or phone) rather than a checkout.",
+                    "You want to compare which ad or platform brings the best leads.",
+                ]),
+            ]),
+            ("What the page needs", [
+                ("ol", [
+                    "A headline that repeats the ad's hook, word for word if you can.",
+                    "The offer and what happens next, in 2 or 3 lines.",
+                    "Proof you can back up: what's included, how it works, a real guarantee.",
+                    "One form or button. One.",
+                    "Fast loading on a phone, because that's where most ad clicks happen.",
+                ]),
+            ]),
+            ("Track which ad brought the lead", [
+                "Give each ad its own link. Campaignify's smart links record clicks per day, referrer, country, "
+                "device and UTM source, and the page and form record views and submissions, so every lead on the "
+                "leads board shows where it came from. Smart-link analytics and forms are on Growth.",
+            ]),
+            ("Follow up fast", [
+                "A lead goes cold quickly. Set a flow to send a reply as soon as the form comes in: an email on "
+                "Growth, or a text message on Scale. Keep it short and personal, and say what happens next.",
+            ]),
+            ("Common landing page mistakes", [
+                ("ul", [
+                    "A headline that doesn't match the ad, so the visitor wonders if they're in the right place.",
+                    "A long form that asks for things you don't need yet. Name and email or phone is often enough.",
+                    "Menus and links that lead away from the offer.",
+                    "Claims on the page that the ad didn't make, or that you can't back up.",
+                    "No clear answer to what happens after they submit.",
+                ]),
+            ]),
+            ("In Campaignify", [
+                "Landing pages and smart links come with Starter (${starter_usd} a month); forms, contacts, email "
+                "in flows and link analytics with Growth (${growth_usd}); text messages in flows with Scale "
+                "(${scale_usd}). The page uses the same product and approved claims as your ads.",
+            ]),
+        ],
+        "faq_h2": "Landing page questions",
+        "faq": [
+            ("Can I use my own website instead?", "Yes. Use a smart link to track clicks and send people to any page."),
+            ("Do I need a developer to build the page?", "No. Campaignify builds it from your product and offer, and "
+             "you edit the words."),
+            ("Which plan has forms?", "Forms and contacts are on Growth and Scale."),
+        ],
+        "related": ["follow-up-leads-from-ads", "ai-ads-for-lead-generation", "ai-ads-for-local-businesses"],
+    }),
+    "follow-up-leads-from-ads": dict(_NEW, **{
+        "nav": "Follow up with ad leads",
+        "eyebrow": "How to",
+        "title": "How to Follow Up With Leads From Your Ads",
+        "description": "Reply to ad leads fast with an automatic follow-up flow: what to send first, when to send "
+                       "the next one, and when to stop.",
+        "h1": "How to follow up with leads from your ads automatically",
+        "answer": "Send the first reply within minutes of the form coming in, say what happens next, then follow "
+                  "up 2 or 3 more times over about a week before you stop. An automatic flow does this for every "
+                  "lead, the same way, even at night. In Campaignify, forms feed contacts and flows send the "
+                  "emails on Growth and text messages on Scale, from the same workspace as your ads.",
+        "sections": [
+            ("Why speed matters", [
+                "Someone who just filled in your form is thinking about your offer right now. An hour later "
+                "they've moved on, and they may have filled in a competitor's form too. A reply in minutes, even "
+                "an automatic one, keeps you first in line.",
+            ]),
+            ("A simple 4-message flow", [
+                ("ol", [
+                    "Right away: thanks, what happens next, and how to reach you.",
+                    "Day 1: the one thing they need to decide, such as a price, a time slot or an example.",
+                    "Day 3: an answer to the most common worry, such as cost, time or risk.",
+                    "Day 7: a short last note that leaves the door open.",
+                ]),
+                "Stop when they reply or book. Nobody wants a 12th email.",
+            ]),
+            ("Email or text?", [
+                "Email works for almost every offer and can carry detail. Text messages get read fast and suit "
+                "appointments and local services, but they need clear consent, an easy way to opt out and care "
+                "with timing. Ask for permission on the form, and follow the messaging rules for your country.",
+            ]),
+            ("What to write", [
+                "Match the ad. If the ad promised a free quote, the first message is about the quote, not your "
+                "company history. Write like a person, use their first name, and make the next step one click. "
+                "Campaignify's copy studio writes emails in your brand's voice from the same product and claims "
+                "as your ads.",
+            ]),
+            ("Keep it personal and legal", [
+                "Automatic doesn't have to sound automatic. Use the name they gave, mention the offer they asked "
+                "about, and sign with a real name and a way to reply. Include an unsubscribe link in emails and an "
+                "opt-out in texts, honor them right away, and only message people who gave you their details for "
+                "this offer. A smaller list of people who want to hear from you beats a big one that marks you as "
+                "spam.",
+            ]),
+            ("Track what works", [
+                "Watch replies and bookings per message. If nobody acts on message 2, rewrite it. Every lead "
+                "sits on Campaignify's leads board by stage, with the smart link or form it came from.",
+            ]),
+            ("In Campaignify", [
+                "Flows come with Starter (${starter_usd} a month). Email sending in flows, forms and contacts are "
+                "on Growth (${growth_usd}), and text messages in flows on Scale (${scale_usd}).",
+            ]),
+        ],
+        "faq_h2": "Lead follow-up questions",
+        "faq": [
+            ("How fast should I reply to an ad lead?", "Within minutes if you can. An automatic first reply makes "
+             "that possible at any hour."),
+            ("How many follow-ups should I send?", "3 or 4 over about a week usually covers it. Stop as soon as they "
+             "reply."),
+            ("Which Campaignify plan sends texts?", "Text messages in flows are on Scale. Email in flows is on Growth "
+             "and Scale."),
+        ],
+        "related": ["landing-page-for-ads", "ai-ads-for-lead-generation", "ai-ads-for-real-estate"],
+    }),
+    "aeo-geo-for-small-business": dict(_NEW, **{
+        "nav": "AEO and GEO for small business",
+        "eyebrow": "Search",
+        "title": "What Are AEO and GEO? AI Search for Small Business",
+        "description": "AEO and GEO explained: how to make your pages the answer search engines and AI assistants "
+                       "give, with a checklist for small business sites.",
+        "h1": "What are AEO and GEO, and how does a small business show up in AI answers?",
+        "answer": "AEO (answer engine optimization) and GEO (generative engine optimization) are SEO for answers: "
+                  "making your pages the ones that search engines quote in answer boxes and that AI assistants like "
+                  "ChatGPT, Claude and Perplexity read and cite. The basics are answering the question in the first "
+                  "lines, clear facts with dates, structured data, and letting AI crawlers in. Campaignify's SEO, "
+                  "AEO and GEO optimizer checks a page for all of it on Growth.",
+        "sections": [
+            ("How AI answers pick sources", [
+                "Assistants that search the web read pages much like a search engine does, then quote or summarize "
+                "the ones that answer the question plainly. A page that buries the answer under an intro, hides "
+                "facts in images, or blocks AI crawlers is easy to skip.",
+            ]),
+            ("A checklist for each page", [
+                ("ol", [
+                    "Answer the page's main question in the first 2 or 3 sentences.",
+                    "One clear title and one main heading that match what people search.",
+                    "Short sections with headings that are questions or plain labels.",
+                    "Facts with numbers and dates: prices, hours, service areas, what's included.",
+                    "An FAQ block with the questions customers actually ask.",
+                    "Structured data (schema.org JSON-LD) for your business, products and FAQs.",
+                    "A robots.txt that lets search and AI crawlers read the page.",
+                    "An llms.txt file: a plain summary of your site for AI assistants.",
+                ]),
+            ]),
+            ("What not to do", [
+                "Don't stuff keywords, don't invent reviews or ratings in structured data, and don't write pages "
+                "for questions you can't answer honestly. Search engines and assistants both reward pages people "
+                "find useful, and fake signals can get a site ignored.",
+            ]),
+            ("How Campaignify's optimizer helps", [
+                "Paste a page's address and the optimizer reads what search and answer engines read: the title, "
+                "description, headings, links, images, structured data and text. It returns pass, warn and fail "
+                "checks in 3 groups (SEO, AEO and GEO). Its AI part writes a better title and description, an "
+                "answer-first summary, an FAQ block, keyword and topic ideas and the facts for schema.org JSON-LD, "
+                "and it can draft an llms.txt file for your site. It's on Growth (${growth_usd} a month) and "
+                "Scale.",
+            ]),
+            ("Where ads fit", [
+                "AI answers and search take time to build; ads bring visitors now. Many small businesses run both: "
+                "ads for the offer this month, answer-first pages for the questions buyers will keep asking.",
+            ]),
+        ],
+        "faq_h2": "AEO and GEO questions",
+        "faq": [
+            ("Is AEO different from SEO?", "It's part of it. SEO gets a page found; AEO and GEO make it the answer "
+             "that gets quoted or cited."),
+            ("What is llms.txt?", "A plain text file at your site's root that summarizes your site and links its key "
+             "pages for AI assistants."),
+            ("Which Campaignify plan has the SEO, AEO and GEO optimizer?", "Growth and Scale."),
+        ],
+        "related": ["ai-marketing-platform-for-small-business", "ai-ads-for-local-businesses", "/pricing"],
+    }),
+})
+GUIDE_ORDER += ["what-is-campaignify", "how-much-do-ai-ugc-ads-cost", "ai-ugc-ads-vs-real-creators",
+                "product-video-from-product-page", "virtual-try-on-ads", "demo-video-ads-for-apps",
+                "how-many-ad-creatives-to-test", "landing-page-for-ads", "follow-up-leads-from-ads",
+                "aeo-geo-for-small-business"]
