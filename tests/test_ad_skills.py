@@ -70,8 +70,28 @@ for k in ad_skills.KEYS:
           f"{k}: skill description says when to use it")
 z = zipfile.ZipFile(io.BytesIO(ad_skills.zip_bytes()))
 names = z.namelist()
-check(sorted(n for n in names if n.endswith("/SKILL.md")) == sorted(f"campaignify-{k}-ads/SKILL.md" for k in ad_skills.KEYS)
-      and "README.md" in names, "zip: one folder per platform plus a README")
+check(sorted(n for n in names if n.endswith("/SKILL.md")) == sorted([f"campaignify-{k}-ads/SKILL.md" for k in ad_skills.KEYS]
+                                                                     + ["campaignify-mr-campaign/SKILL.md"])
+      and "README.md" in names, "zip: one folder per platform, Mr. Campaign and a README")
+
+print("== Mr. Campaign")
+import consultant  # noqa: E402
+sk = z.read("campaignify-mr-campaign/SKILL.md").decode()
+check(re.match(r"---\nname: campaignify-mr-campaign\ndescription: Use when [^<\n]{20,1000}\n---\n\nYou are Mr. Campaign", sk),
+      "Mr. Campaign skill file")
+for f in consultant.FOCUS:
+    t = consultant.opening(f, "")
+    check(consultant.FOCUS[f] in t and "## Start" in t, f"focus {f}")
+t = consultant.opening("offer", "How do I price my candles?")
+check("## The member's question\nHow do I price my candles?" in t and "## Start" not in t, "the member's question goes in")
+check(consultant.opening("nonsense") == consultant.opening("general"), "unknown focus: general")
+low = consultant.BRIEF.lower()
+for banned in ("hormozi", "$100m", "grand slam", "acquisition.com"):
+    check(banned not in low, f"no real person's name or branded terms: {banned}")
+for must in ("not a\nreal person", "Never invent results", "No guaranteed outcomes", "Next 3 moves", "get_product",
+             "credits", "not a lawyer"):
+    check(must in consultant.BRIEF, f"brief has: {must!r}")
+check("\u2014" not in consultant.BRIEF and "\u2013" not in consultant.BRIEF, "no long dashes")
 
 print("== web")
 import app as appmod  # noqa: E402
@@ -82,7 +102,9 @@ check(r.status_code == 200 and r.mimetype == "application/zip" and "campaignify-
       "/claude-skills.zip downloads")
 d = c.get("/docs/mcp").get_data(as_text=True)
 check("get_ad_playbook" in d and 'href="/claude-skills.zip"' in d, "the MCP docs page explains the playbooks")
+check("<code>/consultant</code>" in d and "Mr. Campaign" in d, "the MCP docs page explains Mr. Campaign")
 import mcp_tools  # noqa: E402
 check("get_ad_playbook" in mcp_tools.CampaignifyAdapter.instructions, "the MCP instructions point Claude at the playbooks")
+check("mr_campaign" in mcp_tools.CampaignifyAdapter.instructions, "the MCP instructions point Claude at Mr. Campaign")
 
 print(f"\n{passed} checks passed")

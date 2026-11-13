@@ -374,9 +374,12 @@ def zip_bytes() -> bytes:
         for k in KEYS:
             p = playbook(k)
             z.writestr(f"{p['name']}/SKILL.md", skill_md(k))
+        import consultant
+        z.writestr("campaignify-mr-campaign/SKILL.md", consultant.skill_md())
         z.writestr("README.md", "# Campaignify ad skills for Claude\n\n"
                    "One skill per ad platform: account setup, making the ads with Campaignify, a launch checklist so "
-                   "nothing is missed, and what to do after launch.\n\n"
+                   "nothing is missed, and what to do after launch. Plus Mr. Campaign, a marketing consultant: ask "
+                   "for him (or type /consultant) for advice on offers, leads, ads and pricing.\n\n"
                    "Claude.ai: zip a folder and upload it in Claude's skills settings, one skill per folder.\n"
                    "Claude Code: copy the folders into ~/.claude/skills/.\n\n"
                    "With the Campaignify connector (https://campaignify.ai/mcp) Claude also gets these playbooks "
