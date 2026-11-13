@@ -620,8 +620,8 @@ def ad_playbook(ctx, args):
     """ad_skills.py: the setup, launch and after-launch playbook for one ad platform. No platform: the list."""
     key = args.get("platform")
     if not key:
-        return {"playbooks": [{"platform": k, "title": ad_skills.SKILLS[k]["title"],
-                               "use_when": ad_skills.SKILLS[k]["description"]} for k in ad_skills.KEYS],
+        return {"playbooks": [{"platform": k, "kind": ad_skills.playbook(k)["kind"], "title": ad_skills.playbook(k)["title"],
+                               "use_when": ad_skills.playbook(k)["description"]} for k in ad_skills.ALL_KEYS],
                 "next": "Call again with platform set to load one playbook."}
     p = ad_skills.playbook(key)
     return {"platform": key, "title": p["title"], "playbook": p["markdown"],
@@ -639,11 +639,13 @@ TOOLS = [
          mr_campaign),
     Tool("get_ad_playbook", "Ad platform playbook",
          "The step-by-step playbook for one ad platform (Google Search, Meta, TikTok, YouTube, LinkedIn, Pinterest, "
-         "Snapchat, Reddit, X): account setup with official links, making the ads with Campaignify, a launch "
-         "checklist so nothing is missed (copy, images, logo, sitelinks, tracking, policies) and what to do after "
-         "launch. Free; nothing is made or changed. Load it before helping set up, launch or improve ads.",
-         _obj({"platform": {"type": "string", "enum": list(ad_skills.KEYS),
-                            "description": "Leave out to list the playbooks."}}), ad_playbook),
+         "Snapchat, Reddit, X) or one Campaignify job (UGC video ads, image ads, ad copy, campaign plans, landing "
+         "pages, lead follow-up by email and text, SEO/AEO/GEO): setup, how to do it in Campaignify, a checklist so "
+         "nothing is missed and what to avoid. Free; nothing is made or changed. Load it before helping with that "
+         "platform or job.",
+         _obj({"platform": {"type": "string", "enum": list(ad_skills.ALL_KEYS),
+                            "description": "A platform or Campaignify job. Leave out to list the playbooks."}}),
+         ad_playbook),
     Tool("get_account_status", "Plan and credits",
          "This workspace's plan, credit balance, which tools the plan includes, and whether the member's email is "
          "confirmed (videos need it). Credit packs and plans are bought in the app.", _obj({}), account_status),
@@ -761,6 +763,8 @@ class CampaignifyAdapter(mcpserver.Adapter):
                     "launch a campaign or improve one on any ad platform, load that platform's playbook with "
                     "get_ad_playbook and work through its checklist with them, so nothing is missed. For marketing advice "
                     "(or when they ask for Mr. Campaign or /consultant), call mr_campaign and answer in that role. "
+                    "Before making video or image ads, writing copy, planning a campaign, building a landing page, "
+                    "setting up follow-up emails or texts, or SEO work, load that job's playbook too. "
                     "These tools make the "
                     "creative; they don't post or run ads.")
     tools = TOOLS

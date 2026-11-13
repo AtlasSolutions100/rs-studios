@@ -897,6 +897,8 @@ CLAUDE_PROMPTS = [
     ("Options", "Which AI presenters and voices can I use?"),
     ("Copy", "Write 5 Meta ad variants for my product."),
     ("Plan", "Plan a 2-week test for my product at $30 a day on Meta and TikTok."),
+    ("Consultant", "Ask Mr. Campaign how I can get my first 20 customers."),
+    ("Launch", "Walk me through launching Google Search ads for this product, step by step."),
     ("Competitors", "Run a competitor snapshot on these sites: <site 1>, <site 2>"),
     ("Files", "Give me download links for everything made this week."),
 ]
