@@ -1431,6 +1431,29 @@ def faq_page(url: str, faq) -> dict:
                             "acceptedAnswer": {"@type": "Answer", "text": answer_text(a)}} for q, a in faq]}
 
 
+_STEP = re.compile(r"^Step (\d+): (.+)$")
+
+
+def _block_text(b) -> str:
+    if isinstance(b, str):
+        return answer_text(b)
+    kind, items = b
+    if kind in ("ul", "ol"):
+        return " ".join(answer_text(x) for x in items)
+    return "" if kind == "table" else answer_text(items)
+
+
+def howto_steps(g) -> list:
+    """[(name, text, anchor)] when a guide has 3 or more sections headed "Step N: ...", else []."""
+    out = []
+    for h, anchor, blocks in g["sections"]:
+        m = _STEP.match(h)
+        if m:
+            text = " ".join(t for t in (_block_text(b) for b in blocks) if t).strip()
+            out.append((m.group(2), text[:500], anchor))
+    return out if len(out) >= 3 else []
+
+
 def jsonld(endpoint, view_args, url, title, desc) -> str:
     graph = [_org(), _website(),
              {"@type": "WebPage", "@id": url, "url": url, "name": title, "description": desc,
@@ -1454,6 +1477,11 @@ def jsonld(endpoint, view_args, url, title, desc) -> str:
                       "about": {"@id": SITE_URL + "/#app"} if g.get("about_app") else None,
                       "citation": [u for _, u in g.get("sources", [])] or None})
         graph[-1] = {k: v for k, v in graph[-1].items() if v is not None}
+        howto = howto_steps(g)
+        if howto:   # a how-to whose sections are numbered steps also carries HowTo data (the visible steps)
+            graph.append({"@type": "HowTo", "@id": url + "#howto", "name": g["h1"], "description": answer_text(g["answer"]),
+                          "step": [{"@type": "HowToStep", "position": i, "name": n, "text": t, "url": f"{url}#{a}"}
+                                   for i, (n, t, a) in enumerate(howto, start=1)]})
         graph.append(faq_page(url, g["faq"]))
     elif endpoint == "guides":
         graph.append({"@type": "ItemList", "@id": url + "#list", "itemListElement": [

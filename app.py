@@ -804,11 +804,30 @@ def apple_touch_icon():
     return send_from_directory(app.static_folder, "img/campaignify-icon-180.png", mimetype="image/png", max_age=86400)
 
 
+_ROBOTS_RULES = ("Disallow: /app\nDisallow: /admin\nDisallow: /api\nDisallow: /media\nDisallow: /photo\n"
+                 "Disallow: /ref\nDisallow: /verify\nDisallow: /webhooks\nDisallow: /t/\nDisallow: /u/\nAllow: /\n")
+
+
 @app.route("/robots.txt")
 def robots_txt():
-    body = ("User-agent: *\nDisallow: /app\nDisallow: /admin\nDisallow: /api\nDisallow: /media\nDisallow: /photo\n"
-            "Disallow: /ref\nDisallow: /verify\nDisallow: /webhooks\nDisallow: /t/\nDisallow: /u/\nAllow: /\n\n"
+    # AI search and assistant crawlers are named so it's explicit that they may read and cite the public pages
+    # (a crawler that matches a named group reads only that group, so it carries the same rules).
+    import seo as _seo
+    ai = "".join(f"User-agent: {a}\n" for a in _seo.AI_CRAWLERS)
+    body = (f"# Search engines and AI assistants may crawl and cite every public page. Facts for AI: /llms.txt\n"
+            f"{ai}{_ROBOTS_RULES}\nUser-agent: *\n{_ROBOTS_RULES}\n"
             f"Sitemap: {public_site.SITE_URL}/sitemap.xml\n")
+    return app.response_class(body, mimetype="text/plain")
+
+
+@app.route("/.well-known/security.txt")
+@app.route("/security.txt")
+def security_txt():
+    """RFC 9116: where to report a security problem. Expires a year out, recomputed on each request."""
+    import datetime as _dt
+    exp = (_dt.date.today() + _dt.timedelta(days=365)).isoformat()
+    body = (f"Contact: mailto:{public_site.CONTACT}\nExpires: {exp}T00:00:00.000Z\nPreferred-Languages: en\n"
+            f"Canonical: {public_site.SITE_URL}/.well-known/security.txt\nPolicy: {public_site.SITE_URL}/terms\n")
     return app.response_class(body, mimetype="text/plain")
 
 
