@@ -114,6 +114,12 @@ html[data-ui="v2"][data-surface="app"]:not([data-theme]):root{
 [data-ui="v2"] .flash a{color:inherit}
 [data-ui="v2"] .flash-top{margin:var(--s4) var(--s6) 0;max-width:920px}
 [data-ui="v2"] .flash-top+.flash-top{margin-top:var(--s2)}
+/* on a wide monitor a page sits in the middle of the space beside the menu, not hard left with a gap on the right;
+   a message above it lines up with the page's own left edge */
+[data-ui="v2"] .shell .main>.page{margin-inline:auto}
+[data-ui="v2"] .main:has(>.page)>.flash-top{margin-inline:max(var(--s6),calc((100% - 1500px)/2 + var(--s6)))}
+[data-ui="v2"] .main:has(>.page.rs)>.flash-top,[data-ui="v2"] .main:has(>.page.tp)>.flash-top{margin-inline:max(var(--s6),calc((100% - 1180px)/2 + var(--s6)))}
+[data-ui="v2"] .main:has(>.page.dk)>.flash-top{margin-inline:max(var(--s6),calc((100% - 1760px)/2 + var(--s6)))}
 [data-ui="v2"] .vbanner{margin:var(--s4) var(--s6) 0;max-width:920px;border:1px solid var(--line);background:var(--v2-raise);border-radius:var(--r-md);padding:8px 10px 8px 14px;box-shadow:inset 3px 0 0 var(--amber)}
 [data-ui="v2"] .vbanner.hot{border-color:var(--line);background:var(--v2-raise);box-shadow:inset 3px 0 0 var(--amber),0 0 0 3px var(--v2-amber-bg)}
 [data-ui="v2"] .vbanner>svg{width:17px;height:17px}
@@ -1100,7 +1106,8 @@ html[data-ui="v2"]:root{--v2-pop:#BDFA25;--v2-pop-hover:#CDFF52;--v2-pop-ink:#14
    One sentence in, the whole campaign back as rows. The lime keeps its three jobs here: the action (Plan it, then
    Make it once there is a plan), what is picked (a ticked row, the stage a row belongs to), what is new (the
    campaign that just started). Everything else is ink on the surface. */
-[data-ui="v2"] .page.dk{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:var(--s6) 36px;align-items:start;max-width:1240px}
+[data-ui="v2"] .page.dk{display:grid;grid-template-columns:minmax(0,1fr) clamp(300px,21vw,380px);gap:var(--s6) clamp(28px,2.6vw,48px);align-items:start;max-width:1760px;margin-inline:auto;box-sizing:border-box;width:100%}
+.dk-main{container-type:inline-size}
 .dk-main{display:flex;flex-direction:column;gap:20px;min-width:0}
 [data-ui="v2"] .shell .dk h1{font-size:40px;line-height:1.1;font-weight:600;letter-spacing:-.03em;margin:0}
 [data-ui="v2"] .dk h2{font-size:15px;line-height:1.35;font-weight:600;letter-spacing:0;margin:0}
@@ -1119,8 +1126,8 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 .dk-say{margin:0;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--v2-raise);font-size:14px;box-shadow:inset 3px 0 0 var(--amber)}
 /* start from an example: a picture or a clip from our own gallery, a name, what it makes */
 .dk-exs{display:flex;flex-direction:column;gap:12px;padding-top:8px}
-.dk-ex-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
-@media (max-width:1320px){.dk-ex-row{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.dk-ex-row{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(168px,1fr);gap:clamp(12px,1.1vw,18px);overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:thin;padding-bottom:4px}
+.dk-ex-row>.dk-ex{scroll-snap-align:start}
 .dk-ex{display:flex;flex-direction:column;gap:4px;padding:0 0 10px;border:1px solid var(--line);border-radius:12px;background:var(--v2-raise);color:var(--ink);font:400 13px/1.35 var(--body);text-align:left;cursor:pointer;overflow:hidden}
 .dk-ex:hover{border-color:var(--v2-line2)}
 .dk-ex-media{position:relative;display:block;aspect-ratio:4/5;background:var(--thumb-bg);overflow:hidden}
@@ -1248,7 +1255,7 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
   [data-ui="v2"] .shell .dk h1{font-size:30px}
   [data-ui="v2"] .shell .dk.dk-thread h1{font-size:22px}
   .dk-ask.dk-next{position:static;box-shadow:none}
-  .dk-ex-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dk-ex-row{grid-auto-flow:row;grid-auto-columns:auto;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible}
   .dk-row{grid-template-columns:28px minmax(0,1fr);gap:6px 12px}
   .dk-stage{grid-column:1/-1;padding-top:0}
   .dk-stage:empty{display:none}
@@ -1324,10 +1331,11 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 .fa-done .ob-link{margin-top:6px}
 @media (prefers-reduced-motion:reduce){.fa-card{transition:none}}
 
-/* ---- the desk as home: campaigns and examples on top, the agent and the box docked at the foot ---- */
-[data-ui="v2"] .page.dk.dk-home{align-items:stretch}
-.dk-home .dk-main{min-height:calc(100vh - 56px);min-height:calc(100dvh - 56px);gap:0}
-.dk-top{display:flex;flex-direction:column;gap:28px;flex:1 1 auto;padding-bottom:28px}
+/* ---- the desk as home: campaigns and examples on top; the agent and the box sit at the foot of the screen when there is room and follow the examples when there is not (on a phone the box stays at the foot) ---- */
+[data-ui="v2"] .page.dk.dk-home{align-items:start}
+.dk-home .dk-main{min-height:calc(100vh - var(--s6) - 48px);min-height:calc(100dvh - var(--s6) - 48px);gap:16px}
+.dk-top{display:flex;flex-direction:column;gap:clamp(28px,2.4vw,40px);padding-bottom:clamp(20px,2vw,32px)}
+.dk-home .dk-guide{margin-top:auto}
 .dk-camps{display:flex;flex-direction:column;gap:12px}
 .dk-camps ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 .dk-camps a{display:flex;flex-direction:column;gap:6px;height:100%;box-sizing:border-box;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--v2-raise);color:var(--ink);text-decoration:none}
@@ -1336,8 +1344,8 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 .dk-camp-made{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--muted);flex:1 1 auto}
 .dk-camp-at{font-size:12.5px;color:var(--dim)}
 .dk-home .dk-exs{padding-top:0}
-.dk-dock{position:sticky;bottom:0;z-index:5;display:flex;flex-direction:column;gap:10px;padding:16px 0 18px;background:linear-gradient(to bottom,transparent,var(--bg) 22px)}
-.dk-guide{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:start;padding:14px 16px;border:1px solid var(--line);border-radius:16px 16px 16px 4px;background:var(--v2-raise);max-width:720px}
+.dk-dock{display:contents}
+.dk-guide{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:start;padding:14px 16px;border:1px solid var(--line);border-radius:16px 16px 16px 4px;background:var(--v2-raise)}
 .dk-guide-mark{display:block;width:28px;height:28px;flex:none}
 .dk-guide-mark svg{display:block;width:28px;height:28px}
 .dk-guide-body{display:flex;flex-direction:column;gap:6px;min-width:0}
@@ -1350,14 +1358,13 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 .dk-home .dk-ask{box-shadow:var(--shadow)}
 [data-ui="v2"] .dk-home .dk-ask textarea{min-height:52px}
 .dk-home .dk-say{margin-top:0}
-@media (max-width:1320px){.dk-camps ul{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container (max-width:900px){.dk-camps ul{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:1080px){.dk-home .dk-main{min-height:0}.dk-home .dk-side{padding-bottom:24px}}
-@media (max-height:700px) and (min-width:641px){.dk-home .dk-main{min-height:0}.dk-dock{position:static}}
+@media (max-height:700px) and (min-width:641px){.dk-home .dk-main{min-height:0}}
 /* a phone: the agent speaks first, the campaigns and examples follow, and only the box (one line) stays at the foot */
 @media (max-width:640px){
   .dk-camps ul{grid-template-columns:minmax(0,1fr)}
   .dk-home .dk-main{gap:20px}
-  .dk-home .dk-dock{display:contents}
   .dk-home .dk-top{padding-bottom:0;gap:24px}
   .dk-home .dk-guide{order:-1;padding:12px 14px;max-width:none}
   .dk-guide-text{font-size:15px}
@@ -1467,10 +1474,8 @@ html[data-ui="v2"][data-surface="app"]:not([data-theme]):root{--v2-dot:rgba(255,
 html[data-ui="v2"][data-theme="dark"]:root{--v2-dot:rgba(255,255,255,.11)}
 html[data-ui="v2"][data-theme="light"]:root{--v2-dot:rgba(20,20,20,.13)}
 [data-ui="v2"] .shell .main{background-image:radial-gradient(circle,var(--v2-dot) 1px,transparent 1.6px);background-size:22px 22px;background-attachment:fixed}
-[data-ui="v2"] .dk-home .dk-dock{background:radial-gradient(circle,var(--v2-dot) 1px,transparent 1.6px) 0 0/22px 22px fixed,linear-gradient(to bottom,transparent,var(--bg) 22px)}
 @media (hover:none){
   [data-ui="v2"] .shell .main{background-attachment:scroll}
-  [data-ui="v2"] .dk-home .dk-dock{background:linear-gradient(to bottom,transparent,var(--bg) 22px)}
 }
 
 /* ---- the results screen (results.py, web/v2/results.html; Koby, Nov 11 2026) ----
