@@ -147,9 +147,9 @@ pub = client()
 
 print("== titles, descriptions, canonical, share cards")
 paths = public_site.sitemap_paths()
-check(paths[:3] == ["/", "/features", "/pricing"] and len(paths) == 42 and "/for-reps" in paths and "/llm-info" in paths
+check(paths[:3] == ["/", "/features", "/pricing"] and len(paths) == 52 and "/for-reps" in paths and "/llm-info" in paths
       and "/guides" in paths and "/best-ai-ugc-ad-generators" in paths,
-      "the sitemap list: home, features, pricing, 25 answer-first pages, guides and the roundup, the hook tool, for reps, llm-info, "
+      "the sitemap list: home, features, pricing, 35 answer-first pages, guides and the roundup, the hook tool, for reps, llm-info, "
       "privacy, terms, messaging policy")
 pages = {}
 for p in paths:
@@ -211,6 +211,23 @@ check(not any(x in sm for x in ("/app", "/admin", "/s/", "/login", "/signup", "/
 rt = pub.get("/robots.txt").get_data(as_text=True)
 check(f"Sitemap: {SITE}/sitemap.xml" in rt and "Disallow: /app" in rt and "Disallow: /admin" in rt,
       "robots.txt points at the sitemap and keeps the app out")
+import seo as _seo  # noqa: E402
+_groups = rt.split("\n\n")
+check(all(f"User-agent: {a}" in _groups[0] for a in _seo.AI_CRAWLERS) and _groups[0].count("Disallow: /app") == 1
+      and "User-agent: *" in rt, "robots.txt names the AI crawlers, with the same rules as everyone")
+for _p in ("/.well-known/security.txt", "/security.txt"):
+    _r = pub.get(_p)
+    _t = _r.get_data(as_text=True)
+    check(_r.status_code == 200 and "Contact: mailto:hello@campaignify.ai" in _t and "Expires: " in _t
+          and f"Canonical: {SITE}/.well-known/security.txt" in _t, f"{_p}: RFC 9116 contact, expiry and canonical")
+_g = public_site.guide("product-video-from-product-page")
+_steps = public_site.howto_steps(_g)
+_ld = graph(Page(pub.get("/guides/product-video-from-product-page").get_data(as_text=True)))
+_ht = node(_ld, "HowTo")
+check(len(_steps) == 5 and _ht and [x["name"] for x in _ht["step"]] == [n for n, _, _ in _steps]
+      and all(x["text"] and "{" not in x["text"] for x in _ht["step"]), "a step-by-step guide carries HowTo data for its visible steps")
+check(not node(graph(Page(pub.get("/guides/what-is-campaignify").get_data(as_text=True))), "HowTo"),
+      "a guide without numbered steps has no HowTo")
 lt = pub.get("/llms.txt").get_data(as_text=True)
 check(all(f"{SITE}/{s}" in lt for s in public_site.SOLUTION_ORDER) and f"{SITE}/pricing" in lt and "$39 a month" in lt,
       "llms.txt describes the product and links every public page")
@@ -384,7 +401,7 @@ def main_text(path):
 
 new_paths = ([f"/{x}" for x in public_pages.SOLUTION_ORDER] + ["/guides"]
              + [public_site.guide_path(k) for k in public_site.GUIDE_ORDER])
-check(len(new_paths) == 25 and all(p in paths for p in new_paths), "25 public pages from public_pages.py, all in the sitemap")
+check(len(new_paths) == 35 and all(p in paths for p in new_paths), "35 public pages from public_pages.py, all in the sitemap")
 for p in new_paths:
     txt = main_text(p)
     n = len(txt.split())
@@ -431,7 +448,7 @@ for k in public_site.GUIDE_ORDER:
     pg = Page(pub.get(pth).get_data(as_text=True))
     nodes = graph(pg)
     art, faq, bc = node(nodes, "Article"), node(nodes, "FAQPage"), node(nodes, "BreadcrumbList")
-    check(art and art["datePublished"] == "2026-11-04" and art["headline"] == g["h1"] and art["author"]["@id"].endswith("#org"),
+    check(art and art["datePublished"] in (public_pages.AS_OF, public_pages.AS_OF_NEW) and art["headline"] == g["h1"] and art["author"]["@id"].endswith("#org"),
           f"{pth}: Article schema with the publish date and the organization as author")
     check(faq and [q["name"] for q in faq["mainEntity"]] == pg.summaries and 3 <= len(g["faq"]) <= 5,
           f"{pth}: FAQPage matches the visible FAQ")
