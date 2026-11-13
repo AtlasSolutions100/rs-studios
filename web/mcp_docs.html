@@ -65,6 +65,10 @@
     {% for t in tools %}<tr><td><code>{{ t.name }}</code>{% if not t.annotations.readOnlyHint %}<br><span class="small muted">spends credits</span>{% endif %}</td><td>{{ t.description }}</td></tr>{% endfor %}
   </table>
 
+  <h2>Ad platform playbooks</h2>
+  <p>Ask Claude to set up, launch or improve ads on Google Search, Meta, TikTok, YouTube, LinkedIn, Pinterest, Snapchat, Reddit or X. It loads that platform's playbook with <code>get_ad_playbook</code> and goes through it with you: account setup with official links, making the ads in Campaignify, a launch checklist (copy, images, logo, sitelinks, tracking, policies) and what to check after launch.</p>
+  <p>Using Claude without the connector? <a href="/claude-skills.zip">Download the same playbooks as Claude skills</a>, one folder per platform.</p>
+
   <h2>Rules it follows</h2>
   <ul>
     <li>Costs are in credits and shown before anything is made. Image ads and videos are made only with the exact total from the quote.</li>

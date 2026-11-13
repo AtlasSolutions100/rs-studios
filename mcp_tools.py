@@ -15,6 +15,7 @@ import re
 
 from flask import current_app, g
 
+import ad_skills
 import catalog
 import competitors
 import copywriter
@@ -606,7 +607,27 @@ LIB_PROPS = {
 
 PRODUCT = {"type": "integer", "minimum": 1}
 
+
+def ad_playbook(ctx, args):
+    """ad_skills.py: the setup, launch and after-launch playbook for one ad platform. No platform: the list."""
+    key = args.get("platform")
+    if not key:
+        return {"playbooks": [{"platform": k, "title": ad_skills.SKILLS[k]["title"],
+                               "use_when": ad_skills.SKILLS[k]["description"]} for k in ad_skills.KEYS],
+                "next": "Call again with platform set to load one playbook."}
+    p = ad_skills.playbook(key)
+    return {"platform": key, "title": p["title"], "playbook": p["markdown"],
+            "how_to_use": "Follow the sections in order. Tick every item in 'Before you launch' with the user; "
+                          "nothing launches until each one is done or the user decides to skip it."}
+
 TOOLS = [
+    Tool("get_ad_playbook", "Ad platform playbook",
+         "The step-by-step playbook for one ad platform (Google Search, Meta, TikTok, YouTube, LinkedIn, Pinterest, "
+         "Snapchat, Reddit, X): account setup with official links, making the ads with Campaignify, a launch "
+         "checklist so nothing is missed (copy, images, logo, sitelinks, tracking, policies) and what to do after "
+         "launch. Free; nothing is made or changed. Load it before helping set up, launch or improve ads.",
+         _obj({"platform": {"type": "string", "enum": list(ad_skills.KEYS),
+                            "description": "Leave out to list the playbooks."}}), ad_playbook),
     Tool("get_account_status", "Plan and credits",
          "This workspace's plan, credit balance, which tools the plan includes, and whether the member's email is "
          "confirmed (videos need it). Credit packs and plans are bought in the app.", _obj({}), account_status),
@@ -720,8 +741,10 @@ class CampaignifyAdapter(mcpserver.Adapter):
     instructions = ("Campaignify makes ad creative from a product: image ads, AI presenter (UGC) videos, product videos, "
                     "ad copy, campaign plans and competitor snapshots. Costs are in credits. Before making images or "
                     "videos, call quote_ad_batch and show the total to the user; only call a generate tool after they "
-                    "agree, with confirm_total_credits set to that total. Campaignify makes the creative; it does not "
-                    "post or run ads.")
+                    "agree, with confirm_total_credits set to that total. Before helping someone set up an ad account, "
+                    "launch a campaign or improve one on any ad platform, load that platform's playbook with "
+                    "get_ad_playbook and work through its checklist with them, so nothing is missed. These tools make the "
+                    "creative; they don't post or run ads.")
     tools = TOOLS
 
     def connect(self):

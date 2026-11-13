@@ -849,6 +849,16 @@ def _llms_text() -> str:
                            guides=[public_site.guide(x) for x in public_site.GUIDE_ORDER])
 
 
+@app.route("/claude-skills.zip")
+def claude_skills_zip():
+    """The ad-platform playbooks (ad_skills.py) as Claude skill folders, one per platform."""
+    import ad_skills
+    resp = app.response_class(ad_skills.zip_bytes(), mimetype="application/zip")
+    resp.headers["Content-Disposition"] = 'attachment; filename="campaignify-ad-skills.zip"'
+    resp.headers["Cache-Control"] = "public, max-age=3600"
+    return resp
+
+
 @app.route("/llms.txt")
 def llms_txt():
     return app.response_class(_llms_text(), mimetype="text/plain")
