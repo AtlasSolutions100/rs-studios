@@ -175,6 +175,7 @@ def index():
             "quote_shorten": creator.estimate_shorten(),
             "ai": llm.anthropic_ready(), "quote_angles": creator.estimate_angles(), "quote_script": max(creator.estimate_script(), creator.estimate_script(False, True)),
             "max_batch": MAX_BATCH, "max_items": MAX_ITEMS, "max_presenters": MAX_PRESENTERS,
+            "auto_edit": __import__("motion_edit").enabled(),
             "warn_videos": WARN_VIDEOS, "confirm_videos": CONFIRM_VIDEOS, "balance": db.balance(g.ws),
             "urls": {"angles": url_for("create.angles"), "script": url_for("create.script"), "save": url_for("create.save"),
                      "quote": url_for("create.quote"), "generate": url_for("create.generate"),
@@ -877,7 +878,7 @@ def generate_for(d):
         cfg = {k: d.get(k) for k in ("type", "angle", "items", "body", "presenters", "voices", "voice", "duration",
                                      "aspects", "platforms", "versions", "ref", "photos", "setting", "audio", "resolution",
                                      "subline", "cta", "placement", "preset", "layers", "situation", "label",
-                                     "screens", "captions", "recording")}
+                                     "screens", "captions", "recording", "auto_edit")}
         cfg["made"] = [j["key"] for j in jobs]
         cfg["every"] = meta["every"]
         cfg["product"] = p["id"]

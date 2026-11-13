@@ -187,8 +187,7 @@ name: Deploy Campaignify (campaignify.ai)
 #                          word-by-word captions, brand and name pop-ins, a connection scene, the spoken list as a
 #                          checklist, the saved offer, an animated end card, an AI presenter label and sound effects.
 #                          Free; the raw take is kept beside it. Default off. AUTO_EDIT_MODEL: the faster-whisper
-#                          model when that package is installed (default base.en); without it, timing comes from
-#                          the script and the take's pauses
+#                          model (default base.en, baked into the image)
 #   VIDEO_QA               three frames of every beat are checked; a failing beat is made again once, default off;
 #                          VIDEO_QA_DAILY_MAX (default 3000) caps the keyframe and frame checks a day
 #   FREE_FIX_VIDEO_MONTHLY_CAP  with FREE_FIX on: one-beat video fixes a workspace a month (default 2)

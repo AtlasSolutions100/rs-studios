@@ -671,12 +671,15 @@ new batch is edited the way a short-form editor would, from what Campaignify alr
 Nothing on screen is invented: every word comes from the script, the brand kit, the product's saved claims and
 offer, or the batch's button text (tests/test_motion_edit.py checks it). The raw take is kept beside the edit as
 `<name>-raw.mp4`, and a failed edit leaves the take untouched. Voice samples, keyframe videos and free previews are
-never edited. A batch can opt out with `"auto_edit": false` in its config.
+never edited. Unticking "Edit it for me" on Create (or `"auto_edit": false` in a batch's config) opts that batch out.
 
-Timing: with the `faster-whisper` package installed (not in the image yet) the speech's word timings are matched to
-the script with difflib, so a brand said oddly is still captioned with its real spelling. Without it, the script's
-clauses are matched to the take's stretches of speech (ffmpeg's silence detection) by syllable count, which lands
-within about 0.2 s on a clear take.
+Timing: the image has `faster-whisper` and its `base.en` model baked in (Dockerfile; `AUTO_EDIT_MODEL` picks
+another size, downloaded on first use). The speech's word timings are matched to the script with difflib, so a brand
+said oddly is still captioned with its real spelling. If the model can't load or hears little of the script, the
+script's clauses are matched to the take's stretches of speech (ffmpeg's silence detection) by syllable count, which
+lands within about 0.2 s on a clear take.
+
+Create shows an "Edit it for me" box under the presenter picker while the switch is on (ticked by default).
 
 "Say it as" (brands.say_as, on the brand page): a spelling of the brand as it sounds ("Cam-pain-ih-fy"). The video
 model gets it in place of the written name, so presenters stop saying "Campaign-fy"; captions keep the real name.
