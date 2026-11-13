@@ -214,6 +214,14 @@ tools = {t["name"]: t for t in rpc("tools/list", {}, key=rkey).get_json()["resul
 check({"quote_ad_batch", "generate_image_ads", "generate_video_ads", "generate_ad_copy", "start_campaign_plan",
        "start_competitor_snapshot", "list_assets", "get_asset_download_url", "get_account_status",
        "list_brands_products"} <= set(tools), "tools/list has the ad, copy, planner, competitor and asset tools")
+check("get_ad_playbook" in tools and tools["get_ad_playbook"]["annotations"]["readOnlyHint"],
+      "tools/list has the read-only ad platform playbook")
+pb = call(rkey, "get_ad_playbook")["structuredContent"]
+check([x["platform"] for x in pb["playbooks"]][:2] == ["google-search", "meta"], "no platform: the list of playbooks")
+pb = call(rkey, "get_ad_playbook", {"platform": "google-search"})["structuredContent"]
+check("One website per ad group" in pb["playbook"] and "Before you launch" in pb["playbook"],
+      "a read-only key gets the Google Search playbook")
+check(call(rkey, "get_ad_playbook", {"platform": "myspace"})["isError"], "an unknown platform is refused")
 check(tools["quote_ad_batch"]["annotations"]["readOnlyHint"] and not tools["generate_video_ads"]["annotations"]["readOnlyHint"],
       "quote is read-only, generate is not")
 check("confirm_total_credits" in tools["generate_video_ads"]["inputSchema"]["required"], "generate needs the quoted total")
