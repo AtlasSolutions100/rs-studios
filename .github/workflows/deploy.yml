@@ -183,6 +183,12 @@ name: Deploy Campaignify (campaignify.ai)
 #   KEYFRAME_VIDEO         videos made from a recipe are built from one approved still, in beats, and stitched
 #                          (keyframe_video.py; README "Keyframe-first video"), default off. Run the paid test first
 #                          (/admin/library, kind keyframe_tests)
+#   AUTO_EDIT              presenter videos come back edited (motion_edit.py; README "Auto-edit"): hook banner,
+#                          word-by-word captions, brand and name pop-ins, a connection scene, the spoken list as a
+#                          checklist, the saved offer, an animated end card, an AI presenter label and sound effects.
+#                          Free; the raw take is kept beside it. Default off. AUTO_EDIT_MODEL: the faster-whisper
+#                          model when that package is installed (default base.en); without it, timing comes from
+#                          the script and the take's pauses
 #   VIDEO_QA               three frames of every beat are checked; a failing beat is made again once, default off;
 #                          VIDEO_QA_DAILY_MAX (default 3000) caps the keyframe and frame checks a day
 #   FREE_FIX_VIDEO_MONTHLY_CAP  with FREE_FIX on: one-beat video fixes a workspace a month (default 2)
@@ -389,6 +395,8 @@ jobs:
           RS_LIBRARY_STILL_MODEL: ${{ vars.RS_LIBRARY_STILL_MODEL }}
           RS_LIBRARY_STILL_USD: ${{ vars.RS_LIBRARY_STILL_USD }}
           KEYFRAME_VIDEO: ${{ vars.KEYFRAME_VIDEO }}
+          AUTO_EDIT: ${{ vars.AUTO_EDIT }}
+          AUTO_EDIT_MODEL: ${{ vars.AUTO_EDIT_MODEL }}
           VIDEO_QA: ${{ vars.VIDEO_QA }}
           VIDEO_QA_DAILY_MAX: ${{ vars.VIDEO_QA_DAILY_MAX }}
           FREE_FIX_VIDEO_MONTHLY_CAP: ${{ vars.FREE_FIX_VIDEO_MONTHLY_CAP }}
@@ -449,7 +457,7 @@ jobs:
                                              "FREE_FIX_MONTHLY_CAP",
                                              "PRESENTER_STILLS", "PRESENTER_VOICE_REF", "PRESENTER_ANGLES", "LIB_STORE", "CLAIMS_CHECK_DAILY_MAX",
                                              "CLAIMS_CHECK_WS_DAILY_MAX", "RS_LIBRARY_STILL_MODEL", "RS_LIBRARY_STILL_USD",
-                                             "KEYFRAME_VIDEO", "VIDEO_QA", "VIDEO_QA_DAILY_MAX", "FREE_FIX_VIDEO_MONTHLY_CAP",
+                                             "KEYFRAME_VIDEO", "AUTO_EDIT", "AUTO_EDIT_MODEL", "VIDEO_QA", "VIDEO_QA_DAILY_MAX", "FREE_FIX_VIDEO_MONTHLY_CAP",
                                              "RS_WORKER_PROCESS", "RS_TASK_THREADS",
                                              "RS_HEALTH_BUSY_MAX_S")
                       if os.environ.get(k)}

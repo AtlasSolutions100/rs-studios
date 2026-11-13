@@ -244,8 +244,14 @@ def build_inputs(conn, job) -> dict:
                     (p.get("voice") or presenters.voice_of(who)) == presenters.voice_of(who):
                 # PRESENTER_VOICE_REF: their voice sample as the audio reference (not when the member picked another voice)
                 voice = _static_remote(conn, presenters.voice_path(who))
+        said = job["brief"] or ""
+        brow = conn.execute("SELECT * FROM brands WHERE id=? AND workspace_id=?", (job["brand_id"], job["workspace_id"])) \
+            .fetchone() if "brand_id" in job.keys() and job["brand_id"] else None
+        if brow is not None and "say_as" in brow.keys() and brow["say_as"]:
+            import motion_edit
+            said = motion_edit.spoken(said, brow["brand_name"] or "", brow["say_as"])    # how to say the brand
         prompt = catalog.talking_prompt(typ, p.get("product") or (prod["name"] if prod else ""),
-                                        job["brief"] or "", p.get("presenter") or "", p.get("voice") or "",
+                                        said, p.get("presenter") or "", p.get("voice") or "",
                                         p.get("setting") or "",
                                         p.get("placement") or (rec.extra.get("placement") if rec else "") or "",
                                         situation=sid,
@@ -453,10 +459,20 @@ def _save_outputs(conn, job, result):
         except Exception:  # noqa: BLE001 — keep the remote URL if the copy fails
             path = None
         if path and o["kind"] == "video":
+            _auto_edit(conn, job, path)
             make_poster(path)
         conn.execute("INSERT INTO outputs (job_id, kind, url, path) VALUES (?,?,?,?)",
                      (job["id"], o["kind"], o["url"], path))
     conn.commit()
+
+
+def _auto_edit(conn, job, path: str) -> bool:
+    """AUTO_EDIT (motion_edit.py): captions, hook, brand pop-ins, scenes, end card and sound over a finished
+    presenter video, when the batch was made with it on. The raw take stays beside it; a failure keeps the take."""
+    if '"auto_edit"' not in (job["params_json"] or ""):
+        return False
+    import motion_edit
+    return motion_edit.wanted(job) and motion_edit.edit_job_output(conn, job, path)
 
 
 def _images_path(job) -> bool:

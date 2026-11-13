@@ -544,6 +544,8 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
                 raise ConfigError("Pick one of the places on the list.", "cast")
             return str(s)
         limit = catalog.hard_words(dur)
+        import motion_edit
+        auto_edit = motion_edit.enabled() and d.get("auto_edit") is not False
         if typ == "ugc":
             cast = list(dict.fromkeys(x for x in d.get("presenters") or [] if x in catalog.PRESENTER_BY_ID))
             if not cast:
@@ -583,6 +585,8 @@ def expand(conn, d) -> tuple[dict, list[dict]]:
                         label = f"{catalog.VOICE_BY_ID[who]['name']} · {asp}{hd}"
                     if rec is not None:
                         params["preset"] = rec.id
+                    if typ == "ugc" and not keyframe and auto_edit:
+                        params["auto_edit"] = True      # AUTO_EDIT: captions, scenes and end card (motion_edit.py)
                     cost = usd
                     if keyframe:
                         # planned once, here: the keyframe, the beats with their lines, the cutaways, the end card.
