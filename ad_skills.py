@@ -8,7 +8,7 @@ by its tests); text limits from adspec.TEXT_LIMITS. What this file adds is the l
 after-launch routine per platform. Google Search gets its own playbook (adhub's "youtube" entry is Google's
 video side), written from running Campaignify's own search campaigns (Nov 2026).
 
-    ad_skills.KEYS                    playbook keys, in order
+    ad_skills.KEYS                    platform playbook keys, in order (ALL_KEYS adds tool_skills.TOOL_KEYS)
     ad_skills.playbook(key)           {"key", "name", "title", "description", "markdown"} or None
     ad_skills.skill_md(key)           the SKILL.md text (front matter + markdown) for a skill folder
     ad_skills.zip_bytes()             every playbook as a skill folder in one zip
@@ -21,6 +21,7 @@ import zipfile
 
 import adhub
 import adspec
+import tool_skills
 
 # The Campaignify part of every playbook: making the creative through the MCP tools (mcp_tools.TOOLS).
 MAKE_WITH_CAMPAIGNIFY = [
@@ -38,7 +39,11 @@ MAKE_WITH_CAMPAIGNIFY = [
 UNIVERSAL_RULES = [
     "Never invent results, reviews, testimonials, prices, discounts, deadlines or popularity. Discounts and offers "
     "go in only when the user says so, and come out the day they end.",
-    "AI presenters are generated people. They never speak as a real customer or claim to have used the product.",
+    "AI presenters are generated people. They never speak as a real customer or claim to have used the product "
+    "(the FTC treats AI posing as a real customer or reviewer as deceptive).",
+    "Label AI creative where the platform asks: Campaignify's presenter videos and generated scenes show realistic "
+    "AI people, voices and settings. Turn on the platform's AI disclosure (Google's AI label setting, Meta's AI "
+    "disclosure, TikTok's AI-generated content toggle). TikTok can remove or limit unlabeled realistic AI ads.",
     "No health, income, before-and-after or guaranteed-outcome claims unless the user's product page proves them "
     "and the platform allows them.",
     "Don't put another company's logo, a celebrity or someone else's footage in an ad.",
@@ -61,7 +66,13 @@ GOOGLE_SEARCH = {
          "goal (purchase, sign-up or lead). Turn on enhanced conversions if the site collects emails.",
          "https://support.google.com/google-ads/answer/1722022"),
         ("Create the Search campaign", "Goal: the conversion action. Networks: Search only (turn off the Display "
-         "network for a first campaign). Locations and languages where the customers are.", None),
+         "network for a first campaign). Locations where the customers are. Google Search no longer has a manual "
+         "language setting: it reads the language of the ads and landing pages, so write each ad group in its "
+         "customers' language.", None),
+        ("Decide on AI Max", "Google is moving Search campaigns to AI Max (broader query matching, AI-written "
+         "headlines and descriptions, and sending clicks to other pages of the site). If it's on, set brand and "
+         "location controls and text guidelines, preview the AI-written text, and turn off final URL expansion if "
+         "only one page should get the clicks.", None),
         ("Build tight ad groups", "One theme per ad group (for example 'AI UGC ads' and 'Shopify product ads' are "
          "two ad groups), 5 to 20 keywords each in phrase or exact match, and an ad whose landing page is about "
          "exactly that theme.", "https://support.google.com/google-ads/answer/7684791"),
@@ -98,9 +109,15 @@ SKILLS = {
             "Callouts: at least 4 short facts (25 characters each), like the trial, cancel anytime, what's "
             "included. Nothing that has ended or isn't on the site today.",
             "Structured snippet: a header (Types, Services, Styles...) with 3 or more values.",
-            "Images: at least one square 1:1 (1200 x 1200) and one landscape 1.91:1 (1200 x 628). Make 1:1 and 16:9 "
-            "image ads in Campaignify and crop the 16:9 to 1.91:1 in Google's picker. No text overlays, logos "
-            "stamped on the image, collages or blur: those get the image limited.",
+            "Images: a square 1:1 is required (1200 x 1200 recommended) and a landscape 1.91:1 (1200 x 628) is "
+            "recommended; Google suggests at least 4 different images, up to 20 per campaign, PNG or JPG up to "
+            "5 MB, the subject in the middle 80%. Use photo-style images with no text, logos or graphics added: "
+            "added text, collages, blur, odd crops and lots of blank space get images disapproved. Make 1:1 and "
+            "16:9 visuals in Campaignify (no headline text on them) and crop the 16:9 to 1.91:1 in Google's picker. "
+            "Image assets only open to accounts at least 60 days old with recent Search spend and a clean policy "
+            "history; a newer account skips this item.",
+            "AI label: images or videos made or edited with AI get Google's AI label setting turned on (a label added "
+            "for this isn't treated as a text overlay).",
             "Business name (25 characters; must match the domain or the verified advertiser name) and a square "
             "business logo (1200 x 1200, the brand mark on a solid background).",
             "Price or promotion assets only for prices and offers on the site today.",
@@ -116,7 +133,10 @@ SKILLS = {
             "status (hover > Appeal > 'Made changes to comply').",
             "Weekly: read the Search terms report. Add good terms as keywords, bad ones as negatives.",
             "Weekly: Assets > Performance. Replace assets rated 'Low' after two weeks; keep the 'Best' ones.",
-            "Leave bidding and budgets alone for about two weeks after a big change; Smart Bidding relearns.",
+            "Smart Bidding's learning status lasts up to about a week; budget and target edits on an established "
+            "campaign don't restart it. Still judge changes over 2 or more weeks, not days.",
+            "With AI Max on: check the search terms and ad combinations report for queries and AI-written lines "
+            "that don't fit, and add negatives or text guidelines.",
             "Monthly: pause keywords with spend and no conversions over 2 to 3 times the target cost per conversion.",
             "Keep the ad copy, callouts and sitelinks in step with the site: when an offer ends, remove it everywhere.",
         ],
@@ -142,7 +162,13 @@ SKILLS = {
             "and logos out of the top and bottom of the 9:16 frame, where Meta's buttons and captions sit.",
             "Primary text: the hook in the first 125 characters. Headline under 40 characters. A clear call-to-action "
             "button that matches the page.",
-            "3 to 6 ads per ad set with different hooks or angles, not small edits of one ad.",
+            "Creative variety is the biggest lever on Meta now: 6 to 10 or more genuinely different ads per ad set "
+            "(different hooks, formats, people, problems and angles: presenter video, product video, static image, "
+            "try-on), not one ad with a changed headline. Meta groups near-identical ads and they compete with "
+            "each other.",
+            "Few ad sets: a broad prospecting ad set (plus retargeting if there's traffic) beats many small ones. "
+            "Keep one primary conversion event and no duplicate events between the pixel and Conversions API.",
+            "AI disclosure on for presenter videos and AI-generated scenes.",
             "Advantage+ placements on unless there's a reason not to; don't narrow the audience too far for a new "
             "pixel.",
             "Landing page loads fast on a phone and says the same offer as the ad.",
@@ -153,7 +179,8 @@ SKILLS = {
             "avoid big edits while it learns.",
             "After 3 to 7 days, turn off ads with a high cost per result and low click-through; make new variants of "
             "the winner's hook.",
-            "Watch frequency: when it climbs past about 3 and results drop, refresh the creative.",
+            "Refresh creative every 2 to 3 weeks, or sooner when click-through falls week over week, cost per result "
+            "rises, or frequency passes about 3. Add new concepts, not only new versions of old ones.",
             "Scale budgets by about 20% at a time on ad sets that hit the target cost.",
         ],
         "traps": [
@@ -169,9 +196,13 @@ SKILLS = {
         "hub": "tiktok", "limits": "tiktok",
         "checklist": [
             "TikTok Pixel (and the Events API if possible) firing the goal event; check it in Events Manager.",
-            "Videos are 9:16, 1080 x 1920, with sound. The hook lands in the first 2 seconds; captions are on.",
+            "Videos are 9:16, 1080 x 1920, with sound, up to 60 seconds; 15 to 30 seconds usually works best. The "
+            "hook lands in the first 2 seconds; captions are on.",
             "Keep text and faces away from the bottom and right edge, where the caption, profile and buttons sit.",
-            "Ad text up to 100 characters; display name and profile picture set to the brand.",
+            "Ad text 12 to 100 characters; brand name 2 to 20 characters; profile picture set to the brand.",
+            "Turn on the AI-generated content toggle for presenter videos and other realistic AI scenes or voices.",
+            "Smart+ (TikTok's automated targeting, budget and placements) can be switched on module by module; feed "
+            "it many distinct videos (an asset group takes up to 50).",
             "3 to 5 videos per ad group with different hooks. AI presenter videos work well here: say on screen or in "
             "the caption what the product is, not that a customer is speaking.",
             "Optimize for the conversion event once the pixel has events; otherwise for clicks to start.",
@@ -199,9 +230,13 @@ SKILLS = {
             "before the Skip button.",
             "A headline, description and call to action on the ad; companion images in 1:1 and 1.91:1 for Demand Gen.",
             "Audience: start from the customer list, website visitors or custom segments built from search terms.",
+            "Demand Gen adds AI text overlays to videos by default: check Asset optimization and turn it off if the "
+            "brand needs full control of what's on screen.",
+            "Turn on the AI label setting for presenter videos and AI-generated scenes.",
         ],
         "after": [
-            "Judge by conversions and cost per conversion, not views.",
+            "Judge by conversions and cost per conversion, not views. Engagement now counts from 10 seconds watched "
+            "(it was 5), so engagement numbers look lower than older reports.",
             "Replace videos with a low view rate after a week; keep the hook that holds attention.",
         ],
         "traps": ["Copyrighted music or footage in the video.", "Claims the landing page doesn't back up."],
@@ -290,6 +325,7 @@ SKILLS = {
 COPY_PLATFORM = {"google-search": "google", "meta": "meta", "tiktok": "tiktok", "youtube": "youtube",
                  "linkedin": "linkedin", "pinterest": "pinterest", "snapchat": "snapchat", "reddit": "reddit", "x": "x"}
 KEYS = ["google-search", "meta", "tiktok", "youtube", "linkedin", "pinterest", "snapchat", "reddit", "x"]
+ALL_KEYS = KEYS + tool_skills.TOOL_KEYS          # platforms, then Campaignify's own tools
 
 
 def _hub(key):
@@ -353,11 +389,16 @@ def markdown(key: str) -> str | None:
 
 
 def playbook(key: str) -> dict | None:
+    if key in tool_skills.TOOL_SKILLS:
+        t = tool_skills.TOOL_SKILLS[key]
+        return {"key": key, "kind": "tool", "name": f"campaignify-{key}", "title": t["title"], "platform": None,
+                "description": t["description"], "markdown": tool_skills.markdown(key)}
     md = markdown(key)
     if md is None:
         return None
     s = SKILLS[key]
-    return {"key": key, "name": f"campaignify-{key}-ads", "title": s["title"], "platform": _hub(key)["name"],
+    return {"key": key, "kind": "platform", "name": f"campaignify-{key}-ads", "title": s["title"],
+            "platform": _hub(key)["name"],
             "description": s["description"], "markdown": md}
 
 
@@ -371,14 +412,15 @@ def skill_md(key: str) -> str | None:
 def zip_bytes() -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        for k in KEYS:
+        for k in ALL_KEYS:
             p = playbook(k)
             z.writestr(f"{p['name']}/SKILL.md", skill_md(k))
         import consultant
         z.writestr("campaignify-mr-campaign/SKILL.md", consultant.skill_md())
         z.writestr("README.md", "# Campaignify ad skills for Claude\n\n"
                    "One skill per ad platform: account setup, making the ads with Campaignify, a launch checklist so "
-                   "nothing is missed, and what to do after launch. Plus Mr. Campaign, a marketing consultant: ask "
+                   "nothing is missed, and what to do after launch. One skill per Campaignify tool (video ads, "
+                   "image ads, copy, campaign plans, landing pages, lead follow-up, SEO/AEO/GEO). Plus Mr. Campaign, a marketing consultant: ask "
                    "for him (or type /consultant) for advice on offers, leads, ads and pricing.\n\n"
                    "Claude.ai: zip a folder and upload it in Claude's skills settings, one skill per folder.\n"
                    "Claude Code: copy the folders into ~/.claude/skills/.\n\n"

@@ -54,14 +54,45 @@ for k in ad_skills.KEYS:
 gs = ad_skills.markdown("google-search")
 for must in ("One website per ad group", "paused ones included", "1200 x 628", "1200 x 1200", "Business name",
              "Sitelinks: at least 4", "Callouts", "Structured snippet", "Appeal", "Search terms report",
-             "No text overlays"):
+             "no text, logos or graphics added"):
     check(must in gs, f"google-search covers: {must}")
 check("Text limits: headline: up to 30 characters; description: up to 90 characters." in gs,
       "google-search: limits from adspec, without a primary-text line")
 check(ad_skills.playbook("nope") is None and ad_skills.markdown("nope") is None, "unknown platform: None")
 
+print("== Campaignify tool playbooks")
+import tool_skills  # noqa: E402
+check(ad_skills.ALL_KEYS == ad_skills.KEYS + tool_skills.TOOL_KEYS and len(tool_skills.TOOL_KEYS) == 7,
+      "7 tool playbooks after the 9 platforms")
+for k in tool_skills.TOOL_KEYS:
+    p_ = ad_skills.playbook(k)
+    md = p_["markdown"]
+    check(p_["kind"] == "tool" and p_["name"] == f"campaignify-{k}" and p_["description"].startswith("Use when"),
+          f"{k}: a tool skill")
+    for part in ("## How to do it in Campaignify", "## Checklist", "## Avoid", "## Rules for everything"):
+        check(part in md, f"{k}: {part[3:]}")
+    check(md.count("- [ ] ") >= 3 and "http" not in md and "\u2014" not in md and "\u2013" not in md
+          and "Rector" not in md, f"{k}: a checklist, no links, no long dashes")
+lf = ad_skills.markdown("lead-follow-up") or tool_skills.markdown("lead-follow-up")
+for must in ("SPF, DKIM and DMARC", "one-click", "within 2 days", "0.1%", "written consent", "STOP and HELP",
+             "8 am and 9 pm", "Florida and Oklahoma", "10DLC", "not legal advice"):
+    check(must in lf, f"lead follow-up covers: {must}")
+ug = tool_skills.markdown("ugc-video-ads")
+check("can't pose as customers" in ug and "AI-generated content toggle" in ug and "first 2 seconds" in ug,
+      "UGC video playbook: no fake customers, AI labels, the hook")
+seo = tool_skills.markdown("seo-aeo-geo")
+check("OAI-SearchBot" in seo and "Googlebot" in seo and "doesn't use it" in seo, "SEO playbook: crawlers and llms.txt")
+gs2 = ad_skills.markdown("google-search")
+for must in ("60 days old", "at least 4 different images", "middle 80%", "AI label setting", "AI Max",
+             "no longer has a manual"):
+    check(must in gs2, f"google-search 2026 update: {must}")
+check("Creative variety is the biggest lever" in ad_skills.markdown("meta") and "AI-generated content toggle" in
+      ad_skills.markdown("tiktok"), "Meta creative variety and TikTok AI label")
+check(all("Label AI creative" in ad_skills.markdown(k) for k in ad_skills.KEYS), "every platform: label AI creative")
+check(ad_skills.playbook("nope") is None, "unknown key: None")
+
 print("== skill files and zip")
-for k in ad_skills.KEYS:
+for k in ad_skills.ALL_KEYS:
     s = ad_skills.skill_md(k)
     m = re.match(r"---\nname: ([a-z0-9-]+)\ndescription: (.+)\n---\n\n# ", s)
     check(m and len(m.group(1)) <= 64 and "claude" not in m.group(1) and "anthropic" not in m.group(1),
@@ -71,8 +102,9 @@ for k in ad_skills.KEYS:
 z = zipfile.ZipFile(io.BytesIO(ad_skills.zip_bytes()))
 names = z.namelist()
 check(sorted(n for n in names if n.endswith("/SKILL.md")) == sorted([f"campaignify-{k}-ads/SKILL.md" for k in ad_skills.KEYS]
+                                                                     + [f"campaignify-{k}/SKILL.md" for k in tool_skills.TOOL_KEYS]
                                                                      + ["campaignify-mr-campaign/SKILL.md"])
-      and "README.md" in names, "zip: one folder per platform, Mr. Campaign and a README")
+      and "README.md" in names, "zip: one folder per platform and per tool, Mr. Campaign and a README")
 
 print("== Mr. Campaign")
 import consultant  # noqa: E402
