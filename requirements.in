@@ -2,7 +2,7 @@
 # the lock compiled from this file (exact versions + sha256 hashes) that the image and
 # CI install. After editing this file:
 #
-#    pip-compile --generate-hashes --allow-unsafe --strip-extras requirements.in
+#    uv pip compile requirements.in --generate-hashes --strip-extras --python-version 3.12 --python-platform linux -o requirements.txt
 #
 # then commit both files. CI (tests + pip-audit) runs on the new lock.
 flask>=3.0
@@ -11,3 +11,6 @@ gunicorn>=22.0
 pillow>=10.0
 # AES-GCM for the token box (secretsbox.py): ad-platform tokens are stored encrypted.
 cryptography>=44.0
+# Word timings for the auto-edit's captions (motion_edit.py, AUTO_EDIT): a small speech model run on the CPU.
+# The model itself is downloaded into the image at build time (Dockerfile).
+faster-whisper>=1.1

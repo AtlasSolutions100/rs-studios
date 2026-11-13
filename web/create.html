@@ -110,6 +110,7 @@
             <p class="small muted" data-pres-cap hidden>That's the most for one batch ({{ boot.max_presenters }} presenters). Untick one to swap.</p>
             <div class="two-col"><div><label for="cf-voice">Voice</label><select id="cf-voice" data-voice><option value="">Auto: suits each presenter</option></select></div>
               <div><label for="cf-setting">Where they are <span class="dim">(optional)</span></label><input id="cf-setting" type="text" maxlength="120" data-setting placeholder="Default: the presenter's own setting"></div></div>
+            {% if boot.auto_edit %}<label class="cf-check" style="display:flex;gap:10px;align-items:flex-start;margin:16px 0 0"><input type="checkbox" data-auto-edit checked style="margin-top:3px"><span><b>Edit it for me</b> <span class="small muted">Captions, a hook banner, your logo, scenes that show what's said, an end card with your button, and sound effects. Free; the plain take is kept too.</span></span></label>{% endif %}
           </div>
           <div data-narrators-wrap>
             <p class="small muted" style="margin-top:0">Pick one or more narrator voices; each makes its own version.</p>
@@ -186,7 +187,7 @@
            ref: P.ref || (B.refs[0] && B.refs[0].id) || null, photos: P.photos || [], audio: !!P.audio, ideas: [],
            step: 'product', from_ad: P.from_ad || null, aiAngle: false, subline: P.subline || '', cta: P.cta || '',
            lines: null, skip: P.skip || null, many: false, flags: null, resolution: P.resolution || '720p',
-           preset: P.preset || P.template || '', layers: P.layers || {}, claims: null};
+           preset: P.preset || P.template || '', layers: P.layers || {}, claims: null, autoEdit: P.auto_edit !== false};
   var $ = function(s, r){ return (r||document).querySelector(s); }, $$ = function(s, r){ return [].slice.call((r||document).querySelectorAll(s)); };
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   function n(x){ return Number(x || 0).toLocaleString('en-US'); }
@@ -460,6 +461,7 @@
     $('[data-pres-cap]').hidden = !(ugc && full);
     var vs = $('[data-voice]'); if(vs.options.length < 2){ B.voices.filter(function(v){ return v.who !== 'narrator'; }).forEach(function(v){ var o = document.createElement('option'); o.value = v.id; o.textContent = v.name + ' (' + v.who + ')'; vs.appendChild(o); }); }
     vs.value = S.voice; $('[data-setting]').value = S.setting;
+    var ae = $('[data-auto-edit]'); if(ae) ae.checked = S.autoEdit;
     var vfull = S.voices.length >= B.max_presenters;
     $('[data-narrators]').innerHTML = B.voices.map(function(v){ var on = S.voices.indexOf(v.id) > -1;
       return '<label class="choice chk"><input type="checkbox" value="' + v.id + '"' + (on ? ' checked' : '') + (vfull && !on ? ' disabled' : '') + ' data-narr>' + esc(v.name) + '</label>'; }).join('');
@@ -509,7 +511,8 @@
       presenters: S.presenters, voices: S.voices, voice: S.voice, setting: S.setting, duration: S.duration, aspects: S.aspects,
       platforms: S.platforms, versions: S.versions, ref: S.ref, photos: S.photos, audio: S.audio, from_ad: S.from_ad,
       preset: kind() === 'image' ? S.preset : '', layers: L() ? S.layers : undefined,
-      resolution: (T() && (T().tool === 'ugc_video' || T().tool === 'photo_to_video')) ? S.resolution : undefined};
+      resolution: (T() && (T().tool === 'ugc_video' || T().tool === 'photo_to_video')) ? S.resolution : undefined,
+      auto_edit: (B.auto_edit && S.type === 'ugc') ? S.autoEdit : undefined};
     if(S.lines) c.lines = S.lines; return c; }
   var qt = null, lastQuote = null, qseq = 0;
   function liveQuote(){ clearTimeout(qt); showTotals(); if(steps().indexOf(S.step) < steps().indexOf('script') || !S.items.filter(Boolean).length) return; qt = setTimeout(function(){ quote(false); }, 300); }
@@ -589,6 +592,7 @@
     if(t.matches('[data-narr]')){ S.voices = $$('[data-narr]:checked').map(function(x){ return x.value; }); dirty(); renderCast(); var fv = $('[data-narr][value="' + t.value + '"]'); if(fv) fv.focus(); summaries(); side(); liveQuote(); }
     if(t.matches('[data-voice]')){ S.voice = t.value; }
     if(t.matches('[data-setting]')){ S.setting = t.value.trim(); }
+    if(t.matches('[data-auto-edit]')){ S.autoEdit = t.checked; dirty(); }
     if(t.matches('[data-asp]')){ S.aspects = $$('[data-asp]:checked').map(function(x){ return x.value; }); dirty(); summaries(); side(); liveQuote(); }
     if(t.matches('[data-plat]')){ S.platforms = $$('[data-plat]:checked').map(function(x){ return x.value; }); var asp = B.aspects[(T()||{}).tool] || [];
       S.platforms.forEach(function(p){ var a = B.platform_aspects[p]; if(asp.indexOf(a) < 0) a = asp.indexOf('9:16') > -1 && (a === '4:5') ? (asp.indexOf('1:1') > -1 ? '1:1' : asp[0]) : a; if(asp.indexOf(a) > -1 && S.aspects.indexOf(a) < 0) S.aspects.push(a); });
