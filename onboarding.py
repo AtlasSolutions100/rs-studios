@@ -282,9 +282,6 @@ def brief():
                 save(conn, g.user, brief="done")
                 finish(conn, g.user)
                 conn.commit()
-                # On the welcome credits: the plan step, which they may skip to make their first image ads with them.
-                if plan_gate.welcome_left(conn, ws) is not None:
-                    return redirect(url_for("plangate.page"))
                 # the first ads come next (the gate sends a workspace with no plan to the plan step on the way)
                 return redirect(url_for("onboarding.first" if first_ads.on() and p is not None else "studio"))
             if do == "import":
@@ -388,7 +385,12 @@ def first():
         d = first_ads.draft(conn, p)
         cost = first_ads.price(conn, p) if (p is not None and is_open) else {"image": 0, "talk": 0, "total": 0}
         tid = first_ads.thread_of(conn, ws["id"])
+        paid = first_ads.paid(conn, ws, g.user)
+        if paid:        # on the welcome credits: the image ads only, at their price
+            cost = dict(cost, talk=0, total=cost["image"] * min(len(d["looks"]), room["image"]))
+        balance = int(ws["credits"] or 0)
     return render_template("v2/onboard_first.html", p=p, d=d, room=room, is_open=is_open, cost=cost, kept=kept,
+                           paid=paid, balance=balance,
                            thread=url_for("desk.thread", tid=tid) if tid else "",
                            seconds=first_ads.TALK_SECONDS, images=first_ads.IMAGES)
 

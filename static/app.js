@@ -267,6 +267,32 @@
     }).catch(function(){ location.href = a.href; });
   });
 
-  function ready(){ localTimes(); flashes(); players(); liveCards(); [].forEach.call(document.querySelectorAll('[data-verify-open]'), function(b){ b.hidden = !window.CFY_VERIFY; }); vauto(); }
+  // cfyUpgrade(message) opens the upgrade box (web/_upgrade_dialog.html) on a workspace with no plan: the plans with
+  // their trial and "Not now". It opens by itself once on the desk after the first ads (data-upgrade-auto), and for
+  // any request the server refused with 402 plan_required (not enough credits, a video on the free credits).
+  window.cfyUpgrade = function(msg){
+    var d = document.querySelector('[data-upgrade]');
+    if(!d || !d.showModal) return false;
+    var m = d.querySelector('[data-upgrade-msg]');
+    if(m) m.textContent = msg || m.dataset['default'] || '';
+    if(!d.open) d.showModal();
+    return true;
+  };
+  document.addEventListener('click', function(e){
+    var c = e.target.closest('[data-upgrade-close]'); if(c){ var d = c.closest('dialog'); if(d) d.close(); }
+    if(e.target.closest('[data-upgrade-open]')) window.cfyUpgrade();
+  });
+  if(window.fetch && document.querySelector('[data-upgrade]')){
+    var ofetch = window.fetch;
+    window.fetch = function(){
+      return ofetch.apply(this, arguments).then(function(r){
+        if(r.status === 402) r.clone().json().then(function(d){ if(d && d.plan_required) window.cfyUpgrade(d.error); }).catch(function(){});
+        return r;
+      });
+    };
+  }
+  function upauto(){ var d = document.querySelector('[data-upgrade-auto]'); if(d) window.cfyUpgrade(); }
+
+  function ready(){ localTimes(); flashes(); players(); liveCards(); [].forEach.call(document.querySelectorAll('[data-verify-open]'), function(b){ b.hidden = !window.CFY_VERIFY; }); vauto(); upauto(); }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready); else ready();
 })();

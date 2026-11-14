@@ -868,6 +868,10 @@ def generate_for(d):
             return jsonify({"error": f"The total changed to {total:,} credits. Check it and confirm again.",
                             "total": total}), 409
         if db.balance(conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone()) < total:
+            import plan_gate
+            if plan_gate.upgrade_instead(g.ws):   # no plan yet: the upgrade box, not a pack
+                return jsonify({"error": plan_gate.short_message(total, db.balance(g.ws)), "plan_required": True,
+                                "url": url_for("plangate.page")}), 402
             return jsonify({"error": f"That needs {total:,} credits and you have {db.balance(g.ws):,}. Pick fewer or "
                                      "top up on Billing.", "billing": url_for("billing_page"),
                             "pack": suggest_pack(total - db.balance(g.ws))}), 402

@@ -1,0 +1,23 @@
+{# The upgrade box (plan_gate_routes._upgrade_box): a workspace with no plan. It opens by itself once on the desk
+   after the first ads on the welcome credits (upgrade_box.auto), and whenever a spend is refused for want of a plan
+   or credits (static/app.js cfyUpgrade, from any 402 with plan_required). Every figure is plans.PLANS. #}
+{% import "_price.html" as price %}
+<dialog class="cdlg updlg" aria-labelledby="updlg-t" data-upgrade{% if upgrade_box.auto %} data-upgrade-auto{% endif %}>
+  <p id="updlg-t" class="cdlg-t">Keep going with a plan</p>
+  <p class="small muted updlg-msg" data-upgrade-msg data-default="{{ upgrade_box.message }}">{{ upgrade_box.message }}</p>
+  <div class="updlg-plans">
+    {% for p in upgrade_box.plans %}
+    <section class="updlg-plan" data-plan="{{ p.code }}">
+      <b>{{ p.name }}</b>
+      <span class="updlg-amt">{{ price.amount(p) }}</span>
+      <span class="small muted">{{ '{:,}'.format(p.credits) }} credits every month</span>
+      {% if upgrade_box.owner %}
+      <form method="post" action="{{ url_for('subscribe') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="plan" value="{{ p.code }}">
+        <button class="btn{{ '' if p.code == 'growth' else ' dark' }} sm">{% if upgrade_box.trials[p.code] %}Start {{ upgrade_box.trials[p.code] }}-day free trial{% else %}Start {{ p.name }}{% endif %}</button></form>
+      {% endif %}
+    </section>
+    {% endfor %}
+  </div>
+  {% if not upgrade_box.owner %}<p class="small muted">Ask your workspace owner to pick a plan.</p>{% endif %}
+  <div class="cdlg-go"><a class="linkbtn" href="{{ url_for('plangate.page') }}">See all plans</a><button class="btn dark" type="button" data-upgrade-close>{{ 'Keep using my free credits' if upgrade_box.left else 'Not now' }}</button></div>
+</dialog>
