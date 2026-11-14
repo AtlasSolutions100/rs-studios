@@ -59,9 +59,9 @@ def answer(path="/"):
 # ---------------------------------------------------------------- not open to everyone yet
 check(public_site.launch_live() is False, "with no AD_LAUNCH, launching is not live")
 home = answer("/")
-check("You launch them, and Campaignify does the work on both sides of that." in home,
+check("You put them live, and Campaignify does the rest." in home,
       "the home page answers with what Campaignify does, not a flat No")
-check("coming soon, starting with Meta" in home and "Your ad spend stays in your own ad account" in home,
+check("coming soon, starting with Meta" in home and "Your ad money stays in your own ad account" in home,
       "it says launching from Campaignify is coming, starting with Meta, and where the spend stays")
 for path in PAGES:
     t = text(path)
@@ -73,7 +73,7 @@ for path in PAGES:
 check("coming soon, starting with Meta" in text("/ai-marketing-platform-for-small-business"), "the small business page says it is coming")
 check("coming soon, starting with Meta" in text("/creatify-alternative"), "the Creatify page's limits say it is coming")
 check("coming soon, starting with Meta" in text("/ai-facebook-ad-generator"), "the Facebook page says it is coming")
-check("stay in each platform's ads manager for now" in text("/"), "results from the ad platforms: not yet, said plainly")
+check("stays in that app's ads manager" in text("/"), "results from the ad platforms: not yet, said plainly")
 
 for value in ("off", "beta"):
     os.environ["AD_LAUNCH"] = value
@@ -90,12 +90,12 @@ try:
     home = answer("/")
     check("Yes, on Meta to start." in home and "switched off" in home and "coming soon" not in home,
           "the home page says yes, on Meta, created switched off")
-    check("On a paid plan" in home and "Your ad spend stays in your own ad account" in home,
+    check("On a paid plan" in home and "Your ad money stays in your own ad account" in home,
           "it names the paid plan and where the spend stays")
     for path in PAGES:
         t = text(path)
         check("{runs" not in t and "{limits_run" not in t and "{results" not in t, f"{path}: filled in when live too")
-    check("show their results from the ad platform here too" in text("/"), "results: launched campaigns report here")
+    check("show how they are doing here too" in text("/"), "results: launched campaigns report here")
     check("On Meta, yes" in text("/ai-facebook-ad-generator"), "the Facebook page says yes")
 finally:
     meta.ADAPTER.configured = real

@@ -82,34 +82,30 @@ def launch_live() -> bool:
 
 RUNS = {
     False: {
-        "runs": "You launch them, and Campaignify does the work on both sides of that. Before: it plans the campaign, "
-                "makes the ads, writes the copy, walks you through setting up each ad account and exports every ad at "
-                "that platform's sizes, so going live in the ads manager takes minutes. After: your pages, forms, "
-                "leads and follow-up run here. Your ad spend stays in your own ad account. Launching straight into "
-                "your ad accounts from Campaignify is coming soon, starting with Meta: the campaign is created "
-                "switched off and you turn it on.",
+        "runs": "You put them live, and Campaignify does the rest. First it plans, makes the ads, writes the words, "
+                "helps you set up each ad account and sizes every ad for each app. So going live takes minutes. "
+                "After that, your pages, forms, leads and emails run here. Your ad money stays in your own ad "
+                "account. Putting ads live for you is coming soon, starting with Meta. They will start switched off, "
+                "and you turn them on.",
         "runs_short": "You launch them in each platform's ads manager, with every ad exported at that platform's sizes "
                       "and a setup guide for each account. Launching into your ad accounts straight from Campaignify "
                       "is coming soon, starting with Meta.",
         "limits_run": "It doesn't buy media or read results from the ad platforms. Launching into your ad accounts "
                       "from Campaignify is coming soon, starting with Meta; until then you launch in each platform's "
                       "ads manager.",
-        "results": "Results from the ad platforms themselves stay in each platform's ads manager for now; they come to "
-                   "Campaignify with ad-account launching.",
+        "results": "For now, how your ads do on each app stays in that app's ads manager.",
     },
     True: {
-        "runs": "Yes, on Meta to start. On a paid plan, connect your ad account and Campaignify creates the campaign "
-                "there from your plan, with your ads and copy in place and switched off. You look it over and switch "
-                "it on, and you can pause it or change its budget from Campaignify. Your ad spend stays in your own ad "
-                "account. For the other platforms it walks you through setup and exports every ad at that platform's "
-                "sizes. Posting for you is next.",
+        "runs": "Yes, on Meta to start. On a paid plan, connect your ad account. Campaignify builds the campaign "
+                "there with your ads and words, switched off. You check it and turn it on. You can pause it or change "
+                "the budget here too. Your ad money stays in your own ad account. For other apps, it helps you set up "
+                "and sizes every ad for you.",
         "runs_short": "On Meta, yes: on a paid plan Campaignify creates the campaign in your ad account, switched off, "
                       "and you turn it on. On other platforms you launch in the ads manager, with every ad exported at "
                       "that platform's sizes.",
         "limits_run": "It doesn't buy media: your ad spend stays in your own ad account. It creates Meta campaigns for "
                       "you, switched off; on other platforms you launch in the ads manager.",
-        "results": "Campaigns you launch from Campaignify show their results from the ad platform here too. For "
-                   "anything you launch yourself, see each platform's ads manager.",
+        "results": "Ads you put live from Campaignify show how they are doing here too.",
     },
 }
 
@@ -366,39 +362,37 @@ def _fmt(items, f):
 
 HOME_FAQ = [
     ("Does Campaignify post or run my ads?", "{runs}"),
-    ("Can it make video ads with a presenter?",
-     "Yes. Pick one of {presenters} AI presenters and write the script; an 8-second presenter video is {talk8} credits."),
+    ("Can it make video ads with a person in them?",
+     "Yes. Pick one of {presenters} AI people and write what they say. An 8-second video is {talk8} credits."),
     ("Can I see how my campaign is doing?",
-     "Yes: link clicks, page views, form submissions and a leads board for what runs through Campaignify. {results}"),
+     "Yes. You can see clicks, page visits, sign-ups and a list of your leads. {results}"),
     ("Which plan do I need?",
-     "{free_studio_line} Starter adds planning, copy and a landing page, Growth adds SEO, forms, the leads board and "
-     "analytics, and Scale adds community and the priority queue."),
+     "{free_studio_line} Starter adds the plan, the words and a page. Growth adds Google help, forms, leads and "
+     "reports. Scale adds a members area and puts your ads first in line."),
     ("Do I need a subscription?",
-     "{need_sub} you can cancel a plan anytime and it stays on until the end of the month you've paid for."),
+     "{need_sub} You can stop a plan any time. It stays on until the end of the month you paid for."),
     ("Do unused credits roll over?",
-     "Plan credits renew each month and are used first. {credits_never_expire}."),
+     "Plan credits come back each month and get used first. {credits_never_expire}."),
     ("What does a credit buy?",
-     "An image ad is {image} credits, an 8-second presenter video {talk8} and a 5-second product video {video5}. "
-     "You always see the price before you generate."),
-    ("What if a generation fails?", "Your credits come back automatically. You only pay for ads that finish."),
+     "A picture ad is {image} credits. An 8-second video with a person is {talk8}. A 5-second product video is "
+     "{video5}. You always see the price first."),
+    ("What if an ad doesn't finish?", "You get your credits back on their own. You only pay for ads that finish."),
     ("Does it work for my product?",
-     "If you can photograph it, yes. Services and apps work too."),
+     "If you can take a photo of it, yes. Services and apps work too."),
     ("Who owns the ads I make?",
-     "You can use them in your own marketing, including paid ads, and you're responsible for what you post. "
-     "See the [terms](/terms)."),
-    ("Does Campaignify guarantee results?",
-     "No. It doesn't promise sales, views or income, and your ads shouldn't either."),
+     "You can use them in your own ads and posts. You are in charge of what you post. See the [terms](/terms)."),
+    ("Does Campaignify promise results?",
+     "No. It does not promise sales, views or money, and your ads should not either."),
     ("Is this from my direct-sales company?",
-     "No. Campaignify is independent and isn't endorsed by any direct-sales company, so check your company's ad "
-     "policies before you post."),
+     "No. Campaignify is its own company. Check your company's ad rules before you post."),
     ("Do my ads say they're AI?",
-     "Put #ad first in your caption and turn on the platform's AI label. Don't present AI people as real customers "
-     "or let them describe personal results."),
+     "Put #ad first in your caption and turn on the app's AI label. Don't show AI people as real buyers, and don't "
+     "let them talk about results they had."),
     ("My team lead sent me an invite",
-     "Use the invite link to sign up and you'll join their workspace and share its credits."),
+     "Use the invite link to sign up. You join their team and share its credits."),
 ]
 PRICING_FAQ_QS = ("Do I need a subscription?", "Which plan do I need?", "Do unused credits roll over?",
-                  "What does a credit buy?", "What if a generation fails?")
+                  "What does a credit buy?", "What if an ad doesn't finish?")
 
 
 def home_faq():
