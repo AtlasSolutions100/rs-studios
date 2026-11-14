@@ -85,8 +85,7 @@
       "kind": "image",
       "title": "Story ad",
       "caption": "Barbershop, walk-ins",
-      "alt": "An AI-made barber with clippers in a warm-lit shop, a client in the chair behind; headline Fresh fade. Walk-ins welcome. and a Book a chair button.",
-      "group": "local"
+      "alt": "An AI-made barber with clippers in a warm-lit shop, a client in the chair behind; headline Fresh fade. Walk-ins welcome. and a Book a chair button."
     },
     {
       "file": "team-desk-talk.mp4",
@@ -150,8 +149,7 @@
       "kind": "image",
       "title": "Story ad",
       "caption": "Budgeting app",
-      "alt": "A hand holding a phone with a colorful budgeting screen on mint green with gold coins; headline See where every dollar goes and a Download free button.",
-      "group": "apps"
+      "alt": "A hand holding a phone with a colorful budgeting screen on mint green with gold coins; headline See where every dollar goes and a Download free button."
     },
     {
       "file": "preset-pov-unboxing.mp4",
@@ -192,8 +190,8 @@
       "kind": "video",
       "poster": "clip-burger.webp",
       "aspect": "4:5",
-      "title": "Product video",
-      "caption": "Smash burger, local restaurant",
+      "title": "Smash burger",
+      "caption": "A local restaurant, cheese and all",
       "alt": "Melted cheddar drips down a double smash burger as sesame seeds fall and the camera pushes in.",
       "group": "local"
     },
@@ -241,8 +239,8 @@
       "kind": "video",
       "poster": "clip-pizza.webp",
       "aspect": "9:16",
-      "title": "Product video",
-      "caption": "Pizza cheese pull",
+      "title": "Pizza by the slice",
+      "caption": "A cheese pull, close up",
       "alt": "A pepperoni slice lifts away from a wood-fired pizza with long strings of melted mozzarella and steam.",
       "group": "local"
     },
@@ -251,8 +249,7 @@
       "kind": "image",
       "title": "Story ad",
       "caption": "Home cleaning visit",
-      "alt": "An AI-made cleaner in a teal polo in a sparkling white kitchen; headline Come home to clean and a Book a visit button.",
-      "group": "local"
+      "alt": "An AI-made cleaner in a teal polo in a sparkling white kitchen; headline Come home to clean and a Book a visit button."
     },
     {
       "file": "clip-dog.mp4",
@@ -268,8 +265,7 @@
       "kind": "image",
       "title": "Offer ad",
       "caption": "Smash burger, local restaurant",
-      "alt": "A double smash burger with melting cheddar on black and red; headline The double worth the drive, a NEW badge and an Order now button.",
-      "group": "local"
+      "alt": "A double smash burger with melting cheddar on black and red; headline The double worth the drive, a NEW badge and an Order now button."
     },
     {
       "file": "clip-energy.mp4",
@@ -473,11 +469,7 @@
       "alt": "An AI presenter: a man standing on a freshly mowed lawn talks to the camera about a weekly lawn care service.",
       "presenter": true,
       "sound": true,
-      "group": "local",
-      "store": {
-        "sha256": "a20d74423057f90dfca587ffdb06fe744742cb325090cc4abc26e33adbebdb96",
-        "bytes": 257569
-      }
+      "group": "local"
     },
     {
       "file": "ex-serum.mp4",
