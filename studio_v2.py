@@ -1041,6 +1041,84 @@ def gallery_uses(gal) -> list[dict]:
     return [{"id": t, "label": use_label(t), "n": n[t]} for t in tags]
 
 
+# ---------------------------------------------------------------- template shelves (the canvas's Templates view)
+
+# Rows of the Templates view, in order: (id, label, line). A card sits on every row whose rule it meets (shelf_ids);
+# "trending" is the cards with a real example, clips first. A row with fewer than two cards is not shown.
+SHELVES = [
+    ("trending", "Trending", "Templates with a real example to look at first."),
+    ("ugc", "UGC & presenters", "A person on camera talking about your product."),
+    ("video", "Product videos", "Your product in motion, with or without a narrator."),
+    ("photos", "Product photos", "Your product in a real-looking scene, no words needed."),
+    ("promo", "Promos & text", "Headlines, offers, comparisons and callouts on the image."),
+    ("seasonal", "Seasonal & gifting", "Holidays, gift guides and new arrivals."),
+    ("apps", "Apps & software", "Your app or site on screen."),
+    ("start", "Start from scratch", "Pick a kind of ad and write it yourself."),
+]
+SHELF_LABEL = {s[0]: s[1] for s in SHELVES}
+_UGC_USES = {"talking-head", "talking-head-cutaways", "street-interview", "founder-story", "testimonial-real-only",
+             "try-on", "unboxing-pov"}
+_VIDEO_USES = {"product-motion", "hands-only-demo", "voiceover"}
+_PHOTO_USES = {"product-hero", "lifestyle", "detail", "marketplace"}
+_PROMO_USES = {"offer", "comparison", "feature-callouts", "listicle", "problem-solution", "social-proof", "how-to",
+               "before-after-honest"}
+_SEASON_USES = {"seasonal", "gifting", "arrival", "trend"}
+_APP_USES = {"show-your-app", "green-screen-product-page"}
+SHELF_ROW = 8                                       # cards on one row before "View all"
+
+
+def shelf_ids(x: dict) -> list[str]:
+    """The rows a gallery card belongs on (besides "trending", which shelves() works out across the cards)."""
+    if x.get("group") == "type":
+        return ["start"]
+    u = set(x.get("uses") or [])
+    out = []
+    if x.get("mode") == "presenter" or (x.get("group") == "video" and u & _UGC_USES):
+        out.append("ugc")
+    if x.get("group") == "video" and x.get("mode") != "presenter" or u & _VIDEO_USES:
+        out.append("video")
+    if x.get("group") == "image" and not x.get("layout") and (u & _PHOTO_USES or not u):
+        out.append("photos")
+    if x.get("group") == "image" and x.get("layout") or u & _PROMO_USES:
+        out.append("promo")
+    if u & _SEASON_USES:
+        out.append("seasonal")
+    if u & _APP_USES:
+        out.append("apps")
+    return out
+
+
+def shelves(gal: list[dict]) -> list[dict]:
+    """The Templates view: [{"id", "label", "line", "items": [card ids]}], rows in SHELVES order, each card's
+    `shelves` filled in on the way. Trending is up to SHELF_ROW cards with a real example, clips first."""
+    rows = {s[0]: [] for s in SHELVES}
+    for x in gal:
+        x["shelves"] = shelf_ids(x)
+        for sid in x["shelves"]:
+            rows[sid].append(x["id"])
+    real = [x for x in gal if x.get("example") and x.get("group") != "type"]
+    real.sort(key=lambda x: (not x.get("video"), 0 if "ugc" in x["shelves"] else 1))
+    rows["trending"] = [x["id"] for x in real[:SHELF_ROW]]
+    for x in gal:
+        if x["id"] in rows["trending"]:
+            x["shelves"] = ["trending"] + x["shelves"]
+    return [{"id": sid, "label": label, "line": line, "items": rows[sid]}
+            for sid, label, line in SHELVES if len(rows[sid]) >= 2]
+
+
+def claude_shelf(n: int = 6) -> list[dict]:
+    """Popular presets for Claude (mcp_presets) for the Templates view's last row, when the MCP server is on."""
+    try:
+        import mcp_presets
+        import mcpserver
+        if not mcpserver.enabled():
+            return []
+        return [p for p in mcp_presets.as_dicts() if p["popular"] and p["id"] != "launch-on-meta"][:n]
+    except Exception as e:  # noqa: BLE001
+        log.warning("claude shelf: %s", str(e)[:120])
+        return []
+
+
 def first_mode(goals, balance: int, modes) -> tuple[str, str]:
     """The composer's first mode for a new account: the first thing they said they want to make that their
     credits cover, else an image ad. Returns (mode id, a note when their pick costs more than they have)."""
@@ -1118,6 +1196,10 @@ def page():
         prefill = {"pick": pre_req.id}
     talk = catalog.TOOLS["ugc_video"]
     pres = roster()
+    shelf_rows = shelves(gal)
+    # the canvas opens on the templates until there is something made, or when the member asks for either view
+    view = request.args.get("view") if request.args.get("view") in ("templates", "ads") else \
+        ("ads" if jobs or request.args.get("made") else "templates")
     boot = {
         "csrf": _csrf(), "modes": modes, "mode": mode, "note": note, "balance": bal, "first_run": first_run, "plans_only": _plans_only(),
         "free_images": free_images, "products": plist, "product": active["id"] if active is not None else None,
@@ -1127,6 +1209,7 @@ def page():
         "aspects": {"talk": talk.get("aspects") or [], "image": catalog.TOOLS["ad_image"]["aspects"]},
         "resolutions": {"talk": list(catalog.resolutions("ugc_video")), "video": list(catalog.resolutions("photo_to_video"))},
         "max_count": MAX_COUNT, "gallery": gal, "gallery_uses": gallery_uses(gal), "prefill": prefill,
+        "shelves": shelf_rows, "view": view,
         "situation_labels": situation_labels(),
         # first run: 2 image ads are made as two different templates when the credits cover two single ads
         "pair": first_run and bal >= 2 * one_image,
@@ -1149,7 +1232,8 @@ def page():
     return render_template("v2/studio.html", boot=boot, jobs=jobs, outs=outs, verdicts=verdicts, prices=prices, eta=eta,
                            names=names, recents=recents, templates=catalog.TEMPLATE_BY_ID, tools=catalog.DISPLAY_TOOLS,
                            made=request.args.get("made", type=int), free_fix_on=free_fix.on(),
-                           ad_type_names=catalog.AD_TYPE_BY_ID, first_run=first_run, modes=modes)
+                           ad_type_names=catalog.AD_TYPE_BY_ID, first_run=first_run, modes=modes,
+                           shelves=shelf_rows, gal_by={x["id"]: x for x in gal}, view=view, claude=claude_shelf())
 
 
 def _csrf():

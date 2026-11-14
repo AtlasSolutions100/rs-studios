@@ -17,13 +17,18 @@
 <div class="st" data-studio>
   <header class="st-top">
     <h1 class="st-title">Studio</h1>
+    <div class="st-views" role="tablist" aria-label="Studio view" data-views>
+      <button type="button" role="tab" id="tab-tpl" aria-controls="pane-tpl" aria-selected="{{ 'true' if view == 'templates' else 'false' }}" tabindex="{{ '0' if view == 'templates' else '-1' }}" data-view="templates">Templates</button>
+      <button type="button" role="tab" id="tab-ads" aria-controls="pane-ads" aria-selected="{{ 'true' if view == 'ads' else 'false' }}" tabindex="{{ '0' if view == 'ads' else '-1' }}" data-view="ads">Your ads{% if jobs %} <span class="st-n">{{ jobs|length }}{{ '+' if jobs|length >= 24 }}</span>{% endif %}</button>
+    </div>
     <div class="st-top-r">
       <a class="st-link" href="{{ url_for('library') }}">Library</a>
       <a class="st-link" href="{{ url_for('studio_v2.workflow') }}">Workflow</a>
     </div>
   </header>
 
-  <div class="st-canvas" data-canvas tabindex="0" role="region" aria-label="Your latest ads">
+  {% include "v2/_templates.html" %}
+  <div class="st-canvas" id="pane-ads" role="tabpanel" aria-labelledby="tab-ads" data-canvas data-pane="ads" tabindex="0" {{ 'hidden' if view != 'ads' }}>
     {% if jobs %}
     <div class="flash" role="status" aria-live="polite" data-live-flash hidden><span class="spinner sm"></span> <span data-live-text></span> This page updates by itself, and you can leave it.</div>
     <div class="lgrid st-grid" data-live-cards="studio">
