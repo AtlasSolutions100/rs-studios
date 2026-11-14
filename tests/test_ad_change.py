@@ -146,7 +146,7 @@ check(r.status_code == 400 and "what to change" in r.get_json()["error"], "a not
 r = change(b, jid)
 check(r.status_code == 404, "another workspace's ad can't be changed")
 r = change(a, vid)
-check(r.status_code == 400, "only pictures can be changed for now")
+check(r.status_code == 400, "a presenter video has no change (its script and person make it); it has new takes instead")
 r = change(a, jid)
 new = r.get_json()["job"]
 check(r.status_code == 200 and r.get_json()["ok"] and "highlight=" in r.get_json()["library"], "the change starts and points at the Library")
@@ -179,6 +179,53 @@ with db.connect() as conn:
         inp2 = {"image_urls": [], "prompt": str(e)}
 check("url" not in seen and "Start from the first reference picture" not in inp2.get("prompt", ""),
       "a text-layer ad is not started from its own picture (its words are set afterwards)")
+
+print("== new takes")
+import jobs_routes  # noqa: E402
+def vary(c, j, **kw):
+    return c.post(f"/app/jobs/{j}/vary", json=kw, headers={"X-CSRF": csrf(c), "Accept": "application/json"})
+prices = {n: catalog.price_credits("ad_image", batch=n) for n in jobs_routes.VARY_COUNTS}
+with db.connect() as conn:
+    db.adjust_credits(conn, user("a@example.com")["workspace_id"], 5000, "test top-up")
+    conn.commit()
+body = page(a, "/app/library")
+card = re.search(rf'<article class="litem[^"]*" data-job="{jid}"[^>]*>', body).group(0)
+check(f'data-vary="/app/jobs/{jid}/vary"' in card and 'data-vary-kind="image"' in card and str(prices[3]) in card,
+      "a picture's card carries the new-takes address and the price for 2, 3 or 4")
+check(vary(a, jid, count=3, output=oid, total=prices[3] + 1).status_code == 409, "a stale price is refused")
+check(vary(a, jid, count=9, output=oid, total=prices[3]).status_code == 400, "only 2, 3 or 4 at a time")
+r = vary(a, jid, count=3, output=oid, total=prices[3])
+with db.connect() as conn:
+    vj = conn.execute("SELECT * FROM jobs WHERE id=?", (r.get_json()["job"],)).fetchone()
+vp = json.loads(vj["params_json"])
+check(r.status_code == 200 and vj["credits"] == prices[3] and vp["batch"] == 3 and vp["vary"] and vp["edit_from"] == oid
+      and vp["label"].endswith(" · new takes") and vj["parent_job_id"] == jid, "3 new takes from that picture, at the price shown")
+with db.connect() as conn:
+    inp = worker.build_inputs(conn, vj)
+check("Make a new take on the first reference picture" in inp["prompt"] and inp["batch_size"] == 3, "the model is asked for new takes on it")
+vprice = jobs_routes.price_now(None, {"tool": "ugc_video", "params_json": json.dumps({"hook": "Hi there"}), "credits": 0, "cost_usd": 0})[0]
+with db.connect() as conn:
+    conn.execute("INSERT INTO outputs (job_id, kind, path) VALUES (?, 'video', ?)", (vid, path))
+    conn.commit()
+r = vary(a, vid, total=vprice)
+with db.connect() as conn:
+    vv = conn.execute("SELECT * FROM jobs WHERE id=?", (r.get_json()["job"],)).fetchone()
+check(r.status_code == 200 and vv["tool"] == "ugc_video" and vv["credits"] == vprice and json.loads(vv["params_json"])["vary_of"] == vid,
+      "a presenter video: one more made with the same settings, at today's price")
+
+print("== changing a product video")
+pv = job("a@example.com", "photo_to_video", "The candle on a table, slow push in", "Slow glow")
+with db.connect() as conn:
+    conn.execute("UPDATE jobs SET params_json=? WHERE id=?", (json.dumps({"hook": "Slow glow", "duration": 5}), pv))
+    conn.execute("INSERT INTO outputs (job_id, kind, path) VALUES (?, 'video', ?)", (pv, path))
+    conn.commit()
+pprice = catalog.price_credits("photo_to_video", duration=5)
+r = a.post(f"/app/jobs/{pv}/change", json={"note": "Show the label up close", "total": pprice}, headers={"X-CSRF": csrf(a), "Accept": "application/json"})
+with db.connect() as conn:
+    cv = conn.execute("SELECT * FROM jobs WHERE id=?", (r.get_json()["job"],)).fetchone()
+check(r.status_code == 200 and cv["tool"] == "photo_to_video" and cv["credits"] == pprice
+      and cv["brief"].endswith("Change from the last version, asked for by the advertiser: Show the label up close. Keep the product exactly as it is."),
+      "a product video is made again with the change added to its scene, at the price shown")
 
 print(f"\nall {passed} checks passed")
 shutil.rmtree(TMP, ignore_errors=True)
