@@ -107,6 +107,22 @@ def _job_output_url(conn, job, ref_job) -> str:
     raise hf.GenError("The still this one starts from isn't there.")
 
 
+def _output_url(conn, job, output_id) -> str:
+    """One picture of this workspace's own ads (a change in the Library viewer starts from it), as a URL the
+    models can read: its saved file uploaded again, else the vendor's link."""
+    o = conn.execute("SELECT o.url, o.path FROM outputs o JOIN jobs j ON j.id=o.job_id WHERE o.id=? AND "
+                     "j.workspace_id=? AND o.kind='image'", (output_id, job["workspace_id"])).fetchone()
+    if not o:
+        raise hf.GenError("The picture to change isn't there any more.")
+    if o["path"] and os.path.exists(o["path"]):
+        with open(o["path"], "rb") as f:
+            data = f.read()
+        return hf.upload(data, mimetypes.guess_type(o["path"])[0] or "image/png")
+    if o["url"]:
+        return o["url"]
+    raise hf.GenError("The picture to change isn't there any more.")
+
+
 def waits_on(conn, job) -> str | None:
     """A job that starts from another job's picture (params.ref_job, library.py): "wait" while that one is still
     being made, "failed" when it ended without a picture, None when this one may start."""
@@ -167,6 +183,13 @@ def image_prompt(conn, job, p: dict | None = None) -> str:
         line = brand_assets.describe([r for r in rows if r is not None])
         if line:
             out += "\n" + line
+    if p.get("change_note"):    # a change asked for in the Library viewer (jobs_routes.change)
+        note = " ".join(str(p["change_note"]).split())[:300].replace('"', "'")
+        start = ("Start from the first reference picture: it is the last version of this ad. " if p.get("edit_from")
+                 and not p.get("layout") else "")
+        out += "\n" + start + "Change only this, asked for by the advertiser: " + note + ". Keep everything else the " \
+               "same: the product, the layout, the words, the colors and the style. This is an instruction about the " \
+               "picture, not text to show."
     if p.get("fix_note"):       # a free fix (free_fix.py): what the member asked to be put right, never as on-image words
         note = " ".join(str(p["fix_note"]).split())[:300].replace('"', "'")
         out += "\nCorrection to the last version, asked for by the advertiser: " + note + \
@@ -182,6 +205,8 @@ def build_inputs(conn, job) -> dict:
     photos = [ph for ph in photos if ph]
     urls = [_remote_url(conn, "photos", ph) for ph in photos]
     if tool == "ad_image":
+        if p.get("edit_from") and not p.get("layout"):      # a change starts from the picture it changes
+            urls.insert(0, _output_url(conn, job, p["edit_from"]))
         return {"prompt": image_prompt(conn, job, p), "image_urls": urls[:10], "niche": p.get("niche") or "",
                 "language": "English", "batch_size": int(p.get("batch") or 1),
                 "aspect_ratio": p.get("aspect") or "9:16", "target_audience": p.get("audience") or ""}

@@ -335,3 +335,101 @@
   function ready(){ localTimes(); flashes(); players(); liveCards(); libMore(); [].forEach.call(document.querySelectorAll('[data-verify-open]'), function(b){ b.hidden = !window.CFY_VERIFY; }); vauto(); upauto(); }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready); else ready();
 })();
+
+// ---- the ad viewer (Koby, Nov 14 2026): click an ad to see it big, zoom in, step through the others, and make it
+// again with a change ("put it on a phone, not a watch"). Cards say what they hold with data-view; a change posts
+// to data-change at the price in data-change-price, which the button shows first.
+(function(){
+  var CHIPS = ['Make the product bigger', 'Use a simpler background', 'Brighter colors', 'Show it on a phone instead',
+               'Put it in someone’s hand', 'Make it look more real', 'Change the person'];
+  var dlg = null, cards = [], idx = 0, ver = 0, zoom = 1, from = null;
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function build(){
+    dlg = document.createElement('dialog'); dlg.className = 'av'; dlg.setAttribute('aria-label', 'Ad viewer');
+    dlg.innerHTML = '<div class="av-stage" data-av-stage></div>' +
+      '<button type="button" class="av-nav prev" data-av-prev aria-label="Previous ad">‹</button>' +
+      '<button type="button" class="av-nav next" data-av-next aria-label="Next ad">›</button>' +
+      '<div class="av-zoom" role="group" aria-label="Zoom"><button type="button" data-av-z="-1" aria-label="Zoom out">−</button><span data-av-zl>100%</span><button type="button" data-av-z="1" aria-label="Zoom in">+</button></div>' +
+      '<aside class="av-side" data-av-side></aside>' +
+      '<button type="button" class="av-x" data-av-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>';
+    document.body.appendChild(dlg);
+    dlg.addEventListener('click', onClick);
+    dlg.addEventListener('close', function(){ if(from && from.focus) from.focus(); });
+    dlg.addEventListener('keydown', function(e){
+      if(e.target.closest('textarea,input')) return;
+      if(e.key === 'ArrowRight'){ e.preventDefault(); step(1); } else if(e.key === 'ArrowLeft'){ e.preventDefault(); step(-1); }
+      else if(e.key === '+' || e.key === '='){ setZoom(zoom + 0.5); } else if(e.key === '-'){ setZoom(zoom - 0.5); } else if(e.key === '0'){ setZoom(1); }
+    });
+    var st = dlg.querySelector('[data-av-stage]');
+    st.addEventListener('mousemove', function(e){ var m = st.querySelector('.av-media'); if(!m || zoom === 1) return; var r = st.getBoundingClientRect();
+      m.style.transformOrigin = ((e.clientX - r.left) / r.width * 100).toFixed(1) + '% ' + ((e.clientY - r.top) / r.height * 100).toFixed(1) + '%'; });
+  }
+  function data(card){ try { return JSON.parse(card.getAttribute('data-view')); } catch(_){ return null; } }
+  function setZoom(z){ zoom = Math.max(1, Math.min(4, z)); var m = dlg.querySelector('.av-media'); if(m && m.tagName === 'IMG'){ m.style.transform = 'scale(' + zoom + ')'; dlg.classList.toggle('zoomed', zoom > 1); }
+    dlg.querySelector('[data-av-zl]').textContent = Math.round(zoom * 100) + '%'; }
+  function render(){
+    var card = cards[idx], d = data(card); if(!d) return;
+    var ids = d[0], kinds = d[1]; ver = Math.min(ver, ids.length - 1);
+    var id = ids[ver], kind = kinds[ver], st = dlg.querySelector('[data-av-stage]');
+    st.innerHTML = kind === 'video'
+      ? '<video class="av-media" src="/media/' + id + '" poster="/media/' + id + '?poster=1" controls autoplay playsinline loop></video>'
+      : '<img class="av-media" src="/media/' + id + '" alt="' + esc(card.getAttribute('data-view-title')) + ', full size">';
+    zoom = 1; setZoom(1); dlg.classList.toggle('is-video', kind === 'video');
+    dlg.querySelector('[data-av-prev]').hidden = dlg.querySelector('[data-av-next]').hidden = cards.length < 2;
+    var side = dlg.querySelector('[data-av-side]'), title = card.getAttribute('data-view-title') || 'Ad';
+    var h = '<p class="av-count">' + (idx + 1) + ' of ' + cards.length + '</p><h2 class="av-t">' + esc(title) + '</h2>';
+    if(ids.length > 1){ h += '<div class="av-vers" role="group" aria-label="Versions">'; ids.forEach(function(_, i){ h += '<button type="button" data-av-ver="' + i + '" aria-pressed="' + (i === ver) + '">Version ' + (i + 1) + '</button>'; }); h += '</div>'; }
+    h += '<div class="av-acts" data-av-acts></div>';
+    var price = card.getAttribute('data-change-price');
+    if(card.getAttribute('data-change') && kind !== 'video'){
+      h += '<form class="av-change" data-av-change><h3>Change something</h3><p class="small muted">Say what to change. We make a new version from this one. This one stays.</p>' +
+        '<div class="av-chips">' + CHIPS.map(function(c){ return '<button type="button" data-av-chip>' + esc(c) + '</button>'; }).join('') + '</div>' +
+        '<label class="sr" for="av-note">What should change?</label><textarea id="av-note" name="note" rows="3" maxlength="300" minlength="4" required placeholder="For example: this is a phone app, show it on a phone, not a watch"></textarea>' +
+        '<p class="av-err" data-av-err role="alert" hidden></p><button class="btn av-go">Make the change · ' + (+price).toLocaleString() + ' credit' + (+price === 1 ? '' : 's') + '</button></form>';
+    }
+    h += '<div data-av-more></div>';
+    side.innerHTML = h;
+    var acts = side.querySelector('[data-av-acts]'), row = card.querySelector('.cardacts');
+    if(row){ var c = row.cloneNode(true); [].forEach.call(c.querySelectorAll('[data-view-open],[data-detail-open]'), function(b){ b.remove(); }); acts.appendChild(c); }
+    var more = side.querySelector('[data-av-more]'), fix = card.querySelector('details.fixit');
+    if(fix){ var f = fix.cloneNode(true); f.open = false; more.appendChild(f); }
+    var t = card.querySelector('template[data-detail]');
+    if(t){ var det = document.createElement('details'); det.className = 'av-det'; det.innerHTML = '<summary>Details</summary>'; det.appendChild(t.content.cloneNode(true)); var h2 = det.querySelector('h2'); if(h2) h2.remove(); more.appendChild(det); }
+  }
+  function step(d){ if(cards.length < 2) return; idx = (idx + d + cards.length) % cards.length; ver = 0; render(); }
+  function open(card, trigger){
+    if(!dlg) build(); if(!dlg.showModal) return;
+    cards = [].slice.call(document.querySelectorAll('[data-job][data-view]')); idx = Math.max(0, cards.indexOf(card)); ver = 0; from = trigger || card;
+    render(); dlg.showModal();
+  }
+  function onClick(e){
+    if(e.target === dlg || e.target.closest('[data-av-close]')){ dlg.close(); return; }
+    if(e.target.closest('[data-av-prev]')){ step(-1); return; }
+    if(e.target.closest('[data-av-next]')){ step(1); return; }
+    var z = e.target.closest('[data-av-z]'); if(z){ setZoom(zoom + (+z.getAttribute('data-av-z')) * 0.5); return; }
+    var v = e.target.closest('[data-av-ver]'); if(v){ ver = +v.getAttribute('data-av-ver'); render(); return; }
+    var chip = e.target.closest('[data-av-chip]'); if(chip){ var ta = dlg.querySelector('#av-note'); ta.value = (ta.value ? ta.value.replace(/\s+$/, '') + '. ' : '') + chip.textContent; ta.focus(); return; }
+    var m = e.target.closest('.av-media'); if(m && m.tagName === 'IMG'){ var r = m.getBoundingClientRect(); m.style.transformOrigin = ((e.clientX - r.left) / r.width * 100).toFixed(1) + '% ' + ((e.clientY - r.top) / r.height * 100).toFixed(1) + '%'; setZoom(zoom > 1 ? 1 : 2.5); }
+  }
+  document.addEventListener('submit', function(e){
+    var f = e.target.closest('[data-av-change]'); if(!f) return; e.preventDefault();
+    var card = cards[idx], d = data(card), err = f.querySelector('[data-av-err]'), btn = f.querySelector('button.av-go'), tok = card.querySelector('[name=csrf]');
+    err.hidden = true; btn.disabled = true; var label = btn.textContent; btn.textContent = 'Starting…';
+    fetch(card.getAttribute('data-change'), {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF': tok ? tok.value : ''},
+      body: JSON.stringify({note: f.note.value, output: d[0][ver], total: card.getAttribute('data-change-price')})})
+      .then(function(r){ return r.json().catch(function(){ return {error: 'Something went wrong. Try again.'}; }); })
+      .then(function(r){
+        if(r && r.ok){ location.href = r.library || location.href; return; }
+        btn.disabled = false; btn.textContent = label; err.hidden = false;
+        err.innerHTML = esc((r && (r.error || r.message)) || 'Something went wrong. Try again.') + (r && r.billing ? ' <a href="' + esc(r.billing) + '">Get credits</a>' : '');
+      }, function(){ btn.disabled = false; btn.textContent = label; err.hidden = false; err.textContent = 'Something went wrong. Try again.'; });
+  });
+  document.addEventListener('click', function(e){
+    var b = e.target.closest('[data-view-open]'); if(b){ var c = b.closest('[data-job][data-view]'); if(c){ e.preventDefault(); open(c, b); } return; }
+    var t = e.target.closest('[data-job][data-view] .thumb, [data-job][data-view] .thumbs2');
+    if(t && !e.target.closest('button,a,form,[data-sound]')){ e.preventDefault(); open(t.closest('[data-job]'), t); }
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key !== 'Enter' || !e.target.matches || !e.target.matches('[data-job][data-view]')) return; e.preventDefault(); open(e.target, e.target);
+  });
+})();

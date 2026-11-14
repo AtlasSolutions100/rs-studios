@@ -3,10 +3,11 @@
 {% block body %}
 <div class="page full">
   <p class="eyebrow">Library</p>
-  <h1>Everything you've <span class="gold">made</span></h1>
-  <p class="muted">Full-quality downloads, yours to post. Tap or hover to play; approve the keepers.</p>
+  <h1>Your <span class="gold">ads</span></h1>
+  <p class="muted">Click an ad to see it big. From there you can change it, download it or keep it.</p>
   {% set fresh = not jobs and not f_product and not f_brand and not f_batch and not q and not (filters.values()|select|list) %}
   {% if not fresh %}
+  <div class="lib-bar">
   <form class="filters" method="get" data-autosubmit>
     <label class="sr" for="lf">Show</label>
     <select id="lf" name="pick" onchange="var v=this.value.split(':');var u=new URL(location.href);u.searchParams.delete('product');u.searchParams.delete('brand');u.searchParams.delete('highlight');if(v[0])u.searchParams.set(v[0],v[1]);location.href=u.pathname+u.search;">
@@ -26,9 +27,16 @@
     {% if q %}<a class="small" href="{{ filter_url('q', '') }}">Clear</a>{% endif %}
   </form>
   {% endif %}
+  </div>
+  {% macro chiprow(key, opts) -%}<div class="fchip-row"><span class="small muted">{{ opts.label }}</span>{% for val, name in opts['items'] %}<a class="fchip {{ 'on' if filters.get(key, '') == val }}" href="{{ filter_url(key, val) }}" {{ 'aria-current=true' if filters.get(key, '') == val }}>{{ name }}</a>{% endfor %}</div>{%- endmacro %}
+  {# One row of filters in view (the kind of ad); the rest fold away under "More filters" and open by themselves when one is in use. #}
   <nav class="fchips" aria-label="Filter">
-    {% for key, opts in chips %}<div class="fchip-row"><span class="small muted">{{ opts.label }}</span>{% for val, name in opts['items'] %}<a class="fchip {{ 'on' if filters.get(key, '') == val }}" href="{{ filter_url(key, val) }}" {{ 'aria-current=true' if filters.get(key, '') == val }}>{{ name }}</a>{% endfor %}</div>{% endfor %}
+    {% for key, opts in chips if key == 'type' %}{{ chiprow(key, opts) }}{% endfor %}
+    {% set more_on = filters.get('status') or filters.get('review') or filters.get('when') or f_batch %}
+    <details class="fmore"{{ ' open' if more_on }}><summary>More filters{% if more_on %} <span class="fmore-on">on</span>{% endif %}</summary>
+    {% for key, opts in chips if key != 'type' %}{{ chiprow(key, opts) }}{% endfor %}
     {% if f_batch %}<div class="fchip-row"><span class="small muted">Batch</span><a class="fchip on" href="{{ filter_url('batch', '') }}">#{{ f_batch }} ×</a></div>{% endif %}
+    </details>
   </nav>
   {% endif %}
   {% if fresh %}
