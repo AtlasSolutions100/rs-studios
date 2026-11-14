@@ -1,13 +1,12 @@
-{# A plan's price (plans.PLANS). With PLAN_SALE on, a dated line under it says what the price goes to and by when
-   (plans.sale: "Goes to $79 by Dec 31, sooner if we fill up"; Koby, Nov 14 2026). No strike-through and no
-   percent off: today's price is the everyday price, so it isn't shown as a sale. Nothing here is typed in. #}
+{# A plan's price (plans.PLANS), alone: no strike-through, no percent off and no "goes to" line (Koby, Nov 14 2026:
+   the dated price-rise line isn't shown anywhere, even with PLAN_SALE on). Nothing here is typed in. #}
 {% macro amount(p, per=' a month', per_class='') -%}
-{% set s = plans.sale(p) %}<b>${{ p.usd }}</b><span{% if per_class %} class="{{ per_class }}"{% endif %}>{{ per }}</span>{% if s %}<em class="px-by" data-price-by>Goes to ${{ s.next }} by {{ s.by }}, sooner if we fill up.</em>{% endif %}
+<b>${{ p.usd }}</b><span{% if per_class %} class="{{ per_class }}"{% endif %}>{{ per }}</span>
 {%- endmacro %}
-{# The chip at the top of a plan that includes a trial (plan_gate.py): our star, the trial's length and "Full access".
+{# The chip at the top of a plan that includes a trial (plan_gate.py): our star, the trial's length, "Full access" and "Cancel anytime".
    With days = 0 it leaves an unseen slot of the same height, so side-by-side cards keep their rows in line. #}
 {% macro trial_chip(days, like=3) -%}
-<p class="px-trial{{ '' if days else ' gap' }}"{% if days %} data-plan-trial{% else %} aria-hidden="true"{% endif %}><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#0B0C0E"/><path d="M32 9C33.6 25 39 30.4 55 32C39 33.6 33.6 39 32 55C30.4 39 25 33.6 9 32C25 30.4 30.4 25 32 9Z" fill="#BDFA25"/></svg><span><b>{{ days or like }}-day free trial.</b> Full access.</span></p>
+<p class="px-trial{{ '' if days else ' gap' }}"{% if days %} data-plan-trial{% else %} aria-hidden="true"{% endif %}><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#0B0C0E"/><path d="M32 9C33.6 25 39 30.4 55 32C39 33.6 33.6 39 32 55C30.4 39 25 33.6 9 32C25 30.4 30.4 25 32 9Z" fill="#BDFA25"/></svg><span><b>{{ days or like }}-day free trial.</b> Full access. Cancel anytime.</span></p>
 {%- endmacro %}
 {# A trial as three dots (plan_gate.timeline): the start at $0, the reminder email, the charge. #}
 {% macro trial_line(steps) -%}
@@ -16,4 +15,13 @@
 {# The first-charge refund promise (plan_gate.refund_line, REFUND_PROMISE): one line, or nothing while it is off. #}
 {% macro refund(cls='small muted') -%}
 {% set r = refund_line() %}{% if r %}<p class="{{ cls }}" data-refund-line>{{ r }}</p>{% endif %}
+{%- endmacro %}
+{# The price clock (plans.price_clock; Koby, Nov 14 2026): counts down to PLAN_SALE_BY, one fixed date for every
+   visitor, names no future price, and is gone once the date passes. #}
+{% macro clock() -%}
+{% set clock = plans.price_clock() %}{% if clock %}
+<p class="pr-clock" data-price-clock data-ends="{{ clock.iso }}" role="timer" aria-label="These prices end on {{ clock.label }}"><span class="pr-clock-l">These prices end in</span>
+  <span class="pr-clock-t" aria-hidden="true"><span><b data-u="d">{{ clock.d }}</b>d</span><span><b data-u="h">{{ '%02d' % clock.h }}</b>h</span><span><b data-u="m">{{ '%02d' % clock.m }}</b>m</span><span><b data-u="s">{{ '%02d' % clock.s }}</b>s</span></span></p>
+<script>(function(){var el=document.querySelector('[data-price-clock]');if(!el)return;var end=Date.parse(el.getAttribute('data-ends')),u={};['d','h','m','s'].forEach(function(k){u[k]=el.querySelector('[data-u="'+k+'"]')});function p(n){return(n<10?'0':'')+n}function tick(){var l=Math.floor((end-Date.now())/1000);if(!(l>0)){el.hidden=true;clearInterval(t);return}u.d.textContent=Math.floor(l/86400);u.h.textContent=p(Math.floor(l%86400/3600));u.m.textContent=p(Math.floor(l%3600/60));u.s.textContent=p(l%60)}var t=setInterval(tick,1000);tick()})();</script>
+{% endif %}
 {%- endmacro %}
