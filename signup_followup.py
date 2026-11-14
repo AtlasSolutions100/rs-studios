@@ -3,9 +3,9 @@ that never got a finished ad. It sends one personal email through outreach.send,
 list, the 14-day rule and the CAN-SPAM footer all apply as on /admin/outreach.
 
     Email A  the workspace has a product page we read (first_ads.link_of): its free first ads (first_ads.make, the
-             same 3 image ads a new sign-up gets before the plan step, once per workspace and per person) are made in
+             same free image ads a new sign-up gets before the plan step, once per workspace and per person) are made in
              THEIR workspace first, then the email links to them in their account (onboarding.first_result).
-    Email B  no product page: an offer to make 3 ads from one, if they reply with a link.
+    Email B  no product page: an offer to make the same number of ads from one, if they reply with a link.
 
 Who gets a button: the first member of a workspace (not someone who joined a team), not a site admin, not paying
 (verify.paid), and no finished ad in the workspace. One follow-up per sign-up: a row in signup_followups, which also
@@ -36,11 +36,12 @@ log = logging.getLogger("campaignify")
 bp = Blueprint("followup", __name__)
 
 KIND_ADS, KIND_ASK = "A", "B"
+NUMBER_WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five"}
 
 SUBJECT_A = "I made [n] ads from your [product] page"
 BODY_A = """Hi [first name],
 
-You signed up for Campaignify but didn't get as far as making an ad, so I made three from your product page ([link]). Here they are: [ads].
+You signed up for Campaignify but didn't get as far as making an ad, so I made [n word] from your product page ([link]). Here they are: [ads].
 
 They're yours to use. If one looks right, reply and I'll turn it into a short video with an AI presenter.
 
@@ -149,7 +150,8 @@ def compose(conn, user, kind) -> tuple[str, str, str]:
     brand = (b["brand_name"] if b is not None else "") or onboarding.answers(user).get("company") or ""
     n = str(first_ads.FREE_IMAGES)
     if kind == KIND_ADS:
-        values = {"n": n, "product": p["name"], "link": _page_link(conn, ws, user),
+        values = {"n": n, "n word": NUMBER_WORDS.get(first_ads.FREE_IMAGES, n), "product": p["name"],
+                  "link": _page_link(conn, ws, user),
                   "ads": verify.public_url() + url_for("onboarding.first_result")}
         return _fill(SUBJECT_A, values), _fill(_greeting(BODY_A, user), values), brand or p["name"]
     values = {"n": n, "brand": brand or "your product"}

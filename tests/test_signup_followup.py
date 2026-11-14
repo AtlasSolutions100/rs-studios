@@ -254,7 +254,7 @@ r = press(admin, "ada@example.com")
 check(where(r).endswith("/admin/signups#signups"), "the button comes back to the page")
 js = jobs_of("ada@example.com")
 check([j["tool"] for j in js] == ["ad_image"] * first_ads.FREE_IMAGES and all(j["workspace_id"] == start["id"] for j in js),
-      "three image ads were made in THEIR workspace")
+      "the free image ads were made in THEIR workspace")
 check(all(j["user_id"] == user("boss@example.com")["id"] for j in js), "made by the admin (no automated ready email to them)")
 led = ledger("ada@example.com", first_ads.REASON)
 check(len(led) == 1 and led[0]["delta"] == COST and ws_of("ada@example.com")["credits"] == start["credits"],
@@ -262,21 +262,22 @@ check(len(led) == 1 and led[0]["delta"] == COST and ws_of("ada@example.com")["cr
 check(ws_of("ada@example.com")["first_free_at"], "their free first result is marked taken")
 check(len(mail) == 1 and mail[0]["to"] == "ada@example.com", "one email, to their address, looked up by id")
 m = mail[0]
+check(first_ads.FREE_IMAGES == 2, "two free ads (Koby, Nov 14)")
 check(m["subject"] == f"I made {first_ads.FREE_IMAGES} ads from your Ember Candle page", "subject A, with the product")
 check(m["text"].startswith("Hi Kay,\n\nYou signed up for Campaignify but didn't get as far as making an ad, so I made "
-                           f"three from your product page ({LINK}). Here they are: "
+                           f"two from your product page ({LINK}). Here they are: "
                            "https://campaignify.test/app/welcome/first/result."), "body A, every bracket filled")
 check("reply and I'll turn it into a short video with an AI presenter." in m["text"] and "\n\nKoby" in m["text"],
       "the rest of Koby's words, signed Koby")
 check("[" not in m["subject"] + m["text"] and "Reply 'no thanks'" in m["text"], "nothing left unfilled; the opt-out footer")
 check(m["frm"] == outreach.from_header() and "Koby Stull" in m["frm"], "from the outreach sender")
-check("Made 3 free image ads" in flashed(admin) and "ada@example.com" not in flashed(admin), "the page says what happened, without the address")
+check(f"Made {first_ads.FREE_IMAGES} free image ads" in flashed(admin) and "ada@example.com" not in flashed(admin), "the page says what happened, without the address")
 body = page(admin, "/admin/signups")
 row = cell(body, "ada@example.com")
 check("emailed" in row and "<button" not in row, "the row now says emailed, with no button")
 check(followups("ada@example.com")["kind"] == "A" and followups("ada@example.com")["status"] == "sent", "the send is recorded")
 check(where(a.get("/app/welcome/first/result")) == "(200)" and "data-job=" in page(a, "/app/welcome/first/result"),
-      "the link in the email opens their three ads in their account")
+      "the link in the email opens their ads in their account")
 
 print("== once only")
 r = press(admin, "ada@example.com")

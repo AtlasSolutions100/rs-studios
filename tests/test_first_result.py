@@ -189,7 +189,7 @@ COST = first_ads.FREE_IMAGES * EACH
 # ---------------------------------------------------------------- the new order
 print("== a sign-up with a pasted product link: questions, free first ads, result, plan, brief")
 with appmod.app.test_request_context("/app"):
-    check(plan_gate.on() and first_ads.on() and first_ads.FREE_IMAGES == 3, "plans only and the new look are on; 3 free image ads")
+    check(plan_gate.on() and first_ads.on() and first_ads.FREE_IMAGES == 2, "plans only and the new look are on; 2 free image ads (Koby, Nov 14)")
 a = signup("a@example.com", link="hearth.example/p/ember")
 check(where(a.get("/app")).endswith("/app/welcome"), "a new account starts at the first question")
 r = questions(a)
@@ -205,8 +205,8 @@ check(where(r).endswith("/app/welcome/first") and ws_of("a@example.com")["produc
 check(not ledger("a@example.com") and not jobs_of("a@example.com"), "reading it costs nothing and makes nothing")
 body = page(a, "/app/welcome/first")
 check(all(f"Image ad {i}" in body for i in range(1, first_ads.FREE_IMAGES + 1)) and "Talking video" not in body,
-      "three image ads are drafted, and no video (videos come with a plan)")
-check('type="checkbox" name="image' not in body and 'name="headline2"' in body, "all three are made; every headline can be changed")
+      "the free image ads are drafted, and no video (videos come with a plan)")
+check('type="checkbox" name="image' not in body and f'name="headline{first_ads.FREE_IMAGES - 1}"' in body, "all of them are made; every headline can be changed")
 check(f"{COST:,} credits of ads, on us" in body and "Make my free ads" in body,
       f"the price shown is the real one from the rates ({first_ads.FREE_IMAGES} x {EACH})")
 check("You see them before you are asked to pick a plan" in body, "and it says the plan step comes after")
@@ -218,7 +218,7 @@ import re as _re
 check(where(r).endswith("/app/welcome/first/result"), "making them opens the first-result screen " + where(r)
       + " ".join(_re.findall(r'class="flash"[^>]*>([^<]*)', r.get_data(as_text=True))))
 js = jobs_of("a@example.com")
-check([j["tool"] for j in js] == ["ad_image"] * first_ads.FREE_IMAGES, "three real image ads were started, through Studio")
+check([j["tool"] for j in js] == ["ad_image"] * first_ads.FREE_IMAGES, "real image ads were started, through Studio")
 check(sum(j["credits"] for j in js) == COST and all(j["credits"] == EACH for j in js), "each at the image ad's price")
 led = ledger("a@example.com", first_ads.REASON)
 check(len(led) == 1 and led[0]["delta"] == COST, f"one grant in the ledger, of exactly {COST} credits")
@@ -227,7 +227,7 @@ check(w["credits"] == 0 and w["plan_credits"] == 0, "and the workspace holds not
 check(w["first_free_at"] and w["first_free_credits"] == COST, "the workspace is marked, with what it was granted")
 with db.connect() as conn:
     gs = conn.execute("SELECT * FROM first_gifts WHERE workspace_id=? ORDER BY slot", (w["id"],)).fetchall()
-check([(x["kind"], x["slot"]) for x in gs] == [("image", 1), ("image", 2), ("image", 3)] and all(x["job_id"] for x in gs),
+check([(x["kind"], x["slot"]) for x in gs] == [("image", i) for i in range(1, first_ads.FREE_IMAGES + 1)] and all(x["job_id"] for x in gs),
       "each free ad holds a slot and its job")
 check(not is_open("a@example.com"), "the free first result is closed")
 r = make(a)
@@ -245,7 +245,7 @@ check(gated, "outside the free ads' own request the plan gate is back")
 print("== the first-result screen, then the plan step")
 body = page(a, "/app/welcome/first/result")
 check(body.count('data-job="') == first_ads.FREE_IMAGES and 'data-live-cards="batch"' in body,
-      "the result screen shows the three ads, filling in as they finish")
+      "the result screen shows the free ads, filling in as they finish")
 check("Next: pick a plan" in body and "/app/plan" in body, "then leads to the plan step")
 check("data-presenter-preview" not in body, "no presenter preview for a sign-up that didn't come from the presenter pages")
 check(where(a.get("/app")).endswith("/app/plan"), "after it, the app opens on the plan step")

@@ -36,7 +36,7 @@ The free first result, before the plan step (Koby, Nov 14 2026). Most sign-ups s
 nothing of theirs. So a new workspace with no plan that gave us a product link (pasted before signing up, typed as its
 website, or read on the brand brief: link_of) gets FREE_IMAGES image ads made from that page, free, before it is asked
 to pick a plan (free_open). It is the same walk and the same make() as above: the same slots in first_gifts, the same
-grant of exactly what the ads cost (3 image ads at today's price, 36 credits at 12 each) and the same take-back of
+grant of exactly what the ads cost (2 image ads at today's price, 24 credits at 12 each) and the same take-back of
 anything that did not start. What is new: the workspace is marked first (workspaces.first_free_at, and what was granted
 in first_free_credits), so it can never be taken twice there; the plan gate is lifted for that one request only
 (plan_gate.free_pass), so the granted credits can't be spent on anything else; and the member then sees the ads on
@@ -59,7 +59,7 @@ log = logging.getLogger("campaignify.first_ads")
 
 IMAGES, TALKS = 2, 1
 ALLOW = {"image": IMAGES, "talk": TALKS}
-FREE_IMAGES = 3                 # the free first result, before the plan step (free_open)
+FREE_IMAGES = 2                 # the free first result, before the plan step (free_open; Koby, Nov 14 2026: 2, not 3)
 FREE = {"image": FREE_IMAGES, "talk": 0}
 # Landing pages whose visitors came for presenter videos (users.first_touch "lp"): they also see a presenter preview
 PRESENTER_PAGES = ("/ai-ugc-ad-generator", "/arcads-alternative")
