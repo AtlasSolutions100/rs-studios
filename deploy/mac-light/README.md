@@ -37,6 +37,8 @@ simple built-in questions, so nothing breaks.
 ## Check it
 
 - `tail -f ~/campaignify-light/worker.log` shows each job and how long it took.
+- "the site refused the worker (404)" means the site doesn't have the token yet: it gets it on the next deploy after
+  the GitHub secret is set. "(401)" means the two values differ. The worker keeps retrying every minute either way.
 - The admin page's settings list shows "Mac worker on (qwen3:14b)" while the worker is connected.
 
 ## Change things
