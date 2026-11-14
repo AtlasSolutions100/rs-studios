@@ -75,11 +75,27 @@ def page():
         gift = (first_ads.on() and any(first_ads.left(conn, g.ws["id"], g.user).values())
                 and not first_ads.used_elsewhere(conn, g.ws, g.user))
     terms = {code: plan_gate.terms(code, days) for code, days in trials.items()}
+    _step("seen")
+    if request.args.get("canceled") == "1":
+        _step("checkout_canceled")
     return render_template("plan_pick.html", trials=trials, terms=terms, new=not made, owner=is_owner(),
                            any_trial=any(trials.values()), days=plan_gate.trial_len(g.ws),
                            trial_line=plan_gate.timeline(None, None, days=plan_gate.trial_len(g.ws)), gift=gift,
                            canceled=request.args.get("canceled") == "1", checkout_open=billing.configured(),
-                           welcome=welcome, skip_url=url_for("studio") if welcome else None)
+                           welcome=welcome, skip_url=url_for("plangate.skip") if welcome else None)
+
+
+@bp.route("/app/plan/skip")
+@login_required
+def skip():
+    """Not now (a workspace on its welcome credits): noted for the sign-up funnel, then the app."""
+    _step("skipped")
+    return redirect(url_for("studio"))
+
+
+def _step(action: str, *_) -> None:
+    import onboarding
+    onboarding.step("plan", action)
 
 
 @bp.app_context_processor

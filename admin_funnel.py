@@ -63,7 +63,7 @@ def signups(conn, days: int = 30, limit: int = 500) -> dict:
         jobs = conn.execute("SELECT COUNT(*) n, COALESCE(SUM(status='done'),0) done FROM jobs WHERE user_id=?",
                             (u["id"],)).fetchone()
         ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (u["workspace_id"],)).fetchone()
-        rows.append({"id": u["id"], "email": mask_email(u["email"]), "created_at": u["created_at"],
+        rows.append({"id": u["id"], "ws": u["workspace_id"], "email": mask_email(u["email"]), "created_at": u["created_at"],
                      "verified": bool(u["email_verified_at"]), "admin": bool(u["is_admin"]),
                      "joined": first != u["id"], "source": source(u["first_touch"]),
                      "starter": sum(g.values()), "ad_grant": g.get(adoffer.REASON, 0),
@@ -195,3 +195,78 @@ def _backup_status() -> dict:
         return backup.status()
     except Exception:  # noqa: BLE001 — the card must render even if this breaks
         return {"configured": False, "missing": [], "last": None, "good": None, "error": "status unreadable"}
+
+
+# ---------------------------------------------------------------- where sign-ups stop (site_events.on_onboard)
+ONBOARD_SINCE = "2026-11-14T08:00:00+00:00"     # step tracking began with this release; older sign-ups have no steps
+
+
+def _journey(conn, ws_id: int, verified: bool) -> dict:
+    """What one new workspace did at each step of the sign-up flow, and where it stopped (the furthest step it
+    opened; a confirmed email counts as reaching that step, as Google sign-ins never see it)."""
+    import site_events
+    rows = conn.execute("SELECT name, detail FROM site_events WHERE workspace_id=? AND name IN "
+                        "('onboard_step', 'verify_completed', 'checkout', 'paid', 'first_ad')", (ws_id,)).fetchall()
+    seen = {(r["detail"] or "") for r in rows if r["name"] == "onboard_step"}
+    names = {r["name"] for r in rows}
+    st = {}
+    for key, _label in site_events.ONBOARD_STEPS:
+        acts = {a for a in site_events.ONBOARD_ACTIONS if f"{key}:{a}" in seen}
+        st[key] = acts
+    if verified or "verify_completed" in names:
+        st["confirm"] |= {"done"}
+    if "checkout" in names:
+        st["plan"] |= {"checkout"}
+    if "paid" in names:
+        st["plan"] |= {"paid"}
+    if "first_ad" in names:
+        st["first"] |= {"made_ad"}
+    # the furthest step it reached, and what happened there
+    last, state = None, ""
+    for key, label in site_events.ONBOARD_STEPS:
+        a = st[key]
+        if not a or (key == "confirm" and "seen" not in a):    # a Google sign-in is confirmed without the page
+            continue
+        last = (key, label)
+        if key == "plan":
+            state = ("paid" if "paid" in a else "left Stripe checkout" if "checkout" in a and "checkout_canceled" not in a
+                     else "canceled at Stripe" if "checkout_canceled" in a else "skipped" if "skipped" in a
+                     else "saw plans, didn't pick")
+        else:
+            state = "skipped" if "skipped" in a else "done" if a & {"done", "made_ad"} else "opened, didn't finish"
+    return {"steps": st, "last": last, "state": state}
+
+
+def steps(conn, days: int = 30) -> dict:
+    """Sign-ups since step tracking began (owners' workspaces only, admins left out): how many reached, finished and
+    skipped each step, and how many stopped there."""
+    import site_events
+    since = max(_since(days), ONBOARD_SINCE)
+    users = conn.execute("SELECT u.id, u.workspace_id, u.email_verified_at FROM users u WHERE u.created_at >= ? AND "
+                         "u.is_admin=0 AND u.id=(SELECT MIN(id) FROM users x WHERE x.workspace_id=u.workspace_id)",
+                         (since,)).fetchall()
+    table = {k: {"key": k, "label": lbl, "reached": 0, "done": 0, "skipped": 0, "stopped": 0}
+             for k, lbl in site_events.ONBOARD_STEPS}
+    plan = {"checkout": 0, "canceled": 0, "left_checkout": 0, "paid": 0}
+    nowhere, per_ws = 0, {}
+    for u in users:
+        j = _journey(conn, u["workspace_id"], bool(u["email_verified_at"]))
+        per_ws[u["workspace_id"]] = j
+        for k, acts in j["steps"].items():
+            if acts:
+                table[k]["reached"] += 1
+            if acts & {"done", "made_ad", "paid"}:
+                table[k]["done"] += 1
+            if "skipped" in acts:
+                table[k]["skipped"] += 1
+        p = j["steps"]["plan"]
+        plan["checkout"] += "checkout" in p
+        plan["canceled"] += "checkout_canceled" in p
+        plan["paid"] += "paid" in p
+        plan["left_checkout"] += "checkout" in p and "paid" not in p and "checkout_canceled" not in p
+        if j["last"] is None:
+            nowhere += 1
+        elif not (j["last"][0] == "first" and j["steps"]["first"] & {"done", "made_ad"}):
+            table[j["last"][0]]["stopped"] += 1
+    return {"since": since, "signups": len(users), "steps": list(table.values()), "plan": plan,
+            "no_steps": nowhere, "per_ws": per_ws}
