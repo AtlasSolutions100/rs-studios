@@ -47,12 +47,11 @@
       "alt": "Black headphones on yellow: red noise waves rush in, the camera flies inside the ear cup to the microphones and chip, an opposite wave flattens the noise to a line, and music flows out. Captions explain each step."
     },
     {
-      "file": "pop-burger.webp",
+      "file": "pop-coffee.webp",
       "kind": "image",
-      "title": "Offer ad",
-      "caption": "Smash burger, local restaurant",
-      "alt": "A double smash burger with melting cheddar on black and red; headline The double worth the drive, a NEW badge and an Order now button.",
-      "group": "local"
+      "title": "Headline ad",
+      "caption": "Coffee subscription",
+      "alt": "A kraft coffee bag with beans flying and a latte on teal; headline Wake up to better beans and a Start a subscription button."
     },
     {
       "file": "clip-burger.mp4",
@@ -130,6 +129,15 @@
       "group": "apps"
     },
     {
+      "file": "clip-hotsauce-burst.mp4",
+      "kind": "video",
+      "poster": "clip-hotsauce-burst.webp",
+      "aspect": "9:16",
+      "title": "Product video",
+      "caption": "Hot sauce, chili burst",
+      "alt": "Jalapeños split and fly through flames, chilies spiral on cracked stone, green sauce pours, and the hot sauce bottle lands among bursting peppers on red."
+    },
+    {
       "file": "pop-hotsauce.webp",
       "kind": "image",
       "title": "Offer ad",
@@ -180,11 +188,12 @@
       "presenter": true
     },
     {
-      "file": "pop-coffee.webp",
+      "file": "pop-burger.webp",
       "kind": "image",
-      "title": "Headline ad",
-      "caption": "Coffee subscription",
-      "alt": "A kraft coffee bag with beans flying and a latte on teal; headline Wake up to better beans and a Start a subscription button."
+      "title": "Offer ad",
+      "caption": "Smash burger, local restaurant",
+      "alt": "A double smash burger with melting cheddar on black and red; headline The double worth the drive, a NEW badge and an Order now button.",
+      "group": "local"
     },
     {
       "file": "clip-energy.mp4",
