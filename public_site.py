@@ -367,41 +367,30 @@ def _fmt(items, f):
 HOME_FAQ = [
     ("Does Campaignify post or run my ads?", "{runs}"),
     ("Can it make video ads with a presenter?",
-     "Yes. Pick one of {presenters} AI presenters, write what they say, and you get a selfie-style video with your "
-     "product in it. There are also voiceover videos, unboxing and hands-only videos, and product videos with no "
-     "person at all. An 8-second presenter video is {talk8} credits."),
+     "Yes. Pick one of {presenters} AI presenters and write the script; an 8-second presenter video is {talk8} credits."),
     ("Can I see how my campaign is doing?",
-     "For what you run on Campaignify, yes: clicks on your smart links (per day, referrer, country, device and UTM "
-     "source), views on your pages and submissions to your forms. Every lead sits on a leads board by stage, with "
-     "its full history, and you can email or text a lead from there. {results}"),
+     "Yes: link clicks, page views, form submissions and a leads board for what runs through Campaignify. {results}"),
     ("Which plan do I need?",
-     "{free_studio_line} Starter adds the AI campaign planner, "
-     "copy studio, ad-account setup hub, one landing page and smart links. Growth adds the SEO, AEO & GEO optimizer, "
-     "the content optimizer, forms, contacts and the leads board, link analytics and unlimited pages. Scale adds "
-     "community and courses and the priority queue."),
+     "{free_studio_line} Starter adds planning, copy and a landing page, Growth adds SEO, forms, the leads board and "
+     "analytics, and Scale adds community and the priority queue."),
     ("Do I need a subscription?",
      "{need_sub} you can cancel a plan anytime and it stays on until the end of the month you've paid for."),
     ("Do unused credits roll over?",
-     "Plan credits arrive with each monthly payment and expire at your next renewal, and they're used before any "
-     "other credits. {credits_never_expire}."),
+     "Plan credits renew each month and are used first. {credits_never_expire}."),
     ("What does a credit buy?",
-     "An image ad is {image} credits, an 8-second presenter video {talk8}, a 5-second product video {video5}, a "
-     "10-second one {video10}, and copying a reference video's motion is {motion_per_s} credits per second of the "
-     "reference (up to {motion_max}). The AI writing tools charge what the AI actually used. You always see the "
-     "price before you generate."),
+     "An image ad is {image} credits, an 8-second presenter video {talk8} and a 5-second product video {video5}. "
+     "You always see the price before you generate."),
     ("What if a generation fails?", "Your credits come back automatically. You only pay for ads that finish."),
     ("Does it work for my product?",
-     "If you can photograph it, yes. Services and apps work too: start from your website and use a screenshot or "
-     "a photo of your work. Each preset says what kinds of product it fits."),
+     "If you can photograph it, yes. Services and apps work too."),
     ("Who owns the ads I make?",
-     "You can use the ads you make in your own marketing, including paid ads. They're AI-generated, so similar "
-     "images can come out for other people, and you're responsible for what you post. See the [terms](/terms)."),
+     "You can use them in your own marketing, including paid ads, and you're responsible for what you post. "
+     "See the [terms](/terms)."),
     ("Does Campaignify guarantee results?",
-     "No. Campaignify helps you plan, make and run a campaign. It doesn't promise sales, views or income, and your "
-     "ads shouldn't either."),
+     "No. It doesn't promise sales, views or income, and your ads shouldn't either."),
     ("Is this from my direct-sales company?",
-     "No. Campaignify is an independent product. It isn't a company program and isn't sponsored or endorsed by any "
-     "direct-sales company. Check your company's policies on advertising and AI content before you post."),
+     "No. Campaignify is independent and isn't endorsed by any direct-sales company, so check your company's ad "
+     "policies before you post."),
     ("Do my ads say they're AI?",
      "Put #ad first in your caption and turn on the platform's AI label. Don't present AI people as real customers "
      "or let them describe personal results."),
