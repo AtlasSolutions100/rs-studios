@@ -1268,6 +1268,7 @@ button.dk-chip:hover{border-color:var(--v2-line2)}
 [data-ui="v2"] .px-off{border-radius:999px;padding:3px 9px;background:var(--v2-spark);color:var(--v2-spark-ink);font:600 12px/1.35 var(--body);letter-spacing:0;box-shadow:inset 0 0 0 1px rgba(20,20,20,.18)}
 .pr-amt .px-next{font-size:16px;font-weight:400}
 .pr-amt .px-off{margin-left:8px}
+[data-ui="v2"] .px-by{display:block;margin-top:6px;font:500 13px/1.4 var(--body);font-style:normal;letter-spacing:0;color:var(--v2-ink-2,#555)}
 .pr-plans.three{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media (max-width:1000px){.pr-plans.three{grid-template-columns:1fr}}
 .ob.ob-wide{max-width:1040px}

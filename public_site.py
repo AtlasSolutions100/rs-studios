@@ -1267,6 +1267,9 @@ PAGES = {  # endpoint -> (path, title, description)
     "hook_tool": ("/tools/ai-hook-generator", "Free AI Hook Generator for Ads · Campaignify",
                   "Type what you sell and who it is for, and get eight opening lines for TikTok, Reels and Facebook "
                   "ads. Free, no sign-up."),
+    "shopify_lp": ("/shopify", "Ads for Your Shopify Products, From One Link · Campaignify",
+                   "Paste your Shopify product link and get image ads and product videos you can run today. The "
+                   "price of each ad is shown before anything is made."),
     "for_reps": ("/for-reps", "For Independent Reps: Compliance Checks · Campaignify",
                  "Selling as an independent rep? Campaignify blocks income, recruiting and health claims and invented discounts in "
                  "every brief, copy variant and page."),

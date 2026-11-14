@@ -764,7 +764,7 @@ def guide(conn, ws, user, product, market, campaigns, shown) -> dict:
                               "launching in a sentence and I'll plan it, with the price of each ad before anything is "
                               "made. Videos come with a plan." if left else
                               "You've used your free credits. Pick a plan to keep going: Starter and Growth start with "
-                              f"a {plan_gate.TRIAL_DAYS}-day free trial.")}
+                              f"a {plan_gate.trial_len(ws)}-day free trial.")}
     busy = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=? AND deleted_at IS NULL AND status IN "
                         "('pending','running')", (ws["id"],)).fetchone()[0]
     if busy and campaigns:

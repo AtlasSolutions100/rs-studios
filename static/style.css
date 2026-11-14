@@ -1423,6 +1423,7 @@ a.sol-link h3{margin-top:0}
 .lgrid .litem:has(.thumbs2){grid-column:span 2}
 /* A plan's price next to the price it is going to (plans.sale, PLAN_SALE): struck through, with the percent off */
 .px-next{margin-left:.3em;font-size:.48em;font-weight:500;letter-spacing:0;color:var(--dim);text-decoration:line-through;text-decoration-thickness:1.5px}
+.px-by{display:block;margin-top:6px;font:500 13px/1.4 var(--body);font-style:normal;letter-spacing:0;color:var(--dim);white-space:normal}
 .px-off{display:inline-block;margin-left:.75em;padding:3px 9px;border-radius:999px;background:var(--accent);color:var(--on-accent);font:700 12px/1.35 var(--body);font-style:normal;letter-spacing:.02em;vertical-align:middle;white-space:nowrap}
 .lp-prices.three{grid-template-columns:repeat(3,1fr)}
 @media (max-width:860px){.lp-prices.three{grid-template-columns:1fr}}

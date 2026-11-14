@@ -1,4 +1,5 @@
-"""Plans only (plan_gate.py, PLANS_ONLY) and the percent-off price (plans.sale, PLAN_SALE) on a throwaway
+"""Plans only (plan_gate.py, PLANS_ONLY), the dated price line (plans.sale, PLAN_SALE, PLAN_SALE_BY), the trial-length
+test (TRIAL_TEST) and the first-charge refund line (REFUND_PROMISE) on a throwaway
 database. Stripe is faked: nothing leaves the machine.
 
     python tests/test_plans_only.py      (tests/test_app.py runs it too)
@@ -16,7 +17,8 @@ TMP = tempfile.mkdtemp(prefix="rs_plansonly_")
 os.environ.setdefault("RS_SIGNUP_CONFIRM", "0")
 os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret", RS_PLAN_SYNC="0", RS_EMAIL_VERIFY="0",
                   RS_NUDGE_LOOP="0", STRIPE_SECRET_KEY="sk_test_po", STRIPE_WEBHOOK_SECRET="whsec_po",
-                  PLANS_ONLY="1", PLAN_SALE="1", WELCOME_CREDITS="0")   # the welcome credits: test_welcome_credits.py
+                  PLANS_ONLY="1", PLAN_SALE="1", WELCOME_CREDITS="0",
+                  PLAN_SALE_BY="2099-12-31")   # pages keep their dated line whatever today's date (unit checks set it)   # the welcome credits: test_welcome_credits.py
 for k in ("RS_CARD_REQUIRED", "RS_PLAN_PAYWALL", "SIGNUP_CREDITS_ADS", "RS_STARTER_CREDITS", "UI_V2", "HOME_V2",
           "STRIPE_SETUP"):
     os.environ.pop(k, None)
@@ -198,15 +200,25 @@ def set_flags(only=None, sale=None):
 STARTER, GROWTH, SCALE = (plans.PLANS[c] for c in ("starter", "growth", "scale"))
 
 # ---------------------------------------------------------------- the price it is going to, and the percent off
-print("\nThe percent off")
+print("\nThe dated price line")
+from datetime import datetime, timezone  # noqa: E402
+NOV = datetime(2026, 11, 20, tzinfo=timezone.utc)
+os.environ["PLAN_SALE_BY"] = "2026-12-31"
 check(all(PRICE.values()), "the three plans have Stripe prices in this test setup")
-check(plans.sale(STARTER) == {"next": 79, "off": 50}, "Starter: $39 next to $79 reads 50% off (50.6 rounded down)")
-check(plans.sale(GROWTH) == {"next": 149, "off": 33}, "Growth: $99 next to $149 reads 33% off")
-check(plans.sale(SCALE) == {"next": 349, "off": 28}, "Scale: $249 next to $349 reads 28% off")
+check(plans.sale(STARTER, NOV) == {"next": 79, "off": 50, "by": "Dec 31"}, "Starter: $39, going to $79 by Dec 31")
+check(plans.sale(GROWTH, NOV) == {"next": 149, "off": 33, "by": "Dec 31"}, "Growth: $99, going to $149 by Dec 31")
+check(plans.sale(SCALE, NOV) == {"next": 349, "off": 28, "by": "Dec 31"}, "Scale: $249, going to $349 by Dec 31")
+check(plans.sale(STARTER, datetime(2027, 1, 1, 0, 1, tzinfo=timezone.utc)) is None,
+      "past the date the line disappears by itself, so it can't go stale")
+os.environ["PLAN_SALE_BY"] = "2026-12-15"
+check(plans.sale(STARTER, NOV)["by"] == "Dec 15", "PLAN_SALE_BY moves the date (sooner if we fill up)")
+os.environ["PLAN_SALE_BY"] = "not a date"
+check(plans.sale(STARTER, NOV)["by"] == "Dec 31", "a bad PLAN_SALE_BY falls back to Dec 31")
+os.environ["PLAN_SALE_BY"] = "2099-12-31"
 check(all(p["usd"] == u for p, u in ((STARTER, 39), (GROWTH, 99), (SCALE, 249))), "the prices charged are unchanged")
 check(plans.sale(dict(STARTER, next_usd=39)) is None and plans.sale(dict(STARTER, next_usd=None)) is None,
       "no tag once the price has caught up, or when a plan has no price to go to")
-check(plans.sale(dict(STARTER, usd=40, next_usd=59)) == {"next": 59, "off": 32}, "the percent never rounds up (32.2)")
+check(plans.sale(dict(STARTER, usd=40, next_usd=59), NOV)["off"] == 32, "the percent never rounds up (32.2)")
 set_flags(sale=False)
 check(plans.sale(STARTER) is None, "PLAN_SALE off: the price stands alone")
 set_flags(sale=True)
@@ -225,10 +237,11 @@ check(OLD_CREDITS == catalog.starter_credits() > 0, "switch off: a sign-up gets 
 check(old.get("/app").status_code == 200, "switch off: straight into the app")
 html = page(client(), "/pricing")
 check('data-cta="pricing-free"' in html and "Start free" in html, "switch off: the public pricing still has the free tier")
-check("50% off" in html and 'class="px-next"' in html, "PLAN_SALE alone: the percent off shows beside the free tier")
+check("Goes to $79 by Dec 31, sooner if we fill up." in html and "% off" not in html and "px-next" not in html,
+      "PLAN_SALE alone: the dated line shows, with no strike-through and no percent off")
 set_flags(sale=False)
 html = page(client(), "/pricing")
-check("% off" not in html and "px-next" not in html, "both off: the pricing page is as it was")
+check("% off" not in html and "px-next" not in html and "Goes to $" not in html, "both off: the price stands alone")
 set_flags(only=True, sale=True)
 
 # ---------------------------------------------------------------- a new sign-up
@@ -255,9 +268,9 @@ check(len(steps) == 3 and steps[0] == ("Today · $0", "Full access") and steps[1
       "under the plans, the trial is three dots: today at $0 with full access, the reminder email, the charge")
 check("data-plan-how" not in html and "Canceling</dt>" not in html, "the paragraph-by-paragraph explanation is gone")
 check("Your card is charged when the trial ends, unless you cancel first" in html, "the step says when the card is charged")
-for off, nxt in (("50% off", "$79"), ("33% off", "$149"), ("28% off", "$349")):
-    check(off in html and f'<s class="px-next"><span class="sr">going to </span>{nxt}</s>' in html,
-          f"the plan step shows {off} with {nxt} struck through")
+for nxt in ("$79", "$149", "$349"):
+    check(f"Goes to {nxt} by Dec 31, sooner if we fill up." in html, f"the plan step says the price goes to {nxt} by Dec 31")
+check("% off" not in html and "px-next" not in html, "the plan step shows no strike-through and no percent off")
 check("Launch price" not in html and "launch price" not in html, "no launch-price wording")
 check(c.get("/app/library").status_code == 200, "the library stays open without a plan")
 html = page(c, "/app/billing")
@@ -559,9 +572,9 @@ print("\nThe public pages")
 pub = client()
 html = page(pub, "/pricing")
 check('data-cta="pricing-free"' not in html and "Start free" not in html, "pricing: no free tier and no Start free")
-check(html.count("% off") >= 3 and all(x in html for x in ("50% off", "33% off", "28% off")), "pricing: the percent off on each plan")
-check(all(f'<s class="px-next"><span class="sr">going to </span>{x}</s>' in html for x in ("$79", "$149", "$349")),
-      "pricing: the price each plan is going to, struck through")
+check("% off" not in html and "px-next" not in html, "pricing: no percent off and no strike-through")
+check(all(f"Goes to {x} by Dec 31, sooner if we fill up." in html for x in ("$79", "$149", "$349")),
+      "pricing: the dated line under each plan")
 check("Try Starter free for 3 days" in html and "Try Growth free for 3 days" in html and "Start Scale, $249/mo" in html,
       "pricing: trial buttons on Starter and Growth, a plain one on Scale")
 check(html.count("data-plan-trial") == 2 and html.count("<b>3-day free trial.</b> Full access.") == 3 and 'fill="#BDFA25"' in html,
@@ -602,5 +615,57 @@ check(public_site.solution("makeugc-alternative")["title"] == "MakeUGC Alternati
 html = page(client(), "/")
 check("Try it free for 3 days" not in html, "switch off: the home page is as it was")
 set_flags(only=True, sale=True)
+
+# ---------------------------------------------------------------- the trial-length test and the refund line
+print("\nThe trial-length test (TRIAL_TEST) and the first-charge refund line (REFUND_PROMISE)")
+EVEN, ODD = {"id": 10}, {"id": 11}
+check(plan_gate.trial_len(EVEN) == plan_gate.trial_len(ODD) == plan_gate.trial_len(None) == 3,
+      "TRIAL_TEST off: every trial is 3 days")
+os.environ["TRIAL_TEST"] = "1"
+check(plan_gate.trial_len(EVEN) == 7 and plan_gate.trial_len(ODD) == 3, "TRIAL_TEST on: even workspaces 7 days, odd 3")
+check(plan_gate.trial_len(None) == 3, "logged out, pages keep saying 3 days (nobody is told less than they get)")
+t = signup("arm.test@example.com")
+w = ws_of("arm.test@example.com")
+want = 7 if w["id"] % 2 == 0 else 3
+with db.connect() as _conn:
+    _days = plan_gate.trial_days(_conn, w, user_of("arm.test@example.com"), "starter")
+check(_days == want,
+      f"a new workspace's checkout starts the {want}-day trial of its arm")
+html = page(t, "/app/plan")
+check(f"Try Starter free for {want} days" in html or f"{want}-day free trial" in html,
+      "the plan step names the workspace's own trial length")
+note = plan_gate.checkout_note("starter", 7)
+check(note.startswith("7 days free with full access.") and "refund" not in note, "Stripe's note: 7 days, no refund line while off")
+_, txt, _ = plan_gate.reminder_copy(STARTER, 24, "https://x/app/billing", 7)
+check(txt.startswith("Your 7-day free trial"), "the reminder names the trial's real length")
+check(plan_gate.spent_message(EVEN).endswith("a 7-day free trial.") and plan_gate.short_message(10, 0, ODD).endswith(
+    "a 3-day free trial."), "the out-of-credits messages use the workspace's length")
+os.environ.pop("TRIAL_TEST", None)
+check(plan_gate.refund_line() == "", "REFUND_PROMISE off: no refund line")
+html = page(client(), "/pricing")
+check("data-refund-line" not in html and "within 7 days of it" not in html, "off: pricing says nothing about it")
+os.environ["REFUND_PROMISE"] = "1"
+line = plan_gate.refund_line()
+check(line.startswith("Not happy after your first charge? Email us within 7 days"), "on: the promise in one sentence")
+check(line in plan_gate.checkout_note("growth", 3) and line in plan_gate.checkout_note("scale", 0),
+      "on: it is on Stripe's checkout note, with or without a trial")
+html = page(client(), "/pricing")
+check("Not happy after your first charge?" in html, "on: pricing carries it")
+check("except a plan&#39;s first charge" in page(client(), "/terms") or "except a plan's first charge" in page(client(), "/terms"),
+      "on: the terms make the exception to non-refundable")
+os.environ.pop("REFUND_PROMISE", None)
+
+# ---------------------------------------------------------------- the Shopify page and the pasted link
+print("\nThe Shopify page and the pasted link")
+pub = client()
+html = page(pub, "/shopify")
+check("Paste your product link. Get ads you can run today." in html and 'name="url"' in html,
+      "/shopify: one promise and one box")
+check('content="noindex, follow"' in html, "/shopify is noindex (the search page is /ai-product-ads-for-shopify)")
+check("Goes to $79 by Dec 31, sooner if we fill up." in html and "% off" not in html, "/shopify: the dated price line")
+check("not customer results" in html, "/shopify: the examples say they are not customer results")
+r = pub.get("/signup?url=mystore.com/products/candle")
+with pub.session_transaction() as sess:
+    check(sess.get("try_url") == "https://mystore.com/products/candle", "sign-up keeps the pasted link for onboarding")
 
 print(f"\n{passed} plans-only checks passed")
