@@ -396,6 +396,9 @@ jobs:
           KEYFRAME_VIDEO: ${{ vars.KEYFRAME_VIDEO }}
           AUTO_EDIT: ${{ vars.AUTO_EDIT }}
           AUTO_EDIT_MODEL: ${{ vars.AUTO_EDIT_MODEL }}
+          # Clone an ad: social and Ad Library links fetched by NeuraCut (the same secret is set there).
+          SOCIAL_FETCH_TOKEN: ${{ secrets.SOCIAL_FETCH_TOKEN }}
+          NEURACUT_URL: ${{ vars.NEURACUT_URL }}
           VIDEO_QA: ${{ vars.VIDEO_QA }}
           VIDEO_QA_DAILY_MAX: ${{ vars.VIDEO_QA_DAILY_MAX }}
           FREE_FIX_VIDEO_MONTHLY_CAP: ${{ vars.FREE_FIX_VIDEO_MONTHLY_CAP }}
@@ -456,7 +459,7 @@ jobs:
                                              "FREE_FIX_MONTHLY_CAP",
                                              "PRESENTER_STILLS", "PRESENTER_VOICE_REF", "PRESENTER_ANGLES", "LIB_STORE", "CLAIMS_CHECK_DAILY_MAX",
                                              "CLAIMS_CHECK_WS_DAILY_MAX", "RS_LIBRARY_STILL_MODEL", "RS_LIBRARY_STILL_USD",
-                                             "KEYFRAME_VIDEO", "AUTO_EDIT", "AUTO_EDIT_MODEL", "VIDEO_QA", "VIDEO_QA_DAILY_MAX", "FREE_FIX_VIDEO_MONTHLY_CAP",
+                                             "KEYFRAME_VIDEO", "AUTO_EDIT", "AUTO_EDIT_MODEL", "SOCIAL_FETCH_TOKEN", "NEURACUT_URL", "VIDEO_QA", "VIDEO_QA_DAILY_MAX", "FREE_FIX_VIDEO_MONTHLY_CAP",
                                              "RS_WORKER_PROCESS", "RS_TASK_THREADS",
                                              "RS_HEALTH_BUSY_MAX_S")
                       if os.environ.get(k)}

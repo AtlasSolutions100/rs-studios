@@ -203,10 +203,54 @@ check(row2["status"] == "done" and len(json.loads(row2["frames_json"])) == 1, "o
 
 print("== links")
 r = c.post("/app/clone", data={"csrf": csrf(c), "url": "https://www.tiktok.com/@x/video/1"})
-check(r.status_code == 302 and r.headers["Location"].endswith("/app/clone"), "a TikTok link is refused")
+check(r.status_code == 302 and r.headers["Location"].endswith("/app/clone"), "without the NeuraCut fetch: a TikTok link is refused")
 with c.session_transaction() as s:
     flashes = s.get("_flashes") or []
-check(any("save the video" in m.lower() for _, m in flashes), "with a plain reason")
+check(any("upload it" in m.lower() for _, m in flashes), "with a plain reason")
+
+print("== social links through NeuraCut")
+import requests  # noqa: E402
+sent = []
+
+
+class FakeResp:
+    def __init__(self, status, body=b"", js=None):
+        self.status_code, self._body, self._js = status, body, js
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def json(self):
+        return self._js
+
+    def iter_content(self, n):
+        yield self._body
+
+
+answer = {"r": None}
+requests.post = lambda url, **kw: sent.append((url, kw)) or answer["r"]
+os.environ["SOCIAL_FETCH_TOKEN"] = "tok" * 10
+check("Meta Ad Library" in c.get("/app/clone").get_data(as_text=True), "the page says social and Ad Library links work")
+answer["r"] = FakeResp(200, open(VIDEO, "rb").read())
+r = c.post("/app/clone", data={"csrf": csrf(c), "url": "https://www.facebook.com/ads/library/?id=123"})
+cid4 = int(r.headers["Location"].rstrip("/").split("/")[-1])
+row4 = wait(cid4)
+check(row4["status"] == "done" and row4["file_path"] and os.path.exists(row4["file_path"]), "an Ad Library ad: fetched and read")
+url, kw = sent[-1]
+check(url == "https://neuracut.ai/api/internal/fetch_social" and kw["json"] == {"url": "https://www.facebook.com/ads/library/?id=123"}
+      and kw["headers"]["Authorization"] == "Bearer " + "tok" * 10, "asked of NeuraCut with the shared secret")
+answer["r"] = FakeResp(422, js={"error": "That post is private or needs a login, so it can't be read."})
+before = bal(ws)
+r = c.post("/app/clone", data={"csrf": csrf(c), "url": "https://www.instagram.com/reel/abc/"})
+row5 = wait(int(r.headers["Location"].rstrip("/").split("/")[-1]))
+check(row5["status"] == "failed" and "private" in row5["error"], "a private post: NeuraCut's sentence")
+check(bal(ws) == before, "and nothing is charged")
+r = c.post("/app/clone", data={"csrf": csrf(c), "url": "https://www.linkedin.com/posts/x"})
+check(r.headers["Location"].endswith("/app/clone"), "a social site NeuraCut doesn't take is refused up front")
+os.environ.pop("SOCIAL_FETCH_TOKEN")
 
 print("== a failed read")
 bad = os.path.join(TMP, "bad.mp4")
