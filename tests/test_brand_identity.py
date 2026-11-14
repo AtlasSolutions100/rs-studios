@@ -225,8 +225,8 @@ check(st["state"] == "done" and {"website", "about", "kit_primary", "kit_logo", 
 d = page(a, "/app/desk?ui=v2") if False else None
 os.environ["UI_V2"] = "1"
 d = page(a, "/app/desk")
-check("Who you're up against" in d and "Wick & Wax" in d and 'href="https://wickandwax.example"' in d and "Hearthlight" in d
-      and "Research their offers and angles" in d and "See the price" in d and "/app/competitors" in d,
+check("Your rivals" in d and "Wick & Wax" in d and 'href="https://wickandwax.example"' in d and "Hearthlight" in d
+      and "Look at what they sell and say" in d and "See the price" in d and "/app/competitors" in d,
       "the desk lists them, with a link to the research where its price is shown")
 check(f'/app/brands/{ba["id"]}/logo' in d and "Calm, warm, a little dry" in d, "and shows the logo and the voice it read")
 check(brand_identity.start(ba["workspace_id"], ba["id"], pid, URL) is False, "not read again straight away")
@@ -238,7 +238,7 @@ with db.connect() as conn:
     check(not brand_identity.due(conn, ba["workspace_id"], ba["id"]), "not while a reading is going")
     set_brand("a@example.com", enrich_json=json.dumps({"state": "running", "at": (datetime.now(timezone.utc) - timedelta(minutes=30)).isoformat()}))
     check(brand_identity.due(conn, ba["workspace_id"], ba["id"]), "a reading that died is taken up again")
-check("Reading your site and finding your competitors" not in page(a, "/app/desk"), "a reading that died isn't shown as still going")
+check("Reading your site and finding your rivals" not in page(a, "/app/desk"), "a reading that died isn't shown as still going")
 
 print("== what the member wrote stays")
 b, pid_b = member("b@example.com")
@@ -272,7 +272,7 @@ check(len(rs) == 1 and started == [rs[0]["id"]] and out["report"] == rs[0]["id"]
       "the full research starts by itself")
 check(inp["free"] is True and [x["name"] for x in inp["competitors"]] == ["Wick & Wax", "Slow Burn", "Hearthlight"] and inp["quote"] == competitors.quote(3),
       "on the closest three, free to the member, with the run's own cost limit")
-check("Researching their offers and angles" in page(p_, "/app/desk"), "the desk says the research is going")
+check("Looking at what they sell and say" in page(p_, "/app/desk"), "the desk says the research is going")
 brand_identity.run(bp_["workspace_id"], bp_["id"], pid_p, URL)
 check(len(reports("p@example.com")) == 1 and len(started) == 1 and sum(1 for c in calls if c[0] == "discover") == 4,
       "once per brand: a later reading starts no second research and doesn't look for competitors again")
@@ -281,7 +281,7 @@ with db.connect() as conn:
         {"angle": "the easy gift", "hook": "For the person who has everything.", "why": "Two of three lead with gifting.", "sources": []}]}}), rs[0]["id"]))
     conn.commit()
 d = page(p_, "/app/desk")
-check("An angle to test" in d and "the easy gift" in d and 'data-try="A campaign for Ember Candle that leads with the easy gift"' in d
+check("An idea to try" in d and "the easy gift" in d and 'data-try="A campaign for Ember Candle that leads with the easy gift"' in d
       and f"/app/competitors/{rs[0]['id']}" in d, "when it is ready the desk shows an angle to test, one click from a plan, and links the research")
 
 t_, pid_t = member("t@example.com")
