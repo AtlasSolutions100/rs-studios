@@ -203,13 +203,16 @@ check("Not just ads. Your whole campaign, made with AI." in hv and "data-try" in
 check(len(re.findall(r'class="cfh-t[ "]', hv)) == 18 and "cfh-stars" in hv and "data-replay" in hv, "the hero gathers 18 tiles, then the stars")
 shipped = [f["name"] for f in plans.FEATURES.values() if f.get("shipped")]
 import presenters  # noqa: E402
-kb = re.search(r'<section class="lv-sec cfk".*?</section>', hv, re.S).group(0)
+kb = re.search(r'<section class="lv-sec hp-make".*?</section>', hv, re.S).group(0)
 n_img = sum(1 for p in presets.LIBRARY if p.ad_type == "image" and p.kind != "type")
-check("One link in. A whole campaign out." in kb and kb.count('class="cfk-row"') == 6
-      and f"{n_img} formats" in kb and f"{len(presenters.roster())} AI presenters" in kb and "None of them is a real person." in kb,
-      "what comes back out: six rows, with the preset and presenter counts from the catalog")
-check(all(f"{plans.FEATURES[k]['name'].replace('&', '&amp;')}: " in kb for k in ("studio", "copy", "planner", "competitors", "pages", "forms", "flows")),
-      "each row says which plan its tools come with, from the billing config")
+check("One link in. A whole campaign out." in kb and kb.count('class="hp-tile ') == 6
+      and f"{n_img} styles" in kb and f"{len(presenters.roster())} AI people" in kb and "None of them is a real person." in kb,
+      "what comes back out: six tiles, with the preset and presenter counts from the catalog")
+check(kb.count('class="hp-plan"') == 6 and all(("Every plan" in kb or f"{plans.PLANS[plans.FEATURES[k]['plan']]['name']} and up" in kb)
+                                                for k in ("studio", "copy", "planner", "pages")),
+      "each tile says which plan its tools come with, from the billing config")
+more = re.search(r'<section class="lv-sec hp-more".*?</section>', hv, re.S).group(0)
+check(more.count('class="hp-card ') == 6 and "Everything else, when you want it" in more, "everything else: six cards")
 rca = re.search(r'<section class="rca".*?</section>', hv, re.S).group(0)
 check(all(f'>{t}</button>' in rca for t in ("Plan", "Create", "Launch")) and rca.count('role="tabpanel"') == 3
       and "An example for a made-up brand." in rca,
@@ -262,8 +265,8 @@ print("== the home page")
 home = on["/"].get_data(as_text=True)
 t = text(home)
 check(home.count("<h1") == 1 and "Not just ads. Your whole campaign, made with AI." in t, "one promise, in one h1")
-check(len(re.findall(r'<ol class="lv-steps">.*?</ol>', home, re.S)) == 1
-      and len(re.findall(r"<li>", re.search(r'<ol class="lv-steps">(.*?)</ol>', home, re.S).group(1))) == 3
+check(len(re.findall(r'<ol class="lv-steps[^"]*">.*?</ol>', home, re.S)) == 1
+      and len(re.findall(r"<li>", re.search(r'<ol class="lv-steps[^"]*">(.*?)</ol>', home, re.S).group(1))) == 3
       and all(s in t for s in ("Paste your product page", "See the price first", "Download finished ads")),
       "how it works, in three steps")
 import adoffer  # noqa: E402

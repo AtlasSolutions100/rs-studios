@@ -70,8 +70,8 @@ body = client.get("/ai-ads-for-saas", headers=HTML).get_data(as_text=True)
 hero = body.split('id="how"')[0]
 check(hero.count("<video") == 3 and "/lib/" not in hero, "the SaaS page plays three site clips meanwhile")
 home = client.get("/", headers=HTML).get_data(as_text=True)
-check('id="k-formats"' in home and "Try-ons, app demos and unboxings, one click each" in home
-      and "cfk-clips" not in home, "the home page's formats row: its text, no clips yet")
+check('id="k-formats"' in home and "Try-ons, app demos, unboxings" in home
+      and "cfk-clips" not in home, "the home page's formats tile: its text, no clips yet")
 
 print("== once they are here")
 os.makedirs(libstore.folder(), exist_ok=True)
@@ -91,9 +91,9 @@ hero = body.split('id="how"')[0]
 check("/lib/ex-realtor-presenter.mp4" in hero and "lp-snd" in hero and "AI presenter" in hero,
       "the real estate page plays the agent clip, tagged and with a sound button")
 home = client.get("/", headers=HTML).get_data(as_text=True)
-row = re.search(r'<article id="k-formats".*?</article>', home, re.S).group(0)
+row = re.search(r'<article[^>]*id="k-formats".*?</article>', home, re.S).group(0)
 check(row.count("<video") == 3 and all(f in row for f in ("ex2-tryon-denim-jacket", "ex2-web-app-demo", "ex2-unboxing-pov-bottle"))
-      and "data-inview" in row and 'preload="none"' in row and f"{len(presets.RECIPES)} video formats" in row,
+      and "data-inview" in row and 'preload="none"' in row and f"{len(presets.RECIPES)} video styles" in row,
       "the home page's formats row plays a try-on, a web app demo and an unboxing, loading nothing until near")
 
 print("== the Try-on preset's example")
