@@ -106,7 +106,7 @@ check("lv-reel" not in home and "Every person here is an AI presenter" not in ho
       "there is no separate presenter section and no explanation under it")
 check(home.count('class="lv-clip-tag">AI presenter<') == sum(v["presenter"] for v in videos), "a person on screen is tagged AI presenter")
 check(home.count("data-sound aria-pressed") == sum(v["sound"] for v in videos), "a Sound button only on clips with speech")
-tiles = re.findall(r'<video class="a9x16" data-inview muted loop playsinline preload="none" data-poster="[^"]+" width="\d+" height="\d+" aria-label="[^"]{30,}">', home)
+tiles = re.findall(r'<video class="a(?:9x16|4x5|1x1|16x9)" data-inview muted loop playsinline preload="none" data-poster="[^"]+" width="\d+" height="\d+" aria-label="[^"]{30,}">', home)
 check(len(tiles) == len(videos), "clips are muted loops that load nothing until they are near the screen, each with its description")
 
 print("== the FAQ")

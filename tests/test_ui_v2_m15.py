@@ -215,8 +215,8 @@ check(all(rows.count(">" + n.replace("&", "&amp;") + "</li>") == 2 for n in ship
       f"the feature rows list every shipped feature from the billing config ({len(shipped)}), each once for readers")
 media = set(re.findall(r'src="(/static/[^"?]+)', hv.split('class="cfm"')[0]))
 check(media and all(os.path.isfile(os.path.join(ROOT, m.lstrip("/"))) for m in media)
-      and all(m.startswith(("/static/presets/", "/static/presenters/")) for m in media if "cfh" not in m and m.endswith(".webp")),
-      f"every hero tile is one of our own preset examples or presenter stills ({len(media)} files)")
+      and all(m.startswith(("/static/presets/", "/static/presenters/", "/static/hero/")) for m in media if "cfh" not in m and m.endswith(".webp")),
+      f"every hero tile is one of our own preset examples, presenter stills or made ads ({len(media)} files)")
 check('data-ui="v2"' not in client().get("/pricing", headers=HTML).get_data(as_text=True)
       and 'data-ui="v2"' not in client().get("/features", headers=HTML).get_data(as_text=True), "pricing and features are still the old pages")
 check("lp-hero" in client().get("/?ui=v1", headers=HTML).get_data(as_text=True), "/?ui=v1 shows the old home page")
