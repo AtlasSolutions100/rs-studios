@@ -81,7 +81,7 @@
             <img src="{{ url_for('static', filename='showcase/pop-headphones.webp') }}" alt="An image ad for black headphones: Hear nothing but the music." loading="lazy" width="1080" height="1350">
             <img src="{{ url_for('static', filename='showcase/pop-smoothie.webp') }}" alt="An image ad for a mango smoothie: Swap the snack." loading="lazy" width="1080" height="1350">
           </div>
-          <h3>Picture ads</h3>
+          <h3><a class="hp-go" href="{{ url_for('signup') }}" data-cta="tile-ads">Picture ads</a></h3>
           <p>Your photo, made into an ad. Every word is spelled right.</p>
           <p class="hp-fact">{{ home_counts.image_presets }} styles · {{ r.image|credits }} each</p>{{ plan_pill('studio') }}
         </article>
@@ -90,30 +90,30 @@
             <figure><img src="{{ url_for('static', filename='presenters/nia/desk.webp') }}" alt="Nia, an AI presenter, at her desk" loading="lazy" width="720" height="1280"><span class="hp-play" aria-hidden="true"></span></figure>
             <figure><img src="{{ url_for('static', filename='presenters/marcus/car.webp') }}" alt="Marcus, an AI presenter, in his car" loading="lazy" width="720" height="1280"></figure>
           </div>
-          <h3>Videos with a person</h3>
+          <h3><a class="hp-go" href="{{ url_for('signup') }}" data-cta="tile-video">Videos with a person</a></h3>
           <p>Pick a person. Write what they say. No camera needed.</p>
           <p class="hp-fact">{{ home_counts.presenters }} AI people. None of them is a real person.</p>{{ plan_pill('studio') }}
         </article>
         <article class="hp-tile t-sun" id="k-formats" style="--i:2">
           {% if format_clips %}<div class="hp-pics clips cfk-clips">{% for label, it in format_clips %}<figure><div class="lv-vid"><video data-inview muted loop playsinline preload="none" data-poster="{{ it.poster_url }}" width="{{ it.width }}" height="{{ it.height }}" aria-label="{{ it.alt }}"><source src="{{ it.url }}" type="video/mp4"></video></div><figcaption>{{ label }}</figcaption></figure>{% endfor %}</div>
           {% else %}<div class="hp-pics fan"><img src="{{ url_for('static', filename='showcase/pop-sunscreen.webp') }}" alt="A story ad for sunscreen on a beach" loading="lazy" width="1080" height="1930"><img src="{{ url_for('static', filename='showcase/pop-finance-app.webp') }}" alt="A story ad for a budgeting app" loading="lazy" width="1080" height="1930"></div>{% endif %}
-          <h3>Try-ons, app demos, unboxings</h3>
+          <h3><a class="hp-go" href="{{ url_for('signup') }}" data-cta="tile-formats">Try-ons, app demos, unboxings</a></h3>
           <p>One click makes the video. Your real app screens can go in.</p>
           <p class="hp-fact">{{ home_counts.recipes }} video styles</p>{{ plan_pill('studio') }}
         </article>
         <article class="hp-tile t-lime" id="k-copy" style="--i:3">
           <div class="hp-chat"><span>Zero sugar. Full charge.</span><span>Your 3 pm fix, no crash.</span><span>Out of energy by lunch?</span></div>
-          <h3>Words that sell</h3>
+          <h3><a class="hp-go" href="{{ url_for('signup') }}" data-cta="tile-copy">Words that sell</a></h3>
           <p>Hooks, captions and emails, in your brand's voice.</p>{{ plan_pill('copy') }}
         </article>
         <article class="hp-tile t-lilac" id="k-plan" style="--i:4">
           <ol class="hp-weeks"><li class="on">Week 1: try three ads</li><li>Week 2: add a video</li><li>Week 3: keep the winner</li></ol>
-          <h3>A plan</h3>
+          <h3><a class="hp-go" href="{{ url_for('signup') }}" data-cta="tile-plan">A plan</a></h3>
           <p>What to run, and when. Plus what your rivals say.</p>{{ plan_pill('planner') }}
         </article>
         <article class="hp-tile t-mint" id="k-leads" style="--i:5">
           <div class="hp-form"><b>Get the free guide</b><span>Name</span><span>Email</span><i>Send it to me</i></div>
-          <h3>A page and emails</h3>
+          <h3><a class="hp-go" href="{{ url_for('signup') }}" data-cta="tile-leads">A page and emails</a></h3>
           <p>A page that gets sign-ups. Emails go out on their own.</p>{{ plan_pill('pages') }}
         </article>
       </div>
@@ -131,7 +131,7 @@
           <span class="hp-url"><i></i>citrusvolt.com/can<b class="hp-caret"></b></span>
           <span class="hp-prod"><img src="{{ url_for('static', filename='hero/pop-volt-taste.webp') }}" alt="" width="400" height="500"><span><b>Citrus Volt</b><u>Name</u><u>Photos</u><u>Price</u></span></span>
         </div>
-        <h3>Paste your product page</h3>
+        <h3><a class="hp-go" href="{{ url_for('signup') }}" data-cta="step-1">Paste your product page</a></h3>
         <p>We read it for free. You say yes to what your ads can say.</p>
       </li>
       <li>
@@ -139,7 +139,7 @@
           <span class="hp-bub">Make 3 picture ads for summer</span>
           <span class="hp-quote"><span>3 picture ads</span><b>{{ (3 * r.image)|credits }}</b><span class="dim">You have</span><b class="dim">{{ (sc or plans.PLANS['starter'].credits)|credits }}</b><i>Make them</i></span>
         </div>
-        <h3>See the price first</h3>
+        <h3><a class="hp-go" href="{{ url_for('signup') }}" data-cta="step-2">See the price first</a></h3>
         <p>Every ad shows its price before it is made.</p>
       </li>
       <li>
@@ -149,7 +149,7 @@
           <img class="c3" src="{{ url_for('static', filename='hero/pop-volt-swap.webp') }}" alt="" width="400" height="500">
           <span class="hp-dl">Download</span>
         </div>
-        <h3>Download finished ads</h3>
+        <h3><a class="hp-go" href="{{ url_for('signup') }}" data-cta="step-3">Download finished ads</a></h3>
         <p>Ready in minutes, in every shape. If one fails, you get your credits back.</p>
       </li>
     </ol>
@@ -166,7 +166,7 @@
       <figure class="lv-shot">
         {% if it.kind == 'video' %}<div class="lv-vid"><video class="a{{ (it.aspect or '9:16')|replace(':', 'x') }}" data-inview muted loop playsinline preload="none" {% if it.poster %}data-poster="{{ it.poster_url }}"{% endif %} width="{{ it.width }}" height="{{ it.height }}" aria-label="{{ it.alt }}"><source src="{{ it.url }}" type="video/mp4"></video>{% if it.presenter %}<span class="lv-clip-tag">AI presenter</span>{% endif %}{% if it.sound %}<button type="button" class="lv-clip-snd" data-sound aria-pressed="false" aria-label="Sound for {{ it.preset_name or it.caption }}">Sound off</button>{% endif %}</div>
         {% else %}<img src="{{ it.url }}" alt="{{ it.alt }}" width="{{ it.width }}" height="{{ it.height }}" loading="lazy" decoding="async">{% endif %}
-        <figcaption>{% if it.preset_name %}<b>{{ it.preset_name }}</b>{% endif %}{% if it.caption and it.caption != it.preset_name %}<span>{{ it.caption }}</span>{% endif %}</figcaption>
+        <figcaption><a class="hp-go" href="{{ url_for('signup') }}" data-cta="showcase">{% if it.preset_name %}<b>{{ it.preset_name }}</b>{% else %}<span class="sr">Make one like this</span>{% endif %}</a>{% if it.caption and it.caption != it.preset_name %}<span>{{ it.caption }}</span>{% endif %}</figcaption>
       </figure>
       {% endfor %}
     </div>
