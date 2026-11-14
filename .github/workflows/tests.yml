@@ -1,16 +1,18 @@
 name: Tests (pull requests)
 
-# Runs the test suite on every pull request to main, m1-integration and m1b-integration so a PR shows
+# Runs the test suite weekly and by hand (once per release is deploy.yml's own run). Before Nov 13 2026 it ran on every PR so a PR showed
 # a check before it is merged, again every night (so a new advisory or a date-bound
 # test shows up without a push), and by hand. tests/test_app.py chains every test
 # file (about 3 minutes). pip-audit checks the locked requirements and fails only on
 # High or Critical (tools/audit_gate.py). This workflow never deploys and uses no
 # secrets: deploying stays in deploy.yml, which runs only on push to main (and by hand).
 on:
-  pull_request:
-    branches: [main, "m*-integration"]
+  # Once per release (Koby, Nov 13 2026: runner minutes cost money): the suite runs in deploy.yml before anything
+  # ships, which is what guards production, so pull requests no longer run it a second and third time (changes are
+  # tested locally before they are pushed). Here: weekly, for the date-bound tests and new advisories, and by hand.
+  # RUNNER (a repository variable) moves every job to a self-hosted runner, e.g. Koby's Mac mini.
   schedule:
-    - cron: "41 8 * * *"   # 02:41 Central
+    - cron: "41 8 * * 1"   # Mondays 02:41 Central
   workflow_dispatch:
 
 permissions:
@@ -22,7 +24,7 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -71,7 +73,7 @@ jobs:
         run: python tests/golden_path.py
 
   audit:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
