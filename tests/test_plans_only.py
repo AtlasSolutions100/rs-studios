@@ -7,6 +7,7 @@ database. Stripe is faked: nothing leaves the machine.
 import json
 import os
 import re
+from datetime import timedelta
 import sys
 import tempfile
 import time
@@ -213,7 +214,7 @@ check(plans.sale(STARTER, datetime(2027, 1, 1, 0, 1, tzinfo=timezone.utc)) is No
 os.environ["PLAN_SALE_BY"] = "2026-12-15"
 check(plans.sale(STARTER, NOV)["by"] == "Dec 15", "PLAN_SALE_BY moves the date (sooner if we fill up)")
 os.environ["PLAN_SALE_BY"] = "not a date"
-check(plans.sale(STARTER, NOV)["by"] == "Dec 31", "a bad PLAN_SALE_BY falls back to Dec 31")
+check(plans.sale(STARTER, NOV)["by"] == "Nov 28", "a bad PLAN_SALE_BY falls back to the default end, Nov 28")
 os.environ["PLAN_SALE_BY"] = "2099-12-31"
 check(all(p["usd"] == u for p, u in ((STARTER, 39), (GROWTH, 99), (SCALE, 249))), "the prices charged are unchanged")
 check(plans.sale(dict(STARTER, next_usd=39)) is None and plans.sale(dict(STARTER, next_usd=None)) is None,
@@ -237,11 +238,12 @@ check(OLD_CREDITS == catalog.starter_credits() > 0, "switch off: a sign-up gets 
 check(old.get("/app").status_code == 200, "switch off: straight into the app")
 html = page(client(), "/pricing")
 check('data-cta="pricing-free"' in html and "Start free" in html, "switch off: the public pricing still has the free tier")
-check("Goes to $79 by Dec 31, sooner if we fill up." in html and "% off" not in html and "px-next" not in html,
-      "PLAN_SALE alone: the dated line shows, with no strike-through and no percent off")
+check("Goes to $" not in html and "sooner if we fill up" not in html and "% off" not in html and "px-next" not in html,
+      "PLAN_SALE alone: no dated price-rise line (Koby: not shown at all), no strike-through, no percent off")
 set_flags(sale=False)
 html = page(client(), "/pricing")
-check("% off" not in html and "px-next" not in html and "Goes to $" not in html, "both off: the price stands alone")
+check("% off" not in html and "px-next" not in html and "Goes to $" not in html and "data-price-clock" not in html,
+      "both off: the price stands alone, with no clock")
 set_flags(only=True, sale=True)
 
 # ---------------------------------------------------------------- a new sign-up
@@ -268,8 +270,7 @@ check(len(steps) == 3 and steps[0] == ("Today · $0", "Full access") and steps[1
       "under the plans, the trial is three dots: today at $0 with full access, the reminder email, the charge")
 check("data-plan-how" not in html and "Canceling</dt>" not in html, "the paragraph-by-paragraph explanation is gone")
 check("Your card is charged when the trial ends, unless you cancel first" in html, "the step says when the card is charged")
-for nxt in ("$79", "$149", "$349"):
-    check(f"Goes to {nxt} by Dec 31, sooner if we fill up." in html, f"the plan step says the price goes to {nxt} by Dec 31")
+check("Goes to $" not in html and "sooner if we fill up" not in html, "the plan step shows no price-rise line")
 check("% off" not in html and "px-next" not in html, "the plan step shows no strike-through and no percent off")
 check("Launch price" not in html and "launch price" not in html, "no launch-price wording")
 check(c.get("/app/library").status_code == 200, "the library stays open without a plan")
@@ -573,8 +574,7 @@ pub = client()
 html = page(pub, "/pricing")
 check('data-cta="pricing-free"' not in html and "Start free" not in html, "pricing: no free tier and no Start free")
 check("% off" not in html and "px-next" not in html, "pricing: no percent off and no strike-through")
-check(all(f"Goes to {x} by Dec 31, sooner if we fill up." in html for x in ("$79", "$149", "$349")),
-      "pricing: the dated line under each plan")
+check("Goes to $" not in html and "sooner if we fill up" not in html, "pricing: no price-rise line under the plans")
 check("Try Starter free for 3 days" in html and "Try Growth free for 3 days" in html and "Start Scale, $249/mo" in html,
       "pricing: trial buttons on Starter and Growth, a plain one on Scale")
 check(html.count("data-plan-trial") == 2 and html.count("<b>3-day free trial.</b> Full access.") == 3 and 'fill="#BDFA25"' in html,
@@ -584,7 +584,16 @@ check("days free</b> with" not in html and "200 credits" not in html and "Charge
 check("Your card is charged the plan's price when the trial ends unless you cancel first" in html
       and "Scale has no trial and is charged at once" in html, "pricing: the trial's terms are stated once, under the plans")
 check("No trial that bills you" not in html and "on any plan or none" not in html, "pricing: the lines about free sign-up are gone")
-check("Launch price" not in html and "countdown" not in html.lower() and "ends in" not in html.lower(), "pricing: no launch wording and no timer")
+check("Launch price" not in html and "ends in" not in html.lower(), "pricing: no launch wording")
+# The price clock (Koby, Nov 14 2026): one fixed date for everyone, no future price named, gone after the date.
+clk = re.search(r'data-price-clock data-ends="([^"]+)"', html)
+check(clk is not None and clk.group(1) == plans.sale_by().isoformat().replace("+00:00", "Z") and "These prices end in" in html,
+      "pricing: the clock counts down to PLAN_SALE_BY, the one date the prices go up")
+cblock = re.search(r'<p class="pr-clock".*?</p>', html, re.S).group(0)
+check(clk.group(1) in page(client(), "/pricing") and "$" not in cblock and "Goes to" not in html,
+      "the same end on every load (never per visit), and the price it goes to is not named")
+check(plans.price_clock(plans.sale_by() + timedelta(seconds=1)) is None and plans.price_clock(plans.sale_by() - timedelta(days=1))["d"] == 1,
+      "after the date the clock is gone by itself; before it, it shows what is left")
 html = page(pub, "/")
 check("Start free" not in html and "Try it free for 3 days" in html, "home: the buttons offer the 3-day trial")
 html = page(pub, "/signup")
@@ -662,7 +671,7 @@ html = page(pub, "/shopify")
 check("Paste your product link. Get ads you can run today." in html and 'name="url"' in html,
       "/shopify: one promise and one box")
 check('content="noindex, follow"' in html, "/shopify is noindex (the search page is /ai-product-ads-for-shopify)")
-check("Goes to $79 by Dec 31, sooner if we fill up." in html and "% off" not in html, "/shopify: the dated price line")
+check("Goes to $" not in html and "% off" not in html, "/shopify: the price stands alone")
 check("not customer results" in html, "/shopify: the examples say they are not customer results")
 r = pub.get("/signup?url=mystore.com/products/candle")
 with pub.session_transaction() as sess:

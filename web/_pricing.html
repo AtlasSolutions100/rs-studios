@@ -2,6 +2,7 @@
 {% import "_price.html" as price %}{% set po = plans_only() %}
 {% if ui_v2 %}{% include "v2/_pricing.html" %}{% else %}
 <p class="lp-anchor">Talking videos from <b>{{ r.talk8|credits }}</b> · product videos from <b>{{ r.video5|credits }}</b> · image ads from <b>{{ r.image|credits }}</b>. You see the price in credits before anything runs.</p>
+{{ price.clock() }}
 <div class="lp-prices plans{{ ' three' if po }}">
   {% if not po %}<div class="lp-price free">
     <h3>Free</h3>
