@@ -224,27 +224,55 @@ env:
 
 jobs:
   test:
-    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: 15
+    # TEST_RUNNER (a repository variable): the label of a self-hosted runner, e.g. "campaignify-mac" for the Mac
+    # mini, so the tests cost no GitHub minutes. Unset: GitHub's Linux runner. Only the tests move there: the deploy
+    # job below (it asks GitHub for the deploy hook's token) always runs on GitHub's runner. If the Mac is asleep or
+    # off, a release waits for it; to ship anyway, delete TEST_RUNNER.
+    runs-on: ${{ vars.TEST_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - name: System packages - macOS (Homebrew; installed once, then only checked)
+        if: runner.os == 'macOS'
+        run: |
+          # An Apple-silicon Mac whose runner runs under Rosetta (the x64 runner download): Homebrew in /opt/homebrew
+          # only installs as arm64, so every brew and Python call goes through `arch -arm64`.
+          BREW=/opt/homebrew/bin/brew; [ -x "$BREW" ] || BREW="$(command -v brew || true)"
+          [ -n "$BREW" ] || { echo "Install Homebrew on the Mac first: https://brew.sh"; exit 1; }
+          ARCH=""; [ "$(sysctl -n hw.optional.arm64 2>/dev/null)" = "1" ] && ARCH="arch -arm64"
+          echo "MAC_ARCH=$ARCH" >> "$GITHUB_ENV"; echo "MAC_BREW=$BREW" >> "$GITHUB_ENV"
+          echo "$(dirname "$BREW")" >> "$GITHUB_PATH"
+          $ARCH "$BREW" list python@3.12 >/dev/null 2>&1 || $ARCH "$BREW" install python@3.12
+          command -v ffmpeg >/dev/null 2>&1 || [ -x "$(dirname "$BREW")/ffmpeg" ] || $ARCH "$BREW" install ffmpeg || true
       - uses: actions/setup-python@v5
+        if: runner.os == 'Linux'
         with:
           python-version: "3.12"
-      - run: pip install --require-hashes -r requirements.txt
+      - name: Python packages (locked, hashes checked)
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            # its own virtualenv beside the runner's work folder, nothing installed into the Mac's Python
+            PY="$($MAC_ARCH "$MAC_BREW" --prefix python@3.12)/bin/python3.12"
+            V="$RUNNER_TEMP/../venv-campaignify"
+            [ -x "$V/bin/python" ] || $MAC_ARCH "$PY" -m venv "$V"
+            echo "$V/bin" >> "$GITHUB_PATH"
+            $MAC_ARCH "$V/bin/python" -m pip install -q --require-hashes -r requirements.txt
+          else
+            pip install --require-hashes -r requirements.txt
+          fi
       - name: pip-audit (fails on High or Critical only)
         run: |
-          pip install --quiet pip-audit==2.10.1
-          pip-audit -r requirements.txt --disable-pip --require-hashes --format json -o audit.json --progress-spinner off || true
-          python tools/audit_gate.py audit.json
+          $MAC_ARCH python -m pip install --quiet pip-audit==2.10.1
+          $MAC_ARCH python -m pip_audit -r requirements.txt --disable-pip --require-hashes --format json -o audit.json --progress-spinner off || true
+          $MAC_ARCH python tools/audit_gate.py audit.json
       - name: python tests/test_app.py
         env:
           RS_DISK_MIN_GB: "0.2"
-        run: python tests/test_app.py
+        run: $MAC_ARCH python tests/test_app.py
 
   deploy:
     needs: test
-    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
