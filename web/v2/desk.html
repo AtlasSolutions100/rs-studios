@@ -64,6 +64,20 @@
         <a href="{{ url_for('tools.page') }}">All tools</a>
       </nav>
     </div>
+    {% if product and agent_presets %}
+    <section class="dk-jobs" aria-labelledby="dk-jobs-h" data-jobs>
+      <div class="dk-jobs-top">
+        <h2 id="dk-jobs-h">Ready-made jobs</h2>
+        <span class="dk-jobs-nav"><button type="button" data-jobs-go="-1" aria-label="Back">&lsaquo;</button><button type="button" data-jobs-go="1" aria-label="More">&rsaquo;</button></span>
+      </div>
+      <ul class="dk-jobs-row" data-jobs-row>
+        {% for j in agent_presets %}<li><button type="button" class="dk-job" data-job-ask="{{ j.ask }}">
+          <img src="{{ j.image }}" alt="" width="480" height="360" loading="lazy">
+          <b>{{ j.title }}</b><span>{{ j.line }}</span>
+        </button></li>{% endfor %}
+      </ul>
+    </section>
+    {% endif %}
 
     <div class="dk-top">
       {% if campaigns %}

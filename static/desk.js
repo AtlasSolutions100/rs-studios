@@ -128,6 +128,14 @@
   }
   // An example card puts its sentence in the box; its clip plays while the card is pointed at.
   var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Ready-made jobs: a card puts its sentence in the box and starts the agent (its questions first, on a new campaign)
+  $$('[data-job-ask]').forEach(function(b){
+    b.addEventListener('click', function(){ if(!ask || busy) return; ask.value = b.dataset.jobAsk; plan(); });
+  });
+  var jrow = $('[data-jobs-row]');
+  $$('[data-jobs-go]').forEach(function(b){
+    b.addEventListener('click', function(){ if(jrow) jrow.scrollBy({left: +b.dataset.jobsGo * jrow.clientWidth * 0.8, behavior: 'smooth'}); });
+  });
   $$('[data-try]').forEach(function(b){
     b.addEventListener('click', function(){ if(!ask) return; ask.value = b.dataset.try; ask.focus(); ask.setSelectionRange(ask.value.length, ask.value.length); });
   });
@@ -194,13 +202,18 @@
       h += '<label>Page title<input type="text" maxlength="120" data-f="title" value="' + esc(p.title || '') + '"></label>';
     } else if(p.kind === 'flow'){
       h += '<label>Follow-up<select data-f="template">' + B.flows.map(function(x){ return opt(x.id, x.name, p.template); }).join('') + '</select></label>';
+    } else if(p.kind === 'story'){
+      h += '<label>The story idea<textarea rows="3" maxlength="300" data-f="text" placeholder="Bob makes bad ads. Then he finds us.">' + esc(p.text || '') + '</textarea></label>';
+      h += '<label>Look<select data-f="style">' + opt('photo', 'Real photos, funny', p.style) + opt('animated', 'Animated, 3D cartoon', p.style) + '</select></label>';
+      var sc = ''; for(var k = 3; k <= 6; k++) sc += opt(k, k + ' scenes', p.scenes || (p.style === 'animated' ? 3 : 5));
+      h += '<label>How long<select data-f="scenes">' + sc + '</select></label>';
     }
     return '<div class="dk-edit" data-edit>' + (h ? '<div class="dk-fields">' + h + '</div>' : '') +
       '<div class="dk-edit-act"><button type="button" class="btn dark sm" data-done>Done</button>' +
       '<button type="button" class="linkbtn" data-remove>Remove this part</button></div></div>';
   }
   function row(p, first){
-    var open = S.editing === p.id, can = !p.locked && !p.error && !(MAKES[p.kind] && !p.text);
+    var open = S.editing === p.id, can = !p.locked && !p.error && !((MAKES[p.kind] || p.kind === 'story') && !p.text);
     var label = p.locked ? '<a href="' + esc(B.urls.billing) + '#plans">' + esc(p.label) + '</a>' : esc(p.label);
     return '<li class="dk-row' + (p.on ? '' : ' off') + '" data-id="' + esc(p.id) + '">' +
       '<span class="dk-stage">' + (first ? esc(STAGES[p.stage]) : '') + '</span>' +
@@ -266,11 +279,11 @@
     $$('[data-f]', li).forEach(function(el){
       var f = el.dataset.f, v = el.value;
       if(f === 'text' || f === 'title') v = v.trim().replace(/\s+/g, ' ');
-      if(f === 'count' || f === 'n') v = +v;
+      if(f === 'count' || f === 'n' || f === 'scenes') v = +v;
       if(f === 'presenter' && v !== p.presenter) p.situation = '';
       p[f] = v;
     });
-    if(MAKES[p.kind] && p.text && !p.error) p.on = true;
+    if((MAKES[p.kind] || p.kind === 'story') && p.text && !p.error) p.on = true;
   }
   rowsEl.addEventListener('click', function(e){
     var li = e.target.closest('[data-id]'); if(!li) return;
@@ -295,7 +308,8 @@
     if(MAKES[kind]){ p.text = (B.starters || {})[kind] || ''; p.on = !!p.text; }
     if(kind === 'image') p.count = 1;
     if(kind === 'presenter' && B.presenters[0]) p.presenter = B.presenters[0].id;
-    S.parts.push(p); S.adding = false; S.editing = MAKES[kind] || kind === 'page' ? p.id : '';
+    if(kind === 'story'){ p.text = ''; p.style = 'photo'; p.scenes = 5; p.on = false; p.stage = 'make'; }
+    S.parts.push(p); S.adding = false; S.editing = MAKES[kind] || kind === 'page' || kind === 'story' ? p.id : '';
     requote().then(function(){ var t = rowsEl.querySelector('[data-id="' + p.id + '"] [data-f]') || rowsEl.querySelector('[data-id="' + p.id + '"] [data-edit-open]'); if(t) t.focus(); });
   });
   $('[data-many]').addEventListener('change', bar);

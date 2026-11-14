@@ -1237,8 +1237,16 @@ def brand():
         rows = products.products(conn, g.ws["id"], b["id"]) if b is not None else []
         locked = b is not None and b["id"] not in products.unlocked_brand_ids(conn, ws)
         import brand_assets
+        import brand_identity
         assets = brand_assets.assets_for(conn, g.ws["id"], b["id"]) if b is not None else []
-    return render_template("v2/brand.html", b=b, rows=rows, locked=locked, assets=assets,
+        rivals = brand_identity.rivals(b)[:6] if b is not None else []
+        made = {r["product_id"]: r["n"] for r in conn.execute(
+            "SELECT product_id, COUNT(*) n FROM jobs WHERE workspace_id=? AND deleted_at IS NULL GROUP BY product_id",
+            (g.ws["id"],))} if b is not None else {}
+    claims = [(p, c.strip()) for p in rows for c in (p["claims"] or "").splitlines() if c.strip()][:12]
+    tones = [t.strip() for t in ((b["tone"] if b is not None else "") or "").replace(";", ",").split(",") if t.strip()][:6]
+    return render_template("v2/brand.html", b=b, rows=rows, locked=locked, assets=assets, rivals=rivals, made=made,
+                           claims=claims, tones=tones,
                            asset_kinds=brand_assets.KINDS, asset_max=brand_assets.MAX_FILES,
                            website=onboarding.answers(g.user).get("website") or (b["website"] if b is not None else "") or "",
                            kit_fonts=[(k, v["name"]) for k, v in textlayer.FONTS.items()],

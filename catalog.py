@@ -163,11 +163,17 @@ class _DisplayTools(dict):
     internal ones (a library still shows in the admin's own Library like any image)."""
 
     def __missing__(self, key):
-        return TOOLS.get(key) or INTERNAL_TOOLS.get(key) or (
+        return TOOLS.get(key) or INTERNAL_TOOLS.get(key) or STORY_TOOL.get(key) or (
             UPSCALE_TOOL if key == "video_upscale" else {"name": key, "kind": "video", "preview": "photo_to_video"})
 
     def __contains__(self, key):
-        return key in TOOLS or key in INTERNAL_TOOLS or key == "video_upscale"
+        return key in TOOLS or key in INTERNAL_TOOLS or key in STORY_TOOL or key == "video_upscale"
+
+
+# A story ad (story_video.py): made in parts by its own pipeline and priced there, so it is not in TOOLS (Create and the
+# price pages never list it); this is only how a Library card names it.
+STORY_TOOL = {"story_video": {"name": "Story ad", "kind": "video", "preview": "photo_to_video", "hidden": True,
+                              "blurb": "A short story told in scenes, with captions and an end card."}}
 
 
 DISPLAY_TOOLS = _DisplayTools()

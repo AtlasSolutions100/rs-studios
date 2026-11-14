@@ -31,7 +31,7 @@ except ImportError:            # imported from outside tests/
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from adfake import fixture
 
-API_HOST, AUTH_HOST = "adsapi.snapchat.com", "accounts.snapchat.com"
+API_HOST, AUTH_HOST, BUSINESS_HOST = "adsapi.snapchat.com", "accounts.snapchat.com", "businessapi.snapchat.com"
 CLIENT_SECRET = "snap-fake-client-secret-31415"
 
 
@@ -130,7 +130,7 @@ class FakeSnap:
         try:
             if u.netloc == AUTH_HOST:
                 return self._oauth(u.path, call["data"])
-            assert u.netloc == API_HOST, u.netloc
+            assert u.netloc == API_HOST or (u.netloc == BUSINESS_HOST and u.path.endswith("/public_profiles")), u.netloc
             user = self._auth(call["headers"])
             return adhttp.Response(200, {}, self._api(method, u.path[len("/v1"):], call, user))
         except Refuse as e:
