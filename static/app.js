@@ -222,20 +222,43 @@
     function pending(){ return [].slice.call(box.querySelectorAll('[data-job]')).filter(function(e){ return /pending|running/.test(e.dataset.status); }).map(function(e){ return e.dataset.job; }); }
     function total(){ return box.querySelectorAll('[data-job]').length; }
     function flash(){ var f = document.querySelector('[data-live-flash]'), n = pending().length; if(!f) return; f.hidden = !n; var t = f.querySelector('[data-live-text]'); if(t) t.textContent = 'Making ' + n + ' of ' + total() + '.'; var dn = document.querySelector('[data-live-done]'); if(dn && !n) dn.hidden = false; }
+    var timer = null;
+    function later(ms){ if(timer) return; timer = setTimeout(function(){ timer = null; poll(); }, ms); }
     function poll(){
       var ids = pending(); if(!ids.length){ flash(); return; }
       fetch(url + '?ctx=' + ctx + '&ids=' + ids.join(','), {headers: {'Accept': 'application/json'}}).then(function(r){ return r.json(); }).then(function(d){
         Object.keys(d.cards || {}).forEach(function(id){ var c = d.cards[id], el = box.querySelector('[data-job="' + id + '"]'); if(!el || c.status === el.dataset.status) return;
           if(!c.html){ el.remove(); return; } var tmp = document.createElement('div'); tmp.innerHTML = c.html; var nw = tmp.firstElementChild; el.replaceWith(nw); players(nw); localTimes(nw); });
-        flash(); if(pending().length) setTimeout(poll, 6000);
-      }).catch(function(){ setTimeout(poll, 15000); });
+        flash(); if(pending().length) later(6000);
+      }).catch(function(){ later(15000); });
     }
     window.cfyRefreshCard = function(id){
       return fetch(url + '?ctx=' + ctx + '&ids=' + id, {headers: {'Accept': 'application/json'}}).then(function(r){ return r.json(); }).then(function(d){
         var c = (d.cards || {})[id], el = box.querySelector('[data-job="' + id + '"]'); if(!c || !el) return null;
         if(!c.html){ el.remove(); return null; } var tmp = document.createElement('div'); tmp.innerHTML = c.html; var nw = tmp.firstElementChild; el.replaceWith(nw); players(nw); localTimes(nw); return nw; });
     };
-    if(pending().length) setTimeout(poll, 6000);
+    if(pending().length) later(6000);
+    window.cfyLivePoll = function(){ if(pending().length) later(6000); };
+  }
+
+  // ---- the Library loads its first cards; the next ones come in as the member nears the end
+  function libMore(){
+    var more = document.querySelector('[data-lib-more]'), box = document.querySelector('[data-live-cards="library"]');
+    if(!more || !box || !('IntersectionObserver' in window) || !window.fetch) return;   // without them: the Show more link
+    var url = more.dataset.libMore, busy = false;
+    var io = new IntersectionObserver(function(es){ if(es.some(function(e){ return e.isIntersecting; })) load(); }, {rootMargin: '900px 0px'});
+    function load(){
+      if(busy || !url) return; busy = true;
+      fetch(url, {credentials: 'same-origin', headers: {'Accept': 'application/json', 'X-Requested-With': 'fetch'}}).then(function(r){ return r.json(); }).then(function(d){
+        var tmp = document.createElement('div'); tmp.innerHTML = d.html || '';
+        var waiting = false;
+        [].slice.call(tmp.children).forEach(function(el){ if(box.querySelector('[data-job="' + el.dataset.job + '"]')) return; box.appendChild(el); players(el); localTimes(el); if(/pending|running/.test(el.dataset.status)) waiting = true; });
+        if(waiting && window.cfyLivePoll) window.cfyLivePoll();
+        url = d.next || ''; busy = false;
+        if(!url){ io.disconnect(); more.remove(); } else { io.unobserve(more); io.observe(more); }   // still in view: load the next too
+      }).catch(function(){ busy = false; });   // the Show more link still works
+    }
+    io.observe(more);
   }
 
   // ---- approve / reject without a reload
@@ -309,6 +332,6 @@
   })();
   function upauto(){ var d = document.querySelector('[data-upgrade-auto]'); if(d) window.cfyUpgrade(); }
 
-  function ready(){ localTimes(); flashes(); players(); liveCards(); [].forEach.call(document.querySelectorAll('[data-verify-open]'), function(b){ b.hidden = !window.CFY_VERIFY; }); vauto(); upauto(); }
+  function ready(){ localTimes(); flashes(); players(); liveCards(); libMore(); [].forEach.call(document.querySelectorAll('[data-verify-open]'), function(b){ b.hidden = !window.CFY_VERIFY; }); vauto(); upauto(); }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready); else ready();
 })();

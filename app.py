@@ -1786,14 +1786,22 @@ LIB_TYPES = {"image": ("ad_image",), "video": ("photo_to_video", "motion_copy"),
 LIB_STATUS = {"done": ("done",), "making": ("pending", "running"), "failed": ("failed",)}
 LIB_WHEN = {"day": 1, "week": 7, "month": 30}       # the Date filter: made in the last N days
 LIB_Q_MAX = 80
+LIB_PAGE = 24          # cards in the first load of the Library; the rest come in as the member scrolls (?before=<id>)
+THUMB_W = 480          # the width of a picture's card thumbnail (/media/<id>?thumb=1), kept beside the full file
 
 
-def _library_jobs(conn, where, args, q):
+def _library_jobs(conn, where, args, q, limit=LIB_PAGE + 1, count=False):
     """The Library's rows, newest first. `q` matches the words of the ad: its brief, and the headline and label kept
-    with the job (where SQLite can read JSON; the brief alone otherwise)."""
+    with the job (where SQLite can read JSON; the brief alone otherwise). `count`: how many match, not the rows."""
+    base = ("SELECT COUNT(*) FROM jobs j WHERE " if count else "SELECT j.* FROM jobs j WHERE ") + " AND ".join(where)
+    tail = "" if count else f" ORDER BY j.id DESC LIMIT {int(limit)}"
+    if count:
+        return _library_jobs_q(conn, base, tail, args, q)[0][0]
+    return _library_jobs_q(conn, base, tail, args, q)
+
+
+def _library_jobs_q(conn, base, tail, args, q):
     import sqlite3
-    base = "SELECT j.* FROM jobs j WHERE " + " AND ".join(where)
-    tail = " ORDER BY j.id DESC LIMIT 200"
     if not q:
         return conn.execute(base + tail, args).fetchall()
     like = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
@@ -1831,6 +1839,7 @@ def library():
     if batch_id:
         where.append("j.batch_id=?")
         args.append(batch_id)
+    before = request.args.get("before", type=int)
     if filters["type"] in LIB_TYPES:
         tools_ = LIB_TYPES[filters["type"]]
         where.append(f"j.tool IN ({','.join('?' * len(tools_))})")
@@ -1845,7 +1854,10 @@ def library():
     elif filters["review"] == "unreviewed":
         where.append("j.status='done' AND NOT EXISTS (SELECT 1 FROM job_reviews r WHERE r.job_id=j.id)")
     with db.connect() as conn:
-        jobs = _library_jobs(conn, where, args, q)
+        total = _library_jobs(conn, where, args, q, count=True)
+        jobs = _library_jobs(conn, where + ["j.id<?"], args + [before], q) if before else _library_jobs(conn, where, args, q)
+        more = len(jobs) > LIB_PAGE
+        jobs = jobs[:LIB_PAGE]
         outs = _outputs(conn, [j["id"] for j in jobs])
         names = {p["id"]: p["name"] for p in products.products(conn, g.ws["id"])}
         tree = products.tree(conn, g.ws)
@@ -1854,13 +1866,18 @@ def library():
         eta = jobs_routes.eta_minutes(conn)
 
     def filter_url(key, val):
-        q = {k: v for k, v in request.args.items() if k not in ("highlight", "pick")}
+        q = {k: v for k, v in request.args.items() if k not in ("highlight", "pick", "before", "part")}
         if val:
             q[key] = val
         else:
             q.pop(key, None)
         return url_for("library", **q)
 
+    next_url = filter_url("before", jobs[-1]["id"]) if more else ""
+    if request.args.get("part") == "1":           # the next cards, as the member scrolls (static/app.js libMore)
+        html = "".join(render_template("_lib_cards.html", jobs=jobs, outs=outs, templates=catalog.TEMPLATE_BY_ID,
+                                       verdicts=verdicts, prices=prices, names=names, eta=eta))
+        return jsonify({"html": html, "next": (next_url + ("&" if "?" in next_url else "?") + "part=1") if more else ""})
     import ui_v2
     chips = [("type", {"label": "Type", "items": [("", "All"), ("talking", "Talking videos"), ("video", "Product videos"),
                                                   ("image", "Image ads")]}),
@@ -1874,7 +1891,29 @@ def library():
     return render_template("library.html", jobs=jobs, outs=outs, templates=catalog.TEMPLATE_BY_ID, q=q,
                            highlight=request.args.get("highlight", type=int), tree=tree, names=names,
                            f_product=pid, f_brand=bid if not pid else None, f_batch=batch_id, filters=filters,
-                           chips=chips, filter_url=filter_url, verdicts=verdicts, prices=prices, eta=eta)
+                           chips=chips, filter_url=filter_url, verdicts=verdicts, prices=prices, eta=eta,
+                           next_url=next_url, before=before, total=total)
+
+
+def _thumb(path: str) -> str | None:
+    """A small webp of a made picture, for its card (made once, kept beside the full file). None when it can't be."""
+    t = f"{path}.w{THUMB_W}.webp"
+    if os.path.exists(t):
+        return t
+    try:
+        from PIL import Image
+        with Image.open(path) as im:
+            if im.width <= THUMB_W:
+                return None
+            im = im.convert("RGBA" if im.mode in ("RGBA", "LA", "P") else "RGB")
+            im.thumbnail((THUMB_W, THUMB_W * 4))
+            tmp = f"{t}.{os.getpid()}.tmp"
+            im.save(tmp, "WEBP", quality=80, method=4)
+        os.replace(tmp, t)
+        return t
+    except Exception:  # noqa: BLE001  (a file PIL can't read is served whole, as before)
+        log.warning("thumbnail failed for %s", os.path.basename(path), exc_info=True)
+        return None
 
 
 @app.route("/api/jobs")
@@ -1902,6 +1941,10 @@ def media(oid):
         if o["path"] and os.path.exists(p):
             return send_file(p, conditional=True, max_age=86400)
         abort(404)
+    if o["path"] and os.path.exists(o["path"]) and request.args.get("thumb") == "1" and o["kind"] != "video":
+        t = _thumb(o["path"])
+        if t:
+            return send_file(t, mimetype="image/webp", conditional=True, max_age=86400)
     if o["path"] and os.path.exists(o["path"]):
         if request.args.get("download") == "1" and not request.headers.get("Range", "").strip().lower().startswith(
                 tuple(f"bytes={d}" for d in "123456789")):   # one row per download, not one per resumed chunk

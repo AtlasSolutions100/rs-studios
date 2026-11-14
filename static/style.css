@@ -1495,3 +1495,4 @@ a.sol-link h3{margin-top:0}
 .cem-code:focus-visible,.cem-link:focus-visible,.cem-change summary:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 /* a product's screen recording on its page (recordings.py) */
 .rec-view{display:block;max-width:100%;width:auto;height:auto;max-height:340px;border-radius:10px;background:#000}
+.lib-more{display:flex;justify-content:center;margin:28px 0 8px}
