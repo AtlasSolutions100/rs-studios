@@ -488,8 +488,9 @@ def offer() -> dict:
                       "when it ends, unless you cancel first.")
         return {"credits": w, "images": w // max(r["image"], 1), "video": False, "ad": False, "card": False,
                 "trial": True, "cta": "Start free",
-                "body": (f"Confirm your email and get {w:,} free credits for your brand setup and image ads. When you "
-                         f"want videos or more, pick a plan. {terms_line}"),
+                # the home page's line under the button (Koby, Nov 13 2026: one short line); the plan step and
+                # Stripe's checkout still show `terms` (when the card is charged) before anything is charged
+                "body": f"No card to start. {TRIAL_DAYS}-day free trial when you're ready.",
                 "terms": terms_line}
     n = trial_credits(plans.PLANS["starter"])
     images = n // max(r["image"], 1)

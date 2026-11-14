@@ -36,7 +36,7 @@
   </div>
   <div class="cfh-copy">
     <h1 id="cfh-h" class="cfh-late">Create converting campaigns with AI</h1>
-    <p class="lv-lede cfh-late" style="--ld:2.5s">Ads, presenter videos, copy, a campaign plan, competitor research, lead pages, forms and contacts, and the follow-up. All from one product link, with the price shown before anything is made.</p>
+    <p class="lv-lede cfh-late" style="--ld:2.5s">Create, analyze and scale your ads with AI, all from one product link.</p>
     <form class="lv-try cfh-late" style="--ld:2.6s" action="{{ url_for('signup') }}" method="get" data-try>
       <label class="sr" for="lv-url">Your product page (optional)</label>
       <div class="lv-try-box">
@@ -67,7 +67,7 @@
 {% macro plan_note(key) -%}{% set f = plans.FEATURES[key] %}<em class="cfk-plan">{{ f.name }}: {{ 'every account' if f.plan == 'free' else plans.PLANS[f.plan].name ~ ' and up' }}</em>{%- endmacro %}
 <section class="lv-sec cfk" id="makes" aria-labelledby="cfk-h">
   <div class="lv-wrap">
-    <h2 id="cfk-h">The link goes in once. This is what comes back out.</h2>
+    <h2 id="cfk-h">One link in. A whole campaign out.</h2>
     <p class="lv-sub">Everything below was made by Campaignify, for made-up brands.</p>
     <div class="cfk-two">
       <nav class="cfk-rail" aria-label="What it makes">
@@ -83,7 +83,7 @@
         <article id="k-ads" data-row="ads" class="cfk-row">
           <div>
             <h3>Image ads with every word spelled right</h3>
-            <p>Your product photo becomes a finished ad. The headline, the price and the callouts are set in real type on top, so nothing comes out garbled.</p>
+            <p>Your product photo becomes a finished ad, with every word set in real type.</p>
             <p class="cfk-fact">{{ home_counts.image_presets }} formats, {{ r.image|credits }} each.</p>
             {{ plan_note('studio') }}
           </div>
@@ -97,7 +97,7 @@
         <article id="k-video" data-row="video" class="cfk-row">
           <div>
             <h3>Presenter videos without a shoot</h3>
-            <p>{{ home_counts.presenters }} AI presenters, each with a few places they film in. Pick one, write what they say, and get a selfie-style video with your product beside them.</p>
+            <p>Pick one of {{ home_counts.presenters }} AI presenters, write the script, and get a selfie-style video with your product.</p>
             <p class="cfk-fact">None of them is a real person. An 8 second video is {{ r.talk8|credits }}.</p>
             {{ plan_note('studio') }}
           </div>
@@ -111,8 +111,8 @@
         <article id="k-formats" data-row="formats" class="cfk-row">
           <div>
             <h3>Try-ons, app demos and unboxings, one click each</h3>
-            <p>Ready-made video formats for what you sell: a presenter wears your clothing, your app's own screen recording plays above a presenter, or two hands open the box and lift your product out.</p>
-            <p class="cfk-fact">{{ home_counts.recipes }} video formats. In an app demo your screens are shown as you recorded them.</p>
+            <p>Ready-made video formats for clothing, apps and anything that ships in a box.</p>
+            <p class="cfk-fact">{{ home_counts.recipes }} video formats, with your real app screens.</p>
             {{ plan_note('studio') }}
           </div>
           {% if format_clips %}
@@ -125,12 +125,12 @@
         <article id="k-copy" data-row="copy" class="cfk-row">
           <div>
             <h3>Copy and a plan, written for your product</h3>
-            <p>Hooks, primary text, captions, headlines and emails in your brand's voice, and a campaign plan that says what to run and when.</p>
+            <p>Hooks, captions and emails in your brand's voice, plus a plan for what to run and when.</p>
             {{ plan_note('copy') }}
             {{ plan_note('planner') }}
           </div>
           <div class="cfk-cards">
-            <div class="cfk-card"><b>Three hooks</b><p>The mug that goes with you</p><p>One mug, not a stack of cups</p><p>Lid gone missing again? This one presses in and stays.</p></div>
+            <div class="cfk-card"><b>Three hooks</b><p>Zero sugar. Full charge.</p><p>Your 3 pm fix, no crash</p><p>Out of energy by lunch? Try this instead.</p></div>
             <div class="cfk-card"><b>The plan</b><p class="dot"><i class="on"></i>Week 1: three image ads, one per hook</p><p class="dot"><i></i>Week 2: a presenter video of the best hook</p><p class="dot"><i></i>Week 3: keep the winner, retire the rest</p></div>
           </div>
         </article>
@@ -138,7 +138,7 @@
         <article id="k-research" data-row="research" class="cfk-row">
           <div>
             <h3>Competitor research before you write a word</h3>
-            <p>Name your closest competitors and get a short brief on what they offer and how they pitch it, each point with its source, so your ads say something different.</p>
+            <p>A short, sourced brief on what your competitors offer and how they pitch it.</p>
             {{ plan_note('competitors') }}
           </div>
           <div class="cfk-cards one">
@@ -149,7 +149,7 @@
         <article id="k-leads" data-row="leads" class="cfk-row">
           <div>
             <h3>A page for the click, and the follow-up after it</h3>
-            <p>Send your ads to a page with a form. Everyone who fills it in lands in your contacts, and the emails you wrote go out on their own.</p>
+            <p>Send clicks to a page with a form, and new contacts get your follow-up emails on their own.</p>
             {{ plan_note('pages') }}
             {{ plan_note('forms') }}
             {{ plan_note('flows') }}
@@ -175,7 +175,7 @@
           <span class="lv-a-prod"><i></i><span><b></b><em></em></span><u>Read</u></span>
         </div>
         <h3>Paste your product page</h3>
-        <p>Campaignify reads the name, the photos and what the page says. Reading it costs nothing, and you approve the claims your ads may make.</p>
+        <p>We read the name, photos and claims for free. You approve what your ads can say.</p>
       </li>
       <li>
         <div class="lv-art" aria-hidden="true">
@@ -184,12 +184,12 @@
           <span class="lv-a-btn">Make {{ 'it' if so.images == 1 else 'them' }}</span>
         </div>
         <h3>See the price first</h3>
-        <p>Pick what to make and write the words. Every ad shows its price in credits, and nothing is made until you confirm it.</p>
+        <p>Every ad shows its price in credits before anything is made.</p>
       </li>
       <li>
         <div class="lv-art tiles" aria-hidden="true"><i class="a4x5"></i><i class="a9x16"></i><i class="a1x1"></i></div>
         <h3>Download finished ads</h3>
-        <p>Image ads take one to three minutes, videos a few more. Each is sized for the feed, for stories or for a listing, and a render that fails is refunded automatically.</p>
+        <p>Ready in minutes, sized for feeds, stories and listings. Failed renders are refunded.</p>
       </li>
     </ol>
   </div>
@@ -199,7 +199,7 @@
   <div class="lv-wrap">
     {% if shots %}
     <h2 id="lv-made">Made in Campaignify</h2>
-    <p class="lv-sub">Image ads and video ads, with a presenter or without.</p>
+    <p class="lv-sub">Image and video ads, with or without a presenter.</p>
     <div class="lv-show" data-showcase="{{ shots|length }}">
       {% for it in shots %}
       <figure class="lv-shot">
@@ -219,7 +219,7 @@
     </script>
     {% else %}
     <h2 id="lv-made">What you get</h2>
-    <p class="lv-sub">Every ad is made from your own product photo, in the shapes the feeds, stories and listings ask for.</p>
+    <p class="lv-sub">Made from your own product photo, in every shape the feeds ask for.</p>
     <div class="lv-show is-empty" data-showcase="0">
       {% for label, aspect in showcase_shapes %}<div class="lv-shot ph"><i class="a{{ aspect|replace(':', 'x') }}"></i><p><b>{{ label }}</b><span>{{ aspect }}</span></p></div>{% endfor %}
     </div>
@@ -240,13 +240,13 @@
       {% endfor %}
     </ul>
   </div>
-  <div class="lv-wrap" id="reps"><p class="lv-reps">Selling as an independent rep? <a href="{{ url_for('for_reps') }}">Compliance checks at every step</a>: income, recruiting and health claims and invented discounts are blocked before an ad goes out.</p></div>
+  <div class="lv-wrap" id="reps"><p class="lv-reps">Selling as an independent rep? <a href="{{ url_for('for_reps') }}">Compliance checks</a> block income, recruiting and health claims before an ad goes out.</p></div>
 </section>
 
 <section class="lv-sec" id="pricing" aria-labelledby="lv-price">
   <div class="lv-wrap">
     <h2 id="lv-price">Pricing</h2>
-    <p class="lv-sub">{% if plans_only() %}Starter and Growth are free for {{ plan_trial_days('starter') }} days. Every plan comes with monthly credits, and credit packs top it up.{% else %}Start free. Buy a credit pack when you only want ads, or pick a plan for monthly credits and the campaign tools.{% endif %}</p>
+    <p class="lv-sub">{% if plans_only() %}Starter and Growth are free for {{ plan_trial_days('starter') }} days, and every plan comes with monthly credits.{% else %}Start free. Buy a credit pack when you only want ads, or pick a plan for monthly credits and the campaign tools.{% endif %}</p>
     {% include "_pricing.html" %}
     <p class="pr-note"><a href="{{ url_for('pricing') }}">Pricing in full</a></p>
   </div>
