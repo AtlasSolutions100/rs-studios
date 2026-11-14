@@ -211,9 +211,9 @@ check("One link in. A whole campaign out." in kb and kb.count('class="cfk-row"')
 check(all(f"{plans.FEATURES[k]['name'].replace('&', '&amp;')}: " in kb for k in ("studio", "copy", "planner", "competitors", "pages", "forms", "flows")),
       "each row says which plan its tools come with, from the billing config")
 rca = re.search(r'<section class="rca".*?</section>', hv, re.S).group(0)
-check(all(f'>{t}</button>' in rca for t in ("Research", "Create", "Analyze")) and rca.count('role="tabpanel"') == 3
-      and "An example for a made-up brand, with demo numbers." in rca,
-      "Research, Create and Analyze: three example chats, labelled as an example with demo numbers")
+check(all(f'>{t}</button>' in rca for t in ("Plan", "Create", "Launch")) and rca.count('role="tabpanel"') == 3
+      and "An example for a made-up brand." in rca,
+      "Plan, Create and Launch: three example chats, labelled as an example")
 nav = re.search(r'<div class="pd" data-pd>.*?</div>\s*</div>\s*</div>', hv, re.S).group(0)
 check("Campaign agent" in nav and all(t in nav for t in ("Competitor research", "Ad studio", "Copy studio", "Landing page builder")),
       "the header's Products menu lists the agent and the tools")

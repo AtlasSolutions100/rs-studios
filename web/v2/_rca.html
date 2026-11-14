@@ -1,36 +1,41 @@
-{# Research, Create, Analyze (Koby, Nov 14 2026): the campaign agent at work in three short example chats, for a
-   made-up brand with demo data. The tabs switch by click or on their own every few seconds until someone clicks. #}
+{# Plan, Create, Launch (Koby, Nov 14 2026): the campaign agent at work in three short example chats, for a
+   made-up brand. The tabs switch by click or on their own every few seconds until someone clicks. #}
 {% set R = r %}
 <section class="rca" aria-labelledby="rca-h">
   <div class="rca-stage">
     <h2 id="rca-h" class="sr">What the campaign agent does</h2>
     <div class="rca-tabs" role="tablist" aria-label="What the agent does">
-      <button type="button" role="tab" id="rca-t1" aria-controls="rca-p1" aria-selected="true" data-rca="1">Research</button>
+      <button type="button" role="tab" id="rca-t1" aria-controls="rca-p1" aria-selected="true" data-rca="1">Plan</button>
       <button type="button" role="tab" id="rca-t2" aria-controls="rca-p2" aria-selected="false" tabindex="-1" data-rca="2">Create</button>
-      <button type="button" role="tab" id="rca-t3" aria-controls="rca-p3" aria-selected="false" tabindex="-1" data-rca="3">Analyze</button>
+      <button type="button" role="tab" id="rca-t3" aria-controls="rca-p3" aria-selected="false" tabindex="-1" data-rca="3">Launch</button>
     </div>
-    <p class="rca-line" data-rca-line>What your competitors pitch, and the angle nobody has taken.</p>
+    <p class="rca-line" data-rca-line>Say what you're launching. It asks what it needs, then prices every part.</p>
     <div class="rca-win">
       <aside class="rca-side" aria-hidden="true">
         <b class="rca-brand"><i></i>Campaign agent</b>
         <span class="rca-nav">+ New chat</span><span class="rca-nav">Search</span>
         <em>Chats</em>
-        <span class="rca-chat on" data-rca-chat="1">Competitor research</span>
-        <span class="rca-chat" data-rca-chat="2">Citrus Volt launch</span>
-        <span class="rca-chat" data-rca-chat="3">Last week's results</span>
+        <span class="rca-chat on" data-rca-chat="1">Launch plan</span>
+        <span class="rca-chat" data-rca-chat="2">Citrus Volt ads</span>
+        <span class="rca-chat" data-rca-chat="3">Going live</span>
       </aside>
 
       <div class="rca-main">
-        <div class="rca-panel" role="tabpanel" id="rca-p1" aria-labelledby="rca-t1" data-line="What your competitors pitch, and the angle nobody has taken.">
-          <p class="rca-title">Competitor research</p>
-          <p class="rca-me">Check what my three closest competitors pitch, then give me five angles to test.</p>
-          <p class="rca-work"><span></span>Read three competitor sites · 14s</p>
+        <div class="rca-panel" role="tabpanel" id="rca-p1" aria-labelledby="rca-t1" data-line="Say what you're launching. It asks what it needs, then prices every part.">
+          <p class="rca-title">Launch plan</p>
+          <p class="rca-me">Plan the launch for Citrus Volt. We want sign-ups before it hits stores.</p>
+          <dl class="rca-qa"><dt>Where will the ads run?</dt><dd>TikTok and Instagram</dd><dt>What should they lead with?</dt><dd>The taste</dd></dl>
+          <p class="rca-work"><span></span>Asked 2 questions, read your brand, priced each part</p>
           <div class="rca-say">
-            <p>All three lead with caffeine and price. Nobody leads with taste, so that's your opening.</p>
-            <div class="rca-kv"><span>What they sell</span><b>Energy drinks, 12-packs, a subscription</b></div>
-            <div class="rca-kv"><span>How they pitch it</span><b>"Max caffeine" and "lowest price per can"</b></div>
-            <div class="rca-kv hi"><span>Where you differ</span><b>Real citrus, zero sugar, tastes like soda</b></div>
-            <ul class="rca-notes"><li><i>Angle</i>The 3 pm slump, without the crash</li><li><i>Angle</i>Tastes like soda, zero sugar</li><li><i>Angle</i>Swap your second coffee</li></ul>
+            <p>Here's the plan. Nothing is made until you say so.</p>
+            <div class="rca-rows">
+              <div><i>Make</i><b>3 image ads</b><span>{{ (3 * R.image)|credits }}</span></div>
+              <div><i>Make</i><b>Presenter video</b><span>{{ R.talk8|credits }}</span></div>
+              <div><i>Write</i><b>Captions for TikTok and Instagram</b><span>Up to 5 credits</span></div>
+              <div><i>Capture</i><b>A page with a sign-up form</b><span>In your plan</span></div>
+              <div><i>Follow up</i><b>Emails to everyone who signs up</b><span>In your plan</span></div>
+            </div>
+            <p class="rca-cta"><span>Make it</span><span>Edit a part</span><span>Add a part</span></p>
           </div>
         </div>
 
@@ -50,13 +55,21 @@
           </div>
         </div>
 
-        <div class="rca-panel" role="tabpanel" id="rca-p3" aria-labelledby="rca-t3" data-line="Which links and pages get the clicks, and what to change next." hidden>
-          <p class="rca-title">Last week's results</p>
-          <p class="rca-me">How did last week's links and landing page do? What should I change?</p>
-          <p class="rca-work"><span></span>Read your smart links, page and form · 9s</p>
+        <div class="rca-panel" role="tabpanel" id="rca-p3" aria-labelledby="rca-t3" data-line="The page, the form, the follow-up and your ad accounts, set up and ready to go live." hidden>
+          <p class="rca-title">Going live</p>
+          <p class="rca-me">Get it live: the page, a form for emails, the follow-up, and the ads ready for Meta and TikTok.</p>
+          <p class="rca-work"><span></span>Set up the page, form, follow-up and link</p>
           <div class="rca-say">
-            <div class="rca-stats"><div><span>Link clicks</span><b>1,284</b></div><div><span>Page views</span><b>912</b></div><div><span>Sign-ups</span><b>87</b></div></div>
-            <ul class="rca-notes"><li><i>Most</i>TikTok sent 58% of the clicks</li><li><i>Fix</i>The page loses people at the form: cut it to two fields</li><li><i>Next</i>Move the presenter video to the top of the page</li></ul>
+            <p>Everything is in place. Last step: upload the ads in each platform's ads manager.</p>
+            <ul class="rca-check">
+              <li class="ok"><b>Sign-up page</b><span>campaignify.ai/p/citrus-volt</span></li>
+              <li class="ok"><b>Form</b><span>Name and email</span></li>
+              <li class="ok"><b>Follow-up</b><span>3 emails over a week</span></li>
+              <li class="ok"><b>Smart link</b><span>Counts clicks from each platform</span></li>
+              <li class="ok"><b>Ad accounts</b><span>Meta and TikTok set up, pixel on the page</span></li>
+              <li><b>Ads</b><span>4 ads sized for each, ready to upload</span></li>
+            </ul>
+            <p class="rca-cta"><span>Download the ads</span><span>Preview the page</span></p>
           </div>
         </div>
         <p class="rca-input" aria-hidden="true">Ask for anything in your campaign<span>→</span></p>
@@ -64,12 +77,12 @@
 
       <aside class="rca-board" aria-hidden="true">
         <em>Board</em>
-        <div data-rca-board="1"><span class="rca-file">Competitor snapshot<i>Report</i></span><span class="rca-file">Five angles to test<i>Plan</i></span></div>
+        <div data-rca-board="1"><span class="rca-file">Launch plan<i>5 parts</i></span><span class="rca-file">Brand<i>Citrus Volt</i></span></div>
         <div data-rca-board="2" hidden><span class="rca-file">4 ads<i>Library</i></span><span class="rca-file">Captions<i>Copy</i></span><span class="rca-file">Launch page<i>Draft</i></span></div>
-        <div data-rca-board="3" hidden><span class="rca-file">Weekly results<i>Report</i></span><span class="rca-file">Page fixes<i>To do</i></span></div>
+        <div data-rca-board="3" hidden><span class="rca-file">Sign-up page<i>Live</i></span><span class="rca-file">Follow-up<i>On</i></span><span class="rca-file">Smart link<i>Tracking</i></span></div>
       </aside>
     </div>
-    <p class="rca-foot">An example for a made-up brand, with demo numbers.</p>
+    <p class="rca-foot">An example for a made-up brand.</p>
   </div>
 </section>
 <script>

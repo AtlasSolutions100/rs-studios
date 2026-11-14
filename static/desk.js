@@ -54,7 +54,7 @@
   function working(lines){
     if(!work) return function(){};
     work.hidden = false;
-    work.innerHTML = '<p class="dk-work-h">Working on it</p><ol>' + lines.map(function(l){ return '<li>' + esc(l) + '</li>'; }).join('') + '</ol>';
+    work.innerHTML = '<p class="dk-work-h">Working on it</p><ol>' + lines.map(function(l){ return '<li><span class="spinner sm"></span>' + esc(l) + '</li>'; }).join('') + '</ol>';
     var items = $$('li', work), i = 0, t;
     function tick(){ items.forEach(function(li, j){ li.className = j < i ? 'done' : (j === i ? 'now' : ''); }); }
     tick();
@@ -65,7 +65,7 @@
     root.classList.add('dk-asking');
     if(form) form.hidden = true;
     clar.hidden = false;
-    clar.innerHTML = '<p class="dk-said">' + esc(text) + '</p><p class="dk-think" role="status"><span></span>Reading your request</p>';
+    clar.innerHTML = '<p class="dk-said">' + esc(text) + '</p><p class="dk-think" role="status"><span class="spinner sm"></span>Reading your request</p>';
     post(B.urls.clarify, {ask: text, product: B.product}).then(function(r){
       if(r.error){ busy = false; show_form(); say(r.error); return; }
       if(!(r.questions || []).length){ send(text, []); return; }

@@ -184,7 +184,7 @@ html[data-ui="v2"]:not([data-theme="dark"]) .cfh-shoot{height:2.5px;width:160px;
 html[data-ui="v2"]:not([data-theme="dark"]) .cfh-sh1{animation-duration:9s;animation-delay:3s}
 html[data-ui="v2"]:not([data-theme="dark"]) .cfh-sh2{animation-duration:12s;animation-delay:6.5s}
 
-/* Research, Create, Analyze (web/v2/_rca.html): a dark stage with the agent's window on it. The window keeps its own
+/* Plan, Create, Launch (web/v2/_rca.html): a dark stage with the agent's window on it. The window keeps its own
    light colours in both themes, like a screenshot of the app. */
 .rca{padding:var(--s7) 16px var(--s5)}
 .rca-stage{max-width:1180px;margin:0 auto;padding:44px clamp(16px,4vw,56px) 28px;border-radius:24px;color:#F4F5EF;
@@ -240,3 +240,20 @@ html[data-ui="v2"]:not([data-theme="dark"]) .cfh-sh2{animation-duration:12s;anim
 @media (max-width: 560px){.rca-ads{grid-template-columns:repeat(2,1fr)}.rca-kv{grid-template-columns:1fr;gap:2px}.rca-stats b{font-size:18px}.rca-me{max-width:92%}}
 .rca .rca-panel{border:0;margin:0;padding:0;background:none}
 .rca-ads img{height:auto}
+.rca-qa{display:grid;grid-template-columns:auto auto;gap:3px 14px;width:fit-content;margin:-6px 0 14px auto;padding:8px 12px;border-radius:12px;background:#F7F7F5;font-size:12.5px}
+.rca-qa dt{color:#8A8A87}
+.rca-qa dd{margin:0;font-weight:600}
+.rca-rows{border:1px solid #ECECEA;border-radius:12px;margin-bottom:12px;overflow:hidden}
+.rca-rows div{display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 12px;font-size:13px}
+.rca-rows div+div{border-top:1px solid #ECECEA}
+.rca-rows i{font-style:normal;font-size:11.5px;font-weight:600;color:#4E7F00}
+.rca-rows span{color:#585856;font-size:12.5px;white-space:nowrap}
+.rca-check{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:6px}
+.rca-check li{display:grid;grid-template-columns:18px 120px minmax(0,1fr);gap:10px;align-items:center;padding:8px 12px;border:1px solid #ECECEA;border-radius:10px;font-size:13px}
+.rca-check li::before{content:"";width:16px;height:16px;border-radius:50%;border:2px solid #D6D6D2}
+.rca-check li.ok::before{border-color:#7AC70C;background:#7AC70C url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E") center/10px no-repeat}
+.rca-check li:not(.ok){border-color:rgba(122,199,12,.5);background:rgba(189,250,37,.12)}
+.rca-check span{color:#585856;overflow-wrap:anywhere}
+.rca-panel.go .rca-qa{animation:rca-in .35s .2s both}
+@media (prefers-reduced-motion: reduce){.rca-panel.go .rca-qa{animation:none}}
+@media (max-width: 560px){.rca-rows div{grid-template-columns:minmax(0,1fr) auto}.rca-rows i{display:none}.rca-check li{grid-template-columns:18px minmax(0,1fr)}.rca-check span{grid-column:2}}
