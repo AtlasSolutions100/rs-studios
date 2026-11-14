@@ -671,7 +671,7 @@ def generate_parts(parts, d, title, extra):
     if q["short"]:
         import plan_gate
         if plan_gate.upgrade_instead(g.ws):       # no plan yet: the upgrade box, not a pack
-            return jsonify({"error": plan_gate.short_message(q["total"], q["balance"]), "plan_required": True,
+            return jsonify({"error": plan_gate.short_message(q["total"], q["balance"], g.ws), "plan_required": True,
                             "url": url_for("plangate.page")}), 402
         return jsonify({"error": f"That needs {q['total']:,} credits and you have {q['balance']:,}. Pick fewer or top up "
                                  "on Billing.", "billing": url_for("billing_page"), "pack": q["pack"]}), 402

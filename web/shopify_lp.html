@@ -1,0 +1,88 @@
+{% extends "public_base.html" %}
+{# /shopify: the one-promise page paid ads for Shopify stores land on (Koby, Nov 14 2026: lead with Shopify/ecom for
+   30 days, keep it simple). One promise, one box, one button. The pasted link rides to sign-up (?url=, kept by
+   signup for the onboarding steps, onboarding.pasted_link). noindex: the search page for the same topic is
+   /ai-product-ads-for-shopify. Every number comes from rates(), signup_offer(), plans or the trial helpers. #}
+{% import "_price.html" as price %}
+{% set r = rates() %}{% set so = signup_offer() %}{% set st = plans.PLANS['starter'] %}{% set sale = plans.sale(st) %}
+{% block robots %}<meta name="robots" content="noindex, follow">{% endblock %}
+{% block pubhead %}
+<style>
+.lp-nav .lp-links{display:none}   /* one page, one action: no menu to wander off into (logo, Log in and Start stay) */
+.sh-hero{padding:72px 0 40px;text-align:center}
+.sh-hero h1{font-size:clamp(36px,5.4vw,64px);line-height:1.04;letter-spacing:-.03em;margin:0 auto 18px;max-width:16ch}
+.sh-hero .lp-lede{margin:0 auto 28px;max-width:52ch}
+.sh-box{display:flex;gap:8px;max-width:620px;margin:0 auto;padding:8px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+.sh-box input{flex:1;min-width:0;border:0;background:transparent;font:500 17px var(--body);color:var(--ink);padding:10px 12px}
+.sh-box input:focus{outline:none}
+.sh-box:focus-within{box-shadow:0 0 0 3px rgba(var(--accent-rgb),.28)}
+.sh-terms{margin:14px auto 0;max-width:60ch;color:var(--muted);font-size:14px}
+.sh-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:960px;margin:0 auto}
+.sh-step{border:1px solid var(--line);border-radius:var(--r);background:var(--card);padding:18px}
+.sh-step b{display:block;font-size:17px;margin-bottom:6px}
+.sh-step span{color:var(--muted);font-size:15px}
+.sh-ads{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;max-width:1080px;margin:0 auto}
+.sh-ads img{width:100%;aspect-ratio:9/16;object-fit:cover;border-radius:12px;border:1px solid var(--line);background:var(--panel)}
+.sh-note{text-align:center;color:var(--muted);font-size:13px;margin:12px auto 0;max-width:70ch}
+.sh-price{max-width:560px;margin:0 auto;text-align:center;border:1px solid var(--line);border-radius:var(--r);background:var(--card);padding:26px 22px}
+.sh-price .amt b{font-size:44px;letter-spacing:-.02em}
+.sh-price .amt span{color:var(--muted)}
+.sh-price p{margin:10px 0 0}
+.sh-sec{padding:28px 0 36px}
+.sh-sec h2{text-align:center;font-size:clamp(24px,3vw,34px);margin:0 0 20px}
+@media (max-width:760px){.sh-steps{grid-template-columns:1fr}.sh-ads{grid-template-columns:repeat(3,1fr)}.sh-box{flex-direction:column}.sh-box .btn{width:100%}}
+</style>
+{% endblock %}
+{% block main %}
+<section class="sh-hero">
+  <div class="lp-wrap">
+    <p class="eyebrow">For Shopify stores</p>
+    <h1>Paste your product link. Get ads you can run today.</h1>
+    <p class="lp-lede">Campaignify reads your product page, photos and price, then makes image ads and short product videos for Meta, TikTok and Google. You see the price of each ad before anything is made.</p>
+    <form action="{{ url_for('signup') }}" method="get" data-try>
+      <label class="sr" for="sh-url">Your Shopify product link</label>
+      <div class="sh-box">
+        <input id="sh-url" name="url" type="text" inputmode="url" autocomplete="url" maxlength="300" placeholder="yourstore.com/products/your-product" required>
+        {% for k in ('utm_source', 'utm_medium', 'utm_campaign', 'utm_content') %}{% if request.args.get(k) %}<input type="hidden" name="{{ k }}" value="{{ request.args.get(k)[:80] }}">{% endif %}{% endfor %}
+        <button class="btn lg" data-cta="shopify-hero">Make my ads</button>
+      </div>
+    </form>
+    <p class="sh-terms">{{ so.body }}</p>
+  </div>
+</section>
+
+<section class="sh-sec">
+  <div class="lp-wrap">
+    <div class="sh-steps">
+      <div class="sh-step"><b>1. Paste the link</b><span>No app to install and no store access. We read the public product page.</span></div>
+      <div class="sh-step"><b>2. Check what we read</b><span>Name, photos and claims wait for your OK. Nothing is made yet.</span></div>
+      <div class="sh-step"><b>3. Download your ads</b><span>Image ad {{ r.image }} credits, 5-second product video {{ r.video5 }}. Sized for each platform.</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="sh-sec">
+  <div class="lp-wrap">
+    <h2>Ads made in Campaignify</h2>
+    <div class="sh-ads">
+      {% for f in ('pop-sneaker', 'pop-serum-ugc', 'pop-headphones', 'pop-hotsauce', 'pop-sunscreen', 'pop-energy') %}
+      <img src="{{ url_for('static', filename='hero/' ~ f ~ '.webp') }}" alt="An example ad made in Campaignify" loading="lazy">
+      {% endfor %}
+    </div>
+    <p class="sh-note">Examples made from sample products, not customer results. Your ads are made from your own photos; check every ad before you post it.</p>
+  </div>
+</section>
+
+<section class="sh-sec">
+  <div class="lp-wrap">
+    <div class="sh-price">
+      <p class="amt">Starter <b>${{ st.usd }}</b><span> a month</span></p>
+      {% if sale %}<p><b>Goes to ${{ sale.next }} by {{ sale.by }}, sooner if we fill up.</b></p>{% endif %}
+      <p class="muted small">{{ '{:,}'.format(st.credits) }} credits a month.{% if plans_only() %} {{ plan_trial_days('starter') }}-day free trial with full access; cancel before it ends and nothing is charged.{% endif %}</p>
+      {{ price.refund('muted small') }}
+      <p style="margin-top:18px"><a class="btn lg" href="#sh-url" data-cta="shopify-price">Paste your link</a></p>
+      <p class="small"><a href="{{ url_for('pricing') }}">All plans</a></p>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -151,8 +151,12 @@ name: Deploy Campaignify (campaignify.ai)
 #   RS_PLAN_PAYWALL        out-of-credits free plan and lock (plan_paywall.py), default off; set 1 to turn on
 #   PLANS_ONLY             no free tier (plan_gate.py): a sign-up picks a plan with a card, Starter and Growth start with a
 #                          3-day trial, Scale is charged at once, packs top up a plan. On here unless the variable says 0
-#   PLAN_SALE              show each plan's price next to the price it is going to, struck through, with the percent off
+#   PLAN_SALE              under each plan's price, a dated line: "Goes to $79 by Dec 31, sooner if we fill up"
 #                          (plans.sale). Display only. On here unless the variable says 0
+#   PLAN_SALE_BY           the date that line names, ISO (default 2026-12-31); past it the line disappears by itself
+#   TRIAL_TEST             7-day vs 3-day trial test (plan_gate.trial_len): even workspace ids get 7 days. Default off
+#   REFUND_PROMISE         "Not happy after your first charge? Email us within 7 days..." on pricing, the plan step,
+#                          Stripe's checkout and the terms (plan_gate.refund_line). Default off; refunds are by hand
 #   DONE_FOR_YOU_EMAIL     who gets a done-for-you request (tools_page.py), as an address or "Name <address>". No
 #                          default here or in the code (no owner address in the source); unset, requests go to the
 #                          site's contact address
@@ -365,6 +369,9 @@ jobs:
           RS_PLAN_PAYWALL: ${{ vars.RS_PLAN_PAYWALL }}
           PLANS_ONLY: ${{ vars.PLANS_ONLY || '1' }}
           PLAN_SALE: ${{ vars.PLAN_SALE || '1' }}
+          PLAN_SALE_BY: ${{ vars.PLAN_SALE_BY }}
+          TRIAL_TEST: ${{ vars.TRIAL_TEST }}
+          REFUND_PROMISE: ${{ vars.REFUND_PROMISE }}
           DONE_FOR_YOU_EMAIL: ${{ vars.DONE_FOR_YOU_EMAIL }}
           RS_CARD_STARTS_PER_HOUR: ${{ vars.RS_CARD_STARTS_PER_HOUR }}
           RS_STORAGE_PURGE_DELETED: ${{ vars.RS_STORAGE_PURGE_DELETED }}
@@ -453,6 +460,7 @@ jobs:
                                              "RS_LOGIN_HARDENING", "RS_SIGNUP_CONFIRM", "RS_NEXT_STEPS", "RS_STORAGE_QUOTAS",
                                              "RS_JOB_CANCEL", "RS_STORAGE_PURGE_DELETED", "RS_SERVICE_PATH", "OPS_ALERTS", "BACKUPS",
                                              "RS_CARD_REQUIRED", "RS_PLAN_PAYWALL", "RS_CARD_STARTS_PER_HOUR", "PLANS_ONLY", "PLAN_SALE",
+                                             "PLAN_SALE_BY", "TRIAL_TEST", "REFUND_PROMISE",
                                              "DONE_FOR_YOU_EMAIL",
                                              "BACKUP_MEDIA", "RS_DISK_MIN_GB", "RS_HEALTH_WORKER_MAX_AGE", "RS_LAUNCH_KIT", "UI_V2", "HOME_V2", "HOOK_TOOL", "HOOK_TOOL_DAILY_MAX",
                                              "TEXT_LAYERS", "CLAIMS_CHECK", "IMAGE_QA", "IMAGE_QA_DAILY_MAX", "IMAGE_QA_MODEL", "FREE_FIX",

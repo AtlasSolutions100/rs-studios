@@ -76,8 +76,8 @@ def page():
                 and not first_ads.used_elsewhere(conn, g.ws, g.user))
     terms = {code: plan_gate.terms(code, days) for code, days in trials.items()}
     return render_template("plan_pick.html", trials=trials, terms=terms, new=not made, owner=is_owner(),
-                           any_trial=any(trials.values()), days=plan_gate.TRIAL_DAYS,
-                           trial_line=plan_gate.timeline(None, None), gift=gift,
+                           any_trial=any(trials.values()), days=plan_gate.trial_len(g.ws),
+                           trial_line=plan_gate.timeline(None, None, days=plan_gate.trial_len(g.ws)), gift=gift,
                            canceled=request.args.get("canceled") == "1", checkout_open=billing.configured(),
                            welcome=welcome, skip_url=url_for("studio") if welcome else None)
 

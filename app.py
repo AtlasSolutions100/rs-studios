@@ -142,9 +142,13 @@ app.jinja_env.globals.update(csrf_token=csrf_token, tools=catalog.DISPLAY_TOOLS,
                              comp_until_text=compcodes.free_until_text,
                              # PLANS_ONLY (plan_gate.py): no free tier; Starter and Growth start with a trial
                              plans_only=plan_gate.on, trial_credits=plan_gate.trial_credits,
-                             plan_trial_days=lambda code: plan_gate.TRIAL_DAYS if plan_gate.offers_trial(code) else 0,
-                             start_cta=lambda: f"Try it free for {plan_gate.TRIAL_DAYS} days"
-                             if plan_gate.on() and not plan_gate.welcome_credits() else "Start free")
+                             # the trial length this visitor would get (TRIAL_TEST: their workspace's arm; logged
+                             # out, the standard TRIAL_DAYS)
+                             plan_trial_days=lambda code: plan_gate.trial_len(getattr(g, "ws", None))
+                             if plan_gate.offers_trial(code) else 0,
+                             start_cta=lambda: f"Try it free for {plan_gate.trial_len(getattr(g, 'ws', None))} days"
+                             if plan_gate.on() and not plan_gate.welcome_credits() else "Start free",
+                             refund_line=plan_gate.refund_line)
 
 # Sidebar: (endpoint, label, icon, feature or None, endpoints that light it up),
 # in groups (title or None, items). NAV is the flat list.
@@ -734,6 +738,13 @@ def features():
     return render_template("features.html", feature_details=FEATURE_DETAILS, journey=JOURNEY)
 
 
+@app.route("/shopify")
+def shopify_lp():
+    """The one-promise page Shopify ads land on (web/shopify_lp.html; noindex, the search page is
+    /ai-product-ads-for-shopify). Its box sends the product link to sign-up."""
+    return render_template("shopify_lp.html")
+
+
 @app.route("/for-reps")
 def for_reps():
     """The compliance block for independent reps (the For reps nav link), off the home page's default path."""
@@ -997,6 +1008,11 @@ def signup():
     owner = owners.owner_email(code)
 
     comp = ((request.form.get("comp_code") if request.method == "POST" else request.args.get("code")) or "").strip()[:40]
+    if request.method == "GET" and request.args.get("url"):
+        # The product link pasted on the home page or /shopify: kept for the onboarding's website and brief steps,
+        # so nobody pastes it twice (onboarding.pasted_link).
+        import onboarding as _ob
+        session["try_url"] = _ob.clean_website(request.args.get("url"))
 
     def again(msg, status=200):
         flash(msg)
@@ -2129,7 +2145,7 @@ def billing_page():
     elif request.args.get("checkout") == "cancel":
         flash("Checkout canceled. Nothing was charged.")
     elif request.args.get("plan") == "success" and request.args.get("trial"):
-        flash(f"Your {plan_gate.TRIAL_DAYS}-day trial has started. Your plan and its trial credits switch on in a "
+        flash(f"Your {plan_gate.trial_len(g.ws)}-day trial has started. Your plan and its trial credits switch on in a "
               "few seconds; refresh if they haven't yet.")
     elif request.args.get("plan") == "success":
         flash("You're subscribed, thank you. Your plan and its monthly credits switch on in a few seconds; "

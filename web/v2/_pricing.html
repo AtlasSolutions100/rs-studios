@@ -43,7 +43,7 @@
   {% endfor %}
 </div>
 {% if not open %}<p class="pr-note">Plan and pack checkout isn't switched on yet. Start free now; your credits carry over.</p>{% endif %}
-<p class="pr-note">{% if po %}Starter and Growth include a {{ plan_trial_days('starter') }}-day free trial with full access. Your card is charged the plan's price when the trial ends unless you cancel first, and you carry on with that month's credits. Scale has no trial and is charged at once. {% else %}No trial that bills you: nothing is charged until you pick a plan or buy a pack. {% endif %}Cancel any month; the plan runs to the end of the month you paid for. Plan credits reset monthly and are spent before pack credits. Failed generations are refunded automatically.</p>
+<p class="pr-note">{% if po %}Starter and Growth include a {{ plan_trial_days('starter') }}-day free trial with full access. Your card is charged the plan's price when the trial ends unless you cancel first, and you carry on with that month's credits. Scale has no trial and is charged at once. {% else %}No trial that bills you: nothing is charged until you pick a plan or buy a pack. {% endif %}Cancel any month; the plan runs to the end of the month you paid for. Plan credits reset monthly and are spent before pack credits. Failed generations are refunded automatically.{% if refund_line() %} {{ refund_line() }}{% endif %}</p>
 
 <h3 class="pr-h3" id="packs">Credit packs</h3>
 <p class="pr-sub">{{ 'One-time top-ups for any plan.' if po else 'One-time top-ups, on any plan or none.' }} They never expire.</p>

@@ -60,13 +60,31 @@ def sale_on() -> bool:
     return (os.environ.get("PLAN_SALE") or "").strip().lower() in ("1", "on", "true", "yes")
 
 
-def sale(p) -> dict | None:
-    """{"next": 79, "off": 50} for a plan whose price is going up, while PLAN_SALE is on; else None. The percent
-    is rounded down, so the tag never says more than the difference."""
+SALE_BY_DEFAULT = "2026-12-31"      # Koby, Nov 14 2026: the increase is real, by the end of the year at the latest
+
+
+def sale_by() -> datetime | None:
+    """PLAN_SALE_BY (an ISO date, default SALE_BY_DEFAULT): the date the prices go up by. The price line names it
+    ("Goes to $79 by Dec 31"), so the urgency is a real, dated one rather than an undated strike-through. Past
+    that date the line disappears by itself (sale() is None), so it can never go stale on the page."""
+    raw = (os.environ.get("PLAN_SALE_BY") or "").strip() or SALE_BY_DEFAULT
+    try:
+        d = datetime.fromisoformat(raw[:10])
+    except ValueError:
+        d = datetime.fromisoformat(SALE_BY_DEFAULT)
+    return d.replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+
+
+def sale(p, now: datetime | None = None) -> dict | None:
+    """{"next": 79, "off": 50, "by": "Dec 31"} for a plan whose price is going up, while PLAN_SALE is on and the
+    date has not passed; else None. The percent is rounded down, so it never says more than the difference."""
     nxt = (p or {}).get("next_usd")
     if not sale_on() or not nxt or nxt <= p["usd"]:
         return None
-    return {"next": nxt, "off": (nxt - p["usd"]) * 100 // nxt}
+    by = sale_by()
+    if (now or datetime.now(timezone.utc)) > by:
+        return None
+    return {"next": nxt, "off": (nxt - p["usd"]) * 100 // nxt, "by": f"{by:%b} {by.day}"}
 
 # Subscription states Stripe still bills. They keep the plan on, except that
 # past_due (the renewal payment failed, Stripe is retrying) pauses the

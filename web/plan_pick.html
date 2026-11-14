@@ -43,6 +43,7 @@
   {% if not owner %}<p class="pk-fine">Ask your workspace owner to pick a plan. You can keep making ads as soon as it's on.</p>{% endif %}
   {% if any_trial %}{{ price.trial_line(trial_line) }}
   {% else %}<p class="pk-fine" data-plan-how>Charged today on Stripe's secure page. Cancel any time from Billing.</p>{% endif %}
+  {{ price.refund('pk-fine') }}
   <p class="pk-under">{% if not new %}<a href="{{ url_for('library') }}">Go to your library</a>{% endif %}<a href="{{ url_for('billing_page') }}#code">Have a code?</a></p>
 </div>
 {% endblock %}

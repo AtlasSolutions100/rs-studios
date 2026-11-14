@@ -52,6 +52,8 @@ import plans
 import preview
 
 TRIAL_DAYS = 3
+TRIAL_TEST_DAYS = 7         # the longer arm of the trial-length test (TRIAL_TEST; Koby, Nov 14 2026)
+REFUND_DAYS = 7             # the first-charge refund window (REFUND_PROMISE; Koby, Nov 14 2026)
 TRIAL_PLANS = ("starter", "growth")
 TRIAL_PERCENT = 100         # of the plan's monthly credits, granted when the trial starts: full access
 REMINDER_HOURS = 24         # the reminder email goes out about this long before a trial's first charge
@@ -73,6 +75,38 @@ def on() -> bool:
         return False
     import billing
     return billing.configured()
+
+
+def trial_test_on() -> bool:
+    """TRIAL_TEST (default off): the 7-day vs 3-day trial test. Half the new workspaces (even ids) get a
+    TRIAL_TEST_DAYS trial, the rest keep TRIAL_DAYS. The length each trial started with goes on the Stripe
+    subscription (metadata trial_days), so trial-to-paid can be compared by arm. Pages a logged-out visitor sees
+    keep saying TRIAL_DAYS: the 7-day arm is told its own length on the plan step, at Stripe's checkout, in the
+    reminder email and on Billing, so nobody is ever charged sooner than they were told."""
+    return (os.environ.get("TRIAL_TEST") or "").strip().lower() in ("1", "on", "true", "yes")
+
+
+def trial_len(ws=None) -> int:
+    """The trial length for this workspace: TRIAL_TEST_DAYS for the test's 7-day arm, else TRIAL_DAYS. With no
+    workspace (a logged-out page) it is TRIAL_DAYS."""
+    wid = _key(ws, "id") if ws is not None and hasattr(ws, "keys") else None
+    if trial_test_on() and wid is not None and int(wid) % 2 == 0:
+        return TRIAL_TEST_DAYS
+    return TRIAL_DAYS
+
+
+def refund_on() -> bool:
+    """REFUND_PROMISE (default off): the first-charge refund promise on pricing, the plan step, Stripe's checkout
+    and the terms. Refunds are made by hand from Stripe while volume is small."""
+    return (os.environ.get("REFUND_PROMISE") or "").strip().lower() in ("1", "on", "true", "yes")
+
+
+def refund_line() -> str:
+    """The refund promise in one sentence, or "" while REFUND_PROMISE is off."""
+    if not refund_on():
+        return ""
+    return (f"Not happy after your first charge? Email us within {REFUND_DAYS} days of it for a full refund of "
+            "that payment.")
 
 
 def welcome_credits() -> int:
@@ -120,7 +154,7 @@ def trial_days(conn, ws, user, code: str) -> int:
     already on a plan, comp or code, or the flag off)."""
     if not offers_trial(code) or ws is None or plans.plan_code(ws) != "free":
         return 0
-    return 0 if had_trial(conn, ws, user) else TRIAL_DAYS
+    return 0 if had_trial(conn, ws, user) else trial_len(ws)
 
 
 def exempt(conn, ws, user=None) -> bool:
@@ -197,6 +231,11 @@ SPENT_MESSAGE = (f"You've used your free credits. Pick a plan to keep going: Sta
                  f"{TRIAL_DAYS}-day free trial.")
 
 
+def spent_message(ws=None) -> str:
+    """SPENT_MESSAGE with this workspace's trial length (trial_len)."""
+    return SPENT_MESSAGE.replace(f"{TRIAL_DAYS}-day", f"{trial_len(ws)}-day")
+
+
 def welcome_spent(ws):
     """Raise PlanRequired (SPENT_MESSAGE) where a spend was refused for want of credits on a workspace that is on
     its welcome credits: the next step is a plan, not a credit pack (packs need a plan)."""
@@ -204,7 +243,7 @@ def welcome_spent(ws):
         return
     with db.connect() as conn:
         if on_welcome(conn, ws):
-            raise PlanRequired(SPENT_MESSAGE)
+            raise PlanRequired(spent_message(ws))
 
 
 def upgrade_instead(ws) -> bool:
@@ -212,9 +251,9 @@ def upgrade_instead(ws) -> bool:
     return on() and ws is not None and plans.plan_code(ws) == "free"
 
 
-def short_message(total: int, balance: int) -> str:
+def short_message(total: int, balance: int, ws=None) -> str:
     return (f"That needs {total:,} credits and you have {balance:,}. Pick a plan to keep going: Starter and Growth "
-            f"start with a {TRIAL_DAYS}-day free trial.")
+            f"start with a {trial_len(ws)}-day free trial.")
 
 
 def needs_plan(conn, ws, user=None) -> bool:
@@ -312,7 +351,8 @@ def trial_view(ws) -> dict | None:
             "canceling": bool(_key(ws, "plan_cancel_at_period_end"))}
 
 
-def timeline(start_iso: str | None, end_iso: str | None, usd=None, *, canceling: bool = False) -> list[dict]:
+def timeline(start_iso: str | None, end_iso: str | None, usd=None, *, canceling: bool = False,
+             days: int | None = None) -> list[dict]:
     """The trial as three dots (trial_line in web/_price.html): the start ($0, full access), the reminder email
     about a day before it ends (run_reminders), and the charge. With no dates it is the picture before checkout:
     today, then TRIAL_DAYS from now. Each step: {"label" or "iso", "amount", "what", "now"}. The reminder is only
@@ -322,9 +362,9 @@ def timeline(start_iso: str | None, end_iso: str | None, usd=None, *, canceling:
     before = not start_iso
     try:
         start = now if before else datetime.fromisoformat(start_iso)
-        end = datetime.fromisoformat(end_iso) if end_iso else start + timedelta(days=TRIAL_DAYS)
+        end = datetime.fromisoformat(end_iso) if end_iso else start + timedelta(days=days or TRIAL_DAYS)
     except ValueError:
-        start, end = now, now + timedelta(days=TRIAL_DAYS)
+        start, end = now, now + timedelta(days=days or TRIAL_DAYS)
     day_before = (end - timedelta(hours=REMINDER_HOURS)).isoformat()
     first = {"label": "Today" if before else None, "iso": start.isoformat(), "amount": "$0", "what": "Full access",
              "now": True}
@@ -361,12 +401,12 @@ def reminders_due(conn, now=None) -> list:
         "AND COALESCE(w.plan_cancel_at_period_end, 0)=0 ORDER BY t.ends_at", (lo, hi)).fetchall()
 
 
-def reminder_copy(plan: dict, hours: int, billing_url: str) -> tuple[str, str, str]:
+def reminder_copy(plan: dict, hours: int, billing_url: str, days: int = TRIAL_DAYS) -> tuple[str, str, str]:
     """(subject, text, html) of the reminder: what is charged, when, and how to cancel first."""
     usd, name = plan["usd"], plan["name"]
     when = f"about {hours} hour{'' if hours == 1 else 's'}"
     subject = f"Your Campaignify trial ends in {when}"
-    lines = [f"Your {TRIAL_DAYS}-day free trial of Campaignify {name} ends in {when}.",
+    lines = [f"Your {days}-day free trial of Campaignify {name} ends in {when}.",
              f"When it does, your card is charged ${usd} for the first month, and ${usd} each month after that until "
              f"you cancel. You carry on with the credits you have now.",
              "To keep your plan, there is nothing to do.",
@@ -401,7 +441,13 @@ def remind(conn, trial, now=None) -> bool:
     if p is None or user is None or "@" not in (user["email"] or ""):
         return False
     hours = max(1, round((datetime.fromisoformat(trial["ends_at"]) - now).total_seconds() / 3600))
-    subject, text, html = reminder_copy(p, hours, verify.public_url() + "/app/billing")
+    days = TRIAL_DAYS
+    try:        # the length this trial really ran (the 7-day arm of TRIAL_TEST says 7)
+        span = datetime.fromisoformat(trial["ends_at"]) - datetime.fromisoformat(trial["started_at"])
+        days = max(1, round(span.total_seconds() / 86400))
+    except (TypeError, ValueError, KeyError, IndexError):
+        pass
+    subject, text, html = reminder_copy(p, hours, verify.public_url() + "/app/billing", days)
     try:
         mailer.send(frm=verify.from_address(), to=user["email"], subject=subject, html=html, text=text,
                     reply_to=verify.reply_to(), tags={"kind": "trial_reminder"},
@@ -458,8 +504,10 @@ def offer() -> dict:
 def checkout_note(code: str, days: int) -> str:
     """The line under the button on Stripe's page (custom_text.submit.message)."""
     p = plans.PLANS[code]
+    refund = (" " + refund_line()) if refund_on() else ""
     if days:
         return (f"{days} days free with full access. Then ${p['usd']} a month with {int(p['credits']):,} credits a "
                 f"month, until you cancel. Cancel any time in Billing; cancel before the trial ends and nothing "
-                f"is charged.")
-    return f"${p['usd']} a month with {int(p['credits']):,} credits a month, until you cancel. Cancel any time in Billing."
+                f"is charged.{refund}")
+    return (f"${p['usd']} a month with {int(p['credits']):,} credits a month, until you cancel. Cancel any time in "
+            f"Billing.{refund}")

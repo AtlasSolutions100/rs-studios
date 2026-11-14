@@ -32,7 +32,7 @@ tone and about). Angles are rows in `angles`, the same ones Create offers.
 """
 import json
 
-from flask import Blueprint, g, redirect, render_template, request, url_for
+from flask import Blueprint, g, redirect, render_template, request, session, url_for
 
 import db
 import ui_v2
@@ -78,6 +78,11 @@ def clean_website(v) -> str:
     if not v or v.lower() in ("http://", "https://"):
         return ""
     return v if v.lower().startswith(("http://", "https://")) else "https://" + v
+
+
+def pasted_link() -> str:
+    """The product link a visitor pasted before signing up (home page or /shopify box, kept by signup), or ""."""
+    return clean_website(session.get("try_url") or "")
 
 
 def save(conn, user, **fields) -> dict:
@@ -179,7 +184,7 @@ def profile():
         # the card step, when one is due, catches either page (card_routes.gate); the brief follows it (_start)
         return redirect(url_for("studio" if f.get("skip") else "onboarding.brief"))
     return render_template("v2/onboard_profile.html", first=first, last=last, company=a.get("company") or "",
-                           website=a.get("website") or "")
+                           website=a.get("website") or pasted_link())
 
 
 # ---------------------------------------------------------------- the brand brief
@@ -345,7 +350,8 @@ def brief():
                            claims=products.claims_list(p["claims"]) if p is not None else [],
                            pending=products.pending(p) if p is not None else [],
                            source=source,
-                           website=answers(g.user).get("website") or (b["website"] if b is not None else "") or "",
+                           website=answers(g.user).get("website") or (b["website"] if b is not None else "") or
+                           pasted_link(),
                            angle_price=creator.estimate_angles() if (llm.anthropic_ready() and not no_plan) else None,
                            gift=gift, no_plan=no_plan, other=other_site(g.user, p, b))
 

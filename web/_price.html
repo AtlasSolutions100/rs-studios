@@ -1,7 +1,8 @@
-{# A plan's price (plans.PLANS). With PLAN_SALE on, the price it is going to sits beside it, struck through, with
-   the difference as a percent off (plans.sale: rounded down). Nothing here is typed in. #}
+{# A plan's price (plans.PLANS). With PLAN_SALE on, a dated line under it says what the price goes to and by when
+   (plans.sale: "Goes to $79 by Dec 31, sooner if we fill up"; Koby, Nov 14 2026). No strike-through and no
+   percent off: today's price is the everyday price, so it isn't shown as a sale. Nothing here is typed in. #}
 {% macro amount(p, per=' a month', per_class='') -%}
-{% set s = plans.sale(p) %}<b>${{ p.usd }}</b>{% if s %}<s class="px-next"><span class="sr">going to </span>${{ s.next }}</s>{% endif %}<span{% if per_class %} class="{{ per_class }}"{% endif %}>{{ per }}</span>{% if s %}<em class="px-off">{{ s.off }}% off</em>{% endif %}
+{% set s = plans.sale(p) %}<b>${{ p.usd }}</b><span{% if per_class %} class="{{ per_class }}"{% endif %}>{{ per }}</span>{% if s %}<em class="px-by" data-price-by>Goes to ${{ s.next }} by {{ s.by }}, sooner if we fill up.</em>{% endif %}
 {%- endmacro %}
 {# The chip at the top of a plan that includes a trial (plan_gate.py): our star, the trial's length and "Full access".
    With days = 0 it leaves an unseen slot of the same height, so side-by-side cards keep their rows in line. #}
@@ -11,4 +12,8 @@
 {# A trial as three dots (plan_gate.timeline): the start at $0, the reminder email, the charge. #}
 {% macro trial_line(steps) -%}
 <ol class="tl" data-trial-line aria-label="How the trial runs">{% for s in steps %}<li{% if s.now %} class="on"{% endif %}><b>{% if s.label %}{{ s.label }}{% else %}{{ s.iso|localtime('date') }}{% endif %}{% if s.amount %} · {{ s.amount }}{% endif %}</b><span>{{ s.what }}</span></li>{% endfor %}</ol>
+{%- endmacro %}
+{# The first-charge refund promise (plan_gate.refund_line, REFUND_PROMISE): one line, or nothing while it is off. #}
+{% macro refund(cls='small muted') -%}
+{% set r = refund_line() %}{% if r %}<p class="{{ cls }}" data-refund-line>{{ r }}</p>{% endif %}
 {%- endmacro %}
