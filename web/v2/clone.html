@@ -1,0 +1,37 @@
+{% extends "base.html" %}{% block title %}Clone an ad · Campaignify{% endblock %}
+{# Clone an ad (adclone.py): a reference ad in; its beats and a remake for the member's product out. #}
+{% block body %}
+<div class="page full ac">
+  <div class="ac-top">
+    <p class="eyebrow">Clone an ad</p>
+    <h1>Remake an ad that works, for {{ p.name if p else 'your product' }}</h1>
+    <p class="muted">Upload an ad you like. We break it into its beats ({{ beats|join(', ') }}), then plan the same structure with your own product, words and approved claims. Nothing from the original is reused.</p>
+  </div>
+  {% if not p %}
+  <p class="ac-note">Add your product first: the remake is made for it. <a href="{{ url_for('products.new') }}">Add a product</a></p>
+  {% else %}
+  <form method="post" action="{{ url_for('clone.page') }}" enctype="multipart/form-data" class="ac-form" data-clone-form>
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <label class="ac-drop" for="ac-file">
+      <b>Upload the ad</b>
+      <span class="muted small">A video (MP4, MOV or WebM) or an image, up to {{ max_mb }} MB.</span>
+      <input id="ac-file" type="file" name="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v,image/jpeg,image/png,image/webp">
+    </label>
+    <div class="ac-or"><span>or</span></div>
+    <div><label for="ac-url">Link to the video or image file</label><input id="ac-url" type="url" name="url" placeholder="https://…/ad.mp4"><p class="small muted ac-help">Social posts (TikTok, Instagram, YouTube) can't be read from a link: save the video and upload it.</p></div>
+    <div class="ac-go"><button class="btn" data-clone-start>Read the ad · about {{ '{:,}'.format(quote) }} credits</button><span class="small muted">You see the price of the remake before anything is made.</span></div>
+  </form>
+  {% endif %}
+  {% if recent %}
+  <section class="ac-recent" aria-labelledby="ac-r-h">
+    <h2 id="ac-r-h">Ads you've read</h2>
+    <ul>{% for c in recent %}<li><a href="{{ url_for('clone.view', cid=c.id) }}">{% if c.frames %}<img src="{{ url_for('clone.frame', cid=c.id, name=c.frames[0].file) }}" alt="" loading="lazy">{% else %}<span class="ac-ph"></span>{% endif %}<span><b>{{ c.source|truncate(60, true) or 'Uploaded ad' }}</b><span class="small muted">{% if c.busy %}Reading…{% elif c.status == 'failed' %}Couldn't be read{% else %}{{ c.analysis.beats|map(attribute='beat')|join(' → ') }}{% endif %}</span></span></a></li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}<script>
+document.querySelector('[data-clone-form]') && document.querySelector('[data-clone-form]').addEventListener('submit', function(e){
+  var b = this.querySelector('[data-clone-start]'); b.disabled = true; b.textContent = 'Uploading…';
+});
+</script>{% endblock %}

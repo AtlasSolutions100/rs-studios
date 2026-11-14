@@ -3361,6 +3361,8 @@ app.register_blueprint(libstore.bp)             # /lib/<name>: gallery clips kep
 import recordings  # noqa: E402
 app.register_blueprint(recordings.bp)           # a product's screen recording (video presets that show your screens)
 import confirm_step  # noqa: E402
+import adclone_routes  # noqa: E402
+app.register_blueprint(adclone_routes.bp)        # Clone an ad: a reference ad's beats, remade for your product
 app.register_blueprint(confirm_step.bp)         # "Confirm your email" for everyone (verify.everyone): after the plan gate
 app.register_blueprint(card_routes.bp)
 app.register_blueprint(paywall_routes.bp)

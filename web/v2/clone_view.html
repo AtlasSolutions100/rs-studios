@@ -1,0 +1,41 @@
+{% extends "base.html" %}{% block title %}Clone an ad · Campaignify{% endblock %}
+{% block head %}{% if c.busy %}<meta http-equiv="refresh" content="4">{% endif %}{% endblock %}
+{# One read ad (adclone.view): its beats with a frame each, and the remake plan for the member's product. #}
+{% block body %}
+{% set A = c.analysis %}
+<div class="page full ac">
+  <div class="ac-top">
+    <p class="eyebrow"><a href="{{ url_for('clone.page') }}">Clone an ad</a></p>
+    <h1>{% if c.busy %}Reading the ad…{% elif c.status == 'failed' %}That ad couldn't be read{% else %}The ad, beat by beat{% endif %}</h1>
+    {% if c.busy %}<p class="muted" role="status">{{ {'pending': 'Starting', 'reading': 'Pulling frames and what is said', 'looking': 'Finding the beats', 'planning': 'Planning the remake for ' ~ (p.name if p else 'your product')}.get(c.status, 'Working') }}. This takes about a minute; the page updates by itself.</p>
+    {% elif c.status == 'failed' %}<p class="ac-note" role="alert">{{ c.error }}</p><p><a class="btn dark" href="{{ url_for('clone.page') }}">Try another ad</a></p>
+    {% else %}<p class="muted">{{ A.summary }}{% if A.length_s %} About {{ A.length_s|round|int }} seconds{% endif %}{% if A.pacing %}, {{ A.pacing|lower }}{% endif %}.{% if c.credits %} Reading it used {{ '{:,}'.format(c.credits) }} credits.{% endif %}</p>{% endif %}
+  </div>
+  {% if A.beats %}
+  <ol class="ac-beats" aria-label="The beats">
+    {% for b in A.beats %}<li class="ac-beat" data-beat="{{ b.beat }}">
+      <span class="ac-shot">{% if c.frames %}<img src="{{ url_for('clone.frame', cid=c.id, name=c.frames[[b.frame, c.frames|length - 1]|min].file) }}" alt="">{% endif %}</span>
+      <span class="ac-tag">{{ b.beat }}{% if b.start_s is not none %} <i>{{ '%.0f'|format(b.start_s) }}s</i>{% endif %}</span>
+      <span class="ac-shows">{{ b.shows }}</span>
+      {% if b.says %}<span class="ac-says">“{{ b.says }}”</span>{% endif %}
+      <span class="ac-why">{{ b.why }}</span>
+    </li>{% endfor %}
+  </ol>
+  {% endif %}
+  {% if c.status == 'done' %}
+  <section class="ac-remake" aria-labelledby="ac-m-h">
+    <h2 id="ac-m-h">The remake for {{ p.name if p else 'your product' }}</h2>
+    {% if c.remake.items %}
+    {% if c.remake.note %}<p class="muted">{{ c.remake.note }}</p>{% endif %}
+    <ul>{% for it in c.remake['items'] %}<li><b>{{ it.name }}</b><span>{{ it.text }}</span></li>{% endfor %}</ul>
+    {% if c.remake.dropped %}<p class="small muted">Left out: {{ c.remake.dropped|join('; ') }}</p>{% endif %}
+    <form method="post" action="{{ url_for('clone.to_desk', cid=c.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button class="btn">{{ 'Open the campaign' if c.thread else 'Open it on the desk' }}</button>
+      <span class="small muted">Edit any words there. Every part shows its price before anything is made.</span></form>
+    {% else %}
+    <p class="muted">No remake could be planned this time{% if not p %}: add your product first{% endif %}. The beats above still show how it's built.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

@@ -494,6 +494,12 @@ CREATE INDEX IF NOT EXISTS idx_plan_trials_fp ON plan_trials(fingerprint);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_plan_trials_sub ON plan_trials(subscription_id);
 CREATE INDEX IF NOT EXISTS idx_plan_trials_ws ON plan_trials(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_plan_trials_email ON plan_trials(email_norm);
+-- Clone an ad (adclone.py): a reference ad read into beats, and the remake planned for the member's product.
+CREATE TABLE IF NOT EXISTS ad_clones (id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL, user_id INTEGER,
+    product_id INTEGER, source TEXT, file_path TEXT, media TEXT, status TEXT NOT NULL DEFAULT 'pending', error TEXT,
+    analysis_json TEXT, remake_json TEXT, frames_json TEXT, hold_id INTEGER, credits INTEGER NOT NULL DEFAULT 0,
+    thread_id INTEGER, created_at TEXT NOT NULL, updated_at TEXT);
+CREATE INDEX IF NOT EXISTS idx_ad_clones_ws ON ad_clones(workspace_id, id);
 -- The welcome credits (plan_gate.grant_welcome): one row per workspace that got them, once per person (email_norm).
 CREATE TABLE IF NOT EXISTS welcome_grants (
     id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL UNIQUE, user_id INTEGER, email_norm TEXT,
