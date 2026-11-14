@@ -1975,3 +1975,13 @@ dialog.av.is-video .av-zoom{display:none}
 .lib-bar .lib-find input[type=search]{flex:1;min-width:0}
 .cardacts .btn.icon{width:34px;padding:0;display:inline-grid;place-items:center}
 .cardacts .btn.icon svg{width:16px;height:16px}
+.av-vary{display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:20px;border:1px solid var(--line)}
+[data-ui="v2"] .av-vary h3{margin:0;font-size:16px}
+.av-vary p{margin:0}
+.av-vary .btn{border-radius:999px;min-height:44px}
+.av-n{display:flex;gap:6px}
+.av-n label{position:relative;flex:1}
+.av-n input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.av-n span{display:grid;place-items:center;height:40px;border:1px solid var(--line);border-radius:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.av-n input:checked+span{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.av-n input:focus-visible+span{outline:2px solid var(--v2-focus,#141414);outline-offset:2px}

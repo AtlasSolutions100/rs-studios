@@ -342,7 +342,9 @@
 (function(){
   var CHIPS = ['Make the product bigger', 'Use a simpler background', 'Brighter colors', 'Show it on a phone instead',
                'Put it in someone’s hand', 'Make it look more real', 'Change the person'];
+  var VCHIPS = ['Slower camera', 'Show the product up close', 'Brighter light', 'More movement', 'A simpler background'];
   var dlg = null, cards = [], idx = 0, ver = 0, zoom = 1, from = null;
+  function cr(n){ n = +n; return n.toLocaleString() + ' credit' + (n === 1 ? '' : 's'); }
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   function build(){
     dlg = document.createElement('dialog'); dlg.className = 'av'; dlg.setAttribute('aria-label', 'Ad viewer');
@@ -376,16 +378,29 @@
       : '<img class="av-media" src="/media/' + id + '" alt="' + esc(card.getAttribute('data-view-title')) + ', full size">';
     zoom = 1; setZoom(1); dlg.classList.toggle('is-video', kind === 'video');
     dlg.querySelector('[data-av-prev]').hidden = dlg.querySelector('[data-av-next]').hidden = cards.length < 2;
-    var side = dlg.querySelector('[data-av-side]'), title = card.getAttribute('data-view-title') || 'Ad';
-    var h = '<p class="av-count">' + (idx + 1) + ' of ' + cards.length + '</p><h2 class="av-t">' + esc(title) + '</h2>';
+    var side = dlg.querySelector('[data-av-side]'), title = card.getAttribute('data-view-title') || 'Ad', typ = card.getAttribute('data-view-type') || '';
+    var h = '<p class="av-count">' + (typ && typ !== title ? esc(typ) + ' \u00b7 ' : '') + (idx + 1) + ' of ' + cards.length + '</p><h2 class="av-t">' + esc(title) + '</h2>';
     if(ids.length > 1){ h += '<div class="av-vers" role="group" aria-label="Versions">'; ids.forEach(function(_, i){ h += '<button type="button" data-av-ver="' + i + '" aria-pressed="' + (i === ver) + '">Version ' + (i + 1) + '</button>'; }); h += '</div>'; }
     h += '<div class="av-acts" data-av-acts></div>';
-    var price = card.getAttribute('data-change-price');
-    if(card.getAttribute('data-change') && kind !== 'video'){
-      h += '<form class="av-change" data-av-change><h3>Change something</h3><p class="small muted">Say what to change. We make a new version from this one. This one stays.</p>' +
-        '<div class="av-chips">' + CHIPS.map(function(c){ return '<button type="button" data-av-chip>' + esc(c) + '</button>'; }).join('') + '</div>' +
-        '<label class="sr" for="av-note">What should change?</label><textarea id="av-note" name="note" rows="3" maxlength="300" minlength="4" required placeholder="For example: this is a phone app, show it on a phone, not a watch"></textarea>' +
-        '<p class="av-err" data-av-err role="alert" hidden></p><button class="btn av-go">Make the change · ' + (+price).toLocaleString() + ' credit' + (+price === 1 ? '' : 's') + '</button></form>';
+    var vurl = card.getAttribute('data-vary'), vk = card.getAttribute('data-vary-kind');
+    if(vurl && (vk === 'video') === (kind === 'video')){
+      if(vk === 'image'){
+        var pr = {}; try { pr = JSON.parse(card.getAttribute('data-vary-price')); } catch(_){}
+        h += '<form class="av-vary" data-av-vary><h3>New takes</h3><p class="small muted">Same product and words. A new scene and angle.</p>' +
+          '<div class="av-n" role="radiogroup" aria-label="How many">' + Object.keys(pr).map(function(n){ return '<label><input type="radio" name="count" value="' + n + '"' + (n === '3' ? ' checked' : '') + ' data-price="' + pr[n] + '"><span>' + n + '</span></label>'; }).join('') + '</div>' +
+          '<p class="av-err" data-av-err role="alert" hidden></p><button class="btn dark av-go" data-av-vary-go>Make ' + (pr['3'] ? '3 new takes \u00b7 ' + cr(pr['3']) : 'new takes') + '</button></form>';
+      } else {
+        h += '<form class="av-vary" data-av-vary><h3>New take</h3><p class="small muted">The same settings, made again. Each take comes out a little different.</p>' +
+          '<p class="av-err" data-av-err role="alert" hidden></p><button class="btn dark av-go">Make another version \u00b7 ' + cr(card.getAttribute('data-vary-price')) + '</button></form>';
+      }
+    }
+    var price = card.getAttribute('data-change-price'), ck = card.getAttribute('data-change-kind') || 'image';
+    if(card.getAttribute('data-change') && (ck === 'video') === (kind === 'video')){
+      var vidc = ck === 'video';
+      h += '<form class="av-change" data-av-change><h3>Change something</h3><p class="small muted">' + (vidc ? 'Say what to change. We make the video again with your change. This one stays.' : 'Say what to change. We make a new version from this one. This one stays.') + '</p>' +
+        '<div class="av-chips">' + (vidc ? VCHIPS : CHIPS).map(function(c){ return '<button type="button" data-av-chip>' + esc(c) + '</button>'; }).join('') + '</div>' +
+        '<label class="sr" for="av-note">What should change?</label><textarea id="av-note" name="note" rows="2" maxlength="300" minlength="4" required placeholder="' + (vidc ? 'For example: slower camera, and show the label up close' : 'For example: this is a phone app, show it on a phone, not a watch') + '"></textarea>' +
+        '<p class="av-err" data-av-err role="alert" hidden></p><button class="btn av-go">Make the change \u00b7 ' + cr(price) + '</button></form>';
     }
     h += '<div data-av-more></div>';
     side.innerHTML = h;
@@ -411,12 +426,20 @@
     var chip = e.target.closest('[data-av-chip]'); if(chip){ var ta = dlg.querySelector('#av-note'); ta.value = (ta.value ? ta.value.replace(/\s+$/, '') + '. ' : '') + chip.textContent; ta.focus(); return; }
     var m = e.target.closest('.av-media'); if(m && m.tagName === 'IMG'){ var r = m.getBoundingClientRect(); m.style.transformOrigin = ((e.clientX - r.left) / r.width * 100).toFixed(1) + '% ' + ((e.clientY - r.top) / r.height * 100).toFixed(1) + '%'; setZoom(zoom > 1 ? 1 : 2.5); }
   }
+  document.addEventListener('change', function(e){
+    var r = e.target.closest('[data-av-vary] input[name=count]'); if(!r) return;
+    var b = r.form.querySelector('[data-av-vary-go]'); if(b) b.textContent = 'Make ' + r.value + ' new takes \u00b7 ' + cr(r.getAttribute('data-price'));
+  });
   document.addEventListener('submit', function(e){
-    var f = e.target.closest('[data-av-change]'); if(!f) return; e.preventDefault();
+    var f = e.target.closest('[data-av-change],[data-av-vary]'); if(!f) return; e.preventDefault();
     var card = cards[idx], d = data(card), err = f.querySelector('[data-av-err]'), btn = f.querySelector('button.av-go'), tok = card.querySelector('[name=csrf]');
-    err.hidden = true; btn.disabled = true; var label = btn.textContent; btn.textContent = 'Starting…';
-    fetch(card.getAttribute('data-change'), {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF': tok ? tok.value : ''},
-      body: JSON.stringify({note: f.note.value, output: d[0][ver], total: card.getAttribute('data-change-price')})})
+    var isVary = f.hasAttribute('data-av-vary'), body, url;
+    if(isVary){ var pick = f.querySelector('input[name=count]:checked'); url = card.getAttribute('data-vary');
+      body = pick ? {count: +pick.value, output: d[0][ver], total: pick.getAttribute('data-price')} : {total: card.getAttribute('data-vary-price')}; }
+    else { url = card.getAttribute('data-change'); body = {note: f.note.value, output: d[0][ver], total: card.getAttribute('data-change-price')}; }
+    err.hidden = true; btn.disabled = true; var label = btn.textContent; btn.textContent = 'Starting\u2026';
+    fetch(url, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF': tok ? tok.value : ''},
+      body: JSON.stringify(body)})
       .then(function(r){ return r.json().catch(function(){ return {error: 'Something went wrong. Try again.'}; }); })
       .then(function(r){
         if(r && r.ok){ location.href = r.library || location.href; return; }

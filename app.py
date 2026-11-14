@@ -245,6 +245,14 @@ def _change_offer(job):
 app.jinja_env.globals["change_offer"] = _change_offer
 
 
+def _vary_offer(job):
+    import jobs_routes
+    return jobs_routes.vary_offer(job)
+
+
+app.jinja_env.globals["vary_offer"] = _vary_offer
+
+
 def _free_fix_offer(job):
     """For an ad's card: {"output", "left", "cap"} when its one free fix can still be asked for (FREE_FIX), else None."""
     import free_fix
