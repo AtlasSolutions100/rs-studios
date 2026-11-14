@@ -7,7 +7,7 @@
   <div class="ac-top">
     <p class="eyebrow"><a href="{{ url_for('clone.page') }}">Clone an ad</a></p>
     <h1>{% if c.busy %}Reading the ad…{% elif c.status == 'failed' %}That ad couldn't be read{% else %}The ad, beat by beat{% endif %}</h1>
-    {% if c.busy %}<p class="muted" role="status">{{ {'pending': 'Starting', 'reading': 'Pulling frames and what is said', 'looking': 'Finding the beats', 'planning': 'Planning the remake for ' ~ (p.name if p else 'your product')}.get(c.status, 'Working') }}. This takes about a minute; the page updates by itself.</p>
+    {% if c.busy %}<p class="muted" role="status">{{ {'pending': 'Starting', 'fetching': 'Downloading the video', 'reading': 'Pulling frames and what is said', 'looking': 'Finding the beats', 'planning': 'Planning the remake for ' ~ (p.name if p else 'your product')}.get(c.status, 'Working') }}. This takes about a minute; the page updates by itself.</p>
     {% elif c.status == 'failed' %}<p class="ac-note" role="alert">{{ c.error }}</p><p><a class="btn dark" href="{{ url_for('clone.page') }}">Try another ad</a></p>
     {% else %}<p class="muted">{{ A.summary }}{% if A.length_s %} About {{ A.length_s|round|int }} seconds{% endif %}{% if A.pacing %}, {{ A.pacing|lower }}{% endif %}.{% if c.credits %} Reading it used {{ '{:,}'.format(c.credits) }} credits.{% endif %}</p>{% endif %}
   </div>

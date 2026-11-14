@@ -18,7 +18,8 @@
       <input id="ac-file" type="file" name="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v,image/jpeg,image/png,image/webp">
     </label>
     <div class="ac-or"><span>or</span></div>
-    <div><label for="ac-url">Link to the video or image file</label><input id="ac-url" type="url" name="url" placeholder="https://…/ad.mp4"><p class="small muted ac-help">Social posts (TikTok, Instagram, YouTube) can't be read from a link: save the video and upload it.</p></div>
+    <div>{% if social %}<label for="ac-url">Or paste a link</label><input id="ac-url" type="url" name="url" placeholder="https://www.tiktok.com/@brand/video/…"><p class="small muted ac-help">A TikTok, Instagram, YouTube, Facebook or X post, a Meta Ad Library ad, or a link to the video file. Private posts can't be read.</p>
+      {% else %}<label for="ac-url">Link to the video or image file</label><input id="ac-url" type="url" name="url" placeholder="https://…/ad.mp4"><p class="small muted ac-help">Social posts (TikTok, Instagram, YouTube) can't be read from a link: save the video and upload it.</p>{% endif %}</div>
     <div class="ac-go"><button class="btn" data-clone-start>Read the ad · about {{ '{:,}'.format(quote) }} credits</button><span class="small muted">You see the price of the remake before anything is made.</span></div>
   </form>
   {% endif %}
