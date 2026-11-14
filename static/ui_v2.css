@@ -1835,3 +1835,20 @@ html[data-ui="v2"][data-theme="light"] .shell .main.dots-on::before{--v2-dot:rgb
 [data-ui="v2"] .bh-form input,[data-ui="v2"] .bh-form textarea,[data-ui="v2"] .bh-add-f input[type=text]{width:100%;box-sizing:border-box;min-height:42px;padding:10px 12px;border:1px solid var(--v2-line2);border-radius:12px;background:var(--bg);color:var(--ink);font:inherit;font-size:14.5px}
 [data-ui="v2"] .bh-form textarea{resize:vertical;line-height:1.5}
 [data-ui="v2"] .bh-form input:focus,[data-ui="v2"] .bh-form textarea:focus,[data-ui="v2"] .bh-add-f input:focus{outline:2px solid var(--v2-focus);outline-offset:1px;border-color:transparent}
+/* ready-made jobs: a row of cards that scrolls sideways */
+.dk-jobs{width:100%;max-width:1100px;margin:28px auto 0}
+.dk-jobs-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+[data-ui="v2"] .dk-jobs h2{margin:0;font-size:18px;letter-spacing:-.015em}
+.dk-jobs-nav{display:flex;gap:6px}
+.dk-jobs-nav button{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--ink);font-size:20px;line-height:1;cursor:pointer}
+.dk-jobs-nav button:hover{border-color:var(--v2-line2)}
+.dk-jobs-row{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(220px,236px);gap:14px;margin:0;padding:4px 2px 14px;list-style:none;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:thin}
+.dk-jobs-row li{scroll-snap-align:start}
+.dk-job{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;height:100%;padding:8px 8px 14px;border:0;border-radius:22px;background:var(--panel);box-shadow:0 0 0 1px var(--line),0 4px 14px rgba(20,20,20,.05);color:var(--ink);text-align:left;font:inherit;cursor:pointer;transition:transform .2s,box-shadow .2s}
+.dk-job:hover,.dk-job:focus-visible{transform:translateY(-4px);box-shadow:0 0 0 1px var(--v2-line2),0 14px 30px rgba(20,20,20,.1)}
+.dk-job:focus-visible{outline:2px solid var(--v2-focus);outline-offset:2px}
+.dk-job img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;border-radius:16px;margin-bottom:8px;background:var(--v2-sunk)}
+.dk-job b{padding:0 6px;font-size:15px}
+.dk-job span{padding:0 6px;font-size:13px;line-height:1.4;color:var(--muted)}
+.dk-asking .dk-jobs{display:none}
+@media (prefers-reduced-motion:reduce){.dk-job{transition:none}.dk-job:hover{transform:none}}

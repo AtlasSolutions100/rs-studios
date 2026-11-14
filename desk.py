@@ -44,6 +44,7 @@ import pipeline
 import plans
 import platforms
 import products
+import story_video
 import studio_v2
 import ui_v2
 from core import brand, login_required, reserve_ai
@@ -53,7 +54,7 @@ bp = Blueprint("desk", __name__)
 
 MAKES = studio_v2.ASK_MAKES
 STAGES = [("make", "Make"), ("write", "Write"), ("capture", "Capture"), ("followup", "Follow up"), ("launch", "Launch")]
-STAGE_OF = {"image": "make", "presenter": "make", "voiceover": "make", "product_video": "make",
+STAGE_OF = {"image": "make", "presenter": "make", "voiceover": "make", "product_video": "make", "story": "make",
             "copy": "write", "page": "capture", "flow": "followup", "launch": "launch"}
 STAGE_ORDER = {key: i for i, (key, _name) in enumerate(STAGES)}
 SPINE = ("copy", "page", "flow", "launch")                 # the rest of a campaign, in the order it happens
@@ -61,12 +62,13 @@ FEATURE = {"copy": "copy", "page": "pages", "flow": "flows", "launch": "adhub"}
 ENDPOINT = {"copy": "copy.studio", "page": "pages.index", "flow": "flows.index", "launch": "adhub.index"}
 ADD_NAMES = {"image": "Image ads", "presenter": "Presenter video", "voiceover": "Voiceover video",
              "product_video": "Product video", "copy": "Ad copy", "page": "A page with a sign-up form",
-             "flow": "An email follow-up", "launch": "Launch"}
+             "flow": "An email follow-up", "launch": "Launch", "story": "Story ad"}
 DEFAULT_FLOW = "lead_magnet"
 MAX_PARTS = 12
 THREADS_SHOWN = 8           # campaigns listed in the sidebar and on the desk
 TURNS_SHOWN = 60            # turns of one conversation shown (the newest)
-STORED = ("id", "kind", "on", "text", "count", "presenter", "situation", "platform", "n", "title", "template")
+STORED = ("id", "kind", "on", "text", "count", "presenter", "situation", "platform", "n", "title", "template", "style",
+          "scenes")
 
 # "Start from an example": what the card says, the sentence it puts in the box ({name} is the product), and a
 # picture or clip from our own gallery (static/showcase) to show the kind of thing it makes.
@@ -86,6 +88,40 @@ EXAMPLES = [
      "Ad copy for {name} for Meta", "callouts"),
 ]
 
+# Ready-made jobs for the agent (Koby, Nov 14 2026): the carousel on the desk. A card puts its sentence in the box
+# ({name} is the product) and starts the agent, which asks its questions and plans it like any other request. Every
+# one is something the desk can really make. The pictures are ours (static/agent), made in one look.
+PRESETS = [
+    ("launch", "Launch a product", "Ads, words, a page and emails.",
+     "Launch {name}: three picture ads, one video with a person, the ad copy, a page to collect emails and a follow-up"),
+    ("funnel", "Get leads that buy", "A sign-up page, a free gift and emails that sell.",
+     "Set up a lead funnel for {name} that turns sign-ups into sales: a page with a sign-up form and a free gift, "
+     "a follow-up email series that ends with the offer, and two picture ads that send people to the page"),
+    ("funny-story", "Funny story ad", "A short, funny story with captions. Be like Bob.",
+     "A funny story ad for {name}: a made-up person has a silly problem, then {name} saves the day. Be like Bob, "
+     "with big captions"),
+    ("animated-story", "Animated story ad", "A little 3D cartoon that ends on your product.",
+     "An animated story ad for {name}: a 3D cartoon character has a bad day until {name} makes it better"),
+    ("ugc", "A person shows it", "A real-looking person talks about it.",
+     "Two presenter videos for {name}, each with a different opening line"),
+    ("sale", "Run a sale", "Ads and words for your offer.",
+     "Three picture ads for {name} that show my saved offer, and ad copy for Meta"),
+    ("local", "Bring in locals", "Ads and a sign-up page for people nearby.",
+     "Bring local customers to {name}: two picture ads for people nearby, ad copy for Facebook and a page where "
+     "they can sign up"),
+    ("explainer", "Show how it works", "A product video and a voiceover video.",
+     "A product video and a voiceover video for {name} that show how it works"),
+    ("refresh", "Fresh ads to test", "Four new hooks, four new looks.",
+     "Four new picture ads for {name}, each with a different hook to test"),
+]
+
+
+def presets(product) -> list[dict]:
+    name = product["name"] if product is not None else "my product"
+    return [{"id": i, "title": t, "line": line, "ask": ask.format(name=name),
+             "image": url_for("static", filename=f"agent/{i}.webp")} for i, t, line, ask in PRESETS]
+
+
 # What the sentence asks for beyond ads: Studio's own word rules (studio_v2.ASK_ALSO), by the tool they point at, plus
 # the few ways people say "page" and "follow-up" when they are describing a campaign and not naming a tool.
 _ALSO_RX = {ep: rx for ep, _name, _line, rx, _feat in studio_v2.ASK_ALSO}
@@ -95,7 +131,10 @@ WANTS = {
     "flow": _ALSO_RX["flows.index"] + r"|\b(email (?:sequence|series)|emails? (?:after|over|to (?:new|everyone))|"
                                       r"(?:two|three|four|five|six|\d)[- ]emails?)\b",
     "launch": _ALSO_RX["adhub.index"],
+    "story": r"\b(story ads?|funny (?:story|ad|video|skit)|skits?|animated (?:story|ad|video|short)|cartoon(?: ad)?|"
+             r"comic(?: strip)?|be like \w+)\b",
 }
+ANIMATED_RX = r"\b(animated|cartoon|3d|pixar|animation)\b"
 
 
 # The platform a sentence names, for the copy it asks for ("the captions for TikTok").
@@ -129,7 +168,7 @@ def is_home() -> bool:
 
 def _has(kind: str) -> bool:
     """Is this kind of part something the app can do here at all (the tool is installed)?"""
-    return kind in MAKES or ENDPOINT[kind] in current_app.view_functions
+    return kind in MAKES or kind == "story" or ENDPOINT[kind] in current_app.view_functions
 
 
 def _locked(kind: str) -> str:
@@ -171,6 +210,16 @@ def clean_part(raw, cast, have) -> dict | None:
     elif kind == "flow":
         ok = {t["id"] for t in flow_templates()}
         part["template"] = raw.get("template") if raw.get("template") in ok else DEFAULT_FLOW
+    elif kind == "story":
+        part["text"] = studio_v2._clean(raw.get("text"), 300)
+        part["style"] = raw.get("style") if raw.get("style") in story_video.STYLES else "photo"
+        try:
+            n = int(raw.get("scenes") or story_video.DEFAULT_SCENES[part["style"]])
+        except (TypeError, ValueError):
+            n = story_video.DEFAULT_SCENES[part["style"]]
+        part["scenes"] = max(story_video.SCENES_MIN, min(story_video.SCENES_MAX, n))
+        if not part["text"]:
+            part["on"] = False
     if _locked(kind):
         part["on"] = False
     return part
@@ -241,6 +290,14 @@ def view(part, product, cast) -> dict:
         v["name"] = f"Email follow-up: {t['name']}"
         v["words"] = f"{t['line']} Saved switched off: you turn it on."
         v["label"] = "In your plan"
+    elif kind == "story":
+        v["name"] = story_video.name_of(part["style"])
+        v["words"] = (part["text"] or "") + (f" {part['scenes']} scenes with captions, then your end card." if part["text"] else "")
+        if not part["text"]:
+            v.update(label="Add the idea", on=False)
+        else:
+            v["price"] = story_video.price(part["style"], part["scenes"])
+            v.update(label=f"{v['price']:,} credits", videos=1)
     elif kind == "launch":
         v["name"] = "Get the ads into your ad accounts"
         v["words"] = "The step after the ads are done. You pick the account, and nothing runs until you say so."
@@ -257,10 +314,11 @@ def price(parts, product, cast=None) -> dict:
     views = [view(p, product, cast) for p in parts]
     on = [v for v in views if v["on"]]
     ads = sum(v["price"] or 0 for v in on if v["kind"] in MAKES)
+    stories = sum(v["price"] or 0 for v in on if v["kind"] == "story")
     copy_max = sum(v["price"] or 0 for v in on if v["kind"] == "copy")
     videos = sum(v.get("videos") or 0 for v in on)
-    total, bal = ads + copy_max, db.balance(g.ws)
-    return {"parts": views, "total": total, "ads": ads, "copy": copy_max, "count": len(on), "balance": bal,
+    total, bal = ads + stories + copy_max, db.balance(g.ws)
+    return {"parts": views, "total": total, "ads": ads, "stories": stories, "copy": copy_max, "count": len(on), "balance": bal,
             "short": max(0, total - bal), "pack": create_routes.suggest_pack(total - bal) if total > bal else None,
             "upgrade": bool(total > bal and studio_v2._upgrade_instead()),
             "confirm": videos > create_routes.CONFIRM_VIDEOS, "videos": videos, "product": product["id"]}
@@ -615,6 +673,9 @@ def plan():
         raw += [{"kind": k, "on": k in want} for k in SPINE]        # a new campaign shows every stage
     else:
         raw += [{"kind": k, "on": True} for k in SPINE if k in want]   # a later turn: only what it asks for
+    if "story" in want:                                             # a story ad: the sentence is its idea
+        raw.append({"kind": "story", "on": True, "text": text[:300],
+                    "style": "animated" if re.search(ANIMATED_RX, full.lower()) else "photo"})
     for r in raw:
         if r["kind"] == "copy" and platform_in(full):
             r["platform"] = platform_in(full)
@@ -795,6 +856,18 @@ def run():
         batch = data.get("batch")
         spent += q["ads"]                               # (a part Create refused is flashed by Studio itself)
     for v in on:
+        if v["kind"] != "story":
+            continue
+        with db.connect() as conn:
+            try:
+                jid = story_video.queue(conn, product, v["text"], v["style"], v["scenes"], credits=v["price"])
+            except ValueError as e:
+                notes.append(f"{v['name']}: {e}")
+                continue
+            cost = conn.execute("SELECT credits FROM jobs WHERE id=?", (jid,)).fetchone()["credits"]
+        made.append({"kind": "story", "name": v["name"], "state": "Being made", "href": url_for("library", highlight=jid)})
+        spent += cost
+    for v in on:
         if v["kind"] == "copy":
             done, why = _write_copy(v, product, said)
             if done:
@@ -973,7 +1046,7 @@ def _boot(ws, product, conn) -> dict:
         "csrf": studio_v2._csrf(), "product": product["id"] if product is not None else None, "balance": db.balance(ws),
         "ask_on": llm.configured(), "starters": starters(conn, product) if product is not None else {},
         "max_count": studio_v2.MAX_COUNT, "max_makes": studio_v2.ASK_MAX_PARTS,
-        "add": [{"kind": k, "name": ADD_NAMES[k], "locked": _locked(k)} for k in (*MAKES, *SPINE)
+        "add": [{"kind": k, "name": ADD_NAMES[k], "locked": _locked(k)} for k in (*MAKES, "story", *SPINE)
                 if (k in have if k in MAKES else _has(k)) and not (k == "presenter" and not cast)],
         "presenters": [{"id": c["id"], "name": c.get("name") or c["id"].title(),
                         "places": [{"id": pl, "name": studio_v2.situation_labels().get(pl, str(pl).replace("_", " "))}
@@ -1032,6 +1105,7 @@ def page():
     import inspiration
     ask = studio_v2._clean(request.args.get("ask"), 600)        # a sentence handed over by the Tools page's examples
     return render_template("v2/desk.html", boot=boot, product=product, examples=shown, campaigns=campaigns,
+                           agent_presets=presets(product),
                            now=now, guide=say, nudge=tip, insp=inspiration.groups(product), ask=ask,
                            has_tools="tools.page" in current_app.view_functions, **brand_ctx)
 
