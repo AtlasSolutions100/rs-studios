@@ -337,7 +337,7 @@ def _fail(conn, job, msg, extra_where: str = "", extra_args: tuple = ()) -> bool
             free_fix.release(conn, job["id"])     # a one-beat fix that failed can be asked for again
         except Exception:  # noqa: BLE001
             log.exception("job %s: releasing its fix didn't finish", job["id"])
-        keyframe_video.cleanup(conn, job)         # drop what is still being made at the vendor and what was fetched
+        _pipe(job).cleanup(conn, job)             # drop what is still being made at the vendor and what was fetched
     conn.commit()
     _notify_ready(conn, job)      # the last job of a first batch failing still means the others are ready
     return True
@@ -395,11 +395,23 @@ def _soften(conn, job, why: str) -> bool:
 
 
 def _keyframe_job(job) -> bool:
-    """Is this a keyframe-first video (keyframe_video.py)? A cheap look first: most jobs never import the module."""
+    """Is this a video made in parts (keyframe_video.py, or a story ad: story_video.py)? A cheap look first: most
+    jobs never import the modules."""
+    if job["tool"] == "story_video":
+        return True
     if job["tool"] != "ugc_video" or '"pipeline"' not in (job["params_json"] or ""):
         return False
     import keyframe_video
     return keyframe_video.is_job(job)
+
+
+def _pipe(job):
+    """The module that makes this video in parts: its start, advance, cleanup and can_cancel."""
+    if job["tool"] == "story_video":
+        import story_video
+        return story_video
+    import keyframe_video
+    return keyframe_video
 
 
 def _is_preview(job) -> bool:
@@ -798,8 +810,7 @@ def _submit_one(conn, job):
         if _keyframe_job(job):
             # a keyframe-first video: planned here and marked running; its parts (the keyframe, then every beat)
             # are sent and followed by keyframe_video.advance() on each pass
-            import keyframe_video
-            keyframe_video.start(conn, job)
+            _pipe(job).start(conn, job)
             return True
         inputs = build_inputs(conn, job)
         model = catalog.model_for(job["tool"])
@@ -849,8 +860,7 @@ def cancel_job(conn, job) -> tuple[bool, str]:
     if job["status"] != "running":
         return False, "It has already finished."
     if _keyframe_job(job):
-        import keyframe_video
-        if not keyframe_video.can_cancel(conn, job):         # its beats are at the vendor, and paid for
+        if not _pipe(job).can_cancel(conn, job):             # its beats are at the vendor, and paid for
             return False, "It's already being made and can't be stopped now."
         if _fail(conn, job, CANCELED):                        # only its keyframe was started: _fail drops it
             return True, failure_text(CANCELED)
@@ -899,10 +909,9 @@ def tick() -> int:
             _beat()
             if _keyframe_job(job):
                 # a keyframe-first video has no single request to ask about: one bounded step of its pipeline
-                import keyframe_video
                 try:
                     with _busy("keyframe video"):
-                        if keyframe_video.advance(conn, job):
+                        if _pipe(job).advance(conn, job):
                             changed += 1
                 except hf.GenError as e:
                     if _fail(conn, job, str(e)):

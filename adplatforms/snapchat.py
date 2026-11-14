@@ -38,6 +38,7 @@ Settings (GitHub secrets / variables, passed by deploy.yml):
 The OAuth app's redirect URI must be exactly RS_PUBLIC_URL + /connect/snapchat/callback, i.e.
 https://campaignify.ai/connect/snapchat/callback in production.
 """
+import logging
 import hashlib
 import json
 import os
@@ -50,7 +51,9 @@ import adspec
 import secretsbox
 from adplatforms.meta import NotReady
 
+log = logging.getLogger("campaignify.snapchat")
 API = "https://adsapi.snapchat.com/v1"
+BUSINESS_API = "https://businessapi.snapchat.com/v1"   # public profiles live on the business API host
 AUTH_URL = "https://accounts.snapchat.com/login/oauth2/authorize"
 TOKEN_URL = "https://accounts.snapchat.com/login/oauth2/access_token"
 SCOPES = ("snapchat-marketing-api",)
@@ -175,7 +178,7 @@ def listing(path: str, access: str, plural: str, singular: str, account=None, pa
         out += items(body, plural, singular)
         url = ((body.get("paging") or {}).get("next_link") or "")
         q = None
-        if not url.startswith(API):
+        if not (url.startswith(API) or url.startswith(BUSINESS_API)):
             break
     return out
 
@@ -243,15 +246,17 @@ class Snapchat:
         return out, orgs
 
     def list_profiles(self, access: str, orgs) -> list:
-        """The public profiles of each organization (sandbox: confirm the path). A missing permission or none:
+        """The public profiles of each organization, on businessapi.snapchat.com (the Public Profile API). A missing permission or none:
         the picker says to make one in Ads Manager."""
         out = []
         for oid in orgs[:20]:
             try:
-                rows = listing(f"/organizations/{oid}/public_profiles", access, "public_profiles", "public_profile")
+                rows = listing(f"{BUSINESS_API}/organizations/{oid}/public_profiles", access, "public_profiles",
+                               "public_profile", params={"limit": 50})
             except adhttp.TokenInvalid:
                 raise
-            except adhttp.AdHttpError:
+            except adhttp.AdHttpError as e:
+                log.warning("snapchat public profiles of org %s not listed: %s", oid, e)
                 continue
             for p in rows:
                 if p.get("id"):

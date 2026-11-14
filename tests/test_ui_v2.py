@@ -331,8 +331,8 @@ check([p["id"] for p in boot["presenters"]] == [p["id"] for p in presenters.rost
       and all(p["voice"]["label"] and p["situations"] for p in boot["presenters"]),
       "the presenter picker has the roster's 28 presenters (the first 8 first), each with its voice and situations")
 brand = n.get("/app/studio/brand").get_data(as_text=True)
-check('for="bs-url"' in brand and 'name="kit_primary"' in brand and 'name="kit_font"' in brand and "/app/start/import" in brand,
-      "the brand screen is one labelled input on the free importer, then the Look kit")
+check('for="bs-url-' in brand and 'name="kit_primary"' in brand and 'name="kit_font"' in brand and "/app/start/import" in brand,
+      "the brand screen has a labelled input on the free importer, then the Look kit")
 
 print("== the card step says what the billing config says")
 os.environ["RS_CARD_REQUIRED"] = "1"

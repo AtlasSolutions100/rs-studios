@@ -6,10 +6,10 @@
 {% import "_price.html" as price %}{% set po = plans_only() %}
 {% set open = billing_configured() %}
 <dl class="pr-rates" aria-label="What each ad costs">
-  <div><dt>Image ad</dt><dd>{{ r.image|credits }}</dd></div>
-  <div><dt>Product video, 5 seconds</dt><dd>{{ r.video5|credits }}</dd></div>
-  <div><dt>Talking video, 8 seconds</dt><dd>{{ r.talk8|credits }}</dd></div>
-  <div class="pr-rates-note"><dt class="sr">How pricing works</dt><dd>You see the price in credits before anything runs.</dd></div>
+  <div class="r-img"><dt><i aria-hidden="true"></i>Picture ad</dt><dd>{{ r.image|credits }}</dd></div>
+  <div class="r-vid"><dt><i aria-hidden="true"></i>Product video, 5 sec</dt><dd>{{ r.video5|credits }}</dd></div>
+  <div class="r-talk"><dt><i aria-hidden="true"></i>Video with a person, 8 sec</dt><dd>{{ r.talk8|credits }}</dd></div>
+  <div class="pr-rates-note"><dt class="sr">How pricing works</dt><dd>You always see the price before anything is made.</dd></div>
 </dl>
 <div class="pr-plans{{ ' three' if po }}" data-plans>
   {% if not po %}<section class="pr-plan" aria-labelledby="pr-free" data-plan="free">
@@ -43,10 +43,14 @@
   {% endfor %}
 </div>
 {% if not open %}<p class="pr-note">Plan and pack checkout isn't switched on yet. Start free now; your credits carry over.</p>{% endif %}
-<p class="pr-note">{% if po %}Starter and Growth include a {{ plan_trial_days('starter') }}-day free trial with full access. Your card is charged the plan's price when the trial ends unless you cancel first, and you carry on with that month's credits. Scale has no trial and is charged at once. {% else %}No trial that bills you: nothing is charged until you pick a plan or buy a pack. {% endif %}Cancel any month; the plan runs to the end of the month you paid for. Plan credits reset monthly and are spent before pack credits. Failed generations are refunded automatically.{% if refund_line() %} {{ refund_line() }}{% endif %}</p>
+<ul class="pr-notes">
+  {% if po %}<li>Starter and Growth are free for {{ plan_trial_days('starter') }} days, with everything in. Your card pays when the trial ends, unless you stop first. Scale starts right away.</li>{% else %}<li>Nothing is charged until you pick a plan or buy a pack.</li>{% endif %}
+  <li>Stop any month. Your plan stays on until the month you paid for ends.</li>
+  <li>New credits come each month and get used before pack credits. If an ad fails, you get your credits back.{% if refund_line() %} {{ refund_line() }}{% endif %}</li>
+</ul>
 
 <h3 class="pr-h3" id="packs">Credit packs</h3>
-<p class="pr-sub">{{ 'One-time top-ups for any plan.' if po else 'One-time top-ups, on any plan or none.' }} They never expire.</p>
+<p class="pr-sub">{{ 'Need more? Add credits to any plan.' if po else 'Add credits any time, with or without a plan.' }} They never run out.</p>
 <div class="pr-packs" data-packs>
   {% for p in packs %}
   <section class="pr-pack" aria-labelledby="pr-pack-{{ p.code }}" data-pack="{{ p.code }}">
