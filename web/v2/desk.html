@@ -44,6 +44,8 @@
         </div>
       </form>
       <p class="dk-say" data-say role="status" hidden></p>
+      <div class="dk-clarify" data-clarify hidden></div>
+      <div class="dk-working" data-working role="status" aria-live="polite" hidden></div>
       <div class="dk-quick" role="group" aria-label="Ideas to start from">
         <button type="button" class="dk-q" data-try="Three image ads for {{ product.name }}, each with a different headline">Image ads</button>
         <button type="button" class="dk-q" data-try="A 15-second presenter video for {{ product.name }}">Presenter video</button>
@@ -64,6 +66,20 @@
     </div>
 
     <div class="dk-top">
+      {% if campaigns %}
+      <section class="dk-camps" aria-labelledby="dk-runs-h">
+        <h2 id="dk-runs-h">Your campaigns</h2>
+        <ul>
+          {% for c in campaigns[:4] %}
+          <li><a href="{{ c.href }}">
+            <b>{{ c.title }}</b>
+            <span class="dk-camp-made">{% if c.made %}{% for m in c.made[:2] %}<span>{{ m.name }} · {{ m.state }}</span>{% endfor %}{% else %}Planned, nothing made yet{% endif %}</span>
+            <span class="dk-camp-at">{{ c.at|localtime }}</span>
+          </a></li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
       {% if product %}
       <section class="dk-exs" aria-labelledby="dk-ex-h" data-insp>
         <div class="dk-exs-top">
@@ -94,20 +110,6 @@
         </div>
         {% endfor %}
         {% if has_tools %}<p class="dk-exs-more"><a href="{{ url_for('tools.page') }}#inspiration">More examples</a></p>{% endif %}
-      </section>
-      {% endif %}
-      {% if campaigns %}
-      <section class="dk-camps" aria-labelledby="dk-runs-h">
-        <h2 id="dk-runs-h">Your campaigns</h2>
-        <ul>
-          {% for c in campaigns[:4] %}
-          <li><a href="{{ c.href }}">
-            <b>{{ c.title }}</b>
-            <span class="dk-camp-made">{% if c.made %}{% for m in c.made[:2] %}<span>{{ m.name }} · {{ m.state }}</span>{% endfor %}{% else %}Planned, nothing made yet{% endif %}</span>
-            <span class="dk-camp-at">{{ c.at|localtime }}</span>
-          </a></li>
-          {% endfor %}
-        </ul>
       </section>
       {% endif %}
     </div>

@@ -13,6 +13,7 @@
       <li id="t{{ x.id }}" class="dk-turn {{ x.kind }}{{ ' live' if x.live }}">
         {% if x.kind == 'said' %}
           <p class="dk-said"><span class="sr">You said: </span>{{ x.body.text }}</p>
+          {% if x.body.answers %}<dl class="dk-qa">{% for a in x.body.answers %}<dt>{{ a.q }}</dt><dd>{{ a.a }}</dd>{% endfor %}</dl>{% endif %}
         {% elif x.kind == 'note' %}
           <p class="dk-note">{{ x.body.text }}</p>
           {% if x.body.also %}<div class="dk-also"><span>It lives in</span>{% for a in x.body.also %}<a href="{{ a.href }}"><b>{{ a.name }}</b><span>{{ a.line }}</span></a>{% endfor %}</div>{% endif %}
@@ -58,6 +59,7 @@
       </div>
     </form>
     <p class="dk-say" data-say role="status" hidden></p>
+    <div class="dk-working" data-working role="status" aria-live="polite" hidden></div>
     {% endif %}
   </div>
 

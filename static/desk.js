@@ -29,13 +29,98 @@
     var text = ask.value.trim().replace(/\s+/g, ' ');
     if(text.length < 8){ say(B.thread ? 'Say what to add or change, in a sentence.' : 'Say what you want to launch, in a sentence.'); ask.focus(); return; }
     if(busy) return;
-    var label = planBtn.textContent;
-    busy = true; planBtn.disabled = true; planBtn.textContent = 'Planning'; say('');
-    function back(msg){ busy = false; planBtn.disabled = false; planBtn.textContent = label; say(msg); }
-    post(B.urls.plan, {ask: text, product: B.product, thread: B.thread || null}).then(function(r){
+    busy = true; say('');
+    if(!B.thread && B.urls.clarify && clar){ ask_first(text); return; }
+    send(text, []);
+  }
+  // Planning: the request goes to /app/desk/plan with any answers; the steps show while it works.
+  function send(text, answers){
+    busy = true; planBtn.disabled = true;
+    var label = planBtn.querySelector('span') ? planBtn.querySelector('span').textContent : planBtn.textContent;
+    setLabel('Planning');
+    var stop = working(['Reading your brand and product', 'Choosing the parts of the campaign', 'Pricing each part']);
+    function back(msg){ busy = false; planBtn.disabled = false; setLabel(label); stop(false); show_form(); say(msg); }
+    post(B.urls.plan, {ask: text, product: B.product, thread: B.thread || null, answers: answers}).then(function(r){
       if(!r.url){ back(r.error || 'That didn\'t come back. Try again.'); return; }
-      go(r.url);
+      stop(true); go(r.url);
     }).catch(function(){ back('That didn\'t come back. Try again.'); });
+  }
+  function setLabel(t){ var sp = planBtn.querySelector('span'); if(sp) sp.textContent = t; else planBtn.textContent = t; }
+
+  // ---------------------------------------------------------------- the questions before a new campaign
+  var clar = $('[data-clarify]'), work = $('[data-working]');
+  function show_form(){ root.classList.remove('dk-asking'); if(form) form.hidden = false; if(clar){ clar.hidden = true; clar.innerHTML = ''; } }
+  // A list of what is happening, one line at a time; the last line waits for the answer.
+  function working(lines){
+    if(!work) return function(){};
+    work.hidden = false;
+    work.innerHTML = '<p class="dk-work-h">Working on it</p><ol>' + lines.map(function(l){ return '<li>' + esc(l) + '</li>'; }).join('') + '</ol>';
+    var items = $$('li', work), i = 0, t;
+    function tick(){ items.forEach(function(li, j){ li.className = j < i ? 'done' : (j === i ? 'now' : ''); }); }
+    tick();
+    t = setInterval(function(){ if(i < items.length - 1){ i++; tick(); } }, 1600);
+    return function(ok){ clearInterval(t); if(ok){ i = items.length; tick(); } else { work.hidden = true; work.innerHTML = ''; } };
+  }
+  function ask_first(text){
+    root.classList.add('dk-asking');
+    if(form) form.hidden = true;
+    clar.hidden = false;
+    clar.innerHTML = '<p class="dk-said">' + esc(text) + '</p><p class="dk-think" role="status"><span></span>Reading your request</p>';
+    post(B.urls.clarify, {ask: text, product: B.product}).then(function(r){
+      if(r.error){ busy = false; show_form(); say(r.error); return; }
+      if(!(r.questions || []).length){ send(text, []); return; }
+      cards(text, r.questions);
+    }).catch(function(){ send(text, []); });
+  }
+  function cards(text, qs){
+    var picks = qs.map(function(){ return null; }), at = 0;
+    function rec(q){ var o = q.options.filter(function(o){ return o.recommended; })[0] || q.options[0]; return o.label; }
+    function finish(){
+      var answers = qs.map(function(q, i){ return picks[i] ? {q: q.q, a: picks[i]} : null; }).filter(Boolean);
+      clar.innerHTML = '<p class="dk-said">' + esc(text) + '</p>' + (answers.length ? '<dl class="dk-qa">' + answers.map(function(a){ return '<dt>' + esc(a.q) + '</dt><dd>' + esc(a.a) + '</dd>'; }).join('') + '</dl>' : '');
+      send(text, answers);
+    }
+    function draw(){
+      var q = qs[at], last = at === qs.length - 1, id = 'dk-cq-' + at;
+      clar.innerHTML = '<p class="dk-said">' + esc(text) + '</p>'
+        + '<section class="dk-card" aria-labelledby="' + id + '">'
+        + '<div class="dk-card-top"><span>A few quick questions so the plan fits</span>'
+        + '<span class="dk-card-nav"><button type="button" class="dk-card-arrow" data-prev aria-label="Previous question"' + (at ? '' : ' disabled') + '>&lsaquo;</button>'
+        + '<span aria-live="polite">' + (at + 1) + ' of ' + qs.length + '</span>'
+        + '<button type="button" class="dk-card-arrow" data-next aria-label="Next question"' + (picks[at] && !last ? '' : ' disabled') + '>&rsaquo;</button></span></div>'
+        + '<h3 class="dk-card-q" id="' + id + '">' + esc(q.q) + '</h3>'
+        + '<div class="dk-opts" role="radiogroup" aria-labelledby="' + id + '">' + q.options.map(function(o, i){
+            var on = picks[at] === o.label;
+            return '<button type="button" class="dk-opt2" role="radio" aria-checked="' + on + '" data-o="' + i + '"><b>' + esc(o.label) + '</b>'
+              + (o.hint ? '<span>' + esc(o.hint) + '</span>' : '') + (o.recommended ? '<em>Recommended</em>' : '') + '</button>';
+          }).join('') + '</div>'
+        + '<label class="dk-own"><span class="sr">Or type your own answer</span><input type="text" maxlength="80" placeholder="Or type your own answer" data-own value="'
+        + esc(picks[at] && !q.options.some(function(o){ return o.label === picks[at]; }) ? picks[at] : '') + '"></label>'
+        + '<div class="dk-card-foot"><button type="button" class="linkbtn" data-skip>Skip, just plan it</button>'
+        + '<span><button type="button" class="btn sm ghost" data-recs>Use the recommended answers</button>'
+        + '<button type="button" class="btn sm" data-go' + (picks[at] ? '' : ' disabled') + '>' + (last ? 'Plan it' : 'Next') + '</button></span></div>'
+        + '</section>';
+      $$('[data-o]', clar).forEach(function(b){
+        b.addEventListener('click', function(){
+          picks[at] = q.options[+b.dataset.o].label;
+          if(last){ draw(); $('[data-go]', clar).focus(); } else { at++; draw(); focusFirst(); }
+        });
+      });
+      var own = $('[data-own]', clar);
+      own.addEventListener('input', function(){ var v = own.value.trim(); $('[data-go]', clar).disabled = !v && !picks[at]; });
+      own.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); $('[data-go]', clar).click(); } });
+      $('[data-go]', clar).addEventListener('click', function(){
+        var v = own.value.trim(); if(v) picks[at] = v;
+        if(!picks[at]) return;
+        if(last) finish(); else { at++; draw(); focusFirst(); }
+      });
+      $('[data-prev]', clar).addEventListener('click', function(){ if(at){ at--; draw(); focusFirst(); } });
+      $('[data-next]', clar).addEventListener('click', function(){ if(at < qs.length - 1){ at++; draw(); focusFirst(); } });
+      $('[data-skip]', clar).addEventListener('click', function(){ picks = picks.map(function(){ return null; }); finish(); });
+      $('[data-recs]', clar).addEventListener('click', function(){ picks = qs.map(function(q, i){ return picks[i] || rec(q); }); finish(); });
+    }
+    function focusFirst(){ var b = $('[aria-checked="true"]', clar) || $('[data-o]', clar); if(b) b.focus(); }
+    draw(); focusFirst();
   }
   if(form && ask && B.product){
     form.addEventListener('submit', function(e){ e.preventDefault(); plan(); });
