@@ -1027,6 +1027,16 @@ service_requests.sent_at TEXT
 service_requests.user_id INTEGER
 service_requests.wants TEXT
 service_requests.workspace_id INTEGER
+signup_followups.admin_id INTEGER
+signup_followups.created_at TEXT
+signup_followups.id INTEGER
+signup_followups.kind TEXT
+signup_followups.made_ads INTEGER
+signup_followups.outreach_id INTEGER
+signup_followups.sent_at TEXT
+signup_followups.status TEXT
+signup_followups.user_id INTEGER
+signup_followups.workspace_id INTEGER
 site_events.click_id TEXT
 site_events.click_type TEXT
 site_events.detail TEXT

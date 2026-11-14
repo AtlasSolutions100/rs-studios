@@ -541,6 +541,12 @@ CREATE TABLE IF NOT EXISTS outreach_log (
 CREATE INDEX IF NOT EXISTS idx_outreach_to ON outreach_log(to_addr, created_at);
 CREATE TABLE IF NOT EXISTS outreach_suppressions (
     entry TEXT PRIMARY KEY, note TEXT, user_id INTEGER, created_at TEXT NOT NULL);
+-- Done-for-you follow-ups from /admin/signups (signup_followup.py): one per sign-up. made_ads: its free first ads
+-- were made for it (kept when the email then fails, so a retry never makes them twice); status is the email's.
+CREATE TABLE IF NOT EXISTS signup_followups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL UNIQUE, workspace_id INTEGER, kind TEXT NOT NULL,
+    made_ads INTEGER NOT NULL DEFAULT 0, outreach_id INTEGER, status TEXT NOT NULL, admin_id INTEGER,
+    created_at TEXT NOT NULL, sent_at TEXT);
 -- Google Ads conversions of our own site (gads.py): one row per checkout we started, reported once.
 CREATE TABLE IF NOT EXISTS ad_conversions (
     id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, ref TEXT NOT NULL, workspace_id INTEGER,

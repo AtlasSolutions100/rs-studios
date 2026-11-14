@@ -3272,6 +3272,9 @@ if __name__ == "__main__" and not os.environ.get("RS_TEST_ONE"):
     # The free first result before the plan step: 3 image ads from the pasted link, granted once, then the plan step,
     # then the brand brief; the presenter preview for the presenter pages; the step on /admin/signups (first_ads.py).
     subprocess.run([sys.executable, os.path.join(HERE, "test_first_result.py")], check=True)
+    # The done-for-you follow-up on /admin/signups: email A with the free first ads made in their workspace, or email
+    # B; through outreach.send (cap, do-not-contact, 14 days, footer); payers skipped; once only (signup_followup.py).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_signup_followup.py")], check=True)
     # The welcome credits: 500 once the email is confirmed, videos wait for a plan, then the plan step (plan_gate).
     subprocess.run([sys.executable, os.path.join(HERE, "test_welcome_credits.py")], check=True)
     # Clone an ad: a reference ad's beats, and the remake planned for your product on the desk (models faked).
