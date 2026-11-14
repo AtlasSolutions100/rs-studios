@@ -38,6 +38,8 @@ CATALOG = [
          "Make an image ad, a presenter video, a product video or a voiceover.", "image video ugc presenter voiceover"),
         ("studio_v2.workflow", "Workflow", "flows", None,
          "Describe a campaign, or start from a pack of presets.", "pack preset set"),
+        ("clone.page", "Clone an ad", "copy", None,
+         "Upload an ad that works: we break it into its beats and remake it for your product.", "clone remake copy reference winning beats hook"),
         ("create.index", "Advanced", "planner", None,
          "Every setting of an ad, step by step.", "create batch script angle"),
         ("copy.studio", "Copy", "copy", "copy",
