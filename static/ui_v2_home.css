@@ -231,11 +231,6 @@ html[data-ui="v2"]:not([data-theme="dark"]) .cfh-sh2{animation-duration:12s;anim
 .rca-file{display:flex;flex-direction:column;padding:8px 10px;margin-bottom:6px;border-radius:8px;background:#FFFFFF;border:1px solid #ECECEA;color:#141414;font-weight:500}
 .rca-file i{font-style:normal;font-weight:400;font-size:11px;color:#8A8A87}
 .rca-foot{margin:14px 0 0;font-size:12px;color:rgba(244,245,239,.5)}
-.rca-panel.go .rca-me{animation:rca-in .35s both}
-.rca-panel.go .rca-work{animation:rca-in .35s .35s both}
-.rca-panel.go .rca-say{animation:rca-in .45s .8s both}
-@keyframes rca-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion: reduce){.rca-panel.go .rca-me,.rca-panel.go .rca-work,.rca-panel.go .rca-say{animation:none}}
 @media (max-width: 960px){.rca-win{grid-template-columns:minmax(0,1fr)}.rca-side,.rca-board{display:none}}
 @media (max-width: 560px){.rca-ads{grid-template-columns:repeat(2,1fr)}.rca-kv{grid-template-columns:1fr;gap:2px}.rca-stats b{font-size:18px}.rca-me{max-width:92%}}
 .rca .rca-panel{border:0;margin:0;padding:0;background:none}
@@ -254,11 +249,9 @@ html[data-ui="v2"]:not([data-theme="dark"]) .cfh-sh2{animation-duration:12s;anim
 .rca-check li.ok::before{border-color:#7AC70C;background:#7AC70C url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E") center/10px no-repeat}
 .rca-check li:not(.ok){border-color:rgba(122,199,12,.5);background:rgba(189,250,37,.12)}
 .rca-check span{color:#585856;overflow-wrap:anywhere}
-.rca-panel.go .rca-qa{animation:rca-in .35s .2s both}
-@media (prefers-reduced-motion: reduce){.rca-panel.go .rca-qa{animation:none}}
 @media (max-width: 560px){.rca-rows div{grid-template-columns:minmax(0,1fr) auto}.rca-rows i{display:none}.rca-check li{grid-template-columns:18px minmax(0,1fr)}.rca-check span{grid-column:2}}
 /* Plan, Create, Launch move with the scroll on a wide screen: the track is three screens tall and the stage sticks */
-.rca.is-scrolly .rca-track{height:300vh;position:relative}
+.rca.is-scrolly .rca-track{height:360vh;position:relative}
 .rca.is-scrolly .rca-stage{position:sticky;top:max(12px,calc(50vh - 400px))}
 .rca-prog{height:3px;margin:14px 0 0;border-radius:3px;background:rgba(244,245,239,.14);overflow:hidden}
 .rca-prog i{display:block;height:100%;background:#BDFA25;transform-origin:0 50%;transform:scaleX(0)}
@@ -395,3 +388,15 @@ html[data-ui="v2"][data-theme="dark"]{--hp-sky:#1B2636;--hp-pink:#2F1E27;--hp-su
 @media (prefers-reduced-motion:reduce){.hp-card a,.hp-peek{transition:none}.hp-card a:hover{transform:none}}
 /* the clips now carry captions near the bottom, so the sound button sits up top, across from the AI tag */
 .lv-show .lv-clip-snd{top:8px;bottom:auto}
+/* Plan, Create, Launch: the messages follow the scroll, nothing plays by itself (Koby, Nov 14 2026) */
+.rca.is-scrolly [data-step]{opacity:0;transform:translateY(10px);transition:opacity .28s ease,transform .32s cubic-bezier(.2,.9,.25,1)}
+.rca.is-scrolly [data-step].rv{opacity:1;transform:none}
+/* cards rise on hover: the six "whole campaign" tiles, the three how-it-works steps, the Made in Campaignify ads */
+.hp-tile,.hp-steps li,.lv-show .lv-shot{transition:transform .25s cubic-bezier(.2,.9,.25,1),box-shadow .25s}
+.hp-flow.popped .hp-tile{transition:transform .25s cubic-bezier(.2,.9,.25,1),box-shadow .25s;transition-delay:0s}
+.hp-flow.is-in .hp-tile:hover,.hp-tile:hover,.hp-steps li:hover{transform:translateY(-8px);box-shadow:0 2px 4px rgba(20,20,20,.06),0 22px 44px rgba(20,20,20,.14);transition-delay:0s}
+.lv-show .lv-shot:hover{transform:translateY(-8px)}
+.lv-show .lv-shot img,.lv-show .lv-shot video{transition:box-shadow .25s}
+.lv-show .lv-shot:hover img,.lv-show .lv-shot:hover video{box-shadow:0 2px 4px rgba(20,20,20,.06),0 22px 44px rgba(20,20,20,.16)}
+html[data-ui="v2"][data-theme="dark"] .hp-tile:hover,html[data-ui="v2"][data-theme="dark"] .hp-steps li:hover{box-shadow:0 2px 4px rgba(0,0,0,.4),0 22px 44px rgba(0,0,0,.5)}
+@media (prefers-reduced-motion:reduce){.hp-tile,.hp-steps li,.lv-show .lv-shot{transition:none}.hp-tile:hover,.hp-steps li:hover,.lv-show .lv-shot:hover,.hp-flow.is-in .hp-tile:hover{transform:none}}

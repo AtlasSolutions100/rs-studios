@@ -90,7 +90,8 @@
 </section>
 <script>
 // Plan, Create, Launch move along as the page scrolls (Koby, Nov 14 2026): the stage stays put while the track
-// scrolls past it, and the third of the track in view picks the tab. A tab click scrolls to its third. On a narrow
+// scrolls past it, the third of the track in view picks the tab, and the scroll within that third brings in its
+// messages one by one. A tab click scrolls to its third. On a narrow
 // screen, or with motion turned down, the tabs are plain tabs: a click shows that panel.
 (function(){
   var root = document.querySelector('[data-rca-scroll]'); if (!root) return;
@@ -101,9 +102,27 @@
   function show(n, focus){
     if (n === cur) return; cur = n;
     tabs.forEach(function(t){ var on = +t.dataset.rca === n; t.setAttribute('aria-selected', on ? 'true' : 'false'); t.tabIndex = on ? 0 : -1; if (on && focus) t.focus(); });
-    [].forEach.call(root.querySelectorAll('[role=tabpanel]'), function(p, i){ p.hidden = (i + 1) !== n; if (i + 1 === n) { line.textContent = p.dataset.line; if (!still) { p.classList.remove('go'); void p.offsetWidth; p.classList.add('go'); } } });
+    [].forEach.call(root.querySelectorAll('[role=tabpanel]'), function(p, i){ p.hidden = (i + 1) !== n; if (i + 1 === n) line.textContent = p.dataset.line; });
     [].forEach.call(root.querySelectorAll('[data-rca-board]'), function(b){ b.hidden = +b.dataset.rcaBoard !== n; });
     [].forEach.call(root.querySelectorAll('[data-rca-chat]'), function(c){ c.classList.toggle('on', +c.dataset.rcaChat === n); });
+  }
+  // Each panel's messages come in one by one as the page scrolls through its third: your message, the questions,
+  // the work line, the reply and each row of it. Nothing plays by itself (Koby, Nov 14 2026); scroll back and they
+  // go away again. Without the scroll mode every message just shows.
+  var panels = [].slice.call(root.querySelectorAll('[role=tabpanel]')).map(function(p){
+    var q = function(sel){ return [].slice.call(p.querySelectorAll(sel)); };
+    var list = q('.rca-me').concat(q('.rca-qa'), q('.rca-work'), q('.rca-say > p:first-child'),
+      q('.rca-rows > div'), q('.rca-ads > img'), q('.rca-check > li'), q('.rca-cta'));
+    list.forEach(function(el){ el.setAttribute('data-step', ''); });
+    return list;
+  });
+  function reveal(n, local){
+    panels.forEach(function(list, i){
+      list.forEach(function(el, k){
+        var at = 0.04 + 0.66 * k / Math.max(1, list.length - 1);
+        el.classList.toggle('rv', i + 1 < n || (i + 1 === n && local >= at));
+      });
+    });
   }
   function scrolly(){ return wide.matches && !still; }
   function span(){ var r = track.getBoundingClientRect(); return {top: r.top + window.scrollY, room: Math.max(1, track.offsetHeight - window.innerHeight)}; }
@@ -111,7 +130,8 @@
     if (!scrolly()) return;
     var s = span(), p = Math.min(1, Math.max(0, (window.scrollY - s.top) / s.room));
     if (bar) bar.style.transform = 'scaleX(' + p.toFixed(3) + ')';
-    show(Math.min(3, Math.floor(p * 3) + 1));
+    var n = Math.min(3, Math.floor(p * 3) + 1);
+    show(n); reveal(n, p * 3 - (n - 1));
   }
   function go(n, focus){
     if (scrolly()) { var s = span(); window.scrollTo({top: s.top + s.room * ((n - 1) / 3 + 0.05), behavior: 'smooth'}); }
