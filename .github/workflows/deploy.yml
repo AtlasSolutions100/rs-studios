@@ -21,6 +21,8 @@ name: Deploy Campaignify (campaignify.ai)
 #                          optimizer, competitor research with web search); without it those tools show "not set up yet"
 #   ANTHROPIC_MODEL        optional repo variable (default claude-sonnet-4-6)
 #   GROQ_API_KEY           optional fallback writing key; GROQ_MODEL optional variable
+#   LIGHT_WORKER_TOKEN     optional: the Mac mini's light-model worker (light.py, deploy/mac-light), which writes the
+#                          agent's questions on a local model instead of Claude
 #   STRIPE_PORTAL_CONFIG   optional repo variable: Customer Portal configuration id
 #   Live ids (liveids.py, roadmap M7.4): each optional repo variable overrides today's production value, which
 #   liveids.PRODUCTION keeps as the fallback. STRIPE_PLAN_PRICE_STARTER/_GROWTH/_SCALE,
@@ -286,6 +288,7 @@ jobs:
           ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GROQ_MODEL: ${{ vars.GROQ_MODEL }}
+          LIGHT_WORKER_TOKEN: ${{ secrets.LIGHT_WORKER_TOKEN }}
           STRIPE_PORTAL_CONFIG: ${{ vars.STRIPE_PORTAL_CONFIG }}
           STRIPE_PLAN_PRICE_STARTER: ${{ vars.STRIPE_PLAN_PRICE_STARTER }}
           STRIPE_PLAN_PRICE_GROWTH: ${{ vars.STRIPE_PLAN_PRICE_GROWTH }}
@@ -451,6 +454,7 @@ jobs:
           import base64, json, os
           settings = {k: os.environ[k] for k in ("HF_KEY", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET",
                                              "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "GROQ_API_KEY", "GROQ_MODEL",
+                                             "LIGHT_WORKER_TOKEN",
                                              "STRIPE_PORTAL_CONFIG", "RS_MARKUP", "RS_STARTER_CREDITS",
                                              # live ids (liveids.py, M7.4) and owner setup links (SEC-9)
                                              "STRIPE_PLAN_PRICE_STARTER", "STRIPE_PLAN_PRICE_GROWTH",

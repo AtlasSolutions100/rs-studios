@@ -500,6 +500,11 @@ CREATE TABLE IF NOT EXISTS ad_clones (id INTEGER PRIMARY KEY AUTOINCREMENT, work
     analysis_json TEXT, remake_json TEXT, frames_json TEXT, hold_id INTEGER, credits INTEGER NOT NULL DEFAULT 0,
     thread_id INTEGER, created_at TEXT NOT NULL, updated_at TEXT);
 CREATE INDEX IF NOT EXISTS idx_ad_clones_ws ON ad_clones(workspace_id, id);
+-- Light model jobs (light.py): short JSON asks the Mac's local model answers (the agent's questions before a plan).
+CREATE TABLE IF NOT EXISTS light_jobs (id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER, kind TEXT NOT NULL,
+    prompt_json TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'queued', result_json TEXT, error TEXT, taken_by TEXT,
+    created_at TEXT NOT NULL, taken_at TEXT, done_at TEXT);
+CREATE INDEX IF NOT EXISTS idx_light_jobs_status ON light_jobs(status, id);
 -- The welcome credits (plan_gate.grant_welcome): one row per workspace that got them, once per person (email_norm).
 CREATE TABLE IF NOT EXISTS welcome_grants (
     id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL UNIQUE, user_id INTEGER, email_norm TEXT,

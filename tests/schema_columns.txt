@@ -774,6 +774,17 @@ ledger.job_id INTEGER
 ledger.plan_delta INTEGER
 ledger.reason TEXT
 ledger.workspace_id INTEGER
+light_jobs.created_at TEXT
+light_jobs.done_at TEXT
+light_jobs.error TEXT
+light_jobs.id INTEGER
+light_jobs.kind TEXT
+light_jobs.prompt_json TEXT
+light_jobs.result_json TEXT
+light_jobs.status TEXT
+light_jobs.taken_at TEXT
+light_jobs.taken_by TEXT
+light_jobs.workspace_id INTEGER
 link_clicks.at TEXT
 link_clicks.country TEXT
 link_clicks.device TEXT

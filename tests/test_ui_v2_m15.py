@@ -210,10 +210,14 @@ check("One link in. A whole campaign out." in kb and kb.count('class="cfk-row"')
       "what comes back out: six rows, with the preset and presenter counts from the catalog")
 check(all(f"{plans.FEATURES[k]['name'].replace('&', '&amp;')}: " in kb for k in ("studio", "copy", "planner", "competitors", "pages", "forms", "flows")),
       "each row says which plan its tools come with, from the billing config")
-rows = re.search(r'<section class="cfm".*?</section>', hv, re.S).group(0)
-check(all(rows.count(">" + n.replace("&", "&amp;") + "</li>") == 2 for n in shipped) and rows.count('aria-hidden="true"><li>') == 2,
-      f"the feature rows list every shipped feature from the billing config ({len(shipped)}), each once for readers")
-media = set(re.findall(r'src="(/static/[^"?]+)', hv.split('class="cfm"')[0]))
+rca = re.search(r'<section class="rca".*?</section>', hv, re.S).group(0)
+check(all(f'>{t}</button>' in rca for t in ("Plan", "Create", "Launch")) and rca.count('role="tabpanel"') == 3
+      and "An example for a made-up brand." in rca,
+      "Plan, Create and Launch: three example chats, labelled as an example")
+nav = re.search(r'<div class="pd" data-pd>.*?</div>\s*</div>\s*</div>', hv, re.S).group(0)
+check("Campaign agent" in nav and all(t in nav for t in ("Competitor research", "Ad studio", "Copy studio", "Landing page builder")),
+      "the header's Products menu lists the agent and the tools")
+media = set(re.findall(r'src="(/static/[^"?]+)', hv.split('class="rca"')[0]))
 check(media and all(os.path.isfile(os.path.join(ROOT, m.lstrip("/"))) for m in media)
       and all(m.startswith(("/static/presets/", "/static/presenters/", "/static/hero/")) for m in media if "cfh" not in m and m.endswith(".webp")),
       f"every hero tile is one of our own preset examples, presenter stills or made ads ({len(media)} files)")

@@ -37,6 +37,7 @@ import create_routes
 import credits as credit_holds
 import db
 import flows
+import light
 import llm
 import pages
 import pipeline
@@ -429,7 +430,148 @@ def _tiles(conn, batch_id) -> dict:
             "outs": [{"id": o["id"], "video": o["kind"] == "video"} for o in outs]}
 
 
+# ---------------------------------------------------------------- the questions before a plan
+# A new campaign starts with up to three multiple-choice questions, the way a person would ask before planning. A
+# light model writes them (light.py: the Mac's local model, then Groq), never Claude; with neither, the rules below
+# ask about what the sentence leaves open. The answers go to the plan with the sentence.
+
+ASK_MAX_Q = 3
+CLARIFY_SYSTEM = (
+    "You are the campaign agent in Campaignify, an app that plans and makes a product's marketing: image ads, "
+    "presenter (UGC) videos, product videos, ad copy, a landing page with a sign-up form, an email follow-up, and the "
+    "ad launch. Before you plan, ask the member up to three short multiple-choice questions whose answers would change "
+    "the plan. Skip anything the request or the product details already answer; if nothing is open, ask none. Good "
+    "topics: where the ads will run, what to make first, the goal (sales, sign-ups, getting the word out), the angle "
+    "or offer to lead with, who it is for, the tone. Never ask about budgets or prices, and never suggest a claim "
+    "about results, health or money. Each question has 2 to 4 options: a short label (at most five words) and a "
+    "one-line hint. Mark your best guess for this product as recommended. Plain, friendly words.")
+CLARIFY_SCHEMA = {
+    "type": "object", "required": ["questions"],
+    "properties": {"questions": {"type": "array", "maxItems": ASK_MAX_Q, "items": {
+        "type": "object", "required": ["q", "options"],
+        "properties": {"q": {"type": "string"}, "options": {"type": "array", "minItems": 2, "maxItems": 4, "items": {
+            "type": "object", "required": ["label"],
+            "properties": {"label": {"type": "string"}, "hint": {"type": "string"},
+                           "recommended": {"type": "boolean"}}}}}}}}}
+
+_MAKE_WORDS = r"\b(images?|photos?|pictures?|statics?|stills?|videos?|presenter|ugc|reels?|clips?|voice ?over|carousel)\b"
+_GOAL_WORDS = r"\b(sales?|sell|buy|orders?|sign[- ]?ups?|emails?|leads?|wait ?list|awareness|launch(?:ing)?|traffic|visits?)\b"
+
+
+def _q(q, options) -> dict:
+    return {"q": q, "options": [{"label": a, "hint": h, "recommended": i == 0} for i, (a, h) in enumerate(options)]}
+
+
+def rule_questions(text: str, product) -> list[dict]:
+    """The questions the sentence leaves open, without a model."""
+    t = " ".join(str(text or "").lower().split())
+    out = []
+    if not platform_in(t) and not re.search(r"\b(ads? everywhere|all platforms|every platform)\b", t):
+        out.append(_q("Where will these ads run?", [("Instagram and Facebook", "Feed, Stories and Reels"),
+                                                     ("TikTok", "Short vertical videos"),
+                                                     ("YouTube Shorts", "Vertical, up to a minute"),
+                                                     ("A few of these", "I'll size them for each")]))
+    if not re.search(_MAKE_WORDS, t) and "campaign" not in t:
+        out.append(_q("What should I make first?", [("Image ads", "Quick to make and test"),
+                                                     ("A presenter video", "A person talks about it"),
+                                                     ("A product video", "Your product in motion"),
+                                                     ("Images and a video", "A bit of each")]))
+    if not re.search(_GOAL_WORDS, t):
+        sells = bool(product is not None and (product["price"] or product["url"]))
+        goals = [("Sales", "Send people to buy"), ("Sign-ups", "Collect emails first"),
+                 ("Get the word out", "Reach new people")]
+        if not sells:
+            goals = [goals[1], goals[0], goals[2]]
+        out.append(_q("What's the goal?", goals))
+    return out[:ASK_MAX_Q]
+
+
+def clean_questions(raw) -> list[dict]:
+    """What a model sent, made safe to show: at most three questions of two to four options, short, each passing the
+    claim rules, exactly one recommended."""
+    out = []
+    for item in (raw.get("questions") if isinstance(raw, dict) else None) or []:
+        if not isinstance(item, dict):
+            continue
+        q = studio_v2._clean(item.get("q"), 120)
+        if len(q) < 6 or not compliance.check(q)["ok"]:
+            continue
+        opts, seen = [], set()
+        for o in item.get("options") or []:
+            if not isinstance(o, dict):
+                continue
+            label, hint = studio_v2._clean(o.get("label"), 40), studio_v2._clean(o.get("hint"), 90)
+            if not label or label.lower() in seen or not compliance.check(f"{label} {hint}")["ok"]:
+                continue
+            seen.add(label.lower())
+            opts.append({"label": label, "hint": hint, "recommended": bool(o.get("recommended"))})
+        opts = opts[:4]
+        if len(opts) < 2:
+            continue
+        first = next((i for i, o in enumerate(opts) if o["recommended"]), 0)
+        for i, o in enumerate(opts):
+            o["recommended"] = i == first
+        out.append({"q": q, "options": opts})
+        if len(out) == ASK_MAX_Q:
+            break
+    return out
+
+
+def questions(text: str, product, ws_id=None) -> tuple[list[dict], str]:
+    """(the questions, where they came from: "mac", "groq" or "rules")."""
+    facts = [f"Product: {product['name']}"]
+    for key, label in (("description", "About it"), ("audience", "Who it's for"), ("offer", "Offer"),
+                       ("price", "Price"), ("url", "Link")):
+        if product[key]:
+            facts.append(f"{label}: {studio_v2._clean(product[key], 400)}")
+    prompt = "\n".join(facts) + f"\n\nTheir request: {text}"
+    got, where = light.ask_json("clarify", CLARIFY_SYSTEM, prompt, CLARIFY_SCHEMA, ws_id=ws_id)
+    if got is not None:
+        qs = clean_questions(got)
+        if qs or isinstance(got.get("questions"), list) and not got["questions"]:
+            return qs, where
+    return rule_questions(text, product), "rules"
+
+
+def clean_answers(raw) -> list[dict]:
+    out = []
+    for a in raw if isinstance(raw, list) else []:
+        if isinstance(a, dict):
+            q, ans = studio_v2._clean(a.get("q"), 120), studio_v2._clean(a.get("a"), 80)
+            if q and ans:
+                out.append({"q": q, "a": ans})
+    return out[:ASK_MAX_Q]
+
+
+def with_answers(text: str, answers: list[dict]) -> str:
+    """The sentence the plan is made from: what they typed, then what they picked."""
+    if not answers:
+        return text
+    tail = " Answers: " + " ".join(f"{a['q']} {a['a'].rstrip('.')}." for a in answers)
+    return (text[:max(60, 600 - len(tail))] + tail)[:600]
+
+
 # ---------------------------------------------------------------- the routes
+
+@bp.route("/app/desk/clarify", methods=["POST"])
+@login_required
+def clarify():
+    """The questions to ask before a new campaign is planned (none for a later turn). Nothing is charged."""
+    if not ui_v2.on():
+        return studio_v2._off()
+    d = studio_v2._payload()
+    text = studio_v2._clean(d.get("ask"), 600)
+    if len(text) < 8:
+        return jsonify({"error": "Say what you want to launch, in a sentence."}), 400
+    if not compliance.check(text)["ok"]:
+        return jsonify({"questions": [], "source": "none"})         # the plan says why
+    with db.connect() as conn:
+        product = _product(conn, d.get("product"))
+    if product is None:
+        return jsonify({"error": "Add your product first, then ask again."}), 400
+    qs, where = questions(text, product, g.ws["id"])
+    return jsonify({"questions": qs, "source": where})
+
 
 @bp.route("/app/desk/plan", methods=["POST"])
 @login_required
@@ -441,20 +583,22 @@ def plan():
         return studio_v2._off()
     d = studio_v2._payload()
     text = studio_v2._clean(d.get("ask"), 600)
+    answers = [] if d.get("thread") else clean_answers(d.get("answers"))
+    full = with_answers(text, answers)
     with db.connect() as conn:
         thread = _thread(conn, d.get("thread")) if d.get("thread") else None
         if d.get("thread") and thread is None:
             return jsonify({"error": "That campaign isn't here any more. Start a new one."}), 404
         product = _product(conn, thread["product_id"] if thread is not None else d.get("product"))
         context = _context(conn, thread) if thread is not None else ""
-    out, status = studio_v2.ask_run(text, product["id"] if product is not None else d.get("product"), context=context)
+    out, status = studio_v2.ask_run(full, product["id"] if product is not None else d.get("product"), context=context)
     if status == 400 and "step" not in out:             # too short, a claim the ads can't make, no product
         return jsonify(out), 400
     if product is None:
         return jsonify({"error": "Add your product first, then ask again."}), 400
     cast = studio_v2.roster()
     have = {m["id"] for m in studio_v2.available_modes()}
-    want, raw = wanted(text), []
+    want, raw = wanted(full), []
     if status == 200:
         note = out.get("note") or "Here is a campaign for that."
         raw = [dict(it, kind=it["make"], on=True) for it in out["plan"]]
@@ -472,8 +616,8 @@ def plan():
     else:
         raw += [{"kind": k, "on": True} for k in SPINE if k in want]   # a later turn: only what it asks for
     for r in raw:
-        if r["kind"] == "copy" and platform_in(text):
-            r["platform"] = platform_in(text)
+        if r["kind"] == "copy" and platform_in(full):
+            r["platform"] = platform_in(full)
     for i, r in enumerate(raw):
         r["id"] = f"p{i + 1}"
     parts = clean_parts(raw, cast, have)
@@ -485,7 +629,7 @@ def plan():
                                                           "to add: more image ads, a video, the ad copy, a page, a follow-up.")
     with db.connect() as conn:
         tid = thread["id"] if thread is not None else _new_thread(conn, product, text)
-        _turn(conn, tid, "member", "said", {"text": text})
+        _turn(conn, tid, "member", "said", {"text": text, **({"answers": answers} if answers else {})})
         if parts:
             turn = _turn(conn, tid, "desk", "plan", {"ask": text, "note": note, "skipped": out.get("skipped") or [],
                                                      "also": also, "parts": _stored(ans["parts"]),
@@ -838,7 +982,7 @@ def _boot(ws, product, conn) -> dict:
         "flows": flow_templates(),
         "words": {str(dur): catalog.hard_words(dur) for dur in catalog.TOOLS["ugc_video"]["durations"]},
         "claims_check": studio_v2.claims_check.on() and llm.anthropic_ready(),
-        "urls": {"plan": url_for("desk.plan"), "quote": url_for("desk.quote"), "run": url_for("desk.run"),
+        "urls": {"plan": url_for("desk.plan"), "clarify": url_for("desk.clarify"), "quote": url_for("desk.quote"), "run": url_for("desk.run"),
                  "claims": url_for("studio_v2.claims"), "billing": url_for("billing_page")},
     }
 

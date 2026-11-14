@@ -29,7 +29,23 @@
   <div class="lp-wrap lp-nav-in">
     <a class="lp-logo" href="{{ url_for('index') }}" aria-label="Campaignify home">{% include "_wordmark.svg" %}</a>
     <nav class="lp-links" aria-label="Main">
-      <a href="{{ url_for('features') }}" {{ 'aria-current=page' if request.endpoint == 'features' }}>Features</a>
+      {% set F = url_for('features') %}
+      <div class="pd" data-pd>
+        <button type="button" class="pd-btn" aria-expanded="false" aria-controls="pd-menu" data-pd-btn>Products<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+        <div class="pd-menu" id="pd-menu" data-pd-menu>
+          <a class="pd-agent" href="{{ url_for('signup') }}" data-cta="nav-agent">
+            <b>Campaign agent</b>
+            <span>Say what you want. It plans the campaign and makes the ads, copy, page and follow-up, in one chat.</span>
+          </a>
+          <div class="pd-cols">
+            <div><p>Research</p><a href="{{ F }}#step-plan">Competitor research</a><a href="{{ F }}#step-plan">Campaign planner</a><a href="{{ F }}#step-found">SEO and AI search</a></div>
+            <div><p>Create</p><a href="{{ F }}#step-make">Ad studio</a><a href="{{ F }}#step-make">AI presenter videos</a><a href="{{ F }}#step-make">Clone an ad</a><a href="{{ F }}#step-copy">Copy studio</a></div>
+            <div><p>Launch</p><a href="{{ F }}#step-launch">Ad account setup</a><a href="{{ F }}#step-leads">Landing page builder</a><a href="{{ F }}#step-leads">Forms and contacts</a><a href="{{ F }}#step-leads">Email and text follow-up</a></div>
+            <div><p>Analyze</p><a href="{{ F }}#step-measure">Smart links and analytics</a><a href="{{ F }}#step-grow">Community and courses</a><a href="/tools/ai-hook-generator">Free hook generator</a></div>
+          </div>
+        </div>
+      </div>
+      <a href="{{ F }}" {{ 'aria-current=page' if request.endpoint == 'features' }}>Features</a>
       <a href="{{ url_for('pricing') }}" {{ 'aria-current=page' if request.endpoint == 'pricing' }}>Pricing</a>
       <a href="{{ url_for('guides') }}" {{ 'aria-current=page' if request.endpoint in ('guides', 'guide') }}>Guides</a>
       <a href="/mcp" {{ 'aria-current=page' if request.path == '/mcp' }}>MCP</a>
@@ -143,6 +159,20 @@
 </footer>
 {% endif %}
 <script>
+// The Products menu: hover or focus opens it for a pointer; a click or Enter toggles it; Escape or a click outside closes it.
+(function(){
+  var pd = document.querySelector('[data-pd]'); if (!pd) return;
+  var btn = pd.querySelector('[data-pd-btn]'), t = null, hover = window.matchMedia && matchMedia('(hover: hover)').matches;
+  function set(open){ pd.classList.toggle('open', open); btn.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+  btn.addEventListener('click', function(e){ e.preventDefault(); set(!pd.classList.contains('open')); });
+  if (hover) {
+    pd.addEventListener('mouseenter', function(){ clearTimeout(t); set(true); });
+    pd.addEventListener('mouseleave', function(){ t = setTimeout(function(){ set(false); }, 120); });
+  }
+  pd.addEventListener('focusout', function(e){ if (!pd.contains(e.relatedTarget)) set(false); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && pd.classList.contains('open')) { set(false); btn.focus(); } });
+  document.addEventListener('click', function(e){ if (!pd.contains(e.target)) set(false); });
+})();
 // Muted loops play only while on screen; nothing is fetched until they get close.
 (function(){
   var vids = [].slice.call(document.querySelectorAll('video[data-inview]'));
