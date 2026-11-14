@@ -143,8 +143,8 @@ app.jinja_env.globals.update(csrf_token=csrf_token, tools=catalog.DISPLAY_TOOLS,
                              # PLANS_ONLY (plan_gate.py): no free tier; Starter and Growth start with a trial
                              plans_only=plan_gate.on, trial_credits=plan_gate.trial_credits,
                              plan_trial_days=lambda code: plan_gate.TRIAL_DAYS if plan_gate.offers_trial(code) else 0,
-                             start_cta=lambda: f"Try it free for {plan_gate.TRIAL_DAYS} days" if plan_gate.on()
-                             else "Start free")
+                             start_cta=lambda: f"Try it free for {plan_gate.TRIAL_DAYS} days"
+                             if plan_gate.on() and not plan_gate.welcome_credits() else "Start free")
 
 # Sidebar: (endpoint, label, icon, feature or None, endpoints that light it up),
 # in groups (title or None, items). NAV is the flat list.

@@ -167,3 +167,33 @@ div.cfh-t .go{height:28px;margin-top:8px;padding-top:4px;box-sizing:border-box;b
   .cfm ul{flex-wrap:wrap;justify-content:center;padding:0}
   .cfm ul[aria-hidden]{display:none}
 }
+
+/* ---- the hero on the light page (Koby, Nov 13 2026): no black box. The same stage, light, with dark words; the stars
+   are dark specks with green ones among them, and the shooting stars are green so they catch the eye. The dark page
+   (data-theme="dark") keeps the black stage. ---- */
+html[data-ui="v2"]:not([data-theme="dark"]) .cfh-stage{background:#F3F3EE;color:#0B0B0B;
+  --bg:#F3F3EE; --bg2:#FFFFFF; --panel:#FFFFFF; --card:#FFFFFF;
+  --line:rgba(20,20,20,.1); --v2-line2:rgba(20,20,20,.2);
+  --ink:#141414; --muted:#55554F; --dim:#6B6B66;
+  --v2-inv:#141414; --v2-inv-ink:#FFFFFF; --v2-inv-hover:#000000;
+  --v2-raise:#FFFFFF; --v2-sunk:#EDEDE8; color-scheme:light;
+  box-shadow:inset 0 0 0 1px rgba(20,20,20,.06)}
+html[data-ui="v2"]:not([data-theme="dark"]) .cfh-copy h1{color:#0B0B0B}
+html[data-ui="v2"]:not([data-theme="dark"]) .cfh-copy .lv-lede{color:#45453F}
+html[data-ui="v2"]:not([data-theme="dark"]) .cfh-copy .lv-terms{color:#55554F}
+html[data-ui="v2"]:not([data-theme="dark"]) .cfh-copy .lv-terms a{color:#141414}
+html[data-ui="v2"]:not([data-theme="dark"]) .cfh-copy .lv-try-box{box-shadow:0 0 0 6px rgba(155,212,0,.28),0 10px 30px rgba(20,20,20,.08);border:1px solid rgba(20,20,20,.08)}
+html[data-ui="v2"]:not([data-theme="dark"]) .cfh-replay{border-color:rgba(20,20,20,.25);color:#141414}
+html[data-ui="v2"]:not([data-theme="dark"]) .cfh-replay:hover{border-color:#141414}
+html[data-ui="v2"]:not([data-theme="dark"]) div.cfh-t{box-shadow:0 8px 24px rgba(20,20,20,.12),0 0 0 1px rgba(20,20,20,.06)}
+html[data-ui="v2"]:not([data-theme="dark"]) img.cfh-t{box-shadow:0 8px 24px rgba(20,20,20,.16)}
+html[data-ui="v2"]:not([data-theme="dark"]) div.cfh-t .go{background:#141414}
+html[data-ui="v2"]:not([data-theme="dark"]) .cfh-pulse{border-color:#9BD400}
+/* the stars: the same places, dark instead of white, a size up so they read on light; green among them */
+html[data-ui="v2"]:not([data-theme="dark"]) .cfh-s1{filter:invert(1) brightness(.35);opacity:.9}
+html[data-ui="v2"]:not([data-theme="dark"]) .cfh-s2{filter:invert(1) brightness(.3);width:1.5px;height:1.5px}
+html[data-ui="v2"]:not([data-theme="dark"]) .cfh-s3{width:2px;height:2px;box-shadow:94.0vw 927px 0 1.4px #8CC800,65.3vw 83px 0 1.4px #8CC800,6.6vw 762px 0 1.4px #8CC800,17.6vw 868px 0 1.4px #8CC800,51.0vw 973px 0 1.2px #9BD400,97.7vw 251px 0 1.2px #8CC800,45.8vw 174px 0 1.2px #9BD400,81.0vw 39px 0 1.2px #8CC800,94.3vw 567px 0 1.4px #9BD400,96.5vw 800px 0 1.2px #8CC800,89.1vw 319px 0 1.2px #9BD400,92.2vw 835px 0 1.4px #8CC800,35.6vw 415px 0 1.2px #9BD400,73.5vw 184px 0 1.4px #8CC800,12.4vw 140px 0 1.2px #9BD400,24.8vw 690px 0 1.4px #8CC800,58.2vw 312px 0 1.2px #9BD400,70.6vw 760px 0 1.2px #8CC800,4.2vw 455px 0 1.4px #9BD400,86.8vw 120px 0 1.2px #8CC800}
+html[data-ui="v2"]:not([data-theme="dark"]) .cfh-shoot{height:2.5px;width:160px;background:linear-gradient(90deg,rgba(155,212,0,0),#9BD400 60%,#5F8F00 92%,#3E5E00);filter:drop-shadow(0 0 4px rgba(155,212,0,.7))}
+.cfh-sh3{left:42%;top:60px;animation:cfh-shoot-1 17s linear 9s infinite}
+html[data-ui="v2"]:not([data-theme="dark"]) .cfh-sh1{animation-duration:9s;animation-delay:3s}
+html[data-ui="v2"]:not([data-theme="dark"]) .cfh-sh2{animation-duration:12s;animation-delay:6.5s}
