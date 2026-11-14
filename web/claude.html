@@ -48,9 +48,11 @@
 
 <section class="lp-sec" id="ask">
   <div class="lp-wrap">
-    <p class="eyebrow">What you can ask</p>
-    <h2>Plain words work.</h2>
-    <p class="lp-lede">Claude picks the right Campaignify tool. These are good places to start.</p>
+    <p class="eyebrow">Presets for Claude</p>
+    <h2>Pick one, paste it, done.</h2>
+    <p class="lp-lede">Ready-made asks for the jobs people do most. Copy one into Claude, or type its name after a slash, like <b>/talking-ugc-review</b>. Claude prices everything before it's made.</p>
+    {% with g_ = mcp_gallery(launch) %}{% set mcp_presets = g_.mcp_presets %}{% set mcp_tabs = g_.mcp_tabs %}{% include "_mcp_presets.html" %}{% endwith %}
+    <p class="eyebrow" style="margin-top:44px">Or just ask</p>
     <div class="cl-prompts">
       {% for kind, text in prompts %}
       <div class="cl-prompt"><span class="k">{{ kind }}</span><q>{{ text }}</q><button type="button" data-copy="{{ text }}">Copy</button></div>

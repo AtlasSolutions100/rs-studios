@@ -1,0 +1,52 @@
+{# Templates (studio_v2.shelves): the Studio canvas's first view, rows of template cards by what they make, like a
+   template shelf. Every card is a gallery item (studio_v2.gallery) and picking one does what picking it in "More"
+   does (studio_v2.js pick()): the composer below gets it, nothing is made until the price is confirmed. #}
+{% macro tcard(x) -%}
+<button type="button" class="tl-card" data-gal-id="{{ x.id }}" data-words="{{ (x.name ~ ' ' ~ x.what_for ~ ' ' ~ x.badge)|lower }}">
+  <span class="tl-media{{ ' real' if x.example }}">
+    {%- if x.video %}<video src="{{ x.video }}" poster="{{ x.preview }}" muted loop playsinline preload="none" data-hover></video>
+    {%- else %}<img src="{{ x.preview }}" alt="" loading="lazy">{% endif -%}
+    <span class="tl-kind">{% if x.group == 'type' %}Ad type{% elif x.group == 'video' %}<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>Video{% else %}Image{% endif %}</span>
+    <span class="tl-use">Use template</span>
+  </span>
+  <span class="tl-name">{{ x.name }}</span>
+  <span class="tl-line">{{ x.what_for }}</span>
+  <span class="tl-from">{{ 'Opens in Advanced · ' if x.opens == 'advanced' }}from {{ '{:,}'.format(x['from']) }} credits</span>
+</button>
+{%- endmacro %}
+<div class="st-canvas tlv" id="pane-tpl" role="tabpanel" aria-labelledby="tab-tpl" data-pane="templates" tabindex="0" {{ 'hidden' if view != 'templates' }}>
+  {% if first_run and boot.free_images %}
+  <p class="tl-hello"><b>Your first {{ boot.free_images if boot.free_images < 3 else 2 }} image ad{{ '' if boot.free_images == 1 else 's' }} {{ 'is' if boot.free_images == 1 else 'are' }} on us.</b> Pick a template, or write a headline below. You see the price before anything is made.</p>
+  {% endif %}
+  <div class="tl-bar">
+    <div class="tl-tabs" role="toolbar" aria-label="Template categories" data-tp-tabs>
+      <button type="button" aria-pressed="true" data-tp-tab="">All</button>
+      {% for r in shelves %}<button type="button" aria-pressed="false" data-tp-tab="{{ r.id }}">{{ r.label }}</button>{% endfor %}
+    </div>
+    <div class="tl-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><label class="sr" for="tl-q">Search templates</label><input id="tl-q" type="search" placeholder="Search templates" autocomplete="off" data-tp-q></div>
+  </div>
+  {% for r in shelves %}
+  <section class="tl-row" data-tp-row="{{ r.id }}" aria-labelledby="tpr-{{ r.id }}">
+    <header class="tl-rh"><div><h2 id="tpr-{{ r.id }}">{{ r.label }}</h2><p>{{ r.line }}</p></div>{% if r['items']|length > 4 %}<button type="button" class="tl-all" data-tp-tab="{{ r.id }}">View all <span>{{ r['items']|length }}</span></button>{% endif %}</header>
+    <div class="tl-strip">{% for id in r['items'] %}{% set x = gal_by[id] %}{{ tcard(x) }}{% endfor %}</div>
+  </section>
+  {% endfor %}
+  <section class="tl-row tl-flat" data-tp-flat hidden aria-live="polite">
+    <header class="tl-rh"><div><h2 data-tp-flat-h>Templates</h2><p data-tp-flat-n></p></div></header>
+    <div class="tl-grid" data-tp-grid></div>
+  </section>
+  <p class="tl-none muted" data-tp-none hidden>No template matches. Try another word, or write what you want in the box below.</p>
+  {% if claude %}
+  <section class="tl-row tl-claude" data-tp-row="claude" aria-labelledby="tpr-claude">
+    <header class="tl-rh"><div><h2 id="tpr-claude">Do it from Claude</h2><p>Presets for Campaignify in Claude. Copy one, or type its name after a slash.</p></div><a class="tl-all" href="/app/settings/mcp#presets">All presets</a></header>
+    <div class="tl-strip">{% for p in claude %}
+      <a class="tl-card cl" href="/app/settings/mcp#presets" title="{{ p.prompt }}">
+        <span class="tl-media real">{% if p.video %}<video src="{{ p.video }}" poster="{{ p.image }}" muted loop playsinline preload="none" data-hover></video>{% else %}<img src="{{ p.image }}" alt="" loading="lazy">{% endif %}<span class="tl-kind"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.2 6.8 7.3.2-5.9 4.4 2.2 7-5.8-4.3-5.8 4.3 2.2-7L2.5 9.5l7.3-.2z"/></svg>Claude</span><span class="tl-use">See the prompt</span></span>
+        <span class="tl-name">{{ p.title }}</span>
+        <span class="tl-line">{{ p.line }}</span>
+        <span class="tl-from">/{{ p.id }}</span>
+      </a>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</div>

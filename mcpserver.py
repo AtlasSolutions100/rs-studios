@@ -381,8 +381,12 @@ class Prompt:
     """A prompt template (MCP prompts/list and prompts/get): clients show these as slash commands. `arguments` is
     a list of (name, description, required); `fn(ctx, args)` returns the text of the one user message."""
 
-    def __init__(self, name, title, description, arguments, fn):
+    def __init__(self, name, title, description, arguments, fn, visible=None):
         self.name, self.title, self.description, self.arguments, self.fn = name, title, description, arguments, fn
+        self.visible = visible   # optional fn(ctx) -> bool; hidden prompts are neither listed nor served
+
+    def shown(self, ctx):
+        return self.visible is None or bool(self.visible(ctx))
 
     def describe(self):
         return {"name": self.name, "title": self.title, "description": self.description,
@@ -616,9 +620,9 @@ def blueprint(adapter: Adapter) -> Blueprint:
         if method == "tools/call":
             return _ok(mid, call_tool(ctx, str(params.get("name") or ""), params.get("arguments")))
         if method == "prompts/list":
-            return _ok(mid, {"prompts": [p.describe() for p in adapter.prompts]})
+            return _ok(mid, {"prompts": [p.describe() for p in adapter.prompts if p.shown(ctx)]})
         if method == "prompts/get":
-            p = next((x for x in adapter.prompts if x.name == params.get("name")), None)
+            p = next((x for x in adapter.prompts if x.name == params.get("name") and x.shown(ctx)), None)
             if not p:
                 return _err(mid, -32602, f"Unknown prompt: {str(params.get('name'))[:60]}")
             pargs = params.get("arguments") or {}

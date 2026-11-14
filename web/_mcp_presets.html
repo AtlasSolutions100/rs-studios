@@ -1,0 +1,103 @@
+{# Claude presets gallery (mcp_presets.py): tabs, cards with example media, Open preset (the full prompt) and Copy.
+   Include with `mcp_presets` (list of dicts from mcp_presets.as_dicts()) and `mcp_tabs` ([(id, label)]). #}
+<style>
+.mp{margin-top:26px}
+.mp-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+.mp-tab{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:7px 14px;font:500 14px var(--body);cursor:pointer}
+.mp-tab[aria-selected="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.mp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:18px}
+.mp-card{display:flex;flex-direction:column;gap:8px}
+.mp-card[hidden]{display:none}
+.mp-media{position:relative;aspect-ratio:16/10;border-radius:14px;overflow:hidden;background:var(--panel);border:1px solid var(--line)}
+.mp-media img,.mp-media video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 22%}
+.mp-media video{opacity:0;transition:opacity .2s}
+.mp-card:hover .mp-media video{opacity:1}
+.mp-hover{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;gap:10px;padding:14px;
+  background:linear-gradient(to top,rgba(0,0,0,.72),rgba(0,0,0,0) 70%);opacity:0;transition:opacity .2s}
+.mp-card:hover .mp-hover,.mp-card:focus-within .mp-hover{opacity:1}
+.mp-hover q{quotes:none;color:#fff;font-size:15px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.mp-btns{display:flex;gap:8px}
+.mp-btns button{border:0;border-radius:10px;padding:9px 14px;font:600 14px var(--body);cursor:pointer}
+.mp-open{background:var(--accent);color:var(--on-accent);flex:1}
+.mp-copy{background:rgba(20,20,22,.85);color:#fff}
+.mp-card h3{margin:4px 0 0;font-size:17px}
+.mp-card p{margin:0;color:var(--muted);font-size:14.5px}
+.mp-tags{display:flex;gap:6px;flex-wrap:wrap}
+.mp-tags span{border:1px solid var(--line);border-radius:7px;padding:3px 8px;font:500 12px var(--body);color:var(--muted)}
+.mp-tags span.t{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+dialog.mp-dlg{border:1px solid var(--line);border-radius:18px;background:var(--card);color:var(--ink);max-width:640px;width:calc(100% - 32px);padding:0}
+dialog.mp-dlg::backdrop{background:rgba(0,0,0,.55)}
+.mp-dlg .in{padding:22px}
+.mp-dlg img{width:100%;aspect-ratio:16/8;object-fit:cover;object-position:50% 22%;display:block}
+.mp-dlg pre{white-space:pre-wrap;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;font:15px/1.5 var(--body);margin:14px 0}
+.mp-dlg .row{display:flex;gap:10px;justify-content:flex-end}
+.mp-dlg .row button{border-radius:10px;padding:9px 16px;font:600 14px var(--body);cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--ink)}
+.mp-dlg .row .go{background:var(--accent);color:var(--on-accent);border:0}
+@media (hover:none){.mp-hover{opacity:1;background:linear-gradient(to top,rgba(0,0,0,.6),rgba(0,0,0,0) 60%)}.mp-hover q{display:none}}
+</style>
+<div class="mp" data-mp>
+  <div class="mp-tabs" role="tablist">
+    {% for tid, label in mcp_tabs %}<button class="mp-tab" type="button" role="tab" data-tab="{{ tid }}" aria-selected="{{ 'true' if loop.first else 'false' }}">{{ label }}</button>{% endfor %}
+  </div>
+  <div class="mp-grid">
+    {% for p in mcp_presets %}
+    <article class="mp-card" data-tab="{{ p.tab }}" data-popular="{{ 1 if p.popular else 0 }}" data-id="{{ p.id }}">
+      <div class="mp-media">
+        {% if p.image %}<img src="{{ p.image }}" alt="" loading="lazy">{% endif %}
+        {% if p.video %}<video src="{{ p.video }}" muted loop playsinline preload="none"></video>{% endif %}
+        <div class="mp-hover">
+          <q>{{ p.prompt }}</q>
+          <div class="mp-btns"><button class="mp-open" type="button">Open preset</button><button class="mp-copy" type="button">Copy</button></div>
+        </div>
+      </div>
+      <h3>{{ p.title }}</h3>
+      <p>{{ p.line }}</p>
+      <div class="mp-tags"><span>/{{ p.id }}</span><span>{{ p.tab_label }}</span></div>
+      <template class="mp-prompt">{{ p.prompt }}</template>
+    </article>
+    {% endfor %}
+  </div>
+  <dialog class="mp-dlg">
+    <img alt="">
+    <div class="in">
+      <h3 class="t" style="margin:0 0 4px"></h3>
+      <p class="l muted" style="margin:0"></p>
+      <pre></pre>
+      <p class="small muted" style="margin:0 0 14px">Paste it into Claude with Campaignify connected, or type <b class="cmd"></b> in Claude. Fill in the parts in &lt;angle brackets&gt;. Claude shows the price before anything is made.</p>
+      <div class="mp-tags tools" style="margin-bottom:16px"></div>
+      <div class="row"><button type="button" class="x">Close</button><button type="button" class="go">Copy prompt</button></div>
+    </div>
+  </dialog>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('[data-mp]').forEach(function(root){
+    var tabs=root.querySelectorAll('.mp-tab'), cards=root.querySelectorAll('.mp-card'), dlg=root.querySelector('dialog');
+    var tools={% raw %}{{% endraw %}{% for p in mcp_presets %}"{{ p.id }}":{{ p.tools|tojson }}{{ "," if not loop.last }}{% endfor %}};
+    function show(t){tabs.forEach(function(b){b.setAttribute('aria-selected',b.dataset.tab===t?'true':'false')});
+      cards.forEach(function(c){c.hidden=!(t==='popular'?c.dataset.popular==='1':c.dataset.tab===t)})}
+    tabs.forEach(function(b){b.addEventListener('click',function(){show(b.dataset.tab)})});
+    show(tabs.length?tabs[0].dataset.tab:'popular');
+    function text(c){return c.querySelector('.mp-prompt').innerHTML.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&#39;/g,"'").replace(/&quot;/g,'"').trim()}
+    function copy(s,btn){(navigator.clipboard?navigator.clipboard.writeText(s):Promise.reject()).then(function(){var o=btn.textContent;btn.textContent='Copied';setTimeout(function(){btn.textContent=o},1400)}).catch(function(){window.prompt('Copy this prompt:',s)})}
+    cards.forEach(function(c){
+      var v=c.querySelector('video');
+      if(v){c.addEventListener('mouseenter',function(){v.play().catch(function(){})});c.addEventListener('mouseleave',function(){v.pause()})}
+      c.querySelector('.mp-copy').addEventListener('click',function(e){copy(text(c),e.currentTarget)});
+      c.querySelector('.mp-open').addEventListener('click',function(){
+        var img=c.querySelector('.mp-media img');
+        dlg.querySelector('img').src=img?img.src:''; dlg.querySelector('img').hidden=!img;
+        dlg.querySelector('.t').textContent=c.querySelector('h3').textContent;
+        dlg.querySelector('.l').textContent=c.querySelector('p').textContent;
+        dlg.querySelector('pre').textContent=text(c);
+        dlg.querySelector('.cmd').textContent='/'+c.dataset.id;
+        dlg.querySelector('.tools').innerHTML=(tools[c.dataset.id]||[]).map(function(t){return '<span class="t">'+t+'</span>'}).join('');
+        dlg.showModal();
+      });
+    });
+    dlg.querySelector('.x').addEventListener('click',function(){dlg.close()});
+    dlg.addEventListener('click',function(e){if(e.target===dlg)dlg.close()});
+    dlg.querySelector('.go').addEventListener('click',function(e){copy(dlg.querySelector('pre').textContent,e.currentTarget)});
+  });
+})();
+</script>
