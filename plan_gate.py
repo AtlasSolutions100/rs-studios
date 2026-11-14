@@ -207,6 +207,16 @@ def welcome_spent(ws):
             raise PlanRequired(SPENT_MESSAGE)
 
 
+def upgrade_instead(ws) -> bool:
+    """Short of credits with no plan (on the welcome credits): the way on is a plan, not a pack (packs need one)."""
+    return on() and ws is not None and plans.plan_code(ws) == "free"
+
+
+def short_message(total: int, balance: int) -> str:
+    return (f"That needs {total:,} credits and you have {balance:,}. Pick a plan to keep going: Starter and Growth "
+            f"start with a {TRIAL_DAYS}-day free trial.")
+
+
 def needs_plan(conn, ws, user=None) -> bool:
     return on() and not exempt(conn, ws, user)
 
