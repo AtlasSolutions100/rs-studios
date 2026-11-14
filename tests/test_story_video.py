@@ -133,8 +133,20 @@ def page(c, url):
 
 
 FFMPEG = stitch.have() and os.environ.get("RS_TEST_NO_FFMPEG") != "1"
-if not stitch.have():
+if not FFMPEG:      # the deploy's quick check has no ffmpeg: each step writes a stand-in file, the length checks skip
+    print("ffmpeg isn't installed here: stitching is stood in for, the finished-video checks are skipped")
     stitch.have = lambda: True
+
+    def _touch(dst, *a, **k):
+        os.makedirs(os.path.dirname(dst) or ".", exist_ok=True)
+        with open(dst, "wb") as f:
+            f.write(b"\0" * 64)
+        return {"duration": 0.0}
+
+    stitch.still_clip = lambda src, dst, *a, **k: _touch(dst)
+    stitch.render_beat = lambda src, dst, *a, **k: _touch(dst)
+    stitch.concat = lambda clips, dst, *a, **k: _touch(dst)
+    worker.make_poster = lambda *a, **k: None
 
 
 def pngb(size=(540, 960), color=(200, 120, 40)):
