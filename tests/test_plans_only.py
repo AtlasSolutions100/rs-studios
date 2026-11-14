@@ -16,7 +16,7 @@ TMP = tempfile.mkdtemp(prefix="rs_plansonly_")
 os.environ.setdefault("RS_SIGNUP_CONFIRM", "0")
 os.environ.update(RS_DATA=TMP, RS_WORKER="0", HF_KEY="test:secret", RS_PLAN_SYNC="0", RS_EMAIL_VERIFY="0",
                   RS_NUDGE_LOOP="0", STRIPE_SECRET_KEY="sk_test_po", STRIPE_WEBHOOK_SECRET="whsec_po",
-                  PLANS_ONLY="1", PLAN_SALE="1")
+                  PLANS_ONLY="1", PLAN_SALE="1", WELCOME_CREDITS="0")   # the welcome credits: test_welcome_credits.py
 for k in ("RS_CARD_REQUIRED", "RS_PLAN_PAYWALL", "SIGNUP_CREDITS_ADS", "RS_STARTER_CREDITS", "UI_V2", "HOME_V2",
           "STRIPE_SETUP"):
     os.environ.pop(k, None)

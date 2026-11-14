@@ -1,6 +1,6 @@
 """The "Pick a plan" step (plan_gate.py, PLANS_ONLY): the page, and the gate that
 sends a workspace with no plan to it before it opens anything else in the app."""
-from flask import Blueprint, g, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, flash, g, jsonify, redirect, render_template, request, url_for
 
 import billing
 import db
@@ -29,9 +29,11 @@ def _wants_json() -> bool:
             or request.headers.get("X-Requested-With") == "fetch" or request.path.startswith("/api/"))
 
 
-def _refuse():
+def _refuse(msg=None):
     if _wants_json():
-        return jsonify({"error": plan_gate.MESSAGE, "plan_required": True, "url": url_for("plangate.page")}), 402
+        return jsonify({"error": msg or plan_gate.MESSAGE, "plan_required": True, "url": url_for("plangate.page")}), 402
+    if msg and msg != plan_gate.MESSAGE:
+        flash(msg)
     return redirect(url_for("plangate.page"))
 
 
@@ -54,7 +56,7 @@ def gate():
 
 @bp.app_errorhandler(plan_gate.PlanRequired)
 def plan_required_error(e):
-    return _refuse()
+    return _refuse(e.description)
 
 
 @bp.route("/app/plan")
@@ -63,7 +65,9 @@ def page():
     import stripe_setup
     stripe_setup.ready()        # right after a restart the plan prices settle in a start-up step: wait for it
     with db.connect() as conn:
-        if not plan_gate.needs_plan(conn, g.ws, g.user):
+        # A workspace on its welcome credits may look and skip (welcome); anyone else with no need goes on.
+        welcome = plan_gate.welcome_left(conn, g.ws)
+        if welcome is None and not plan_gate.needs_plan(conn, g.ws, g.user):
             return redirect(url_for("studio"))
         trials = {p["code"]: plan_gate.trial_days(conn, g.ws, g.user, p["code"]) for p in plans.PAID}
         made = conn.execute("SELECT 1 FROM jobs WHERE workspace_id=? LIMIT 1", (g.ws["id"],)).fetchone() is not None
@@ -74,4 +78,21 @@ def page():
     return render_template("plan_pick.html", trials=trials, terms=terms, new=not made, owner=is_owner(),
                            any_trial=any(trials.values()), days=plan_gate.TRIAL_DAYS,
                            trial_line=plan_gate.timeline(None, None), gift=gift,
-                           canceled=request.args.get("canceled") == "1", checkout_open=billing.configured())
+                           canceled=request.args.get("canceled") == "1", checkout_open=billing.configured(),
+                           welcome=welcome, skip_url=url_for("studio") if welcome else None)
+
+
+@bp.app_context_processor
+def _welcome_banner():
+    """On app pages, while the workspace is on its welcome credits: what is left, and that videos and more come
+    with a plan (one line, with See plans)."""
+    if not plan_gate.on() or g.get("ws") is None or g.get("user") is None or g.get("viewing") is not None:
+        return {}
+    ep = request.endpoint or ""
+    if ep in ("", "static") or ep.startswith(("plangate.", "onboarding.", "confirm.")) or not request.path.startswith("/app"):
+        return {}
+    with db.connect() as conn:
+        left = plan_gate.welcome_left(conn, g.ws)
+    if left is None:
+        return {}
+    return {"welcome_banner": {"left": left, "plans": url_for("plangate.page")}}

@@ -287,13 +287,29 @@ def _mark(conn, user, nonce=None) -> bool:
 
 
 def completed(conn, user, path: str = "/app"):
-    """The member confirmed their email: the funnel's verify_completed step (site_events), once per workspace, and
-    the address goes on the cards they saved before (card_on_file.email_confirmed, L-2). Never raises."""
+    """The member confirmed their email: the funnel's verify_completed step (site_events), once per workspace, the
+    address goes on the cards they saved before (card_on_file.email_confirmed, L-2), and a new workspace gets its
+    welcome credits (plan_gate.grant_welcome). Never raises."""
     try:
         import card_on_file
         card_on_file.email_confirmed(conn, user)
     except Exception:  # noqa: BLE001
         log.warning("card rows not updated after user %s confirmed", user["id"])
+    try:
+        import plan_gate     # not a free plan: the welcome credits, once, for the brand setup and first image ads
+        conn.execute("SAVEPOINT welcome")
+        try:
+            ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (user["workspace_id"],)).fetchone()
+            granted = plan_gate.grant_welcome(conn, ws, user)
+        except Exception:
+            conn.execute("ROLLBACK TO welcome")     # only the grant: the confirmation itself stands
+            raise
+        finally:
+            conn.execute("RELEASE welcome")
+        if granted:
+            conn.commit()
+    except Exception:  # noqa: BLE001
+        log.warning("welcome credits not granted for user %s", user["id"])
     try:
         import site_events
         site_events.on_workspace_step(conn, "verify_completed", user["workspace_id"], detail=None, path=path, once=True)
