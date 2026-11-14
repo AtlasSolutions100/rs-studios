@@ -154,6 +154,71 @@ def fix(jid):
     return _back(url_for("create.batch", bid=j["batch_id"]) if j["batch_id"] else url_for("library", highlight=new))
 
 
+def change_offer(job) -> dict | None:
+    """A finished picture can be made again with a change the member types ("put it on a phone, not a watch"):
+    one new picture that starts from this one, at the price of one picture. None when it doesn't apply."""
+    if job is None or job["tool"] != "ad_image" or job["status"] != "done":
+        return None
+    p = json.loads(job["params_json"] or "{}")
+    if p.get("preview") or p.get("service"):
+        return None
+    return {"price": catalog.price_credits("ad_image", batch=1), "usd": catalog.cost_usd("ad_image", batch=1)}
+
+
+@bp.route("/app/jobs/<int:jid>/change", methods=["POST"])
+@login_required
+def change(jid):
+    """Make a picture again with a change (Koby, Nov 14 2026): a new job for ONE picture with the same settings,
+    the picture it starts from as the first reference (not for a text-layer ad, whose words are set afterwards),
+    and the member's note as the change to make. Charged like one picture; the price was shown first."""
+    import free_fix
+    data = request.get_json(silent=True) or {}
+    with db.connect() as conn:
+        j = _job(conn, jid)
+        offer = change_offer(j)
+        if not offer:
+            abort(400)
+        if str(request.form.get("total") or data.get("total")) != str(offer["price"]):
+            msg = f"The price is now {offer['price']:,} credits. Check it and try again."
+            if _wants_json():
+                return jsonify({"error": msg, "total": offer["price"]}), 409
+            flash(msg)
+            return _back(url_for("library"))
+        try:
+            note = free_fix.clean_note(request.form.get("note") or data.get("note") or "")
+        except free_fix.FixError as e:
+            msg = str(e).replace("what to fix", "what to change")
+            if _wants_json():
+                return jsonify({"error": msg}), 400
+            flash(msg)
+            return _back(url_for("library"))
+        oid = request.form.get("output", type=int) or data.get("output")
+        o = conn.execute("SELECT id FROM outputs WHERE id=? AND job_id=? AND kind='image'", (oid, j["id"])).fetchone() if oid else \
+            conn.execute("SELECT id FROM outputs WHERE job_id=? AND kind='image' ORDER BY id LIMIT 1", (j["id"],)).fetchone()
+        if o is None:
+            abort(400)
+        p = json.loads(j["params_json"] or "{}")
+        for k in ("qa_attempt", "qa_want", "line", "free_fix", "fix_of", "fix_output", "fix_note"):
+            p.pop(k, None)
+        p.update(batch=1, change_of=j["id"], change_note=note, edit_from=o["id"],
+                 label=(p.get("label") or "Image ad").split(" · ")[0] + " · changed")
+        new = queue_job(conn, "ad_image", j["template_id"], j["brief"], p, offer["usd"], offer["price"], quiet=_wants_json(),
+                        product_id=j["product_id"], batch_id=j["batch_id"])
+        if not new:
+            if _wants_json() and g.get("verify_blocked"):
+                return verify_json(g.verify_blocked)
+            if _wants_json():
+                return jsonify({"error": f"That needs {offer['price']:,} credits and you have {db.balance(g.ws):,}.",
+                                "billing": url_for("billing_page")}), 402
+            return _back(url_for("library"))
+        conn.execute("UPDATE jobs SET parent_job_id=? WHERE id=?", (j["id"], new))
+        conn.commit()
+    if _wants_json():
+        return jsonify({"ok": True, "job": new, "library": url_for("library", highlight=new)})
+    flash(f"Making the changed version for {offer['price']:,} credits.", "ok")
+    return _back(url_for("library", highlight=new))
+
+
 @bp.route("/app/jobs/<int:jid>/hd", methods=["POST"])
 @login_required
 def hd(jid):
