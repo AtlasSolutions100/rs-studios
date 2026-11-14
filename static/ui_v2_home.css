@@ -400,3 +400,5 @@ html[data-ui="v2"][data-theme="dark"]{--hp-sky:#1B2636;--hp-pink:#2F1E27;--hp-su
 .lv-show .lv-shot:hover img,.lv-show .lv-shot:hover video{box-shadow:0 2px 4px rgba(20,20,20,.06),0 22px 44px rgba(20,20,20,.16)}
 html[data-ui="v2"][data-theme="dark"] .hp-tile:hover,html[data-ui="v2"][data-theme="dark"] .hp-steps li:hover{box-shadow:0 2px 4px rgba(0,0,0,.4),0 22px 44px rgba(0,0,0,.5)}
 @media (prefers-reduced-motion:reduce){.hp-tile,.hp-steps li,.lv-show .lv-shot{transition:none}.hp-tile:hover,.hp-steps li:hover,.lv-show .lv-shot:hover,.hp-flow.is-in .hp-tile:hover{transform:none}}
+/* the hand on every card that rises on hover (Koby, Nov 14 2026) */
+.hp-tile,.hp-steps li,.lv-show .lv-shot{cursor:pointer}
