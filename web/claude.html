@@ -98,12 +98,23 @@
         </div>
       </div>
       <div class="cl-step">
+        {% if launch %}
+        <h3>Launch it, paused</h3>
+        <p>On a paid plan with your ad account connected, Claude shows you exactly what will be created. Once you approve, Campaignify creates the campaign on your own ad account, switched off. You look it over and turn it on.</p>
+        <div class="cl-chat">
+          <div class="cl-msg you"><b>You</b>Launch this plan on Meta.</div>
+          <div class="cl-msg ai"><b>Claude</b>Here's the card: 1 campaign at $30 a day, 1 ad set in the US, 4 ads, all paused. Approve it?<span class="tool">prepare_launch</span></div>
+          <div class="cl-msg you"><b>You</b>Approved.</div>
+          <div class="cl-msg ai"><b>Claude</b>Creating it now, paused. Here's the Ads Manager link for your last look.<span class="tool">launch_campaign · get_launch_status</span></div>
+        </div>
+        {% else %}
         <h3>Download and launch</h3>
-        <p>Grab the files and run them in each platform's ads manager. Campaignify makes the creative; it doesn't post or run ads for you.</p>
+        <p>Grab the files and run them in each platform's ads manager. Launching straight into your ad accounts from Claude is coming soon, starting with Meta.</p>
         <div class="cl-chat">
           <div class="cl-msg you"><b>You</b>Give me download links for the two new ads.</div>
           <div class="cl-msg ai"><b>Claude</b>Here they are. Each link works for one hour.<span class="tool">list_assets · get_asset_download_url</span></div>
         </div>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -176,7 +187,7 @@
     <div>
       <details><summary>Does it cost extra?</summary><p>No. Ads, copy and plans made from Claude use the same credits as in the app, and looking at your products and assets is free.</p></details>
       <details><summary>Can Claude spend my credits without asking?</summary><p>Image ads and videos need the exact total from a quote, and Claude asks you before it makes them. You can also connect read only, or block single tools in Claude under Customize, Connectors.</p></details>
-      <details><summary>Can it run my ads?</summary><p>No. Campaignify makes the creative, copy and plan. You launch the ads in each platform's ads manager.</p></details>
+      <details><summary>Can it run my ads?</summary><p>{% if launch %}It can launch them for you, switched off. On a paid plan with your ad account connected, Claude shows you exactly what will be created, and once you approve, Campaignify creates the campaign on your own ad account, paused. Nothing spends until you turn it on. Only the workspace owner can approve a launch.{% else %}Not yet. Campaignify makes the creative, copy and plan, and you launch the ads in each platform's ads manager. Launching into your ad accounts from Claude is coming soon, starting with Meta.{% endif %}</p></details>
       <details><summary>Which apps does it work with?</summary><p>Claude on the web, desktop and phone, Claude Code, and other apps that support remote MCP servers. Setup for each is in the <a href="{{ url_for('mcp_docs') }}">docs</a>.</p></details>
       <details><summary>The logo or tools look out of date in Claude.</summary><p>Claude saves a connector's details when you add it. Remove the connector and add it again to refresh them.</p></details>
     </div>
