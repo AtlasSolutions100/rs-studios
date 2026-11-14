@@ -1,0 +1,9 @@
+{# The site reader's box, on the brand page (studio_v2.brand): one link in, the brand and its photos read for free. #}
+<form class="bs-in" data-bs-import>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.9 5.2 3.9 8.5s-1.3 6.1-3.9 8.5c-2.6-2.4-3.9-5.2-3.9-8.5s1.3-6.1 3.9-8.5z"/></svg>
+  <label class="sr" for="bs-url-{{ 'a' if b else 'b' }}">Your website or product page</label>
+  <input id="bs-url-{{ 'a' if b else 'b' }}" type="text" inputmode="url" autocomplete="url" placeholder="yourbrand.com" value="{{ website }}" required data-bs-url>
+  <button class="btn" data-bs-go>Read my site</button>
+</form>
+<p class="bs-msg" role="status" aria-live="polite" data-bs-msg></p>
+<p class="bs-alt"><a href="{{ url_for('products.new') }}">Add a product by hand</a>{% if not b %} <span aria-hidden="true">/</span> <a href="{{ url_for('studio') }}">Skip for now</a>{% endif %}</p>

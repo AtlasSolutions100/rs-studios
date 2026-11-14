@@ -1,64 +1,144 @@
 {% extends "base.html" %}{% block title %}Brand · Campaignify{% endblock %}
-{# Brand setup (studio_v2.brand): one input runs the free importer (app.start_import), then the brand's Look. #}
+{# The brand hub (studio_v2.brand; Koby, Nov 14 2026): who the brand is, who buys, how it looks, its pictures, its
+   products, its rivals and what it may say, on one page. Each card saves through the same routes as before
+   (products.brand_edit for the words and the look, brand_assets for pictures, start_import for the site reader). #}
 {% block body %}
-<div class="bs">
-  <section class="bs-hero" aria-labelledby="bs-h">
-    <h1 id="bs-h">{% if b and rows %}Add another product to {{ b.brand_name or 'your brand' }}{% else %}Set up your brand{% endif %}</h1>
-    <p class="bs-sub">Drop your website or a product page. We read the name, the brand and the photos. It costs nothing, and you check everything before it is used.</p>
-    <form class="bs-in" data-bs-import>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.9 5.2 3.9 8.5s-1.3 6.1-3.9 8.5c-2.6-2.4-3.9-5.2-3.9-8.5s1.3-6.1 3.9-8.5z"/></svg>
-      <label class="sr" for="bs-url">Your website or product page</label>
-      <input id="bs-url" type="text" inputmode="url" autocomplete="url" placeholder="yourbrand.com" value="{{ website }}" required data-bs-url>
-      <button class="btn" data-bs-go>Read my site</button>
-    </form>
-    <p class="bs-msg" role="status" aria-live="polite" data-bs-msg></p>
-    <p class="bs-alt"><a href="{{ url_for('products.new') }}">Add a product by hand</a> <span aria-hidden="true">/</span> <a href="{{ url_for('studio') }}">Skip for now</a></p>
+<div class="bh">
+  {% if not b %}
+  <section class="bh-start" aria-labelledby="bh-h">
+    <h1 id="bh-h">Set up your brand</h1>
+    <p>Paste your website or a product page. We read your name, your look and your photos. It is free, and you check it all.</p>
+    {% include "v2/_brand_import.html" %}
   </section>
-
-  {% if b %}
-  <section class="bs-kit" aria-labelledby="bk-h" id="look">
-    <div class="bs-kit-h">
-      <h2 id="bk-h">{{ b.brand_name or 'Your brand' }}</h2>
-      <a href="{{ url_for('products.brand_edit', bid=b.id) }}">Edit name, tone and audience</a>
-    </div>
-    {% if rows %}
-    <ul class="bs-prods" aria-label="Products">
-      {% for p in rows %}<li><a href="{{ url_for('products.edit', pid=p.id) }}">{% if p.primary_photo_id %}<img src="{{ url_for('photo', pid=p.primary_photo_id) }}" alt="">{% else %}<span class="bs-ph" aria-hidden="true">{{ (p.name or '?')[:1]|upper }}</span>{% endif %}<span><b>{{ p.name }}</b><span class="small muted">{{ p.price or 'No price saved' }}</span></span></a></li>{% endfor %}
-    </ul>
-    {% endif %}
-    <form method="post" action="{{ url_for('products.brand_edit', bid=b.id) }}" enctype="multipart/form-data" class="bs-look">
-      <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ url_for('studio_v2.brand') }}">
-      <h3>Look</h3>
-      <p class="small muted">Headlines, badges and buttons on image ads with a text layer are set in these colours and this font, with your logo when you add one.</p>
-      <div class="bs-look-grid">
-        <div><label for="kp">Main colour</label><input id="kp" type="color" name="kit_primary" value="{{ b.kit_primary or kit_default.primary }}" {{ 'disabled' if locked }}></div>
-        <div><label for="ka">Accent colour</label><input id="ka" type="color" name="kit_accent" value="{{ b.kit_accent or kit_default.accent }}" {{ 'disabled' if locked }}></div>
-        <div><label for="kf">Font</label><select id="kf" name="kit_font" {{ 'disabled' if locked }}>{% for code, name in kit_fonts %}<option value="{{ code }}" {{ 'selected' if (b.kit_font or kit_default.font) == code }}>{{ name }}</option>{% endfor %}</select></div>
-        <div><label for="kl">Logo</label><input id="kl" type="file" name="kit_logo" accept="image/png,image/jpeg,image/webp" {{ 'disabled' if locked }}>{% if b.kit_logo %}<img class="bs-logo" src="{{ url_for('products.brand_logo', bid=b.id) }}" alt="Current logo">{% endif %}</div>
+  {% else %}
+  <header class="bh-top">
+    <div class="bh-id">
+      {% if b.kit_logo %}<img class="bh-logo" src="{{ url_for('products.brand_logo', bid=b.id) }}" alt="{{ b.brand_name or 'Brand' }} logo">
+      {% else %}<span class="bh-logo bh-mono" style="--c:{{ b.kit_primary or kit_default.primary }}" aria-hidden="true">{{ (b.brand_name or 'B')[:1]|upper }}</span>{% endif %}
+      <div>
+        <h1>{{ b.brand_name or 'Your brand' }}</h1>
+        <p class="bh-meta">{% if b.website %}<a href="{{ b.website if b.website.startswith('http') else 'https://' ~ b.website }}" rel="noopener" target="_blank">{{ b.website|replace('https://', '')|replace('http://', '') }}</a>{% else %}No website yet{% endif %}
+          <span aria-hidden="true">·</span> {{ rows|length }} product{{ '' if rows|length == 1 else 's' }} <span aria-hidden="true">·</span> {{ assets|length }} picture{{ '' if assets|length == 1 else 's' }}</p>
+        {% if tones %}<p class="bh-tones">{% for t in tones %}<span>{{ t }}</span>{% endfor %}</p>{% endif %}
       </div>
-      <div class="bs-look-f">{% if locked %}<span class="small muted">This brand is locked on your plan.</span>{% else %}<button class="btn">Save look</button>{% endif %}<a class="btn dark" href="{{ url_for('studio') }}">Open Studio</a></div>
-    </form>
-    <div class="bs-assets" id="assets">
-      <h3>Assets</h3>
-      <p class="small muted">Product photos, packaging, your logo, lifestyle shots, your store: pictures you can put into any ad. In Studio, press References to pick them.</p>
-      {% if assets %}
-      <ul class="bs-asset-grid" aria-label="Your pictures">
-        {% for a in assets %}<li><img src="{{ a.url }}" alt="{{ a.label }}" loading="lazy"><b title="{{ a.label }}">{{ a.label }}</b><span class="muted">{{ a.kind_name }}</span>
-          {% if not locked %}<form method="post" action="{{ url_for('brand_assets.remove', phid=a.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn" data-confirm="Remove this picture? Ads already made keep it.">Remove</button></form>{% endif %}</li>{% endfor %}
-      </ul>
-      {% endif %}
-      {% if not locked %}
-      <form method="post" action="{{ url_for('brand_assets.upload') }}" enctype="multipart/form-data" class="bs-asset-add" data-asset-form>
-        <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="brand" value="{{ b.id }}">
-        <div><label for="as-files">Pictures (up to {{ asset_max }})</label><input id="as-files" type="file" name="files" accept="image/png,image/jpeg,image/webp" multiple required></div>
-        <div><label for="as-kind">What they are</label><select id="as-kind" name="kind" data-asset-kind>{% for code, name in asset_kinds %}<option value="{{ code }}">{{ name }}</option>{% endfor %}</select></div>
-        <div data-asset-product><label for="as-prod">Which product</label><select id="as-prod" name="product">{% for p in rows %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></div>
-        <div><label for="as-label">Name (optional)</label><input id="as-label" type="text" name="label" maxlength="80" placeholder="For example: Gift box, front"></div>
-        <div><button class="btn">Add pictures</button></div>
-      </form>
-      {% endif %}
     </div>
-  </section>
+    <details class="bh-read">
+      <summary class="btn ghost">Read my website again</summary>
+      <div class="bh-read-box">{% include "v2/_brand_import.html" %}</div>
+    </details>
+  </header>
+  {% if locked %}<p class="bh-lock">This brand is locked on your plan. You can look, but not change it.</p>{% endif %}
+
+  <div class="bh-grid">
+    <div class="bh-col">
+      <section class="bh-card" id="look" aria-labelledby="bh-look-h">
+        <div class="bh-card-h"><h2 id="bh-look-h">Your look</h2><span>Used on every picture ad</span></div>
+        <form method="post" action="{{ url_for('products.brand_edit', bid=b.id) }}" enctype="multipart/form-data" class="bh-look" data-look>
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ url_for('studio_v2.brand') }}#look">
+          <div class="bh-look-row">
+            <div class="bh-preview" aria-hidden="true" style="--p:{{ b.kit_primary or kit_default.primary }};--a:{{ b.kit_accent or kit_default.accent }}" data-preview>
+              {% set pp = (rows|selectattr('primary_photo_id')|list) %}
+              {% if pp %}<img src="{{ url_for('photo', pid=pp[0].primary_photo_id) }}" alt="">{% endif %}
+              <b data-pv-head class="f-{{ b.kit_font or kit_default.font }}">Your big headline</b>
+              <i>NEW</i>
+              <span>Shop now</span>
+            </div>
+            <div class="bh-look-f">
+              <div class="bh-sw">
+                <label><input type="color" name="kit_primary" value="{{ b.kit_primary or kit_default.primary }}" {{ 'disabled' if locked }} data-pv="p"><span>Main color</span></label>
+                <label><input type="color" name="kit_accent" value="{{ b.kit_accent or kit_default.accent }}" {{ 'disabled' if locked }} data-pv="a"><span>Pop color</span></label>
+              </div>
+              <label class="bh-f" for="kf">Font</label>
+              <select id="kf" name="kit_font" {{ 'disabled' if locked }} data-pv-font>{% for code, name in kit_fonts %}<option value="{{ code }}" {{ 'selected' if (b.kit_font or kit_default.font) == code }}>{{ name }}</option>{% endfor %}</select>
+              <label class="bh-f" for="kl">Logo</label>
+              <input id="kl" type="file" name="kit_logo" accept="image/png,image/jpeg,image/webp" {{ 'disabled' if locked }}>
+              {% if not locked %}<button class="btn">Save look</button>{% endif %}
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <section class="bh-card" id="assets" aria-labelledby="bh-pics-h">
+        <div class="bh-card-h"><h2 id="bh-pics-h">Your pictures</h2><span>Add them to any ad</span></div>
+        {% if assets %}
+        <div class="bh-chips" role="group" aria-label="Show">
+          <button type="button" aria-pressed="true" data-kind="">All <em>{{ assets|length }}</em></button>
+          {% for code, name in asset_kinds %}{% set n = assets|selectattr('kind', 'equalto', code)|list|length %}{% if n %}<button type="button" aria-pressed="false" data-kind="{{ code }}">{{ name }} <em>{{ n }}</em></button>{% endif %}{% endfor %}
+        </div>
+        <ul class="bh-pics" aria-label="Your pictures">
+          {% for a in assets %}<li data-k="{{ a.kind }}"><img src="{{ a.url }}" alt="{{ a.label }}" loading="lazy"><span><b title="{{ a.label }}">{{ a.label }}</b><em>{{ a.kind_name }}</em></span>
+            {% if not locked %}<form method="post" action="{{ url_for('brand_assets.remove', phid=a.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="bh-x" aria-label="Remove {{ a.label }}" data-confirm="Remove this picture? Ads already made keep it.">×</button></form>{% endif %}</li>{% endfor %}
+        </ul>
+        {% else %}<p class="bh-empty">No pictures yet. Add your product photos, your logo, your store or your team.</p>{% endif %}
+        {% if not locked %}
+        <form method="post" action="{{ url_for('brand_assets.upload') }}" enctype="multipart/form-data" class="bh-add" data-asset-form>
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="brand" value="{{ b.id }}">
+          <label class="bh-drop"><input type="file" name="files" accept="image/png,image/jpeg,image/webp" multiple required data-drop><b>Add pictures</b><span>Pick up to {{ asset_max }} at once</span></label>
+          <div class="bh-add-f">
+            <label for="as-kind">What are they?</label>
+            <select id="as-kind" name="kind" data-asset-kind>{% for code, name in asset_kinds %}<option value="{{ code }}">{{ name }}</option>{% endfor %}</select>
+            <div data-asset-product><label for="as-prod">Which product?</label><select id="as-prod" name="product">{% for p in rows %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></div>
+            <label for="as-label">Name (if you want)</label><input id="as-label" type="text" name="label" maxlength="80" placeholder="Gift box, front">
+            <button class="btn">Save pictures</button>
+          </div>
+        </form>
+        {% endif %}
+      </section>
+
+      <section class="bh-card" id="products" aria-labelledby="bh-prod-h">
+        <div class="bh-card-h"><h2 id="bh-prod-h">Your products</h2><a href="{{ url_for('products.new') }}">+ Add a product</a></div>
+        {% if rows %}
+        <ul class="bh-prods">
+          {% for p in rows %}{% set nc = (p.claims or '').splitlines()|select|list|length %}
+          <li><a href="{{ url_for('products.edit', pid=p.id) }}">
+            {% if p.primary_photo_id %}<img src="{{ url_for('photo', pid=p.primary_photo_id) }}" alt="">{% else %}<span class="bh-ph" aria-hidden="true">{{ (p.name or '?')[:1]|upper }}</span>{% endif %}
+            <b>{{ p.name }}</b>
+            <span>{{ p.price or 'No price yet' }}</span>
+            <span class="bh-stats"><em>{{ made.get(p.id, 0) }} ads</em><em>{{ nc }} thing{{ '' if nc == 1 else 's' }} you can say</em></span>
+          </a></li>
+          {% endfor %}
+        </ul>
+        {% else %}<p class="bh-empty">No products yet. <a href="{{ url_for('products.new') }}">Add your first one</a>.</p>{% endif %}
+      </section>
+    </div>
+
+    <div class="bh-col bh-side">
+      <section class="bh-card" id="about" aria-labelledby="bh-about-h">
+        <div class="bh-card-h"><h2 id="bh-about-h">Who you are</h2></div>
+        <form method="post" action="{{ url_for('products.brand_edit', bid=b.id) }}" class="bh-form">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ url_for('studio_v2.brand') }}#about">
+          <label for="bh-name">Brand name</label><input id="bh-name" name="brand_name" maxlength="80" value="{{ b.brand_name or '' }}" required {{ 'disabled' if locked }}>
+          <label for="bh-about">What you do, in a few lines</label><textarea id="bh-about" name="about" rows="4" maxlength="600" placeholder="We make a fizzy energy drink with real citrus and no sugar." {{ 'disabled' if locked }}>{{ b.about or '' }}</textarea>
+          <label for="bh-tone">How you sound</label><input id="bh-tone" name="tone" maxlength="80" value="{{ b.tone or '' }}" placeholder="Fun, bright, a little bold" {{ 'disabled' if locked }}>
+          <label for="bh-site">Website</label><input id="bh-site" name="website" maxlength="300" value="{{ b.website or '' }}" placeholder="yourbrand.com" {{ 'disabled' if locked }}>
+          {% if not locked %}<button class="btn">Save</button>{% endif %}
+        </form>
+      </section>
+
+      <section class="bh-card" id="audience" aria-labelledby="bh-aud-h">
+        <div class="bh-card-h"><h2 id="bh-aud-h">Who buys</h2></div>
+        <form method="post" action="{{ url_for('products.brand_edit', bid=b.id) }}" class="bh-form">
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="back" value="{{ url_for('studio_v2.brand') }}#audience">
+          <label for="bh-aud">Describe your best buyer</label><textarea id="bh-aud" name="audience" rows="3" maxlength="300" placeholder="Busy people who want energy without the sugar crash." {{ 'disabled' if locked }}>{{ b.audience or '' }}</textarea>
+          {% set pa = rows|selectattr('audience')|list %}
+          {% if pa %}<p class="bh-note">Per product:</p><ul class="bh-who">{% for p in pa %}<li><b>{{ p.name }}</b>{{ p.audience }}</li>{% endfor %}</ul>{% endif %}
+          {% if not locked %}<button class="btn">Save</button>{% endif %}
+        </form>
+      </section>
+
+      <section class="bh-card" id="claims" aria-labelledby="bh-say-h">
+        <div class="bh-card-h"><h2 id="bh-say-h">What your ads can say</h2></div>
+        {% if claims %}<ul class="bh-say">{% for p, c in claims %}<li><a href="{{ url_for('products.edit', pid=p.id) }}">{{ c }}</a></li>{% endfor %}</ul>
+        {% else %}<p class="bh-empty">Nothing yet. Open a product and say yes to the facts your ads may use.</p>{% endif %}
+      </section>
+
+      <section class="bh-card" id="rivals" aria-labelledby="bh-riv-h">
+        <div class="bh-card-h"><h2 id="bh-riv-h">Your rivals</h2><a href="{{ url_for('competitors.index') }}">Look closer</a></div>
+        {% if rivals %}<ul class="bh-riv">{% for r in rivals %}<li><b>{{ r.name }}</b>{% if r.why %}<span>{{ r.why }}</span>{% endif %}</li>{% endfor %}</ul>
+        {% else %}<p class="bh-empty">We find these when we read your website.</p>{% endif %}
+      </section>
+    </div>
+  </div>
   {% endif %}
 </div>
 {% endblock %}
@@ -68,20 +148,34 @@
   var k = document.querySelector('[data-asset-kind]'), pr = document.querySelector('[data-asset-product]');
   function sync(){ if(pr) pr.hidden = !k || k.value !== 'product'; }
   if(k){ k.addEventListener('change', sync); sync(); }
+  // the picture chips: show one kind at a time
+  [].forEach.call(document.querySelectorAll('.bh-chips [data-kind]'), function(c){
+    c.addEventListener('click', function(){
+      [].forEach.call(document.querySelectorAll('.bh-chips [data-kind]'), function(o){ o.setAttribute('aria-pressed', o === c ? 'true' : 'false'); });
+      [].forEach.call(document.querySelectorAll('.bh-pics li'), function(li){ li.hidden = !!c.dataset.kind && li.dataset.k !== c.dataset.kind; });
+    });
+  });
+  // the look: the little ad on the left follows the colors and font as they change
+  var pv = document.querySelector('[data-preview]'), head = document.querySelector('[data-pv-head]');
+  [].forEach.call(document.querySelectorAll('[data-pv]'), function(i){ i.addEventListener('input', function(){ pv.style.setProperty('--' + i.dataset.pv, i.value); }); });
+  var fs = document.querySelector('[data-pv-font]'); if(fs && head) fs.addEventListener('change', function(){ head.className = 'f-' + fs.value; });
+  // picked files: say how many
+  var d = document.querySelector('[data-drop]'); if(d) d.addEventListener('change', function(){ var b = d.parentNode.querySelector('b'); b.textContent = d.files.length ? d.files.length + ' picture' + (d.files.length === 1 ? '' : 's') + ' picked' : 'Add pictures'; });
 })();
 (function(){
-  var f = document.querySelector('[data-bs-import]'); if(!f) return;
-  var msg = document.querySelector('[data-bs-msg]'), go = f.querySelector('[data-bs-go]');
-  f.addEventListener('submit', function(e){
-    e.preventDefault();
-    var url = f.querySelector('[data-bs-url]').value.trim(); if(!url) return;
-    go.disabled = true; go.textContent = 'Reading'; msg.className = 'bs-msg'; msg.textContent = 'Reading the page. This takes a few seconds.';
-    fetch({{ url_for('start_import')|tojson }}, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF': {{ csrf_token()|tojson }}, 'X-Requested-With': 'fetch'}, body: JSON.stringify({url: url})})
-      .then(function(r){ return r.json(); }).then(function(r){
-        if(r.card_required){ location.href = r.url; return; }
-        if(!r.ok){ go.disabled = false; go.textContent = 'Read my site'; msg.className = 'bs-msg bad'; msg.textContent = r.error || 'That page could not be read.'; return; }
-        location.href = {{ url_for('studio_v2.brand')|tojson }} + '?imported=' + r.product_id + '#look';
-      }).catch(function(){ go.disabled = false; go.textContent = 'Read my site'; msg.className = 'bs-msg bad'; msg.textContent = 'Something went wrong. Try again.'; });
+  [].forEach.call(document.querySelectorAll('[data-bs-import]'), function(f){
+    var msg = f.parentNode.querySelector('[data-bs-msg]'), go = f.querySelector('[data-bs-go]');
+    f.addEventListener('submit', function(e){
+      e.preventDefault();
+      var url = f.querySelector('[data-bs-url]').value.trim(); if(!url) return;
+      go.disabled = true; go.textContent = 'Reading'; msg.className = 'bs-msg'; msg.textContent = 'Reading the page. This takes a few seconds.';
+      fetch({{ url_for('start_import')|tojson }}, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF': {{ csrf_token()|tojson }}, 'X-Requested-With': 'fetch'}, body: JSON.stringify({url: url})})
+        .then(function(r){ return r.json(); }).then(function(r){
+          if(r.card_required){ location.href = r.url; return; }
+          if(!r.ok){ go.disabled = false; go.textContent = 'Read my site'; msg.className = 'bs-msg bad'; msg.textContent = r.error || 'That page could not be read.'; return; }
+          location.href = {{ url_for('studio_v2.brand')|tojson }} + '?imported=' + r.product_id + '#look';
+        }).catch(function(){ go.disabled = false; go.textContent = 'Read my site'; msg.className = 'bs-msg bad'; msg.textContent = 'Something went wrong. Try again.'; });
+    });
   });
 })();
 </script>
