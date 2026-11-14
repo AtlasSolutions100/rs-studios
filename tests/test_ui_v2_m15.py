@@ -198,7 +198,7 @@ check('data-ui="v2"' in hv and "ui_v2_home.css" in hv and "cfh-stage" in hv and 
       "the home page is the new one with UI_V2 off")
 with appmod.app.test_request_context("/"):
     so = appmod._signup_offer()
-check("Create converting campaigns with AI" in hv and "data-try" in hv and so["cta"] in hv
+check("Campaigns that convert with AI" in hv and "data-try" in hv and so["cta"] in hv
       and so["body"] in hv, "its hero keeps the product-link form and the sign-up offer from the billing config")
 check(len(re.findall(r'class="cfh-t[ "]', hv)) == 18 and "cfh-stars" in hv and "data-replay" in hv, "the hero gathers 18 tiles, then the stars")
 shipped = [f["name"] for f in plans.FEATURES.values() if f.get("shipped")]
@@ -257,7 +257,7 @@ check('data-ui="v2"' in client().get("/no-such-page").get_data(as_text=True)
 print("== the home page")
 home = on["/"].get_data(as_text=True)
 t = text(home)
-check(home.count("<h1") == 1 and "Create converting campaigns with AI" in t, "one promise, in one h1")
+check(home.count("<h1") == 1 and "Campaigns that convert with AI" in t, "one promise, in one h1")
 check(len(re.findall(r'<ol class="lv-steps">.*?</ol>', home, re.S)) == 1
       and len(re.findall(r"<li>", re.search(r'<ol class="lv-steps">(.*?)</ol>', home, re.S).group(1))) == 3
       and all(s in t for s in ("Paste your product page", "See the price first", "Download finished ads")),
