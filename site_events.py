@@ -91,6 +91,7 @@ CLIENT_EVENTS = ("lp_view", "cta_click", "signup_view",
 ASSET_EVENTS = ("asset_download", "asset_export", "more_like_this")   # per job, with its ad type and template
 SERVER_EVENTS = ("signup", "first_ad", "checkout", "paid",
                  "verify_completed",   # the email confirmed (code, link or magic link), once per workspace
+                 "onboard_step",       # a step of the sign-up flow seen, done or skipped (on_onboard; detail step:action)
                  ) + ASSET_EVENTS
 # Client events that carry a detail label.
 DETAIL_EVENTS = {"cta_click", "first_run_viewed", "first_run_kind_chosen", "first_run_imported", "verify_box_opened",
@@ -305,6 +306,37 @@ def asset_detail(job, extra: str = "") -> str:
     typ = catalog.job_ad_type(job["tool"], job["params_json"])
     tpl = (job["template_id"] if "template_id" in job.keys() else None) or "none"
     return f"{typ}:{tpl}:job{job['id']}" + (f":{extra}" if extra else "")
+
+
+# The sign-up flow, in order (Koby, Nov 14 2026: where do new accounts drop off?). Each step records what happened to
+# it once per workspace: seen (the page opened), done, skipped, and for the plan step checkout_canceled (back from
+# Stripe without paying). The plan step's checkout and paid, the email's verify_completed and first_ad are the
+# events of the same names. admin_funnel.steps reads them.
+ONBOARD_STEPS = (("intent", "What do you want to make"), ("profile", "About you"), ("brief", "Brand brief"),
+                 ("confirm", "Confirm email"), ("plan", "Pick a plan"), ("first", "First ads"))
+ONBOARD_ACTIONS = ("seen", "done", "skipped", "checkout_canceled")
+
+
+def on_onboard(conn, workspace_id: int, step: str, action: str, req=None) -> int | None:
+    """One step of the sign-up flow, once per workspace and step:action. Never raises."""
+    if step not in dict(ONBOARD_STEPS) or action not in ONBOARD_ACTIONS or not workspace_id:
+        return None
+    detail = f"{step}:{action}"
+    try:
+        if conn.execute("SELECT 1 FROM site_events WHERE workspace_id=? AND name='onboard_step' AND detail=?",
+                        (workspace_id, detail)).fetchone():
+            return None
+        vid, attr = _workspace_attr(conn, workspace_id, req)
+        path = None
+        if req is not None:
+            try:
+                path = req.path
+            except Exception:  # noqa: BLE001
+                path = None
+        return record(conn, "onboard_step", vid=vid, path=path, attr=attr, detail=detail, workspace_id=workspace_id)
+    except Exception as e:  # noqa: BLE001
+        log.warning("onboard step %s not recorded: %s", detail, str(e)[:120])
+        return None
 
 
 def on_asset(conn, name: str, job, req=None, extra: str = "") -> int | None:

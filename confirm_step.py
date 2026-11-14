@@ -153,6 +153,8 @@ def page():
     here = url_for("confirm.page")
     ip = request.remote_addr or "unknown"
     if request.method == "GET":
+        import onboarding
+        onboarding.step("confirm", "seen")
         return _render(user, err=_send_if_needed(user))
 
     do = request.form.get("do") or "check"

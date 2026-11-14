@@ -140,6 +140,15 @@ def _first_last(name: str) -> tuple[str, str]:
     return (parts[0] if parts else ""), (parts[1] if len(parts) > 1 else "")
 
 
+def step(name: str, action: str) -> None:
+    """The sign-up funnel: this step seen, done or skipped (site_events.on_onboard), never for an admin viewing."""
+    if g.get("ws") is None or g.get("viewing") is not None:
+        return
+    import site_events
+    with db.connect() as conn:
+        site_events.on_onboard(conn, g.ws["id"], name, action, request)
+
+
 @bp.route("/app/welcome", methods=["GET", "POST"])
 @login_required
 def intent():
@@ -151,11 +160,14 @@ def intent():
             if request.form.get("skip"):
                 finish(conn, g.user)
                 conn.commit()
+                step("intent", "skipped")
                 return redirect(url_for("studio"))
             save(conn, g.user, goals=clean_goals(request.form.getlist("goals")),
                  other=" ".join((request.form.get("other") or "").split())[:OTHER_MAX])
             conn.commit()
+        step("intent", "done")
         return redirect(url_for("onboarding.profile"))
+    step("intent", "seen")
     return render_template("v2/onboard_intent.html", goals=GOALS, picked=set(a.get("goals") or []),
                            other=a.get("other") or "")
 
@@ -181,8 +193,10 @@ def profile():
                      website=clean_website(f.get("website")), brief="due")
             finish(conn, g.user)
             conn.commit()
+        step("profile", "skipped" if f.get("skip") else "done")
         # the card step, when one is due, catches either page (card_routes.gate); the brief follows it (_start)
         return redirect(url_for("studio" if f.get("skip") else "onboarding.brief"))
+    step("profile", "seen")
     return render_template("v2/onboard_profile.html", first=first, last=last, company=a.get("company") or "",
                            website=a.get("website") or pasted_link())
 
@@ -287,6 +301,7 @@ def brief():
                 save(conn, g.user, brief="done")
                 finish(conn, g.user)
                 conn.commit()
+                step("brief", "done" if do == "done" else "skipped")
                 # the first ads come next (the gate sends a workspace with no plan to the plan step on the way)
                 return redirect(url_for("onboarding.first" if first_ads.on() and p is not None else "studio"))
             if do == "import":
@@ -346,6 +361,7 @@ def brief():
         gift = first_ads.on() and (no_plan or first_ads.open_for(conn, ws, g.user))
     info = products.import_info(p) if p is not None else {}
     source = (info.get("url") if isinstance(info, dict) else "") or (p["url"] if p is not None and "url" in p.keys() else "") or ""
+    step("brief", "seen")
     return render_template("v2/onboard_brief.html", p=p, b=b, angles=angles, photos=photos,
                            claims=products.claims_list(p["claims"]) if p is not None else [],
                            pending=products.pending(p) if p is not None else [],
@@ -395,11 +411,14 @@ def first():
             if request.form.get("do") == "skip":
                 save(conn, g.user, first="skip")
                 conn.commit()
+                step("first", "skipped")
                 return redirect(url_for("studio"))
             if p is None:
                 return redirect(url_for("onboarding.brief"))
             out = first_ads.make(conn, ws, g.user, p, request.form)
             if out.get("ok"):
+                conn.commit()
+                step("first", "done")
                 return redirect(out["url"])
             flash(out.get("error") or "The ads could not be started. Nothing was used.")
             kept = request.form
@@ -412,6 +431,7 @@ def first():
         if paid:        # on the welcome credits: the image ads only, at their price
             cost = dict(cost, talk=0, total=cost["image"] * min(len(d["looks"]), room["image"]))
         balance = int(ws["credits"] or 0)
+    step("first", "seen")
     return render_template("v2/onboard_first.html", p=p, d=d, room=room, is_open=is_open, cost=cost, kept=kept,
                            paid=paid, balance=balance,
                            thread=url_for("desk.thread", tid=tid) if tid else "",

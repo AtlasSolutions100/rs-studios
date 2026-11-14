@@ -3068,7 +3068,8 @@ def admin_signups():
     starter credits they got (the ad offer included) and whether they made anything."""
     with db.connect() as conn:
         data = admin_funnel.signups(conn, 30)
-    return render_template("admin_signups.html", data=data, ad_credits=adoffer.credits(),
+        steps = admin_funnel.steps(conn, 30)
+    return render_template("admin_signups.html", data=data, steps=steps, ad_credits=adoffer.credits(),
                            starter=catalog.starter_credits())
 
 
