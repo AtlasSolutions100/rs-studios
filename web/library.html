@@ -14,7 +14,7 @@
       {% for row in tree %}<optgroup label="{{ row.brand.brand_name or 'Untitled brand' }}"><option value="brand:{{ row.brand.id }}" {{ 'selected' if f_brand == row.brand.id }}>All of {{ row.brand.brand_name or 'this brand' }}</option>{% for p in row.products %}<option value="product:{{ p.id }}" {{ 'selected' if f_product == p.id }}>{{ p.name }}</option>{% endfor %}</optgroup>{% endfor %}
     </select>
     <noscript><button class="btn dark sm">Show</button></noscript>
-    <span class="small muted">{{ jobs|length }} item{{ 's' if jobs|length != 1 }}</span>
+    <span class="small muted">{{ total }} item{{ 's' if total != 1 }}</span>
   </form>
   {% if ui_v2 %}
   <form class="filters lib-find" method="get" action="{{ url_for('library') }}" role="search">
@@ -44,5 +44,7 @@
   <div class="lgrid" style="margin-top:24px" data-live-cards="library" data-keyreview>
     {% for j in jobs %}{{ card(j, outs, templates, tools, ctx='library', verdict=verdicts.get(j.id), price=prices.get(j.id, 0), names=names, eta=eta, hl=highlight == j.id) }}{% endfor %}
   </div>
+  {% if next_url %}<p class="lib-more" data-lib-more="{{ next_url }}{{ '&' if '?' in next_url else '?' }}part=1"><a class="btn ghost" href="{{ next_url }}">Show more</a></p>{% endif %}
+  {% if before %}<p class="lib-more"><a href="{{ filter_url('before', '') }}">Back to the newest</a></p>{% endif %}
 </div>
 {% endblock %}
