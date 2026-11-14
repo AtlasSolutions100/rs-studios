@@ -63,6 +63,7 @@
       <div class="cmp-settings" id="cmp-settings" data-settings hidden></div>
       <div class="cmp-bar">
         <button type="button" class="cmp-chip" data-product-open aria-haspopup="dialog"><span class="cmp-thumb" data-product-thumb aria-hidden="true"></span><span data-product-name>Add product</span></button>
+        <button type="button" class="cmp-chip" data-refs-open aria-haspopup="dialog" hidden title="Put pictures from your brand into the ad: logo, packaging, lifestyle shots"><span class="cmp-refs" data-refs-thumbs aria-hidden="true"></span><span data-refs-name>References</span></button>
         <button type="button" class="cmp-chip" data-presenter-open aria-haspopup="dialog" hidden><span class="cmp-thumb round" data-presenter-thumb aria-hidden="true"></span><span data-presenter-name>Presenter</span></button>
         <span class="cmp-chip sel" data-voice-wrap hidden><label class="sr" for="cmp-voice">Narrator voice</label><select id="cmp-voice" data-voice></select></span>
         <span class="cmp-grow"></span>
@@ -89,6 +90,14 @@
     <p class="small muted" data-import-msg aria-live="polite">We read the name, brand and photo from the page. It costs nothing.</p>
   </form>
   <p class="small muted v2-dlg-foot">No store page? <a href="{{ url_for('products.new') }}">Add a product by hand</a> with a name and one photo.</p>
+</dialog>
+
+{# ---- references: the brand's pictures (brand_assets.py) put into the ad beside the product photo #}
+<dialog class="v2-dlg" data-dlg="refs" aria-labelledby="drf-h">
+  <header class="v2-dlg-h"><h2 id="drf-h">References</h2><span class="small muted" data-refs-n aria-live="polite"></span><button type="button" class="v2-x" data-close aria-label="Close">{{ X|safe }}</button></header>
+  <p class="small muted v2-dlg-sub">Pick pictures to put into the ad beside your product photo: your logo, packaging, a lifestyle shot, your store.</p>
+  <div class="v2-refs" data-refs-list></div>
+  <p class="small muted v2-dlg-foot"><a href="{{ boot.urls.assets }}">Add pictures on the Brand page</a></p>
 </dialog>
 
 {# ---- presenter picker: portraits, situations, filters and a voice preview (studio_v2.roster) #}

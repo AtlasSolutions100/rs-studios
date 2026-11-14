@@ -33,7 +33,8 @@
         <h2 id="fa-h{{ i }}">Image ad {{ loop.index }}</h2>
         <label class="fa-on"><input type="checkbox" name="image{{ i }}" value="1" {{ 'checked' if not kept or kept.get('image' ~ i) }}><span>Make it</span></label>
       </div>
-      {% if t.preview %}<figure class="fa-media"><img src="{{ t.preview }}" alt="" loading="lazy"><figcaption>An example of this look. Yours shows {{ p.name }}.</figcaption></figure>{% endif %}
+      {% if p.primary_photo_id %}<figure class="fa-media"><img src="{{ url_for('onboarding.first_preview', tid=t.id, h=(kept.get('headline' ~ i) if kept else t.headline)) }}" alt="A preview of image ad {{ loop.index }} with {{ p.name }}" data-preview="{{ url_for('onboarding.first_preview', tid=t.id) }}" data-for="fa-hl{{ i }}"><figcaption>Your photo, words and colours in this look. The finished ad puts {{ p.name }} in the scene.</figcaption></figure>
+      {% elif t.preview %}<figure class="fa-media"><img src="{{ t.preview }}" alt="" loading="lazy"><figcaption>An example of this look. Yours shows {{ p.name }}.</figcaption></figure>{% endif %}
       <p class="bb-main">{{ t.name }}</p>
       <label for="fa-hl{{ i }}">The headline on it</label>
       <input id="fa-hl{{ i }}" type="text" name="headline{{ i }}" maxlength="120" value="{{ kept.get('headline' ~ i) if kept else t.headline }}">

@@ -896,10 +896,13 @@ pages.title TEXT
 pages.updated_at TEXT
 pages.views INTEGER
 pages.workspace_id INTEGER
+photos.brand_id INTEGER
 photos.content_type TEXT
 photos.created_at TEXT
 photos.filename TEXT
 photos.id INTEGER
+photos.kind TEXT
+photos.label TEXT
 photos.path TEXT
 photos.product_id INTEGER
 photos.remote_url TEXT

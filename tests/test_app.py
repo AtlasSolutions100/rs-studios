@@ -3273,6 +3273,8 @@ if __name__ == "__main__" and not os.environ.get("RS_TEST_ONE"):
     subprocess.run([sys.executable, os.path.join(HERE, "test_welcome_credits.py")], check=True)
     # Clone an ad: a reference ad's beats, and the remake planned for your product on the desk (models faked).
     subprocess.run([sys.executable, os.path.join(HERE, "test_adclone.py")], check=True)
+    # Brand assets picked as References in Studio, and the first ads' previews from the member's own photo.
+    subprocess.run([sys.executable, os.path.join(HERE, "test_brand_assets.py")], check=True)
     # The Tools page (one catalog, a slimmer menu in the new look) and the done-for-you request (tools_page.py).
     subprocess.run([sys.executable, os.path.join(HERE, "test_tools_page.py")], check=True)
     # Inspiration by category on the desk and the Tools page (inspiration.py), and the brand step's example cards.

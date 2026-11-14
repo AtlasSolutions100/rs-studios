@@ -352,6 +352,23 @@ def brief():
 
 # ---------------------------------------------------------------- the first ads, on us
 
+@bp.route("/app/welcome/first/preview/<tid>.jpg")
+@login_required
+def first_preview(tid):
+    """The look's preview on the member's own photo and words (first_ads.preview_jpeg); ?h= is the headline."""
+    import first_ads
+    import products
+    from flask import Response, abort
+    with db.connect() as conn:
+        ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone() or g.ws
+        p = products.get_product(conn, ws["id"], ws["product_id"]) if ws["product_id"] else None
+        look = next((t for t in first_ads.draft(conn, p)["looks"] if t["id"] == tid), None) if p is not None else None
+        data = first_ads.preview_jpeg(conn, ws["id"], p, look, (request.args.get("h") or "")[:120]) if look else None
+    if not data:
+        abort(404)
+    return Response(data, mimetype="image/jpeg", headers={"Cache-Control": "private, max-age=300"})
+
+
 @bp.route("/app/welcome/first", methods=["GET", "POST"])
 @login_required
 def first():

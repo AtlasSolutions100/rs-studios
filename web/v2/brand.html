@@ -38,12 +38,37 @@
       </div>
       <div class="bs-look-f">{% if locked %}<span class="small muted">This brand is locked on your plan.</span>{% else %}<button class="btn">Save look</button>{% endif %}<a class="btn dark" href="{{ url_for('studio') }}">Open Studio</a></div>
     </form>
+    <div class="bs-assets" id="assets">
+      <h3>Assets</h3>
+      <p class="small muted">Product photos, packaging, your logo, lifestyle shots, your store: pictures you can put into any ad. In Studio, press References to pick them.</p>
+      {% if assets %}
+      <ul class="bs-asset-grid" aria-label="Your pictures">
+        {% for a in assets %}<li><img src="{{ a.url }}" alt="{{ a.label }}" loading="lazy"><b title="{{ a.label }}">{{ a.label }}</b><span class="muted">{{ a.kind_name }}</span>
+          {% if not locked %}<form method="post" action="{{ url_for('brand_assets.remove', phid=a.id) }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="linkbtn" data-confirm="Remove this picture? Ads already made keep it.">Remove</button></form>{% endif %}</li>{% endfor %}
+      </ul>
+      {% endif %}
+      {% if not locked %}
+      <form method="post" action="{{ url_for('brand_assets.upload') }}" enctype="multipart/form-data" class="bs-asset-add" data-asset-form>
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="brand" value="{{ b.id }}">
+        <div><label for="as-files">Pictures (up to {{ asset_max }})</label><input id="as-files" type="file" name="files" accept="image/png,image/jpeg,image/webp" multiple required></div>
+        <div><label for="as-kind">What they are</label><select id="as-kind" name="kind" data-asset-kind>{% for code, name in asset_kinds %}<option value="{{ code }}">{{ name }}</option>{% endfor %}</select></div>
+        <div data-asset-product><label for="as-prod">Which product</label><select id="as-prod" name="product">{% for p in rows %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></div>
+        <div><label for="as-label">Name (optional)</label><input id="as-label" type="text" name="label" maxlength="80" placeholder="For example: Gift box, front"></div>
+        <div><button class="btn">Add pictures</button></div>
+      </form>
+      {% endif %}
+    </div>
   </section>
   {% endif %}
 </div>
 {% endblock %}
 {% block scripts %}
 <script>
+(function(){
+  var k = document.querySelector('[data-asset-kind]'), pr = document.querySelector('[data-asset-product]');
+  function sync(){ if(pr) pr.hidden = !k || k.value !== 'product'; }
+  if(k){ k.addEventListener('change', sync); sync(); }
+})();
 (function(){
   var f = document.querySelector('[data-bs-import]'); if(!f) return;
   var msg = document.querySelector('[data-bs-msg]'), go = f.querySelector('[data-bs-go]');

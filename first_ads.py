@@ -358,3 +358,64 @@ def _make_paid(conn, ws, product, only, total) -> dict:
     conn.commit()
     return {"ok": True, "thread": tid, "batch": data["batch"], "images": n, "talks": 0,
             "url": url_for("desk.thread", tid=tid) + f"#t{turn}"}
+
+
+# ---------------------------------------------------------------- the preview of each look (no AI, free)
+
+PREVIEW_W = 640
+ASPECT_H = {"4:5": 1.25, "1:1": 1.0, "9:16": 16 / 9, "16:9": 9 / 16}
+
+
+def preview_jpeg(conn, ws_id: int, product, template: dict, headline: str) -> bytes | None:
+    """What this look's ad will roughly be, from the member's own photo, words and brand kit: the product photo on a
+    soft backdrop of itself, the headline and the logo set by textlayer exactly as on the finished ad. The finished
+    ad puts the product in the look's scene; this shows the layout, the words and the colours. None without a photo."""
+    import io
+    import zlib
+
+    from PIL import Image, ImageFilter
+
+    import products
+    import textlayer
+    if product is None or not product["primary_photo_id"]:
+        return None
+    ph = conn.execute("SELECT path FROM photos WHERE id=? AND workspace_id=?", (product["primary_photo_id"], ws_id)).fetchone()
+    if ph is None:
+        return None
+    try:
+        src = Image.open(ph["path"]).convert("RGB")
+    except (OSError, ValueError):
+        return None
+    aspect = template.get("aspect") or "4:5"
+    w = PREVIEW_W
+    h = int(round(w * ASPECT_H.get(aspect, 1.25)))
+    # the backdrop: the photo itself, filling the frame, blurred and dimmed; the product sits whole on it, low and
+    # centred, leaving the top for the words as the finished layout does
+    cover = src.copy()
+    scale = max(w / cover.width, h / cover.height)
+    cover = cover.resize((max(1, int(cover.width * scale)), max(1, int(cover.height * scale))))
+    cover = cover.crop(((cover.width - w) // 2, (cover.height - h) // 2, (cover.width - w) // 2 + w, (cover.height - h) // 2 + h))
+    b = products.get_brand(conn, ws_id, product["brand_id"]) if product["brand_id"] else None
+    kit = textlayer.kit_of(b)
+    if zlib.crc32(str(template.get("id") or "").encode()) % 2:
+        # every other look sits on the brand's own colour, so two looks don't read as one
+        top, bottom = textlayer.hex_rgb(kit["primary"]), textlayer.hex_rgb(kit["accent"])
+        cover = Image.new("RGB", (w, h), top)
+        band = Image.new("RGB", (w, int(h * 0.42)), bottom)
+        cover.paste(Image.blend(band, Image.new("RGB", band.size, top), 0.55), (0, h - band.height))
+    else:
+        cover = cover.filter(ImageFilter.GaussianBlur(28))
+        cover = Image.blend(cover, Image.new("RGB", (w, h), (16, 16, 16)), 0.25)
+    fit = src.copy()
+    fit.thumbnail((int(w * 0.78), int(h * 0.62)))
+    cover.paste(fit, ((w - fit.width) // 2, h - fit.height - int(h * 0.1)))
+    layout = template.get("layout") or "headline"
+    try:
+        out, _rep = textlayer.render(cover, layout, {"headline": headline or template.get("headline") or product["name"]},
+                                     kit, aspect, fit=False, people=[])
+    except Exception as e:  # noqa: BLE001  (a preview is a nicety: the step still works without it)
+        log.warning("first ads preview failed: %s", str(e)[:160])
+        out = cover
+    buf = io.BytesIO()
+    out.convert("RGB").save(buf, "JPEG", quality=82)
+    return buf.getvalue()
