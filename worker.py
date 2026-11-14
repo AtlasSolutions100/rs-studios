@@ -183,6 +183,9 @@ def image_prompt(conn, job, p: dict | None = None) -> str:
         line = brand_assets.describe([r for r in rows if r is not None])
         if line:
             out += "\n" + line
+    if p.get("vary") and p.get("edit_from") and not p.get("layout"):     # new takes asked for in the viewer (jobs_routes.vary)
+        out += "\nMake a new take on the first reference picture, which is an earlier version of this ad: keep the " \
+               "product, the words and the brand look, and change the scene, the angle and the framing."
     if p.get("change_note"):    # a change asked for in the Library viewer (jobs_routes.change)
         note = " ".join(str(p["change_note"]).split())[:300].replace('"', "'")
         start = ("Start from the first reference picture: it is the last version of this ad. " if p.get("edit_from")
