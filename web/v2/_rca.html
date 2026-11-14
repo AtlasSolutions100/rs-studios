@@ -1,0 +1,113 @@
+{# Plan, Create, Launch (Koby, Nov 14 2026): the campaign agent at work in three short example chats, for a
+   made-up brand. The tabs switch by click or on their own every few seconds until someone clicks. #}
+{% set R = r %}
+<section class="rca" aria-labelledby="rca-h">
+  <div class="rca-stage">
+    <h2 id="rca-h" class="sr">What the campaign agent does</h2>
+    <div class="rca-tabs" role="tablist" aria-label="What the agent does">
+      <button type="button" role="tab" id="rca-t1" aria-controls="rca-p1" aria-selected="true" data-rca="1">Plan</button>
+      <button type="button" role="tab" id="rca-t2" aria-controls="rca-p2" aria-selected="false" tabindex="-1" data-rca="2">Create</button>
+      <button type="button" role="tab" id="rca-t3" aria-controls="rca-p3" aria-selected="false" tabindex="-1" data-rca="3">Launch</button>
+    </div>
+    <p class="rca-line" data-rca-line>Say what you're launching. It asks what it needs, then prices every part.</p>
+    <div class="rca-win">
+      <aside class="rca-side" aria-hidden="true">
+        <b class="rca-brand"><i></i>Campaign agent</b>
+        <span class="rca-nav">+ New chat</span><span class="rca-nav">Search</span>
+        <em>Chats</em>
+        <span class="rca-chat on" data-rca-chat="1">Launch plan</span>
+        <span class="rca-chat" data-rca-chat="2">Citrus Volt ads</span>
+        <span class="rca-chat" data-rca-chat="3">Going live</span>
+      </aside>
+
+      <div class="rca-main">
+        <div class="rca-panel" role="tabpanel" id="rca-p1" aria-labelledby="rca-t1" data-line="Say what you're launching. It asks what it needs, then prices every part.">
+          <p class="rca-title">Launch plan</p>
+          <p class="rca-me">Plan the launch for Citrus Volt. We want sign-ups before it hits stores.</p>
+          <dl class="rca-qa"><dt>Where will the ads run?</dt><dd>TikTok and Instagram</dd><dt>What should they lead with?</dt><dd>The taste</dd></dl>
+          <p class="rca-work"><span></span>Asked 2 questions, read your brand, priced each part</p>
+          <div class="rca-say">
+            <p>Here's the plan. Nothing is made until you say so.</p>
+            <div class="rca-rows">
+              <div><i>Make</i><b>3 image ads</b><span>{{ (3 * R.image)|credits }}</span></div>
+              <div><i>Make</i><b>Presenter video</b><span>{{ R.talk8|credits }}</span></div>
+              <div><i>Write</i><b>Captions for TikTok and Instagram</b><span>Up to 5 credits</span></div>
+              <div><i>Capture</i><b>A page with a sign-up form</b><span>In your plan</span></div>
+              <div><i>Follow up</i><b>Emails to everyone who signs up</b><span>In your plan</span></div>
+            </div>
+            <p class="rca-cta"><span>Make it</span><span>Edit a part</span><span>Add a part</span></p>
+          </div>
+        </div>
+
+        <div class="rca-panel" role="tabpanel" id="rca-p2" aria-labelledby="rca-t2" data-line="Ads, copy and a page for any product, priced before they're made." hidden>
+          <p class="rca-title">Citrus Volt launch</p>
+          <p class="rca-me">Make three image ads and a presenter video for the taste angle.</p>
+          <p class="rca-work"><span></span>Made 4 ads · {{ (3 * R.image + R.talk8)|credits }}</p>
+          <div class="rca-say">
+            <p>Here they are. The headlines are set in real type, so every word is spelled right.</p>
+            <div class="rca-ads">
+              <img src="{{ url_for('static', filename='hero/pop-energy.webp') }}" alt="An image ad: a green can in a citrus splash with the headline Zero sugar. Full charge." loading="lazy" width="400" height="500">
+              <img src="{{ url_for('static', filename='hero/pop-energy-ugc.webp') }}" alt="A presenter video still: an AI-made woman holding the can on a neon street" loading="lazy" width="330" height="590">
+              <img src="{{ url_for('static', filename='hero/pop-volt-taste.webp') }}" alt="An image ad: the green can beside a glass of lemonade on pink, headline Tastes like soda. Zero sugar." loading="lazy" width="400" height="500">
+              <img src="{{ url_for('static', filename='hero/pop-volt-swap.webp') }}" alt="An image ad: the green can beside a coffee mug on an orange desk, headline Swap your second coffee" loading="lazy" width="400" height="500">
+            </div>
+            <p class="rca-cta"><span>Download</span><span>Add a landing page</span><span>Write the captions</span></p>
+          </div>
+        </div>
+
+        <div class="rca-panel" role="tabpanel" id="rca-p3" aria-labelledby="rca-t3" data-line="The page, the form, the follow-up and your ad accounts, set up and ready to go live." hidden>
+          <p class="rca-title">Going live</p>
+          <p class="rca-me">Get it live: the page, a form for emails, the follow-up, and the ads ready for Meta and TikTok.</p>
+          <p class="rca-work"><span></span>Set up the page, form, follow-up and link</p>
+          <div class="rca-say">
+            <p>Everything is in place. Last step: upload the ads in each platform's ads manager.</p>
+            <ul class="rca-check">
+              <li class="ok"><b>Sign-up page</b><span>campaignify.ai/p/citrus-volt</span></li>
+              <li class="ok"><b>Form</b><span>Name and email</span></li>
+              <li class="ok"><b>Follow-up</b><span>3 emails over a week</span></li>
+              <li class="ok"><b>Smart link</b><span>Counts clicks from each platform</span></li>
+              <li class="ok"><b>Ad accounts</b><span>Meta and TikTok set up, pixel on the page</span></li>
+              <li><b>Ads</b><span>4 ads sized for each, ready to upload</span></li>
+            </ul>
+            <p class="rca-cta"><span>Download the ads</span><span>Preview the page</span></p>
+          </div>
+        </div>
+        <p class="rca-input" aria-hidden="true">Ask for anything in your campaign<span>→</span></p>
+      </div>
+
+      <aside class="rca-board" aria-hidden="true">
+        <em>Board</em>
+        <div data-rca-board="1"><span class="rca-file">Launch plan<i>5 parts</i></span><span class="rca-file">Brand<i>Citrus Volt</i></span></div>
+        <div data-rca-board="2" hidden><span class="rca-file">4 ads<i>Library</i></span><span class="rca-file">Captions<i>Copy</i></span><span class="rca-file">Launch page<i>Draft</i></span></div>
+        <div data-rca-board="3" hidden><span class="rca-file">Sign-up page<i>Live</i></span><span class="rca-file">Follow-up<i>On</i></span><span class="rca-file">Smart link<i>Tracking</i></span></div>
+      </aside>
+    </div>
+    <p class="rca-foot">An example for a made-up brand.</p>
+  </div>
+</section>
+<script>
+(function(){
+  var root = document.querySelector('.rca'); if (!root) return;
+  var tabs = [].slice.call(root.querySelectorAll('[data-rca]')), line = root.querySelector('[data-rca-line]');
+  var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches, auto = !still, timer = null, cur = 1;
+  function show(n, focus){
+    cur = n;
+    tabs.forEach(function(t){ var on = +t.dataset.rca === n; t.setAttribute('aria-selected', on ? 'true' : 'false'); t.tabIndex = on ? 0 : -1; if (on && focus) t.focus(); });
+    [].forEach.call(root.querySelectorAll('[role=tabpanel]'), function(p, i){ p.hidden = (i + 1) !== n; if (i + 1 === n) { line.textContent = p.dataset.line; p.classList.remove('go'); void p.offsetWidth; p.classList.add('go'); } });
+    [].forEach.call(root.querySelectorAll('[data-rca-board]'), function(b){ b.hidden = +b.dataset.rcaBoard !== n; });
+    [].forEach.call(root.querySelectorAll('[data-rca-chat]'), function(c){ c.classList.toggle('on', +c.dataset.rcaChat === n); });
+  }
+  function stop(){ auto = false; clearInterval(timer); }
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){ stop(); show(+t.dataset.rca); });
+    t.addEventListener('keydown', function(e){ var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (!d) return; e.preventDefault(); stop(); show(((cur - 1 + d + 3) % 3) + 1, true); });
+  });
+  show(1);
+  if (auto && 'IntersectionObserver' in window) {
+    new IntersectionObserver(function(es){ es.forEach(function(e){
+      clearInterval(timer);
+      if (e.isIntersecting && auto) timer = setInterval(function(){ show((cur % 3) + 1); }, 7000);
+    }); }, {threshold: 0.35}).observe(root);
+  }
+})();
+</script>

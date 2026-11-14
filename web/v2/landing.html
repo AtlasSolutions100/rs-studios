@@ -51,10 +51,7 @@
 </section>
 </div>
 
-<section class="cfm" aria-label="What Campaignify makes, and the tools that come with it">
-  <div class="cfm-row">{% for copy in (0, 1) %}<ul{% if copy %} aria-hidden="true"{% endif %}>{% for i, n in makes %}<li>{{ ico(i) }}{{ n }}</li>{% endfor %}</ul>{% endfor %}</div>
-  <div class="cfm-row">{% for copy in (0, 1) %}<ul{% if copy %} aria-hidden="true"{% endif %}>{% for k, f in plans.FEATURES.items() if f.shipped %}<li>{{ ico(fx_icon.get(k, 'bolt')) }}{{ f.name }}</li>{% endfor %}</ul>{% endfor %}</div>
-</section>
+{% include "v2/_rca.html" %}
 
 <div class="lv-wrap lv-ratewrap">
     <dl class="lv-rates" aria-label="What each ad costs">

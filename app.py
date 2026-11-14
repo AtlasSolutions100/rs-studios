@@ -343,7 +343,9 @@ CSRF_EXEMPT = {"static", "stripe_webhook", "site_event", "forms.public", "messag
                # MCP clients (mcpserver.py): Bearer tokens or OAuth client credentials, never cookies
                "mcp.mcp_endpoint", "mcp.register", "mcp.token", "mcp.revoke",
                # Meta's server calls, verified with the app secret (signed_request, adconnect_routes.py)
-               "adconnect.meta_deauthorize", "adconnect.meta_data_deletion"}
+               "adconnect.meta_deauthorize", "adconnect.meta_data_deletion",
+               # the Mac's light-model worker (light.py): a Bearer token, never cookies
+               "light.next_job", "light.job_done"}
 
 
 @app.before_request
@@ -2989,7 +2991,7 @@ def admin():
                            markup=catalog.MARKUP, hd_markup=catalog.HD_MARKUP, configured=hf.configured(),
                            base=request.host_url, stills=stills, presenters=presenter_stills.with_photos(url_for),
                            stills_cap=presenter_stills.CAP_USD,
-                           ai_status=llm.status(), health=sys_health, funnel=funnel, holds=holds, parked=parked,
+                           ai_status=llm.status(), light_status=light.status(), health=sys_health, funnel=funnel, holds=holds, parked=parked,
                            holds_on=billing_holds.enabled(), admins=admins, admin_can=site_admins.CAN)
 
 
@@ -3360,7 +3362,9 @@ app.register_blueprint(ui_v2.bp)
 app.register_blueprint(onboarding.bp)
 app.register_blueprint(studio_v2.bp)
 import desk  # noqa: E402
+import light  # noqa: E402
 app.register_blueprint(desk.bp)
+app.register_blueprint(light.bp)                # /_light/*: the Mac's local model takes the light jobs (light.py)
 # Card on file at sign-up (RS_CARD_REQUIRED) and the out-of-credits paywall (RS_PLAN_PAYWALL), both default off.
 import card_routes  # noqa: E402
 import paywall_routes  # noqa: E402

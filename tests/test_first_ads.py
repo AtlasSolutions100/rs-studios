@@ -394,8 +394,8 @@ k.post("/app/welcome/first", data={"csrf": csrf(k), "do": "skip"})
 body = page(k, "/app/desk")
 check('data-guide="first"' in body and "Your first 2 image ads and a short talking video are on us." in body
       and "Review my first ads" in body and "/app/welcome/first" in body, "then it offers the first ads, on us")
-check(body.index("Start from an example") < body.index('data-guide="first"') < body.index("data-ask-form"),
-      "the examples are on top; the agent sits above the box at the foot")
+check(body.index('data-guide="first"') < body.index("data-ask-form") < body.index("Start from an example"),
+      "the agent speaks above the box; the examples sit below it")
 k.post("/app/welcome/first", data=form(k))
 body = page(k, "/app/desk")
 check('data-guide="making"' in body and "3 ads are being made" in body and "Your campaigns" in body,
