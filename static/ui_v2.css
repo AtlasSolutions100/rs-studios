@@ -1589,3 +1589,25 @@ html[data-ui="v2"][data-theme="light"] .shell .main.dots-on::before{--v2-dot:rgb
 .ac-recent img,.ac-ph{width:52px;height:64px;border-radius:8px;object-fit:cover;background:var(--thumb-bg);flex:none}
 .ac-recent a>span{display:flex;flex-direction:column;gap:2px;min-width:0}
 @media (max-width:760px){.ac-form{grid-template-columns:minmax(0,1fr)}.ac-or{justify-self:start}}
+
+/* ---- References in Studio's composer and Brand > Assets (brand_assets.py; Koby, Nov 13 2026) ---- */
+.cmp-refs{display:inline-flex}
+.cmp-refs img{width:20px;height:20px;border-radius:5px;object-fit:cover;border:1.5px solid var(--panel);margin-left:-6px}
+.cmp-refs img:first-child{margin-left:0}
+.v2-dlg-sub{margin:0 0 12px}
+.v2-refs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;max-height:60vh;overflow:auto}
+.v2-refs button{display:flex;flex-direction:column;gap:6px;padding:6px;border:1.5px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);text-align:left;cursor:pointer;font:inherit}
+.v2-refs button[aria-pressed="true"]{border-color:var(--v2-mark);box-shadow:0 0 0 1px var(--v2-mark)}
+.v2-refs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;background:var(--thumb-bg)}
+.v2-refs button>span{display:flex;flex-direction:column;gap:1px;padding:0 2px 2px;font-size:13px;min-width:0}
+.v2-refs b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bs-assets{padding:18px 20px 20px;border-top:1px solid var(--line)}
+[data-ui="v2"] .shell .bs-assets h3{margin:0 0 4px}
+.bs-assets>p{margin:0 0 14px}
+.bs-asset-grid{list-style:none;margin:0 0 16px;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.bs-asset-grid li{display:flex;flex-direction:column;gap:4px;font-size:12.5px;min-width:0}
+.bs-asset-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:var(--thumb-bg)}
+.bs-asset-grid b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bs-asset-grid form{margin:0}
+.bs-asset-grid .linkbtn{font-size:12px;color:var(--muted);padding:0}
+.bs-asset-add{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end}
