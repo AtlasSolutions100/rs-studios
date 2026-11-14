@@ -138,6 +138,7 @@
     {% set flashes = get_flashed_messages(with_categories=true) %}
     {% if hold_banner is defined and hold_banner %}{% set hb = hold_banner %}{% include "_hold_banner.html" %}{% endif %}
     {% if paywall_banner is defined and paywall_banner %}{% include "_paywall_banner.html" %}{% endif %}
+    {% if welcome_banner is defined and welcome_banner %}{% include "_welcome_banner.html" %}{% endif %}
     {% set vb = verify_banner if verify_banner is defined else None %}
     {% if vb %}{% set hot = flashes|selectattr(0, 'in', ['verify', 'verify-cap'])|list %}
     {# On the first-run page the banner sits under the form (web/_first_ad.html): the first screen is the form. #}

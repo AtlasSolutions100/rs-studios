@@ -79,7 +79,8 @@ def create_self_serve_account(conn, email: str, name: str, pw_hash: str, req, ip
                              ((name or email.split("@")[0]) + "'s studio", 0, db.now())).lastrowid
         import plan_gate
         if plan_gate.on():
-            # PLANS_ONLY: no free credits at sign-up. The account picks a plan next; a trial brings its own.
+            # PLANS_ONLY: no credits at sign-up. Confirming the email brings the welcome credits
+            # (plan_gate.grant_welcome); after those, a plan (its trial brings its own).
             grant = (0, "")
         else:
             # Ad-sourced sign-ups get SIGNUP_CREDITS_ADS instead, once per person (adoffer.py).
@@ -102,6 +103,11 @@ def create_self_serve_account(conn, email: str, name: str, pw_hash: str, req, ip
                         1 if pending and not verified else 0, db.norm_email(email)))
     if inv:
         conn.execute("UPDATE invites SET used_by=? WHERE code=?", (cur.lastrowid, invite_code))
+    if verified and not joins:
+        # Google already confirmed the address: the welcome credits now, as confirming by email gives them.
+        import plan_gate
+        plan_gate.grant_welcome(conn, conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone(),
+                                conn.execute("SELECT * FROM users WHERE id=?", (cur.lastrowid,)).fetchone())
     return {"uid": cur.lastrowid, "ws_id": ws_id, "ad_credits": ad_credits, "joins": joins, "invited": inv is not None}
 
 

@@ -20,7 +20,9 @@ not start is given back, and credits granted for it are taken back. One person g
 same owner email in another workspace closes it here too.
 
 Who. A workspace with a plan (a trial counts: plan_gate.exempt), or a site admin looking at the step. Never a
-workspace that still has to pick a plan: the gate (plan_gate_routes) sends it to the plan step first.
+workspace that still has to pick a plan: the gate (plan_gate_routes) sends it to the plan step first. Not a workspace
+on its welcome credits either (plan_gate.grant_welcome, Nov 13 2026): those credits are what its first image ads
+are made with; the gift comes with the plan.
 
 First means first. The image ads are on us only while the workspace has made no image ad outside the gift, and the
 talking video only while it has made no talking video outside it. So a member who skips the step and makes ads in
@@ -95,6 +97,8 @@ def used_elsewhere(conn, ws, user=None) -> bool:
 def open_for(conn, ws, user=None) -> bool:
     """Something is still on us for this workspace, and it may take it now."""
     if ws is None or not on() or plan_gate.needs_plan(conn, ws, user):
+        return False
+    if plan_gate.on_welcome(conn, ws) and not _admin(user):      # the welcome credits pay for these; the gift is the plan's
         return False
     return any(left(conn, ws["id"], user).values()) and not used_elsewhere(conn, ws, user)
 

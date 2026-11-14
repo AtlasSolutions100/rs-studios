@@ -9,7 +9,8 @@
     <li><b>Pick a look.</b> {{ first_run_count() }} templates, brief written for you. {% if plans_only() %}Your first ads are{% else %}Your {{ ni }} ad{{ '' if ni == 1 else 's' }} {{ 'is' if ni == 1 else 'are' }}{% endif %} ready in about a minute.</li>
     <li><b>Then the campaign.</b> The planner proposes the budget, platforms and a 2-week test, writes the copy per platform and builds the landing page. Every price is shown before you press the button.</li>
   </ol>
-  {% if plans_only() %}<p class="small muted" style="margin:14px 0 0" data-signup-card-note>Next, you pick a plan. Starter and Growth are free for {{ plan_trial_days('starter') }} days: your card is saved on Stripe's page and charged when the trial ends, unless you cancel first. Scale is charged at once.</p>
+  {% if plans_only() and signup_offer().credits and not signup_offer().card %}<p class="small muted" style="margin:14px 0 0" data-signup-card-note>No card to start. Confirm your email and you get {{ '{:,}'.format(sc) }} free credits for your brand setup and image ads. When you want videos or more, pick a plan: Starter and Growth are free for {{ plan_trial_days('starter') }} days.</p>
+  {% elif plans_only() %}<p class="small muted" style="margin:14px 0 0" data-signup-card-note>Next, you pick a plan. Starter and Growth are free for {{ plan_trial_days('starter') }} days: your card is saved on Stripe's page and charged when the trial ends, unless you cancel first. Scale is charged at once.</p>
   {% else %}  <p class="small muted" style="margin:14px 0 0" data-signup-card-note>{% if card_required() %}Next, you save a card. Nothing is charged until you pick a plan or buy a pack, and no plan starts by itself. One free trial per person; the card stops abuse of the free credits.{% else %}Nothing is charged and nothing renews.{% endif %} The {{ '{:,}'.format(sc) }} free credits never expire.</p>{% endif %}
 </aside>{% endif %}{% endblock %}
 {% block auth %}
@@ -21,7 +22,10 @@
   <h1 class="auth-h">Join your team</h1>
   <p class="muted">Your invite puts you in your team's workspace. Pick a password and you're in.</p>
   {% else %}
-  {% if plans_only() %}
+  {% if plans_only() and so.credits and not so.card %}
+  <h1 class="auth-h">Start free</h1>
+  <p class="muted">Confirm your email and get {{ '{:,}'.format(sc) }} free credits for your brand setup and image ads. No card needed until you pick a plan.</p>
+  {% elif plans_only() %}
   <h1 class="auth-h">Create your account</h1>
   <p class="muted">Starter and Growth start with a {{ plan_trial_days('starter') }}-day free trial. You pick the plan on the next step; every ad's price is shown before you make it.</p>
   {% else %}
