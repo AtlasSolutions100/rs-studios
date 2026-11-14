@@ -14,6 +14,7 @@ cards, on a throwaway database:
 """
 import html as htmllib
 import io
+import json
 import os
 import re
 import shutil
@@ -124,13 +125,17 @@ check(any(c["title"] == "Presenter video" for c in apps["items"]) and all("real 
       and any(c["href"].endswith("preset=pov-unboxing") for c in unbox["items"]),
       "the app demo and the unboxing clip have rows of their own, and an app card asks for the format, not a plain presenter video")
 local = next(x for x in groups if x["key"] == "local")
-check(local["name"] == "Local businesses" and len(local["items"]) >= 8 and all(c["video"] and c["where"] == "desk" for c in local["items"]),
+# most local clips are library-store clips (libstore.py), which haven't arrived on a test machine: count the manifest's
+_raw_local = [it for it in json.load(open(os.path.join(ROOT, "static", "showcase", "manifest.json")))["items"]
+              if it.get("group") == "local"]
+check(local["name"] == "Local businesses" and len(local["items"]) >= 2 and len(_raw_local) >= 8
+      and all(it["kind"] == "video" for it in _raw_local) and all(c["video"] and c["where"] == "desk" for c in local["items"]),
       "local businesses have a row of their own: roofing, a salon, a food truck and the like")
 lawn = next(c for c in local["items"] if c["title"] == "Lawn care")
-roof = next(c for c in local["items"] if c["title"] == "Roof replacement")
+roof = next(c for c in local["items"] if c["title"] == "Smash burger")
 check("presenter video" in lawn["ask"] and "the work being done, no one talking" in roof["ask"],
       "there, an example with a presenter asks for a presenter video, and one without asks for the work on screen")
-check(not any(c["title"] in ("Lawn care", "Roof replacement") for x in groups if x["key"] in ("presenter", "product") for c in x["items"]),
+check(not any(c["title"] in ("Lawn care", "Smash burger") for x in groups if x["key"] in ("presenter", "product") for c in x["items"]),
       "and it is listed once, not again under presenter or product videos")
 check(len(groups[0]["items"]) == len(desk.EXAMPLES), "the campaigns are the desk's own examples")
 cards = [c for x in groups for c in x["items"]]
