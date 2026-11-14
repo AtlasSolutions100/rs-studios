@@ -641,4 +641,14 @@ check(not any(s.encode() in raw for s in secrets), "nor in the database file")
 pages = html(owner.get("/app/settings/ad-accounts")) + spage + fpage
 check(not any(s in pages for s in secrets), "nor in any page")
 
+print("== a public profile pasted by the owner (Snap lists profiles only to allowlisted apps)")
+import adconnect_routes  # noqa: E402
+U = "783de194-f87f-4387-9c55-6ffad75f66c2"
+check(adconnect_routes.snap_profile_id(f"https://profile.snapchat.com/2439fe9d-a300-40fc-b8e1-899e4bc758c9/profiles/{U}/details/public-stories?ref_aid=86157ec4-a38d-44e1-9836-130e81a34375") == U,
+      "the profile id is read from the Ads Manager address, not the organization or ad account id in it")
+check(adconnect_routes.snap_profile_id(U.upper()) == U and adconnect_routes.snap_profile_id("not a link") is None
+      and adconnect_routes.snap_profile_id(f"{U} 2439fe9d-a300-40fc-b8e1-899e4bc758c9") is None, "a bare id works; nothing or two ids is refused")
+tpl = open(os.path.join(os.path.dirname(os.path.abspath(adconnect_routes.__file__)), "web", "ad_connect_snapchat.html")).read()
+check('name="profile_link"' in tpl and "Public Profiles" in tpl, "with no profile listed, the picker asks for the profile link")
+
 print(f"\nall {passed} checks passed")

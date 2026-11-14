@@ -46,6 +46,7 @@ and are never logged, flashed or rendered. The callback logs no query string.
 import base64
 import hashlib
 import json
+import re
 import logging
 import secrets
 import time
@@ -565,6 +566,20 @@ def snapchat_callback():
     return redirect(url_for("adconnect.pick", cid=cid))
 
 
+_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)
+
+
+def snap_profile_id(text) -> str | None:
+    """The public profile id from what the owner pasted: the id itself, or a profile.snapchat.com address
+    (.../<organization id>/profiles/<profile id>/...). Snap's list of profiles needs the allowlisted Public Profile API."""
+    t = (text or "").strip()[:500]
+    m = re.search(r"/profiles/(" + _UUID.pattern + r")", t, re.I)
+    if m:
+        return m.group(1).lower()
+    ids = _UUID.findall(t)
+    return ids[0].lower() if len(ids) == 1 else None
+
+
 def _pick_snapchat(conn, row):
     """Pick the Snapchat ad account and the public profile its ads run from (one of the account's organization's),
     then the Snap Pixel (skipped when there are 0 or 1)."""
@@ -586,6 +601,12 @@ def _pick_snapchat(conn, row):
     if request.form.get("profile") and (p is None or p.get("org_id") != a.get("org_id")):
         flash("Pick one of the public profiles listed for that ad account.")
         return redirect(url_for("adconnect.pick", cid=row["id"]))
+    if not p and not profiles and (request.form.get("profile_link") or "").strip():
+        pid = snap_profile_id(request.form.get("profile_link"))
+        if not pid:
+            flash("That doesn't look like a public profile link. Copy the address of the profile page in Ads Manager.")
+            return redirect(url_for("adconnect.pick", cid=row["id"]))
+        p = {"id": pid, "name": "Public profile"}
     p = p or {}
     now = db.now()
     same = conn.execute("SELECT * FROM ad_connections WHERE workspace_id=? AND platform='snapchat' AND "
