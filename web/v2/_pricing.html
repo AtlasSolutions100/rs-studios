@@ -5,12 +5,15 @@
    (rates()) and the sign-up offer (signup_offer()). Nothing here is typed in. Needs r = rates(), sc = starter credits. #}
 {% import "_price.html" as price %}{% set po = plans_only() %}
 {% set open = billing_configured() %}
-<dl class="pr-rates" aria-label="What each ad costs">
-  <div class="r-img"><dt><i aria-hidden="true"></i>Picture ad</dt><dd>{{ r.image|credits }}</dd></div>
-  <div class="r-vid"><dt><i aria-hidden="true"></i>Product video, 5 sec</dt><dd>{{ r.video5|credits }}</dd></div>
-  <div class="r-talk"><dt><i aria-hidden="true"></i>Video with a person, 8 sec</dt><dd>{{ r.talk8|credits }}</dd></div>
-  <div class="pr-rates-note"><dt class="sr">How pricing works</dt><dd>You always see the price before anything is made.</dd></div>
-</dl>
+<div class="pr-costs">
+  <dl aria-label="What each ad costs">
+    <div><img src="{{ url_for('static', filename='hero/pop-icecream.webp') }}" alt="" width="64" height="64" loading="lazy"><dt>Picture ad</dt><dd>{{ r.image|credits }}</dd></div>
+    <div><img src="{{ url_for('static', filename='showcase/clip-headphones-nc.webp') }}" alt="" width="64" height="64" loading="lazy"><dt>Product video, 5 sec</dt><dd>{{ r.video5|credits }}</dd></div>
+    <div><img src="{{ url_for('static', filename='showcase/team-skincare.webp') }}" alt="" width="64" height="64" loading="lazy"><dt>Video with a person, 8 sec</dt><dd>{{ r.talk8|credits }}</dd></div>
+  </dl>
+  <p class="pr-costs-foot">You always see the price before anything is made.</p>
+</div>
+{{ price.clock() }}
 <div class="pr-plans{{ ' three' if po }}" data-plans>
   {% if not po %}<section class="pr-plan" aria-labelledby="pr-free" data-plan="free">
     <h3 id="pr-free">Free</h3>
@@ -43,21 +46,20 @@
   {% endfor %}
 </div>
 {% if not open %}<p class="pr-note">Plan and pack checkout isn't switched on yet. Start free now; your credits carry over.</p>{% endif %}
-<ul class="pr-notes">
-  {% if po %}<li>Starter and Growth are free for {{ plan_trial_days('starter') }} days, with everything in. Your card pays when the trial ends, unless you stop first. Scale starts right away.</li>{% else %}<li>Nothing is charged until you pick a plan or buy a pack.</li>{% endif %}
-  <li>Stop any month. Your plan stays on until the month you paid for ends.</li>
-  <li>New credits come each month and get used before pack credits. If an ad fails, you get your credits back.{% if refund_line() %} {{ refund_line() }}{% endif %}</li>
-</ul>
 
-<h3 class="pr-h3" id="packs">Credit packs</h3>
-<p class="pr-sub">{{ 'Need more? Add credits to any plan.' if po else 'Add credits any time, with or without a plan.' }} They never run out.</p>
-<div class="pr-packs" data-packs>
-  {% for p in packs %}
-  <section class="pr-pack" aria-labelledby="pr-pack-{{ p.code }}" data-pack="{{ p.code }}">
-    <h4 id="pr-pack-{{ p.code }}">{{ p.name }} pack</h4>
-    <p class="pr-amt sm"><b>${{ p.usd }}</b><span> once</span></p>
-    <p class="pr-cr">{{ '{:,}'.format(p.credits) }} credits{% if p.bonus %} <span class="pr-bonus">includes {{ '{:,}'.format(p.bonus) }} bonus</span>{% endif %}</p>
-    {% set m = ad_math(p.credits, p.usd) %}<p class="pr-makes">{{ m.counts }}.</p>
-  </section>
-  {% endfor %}
-</div>
+<section class="pr-topup" aria-labelledby="packs">
+  <div class="pr-topup-h">
+    <h3 id="packs">Credit packs</h3>
+    <p>{{ 'Need more? Add credits to any plan.' if po else 'Add credits any time, with or without a plan.' }} They never run out.</p>
+  </div>
+  <div class="pr-packs" data-packs>
+    {% for p in packs %}
+    <section class="pr-pack" aria-labelledby="pr-pack-{{ p.code }}" data-pack="{{ p.code }}">
+      <h4 id="pr-pack-{{ p.code }}">{{ p.name }} pack</h4>
+      <p class="pr-pack-cr"><b>{{ '{:,}'.format(p.credits) }} credits</b>{% if p.bonus %} <span class="pr-bonus">includes {{ '{:,}'.format(p.bonus) }} bonus</span>{% endif %}</p>
+      <p class="pr-pack-amt"><b>${{ p.usd }}</b> once</p>
+      {% set m = ad_math(p.credits, p.usd) %}<p class="pr-makes">{{ m.counts }}.</p>
+    </section>
+    {% endfor %}
+  </div>
+</section>

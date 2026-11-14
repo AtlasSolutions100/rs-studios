@@ -153,9 +153,9 @@ name: Deploy Campaignify (campaignify.ai)
 #   RS_PLAN_PAYWALL        out-of-credits free plan and lock (plan_paywall.py), default off; set 1 to turn on
 #   PLANS_ONLY             no free tier (plan_gate.py): a sign-up picks a plan with a card, Starter and Growth start with a
 #                          3-day trial, Scale is charged at once, packs top up a plan. On here unless the variable says 0
-#   PLAN_SALE              under each plan's price, a dated line: "Goes to $79 by Dec 31, sooner if we fill up"
-#                          (plans.sale). Display only. On here unless the variable says 0
-#   PLAN_SALE_BY           the date that line names, ISO (default 2026-12-31); past it the line disappears by itself
+#   PLAN_SALE              the clock above the plans, "These prices end in 13d 22h" (plans.price_clock), counting down to
+#                          PLAN_SALE_BY. Names no future price. On here unless the variable says 0
+#   PLAN_SALE_BY           the date the prices go up, ISO (default 2026-11-28); past it the clock disappears by itself
 #   TRIAL_TEST             7-day vs 3-day trial test (plan_gate.trial_len): even workspace ids get 7 days. Default off
 #   REFUND_PROMISE         "Not happy after your first charge? Email us within 7 days..." on pricing, the plan step,
 #                          Stripe's checkout and the terms (plan_gate.refund_line). Default off; refunds are by hand

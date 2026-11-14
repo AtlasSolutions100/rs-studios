@@ -77,7 +77,6 @@
   <div class="lp-wrap">
     <div class="sh-price">
       <p class="amt">Starter <b>${{ st.usd }}</b><span> a month</span></p>
-      {% if sale %}<p><b>Goes to ${{ sale.next }} by {{ sale.by }}, sooner if we fill up.</b></p>{% endif %}
       <p class="muted small">{{ '{:,}'.format(st.credits) }} credits a month.{% if plans_only() %} {{ plan_trial_days('starter') }}-day free trial with full access; cancel before it ends and nothing is charged.{% endif %}</p>
       {{ price.refund('muted small') }}
       <p style="margin-top:18px"><a class="btn lg" href="#sh-url" data-cta="shopify-price">Paste your link</a></p>

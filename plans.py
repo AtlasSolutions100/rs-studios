@@ -60,7 +60,7 @@ def sale_on() -> bool:
     return (os.environ.get("PLAN_SALE") or "").strip().lower() in ("1", "on", "true", "yes")
 
 
-SALE_BY_DEFAULT = "2026-12-31"      # Koby, Nov 14 2026: the increase is real, by the end of the year at the latest
+SALE_BY_DEFAULT = "2026-11-28"      # Koby, Nov 14 2026: two weeks; the prices go up when the clock on /pricing ends
 
 
 def sale_by() -> datetime | None:
@@ -85,6 +85,21 @@ def sale(p, now: datetime | None = None) -> dict | None:
     if (now or datetime.now(timezone.utc)) > by:
         return None
     return {"next": nxt, "off": (nxt - p["usd"]) * 100 // nxt, "by": f"{by:%b} {by.day}"}
+
+def price_clock(now: datetime | None = None) -> dict | None:
+    """The countdown near the plans (Koby, Nov 14 2026: "a countdown timer for 2 weeks for the sale"), or None.
+    Honest by construction: it counts down to one fixed date, PLAN_SALE_BY (sale_by()), the same for every
+    visitor and every load, never per visit, and it is gone once that date passes or PLAN_SALE is off. It names
+    no future price. The date is a promise: when it ends, the plan prices go up (Stripe, by Koby)."""
+    now = now or datetime.now(timezone.utc)
+    if not sale_on() or not any((p.get("next_usd") or 0) > p["usd"] for p in PAID):
+        return None
+    by = sale_by()
+    left = int((by - now).total_seconds())
+    if left <= 0:
+        return None
+    return {"iso": by.isoformat().replace("+00:00", "Z"), "label": f"{by:%b} {by.day}",
+            "d": left // 86400, "h": left % 86400 // 3600, "m": left % 3600 // 60, "s": left % 60}
 
 # Subscription states Stripe still bills. They keep the plan on, except that
 # past_due (the renewal payment failed, Stripe is retrying) pauses the
