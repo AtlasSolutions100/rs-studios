@@ -18,7 +18,12 @@
     <p class="small muted">Every Snapchat ad shows the name and logo of a public profile. Pick the one of the same business as the ad account.</p>
     {% if d.pages %}
     {% for p in d.pages %}<p><label><input type="radio" name="profile" value="{{ p.id }}" {{ 'checked' if loop.first }}> <b>{{ p.name }}</b>{% set org = (d.accounts|selectattr('org_id', 'equalto', p.org_id)|first) %}{% if org %} <span class="small muted">{{ org.org_name }}</span>{% endif %}</label></p>{% endfor %}
-    {% else %}<p class="muted">No public profile on this login yet. Make one in Snapchat Ads Manager, then reconnect. You can connect the ad account now; launching waits for the profile.</p>{% endif %}
+    {% else %}
+    <p class="muted">Snapchat doesn't share the profile list with apps yet, so paste it here. In Snapchat Ads Manager, open the menu, then Public Profiles. Copy the web address at the top and paste it below.</p>
+    <p><label for="sp-link">Public profile link</label><br>
+      <input id="sp-link" type="text" name="profile_link" placeholder="https://profile.snapchat.com/.../profiles/..." autocomplete="off" style="width:100%"></p>
+    <p class="small muted">No profile yet? Make one in Ads Manager first. You can connect the ad account now and add the profile later; ads launch once it's set.</p>
+    {% endif %}
     </fieldset>
     <p style="margin-top:16px"><button class="btn">Connect this account</button></p>
   </form>
