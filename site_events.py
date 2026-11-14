@@ -312,8 +312,10 @@ def asset_detail(job, extra: str = "") -> str:
 # it once per workspace: seen (the page opened), done, skipped, and for the plan step checkout_canceled (back from
 # Stripe without paying). The plan step's checkout and paid, the email's verify_completed and first_ad are the
 # events of the same names. admin_funnel.steps reads them.
+# "free" is the free first ads before the plan step (first_ads.free_open, Nov 14 2026): a sign-up with a product link
+# goes intent, profile, confirm, free, plan, brief, first; one without keeps the order below.
 ONBOARD_STEPS = (("intent", "What do you want to make"), ("profile", "About you"), ("brief", "Brand brief"),
-                 ("confirm", "Confirm email"), ("plan", "Pick a plan"), ("first", "First ads"))
+                 ("confirm", "Confirm email"), ("free", "Free first ads"), ("plan", "Pick a plan"), ("first", "First ads"))
 ONBOARD_ACTIONS = ("seen", "done", "skipped", "checkout_canceled")
 
 

@@ -8,7 +8,7 @@
 {% block pick %}
 <div class="pk" data-plan-step>
   <h1>{% if welcome %}Pick a plan when you're ready{% elif new %}Pick a plan to start{% else %}Pick a plan to keep making ads{% endif %}</h1>
-  <p class="pk-sub">{% if not new %}Your ads, products and credits are all still here. {% endif %}{% if any_trial %}Starter and Growth are free for {{ days }} days. Your card is charged when the trial ends, unless you cancel first.{% else %}Monthly, and you can cancel any time.{% endif %}{% if gift %} Your first 2 image ads and a short talking video are on us.{% endif %}</p>
+  <p class="pk-sub">{% if not new %}Your ads, products and credits are all still here. {% endif %}{% if any_trial %}Starter and Growth are free for {{ days }} days. Your card is charged when the trial ends, unless you cancel first.{% else %}Monthly, and you can cancel any time.{% endif %}{% if gift and gift.free %} Your first {{ gift.image }} image ads are free, before you pick a plan: <a href="{{ url_for('onboarding.first') }}">make them first</a>.{% elif gift %} Your first {% if gift.image %}{{ gift.image }} image ad{{ '' if gift.image == 1 else 's' }}{{ ' and ' if gift.talk }}{% endif %}{% if gift.talk %}a short talking video{% endif %} {{ 'is' if gift.image + gift.talk == 1 else 'are' }} on us.{% endif %}</p>
 
   {% if welcome %}<p class="pk-note" role="status" data-plan-welcome>You have {{ '{:,}'.format(welcome) }} free credits for your brand setup and image ads. Videos come with a plan. <a href="{{ skip_url }}">Skip for now</a></p>{% endif %}
   {% if canceled %}<p class="pk-note" role="status" data-plan-canceled>Checkout canceled. Nothing was charged.</p>{% endif %}

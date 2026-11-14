@@ -228,9 +228,13 @@ def remember_browser(resp, req, email: str):
 
 def start_session(user):
     """Log this account in on this browser: a fresh session with the account's
-    session_version (a password reset bumps it and ends the others)."""
+    session_version (a password reset bumps it and ends the others). The product link pasted before signing up
+    (try_url, onboarding.pasted_link) is carried over: the free first ads are made from it."""
     from core import csrf_token
+    pasted = session.get("try_url")
     session.clear()
+    if isinstance(pasted, str) and pasted:
+        session["try_url"] = pasted[:300]
     session["uid"] = user["id"]
     session["sv"] = int(user["session_version"] or 0)
     csrf_token()

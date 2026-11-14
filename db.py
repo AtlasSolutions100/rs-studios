@@ -959,6 +959,8 @@ COLUMNS = [
     ("workspaces", "trial_open", "INTEGER NOT NULL DEFAULT 0"),   # a plan trial began and nothing is paid yet (plan_gate.py)
     ("workspaces", "trial_ends_at", "TEXT"),                       # when that trial ends (the first charge)
     ("plan_trials", "reminded_at", "TEXT"),                        # when the trial's reminder email was claimed
+    ("workspaces", "first_free_at", "TEXT"),        # the free first result was taken (first_ads.free_open): once only
+    ("workspaces", "first_free_credits", "INTEGER"),  # what it was granted: exactly what its image ads cost
     ("service_requests", "details", "TEXT"),                       # what the workspace held when it asked (tools_page.snapshot)
     ("brands", "rivals_json", "TEXT"),              # competitors found at import: [{name, website, why, sources}]
     ("brands", "enrich_json", "TEXT"),              # the last reading of the brand's site (brand_identity.py)

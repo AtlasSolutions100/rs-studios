@@ -1188,6 +1188,8 @@ workspaces.delete_after TEXT
 workspaces.delete_requested_at TEXT
 workspaces.delete_requested_by INTEGER
 workspaces.deleted_at TEXT
+workspaces.first_free_at TEXT
+workspaces.first_free_credits INTEGER
 workspaces.flows_json TEXT
 workspaces.free_fix_cap INTEGER
 workspaces.id INTEGER

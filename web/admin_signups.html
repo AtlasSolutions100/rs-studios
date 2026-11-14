@@ -5,7 +5,7 @@
 {% set t = data.totals %}
 <p class="muted">{{ t.signups }} sign-ups · {{ t.verified }} confirmed their email · {{ t.paid_source }} came from an ad · {{ t.ad_grant }} got the ad offer ({{ ad_credits or 'off' }}{{ ' credits' if ad_credits }}) · {{ t.made }} started a generation · {{ t.finished }} got a finished one · {{ t.paying }} paying</p>
 <h2 id="steps" style="margin-top:28px">Where they stop</h2>
-<p class="muted">{{ steps.signups }} new accounts since {{ steps.since|localtime }} (step tracking began then). Each step: how many opened it, finished it, skipped it, and stopped there (it was the last step they reached).</p>
+<p class="muted">{{ steps.signups }} new accounts since {{ steps.since|localtime }} (step tracking began then). Each step: how many opened it, finished it, skipped it, and stopped there (it was the last step they were on). Sign-ups with a product link get their free first ads before the plan step and the brand brief after it.</p>
 <div class="panel scrollx">
 <table><tr><th>Step</th><th>Opened</th><th>Finished</th><th>Skipped</th><th>Stopped here</th></tr>
 {% for s in steps.steps %}<tr>

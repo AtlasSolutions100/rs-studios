@@ -201,9 +201,11 @@ r = read_link(a)
 check(r.status_code == 302 and ws_of("a@example.com")["product_id"], "the link is read before a plan, at no cost")
 check(not ledger("a@example.com"), "nothing was charged for it")
 body = page(a, "/app/welcome/brand")
-check("Here is what I understood" in body and "Ember Candle" in body and "Looks right. Draft my first ads" in body,
-      "the brief reads the brand back and leads to the first ads")
-check("on us, once you have picked a plan" in body, "it says the first ads are on us once a plan is picked")
+check("Here is what I understood" in body and "Ember Candle" in body and "Looks right. Make my free ads" in body,
+      "the brief reads the brand back and leads to the free first ads (the link was read: test_first_result.py)")
+check(f"Your first {first_ads.FREE_IMAGES} image ads are free, made from this page before you pick a plan" in body,
+      "it says the first image ads are free before a plan")
+check("Skip for now: keep what was read" in body, "and the brief can be skipped, keeping what was read")
 check("Suggest five" not in body, "the brief's paid step is not offered before a plan")
 before = buckets("a@example.com")
 a.post("/app/welcome/brand", data={"csrf": csrf(a), "do": "angles"})
@@ -211,11 +213,11 @@ check(buckets("a@example.com") == before and not ledger("a@example.com"), "and p
 r = a.post("/app/welcome/brand", data={"csrf": csrf(a), "do": "done"})
 check(r.status_code == 302 and r.headers["Location"].endswith("/app/welcome/first"), "the brief hands over to the first ads")
 r = a.get("/app/welcome/first")
-check(r.status_code == 302 and r.headers["Location"].endswith("/app/plan"), "with no plan, the first ads send you to the plan step")
-r = a.post("/app/welcome/first", data=form(a))
-check(r.status_code == 302 and r.headers["Location"].endswith("/app/plan") and not jobs_of("a@example.com")
-      and not gifts("a@example.com"), "and nothing can be made on us without a plan")
-check("first 2 image ads and a short talking video are on us" in page(a, "/app/plan"), "the plan step says what is on us")
+check(r.status_code == 200 and f"Your first {first_ads.FREE_IMAGES} ads are free." in htmllib.unescape(r.get_data(as_text=True)),
+      "with no plan and a product link, the first ads step offers the free first ads")
+check(a.get("/app/desk").headers.get("Location", "").endswith("/app/plan"), "everything else still waits for a plan")
+check(f"Your first {first_ads.FREE_IMAGES} image ads are free, before you pick a plan" in page(a, "/app/plan"),
+      "the plan step says the first image ads are free before it")
 
 on_plan("a@example.com")
 r = a.get("/app")
@@ -240,7 +242,7 @@ r = a.post("/app/welcome/first", data=form(a, image0=None, image1=None, talk=Non
 check(r.status_code == 200 and "Tick at least one" in r.get_data(as_text=True), "nothing ticked: it says so")
 
 r = a.post("/app/welcome/first", data=form(a))
-check(r.status_code == 302 and "/app/desk/c/" in r.headers["Location"], "making them opens the campaign on the desk")
+check(r.status_code == 302 and "/app/desk/c/" in r.headers["Location"], "making them opens the campaign on the desk " + str(r.headers.get("Location")))
 js = jobs_of("a@example.com")
 check(sorted(j["tool"] for j in js) == ["ad_image", "ad_image", "ugc_video"], "two image ads and one talking video were started")
 total = sum(j["credits"] for j in js)

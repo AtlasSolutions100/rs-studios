@@ -43,6 +43,7 @@ Switching the flag off puts everything back: sign-ups get starter credits again
 and nobody is asked for a plan. Trials already running carry on in Stripe.
 """
 import os
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 
 from werkzeug.exceptions import HTTPException
@@ -260,9 +261,31 @@ def needs_plan(conn, ws, user=None) -> bool:
     return on() and not exempt(conn, ws, user)
 
 
+FREE_PASS = "first_free_pass"     # flask.g: the workspace whose free first result this request is making
+
+
+@contextmanager
+def free_pass(ws_id: int):
+    """While the free first result is made (first_ads.make), its ads get past the plan check, in this request and for
+    this workspace only. Everything else the workspace tries still waits for a plan."""
+    from flask import g
+    before = g.get(FREE_PASS)
+    setattr(g, FREE_PASS, ws_id)
+    try:
+        yield
+    finally:
+        setattr(g, FREE_PASS, before)
+
+
+def _passing(ws) -> bool:
+    from flask import g, has_app_context
+    return has_app_context() and g.get(FREE_PASS) is not None and g.get(FREE_PASS) == _key(ws, "id")
+
+
 def check(ws, user=None):
-    """Raise PlanRequired where a spend would start on a workspace that has to pick a plan first."""
-    if not on() or ws is None:
+    """Raise PlanRequired where a spend would start on a workspace that has to pick a plan first (not for the free
+    first result's own ads: free_pass)."""
+    if not on() or ws is None or _passing(ws):
         return
     with db.connect() as conn:
         if needs_plan(conn, ws, user):

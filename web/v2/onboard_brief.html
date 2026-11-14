@@ -129,8 +129,9 @@
 </div>
 
 <form method="post" action="{{ url_for('onboarding.brief') }}" class="bb-done"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
-  <button class="btn lg" name="do" value="done">{{ 'Looks right. Draft my first ads' if gift else 'Looks right. Open Studio' }}</button>
-  <p class="bb-note">{% if gift %}Your first 2 image ads and a short talking video are on us{{ ', once you have picked a plan' if no_plan }}. {% endif %}You can change any of this later under Brand and Products.</p>
+  <button class="btn lg" name="do" value="done">{{ 'Looks right. Make my free ads' if free else 'Looks right. Draft my first ads' if gift else 'Looks right. Open Studio' }}</button>
+  <p class="bb-note">{% if free %}Your first {{ free_images }} image ads are free, made from this page before you pick a plan. {% elif gift %}Your first 2 image ads and a short talking video are on us{{ ', once you have picked a plan' if no_plan }}. {% endif %}You can change any of this later under Brand and Products.</p>
+  <button class="ob-link" name="do" value="skip">Skip for now: keep what was read</button>
 </form>
 {% endif %}
 {% endblock %}

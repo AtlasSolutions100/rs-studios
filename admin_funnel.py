@@ -202,11 +202,14 @@ ONBOARD_SINCE = "2026-11-14T08:00:00+00:00"     # step tracking began with this 
 
 
 def _journey(conn, ws_id: int, verified: bool) -> dict:
-    """What one new workspace did at each step of the sign-up flow, and where it stopped (the furthest step it
-    opened; a confirmed email counts as reaching that step, as Google sign-ins never see it)."""
+    """What one new workspace did at each step of the sign-up flow, and where it stopped: the step of its most recent
+    event (a sign-up with a product link takes the steps in another order than one without, so the last step it was
+    on is where it stopped, not the furthest in one fixed order). A confirmed email counts as reaching that step, but
+    only an opened confirm page makes it where they stopped, as Google sign-ins never see it."""
     import site_events
     rows = conn.execute("SELECT name, detail FROM site_events WHERE workspace_id=? AND name IN "
-                        "('onboard_step', 'verify_completed', 'checkout', 'paid', 'first_ad')", (ws_id,)).fetchall()
+                        "('onboard_step', 'verify_completed', 'checkout', 'paid', 'first_ad') ORDER BY id",
+                        (ws_id,)).fetchall()
     seen = {(r["detail"] or "") for r in rows if r["name"] == "onboard_step"}
     names = {r["name"] for r in rows}
     st = {}
@@ -219,22 +222,38 @@ def _journey(conn, ws_id: int, verified: bool) -> dict:
         st["plan"] |= {"checkout"}
     if "paid" in names:
         st["plan"] |= {"paid"}
+    # the workspace's first ad: made on the free first ads step when that step was done, else on the first ads step
+    made_on = "free" if "done" in st["free"] else "first"
     if "first_ad" in names:
-        st["first"] |= {"made_ad"}
-    # the furthest step it reached, and what happened there
-    last, state = None, ""
-    for key, label in site_events.ONBOARD_STEPS:
+        st[made_on] |= {"made_ad"}
+    # the step it was last on, and what happened there
+    labels = dict(site_events.ONBOARD_STEPS)
+    key = None
+    for r in rows:
+        k = {"verify_completed": "confirm", "checkout": "plan", "paid": "plan", "first_ad": made_on}.get(r["name"])
+        if r["name"] == "onboard_step":
+            k = (r["detail"] or "").split(":", 1)[0]
+        if k in labels and not (k == "confirm" and "seen" not in st["confirm"]):
+            key = k
+    last, state = ((key, labels[key]) if key else None), ""
+    if key == "plan":
+        a = st["plan"]
+        state = ("paid" if "paid" in a else "left Stripe checkout" if "checkout" in a and "checkout_canceled" not in a
+                 else "canceled at Stripe" if "checkout_canceled" in a else "skipped" if "skipped" in a
+                 else "saw plans, didn't pick")
+    elif key:
         a = st[key]
-        if not a or (key == "confirm" and "seen" not in a):    # a Google sign-in is confirmed without the page
-            continue
-        last = (key, label)
-        if key == "plan":
-            state = ("paid" if "paid" in a else "left Stripe checkout" if "checkout" in a and "checkout_canceled" not in a
-                     else "canceled at Stripe" if "checkout_canceled" in a else "skipped" if "skipped" in a
-                     else "saw plans, didn't pick")
-        else:
-            state = "skipped" if "skipped" in a else "done" if a & {"done", "made_ad"} else "opened, didn't finish"
+        state = "skipped" if "skipped" in a else "done" if a & {"done", "made_ad"} else "opened, didn't finish"
     return {"steps": st, "last": last, "state": state}
+
+
+def _finished(j) -> bool:
+    """Went all the way: made its first ads on the last step, or made the free first ads and paid for a plan."""
+    if j["last"] is None:
+        return False
+    if j["last"][0] == "first" and j["steps"]["first"] & {"done", "made_ad"}:
+        return True
+    return bool(j["steps"]["free"] & {"done", "made_ad"}) and "paid" in j["steps"]["plan"]
 
 
 def steps(conn, days: int = 30) -> dict:
@@ -266,7 +285,7 @@ def steps(conn, days: int = 30) -> dict:
         plan["left_checkout"] += "checkout" in p and "paid" not in p and "checkout_canceled" not in p
         if j["last"] is None:
             nowhere += 1
-        elif not (j["last"][0] == "first" and j["steps"]["first"] & {"done", "made_ad"}):
+        elif not _finished(j):
             table[j["last"][0]]["stopped"] += 1
     return {"since": since, "signups": len(users), "steps": list(table.values()), "plan": plan,
             "no_steps": nowhere, "per_ws": per_ws}

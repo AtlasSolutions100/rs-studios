@@ -11,6 +11,14 @@ While plans only is on (plan_gate.py) the order is: the two questions, the brand
 ads. The brief comes before the plan so a new account sees its own brand read back before it is asked for a card;
 reading a link costs the member nothing, and the one paid thing on the brief (angle ideas) waits for a plan.
 
+A new account that gave us a product link (Koby, Nov 14 2026: the step tracking showed sign-ups stopping at the brief
+and at the plan step, with nothing of theirs on screen): the two questions, confirm the email, the free first ads
+(first_ads.free_open: FREE_IMAGES image ads from that page, free; the page is read on that step), the first-result
+screen (/app/welcome/first/result: the ads as they finish, and for a sign-up from the presenter pages one presenter
+still with a line from their product), the plan step, then the brand brief (answers brief="after", read back from the
+link and skippable), then the first ads on us that are left (the talking video, with a plan). A sign-up with no link
+keeps the order above; one that reads its link on the brief gets the free first ads from there.
+
 The answers are kept on the member (users.onboarding_json, users.onboarded_at) and used for the first run:
 the composer opens on the first thing they said they want that their credits cover (studio_v2.first_mode),
 and a website typed here is already in the box on the brand screen and in "Add product from URL".
@@ -35,6 +43,7 @@ import json
 from flask import Blueprint, g, redirect, render_template, request, session, url_for
 
 import db
+import plans
 import ui_v2
 from core import login_required
 
@@ -85,6 +94,12 @@ def pasted_link() -> str:
     return clean_website(session.get("try_url") or "")
 
 
+def first_link(user) -> str:
+    """The product link a new account gave us: the website typed on the second question, else the link pasted
+    before signing up (first_ads.link_of: the free first result is made from it). "" for none."""
+    return clean_website(answers(user).get("website")) or pasted_link()
+
+
 def save(conn, user, **fields) -> dict:
     """Merge `fields` into the member's answers (no commit)."""
     out = dict(answers(user), **fields)
@@ -129,8 +144,17 @@ def _start():
 
 def brief_due(conn, user, ws) -> bool:
     """The brand brief is still waiting: the member answered the first steps, hasn't finished or skipped the brief,
-    and has made nothing yet. (It waits behind the card step when there is one.)"""
-    if user is None or ws is None or not ui_v2.on() or answers(user).get("brief") != "due":
+    and has made nothing yet. (It waits behind the card step when there is one.) After the free first ads
+    (brief="after"): once they are made or skipped, and once the plan step is behind them."""
+    if user is None or ws is None or not ui_v2.on():
+        return False
+    a = answers(user)
+    if a.get("brief") == "after":
+        import plan_gate
+        row = conn.execute("SELECT first_free_at FROM workspaces WHERE id=?", (ws["id"],)).fetchone()
+        return bool((row is not None and row["first_free_at"]) or a.get("first") == "skip") \
+            and not plan_gate.needs_plan(conn, ws, user)
+    if a.get("brief") != "due":
         return False
     return conn.execute("SELECT 1 FROM jobs WHERE workspace_id=? LIMIT 1", (ws["id"],)).fetchone() is None
 
@@ -180,9 +204,11 @@ def profile():
     a = answers(g.user)
     first, last = _first_last(g.user["name"] or "")
     if request.method == "POST":
+        import first_ads
         f = request.form
         first = " ".join((f.get("first_name") or "").split())[:NAME_MAX]
         last = " ".join((f.get("last_name") or "").split())[:NAME_MAX]
+        free = False
         with db.connect() as conn:
             if not f.get("skip"):
                 name = (first + " " + last).strip()[:80]
@@ -191,11 +217,18 @@ def profile():
                 # one save: answers(user) is read from the request's row, so a second save would undo the first
                 save(conn, g.user, company=" ".join((f.get("company") or "").split())[:COMPANY_MAX],
                      website=clean_website(f.get("website")), brief="due")
+                # a link given here or pasted before signing up: the free first ads come next, the brief after them
+                u = conn.execute("SELECT * FROM users WHERE id=?", (g.user["id"],)).fetchone()
+                ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone() or g.ws
+                free = first_ads.free_open(conn, ws, u)
+                if free:
+                    save(conn, u, brief="after")
             finish(conn, g.user)
             conn.commit()
         step("profile", "skipped" if f.get("skip") else "done")
-        # the card step, when one is due, catches either page (card_routes.gate); the brief follows it (_start)
-        return redirect(url_for("studio" if f.get("skip") else "onboarding.brief"))
+        # the card step, when one is due, catches either page (card_routes.gate); the brief follows it (_start).
+        # The confirm step catches the free first ads (they are made, so the address is proven first).
+        return redirect(url_for("studio" if f.get("skip") else "onboarding.first" if free else "onboarding.brief"))
     step("profile", "seen")
     return render_template("v2/onboard_profile.html", first=first, last=last, company=a.get("company") or "",
                            website=a.get("website") or pasted_link())
@@ -358,6 +391,7 @@ def brief():
                               (p["id"], ws["id"])).fetchall() if p is not None else []
         photos = conn.execute("SELECT COUNT(*) FROM photos WHERE product_id=?", (p["id"],)).fetchone()[0] if p is not None else 0
         no_plan = plan_gate.needs_plan(conn, ws, g.user)          # the paid step (angle ideas) waits for a plan
+        free = first_ads.free_open(conn, ws, g.user)              # the free first ads, before the plan step
         gift = first_ads.on() and (no_plan or first_ads.open_for(conn, ws, g.user))
     info = products.import_info(p) if p is not None else {}
     source = (info.get("url") if isinstance(info, dict) else "") or (p["url"] if p is not None and "url" in p.keys() else "") or ""
@@ -369,7 +403,8 @@ def brief():
                            website=answers(g.user).get("website") or (b["website"] if b is not None else "") or
                            pasted_link(),
                            angle_price=creator.estimate_angles() if (llm.anthropic_ready() and not no_plan) else None,
-                           gift=gift, no_plan=no_plan, other=other_site(g.user, p, b))
+                           gift=gift, no_plan=no_plan, other=other_site(g.user, p, b), free=free,
+                           free_images=first_ads.FREE_IMAGES)
 
 
 # ---------------------------------------------------------------- the first ads, on us
@@ -384,7 +419,8 @@ def first_preview(tid):
     with db.connect() as conn:
         ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone() or g.ws
         p = products.get_product(conn, ws["id"], ws["product_id"]) if ws["product_id"] else None
-        look = next((t for t in first_ads.draft(conn, p)["looks"] if t["id"] == tid), None) if p is not None else None
+        n = max(first_ads.IMAGES, first_ads.FREE_IMAGES)
+        look = next((t for t in first_ads.draft(conn, p, n)["looks"] if t["id"] == tid), None) if p is not None else None
         data = first_ads.preview_jpeg(conn, ws["id"], p, look, (request.args.get("h") or "")[:120]) if look else None
     if not data:
         abort(404)
@@ -395,10 +431,15 @@ def first_preview(tid):
 @login_required
 def first():
     """The first ads, on us (first_ads.py). GET shows the drafts; POST makes what is ticked and opens the campaign.
-    Skipping leaves them on us: the desk keeps offering them until they are made."""
+    Skipping leaves them on us: the desk keeps offering them until they are made.
+
+    Before a plan, the free first result (first_ads.free_open): the link is read here when it hasn't been yet
+    (do=import, the brief's free importer), the looks are made together, and the first-result screen follows. A
+    workspace with no plan that it isn't open for goes to the plan step, as the gate used to send it."""
     if not ui_v2.on():
         return redirect(url_for("studio"))
     import first_ads
+    import plan_gate
     import products
     from flask import flash
     if not first_ads.on():
@@ -407,33 +448,80 @@ def first():
     with db.connect() as conn:
         ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone() or g.ws
         p = products.get_product(conn, ws["id"], ws["product_id"]) if ws["product_id"] else None
+        free = first_ads.free_open(conn, ws, g.user)
+        name = "free" if free else "first"
+        if not free and plan_gate.needs_plan(conn, ws, g.user):
+            return redirect(url_for("plangate.page"))
         if request.method == "POST":
-            if request.form.get("do") == "skip":
+            do = request.form.get("do")
+            if do == "skip":
                 save(conn, g.user, first="skip")
                 conn.commit()
-                step("first", "skipped")
+                step(name, "skipped")
                 return redirect(url_for("studio"))
-            if p is None:
+            if do == "import" and free and p is None:
+                ok, words = _import_link()
+                if ok:      # the brief later shows this page's read-back as it is
+                    save(conn, g.user, site_kept=_host(answers(g.user).get("website")))
+                    conn.commit()
+                    return redirect(url_for("onboarding.first"))
+                flash(words)
+                kept = request.form
+            elif p is None:
                 return redirect(url_for("onboarding.brief"))
-            out = first_ads.make(conn, ws, g.user, p, request.form)
-            if out.get("ok"):
-                conn.commit()
-                step("first", "done")
-                return redirect(out["url"])
-            flash(out.get("error") or "The ads could not be started. Nothing was used.")
-            kept = request.form
+            else:
+                out = first_ads.make(conn, ws, g.user, p, request.form)
+                if out.get("ok"):
+                    conn.commit()
+                    step(name, "done")
+                    return redirect(out["url"])
+                flash(out.get("error") or "The ads could not be started. Nothing was used.")
+                kept = request.form
         room = first_ads.left(conn, ws["id"], g.user)
         is_open = first_ads.open_for(conn, ws, g.user)
-        d = first_ads.draft(conn, p)
-        cost = first_ads.price(conn, p) if (p is not None and is_open) else {"image": 0, "talk": 0, "total": 0}
+        n = first_ads.FREE_IMAGES if free else first_ads.IMAGES
+        d = first_ads.draft(conn, p, n)
+        cost = first_ads.price(conn, p, n) if (p is not None and is_open) else {"image": 0, "talk": 0, "total": 0}
         tid = first_ads.thread_of(conn, ws["id"])
         paid = first_ads.paid(conn, ws, g.user)
-        if paid:        # on the welcome credits: the image ads only, at their price
+        if paid or free:        # on the welcome credits, or free before a plan: the image ads only, at their price
             cost = dict(cost, talk=0, total=cost["image"] * min(len(d["looks"]), room["image"]))
         balance = int(ws["credits"] or 0)
-    step("first", "seen")
+        made = bool(first_ads.free_jobs(conn, ws["id"])) and plans.plan_code(ws) == "free"
+        link = first_ads.link_of(conn, ws, g.user) if free else ""
+    step(name, "seen")
     return render_template("v2/onboard_first.html", p=p, d=d, room=room, is_open=is_open, cost=cost, kept=kept,
-                           paid=paid, balance=balance,
-                           thread=url_for("desk.thread", tid=tid) if tid else "",
+                           paid=paid, balance=balance, free=free, link=link, result=made,
+                           thread=url_for("onboarding.first_result") if made else
+                           url_for("desk.thread", tid=tid) if tid else "",
                            seconds=first_ads.TALK_SECONDS, images=first_ads.IMAGES)
 
+
+@bp.route("/app/welcome/first/result")
+@login_required
+def first_result():
+    """The first-result screen: the free first ads as they finish (the live cards, as in Studio), then the plan step.
+    A sign-up from the presenter pages also sees one presenter still with a line from their product, labelled as a
+    preview of the video, with a way to make the real one once a plan is picked."""
+    if not ui_v2.on():
+        return redirect(url_for("studio"))
+    import first_ads
+    import jobs_routes
+    import plan_gate
+    import products
+    with db.connect() as conn:
+        ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone() or g.ws
+        jobs = first_ads.free_jobs(conn, ws["id"])
+        if not jobs:
+            return redirect(url_for("onboarding.first"))
+        p = products.get_product(conn, ws["id"], ws["product_id"]) if ws["product_id"] else None
+        cards = [jobs_routes.card_html(conn, j, "batch") for j in jobs]
+        no_plan = plans.plan_code(ws) == "free"
+        needs = plan_gate.needs_plan(conn, ws, g.user)
+        tid = first_ads.thread_of(conn, ws["id"])
+    presenter = first_ads.presenter_preview(p) if first_ads.came_for_presenters(g.user) else None
+    return render_template("v2/onboard_result.html", p=p, cards=cards, count=len(jobs), presenter=presenter,
+                           no_plan=no_plan, needs_plan=needs,
+                           next_url=url_for("plangate.page") if no_plan else url_for("studio"),
+                           video_url=url_for("plangate.page") if no_plan else url_for("onboarding.first"),
+                           thread=url_for("desk.thread", tid=tid) if tid and not needs else "")
