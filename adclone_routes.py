@@ -17,6 +17,11 @@ SOCIAL = ("tiktok.com", "instagram.com", "youtube.com", "youtu.be", "facebook.co
           "twitter.com", "linkedin.com", "snapchat.com", "pinterest.com")
 
 
+def _social(link: str) -> bool:
+    host = re.sub(r"^https?://(www\.)?", "", link.lower()).split("/")[0].split(":")[0]
+    return any(host == s or host.endswith("." + s) for s in SOCIAL)
+
+
 def _row(conn, cid):
     row = conn.execute("SELECT * FROM ad_clones WHERE id=? AND workspace_id=?", (cid, g.ws["id"])).fetchone()
     if row is None:
@@ -41,7 +46,7 @@ def page():
         rows = conn.execute("SELECT * FROM ad_clones WHERE workspace_id=? ORDER BY id DESC LIMIT 12",
                             (g.ws["id"],)).fetchall()
     return render_template("v2/clone.html", p=p, quote=adclone.quote(), recent=[adclone.view(r) for r in rows],
-                           max_mb=adclone.MAX_MB, beats=adclone.BEATS)
+                           max_mb=adclone.MAX_MB, beats=adclone.BEATS, social=adclone.social_on())
 
 
 def _start(conn, p):
@@ -59,6 +64,12 @@ def _start(conn, p):
             from core import save_upload
             path, ctype = save_upload(f, here, adclone.VIDEO_TYPES | adclone.IMAGE_TYPES, adclone.MAX_MB, ws=g.ws)
             source = f.filename[:200]
+        elif link and _social(link) and adclone.social_on():
+            # fetched in the run, by NeuraCut (the Mac from home, or the server through its proxy): adclone.fetch_social
+            if not URL_RE.match(link) or not adclone.social_host(link):
+                raise ValueError("That kind of link can't be read yet. TikTok, Instagram, YouTube, Facebook and X "
+                                 "posts work, and Meta Ad Library ads. Or save the video and upload it.")
+            path, ctype, source = None, "video/mp4", link[:500]
         elif link:
             path, ctype = _download(link, here)
             source = link[:500]
@@ -74,7 +85,8 @@ def _start(conn, p):
     if hold is None:
         conn.execute("DELETE FROM ad_clones WHERE id=?", (cid,))
         conn.commit()
-        _remove(path)
+        if path:
+            _remove(path)
         flash(f"Reading an ad takes about {adclone.quote():,} credits and you have {db.balance(g.ws):,}.")
         return redirect(url_for("clone.page"))
     conn.execute("UPDATE ad_clones SET file_path=?, media=?, source=?, hold_id=? WHERE id=?",
@@ -91,8 +103,7 @@ def _download(link: str, here: str) -> tuple[str, str]:
         raise ValueError("Paste a link that starts with https://.")
     host = re.sub(r"^https?://(www\.)?", "", link.lower()).split("/")[0]
     if any(host == s or host.endswith("." + s) for s in SOCIAL):
-        raise ValueError("Links to TikTok, Instagram, YouTube and other social posts can't be read here. Save the "
-                         "video to your device and upload it.")
+        raise ValueError("Links to social posts can't be read just now. Save the video to your device and upload it.")
     try:
         with fetcher.budget(90):
             r = fetcher.fetch_bytes(link, max_bytes=adclone.MAX_MB * 1024 * 1024, accept="video/*,image/*")

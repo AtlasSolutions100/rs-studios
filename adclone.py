@@ -1,8 +1,14 @@
 """Clone an ad (Koby, Nov 13 2026): a winning ad in, its beats out, and the same structure remade for your product.
 
-    /app/clone                 upload a video or image ad, or paste a link to the file; the price is on the button
+    /app/clone                 upload a video or image ad, or paste a link (a TikTok, Instagram, YouTube, Facebook or
+                               X post, a Meta Ad Library ad, or the file itself); the price is on the button
     /app/clone/<id>            the beats (Hook, Problem, Demo, Proof, Offer, CTA) with a frame each, and the remake
     /app/clone/<id>/desk       the remake opens as a campaign on the desk: every part priced, edited, then made
+
+Social links. Those sites refuse most servers, so a post or Ad Library link is fetched by NeuraCut (its
+/api/internal/fetch_social, SOCIAL_FETCH_TOKEN on both sides): Koby's Mac mini downloads it from a home connection,
+or NeuraCut's server through its residential proxy when the Mac is off. Without the token such links ask for an
+upload, as before.
 
 How. The file is read here: a few frames (ffmpeg) and, for a video with speech, what is said (faster-whisper, as the
 auto-edit does; without it the frames alone). One model call with the frames looks at it and names its beats: when
@@ -34,6 +40,55 @@ MAX_SECONDS = 180               # only the first three minutes of a longer video
 VIDEO_TYPES = {"video/mp4", "video/quicktime", "video/webm", "video/x-m4v"}
 IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 LABEL = "Clone an ad"
+SOCIAL_HOSTS = ("tiktok.com", "instagram.com", "youtube.com", "youtu.be", "facebook.com", "fb.watch", "x.com",
+                "twitter.com")      # what NeuraCut's fetch takes (socialfetch.HOSTS there)
+
+
+def social_on() -> bool:
+    """SOCIAL_FETCH_TOKEN (the same secret as NeuraCut's): social and Ad Library links are read through NeuraCut."""
+    return bool(os.environ.get("SOCIAL_FETCH_TOKEN"))
+
+
+def social_host(url: str) -> bool:
+    from urllib.parse import urlparse
+    try:
+        host = (urlparse(url).hostname or "").lower()
+    except ValueError:
+        return False
+    return any(host == h or host.endswith("." + h) for h in SOCIAL_HOSTS)
+
+
+def fetch_social(url: str, out_dir: str) -> str:
+    """Ask NeuraCut for the video at a social or Ad Library link (its Mac from home, or its server through a
+    proxy) and save it here. Returns the path. Raises ValueError with NeuraCut's sentence."""
+    import requests
+    base = (os.environ.get("NEURACUT_URL") or "https://neuracut.ai").rstrip("/")
+    try:
+        r = requests.post(base + "/api/internal/fetch_social", json={"url": url}, stream=True, timeout=(10, 240),
+                          headers={"Authorization": "Bearer " + os.environ.get("SOCIAL_FETCH_TOKEN", "")})
+    except requests.RequestException:
+        raise ValueError("The video couldn't be fetched just now. Try again, or save it and upload it.") from None
+    with r:
+        if r.status_code == 422:
+            try:
+                msg = (r.json() or {}).get("error")
+            except ValueError:
+                msg = None
+            raise ValueError(msg or "That video couldn't be downloaded.")
+        if r.status_code != 200:
+            raise ValueError("The video couldn't be fetched just now. Try again, or save it and upload it.")
+        os.makedirs(out_dir, exist_ok=True)
+        path = os.path.join(out_dir, f"{os.urandom(12).hex()}.mp4")
+        size = 0
+        with open(path, "wb") as fh:
+            for chunk in r.iter_content(65536):
+                size += len(chunk)
+                if size > MAX_MB * 1024 * 1024:
+                    fh.close()
+                    os.remove(path)
+                    raise ValueError(f"That video is over {MAX_MB} MB.")
+                fh.write(chunk)
+    return path
 
 ANALYZE_SYSTEM = (
     "You study a short ad for a marketer who wants to make one with the same structure for their own product. You get "
@@ -227,6 +282,12 @@ def run(cid: int) -> str:
     usage = llm.Usage()
     out_dir = os.path.join(folder(row["workspace_id"]), f"c{cid}")
     try:
+        if not row["file_path"] and social_host(row["source"] or ""):
+            _status(cid, "fetching")
+            path = fetch_social(row["source"], folder(row["workspace_id"]))
+            _status(cid, "fetching", file_path=path)
+            with db.connect() as conn:
+                row = conn.execute("SELECT * FROM ad_clones WHERE id=?", (cid,)).fetchone()
         _status(cid, "reading")
         if row["media"] == "image":
             fl, said = image_frame(row["file_path"], out_dir), ""
@@ -312,4 +373,4 @@ def view(row) -> dict:
     fl = json.loads(row["frames_json"] or "[]") if row["frames_json"] else []
     return {"id": row["id"], "status": row["status"], "error": row["error"], "media": row["media"],
             "analysis": a, "remake": r, "frames": fl, "credits": row["credits"], "thread": row["thread_id"],
-            "busy": row["status"] in ("pending", "reading", "looking", "planning"), "source": row["source"] or ""}
+            "busy": row["status"] in ("pending", "fetching", "reading", "looking", "planning"), "source": row["source"] or ""}
