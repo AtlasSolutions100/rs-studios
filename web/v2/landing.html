@@ -22,7 +22,7 @@
     <img class="cfh-t a916" alt="" src="{{ url_for('static', filename='hero/pop-barber.webp') }}" style="--x:542px;--y:-224px;--r:6deg;--d:0.25s;--g:0.05s">
     <div class="cfh-t" style="--x:-588px;--y:12px;--r:5deg;--d:0.3s;--g:0.1s;width:196px;margin:-78px 0 0 -98px"><b>Lead page</b><span class="fld">Name</span><span class="fld">Email</span><span class="go">Send me the guide</span></div>
     <img class="cfh-t a45" alt="" src="{{ url_for('static', filename='hero/pop-burger.webp') }}" style="--x:-382px;--y:22px;--r:-5deg;--d:0.35s;--g:0.04s">
-    <img class="cfh-t a916" alt="" src="{{ url_for('static', filename='hero/pop-sunscreen.webp') }}" style="--x:-172px;--y:14px;--r:3deg;--d:0.4s;--g:0.01s">
+    <img class="cfh-t a45" alt="" src="{{ url_for('static', filename='hero/pop-energy.webp') }}" style="--x:-172px;--y:14px;--r:3deg;--d:0.4s;--g:0.01s">
     <div class="cfh-t" style="--x:44px;--y:30px;--r:-2deg;--d:0.45s;--g:0.07s;width:204px;margin:-66px 0 0 -102px"><b>Campaign plan</b><span class="dot"><i class="on"></i>Week 1: three image ads</span><span class="dot"><i></i>Week 2: presenter video</span><span class="dot"><i></i>Week 3: keep the winner</span></div>
     <img class="cfh-t a45" alt="" src="{{ url_for('static', filename='hero/pop-headphones.webp') }}" style="--x:252px;--y:4px;--r:6deg;--d:0.5s;--g:0.09s">
     <div class="cfh-t" style="--x:474px;--y:34px;--r:-5deg;--d:0.55s;--g:0.03s;width:206px;margin:-58px 0 0 -103px"><b>Follow-up email</b><span>Subject: Here is your guide</span><span>Goes out when the form is filled in</span></div>
@@ -96,7 +96,7 @@
         </article>
         <article class="hp-tile t-sun" id="k-formats" style="--i:2">
           {% if format_clips %}<div class="hp-pics clips cfk-clips">{% for label, it in format_clips %}<figure><div class="lv-vid"><video data-inview muted loop playsinline preload="none" data-poster="{{ it.poster_url }}" width="{{ it.width }}" height="{{ it.height }}" aria-label="{{ it.alt }}"><source src="{{ it.url }}" type="video/mp4"></video></div><figcaption>{{ label }}</figcaption></figure>{% endfor %}</div>
-          {% else %}<div class="hp-pics fan"><img src="{{ url_for('static', filename='showcase/pop-sunscreen.webp') }}" alt="A story ad for sunscreen on a beach" loading="lazy" width="1080" height="1930"><img src="{{ url_for('static', filename='showcase/pop-finance-app.webp') }}" alt="A story ad for a budgeting app" loading="lazy" width="1080" height="1930"></div>{% endif %}
+          {% else %}<div class="hp-pics fan"><img src="{{ url_for('static', filename='showcase/pop-serum-ugc.webp') }}" alt="A story ad for a face serum, held by an AI-made woman" loading="lazy" width="1080" height="1930"><img src="{{ url_for('static', filename='showcase/pop-finance-app.webp') }}" alt="A story ad for a budgeting app" loading="lazy" width="1080" height="1930"></div>{% endif %}
           <h3><a class="hp-go" href="{{ url_for('signup') }}" data-cta="tile-formats">Try-ons, app demos, unboxings</a></h3>
           <p>One click makes the video. Your real app screens can go in.</p>
           <p class="hp-fact">{{ home_counts.recipes }} video styles</p>{{ plan_pill('studio') }}

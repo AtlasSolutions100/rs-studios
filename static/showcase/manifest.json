@@ -99,13 +99,6 @@
       "sound": true
     },
     {
-      "file": "pop-sunscreen.webp",
-      "kind": "image",
-      "title": "Story ad",
-      "caption": "Sunscreen, beach day",
-      "alt": "An AI-made woman in sunglasses laughing as she puts on sunscreen at a bright beach; headline SPF that keeps up with summer and a Shop sun care button."
-    },
-    {
       "file": "team-streamer.mp4",
       "kind": "video",
       "poster": "team-streamer.webp",
