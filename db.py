@@ -920,6 +920,9 @@ COLUMNS = [
     ("brands", "website", "TEXT"),
     ("brands", "tone", "TEXT"),
     ("photos", "product_id", "INTEGER"),
+    ("photos", "brand_id", "INTEGER"),         # brand assets (brand_assets.py): the brand a picture belongs to
+    ("photos", "kind", "TEXT"),                # product, packaging, lifestyle, logo, place, person, other
+    ("photos", "label", "TEXT"),
     ("jobs", "brand_id", "INTEGER"),
     ("jobs", "product_id", "INTEGER"),
     ("jobs", "batch_id", "INTEGER"),

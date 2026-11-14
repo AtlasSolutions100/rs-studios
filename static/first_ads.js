@@ -13,6 +13,15 @@
     out.classList.toggle('over', n > max);
   }
   if (box) { box.addEventListener('input', count); count(); }
+  // each look's preview follows its headline as it is typed (a moment after the typing stops)
+  form.querySelectorAll('img[data-preview]').forEach(function (img) {
+    var input = document.getElementById(img.getAttribute('data-for')), timer = 0;
+    if (!input) return;
+    input.addEventListener('input', function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () { img.src = img.getAttribute('data-preview') + '?h=' + encodeURIComponent(input.value.trim()); }, 450);
+    });
+  });
   form.querySelectorAll('.fa-on input').forEach(function (tick) {
     function show() { tick.closest('.fa-card').classList.toggle('off', !tick.checked); }
     tick.addEventListener('change', show);

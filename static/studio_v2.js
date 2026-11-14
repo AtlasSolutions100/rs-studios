@@ -75,7 +75,8 @@
       duration: P.duration ? String(P.duration) : '', aspect: P.aspect || '', resolution: P.resolution || '720p',
       setting: P.setting || '', scene: P.scene || '', subline: P.subline || '', cta: P.cta || '',
       preset: galBy[P.preset || P.pick] && /^(preset|recipe)$/.test(galBy[P.preset || P.pick].opens) ? galBy[P.preset || P.pick] : null,
-      layers: P.layers || {}
+      layers: P.layers || {},
+      refs: []                                  // brand assets picked as references (brand_assets.py), photo ids
     };
     if(S.preset) S.mode = S.preset.mode;
     else if(B.start === 'ask' && modeBy.ask && !S.text) S.mode = 'ask';
@@ -111,6 +112,7 @@
       },
       payload: function(){
         var d = {mode: S.mode, product: S.product, text: noHeadline() ? '' : text.value.trim(), resolution: S.resolution};
+        if(refsOn() && myRefs().length) d.refs = myRefs();
         if(kind() === 'talk'){
           d.duration = S.duration; d.aspect = S.aspect && B.aspects.talk.indexOf(S.aspect) > -1 ? S.aspect : '9:16';
           if(recipe()) d.preset = recipe().id;
@@ -139,8 +141,40 @@
       el.innerHTML = url ? '<img src="' + esc(url) + '" alt="">' : '<b>' + esc((name || '+').slice(0, 1).toUpperCase()) + '</b>';
       el.classList.toggle('round', !!round);
     }
+    // References: pictures from the brand (Brand > Assets) put into the ad beside the product photo
+    function brandOf(){ var p = product(); return p ? p.brand_id : null; }
+    function assets(){ var b = brandOf(); return (B.assets || []).filter(function(a){ return a.brand_id === b && a.product_id !== S.product; }); }   // the product's own photo is in already
+    function refsOn(){ return S.mode === 'image' || S.mode === 'presenter'; }
+    function myRefs(){ var ok = {}; assets().forEach(function(a){ ok[a.id] = 1; }); return S.refs.filter(function(id){ return ok[id]; }); }
+    function refsChip(){
+      var b = $('[data-refs-open]'); if(!b) return;
+      b.hidden = !refsOn() || !S.product;
+      var mine = myRefs(), by = {}; assets().forEach(function(a){ by[a.id] = a; });
+      $('[data-refs-thumbs]').innerHTML = mine.slice(0, 3).map(function(id){ return '<img src="' + esc(by[id].url) + '" alt="">'; }).join('');
+      $('[data-refs-name]').textContent = mine.length ? mine.length + ' reference' + (mine.length === 1 ? '' : 's') : 'References';
+    }
+    function refsList(){
+      var box = $('[data-refs-list]'), list = assets(), mine = myRefs();
+      box.innerHTML = list.length ? list.map(function(a){
+        var on = mine.indexOf(a.id) > -1;
+        return '<button type="button" aria-pressed="' + on + '" data-ref="' + a.id + '"><img src="' + esc(a.url) + '" alt=""><span><b>' + esc(a.label) + '</b><span class="small muted">' + esc(a.kind_name) + '</span></span></button>';
+      }).join('') : '<p class="muted">No pictures yet. Add product photos, your logo, packaging or lifestyle shots on the Brand page.</p>';
+      $('[data-refs-n]').textContent = mine.length + ' of ' + B.max_refs;
+    }
+    var refsBtn = $('[data-refs-open]');
+    if(refsBtn){
+      refsBtn.addEventListener('click', function(){ refsList(); open('refs'); });
+      $('[data-refs-list]').addEventListener('click', function(e){
+        var b = e.target.closest('[data-ref]'); if(!b) return;
+        var id = +b.dataset.ref, mine = myRefs(), at = mine.indexOf(id);
+        if(at > -1) mine.splice(at, 1); else if(mine.length < B.max_refs) mine.push(id); else return;
+        S.refs = mine; refsList(); refsChip();
+      });
+    }
+
     function render(){
       var m = modeBy[S.mode], k = kind(), sp = spec(), ask = k === 'ask';
+      refsChip();
       $$('[data-mode]').forEach(function(b){ var on = b.dataset.mode === S.mode; b.setAttribute('aria-checked', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
       var label = ask ? 'What you want to make' : sp && sp.items_label ? 'Review' : m.noun.charAt(0).toUpperCase() + m.noun.slice(1);
       $('[data-text-label]').textContent = label;

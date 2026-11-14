@@ -163,6 +163,13 @@ def config_for(d: dict) -> dict:
             cfg.update(preset=pre.id, layers=d.get("layers") if isinstance(d.get("layers"), dict) else {})
             if pre.layout and pre.extra.get("headline") is False and not cfg["items"]:
                 cfg["items"] = [pre.name]          # the marketplace image has no words: its one line is a label
+    refs = [int(x) for x in (d.get("refs") or []) if str(x).isdigit()][:4]
+    if refs and d.get("product"):
+        # brand assets picked as references (brand_assets.py): the product's own photo first, then these; Create
+        # checks every id is a photo of this workspace
+        with db.connect() as conn:
+            own = [r["id"] for r in products.photos_for(conn, g.ws["id"], d.get("product"))][:1]
+        cfg["photos"] = own + [x for x in refs if x not in own]
     if d.get("confirm_many"):
         cfg["confirm_many"] = True
     if "total" in d:
@@ -287,7 +294,7 @@ def scene_templates(conn, pid, pick_id=None, n=2) -> list[dict]:
         if out and not compliance.check(scene)["ok"]:
             continue
         out.append({"id": t["id"], "name": t["name"], "aspect": t.get("aspect") or "4:5", "scene": scene,
-                    "headline": (fill.get("items") or [""])[0]})
+                    "headline": (fill.get("items") or [""])[0], "layout": t.get("layout") or ""})
         if len(out) >= n:
             break
     return out
@@ -1091,11 +1098,15 @@ def page():
                 continue
             for p in row["products"]:
                 plist.append({"id": p["id"], "name": p["name"], "brand": row["brand"]["brand_name"] or "",
+                              "brand_id": row["brand"]["id"],
                               "photo": url_for("photo", pid=p["primary_photo_id"]) if p["primary_photo_id"] else "",
                               "price": p["price"] or "", "offer": (p["offer"] if "offer" in p.keys() else "") or ""})
         if active is not None and active["id"] not in {p["id"] for p in plist}:
             active = None
         gal = gallery(active)
+        import brand_assets           # the pictures References can put into an ad, for every brand on show
+        assets = [dict(a, brand_id=row["brand"]["id"]) for row in tree if not row["locked"]
+                  for a in brand_assets.assets_for(conn, g.ws["id"], row["brand"]["id"])]
         # the first run's two free image ads are two different looks (the classic first run's own choice)
         pair = scene_templates(conn, active["id"], n=2) if (active is not None and not ever) else []
     bal = db.balance(ws)
@@ -1127,6 +1138,7 @@ def page():
         "aspects": {"talk": talk.get("aspects") or [], "image": catalog.TOOLS["ad_image"]["aspects"]},
         "resolutions": {"talk": list(catalog.resolutions("ugc_video")), "video": list(catalog.resolutions("photo_to_video"))},
         "max_count": MAX_COUNT, "gallery": gal, "gallery_uses": gallery_uses(gal), "prefill": prefill,
+        "assets": assets, "max_refs": 4,
         "situation_labels": situation_labels(),
         # first run: 2 image ads are made as two different templates when the credits cover two single ads
         "pair": first_run and bal >= 2 * one_image,
@@ -1144,7 +1156,8 @@ def page():
                  "claims": url_for("studio_v2.claims"), "import": url_for("start_import"),
                  "switch": url_for("products.switch"), "new_product": url_for("products.new"),
                  "billing": url_for("billing_page"), "studio": url_for("studio_v2.page"),
-                 "advanced": url_for("create.index"), "workflow": url_for("studio_v2.workflow")},
+                 "advanced": url_for("create.index"), "workflow": url_for("studio_v2.workflow"),
+                 "assets": url_for("studio_v2.brand") + "#assets"},
     }
     return render_template("v2/studio.html", boot=boot, jobs=jobs, outs=outs, verdicts=verdicts, prices=prices, eta=eta,
                            names=names, recents=recents, templates=catalog.TEMPLATE_BY_ID, tools=catalog.DISPLAY_TOOLS,
@@ -1223,7 +1236,10 @@ def brand():
         b = products.get_brand(conn, g.ws["id"], ws["brand_id"]) if ws["brand_id"] else None
         rows = products.products(conn, g.ws["id"], b["id"]) if b is not None else []
         locked = b is not None and b["id"] not in products.unlocked_brand_ids(conn, ws)
-    return render_template("v2/brand.html", b=b, rows=rows, locked=locked,
+        import brand_assets
+        assets = brand_assets.assets_for(conn, g.ws["id"], b["id"]) if b is not None else []
+    return render_template("v2/brand.html", b=b, rows=rows, locked=locked, assets=assets,
+                           asset_kinds=brand_assets.KINDS, asset_max=brand_assets.MAX_FILES,
                            website=onboarding.answers(g.user).get("website") or (b["website"] if b is not None else "") or "",
                            kit_fonts=[(k, v["name"]) for k, v in textlayer.FONTS.items()],
                            kit_default=textlayer.DEFAULT_KIT, imported=request.args.get("imported", type=int))

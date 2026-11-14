@@ -160,6 +160,13 @@ def image_prompt(conn, job, p: dict | None = None) -> str:
                                       p.get("subline") or parts["subline"], p.get("cta") or parts["cta"],
                                       brand=(brand["brand_name"] if brand else "") or "",
                                       product=product, forbid=forbid, service=service)
+    if len(p.get("photo_ids") or []) > 1:     # brand assets picked as references (brand_assets.py): say what they are
+        import brand_assets
+        rows = [conn.execute("SELECT * FROM photos WHERE id=? AND workspace_id=?", (i, job["workspace_id"])).fetchone()
+                for i in p["photo_ids"]]
+        line = brand_assets.describe([r for r in rows if r is not None])
+        if line:
+            out += "\n" + line
     if p.get("fix_note"):       # a free fix (free_fix.py): what the member asked to be put right, never as on-image words
         note = " ".join(str(p["fix_note"]).split())[:300].replace('"', "'")
         out += "\nCorrection to the last version, asked for by the advertiser: " + note + \
