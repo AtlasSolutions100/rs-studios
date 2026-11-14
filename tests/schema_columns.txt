@@ -1,6 +1,23 @@
 # Every table.column (declared type) of a fresh database. tests/test_migrations.py fails if one
 # disappears or changes type: migrations are additive only (db.init). Refresh after adding a
 # column with: python tests/test_migrations.py --update
+ad_clones.analysis_json TEXT
+ad_clones.created_at TEXT
+ad_clones.credits INTEGER
+ad_clones.error TEXT
+ad_clones.file_path TEXT
+ad_clones.frames_json TEXT
+ad_clones.hold_id INTEGER
+ad_clones.id INTEGER
+ad_clones.media TEXT
+ad_clones.product_id INTEGER
+ad_clones.remake_json TEXT
+ad_clones.source TEXT
+ad_clones.status TEXT
+ad_clones.thread_id INTEGER
+ad_clones.updated_at TEXT
+ad_clones.user_id INTEGER
+ad_clones.workspace_id INTEGER
 ad_connections.account_name TEXT
 ad_connections.business_id TEXT
 ad_connections.created_at TEXT
