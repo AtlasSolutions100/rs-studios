@@ -38,4 +38,9 @@
     </div>
   </div>
 </div>
+<section class="card" style="margin-top:22px">
+  <h2 style="margin-top:0">Presets for Claude</h2>
+  <p class="muted">Copy one into Claude, or type its name after a slash, like <b>/product-launch-kit</b>. Claude prices everything before it's made.</p>
+  {% with g_ = mcp_gallery() %}{% set mcp_presets = g_.mcp_presets %}{% set mcp_tabs = g_.mcp_tabs %}{% include "_mcp_presets.html" %}{% endwith %}
+</section>
 {% endblock %}

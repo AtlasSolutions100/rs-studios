@@ -230,7 +230,12 @@ check(mc["consultant"] == "Mr. Campaign" and "first 10 customers" in mc["brief"]
 init = rpc("initialize", {"protocolVersion": "2025-06-18"}, key=rkey).get_json()["result"]
 check(init["capabilities"].get("prompts") == {"listChanged": False}, "initialize: prompts capability")
 pl_ = rpc("prompts/list", {}, key=rkey).get_json()["result"]["prompts"]
-check([p_["name"] for p_ in pl_] == ["consultant"] and [a_["name"] for a_ in pl_[0]["arguments"]] == ["focus", "question"]
+names_ = [p_["name"] for p_ in pl_]
+check(names_[0] == "consultant" and "talking-ugc-review" in names_ and "launch-on-meta" not in names_,
+      "prompts/list: consultant first, then presets (launch preset hidden while off)")
+pgp = rpc("prompts/get", {"name": "talking-ugc-review", "arguments": {"product": "Trail Mug"}}, key=rkey).get_json()["result"]
+check("Trail Mug" in pgp["messages"][0]["content"]["text"], "prompts/get: a preset fills the product")
+check([a_["name"] for a_ in pl_[0]["arguments"]] == ["focus", "question"]
       and not any(a_["required"] for a_ in pl_[0]["arguments"]), "prompts/list: /consultant with optional focus and question")
 pg = rpc("prompts/get", {"name": "consultant", "arguments": {"focus": "ads", "question": "Meta or Google first?"}},
          key=rkey).get_json()["result"]

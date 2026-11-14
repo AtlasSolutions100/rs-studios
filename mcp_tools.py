@@ -23,6 +23,7 @@ import copywriter
 import core
 import db
 import library
+import mcp_presets
 import mcpserver
 import planner
 import platforms
@@ -906,7 +907,11 @@ class CampaignifyAdapter(mcpserver.Adapter):
         "for your business, ending with your next 3 moves.",
         [("focus", "general, offer, leads, ads, content, pricing or funnel", False),
          ("question", "What you want help with", False)],
-        lambda ctx, a: consultant.opening(a.get("focus", "general"), a.get("question", "")))]
+        lambda ctx, a: consultant.opening(a.get("focus", "general"), a.get("question", "")))] + [
+        mcpserver.Prompt(p.id, p.title, p.line, list(p.args),
+                         (lambda pr: (lambda ctx, a: mcp_presets.prompt_text(pr, a)))(p),
+                         _launch_visible if p.id == "launch-on-meta" else None)
+        for p in mcp_presets.PRESETS]
 
     def connect(self):
         return db.connect()
@@ -965,5 +970,25 @@ class CampaignifyAdapter(mcpserver.Adapter):
         return msg
 
 
+def presets_for(launch_on: bool) -> tuple:
+    """(presets as dicts, tabs) for the gallery; the launch preset only where launching is on."""
+    ps = [p for p in mcp_presets.as_dicts() if launch_on or p["id"] != "launch-on-meta"]
+    used = {p["tab"] for p in ps} | ({"popular"} if any(p["popular"] for p in ps) else set())
+    return ps, [(t, label) for t, label in mcp_presets.TABS if t in used]
+
+
 def init(app):
     mcpserver.init(app, CampaignifyAdapter())
+
+    @app.context_processor
+    def _mcp_gallery():
+        def mcp_gallery(launch_on=None):
+            if launch_on is None:
+                try:
+                    import launches
+                    launch_on = bool(g.get("ws")) and launches.on(g.ws, g.get("user"))
+                except Exception:  # noqa: BLE001
+                    launch_on = False
+            ps, tabs = presets_for(bool(launch_on))
+            return {"mcp_presets": ps, "mcp_tabs": tabs}
+        return {"mcp_gallery": mcp_gallery}
