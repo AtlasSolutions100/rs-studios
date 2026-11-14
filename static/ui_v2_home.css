@@ -93,16 +93,6 @@ div.cfh-t .go{height:28px;margin-top:8px;padding-top:4px;box-sizing:border-box;b
 [data-run="b"] .cfh-stars{animation:cfh-stars-b 1.6s ease-out 2.1s both}
 
 /* ------------------------------------------------------------------ the feature rows */
-.cfm{overflow:hidden;padding:var(--s6) 0 var(--s2)}
-.cfm-row{display:flex;width:max-content;animation:cfm-left 70s linear infinite}
-.cfm-row+.cfm-row{margin-top:12px;animation-name:cfm-right;animation-duration:84s}
-.cfm:hover .cfm-row{animation-play-state:paused}
-.cfm ul{display:flex;gap:12px;margin:0;padding:0 12px 0 0;list-style:none}
-.cfm li{display:inline-flex;align-items:center;gap:10px;height:52px;padding:0 20px;border:1px solid var(--line);border-radius:14px;background:var(--v2-raise);color:var(--ink);font-size:16px;font-weight:500;white-space:nowrap}
-.cfm svg{flex:none;width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-@keyframes cfm-left{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-@keyframes cfm-right{from{transform:translateX(-50%)}to{transform:translateX(0)}}
-.cfh+.cfm+.lv-ratewrap .lv-rates{margin-top:var(--s6)}
 
 /* ------------------------------------------------------------------ what comes back out */
 .cfk{border-top:0}
@@ -155,7 +145,6 @@ div.cfh-t .go{height:28px;margin-top:8px;padding-top:4px;box-sizing:border-box;b
   .cfh{padding-left:var(--s2);padding-right:var(--s2)}
   .cfh-copy{padding:88px 16px 72px;gap:22px}
   .cfh-copy .lv-lede{font-size:17px}
-  .cfm li{height:46px;padding:0 16px;font-size:15px}
 }
 @media (prefers-reduced-motion:reduce){
   .cfh-t,.cfh-pulse{animation:none!important;opacity:0!important}
@@ -163,9 +152,6 @@ div.cfh-t .go{height:28px;margin-top:8px;padding-top:4px;box-sizing:border-box;b
   .cfh-stars{animation:none!important;opacity:1!important}
   .cfh-sl{animation:none!important;transition:none!important}
   .cfh-shoot{display:none!important}
-  .cfm-row{animation:none!important;width:auto;flex-wrap:wrap;justify-content:center;padding:0 var(--s4)}
-  .cfm ul{flex-wrap:wrap;justify-content:center;padding:0}
-  .cfm ul[aria-hidden]{display:none}
 }
 
 /* ---- the hero on the light page (Koby, Nov 13 2026): no black box. The same stage, light, with dark words; the stars
@@ -197,3 +183,60 @@ html[data-ui="v2"]:not([data-theme="dark"]) .cfh-shoot{height:2.5px;width:160px;
 .cfh-sh3{left:42%;top:60px;animation:cfh-shoot-1 17s linear 9s infinite}
 html[data-ui="v2"]:not([data-theme="dark"]) .cfh-sh1{animation-duration:9s;animation-delay:3s}
 html[data-ui="v2"]:not([data-theme="dark"]) .cfh-sh2{animation-duration:12s;animation-delay:6.5s}
+
+/* Research, Create, Analyze (web/v2/_rca.html): a dark stage with the agent's window on it. The window keeps its own
+   light colours in both themes, like a screenshot of the app. */
+.rca{padding:var(--s7) 16px var(--s5)}
+.rca-stage{max-width:1180px;margin:0 auto;padding:44px clamp(16px,4vw,56px) 28px;border-radius:24px;color:#F4F5EF;
+  background:radial-gradient(80% 70% at 85% 0%,rgba(189,250,37,.22),transparent 60%),radial-gradient(60% 60% at 0% 100%,rgba(46,200,120,.18),transparent 60%),#0D0F0B}
+.rca-tabs{display:flex;gap:clamp(16px,3vw,32px);flex-wrap:wrap}
+.rca-tabs button{background:none;border:0;padding:0 0 6px;font:500 clamp(24px,3.2vw,36px)/1.1 var(--display,var(--body));letter-spacing:-.02em;color:rgba(244,245,239,.38);cursor:pointer;border-bottom:2px solid transparent;transition:color .2s}
+.rca-tabs button:hover{color:rgba(244,245,239,.7)}
+.rca-tabs button[aria-selected="true"]{color:#F4F5EF;border-bottom-color:#BDFA25}
+.rca-tabs button:focus-visible{outline:2px solid #BDFA25;outline-offset:4px;border-radius:4px}
+.rca-line{margin:12px 0 22px;color:rgba(244,245,239,.72);font-size:15px}
+.rca-win{display:grid;grid-template-columns:190px minmax(0,1fr) 190px;min-height:420px;border-radius:14px;overflow:hidden;background:#FFFFFF;color:#141414;box-shadow:0 30px 80px rgba(0,0,0,.45)}
+.rca-side,.rca-board{padding:16px 14px;font-size:12.5px;color:#585856;background:#F7F7F5}
+.rca-side{border-right:1px solid #ECECEA;display:flex;flex-direction:column;gap:6px}
+.rca-board{border-left:1px solid #ECECEA}
+.rca-brand{display:flex;align-items:center;gap:8px;color:#141414;font-size:13px;margin-bottom:8px}
+.rca-brand i{width:16px;height:16px;border-radius:5px;background:#BDFA25;box-shadow:inset 0 0 0 4px #141414}
+.rca-side em,.rca-board em{font-style:normal;font-size:11.5px;color:#8A8A87;margin:10px 0 2px}
+.rca-board em{display:block;margin:0 0 10px}
+.rca-chat{padding:5px 8px;border-radius:7px}
+.rca-chat.on{background:#FFFFFF;color:#141414;font-weight:500;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.rca-main{position:relative;padding:18px clamp(14px,3vw,36px) 74px;min-width:0}
+.rca-title{margin:0 0 18px;font-weight:600;font-size:13px}
+.rca-me{margin:0 0 14px auto;max-width:78%;width:fit-content;padding:10px 14px;border-radius:14px;background:#F1F1EE;font-size:14px;line-height:1.45}
+.rca-work{display:flex;align-items:center;gap:8px;margin:0 0 10px;font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#8A8A87}
+.rca-work span{width:7px;height:7px;border-radius:50%;background:#7AC70C;box-shadow:0 0 0 3px rgba(122,199,12,.18)}
+.rca-say>p{margin:0 0 12px;font-size:14.5px;line-height:1.5}
+.rca-kv{display:grid;grid-template-columns:150px 1fr;gap:12px;padding:9px 12px;border:1px solid #ECECEA;border-radius:10px;margin-bottom:6px;font-size:13px}
+.rca-kv span{color:#8A8A87}
+.rca-kv.hi{border-color:rgba(122,199,12,.5);background:rgba(189,250,37,.12)}
+.rca-notes{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}
+.rca-notes li{display:flex;align-items:center;gap:10px;font-size:13px}
+.rca-notes i{font-style:normal;font:600 10.5px var(--body);padding:2px 7px;border-radius:5px;background:#141414;color:#FFFFFF;min-width:44px;text-align:center}
+.rca-ads{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.rca-ads img{width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:10px}
+.rca-cta{display:flex;gap:8px;flex-wrap:wrap;margin:0}
+.rca-cta span{padding:6px 11px;border-radius:8px;border:1px solid #E2E2DF;font-size:12.5px;font-weight:500}
+.rca-cta span:first-child{background:#141414;color:#FFFFFF;border-color:#141414}
+.rca-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px}
+.rca-stats div{padding:10px 12px;border:1px solid #ECECEA;border-radius:10px}
+.rca-stats span{display:block;font:11.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:#8A8A87}
+.rca-stats b{font-size:22px;letter-spacing:-.02em}
+.rca-input{position:absolute;left:clamp(14px,3vw,36px);right:clamp(14px,3vw,36px);bottom:16px;display:flex;justify-content:space-between;align-items:center;margin:0;padding:10px 12px 10px 16px;border:1px solid #E2E2DF;border-radius:12px;color:#8A8A87;font-size:13px;background:#FFFFFF}
+.rca-input span{display:grid;place-items:center;width:26px;height:26px;border-radius:7px;background:#141414;color:#FFFFFF}
+.rca-file{display:flex;flex-direction:column;padding:8px 10px;margin-bottom:6px;border-radius:8px;background:#FFFFFF;border:1px solid #ECECEA;color:#141414;font-weight:500}
+.rca-file i{font-style:normal;font-weight:400;font-size:11px;color:#8A8A87}
+.rca-foot{margin:14px 0 0;font-size:12px;color:rgba(244,245,239,.5)}
+.rca-panel.go .rca-me{animation:rca-in .35s both}
+.rca-panel.go .rca-work{animation:rca-in .35s .35s both}
+.rca-panel.go .rca-say{animation:rca-in .45s .8s both}
+@keyframes rca-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){.rca-panel.go .rca-me,.rca-panel.go .rca-work,.rca-panel.go .rca-say{animation:none}}
+@media (max-width: 960px){.rca-win{grid-template-columns:minmax(0,1fr)}.rca-side,.rca-board{display:none}}
+@media (max-width: 560px){.rca-ads{grid-template-columns:repeat(2,1fr)}.rca-kv{grid-template-columns:1fr;gap:2px}.rca-stats b{font-size:18px}.rca-me{max-width:92%}}
+.rca .rca-panel{border:0;margin:0;padding:0;background:none}
+.rca-ads img{height:auto}

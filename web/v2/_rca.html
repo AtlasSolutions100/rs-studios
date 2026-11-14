@@ -1,0 +1,100 @@
+{# Research, Create, Analyze (Koby, Nov 14 2026): the campaign agent at work in three short example chats, for a
+   made-up brand with demo data. The tabs switch by click or on their own every few seconds until someone clicks. #}
+{% set R = r %}
+<section class="rca" aria-labelledby="rca-h">
+  <div class="rca-stage">
+    <h2 id="rca-h" class="sr">What the campaign agent does</h2>
+    <div class="rca-tabs" role="tablist" aria-label="What the agent does">
+      <button type="button" role="tab" id="rca-t1" aria-controls="rca-p1" aria-selected="true" data-rca="1">Research</button>
+      <button type="button" role="tab" id="rca-t2" aria-controls="rca-p2" aria-selected="false" tabindex="-1" data-rca="2">Create</button>
+      <button type="button" role="tab" id="rca-t3" aria-controls="rca-p3" aria-selected="false" tabindex="-1" data-rca="3">Analyze</button>
+    </div>
+    <p class="rca-line" data-rca-line>What your competitors pitch, and the angle nobody has taken.</p>
+    <div class="rca-win">
+      <aside class="rca-side" aria-hidden="true">
+        <b class="rca-brand"><i></i>Campaign agent</b>
+        <span class="rca-nav">+ New chat</span><span class="rca-nav">Search</span>
+        <em>Chats</em>
+        <span class="rca-chat on" data-rca-chat="1">Competitor research</span>
+        <span class="rca-chat" data-rca-chat="2">Citrus Volt launch</span>
+        <span class="rca-chat" data-rca-chat="3">Last week's results</span>
+      </aside>
+
+      <div class="rca-main">
+        <div class="rca-panel" role="tabpanel" id="rca-p1" aria-labelledby="rca-t1" data-line="What your competitors pitch, and the angle nobody has taken.">
+          <p class="rca-title">Competitor research</p>
+          <p class="rca-me">Check what my three closest competitors pitch, then give me five angles to test.</p>
+          <p class="rca-work"><span></span>Read three competitor sites · 14s</p>
+          <div class="rca-say">
+            <p>All three lead with caffeine and price. Nobody leads with taste, so that's your opening.</p>
+            <div class="rca-kv"><span>What they sell</span><b>Energy drinks, 12-packs, a subscription</b></div>
+            <div class="rca-kv"><span>How they pitch it</span><b>"Max caffeine" and "lowest price per can"</b></div>
+            <div class="rca-kv hi"><span>Where you differ</span><b>Real citrus, zero sugar, tastes like soda</b></div>
+            <ul class="rca-notes"><li><i>Angle</i>The 3 pm slump, without the crash</li><li><i>Angle</i>Tastes like soda, zero sugar</li><li><i>Angle</i>Swap your second coffee</li></ul>
+          </div>
+        </div>
+
+        <div class="rca-panel" role="tabpanel" id="rca-p2" aria-labelledby="rca-t2" data-line="Ads, copy and a page for any product, priced before they're made." hidden>
+          <p class="rca-title">Citrus Volt launch</p>
+          <p class="rca-me">Make three image ads and a presenter video for the taste angle.</p>
+          <p class="rca-work"><span></span>Made 4 ads · {{ (3 * R.image + R.talk8)|credits }}</p>
+          <div class="rca-say">
+            <p>Here they are. The headlines are set in real type, so every word is spelled right.</p>
+            <div class="rca-ads">
+              <img src="{{ url_for('static', filename='hero/pop-energy.webp') }}" alt="An image ad: a green can in a citrus splash with the headline Zero sugar. Full charge." loading="lazy" width="400" height="500">
+              <img src="{{ url_for('static', filename='hero/pop-energy-ugc.webp') }}" alt="A presenter video still: an AI-made woman holding the can on a neon street" loading="lazy" width="330" height="590">
+              <img src="{{ url_for('static', filename='hero/pop-volt-taste.webp') }}" alt="An image ad: the green can beside a glass of lemonade on pink, headline Tastes like soda. Zero sugar." loading="lazy" width="400" height="500">
+              <img src="{{ url_for('static', filename='hero/pop-volt-swap.webp') }}" alt="An image ad: the green can beside a coffee mug on an orange desk, headline Swap your second coffee" loading="lazy" width="400" height="500">
+            </div>
+            <p class="rca-cta"><span>Download</span><span>Add a landing page</span><span>Write the captions</span></p>
+          </div>
+        </div>
+
+        <div class="rca-panel" role="tabpanel" id="rca-p3" aria-labelledby="rca-t3" data-line="Which links and pages get the clicks, and what to change next." hidden>
+          <p class="rca-title">Last week's results</p>
+          <p class="rca-me">How did last week's links and landing page do? What should I change?</p>
+          <p class="rca-work"><span></span>Read your smart links, page and form · 9s</p>
+          <div class="rca-say">
+            <div class="rca-stats"><div><span>Link clicks</span><b>1,284</b></div><div><span>Page views</span><b>912</b></div><div><span>Sign-ups</span><b>87</b></div></div>
+            <ul class="rca-notes"><li><i>Most</i>TikTok sent 58% of the clicks</li><li><i>Fix</i>The page loses people at the form: cut it to two fields</li><li><i>Next</i>Move the presenter video to the top of the page</li></ul>
+          </div>
+        </div>
+        <p class="rca-input" aria-hidden="true">Ask for anything in your campaign<span>→</span></p>
+      </div>
+
+      <aside class="rca-board" aria-hidden="true">
+        <em>Board</em>
+        <div data-rca-board="1"><span class="rca-file">Competitor snapshot<i>Report</i></span><span class="rca-file">Five angles to test<i>Plan</i></span></div>
+        <div data-rca-board="2" hidden><span class="rca-file">4 ads<i>Library</i></span><span class="rca-file">Captions<i>Copy</i></span><span class="rca-file">Launch page<i>Draft</i></span></div>
+        <div data-rca-board="3" hidden><span class="rca-file">Weekly results<i>Report</i></span><span class="rca-file">Page fixes<i>To do</i></span></div>
+      </aside>
+    </div>
+    <p class="rca-foot">An example for a made-up brand, with demo numbers.</p>
+  </div>
+</section>
+<script>
+(function(){
+  var root = document.querySelector('.rca'); if (!root) return;
+  var tabs = [].slice.call(root.querySelectorAll('[data-rca]')), line = root.querySelector('[data-rca-line]');
+  var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches, auto = !still, timer = null, cur = 1;
+  function show(n, focus){
+    cur = n;
+    tabs.forEach(function(t){ var on = +t.dataset.rca === n; t.setAttribute('aria-selected', on ? 'true' : 'false'); t.tabIndex = on ? 0 : -1; if (on && focus) t.focus(); });
+    [].forEach.call(root.querySelectorAll('[role=tabpanel]'), function(p, i){ p.hidden = (i + 1) !== n; if (i + 1 === n) { line.textContent = p.dataset.line; p.classList.remove('go'); void p.offsetWidth; p.classList.add('go'); } });
+    [].forEach.call(root.querySelectorAll('[data-rca-board]'), function(b){ b.hidden = +b.dataset.rcaBoard !== n; });
+    [].forEach.call(root.querySelectorAll('[data-rca-chat]'), function(c){ c.classList.toggle('on', +c.dataset.rcaChat === n); });
+  }
+  function stop(){ auto = false; clearInterval(timer); }
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){ stop(); show(+t.dataset.rca); });
+    t.addEventListener('keydown', function(e){ var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (!d) return; e.preventDefault(); stop(); show(((cur - 1 + d + 3) % 3) + 1, true); });
+  });
+  show(1);
+  if (auto && 'IntersectionObserver' in window) {
+    new IntersectionObserver(function(es){ es.forEach(function(e){
+      clearInterval(timer);
+      if (e.isIntersecting && auto) timer = setInterval(function(){ show((cur % 3) + 1); }, 7000);
+    }); }, {threshold: 0.35}).observe(root);
+  }
+})();
+</script>
