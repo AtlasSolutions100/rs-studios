@@ -908,8 +908,9 @@ def mcp_page():
     """Campaignify MCP: what to ask Claude, a walkthrough and setup. Served at /mcp to browsers
     (mcpserver.wants_page); MCP clients get the server at the same address."""
     import mcpserver
+    import public_site
     return render_template("claude.html", on=mcpserver.enabled(), url=request.host_url.rstrip("/") + "/mcp",
-                           prompts=CLAUDE_PROMPTS)
+                           prompts=CLAUDE_PROMPTS, launch=public_site.launch_live())
 
 
 app.view_functions["mcp_page"] = mcp_page
@@ -926,7 +927,8 @@ def mcp_docs():
     """How to connect Claude and other MCP clients (mcp_tools.py)."""
     import mcp_tools
     import mcpserver
-    return render_template("mcp_docs.html", on=mcpserver.enabled(), url=request.host_url.rstrip("/") + "/mcp",
+    import public_site
+    return render_template("mcp_docs.html", on=mcpserver.enabled(), launch=public_site.launch_live(), url=request.host_url.rstrip("/") + "/mcp",
                            settings_path=mcp_tools.CampaignifyAdapter.settings_path,
                            tools=[{"name": t.name, "description": t.description, "annotations": t.annotations}
                                   for t in mcp_tools.TOOLS])

@@ -78,7 +78,8 @@
     <li>It uses your plan's tools and your credits, with the same compliance checks as the app.</li>
     <li>Videos need a confirmed email, as in the app.</li>
     <li>AI presenters are AI-generated people, never real ones.</li>
-    <li>Campaignify makes the creative. It does not post or run ads.</li>
+    {% if launch %}<li>Launching (prepare_launch, launch_campaign, get_launch_status, list_ad_connections): the member sees the approval card first, only the workspace owner can approve, and every campaign, ad set and ad is created PAUSED on the member's own ad account. Nothing spends until they turn it on.</li>
+    {% else %}<li>Campaignify makes the creative. Launching into ad accounts from Claude is coming soon, starting with Meta; until then you launch in each platform's ads manager.</li>{% endif %}
     <li>Limits: 120 requests a minute and 30 changes a minute per key or connection. Download links last 1 hour.</li>
   </ul>
 

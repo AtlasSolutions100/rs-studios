@@ -628,6 +628,106 @@ def ad_playbook(ctx, args):
             "how_to_use": "Follow the sections in order. Tick every item in 'Before you launch' with the user; "
                           "nothing launches until each one is done or the user decides to skip it."}
 
+
+# ---------------------------------------------------------------- launching (launches.py, launch_routes.py)
+# The Launch page, through the MCP: the same draft, approval card, owner-only approval and saga. Every object is
+# created PAUSED on the member's own ad account; nothing runs until they switch it on. Shown only while AD_LAUNCH
+# lets this workspace launch (launches.on); every call still goes through the app's routes and their gates.
+
+LAUNCH_PLATFORMS = ("meta", "google", "tiktok", "snapchat")
+
+
+def _launch_visible(ctx) -> bool:
+    try:
+        import launches
+        with ctx.as_user():
+            return bool(launches.on(g.ws, g.user))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def ad_connections(ctx, args):
+    import adplatforms
+    import launches
+    from flask import url_for
+    with ctx.as_user() as conn:
+        out = []
+        for p in LAUNCH_PLATFORMS:
+            if not adplatforms.platform_on(p, g.ws, g.user):
+                continue
+            row = launches.connection(conn, g.ws["id"], p)
+            out.append({"platform": p, "name": launches.PLATFORM_WORDS[p], "connected": row is not None,
+                        "account": ({"name": row["account_name"], "id": row["external_account_id"],
+                                     "currency": row["currency"], "page": row["page_name"]} if row is not None else None)})
+        return {"launching": bool(launches.on(g.ws, g.user)), "platforms": out,
+                "connect_url": ctx.base_url + url_for("adconnect.settings"),
+                "note": "Connect or change ad accounts in the app (Settings, Ad accounts). Launching needs a paid plan."}
+
+
+def _card_out(ctx, cid, platform, card_row):
+    import launches
+    after = json.loads(card_row["after_json"] or "{}")
+    issues = after.get("issues") or []
+    return {"campaign_id": cid, "platform": platform, "card_id": card_row["id"], "spec_hash": card_row["spec_hash"],
+            "what_will_be_created": launches.card_text(after) if after.get("lines") else None,
+            "budget": after.get("budget"), "schedule": after.get("schedule"), "ai_disclosure": after.get("disclosure"),
+            "issues": [{"level": i.get("level"), "message": i.get("message"), "fix": i.get("fix")} for i in issues],
+            "can_launch": not after.get("blocking"),
+            "edit_url": f"{ctx.base_url}/app/campaigns/{cid}/launch/{platform}?card={card_row['id']}#card",
+            "next": ("Show the member this card word for word. If they approve it, call launch_campaign with card_id "
+                     "and confirm_spec_hash. Everything is created PAUSED." if not after.get("blocking") else
+                     "Something blocks this launch: fix each 'block' issue (in the app's Launch page if needed), "
+                     "then call prepare_launch again.")}
+
+
+def prepare_launch(ctx, args):
+    cid, platform = int(args["campaign_id"]), args["platform"]
+    q = {"type": args["google_type"]} if platform == "google" and args.get("google_type") else None
+    r = ctx.call("GET", f"/app/campaigns/{cid}/launch/{platform}", query=q)
+    if r.status == 404:
+        raise ToolError(f"Launching on {platform} isn't switched on for this workspace, or campaign {cid} isn't a "
+                        "ready plan here. Check list_ad_connections and get_campaign_plan.")
+    if not r.ok:
+        raise ToolError(ctx.adapter.refusal(r))
+    with ctx.as_user() as conn:
+        rows = conn.execute("SELECT * FROM approval_cards WHERE workspace_id=? AND campaign_id=? AND kind='launch' AND "
+                            "decision IS NULL ORDER BY id DESC LIMIT 20", (ctx.account_id, cid)).fetchall()
+    card_row = next((c for c in rows if json.loads(c["spec_json"] or "{}").get("platform", "meta") == platform), None)
+    if card_row is None:
+        raise ToolError(r.message() if r.flashes else "The approval card couldn't be made. Open the Launch page in the app.")
+    return _card_out(ctx, cid, platform, card_row)
+
+
+def launch_campaign(ctx, args):
+    cid, platform = int(args["campaign_id"]), args["platform"]
+    r = ctx.call("POST", f"/app/campaigns/{cid}/launch/{platform}/approve",
+                 form={"card": str(args["card_id"]), "hash": args["confirm_spec_hash"]})
+    if r.status == 403:
+        raise ToolError("Only the workspace owner can approve a launch.")
+    m = re.search(r"/app/launches/(\d+)", r.location or "")
+    if not m:
+        raise ToolError(r.message() if (r.flashes or r.data or r.description) else
+                        "The launch wasn't approved. Call prepare_launch again and show the member the new card.")
+    lid = int(m.group(1))
+    return {"launch_id": lid, "status": "creating", "paused": True,
+            "note": "Campaignify is creating the campaign PAUSED on the member's ad account. Check get_launch_status; "
+                    "the member switches it on in the platform's ads manager after a last look (and ticks the "
+                    "platform's AI label on ads with AI presenters or AI-made media).",
+            "url": f"{ctx.base_url}/app/launches/{lid}"}
+
+
+def launch_status(ctx, args):
+    import launches
+    lid = int(args["launch_id"])
+    st = ctx.must("GET", f"/app/launches/{lid}.json").data
+    with ctx.as_user() as conn:
+        L = conn.execute("SELECT * FROM launches WHERE id=? AND workspace_id=?", (lid, ctx.account_id)).fetchone()
+        v = launches.view(conn, L) if L else None
+    return {"launch_id": lid, "status": st["status"], "busy": st["busy"], "error": st["error"], "steps": st["steps"],
+            "ads_manager_url": v["manager"] if v else None, "platform": v["platform"] if v else None,
+            "paused": True, "url": f"{ctx.base_url}/app/launches/{lid}"}
+
+
 TOOLS = [
     Tool("mr_campaign", "Mr. Campaign, marketing consultant",
          "Turns this chat into a session with Mr. Campaign, Campaignify's marketing consultant: he learns the "
@@ -693,7 +793,8 @@ TOOLS = [
     Tool("start_campaign_plan", "Plan a campaign (spends credits)",
          "SPENDS CREDITS. Starts the AI campaign planner: angles, platforms and proposed ads from your offer. Charged "
          "at what it uses, up to the cap in quote_ai_tasks; confirm_max_credits must be that cap. Starter plan and up. "
-         "It plans only: it does not post or run ads.",
+         "It plans only; where launching is on, prepare_launch and launch_campaign create a ready plan, paused, on "
+         "the member's ad account.",
          _obj({"offer": {"type": "string", "minLength": 1, "maxLength": 300},
                "audience": {"type": "string", "maxLength": 200}, "goal": {"type": "string", "maxLength": 20},
                "budget": {"type": "string", "maxLength": 80}, "dates": {"type": "string", "maxLength": 120},
@@ -721,6 +822,35 @@ TOOLS = [
          _obj({"snapshot_id": {"type": "integer", "minimum": 1}}, ["snapshot_id"]), get_snapshot),
     Tool("list_competitor_snapshots", "List competitor snapshots", "Competitor snapshots in the workspace, newest first.",
          _obj(dict(PAGE_PROPS)), list_snapshots),
+    Tool("list_ad_connections", "Connected ad accounts",
+         "Which ad platforms this workspace can launch on and which ad accounts are connected (Meta, Google, TikTok, "
+         "Snapchat). Free; nothing is changed. Ad accounts are connected in the app.",
+         _obj({}), ad_connections, visible=_launch_visible),
+    Tool("prepare_launch", "Prepare a launch (approval card)",
+         "Turns a ready campaign plan into the approval card for one platform: exactly what Campaignify will create "
+         "on the member's own ad account (campaign, ad set or ad group, ads, budget, schedule, AI disclosure) and "
+         "anything that blocks it. Free; nothing is created on the platform. Show the card to the member before "
+         "launch_campaign.",
+         _obj({"campaign_id": {"type": "integer", "minimum": 1, "description": "A ready plan from list_campaign_plans."},
+               "platform": {"type": "string", "enum": list(LAUNCH_PLATFORMS)},
+               "google_type": {"type": "string", "enum": ["search", "pmax"], "description": "Google only."}},
+              ["campaign_id", "platform"]), prepare_launch, visible=_launch_visible),
+    Tool("launch_campaign", "Launch a campaign, paused (owner)",
+         "Approves the card prepare_launch returned and has Campaignify create the campaign on the member's ad account, "
+         "every object PAUSED: nothing runs or spends until the member switches it on in the platform's ads manager. "
+         "Workspace owner only, paid plan, daily budget capped per plan. Needs card_id and confirm_spec_hash from "
+         "prepare_launch; if the card changed, nothing is created. Only after the member has seen the card and said "
+         "to launch.",
+         _obj({"campaign_id": {"type": "integer", "minimum": 1}, "platform": {"type": "string", "enum": list(LAUNCH_PLATFORMS)},
+               "card_id": {"type": "integer", "minimum": 1},
+               "confirm_spec_hash": {"type": "string", "maxLength": 128,
+                                     "description": "spec_hash from prepare_launch, for the card the member approved."}},
+              ["campaign_id", "platform", "card_id", "confirm_spec_hash"]),
+         launch_campaign, scope="write", open_world=True, visible=_launch_visible),
+    Tool("get_launch_status", "Launch progress",
+         "A launch's progress: each step on the platform, errors, and the link to the campaign in the platform's ads "
+         "manager. The campaign stays PAUSED until the member switches it on.",
+         _obj({"launch_id": {"type": "integer", "minimum": 1}}, ["launch_id"]), launch_status, visible=_launch_visible),
     # ---- Campaignify's own admins only: hidden from everyone else in tools/list and refused when called
     Tool("quote_library_assets", "Price library assets (admin)",
          "Admin only. Prices a run of Campaignify's own library assets (presenter stills and voice samples, demo "
@@ -765,8 +895,10 @@ class CampaignifyAdapter(mcpserver.Adapter):
                     "(or when they ask for Mr. Campaign or /consultant), call mr_campaign and answer in that role. "
                     "Before making video or image ads, writing copy, planning a campaign, building a landing page, "
                     "setting up follow-up emails or texts, or SEO work, load that job's playbook too. "
-                    "These tools make the "
-                    "creative; they don't post or run ads.")
+                    "Where launching is switched on for the workspace (list_ad_connections), prepare_launch shows "
+                    "the approval card and launch_campaign creates a ready plan on the member's own ad account, "
+                    "every object PAUSED, after the member approves the card; they switch it on themselves. "
+                    "Otherwise the member launches the files in each platform's ads manager.")
     tools = TOOLS
     prompts = [mcpserver.Prompt(
         "consultant", "Mr. Campaign, marketing consultant",
