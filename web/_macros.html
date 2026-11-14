@@ -9,8 +9,8 @@
 {% set asp = (j.params_json|fromjson).aspect if j.params_json else '' %}
 <div class="thumb {{ 'tall' if tall }}{{ ' r-' ~ asp|replace(':', 'x') if o and asp in ('4:5', '1:1', '16:9') }}" data-hoverplay>
   {% if o and o.kind == 'video' %}<video src="{{ url_for('media', oid=o.id) }}" poster="{{ url_for('media', oid=o.id, poster=1) }}" muted loop playsinline preload="none"></video><span class="play"><svg viewBox="0 0 10 10"><path d="M2 1l7 4-7 4z"/></svg></span>
-  {% elif o %}<img class="out" src="{{ url_for('media', oid=o.id) }}" alt="Generated ad">
-  {% else %}<img src="{{ url_for('static', filename='previews/' ~ pv ~ '.jpg') }}" alt="" style="opacity:.25;filter:blur(2px)">
+  {% elif o %}<img class="out" src="{{ url_for('media', oid=o.id, thumb=1) }}" alt="Generated ad" loading="lazy" decoding="async">
+  {% else %}<img src="{{ url_for('static', filename='previews/' ~ pv ~ '.jpg') }}" alt="" loading="lazy" style="opacity:.25;filter:blur(2px)">
     {% if j.status in ('pending','running') %}<div class="wait"><div><div class="spinner"></div>{{ 'Making it…' if j.status == 'running' else 'In the queue…' }}<br><span class="dim">{% if eta and eta.get(j.tool) %}usually about {{ eta[j.tool] }} min{% elif tools[j.tool].kind == 'image' %}1–3 minutes{% else %}a few minutes{% endif %}</span></div></div>
     {% else %}<div class="wait"><div>{% if j.error and j.error[:4] in ('401:', '402:', '403:') %}Generation is paused on our side right now. Your credits were refunded; please try again shortly.{% else %}{{ (j.error or 'No result')|failure_text }}{% endif %}</div></div>{% endif %}
   {% endif %}
@@ -38,7 +38,7 @@
 <article class="litem {{ 'hl' if hl }}{{ ' v-' ~ verdict if verdict }}" data-job="{{ j.id }}" data-status="{{ j.status }}" tabindex="0" aria-label="{{ label }}, {{ {'done':'ready','pending':'queued','running':'rendering','failed':'failed'}[j.status] }}{{ ', ' ~ verdict if verdict }}">
   {% if ctx == 'batch' and os_|length > 1 and next_steps_on is defined and next_steps_on() %}
   {# UX-2: a job with 2 versions shows 2 thumbnails, so the 2 free ads read as 2 ads (RS_NEXT_STEPS). #}
-  <div class="thumbs2" data-hoverplay>{% for o in os_[:4] %}<div class="thumb">{% if o.kind == 'video' %}<video src="{{ url_for('media', oid=o.id) }}" poster="{{ url_for('media', oid=o.id, poster=1) }}" muted loop playsinline preload="none"></video>{% else %}<img src="{{ url_for('media', oid=o.id) }}" alt="Generated ad, version {{ loop.index }}">{% endif %}</div>{% endfor %}</div>
+  <div class="thumbs2" data-hoverplay>{% for o in os_[:4] %}<div class="thumb">{% if o.kind == 'video' %}<video src="{{ url_for('media', oid=o.id) }}" poster="{{ url_for('media', oid=o.id, poster=1) }}" muted loop playsinline preload="none"></video>{% else %}<img src="{{ url_for('media', oid=o.id, thumb=1) }}" alt="Generated ad, version {{ loop.index }}" loading="lazy" decoding="async">{% endif %}</div>{% endfor %}</div>
   {% else %}{{ job_thumb(j, outs, templates, tools, eta=eta) }}{% endif %}
   <div class="meta"><b>{{ label }}</b>{{ status(j) }}</div>
   {% if verdict in ('approved', 'rejected', 'mixed') %}<span class="vtag {{ verdict }}">{{ {'approved': 'Approved', 'rejected': 'Rejected', 'mixed': 'Mixed reviews'}[verdict] }}</span>{% endif %}

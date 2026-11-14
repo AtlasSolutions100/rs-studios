@@ -1,0 +1,1 @@
+{# More Library cards, fetched as the member scrolls (app.library with part=1). #}{% from "_macros.html" import card with context %}{% for j in jobs %}{{ card(j, outs, templates, tools, ctx='library', verdict=verdicts.get(j.id), price=prices.get(j.id, 0), names=names, eta=eta) }}{% endfor %}
