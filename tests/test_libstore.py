@@ -74,7 +74,7 @@ print("before the first fetch")
 names = {w["name"] for w in want}
 check(libstore.missing() == want and all(libstore.have(n) is None for n in names) and libstore.status()["there"] == 0,
       "nothing is on the volume, and the store says so")
-shown = public_site.showcase(64)
+shown = public_site.showcase(1000)
 check(not any(s["store"] for s in shown) and len(shown) == len(raw["items"]) - len(want),
       "the gallery leaves out a store item whose file is not there yet")
 c = appmod.app.test_client()
@@ -123,7 +123,7 @@ check(res == {"fetched": 0, "kept": len(fake), "failed": []} and not calls, "a s
 
 # ================================================================ the gallery and the address
 print("once the files are there")
-shown = public_site.showcase(64)
+shown = public_site.showcase(1000)
 mine = [s for s in shown if s["store"]]
 check(len(shown) == len(raw["items"]) and len(mine) == len(fake), "the gallery shows the store items without a restart")
 w0 = fake[0]
@@ -143,7 +143,7 @@ check(any(x["video"] == s0["url"] and x["image"] == s0["poster_url"] for x in ca
 home = c.get("/").get_data(as_text=True)
 check('<source src="/static/showcase/' in home and "url_for" not in home, "the home page's gallery still renders")
 os.remove(libstore.have(w0["name"]))
-check(libstore.have(w0["name"]) is None and len(public_site.showcase(64)) == len(raw["items"]) - 1,
+check(libstore.have(w0["name"]) is None and len(public_site.showcase(1000)) == len(raw["items"]) - 1,
       "a store file that goes missing drops its item again")
 
 # ================================================================ the background pass
