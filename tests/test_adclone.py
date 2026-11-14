@@ -29,6 +29,12 @@ for k in ("HOME_V2", "RS_CARD_REQUIRED", "SIGNUP_CREDITS_ADS", "CLAIMS_CHECK", "
           "PLANS_ONLY", "MCP_SERVER"):
     os.environ.pop(k, None)
 
+import shutil  # noqa: E402
+
+if not shutil.which("ffmpeg"):          # the deploy's quick check has no ffmpeg; tests.yml installs it and runs this
+    print("ffmpeg isn't installed here: the clone checks are skipped")
+    sys.exit(0)
+
 import adclone  # noqa: E402
 import app as appmod  # noqa: E402
 import db  # noqa: E402
