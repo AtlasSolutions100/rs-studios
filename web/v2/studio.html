@@ -25,7 +25,7 @@
 
   <div class="st-canvas" data-canvas tabindex="0" role="region" aria-label="Your latest ads">
     {% if jobs %}
-    <div class="flash" role="status" aria-live="polite" data-live-flash hidden><span class="spinner sm"></span> <span data-live-text></span> This page updates by itself, and you can leave it.</div>
+    <div class="flash" role="status" aria-live="polite" data-live-flash hidden><span class="spinner sm"></span> <span data-live-text></span> This page updates by itself. You can leave it.</div>
     <div class="lgrid st-grid" data-live-cards="studio">
       {% for j in jobs %}{{ card(j, outs, templates, tools, ctx='studio', verdict=verdicts.get(j.id), price=prices.get(j.id, 0), names=names, eta=eta, hl=(made and j.batch_id == made)) }}{% endfor %}
     </div>
@@ -36,7 +36,7 @@
       <ol class="st-steps">
         <li data-empty-step {{ 'class=done' if boot.products }}><b>{{ 'Product added' if boot.products else 'Add your product' }}</b><span>{{ 'Change it any time from the composer.' if boot.products else 'Paste the link to its page. We read the name and photo. It costs nothing.' }}</span></li>
         <li><b>Write a headline</b><span>The words that go on the ad.</span></li>
-        <li><b>See the price, then make it</b><span>Nothing is made until you confirm.</span></li>
+        <li><b>See the price, then make it</b><span>Nothing is made until you say yes.</span></li>
       </ol>
       {% if not boot.products %}<button type="button" class="btn" data-empty-add>Add your product</button>{% endif %}
     </div>
@@ -48,7 +48,7 @@
     <div class="cmp-top">
       <div class="cmp-modes" role="radiogroup" aria-label="What to make" data-modes>
         {% set asking = boot.start == 'ask' %}
-        {% if boot.ask_on %}<button type="button" role="radio" aria-checked="{{ 'true' if asking else 'false' }}" tabindex="{{ '0' if asking else '-1' }}" data-mode="ask" title="Say what you want. You get a set of ads back with the price, and nothing is made until you confirm."><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11 3l1.9 5.6 5.6 1.9-5.6 1.9L11 18l-1.9-5.6L3.5 10.5l5.6-1.9z"/><path d="M18.5 14.5l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z"/></svg><span>Ask</span></button>{% endif %}
+        {% if boot.ask_on %}<button type="button" role="radio" aria-checked="{{ 'true' if asking else 'false' }}" tabindex="{{ '0' if asking else '-1' }}" data-mode="ask" title="Say what you want. You get a set of ads and the price. Nothing is made until you say yes."><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11 3l1.9 5.6 5.6 1.9-5.6 1.9L11 18l-1.9-5.6L3.5 10.5l5.6-1.9z"/><path d="M18.5 14.5l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9z"/></svg><span>Ask</span></button>{% endif %}
         {% for m in modes %}<button type="button" role="radio" aria-checked="{{ 'true' if m.id == boot.mode and not asking else 'false' }}" tabindex="{{ '0' if m.id == boot.mode and not asking else '-1' }}" data-mode="{{ m.id }}" title="{{ m.line }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{{ ICO[m.id]|safe }}</svg><span>{{ m.name }}</span></button>{% endfor %}
       </div>
       <span class="cmp-pin" data-pin hidden><span data-pin-name></span><button type="button" data-pin-x aria-label="Remove this preset">{{ X|safe }}</button></span>
@@ -63,11 +63,11 @@
       <div class="cmp-settings" id="cmp-settings" data-settings hidden></div>
       <div class="cmp-bar">
         <button type="button" class="cmp-chip" data-product-open aria-haspopup="dialog"><span class="cmp-thumb" data-product-thumb aria-hidden="true"></span><span data-product-name>Add product</span></button>
-        <button type="button" class="cmp-chip" data-refs-open aria-haspopup="dialog" hidden title="Put pictures from your brand into the ad: logo, packaging, lifestyle shots"><span class="cmp-refs" data-refs-thumbs aria-hidden="true"></span><span data-refs-name>References</span></button>
+        <button type="button" class="cmp-chip" data-refs-open aria-haspopup="dialog" hidden title="Add pictures from your brand: logo, box, product in use"><span class="cmp-refs" data-refs-thumbs aria-hidden="true"></span><span data-refs-name>References</span></button>
         <button type="button" class="cmp-chip" data-presenter-open aria-haspopup="dialog" hidden><span class="cmp-thumb round" data-presenter-thumb aria-hidden="true"></span><span data-presenter-name>Presenter</span></button>
-        <span class="cmp-chip sel" data-voice-wrap hidden><label class="sr" for="cmp-voice">Narrator voice</label><select id="cmp-voice" data-voice></select></span>
+        <span class="cmp-chip sel" data-voice-wrap hidden><label class="sr" for="cmp-voice">Voice</label><select id="cmp-voice" data-voice></select></span>
         <span class="cmp-grow"></span>
-        <span class="cmp-asking" role="status" data-asking hidden><span class="spinner sm"></span> Putting a set together</span>
+        <span class="cmp-asking" role="status" data-asking hidden><span class="spinner sm"></span> Making your set</span>
         <span class="cmp-count" data-count aria-live="polite"></span>
         <div class="cmp-step" role="group" aria-label="How many image ads" data-stepper hidden>
           <button type="button" data-less aria-label="One fewer">−</button><output data-n aria-live="polite">1</output><button type="button" data-plus aria-label="One more">+</button>
@@ -76,7 +76,7 @@
         <button type="button" class="cmp-send" data-send aria-label="See the price"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
       </div>
     </div>
-    <p class="cmp-foot"><span data-pair-hint hidden></span><span data-foot>Send shows the price first. Nothing is made until you confirm it.</span></p>
+    <p class="cmp-foot"><span data-pair-hint hidden></span><span data-foot>You see the price first. Nothing is made until you say yes.</span></p>
   </section>
 </div>
 
@@ -95,7 +95,7 @@
 {# ---- references: the brand's pictures (brand_assets.py) put into the ad beside the product photo #}
 <dialog class="v2-dlg" data-dlg="refs" aria-labelledby="drf-h">
   <header class="v2-dlg-h"><h2 id="drf-h">References</h2><span class="small muted" data-refs-n aria-live="polite"></span><button type="button" class="v2-x" data-close aria-label="Close">{{ X|safe }}</button></header>
-  <p class="small muted v2-dlg-sub">Pick pictures to put into the ad beside your product photo: your logo, packaging, a lifestyle shot, your store.</p>
+  <p class="small muted v2-dlg-sub">Pick pictures to add to the ad: your logo, your box, a photo of your product in use, your shop.</p>
   <div class="v2-refs" data-refs-list></div>
   <p class="small muted v2-dlg-foot"><a href="{{ boot.urls.assets }}">Add pictures on the Brand page</a></p>
 </dialog>
@@ -107,7 +107,7 @@
     <div class="v2-filters" data-pres-filters>
       <div data-pf-group="gender" hidden><h3 id="pf-g">Gender</h3><div class="v2-pills" role="toolbar" aria-labelledby="pf-g" data-pf-pills="gender"></div></div>
       <div data-pf-group="age_band" hidden><h3 id="pf-a">Age</h3><div class="v2-pills" role="toolbar" aria-labelledby="pf-a" data-pf-pills="age_band"></div></div>
-      <p class="small muted">Presenters are AI and described, never real people. Each video draws its presenter from the description, so two videos look alike, not identical.</p>
+      <p class="small muted">Presenters are made by AI. None of them is a real person. Two videos with the same presenter look alike, but not exactly the same.</p>
       <p class="small muted">Pick up to {{ boot.max_presenters }}. Each one makes its own video.</p>
     </div>
     <div class="v2-pgrid" data-pgrid></div>
@@ -117,9 +117,9 @@
 </dialog>
 
 {# ---- more: every ad type and preset, filtered by kind and by what it is for (the presets' own `use` tags) #}
-<dialog class="v2-dlg wide" data-dlg="more" aria-label="Ad types and presets">
+<dialog class="v2-dlg wide" data-dlg="more" aria-label="Ad styles">
   <header class="v2-dlg-h gal">
-    <div class="v2-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><label class="sr" for="gal-q">Search ad types and presets</label><input id="gal-q" type="search" placeholder="Search ad types and presets" autocomplete="off" data-gal-q></div>
+    <div class="v2-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><label class="sr" for="gal-q">Search ad styles</label><input id="gal-q" type="search" placeholder="Search ad styles" autocomplete="off" data-gal-q></div>
     <button type="button" class="v2-x" data-close aria-label="Close">{{ X|safe }}</button>
   </header>
   <div class="v2-pick gal">
