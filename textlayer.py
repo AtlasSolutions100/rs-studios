@@ -499,7 +499,8 @@ def _places(layout: str) -> list:
     """The ways a layout's movable parts can sit, the usual one first, then the ones that move the least."""
     cta = [{}, {"cta": "right"}, {"cta": "left"}]
     if layout == "headline":
-        return cta
+        # the headline can drop to just above the button when the top holds a face (Koby, Nov 14 2026: the barber ad)
+        return cta + [dict(c, head="low") for c in cta]
     if layout == "offer":
         badges = [{}] + [{"badge": (s_, r)} for r in ("mid", "top", "bottom") for s_ in ("right", "left")][1:]
         out = [dict(b, **c) for b in badges for c in cta]
@@ -711,11 +712,18 @@ def _draw(base, layout: str, text: dict, kit: dict, asp: str, place: dict | None
         block_h = fh["height"] + (fs["height"] + pad * 0.6 if fs else 0)
         block_w = max(fh["width"], fs["width"] if fs else 0)
         bx0 = sx0 + (sw - block_w) / 2 - pad
-        panel = (max(sx0, bx0), sy0, min(sx1, bx0 + block_w + 2 * pad), sy0 + block_h + 2 * pad)
+        hy = sy0
+        if place.get("head") == "low" and layout == "headline":
+            reserve = 0.0
+            if cta:
+                fc0 = fit_text(cta, fam, small_bold, sw * 0.62, unit * 0.06, W * 0.040, W * 0.028, max_lines=1)
+                reserve = fc0["px"] * 2.2 + pad * 2
+            hy = max(sy0, sy1 - reserve - block_h - 2 * pad)
+        panel = (max(sx0, bx0), hy, min(sx1, bx0 + block_w + 2 * pad), hy + block_h + 2 * pad)
         pick = pick_over_image(base, panel)
         if pick["scrim"]:
             cv.rect(panel, pick["scrim"][0], radius=unit * 0.02, alpha=pick["scrim"][1])
-        hb = cv.text_block(fh, sx0 + pad, sy0 + pad, sw - 2 * pad, pick["color"], fam, "bold")
+        hb = cv.text_block(fh, sx0 + pad, hy + pad, sw - 2 * pad, pick["color"], fam, "bold")
         note("headline", (max(hb[0], sx0), hb[1], min(hb[2], sx1), hb[3]), px=fh["px"], lines=len(fh["lines"]),
              fit=fh["fit"], contrast=pick["contrast"], scrim=bool(pick["scrim"]), color=list(pick["color"]))
         top = hb[3]

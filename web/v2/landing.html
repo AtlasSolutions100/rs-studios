@@ -53,140 +53,104 @@
 
 {% include "v2/_rca.html" %}
 
-<div class="lv-wrap lv-ratewrap">
-    <dl class="lv-rates" aria-label="What each ad costs">
-      <div><dt>Image ad</dt><dd>{{ r.image|credits }}</dd></div>
-      <div><dt>Product video, 5 seconds</dt><dd>{{ r.video5|credits }}</dd></div>
-      <div><dt>Voiceover or presenter video, 8 seconds</dt><dd>{{ r.talk8|credits }}</dd></div>
-    </dl>
+<div class="lv-wrap hp-fit" aria-label="Where your ads can run">
+  <p>Made to fit</p>
+  <ul>
+    {% for n in ['Instagram', 'Facebook', 'TikTok', 'YouTube Shorts', 'Google', 'Snapchat', 'Pinterest'] %}<li>{{ n }}</li>{% endfor %}
+    <li class="sh"><i class="s916"></i>Tall</li><li class="sh"><i class="s45"></i>Feed</li><li class="sh"><i class="s11"></i>Square</li>
+  </ul>
 </div>
 
-{% macro plan_note(key) -%}{% set f = plans.FEATURES[key] %}<em class="cfk-plan">{{ f.name }}: {{ 'every account' if f.plan == 'free' else plans.PLANS[f.plan].name ~ ' and up' }}</em>{%- endmacro %}
-<section class="lv-sec cfk" id="makes" aria-labelledby="cfk-h">
+{% macro plan_pill(key) -%}{% set f = plans.FEATURES[key] %}<em class="hp-plan">{{ 'Every plan' if f.plan == 'free' else plans.PLANS[f.plan].name ~ ' and up' }}</em>{%- endmacro %}
+<section class="lv-sec hp-make" id="makes" aria-labelledby="hp-make-h">
   <div class="lv-wrap">
-    <h2 id="cfk-h">One link in. A whole campaign out.</h2>
-    <p class="lv-sub">Everything below was made by Campaignify, for made-up brands.</p>
-    <div class="cfk-two">
-      <nav class="cfk-rail" aria-label="What it makes">
-        <a href="#k-ads" data-k="ads" class="on">Image ads</a>
-        <a href="#k-video" data-k="video">Presenter videos</a>
-        <a href="#k-formats" data-k="formats">Try-ons, app demos, unboxings</a>
-        <a href="#k-copy" data-k="copy">Copy and a plan</a>
-        <a href="#k-research" data-k="research">Competitor research</a>
-        <a href="#k-leads" data-k="leads">Lead pages and follow-up</a>
-      </nav>
-      <div class="cfk-rows">
-
-        <article id="k-ads" data-row="ads" class="cfk-row">
-          <div>
-            <h3>Image ads with every word spelled right</h3>
-            <p>Your product photo becomes a finished ad, with every word set in real type.</p>
-            <p class="cfk-fact">{{ home_counts.image_presets }} formats, {{ r.image|credits }} each.</p>
-            {{ plan_note('studio') }}
+    <h2 id="hp-make-h">One link in. A whole campaign out.</h2>
+    <p class="lv-sub">Paste your product link. Here is what you get back.</p>
+    <div class="hp-flow" data-pop>
+      <div class="hp-in">
+        <span class="hp-in-tag">You paste</span>
+        <div class="hp-link"><img src="{{ url_for('static', filename='hero/pop-volt-taste.webp') }}" alt="" width="400" height="500"><span><b>citrusvolt.com/can</b><em>Citrus Volt, 12-pack</em></span></div>
+        <ul class="hp-read"><li>Name</li><li>Photos</li><li>Price</li><li>What makes it good</li></ul>
+      </div>
+      <div class="hp-pipe" aria-hidden="true"><span class="hp-orb"><svg viewBox="0 0 64 64"><path d="M32 9C33.6 25 39 30.4 55 32C39 33.6 33.6 39 32 55C30.4 39 25 33.6 9 32C25 30.4 30.4 25 32 9Z"/></svg></span></div>
+      <span class="hp-out-tag">You get</span>
+      <div class="hp-grid">
+        <article class="hp-tile t-sky" id="k-ads" style="--i:0">
+          <div class="hp-pics fan">
+            <img src="{{ url_for('static', filename='showcase/pop-energy.webp') }}" alt="An image ad for a green energy can: Zero sugar. Full charge." loading="lazy" width="1080" height="1350">
+            <img src="{{ url_for('static', filename='showcase/pop-headphones.webp') }}" alt="An image ad for black headphones: Hear nothing but the music." loading="lazy" width="1080" height="1350">
+            <img src="{{ url_for('static', filename='showcase/pop-smoothie.webp') }}" alt="An image ad for a mango smoothie: Swap the snack." loading="lazy" width="1080" height="1350">
           </div>
-          <div class="cfk-pics three">
-            <img src="{{ url_for('static', filename='showcase/pop-energy.webp') }}" alt="An offer ad: a green energy can bursting out of a water splash with citrus slices on cobalt blue, the headline Zero sugar. Full charge., a NEW badge and a Grab a 12-pack button" loading="lazy" width="1080" height="1350">
-            <img src="{{ url_for('static', filename='showcase/pop-headphones.webp') }}" alt="A callouts ad: black headphones on sunflower yellow with the headline Hear nothing but the music and three feature callouts" loading="lazy" width="1080" height="1350">
-            <img src="{{ url_for('static', filename='showcase/pop-smoothie.webp') }}" alt="A comparison ad: a mango smoothie splashing on pink and yellow, under the headline Swap the snack, with a vending snack and the smoothie compared in two columns" loading="lazy" width="1080" height="1350">
-          </div>
+          <h3>Picture ads</h3>
+          <p>Your photo, made into an ad. Every word is spelled right.</p>
+          <p class="hp-fact">{{ home_counts.image_presets }} styles · {{ r.image|credits }} each</p>{{ plan_pill('studio') }}
         </article>
-
-        <article id="k-video" data-row="video" class="cfk-row">
-          <div>
-            <h3>Presenter videos without a shoot</h3>
-            <p>Pick one of {{ home_counts.presenters }} AI presenters, write the script, and get a selfie-style video with your product.</p>
-            <p class="cfk-fact">None of them is a real person. An 8 second video is {{ r.talk8|credits }}.</p>
-            {{ plan_note('studio') }}
+        <article class="hp-tile t-pink" id="k-video" style="--i:1">
+          <div class="hp-pics people">
+            <figure><img src="{{ url_for('static', filename='presenters/nia/desk.webp') }}" alt="Nia, an AI presenter, at her desk" loading="lazy" width="720" height="1280"><span class="hp-play" aria-hidden="true"></span></figure>
+            <figure><img src="{{ url_for('static', filename='presenters/marcus/car.webp') }}" alt="Marcus, an AI presenter, in his car" loading="lazy" width="720" height="1280"></figure>
           </div>
-          <div class="cfk-pics three tall">
-            <figure><img src="{{ url_for('static', filename='presenters/marcus/car.webp') }}" alt="Marcus, an AI presenter, talking to camera from the driver's seat of a parked car" loading="lazy" width="720" height="1280"><figcaption>Marcus, car</figcaption></figure>
-            <figure><img src="{{ url_for('static', filename='presenters/nia/desk.webp') }}" alt="Nia, an AI presenter, at her desk" loading="lazy" width="720" height="1280"><figcaption>Nia, desk</figcaption></figure>
-            <figure><img src="{{ url_for('static', filename='presenters/lena/gym.webp') }}" alt="Lena, an AI presenter, in a gym" loading="lazy" width="720" height="1280"><figcaption>Lena, gym</figcaption></figure>
-          </div>
+          <h3>Videos with a person</h3>
+          <p>Pick a person. Write what they say. No camera needed.</p>
+          <p class="hp-fact">{{ home_counts.presenters }} AI people. None of them is a real person.</p>{{ plan_pill('studio') }}
         </article>
-
-        <article id="k-formats" data-row="formats" class="cfk-row">
-          <div>
-            <h3>Try-ons, app demos and unboxings, one click each</h3>
-            <p>Ready-made video formats for clothing, apps and anything that ships in a box.</p>
-            <p class="cfk-fact">{{ home_counts.recipes }} video formats, with your real app screens.</p>
-            {{ plan_note('studio') }}
-          </div>
-          {% if format_clips %}
-          <div class="cfk-pics three tall cfk-clips">
-            {% for label, it in format_clips %}<figure><div class="lv-vid"><video data-inview muted loop playsinline preload="none" data-poster="{{ it.poster_url }}" width="{{ it.width }}" height="{{ it.height }}" aria-label="{{ it.alt }}"><source src="{{ it.url }}" type="video/mp4"></video>{% if it.presenter %}<span class="lv-clip-tag">AI presenter</span>{% endif %}</div><figcaption>{{ label }}</figcaption></figure>{% endfor %}
-          </div>
-          {% endif %}
+        <article class="hp-tile t-sun" id="k-formats" style="--i:2">
+          {% if format_clips %}<div class="hp-pics clips cfk-clips">{% for label, it in format_clips %}<figure><div class="lv-vid"><video data-inview muted loop playsinline preload="none" data-poster="{{ it.poster_url }}" width="{{ it.width }}" height="{{ it.height }}" aria-label="{{ it.alt }}"><source src="{{ it.url }}" type="video/mp4"></video></div><figcaption>{{ label }}</figcaption></figure>{% endfor %}</div>
+          {% else %}<div class="hp-pics fan"><img src="{{ url_for('static', filename='showcase/pop-sunscreen.webp') }}" alt="A story ad for sunscreen on a beach" loading="lazy" width="1080" height="1930"><img src="{{ url_for('static', filename='showcase/pop-finance-app.webp') }}" alt="A story ad for a budgeting app" loading="lazy" width="1080" height="1930"></div>{% endif %}
+          <h3>Try-ons, app demos, unboxings</h3>
+          <p>One click makes the video. Your real app screens can go in.</p>
+          <p class="hp-fact">{{ home_counts.recipes }} video styles</p>{{ plan_pill('studio') }}
         </article>
-
-        <article id="k-copy" data-row="copy" class="cfk-row">
-          <div>
-            <h3>Copy and a plan, written for your product</h3>
-            <p>Hooks, captions and emails in your brand's voice, plus a plan for what to run and when.</p>
-            {{ plan_note('copy') }}
-            {{ plan_note('planner') }}
-          </div>
-          <div class="cfk-cards">
-            <div class="cfk-card"><b>Three hooks</b><p>Zero sugar. Full charge.</p><p>Your 3 pm fix, no crash</p><p>Out of energy by lunch? Try this instead.</p></div>
-            <div class="cfk-card"><b>The plan</b><p class="dot"><i class="on"></i>Week 1: three image ads, one per hook</p><p class="dot"><i></i>Week 2: a presenter video of the best hook</p><p class="dot"><i></i>Week 3: keep the winner, retire the rest</p></div>
-          </div>
+        <article class="hp-tile t-lime" id="k-copy" style="--i:3">
+          <div class="hp-chat"><span>Zero sugar. Full charge.</span><span>Your 3 pm fix, no crash.</span><span>Out of energy by lunch?</span></div>
+          <h3>Words that sell</h3>
+          <p>Hooks, captions and emails, in your brand's voice.</p>{{ plan_pill('copy') }}
         </article>
-
-        <article id="k-research" data-row="research" class="cfk-row">
-          <div>
-            <h3>Competitor research before you write a word</h3>
-            <p>A short, sourced brief on what your competitors offer and how they pitch it.</p>
-            {{ plan_note('competitors') }}
-          </div>
-          <div class="cfk-cards one">
-            <div class="cfk-card"><b>Snapshot of a competitor you name</b><p class="kv"><span>What they sell</span><span>Their offers and prices, from their own site</span></p><p class="kv"><span>How they pitch it</span><span>The promises they lead with</span></p><p class="kv"><span class="dot"><i class="on"></i>Where yours differs</span><span>The angle they have left open</span></p></div>
-          </div>
+        <article class="hp-tile t-lilac" id="k-plan" style="--i:4">
+          <ol class="hp-weeks"><li class="on">Week 1: try three ads</li><li>Week 2: add a video</li><li>Week 3: keep the winner</li></ol>
+          <h3>A plan</h3>
+          <p>What to run, and when. Plus what your rivals say.</p>{{ plan_pill('planner') }}
         </article>
-
-        <article id="k-leads" data-row="leads" class="cfk-row">
-          <div>
-            <h3>A page for the click, and the follow-up after it</h3>
-            <p>Send clicks to a page with a form, and new contacts get your follow-up emails on their own.</p>
-            {{ plan_note('pages') }}
-            {{ plan_note('forms') }}
-            {{ plan_note('flows') }}
-          </div>
-          <div class="cfk-cards">
-            <div class="cfk-card form"><b>Get the trail guide</b><span class="fld">Name</span><span class="fld">Email</span><span class="go">Send me the guide</span></div>
-            <div class="cfk-card"><b>The follow-up</b><p class="dot"><i class="on"></i>Right away: here is your guide</p><p class="dot"><i></i>Day 2: how people use it</p><p class="dot"><i></i>Day 5: the offer</p></div>
-          </div>
+        <article class="hp-tile t-mint" id="k-leads" style="--i:5">
+          <div class="hp-form"><b>Get the free guide</b><span>Name</span><span>Email</span><i>Send it to me</i></div>
+          <h3>A page and emails</h3>
+          <p>A page that gets sign-ups. Emails go out on their own.</p>{{ plan_pill('pages') }}
         </article>
-
       </div>
     </div>
   </div>
 </section>
 
-<section class="lv-sec" id="journey" aria-labelledby="lv-how">
+<section class="lv-sec hp-how" id="journey" aria-labelledby="lv-how">
   <div class="lv-wrap">
     <h2 id="lv-how">How it works</h2>
-    <ol class="lv-steps">
+    <p class="lv-sub">Three steps. Most people are done in a few minutes.</p>
+    <ol class="lv-steps hp-steps">
       <li>
-        <div class="lv-art" aria-hidden="true">
-          <span class="lv-a-url"><i></i><b></b></span>
-          <span class="lv-a-prod"><i></i><span><b></b><em></em></span><u>Read</u></span>
+        <div class="hp-art a1" aria-hidden="true">
+          <span class="hp-url"><i></i>citrusvolt.com/can<b class="hp-caret"></b></span>
+          <span class="hp-prod"><img src="{{ url_for('static', filename='hero/pop-volt-taste.webp') }}" alt="" width="400" height="500"><span><b>Citrus Volt</b><u>Name</u><u>Photos</u><u>Price</u></span></span>
         </div>
         <h3>Paste your product page</h3>
-        <p>We read the name, photos and claims for free. You approve what your ads can say.</p>
+        <p>We read it for free. You say yes to what your ads can say.</p>
       </li>
       <li>
-        <div class="lv-art" aria-hidden="true">
-          <span class="lv-a-row"><span>{{ so.images }} image ad{{ '' if so.images == 1 else 's' }}</span><b>{{ (so.images * r.image)|credits }}</b></span>
-          <span class="lv-a-row dim"><span>Your credits</span><b>{{ sc|credits }}</b></span>
-          <span class="lv-a-btn">Make {{ 'it' if so.images == 1 else 'them' }}</span>
+        <div class="hp-art a2" aria-hidden="true">
+          <span class="hp-bub">Make 3 picture ads for summer</span>
+          <span class="hp-quote"><span>3 picture ads</span><b>{{ (3 * r.image)|credits }}</b><span class="dim">You have</span><b class="dim">{{ (sc or plans.PLANS['starter'].credits)|credits }}</b><i>Make them</i></span>
         </div>
         <h3>See the price first</h3>
-        <p>Every ad shows its price in credits before anything is made.</p>
+        <p>Every ad shows its price before it is made.</p>
       </li>
       <li>
-        <div class="lv-art tiles" aria-hidden="true"><i class="a4x5"></i><i class="a9x16"></i><i class="a1x1"></i></div>
+        <div class="hp-art a3" aria-hidden="true">
+          <img class="c1" src="{{ url_for('static', filename='hero/pop-energy.webp') }}" alt="" width="400" height="500">
+          <img class="c2" src="{{ url_for('static', filename='hero/pop-volt-taste.webp') }}" alt="" width="400" height="500">
+          <img class="c3" src="{{ url_for('static', filename='hero/pop-volt-swap.webp') }}" alt="" width="400" height="500">
+          <span class="hp-dl">Download</span>
+        </div>
         <h3>Download finished ads</h3>
-        <p>Ready in minutes, sized for feeds, stories and listings. Failed renders are refunded.</p>
+        <p>Ready in minutes, in every shape. If one fails, you get your credits back.</p>
       </li>
     </ol>
   </div>
@@ -224,20 +188,31 @@
   </div>
 </section>
 
-<section class="lv-sec" id="more" aria-labelledby="lv-rest">
-  <div class="lv-wrap lv-split">
-    <div>
-      <h2 id="lv-rest">The rest of the campaign, when you want it</h2>
-      <p class="lv-sub">{% if plans_only() %}Every plan makes ads. Each tool around them says which plan it comes with.{% else %}The free studio makes ads. A plan adds the tools around them, and each one says which plan it comes with.{% endif %}</p>
-      <p><a href="{{ url_for('features') }}">See every feature</a></p>
-    </div>
-    <ul class="lv-list">
-      {% for s in journey if s.id != 'make' %}{% set k = (s.features|select('in', plans.FEATURES)|list)[0] %}{% set f = plans.FEATURES[k] %}
-      <li><a href="{{ url_for('features') }}#step-{{ s.id }}">{{ s.title }}</a><span>{{ s.body.split('. ')[0].rstrip('.') }}.</span><em>{{ 'Every account' if f.plan == 'free' else plans.PLANS[f.plan].name ~ ' and up' }}</em></li>
+{% set more = [
+  ('plan', 'plan', 'Plan it', 'Tell it your goal. Get a plan and a budget.', 'Ad budget split  ·  Launch checklist'),
+  ('copy', 'text', 'Write it', 'Words for every app, the right length for each.', 'Hooks  ·  Captions  ·  Emails'),
+  ('found', 'search', 'Get found', 'Show up on Google and in AI answers.', 'Fixes in order  ·  Ready-to-paste code'),
+  ('launch', 'shield', 'Go live', 'Set up each ad account, step by step.', 'Eight apps  ·  Pixel help'),
+  ('leads', 'page', 'Get sign-ups', 'Pages, forms and smart links. New people land in your list.', 'Pages  ·  Forms  ·  Links'),
+  ('measure', 'chart', 'See what works', 'Clicks, visits and sign-ups, day by day.', 'Where people came from'),
+] %}
+<section class="lv-sec hp-more" id="more" aria-labelledby="lv-rest">
+  <div class="lv-wrap">
+    <h2 id="lv-rest">Everything else, when you want it</h2>
+    <p class="lv-sub">Every plan makes ads. These tools help you sell more. <a href="{{ url_for('features') }}">See every feature</a></p>
+    <ul class="hp-cards">
+      {% for sid, icon, title, line, peek in more %}{% set st = (journey|selectattr('id', 'equalto', sid)|list)[0] %}{% set k = (st.features|select('in', plans.FEATURES)|list)[0] %}{% set f = plans.FEATURES[k] %}
+      <li class="hp-card c{{ loop.index }}"><a href="{{ url_for('features') }}#step-{{ sid }}">
+        <span class="hp-ico">{{ ico(icon) }}</span>
+        <b>{{ title }}</b>
+        <span class="hp-line">{{ line }}</span>
+        <span class="hp-peek">{{ peek }}</span>
+        <em class="hp-plan">{{ 'Every plan' if f.plan == 'free' else plans.PLANS[f.plan].name ~ ' and up' }}</em>
+      </a></li>
       {% endfor %}
     </ul>
   </div>
-  <div class="lv-wrap" id="reps"><p class="lv-reps">Selling as an independent rep? <a href="{{ url_for('for_reps') }}">Compliance checks</a> block income, recruiting and health claims before an ad goes out.</p></div>
+  <div class="lv-wrap" id="reps"><p class="lv-reps">Sell for a company as a rep? <a href="{{ url_for('for_reps') }}">Our checks</a> stop money, joining and health claims before an ad goes out.</p></div>
 </section>
 
 <section class="lv-sec" id="pricing" aria-labelledby="lv-price">
@@ -282,11 +257,11 @@
     stars.style.setProperty('--my', Math.max(-1, Math.min(1, (e.clientY - r.top) / r.height * 2 - 1)).toFixed(3)); });
   st.addEventListener('mouseleave', function(){ stars.style.setProperty('--mx', '0'); stars.style.setProperty('--my', '0'); });
 })();
-// "What comes back out": the side list marks the row that is in view.
-(function(){ var links = document.querySelectorAll('.cfk-rail a'); if(!links.length || !('IntersectionObserver' in window)) return;
-  var io = new IntersectionObserver(function(es){ es.forEach(function(e){ if(!e.isIntersecting) return;
-    links.forEach(function(a){ var on = a.getAttribute('data-k') === e.target.getAttribute('data-row'); a.classList.toggle('on', on); if(on) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current'); }); }); },
-    { rootMargin: '-45% 0px -45% 0px' });
-  document.querySelectorAll('.cfk-row').forEach(function(r){ io.observe(r); });
+// "One link in": the tiles pop in once, when the section scrolls into view (not when motion is turned down).
+(function(){ var f = document.querySelector('[data-pop]'); if(!f) return;
+  if(!('IntersectionObserver' in window) || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)){ f.classList.add('is-in'); return; }
+  f.classList.add('will-pop');
+  var io = new IntersectionObserver(function(es){ if(es.some(function(e){ return e.isIntersecting; })){ f.classList.add('is-in'); io.disconnect(); } }, {threshold: 0.18});
+  io.observe(f);
 })();
 </script>
