@@ -35,8 +35,8 @@
     <span class="cfh-pulse"></span><span class="cfh-pulse two"></span>
   </div>
   <div class="cfh-copy">
-    <h1 id="cfh-h" class="cfh-late">Not just ads. Your whole campaign, made with AI.</h1>
-    <p class="lv-lede cfh-late" style="--ld:2.5s">Plan, create and launch it in minutes, from one product link.</p>
+    <h1 id="cfh-h" class="cfh-late">Your whole campaign, made with AI.</h1>
+    <p class="lv-lede cfh-late" style="--ld:2.5s">Plan, create and launch it in minutes, from one product link. Ads are just the start.</p>
     <form class="lv-try cfh-late" style="--ld:2.6s" action="{{ url_for('signup') }}" method="get" data-try>
       <label class="sr" for="lv-url">Your product page (optional)</label>
       <div class="lv-try-box">
@@ -261,7 +261,7 @@
 (function(){ var f = document.querySelector('[data-pop]'); if(!f) return;
   if(!('IntersectionObserver' in window) || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)){ f.classList.add('is-in'); return; }
   f.classList.add('will-pop');
-  var io = new IntersectionObserver(function(es){ if(es.some(function(e){ return e.isIntersecting; })){ f.classList.add('is-in'); io.disconnect(); } }, {threshold: 0.18});
+  var io = new IntersectionObserver(function(es){ if(es.some(function(e){ return e.isIntersecting; })){ f.classList.add('is-in'); io.disconnect(); setTimeout(function(){ f.classList.add('popped'); }, 1800); } }, {threshold: 0.18});
   io.observe(f);
 })();
 </script>
