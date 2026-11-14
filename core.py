@@ -202,6 +202,8 @@ def reserve_ai(quote: int, label: str, ref=None, conn=None):
     if hold is None:
         import plan_paywall   # out of credits with no subscription: the lock (RS_PLAN_PAYWALL)
         plan_paywall.check(g.ws)
+        import plan_gate     # on the welcome credits: the next step is a plan, not a pack
+        plan_gate.welcome_spent(g.ws)
     return hold
 
 
@@ -284,6 +286,8 @@ def can_afford(credits: int) -> bool:
 def not_enough(credits: int):
     import plan_paywall   # out of credits with no subscription: the lock (RS_PLAN_PAYWALL)
     plan_paywall.check(g.ws)
+    import plan_gate     # on the welcome credits: the next step is a plan, not a pack
+    plan_gate.welcome_spent(g.ws)
     flash(f"That needs about {credits:,} credits and you have {db.balance(g.ws):,}. Top up on the Billing page.")
 
 
@@ -316,6 +320,13 @@ def queue_job(conn, tool, tpl_id, brief, params, usd, credits, quiet=False, prod
     product's brand. A workspace on a billing hold gets BillingHold (402)."""
     hold_check(conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone())
     msg = verify_block(conn, tool, credits)
+    if not msg:
+        import plan_gate    # on the welcome credits: no video until a plan is picked
+        try:
+            plan_gate.check_tool(conn, g.ws, tool, g.get("user"))
+        except plan_gate.PlanRequired:
+            conn.rollback()
+            raise
     if msg:
         conn.rollback()
         g.verify_blocked = msg
@@ -341,6 +352,8 @@ def queue_job(conn, tool, tpl_id, brief, params, usd, credits, quiet=False, prod
         if not quiet or not g.get("queued_any"):
             import plan_paywall   # out of credits with no subscription: the lock (RS_PLAN_PAYWALL)
             plan_paywall.check(g.ws)
+            import plan_gate     # on the welcome credits: the next step is a plan, not a pack
+            plan_gate.welcome_spent(g.ws)
         if not quiet:
             flash(f"That needs {credits:,} credits and you have {db.balance(g.ws):,}. Buy a credit pack or pick a plan "
                   "on the Billing page.")

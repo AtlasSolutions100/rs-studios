@@ -1123,6 +1123,12 @@ weekly_reports.subject TEXT
 weekly_reports.user_id INTEGER
 weekly_reports.week TEXT
 weekly_reports.workspace_id INTEGER
+welcome_grants.credits INTEGER
+welcome_grants.email_norm TEXT
+welcome_grants.granted_at TEXT
+welcome_grants.id INTEGER
+welcome_grants.user_id INTEGER
+welcome_grants.workspace_id INTEGER
 worker_leases.holder TEXT
 worker_leases.info TEXT
 worker_leases.name TEXT

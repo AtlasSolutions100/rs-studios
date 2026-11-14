@@ -282,6 +282,9 @@ def brief():
                 save(conn, g.user, brief="done")
                 finish(conn, g.user)
                 conn.commit()
+                # On the welcome credits: the plan step, which they may skip to make their first image ads with them.
+                if plan_gate.welcome_left(conn, ws) is not None:
+                    return redirect(url_for("plangate.page"))
                 # the first ads come next (the gate sends a workspace with no plan to the plan step on the way)
                 return redirect(url_for("onboarding.first" if first_ads.on() and p is not None else "studio"))
             if do == "import":

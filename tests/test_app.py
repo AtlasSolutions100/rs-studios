@@ -3269,6 +3269,8 @@ if __name__ == "__main__" and not os.environ.get("RS_TEST_ONE"):
     subprocess.run([sys.executable, os.path.join(HERE, "test_plans_only.py")], check=True)
     # The guided first run (first_ads.py): the brand brief before the plan step, the first ads on us, once only.
     subprocess.run([sys.executable, os.path.join(HERE, "test_first_ads.py")], check=True)
+    # The welcome credits: 500 once the email is confirmed, videos wait for a plan, then the plan step (plan_gate).
+    subprocess.run([sys.executable, os.path.join(HERE, "test_welcome_credits.py")], check=True)
     # The Tools page (one catalog, a slimmer menu in the new look) and the done-for-you request (tools_page.py).
     subprocess.run([sys.executable, os.path.join(HERE, "test_tools_page.py")], check=True)
     # Inspiration by category on the desk and the Tools page (inspiration.py), and the brand step's example cards.

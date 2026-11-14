@@ -1,0 +1,6 @@
+{# On the welcome credits (plan_gate.grant_welcome): what is left, and that videos and more come with a plan.
+   Needs welcome_banner in scope (plan_gate_routes._welcome_banner). #}
+<div class="vbanner" role="status" data-welcome-banner>
+  <p>{% if welcome_banner.left > 0 %}{{ '{:,}'.format(welcome_banner.left) }} free credits left for your brand setup and image ads. Videos and more come with a plan.{% else %}You've used your free credits. Pick a plan to keep going.{% endif %}</p>
+  <a class="btn sm dark" href="{{ welcome_banner.plans }}">See plans</a>
+</div>

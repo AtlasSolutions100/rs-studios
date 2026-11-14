@@ -494,6 +494,11 @@ CREATE INDEX IF NOT EXISTS idx_plan_trials_fp ON plan_trials(fingerprint);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_plan_trials_sub ON plan_trials(subscription_id);
 CREATE INDEX IF NOT EXISTS idx_plan_trials_ws ON plan_trials(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_plan_trials_email ON plan_trials(email_norm);
+-- The welcome credits (plan_gate.grant_welcome): one row per workspace that got them, once per person (email_norm).
+CREATE TABLE IF NOT EXISTS welcome_grants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, workspace_id INTEGER NOT NULL UNIQUE, user_id INTEGER, email_norm TEXT,
+    credits INTEGER NOT NULL DEFAULT 0, granted_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_welcome_grants_email ON welcome_grants(email_norm);
 -- The first ads on us (first_ads.py): one row per gifted ad. A row is claimed (job_id NULL) before anything is
 -- granted, so two requests at once can never both take the same slot; a slot whose ad did not start is given back.
 CREATE TABLE IF NOT EXISTS first_gifts (

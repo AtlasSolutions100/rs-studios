@@ -752,6 +752,16 @@ def guide(conn, ws, user, product, market, campaigns, shown) -> dict:
                 "acts": [{"label": "Review my first ads", "href": url_for("onboarding.first")}],
                 "text": hi + f"Your first {what} {are} on us. I drafted {'it' if are == 'is' else 'them'} for {name} from "
                              "your page. Change any of the words, then make them."}
+    import plan_gate
+    left = plan_gate.welcome_left(conn, ws)
+    if left is not None and not campaigns:      # on the welcome credits, nothing planned yet
+        return {"state": "welcome", "also": also,
+                "acts": asks + [{"label": "See plans", "href": url_for("plangate.page")}],
+                "text": hi + (f"You have {left:,} free credits for {name}'s first image ads. Tell me what you're "
+                              "launching in a sentence and I'll plan it, with the price of each ad before anything is "
+                              "made. Videos come with a plan." if left else
+                              "You've used your free credits. Pick a plan to keep going: Starter and Growth start with "
+                              f"a {plan_gate.TRIAL_DAYS}-day free trial.")}
     busy = conn.execute("SELECT COUNT(*) FROM jobs WHERE workspace_id=? AND deleted_at IS NULL AND status IN "
                         "('pending','running')", (ws["id"],)).fetchone()[0]
     if busy and campaigns:

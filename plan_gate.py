@@ -32,6 +32,13 @@ payment failed (that is fixed on Billing, and the renewal hold already stops
 spending); and a workspace that paid for a credit pack and still holds credits
 (nothing that was paid for is taken away).
 
+Welcome credits (Koby, Nov 13 2026). Not a free plan: a new sign-up can skip paying and the whole first run. Once
+it confirms its email it gets WELCOME_CREDITS (500) once (grant_welcome, from verify.completed and a Google sign-up),
+for its brand setup and first image ads. While it holds some it is not sent to pick a plan (exempt), but videos
+wait for a plan (check_tool: they cost real vendor money). When they run out, the plan step comes back, with the
+3-day trial. Once per workspace and per person (welcome_grants: the owner's email folded as for trials), never for
+a team member joining a workspace, and never for a person who already had a trial or a paid plan.
+
 Switching the flag off puts everything back: sign-ups get starter credits again
 and nobody is asked for a plan. Trials already running carry on in Stripe.
 """
@@ -49,6 +56,8 @@ TRIAL_PLANS = ("starter", "growth")
 TRIAL_PERCENT = 100         # of the plan's monthly credits, granted when the trial starts: full access
 REMINDER_HOURS = 24         # the reminder email goes out about this long before a trial's first charge
 MESSAGE = "Pick a plan to make something new."
+VIDEO_MESSAGE = "Videos come with a plan. Your free credits cover your brand setup and image ads."
+WELCOME_REASON = "welcome credits"
 
 
 class PlanRequired(HTTPException):
@@ -64,6 +73,14 @@ def on() -> bool:
         return False
     import billing
     return billing.configured()
+
+
+def welcome_credits() -> int:
+    """WELCOME_CREDITS: what a new account gets once it confirms its email (default 500; 0 turns it off)."""
+    try:
+        return max(0, int(os.environ.get("WELCOME_CREDITS", "500")))
+    except ValueError:
+        return 500
 
 
 def _key(row, k):
@@ -119,12 +136,75 @@ def exempt(conn, ws, user=None) -> bool:
         return True
     if _key(ws, "stripe_subscription_id") and status in plans.LIVE_STATUSES | plans.RENEWAL_FAILED:
         return True                                # the payment failed: fixed on Billing; the renewal hold stops spending
+    # On its welcome credits and still holds some: no plan yet (videos wait for one: check_tool).
+    if int(_key(ws, "credits") or 0) > 0 and on_welcome(conn, ws):
+        return True
     # Paid for credits before this was switched on and still holds some: they stay spendable.
     if int(_key(ws, "credits") or 0) > 0 and conn.execute(
             "SELECT 1 FROM purchases WHERE workspace_id=? AND status='paid' AND amount_cents>0 LIMIT 1",
             (ws["id"],)).fetchone() is not None:
         return True
     return False
+
+
+def on_welcome(conn, ws) -> bool:
+    """This workspace got the welcome credits and has no plan yet."""
+    return ws is not None and plans.plan_code(ws) == "free" and conn.execute(
+        "SELECT 1 FROM welcome_grants WHERE workspace_id=? LIMIT 1", (ws["id"],)).fetchone() is not None
+
+
+def welcome_left(conn, ws) -> int | None:
+    """The credits a workspace on its welcome credits still has; None when it isn't on them."""
+    if not on() or not on_welcome(conn, ws):
+        return None
+    row = conn.execute("SELECT credits FROM workspaces WHERE id=?", (ws["id"],)).fetchone()
+    return int(row["credits"] or 0) if row is not None else 0
+
+
+def grant_welcome(conn, ws, user) -> int:
+    """The member confirmed their email: give their workspace the welcome credits, once. Only the owner of a
+    workspace with no plan, never paid, while PLANS_ONLY is on; not again for the same workspace or the same person
+    (email folded), and not for a person who already had a trial. No commit. Returns the credits granted."""
+    n = welcome_credits()
+    if not on() or not n or ws is None or user is None or _key(user, "role") != "owner":
+        return 0
+    if plans.plan_code(ws) != "free" or _key(ws, "stripe_subscription_id"):
+        return 0
+    email = _email_norm(user)
+    if had_trial(conn, ws, user) or conn.execute(
+            "SELECT 1 FROM purchases WHERE workspace_id=? AND status='paid' LIMIT 1", (ws["id"],)).fetchone():
+        return 0
+    if email and conn.execute("SELECT 1 FROM welcome_grants WHERE email_norm=? LIMIT 1", (email,)).fetchone():
+        return 0
+    cur = conn.execute("INSERT OR IGNORE INTO welcome_grants (workspace_id, user_id, email_norm, credits, granted_at) "
+                       "VALUES (?,?,?,?,?)", (ws["id"], user["id"], email, n, db.now()))
+    if cur.rowcount != 1:
+        return 0
+    db.adjust_credits(conn, ws["id"], n, WELCOME_REASON)
+    return n
+
+
+def check_tool(conn, ws, tool, user=None):
+    """Raise PlanRequired (VIDEO_MESSAGE) for a video on a workspace that is on its welcome credits."""
+    if not on() or ws is None or (user is not None and _key(user, "is_admin")):
+        return
+    import verify
+    if verify.is_video(tool) and on_welcome(conn, ws):
+        raise PlanRequired(VIDEO_MESSAGE)
+
+
+SPENT_MESSAGE = (f"You've used your free credits. Pick a plan to keep going: Starter and Growth start with a "
+                 f"{TRIAL_DAYS}-day free trial.")
+
+
+def welcome_spent(ws):
+    """Raise PlanRequired (SPENT_MESSAGE) where a spend was refused for want of credits on a workspace that is on
+    its welcome credits: the next step is a plan, not a credit pack (packs need a plan)."""
+    if not on() or ws is None:
+        return
+    with db.connect() as conn:
+        if on_welcome(conn, ws):
+            raise PlanRequired(SPENT_MESSAGE)
 
 
 def needs_plan(conn, ws, user=None) -> bool:
@@ -345,6 +425,16 @@ def offer() -> dict:
     with is the Starter trial, and the terms say when the card is charged."""
     import catalog
     r = catalog.rates()
+    w = welcome_credits()
+    if w:
+        # Not a free plan (Koby, Nov 13 2026): free credits once the email is confirmed, no card; then a plan.
+        terms_line = (f"No card to start. Starter and Growth begin with a {TRIAL_DAYS}-day free trial and are charged "
+                      "when it ends, unless you cancel first.")
+        return {"credits": w, "images": w // max(r["image"], 1), "video": False, "ad": False, "card": False,
+                "trial": True, "cta": "Start free",
+                "body": (f"Confirm your email and get {w:,} free credits for your brand setup and image ads. When you "
+                         f"want videos or more, pick a plan. {terms_line}"),
+                "terms": terms_line}
     n = trial_credits(plans.PLANS["starter"])
     images = n // max(r["image"], 1)
     terms_line = (f"A card is needed to start, and the plan is charged when the {TRIAL_DAYS}-day trial ends unless "
