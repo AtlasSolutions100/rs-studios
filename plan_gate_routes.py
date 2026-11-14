@@ -14,13 +14,15 @@ bp = Blueprint("plangate", __name__)
 # picked, a code is entered and a card is fixed), email confirmation (its step comes before this one:
 # confirm_step.py), the first two onboarding questions and the
 # brand brief (they come before this step: a new account sees its brand read back before it is asked for a card;
-# the brief's one paid action waits for a plan, onboarding.brief), the look switch, workspace deletion and logging
-# out.
+# the brief's one paid action waits for a plan, onboarding.brief), the free first result before the plan step (its
+# step, its previews and the screen that shows the ads: onboarding.first sends anyone it isn't open for to this
+# page; first_ads.free_open), the look switch, workspace deletion and logging out.
 ALLOWED = {"logout", "library", "media", "photo", "api_jobs", "jobs.cards",
            "billing_page", "subscribe", "checkout", "billing_portal", "billing_code",
            "verify_email", "verify_resend", "verify_code_send", "verify_code_check", "confirm.page",
            "adhub.export_page", "adhub.export_file", "share.create", "share.revoke",
-           "admin_view_exit", "onboarding.intent", "onboarding.profile", "onboarding.brief", "ui_v2.set_look"}
+           "admin_view_exit", "onboarding.intent", "onboarding.profile", "onboarding.brief", "ui_v2.set_look",
+           "onboarding.first", "onboarding.first_preview", "onboarding.first_result"}
 OPEN_PREFIXES = ("plangate.", "wsdelete.")
 
 
@@ -72,8 +74,9 @@ def page():
         trials = {p["code"]: plan_gate.trial_days(conn, g.ws, g.user, p["code"]) for p in plans.PAID}
         made = conn.execute("SELECT 1 FROM jobs WHERE workspace_id=? LIMIT 1", (g.ws["id"],)).fetchone() is not None
         import first_ads            # the first ads on us (the guided first run): said here when they are still open
-        gift = (first_ads.on() and any(first_ads.left(conn, g.ws["id"], g.user).values())
-                and not first_ads.used_elsewhere(conn, g.ws, g.user))
+        room = first_ads.left(conn, g.ws["id"], g.user) if first_ads.on() else {}
+        gift = (dict(room, free=first_ads.free_open(conn, g.ws, g.user))
+                if any(room.values()) and not first_ads.used_elsewhere(conn, g.ws, g.user) else None)
     terms = {code: plan_gate.terms(code, days) for code, days in trials.items()}
     _step("seen")
     if request.args.get("canceled") == "1":

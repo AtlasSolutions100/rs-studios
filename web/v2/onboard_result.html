@@ -1,0 +1,39 @@
+{% extends "v2/onboard_base.html" %}{% block title %}Your first ads · Campaignify{% endblock %}
+{% block ob_class %} ob-wide{% endblock %}
+{# The first-result screen (onboarding.first_result): the free first ads as they finish (the live cards, static/app.js
+   liveCards), then the plan step. A sign-up from the presenter pages (first_ads.came_for_presenters) also sees one
+   presenter still with a line from their product: a still image, labelled as a preview of the video, never the
+   video itself. Every number here is a real price or a count of real ads. #}
+{% block ob %}
+<div class="bb-head">
+  <h1>Your first {{ count }} ad{{ '' if count == 1 else 's' }}{{ ' for ' ~ p.name if p }}.</h1>
+  <p class="ob-sub">Made from your page{% if no_plan %}, free{% endif %}. This page fills in as each one finishes, and you can leave it. They stay in your library.</p>
+</div>
+<div class="flash" role="status" aria-live="polite" data-live-flash hidden><span class="spinner sm"></span> <span data-live-text></span> This page updates by itself.</div>
+<div class="lgrid st-grid fr-grid" data-live-cards="batch">
+  {% for c in cards %}{{ c|safe }}{% endfor %}
+</div>
+
+{% if presenter %}
+<section class="bb-card fr-presenter" aria-labelledby="fr-pv-h" data-presenter-preview>
+  <h2 id="fr-pv-h">Preview of your video: a still, not the video</h2>
+  <div class="fr-pv">
+    <figure class="fr-pv-pic"><img src="{{ presenter.portrait }}" alt="{{ presenter.name }}, an AI presenter (not a real person)" loading="lazy"><figcaption>{{ presenter.name }} is an AI presenter, not a real person.</figcaption></figure>
+    <div class="fr-pv-words">
+      <p class="bb-main">&ldquo;{{ presenter.line }}&rdquo;</p>
+      <p>The video version has {{ presenter.name }} say a line like this about {{ p.name }} in {{ 'an' if presenter.seconds in (8, 11, 18) else 'a' }} {{ presenter.seconds }}-second video, made with an AI presenter. Nothing has been made yet: this is a picture of what you would get, and you can change the words first.</p>
+      <p><a class="btn" href="{{ video_url }}" data-make-video>{{ 'Pick a plan to make the real video' if no_plan else 'Make the real video' }}</a></p>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<div class="bb-done">
+  {% if no_plan %}
+  <a class="btn lg" href="{{ next_url }}">Next: pick a plan</a>
+  <p class="bb-note">Your ads are yours to keep and download either way. A plan is what makes more of them, and the videos.</p>
+  {% else %}
+  <a class="btn lg" href="{{ thread or next_url }}">Open your desk</a>
+  {% endif %}
+</div>
+{% endblock %}

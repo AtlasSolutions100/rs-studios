@@ -3085,8 +3085,10 @@ def admin_signups():
     with db.connect() as conn:
         data = admin_funnel.signups(conn, 30)
         steps = admin_funnel.steps(conn, 30)
+        import signup_followup     # the done-for-you follow-up per sign-up (one button a row)
+        followups = signup_followup.states(conn, [r["id"] for r in data["rows"] if not r["admin"] and not r["joined"]])
     return render_template("admin_signups.html", data=data, steps=steps, ad_credits=adoffer.credits(),
-                           starter=catalog.starter_credits())
+                           starter=catalog.starter_credits(), followups=followups)
 
 
 @app.route("/admin/health-check", methods=["POST"])
@@ -3432,6 +3434,8 @@ import plan_gate_routes  # noqa: E402
 app.register_blueprint(plan_gate_routes.bp)     # PLANS_ONLY (plan_gate.py): before the card step, which it replaces
 import tools_page  # noqa: E402
 app.register_blueprint(tools_page.bp)           # the Tools page and the done-for-you request (new look)
+import signup_followup  # noqa: E402
+app.register_blueprint(signup_followup.bp)      # /admin/signups: the done-for-you follow-up email per sign-up
 import results  # noqa: E402
 app.register_blueprint(results.bp)              # the results screen (new look)
 import site_admins  # noqa: E402

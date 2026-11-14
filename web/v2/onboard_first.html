@@ -1,9 +1,22 @@
 {% extends "v2/onboard_base.html" %}{% block title %}Your first ads · Campaignify{% endblock %}
 {% block ob_class %} ob-wide{% endblock %}
 {# The first ads, on us (onboarding.first, first_ads.py): two image ads and a short talking video drafted from the
-   brand brief; on the welcome credits (paid) the two image ads, at their price. One form, no scripts needed; static/first_ads.js only counts the script's words. #}
+   brand brief; on the welcome credits (paid) the two image ads, at their price. Before a plan, with a product link
+   (free): the free first result, its image ads made together from the page, read here first when it hasn't been.
+   One form, no scripts needed; static/first_ads.js only counts the script's words. #}
 {% block ob %}
-{% if p is none %}
+{% if p is none and free %}
+<div class="bb-start">
+  <h1>Your first {{ room.image }} ads are free.</h1>
+  <p class="ob-sub">I read your page and make {{ room.image }} image ads from it. Nothing to pay and no plan to pick first: you see your ads, then decide.</p>
+  <form method="post" action="{{ url_for('onboarding.first') }}" class="bb-link">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="do" value="import">
+    <label for="fa-url">Your product page</label>
+    <div class="bb-linkrow"><input id="fa-url" type="text" name="url" maxlength="500" inputmode="url" autocomplete="url" required value="{{ kept.get('url') if kept else link }}" placeholder="https://"><button class="btn">Read my page</button></div>
+  </form>
+  <p class="fa-ways"><a class="ob-link" href="{{ url_for('onboarding.brief') }}">No product page? Fill in your brand instead</a></p>
+</div>
+{% elif p is none %}
 <div class="bb-start">
   <h1>Tell me what you sell first.</h1>
   <p class="ob-sub">Your first ads are drafted from your product, so that comes first. Paste your link and I read the page.</p>
@@ -13,15 +26,15 @@
 <div class="bb-start">
   <h1>{{ 'Your first ads are made.' if thread else 'Your first ads are not available here.' }}</h1>
   <p class="ob-sub">{% if thread %}They are in your first campaign, along with everything you make next.{% else %}They were already made on another workspace of yours. Everything else is made from your desk, with the price shown first.{% endif %}</p>
-  <p><a class="btn" href="{{ thread or url_for('studio') }}">{{ 'Open the campaign' if thread else 'Open your desk' }}</a></p>
+  <p><a class="btn" href="{{ thread or url_for('studio') }}">{{ 'See your ads' if result else 'Open the campaign' if thread else 'Open your desk' }}</a></p>
 </div>
 {% else %}
 {% set n_img = [d.looks|length, room.image]|min %}
 {% set has_talk = room.talk and d.cast %}
 {% set an = 'an' if seconds in (8, 11, 18) else 'a' %}
 <div class="bb-head">
-  <h1>{{ 'Make your first ads.' if paid else 'Your first ads are on us.' }}</h1>
-  <p class="ob-sub">{% if n_img and has_talk %}{{ n_img }} image ad{{ '' if n_img == 1 else 's' }} and {{ an }} {{ seconds }}-second talking video{% elif n_img %}{{ n_img }} image ad{{ '' if n_img == 1 else 's' }}{% else %}{{ an|capitalize }} {{ seconds }}-second talking video{% endif %} for {{ p.name }}, drafted from what you just checked. Change any of the words, then make them. {% if paid %}They're made with your free credits.{% else %}They use none of your plan's credits.{% endif %}</p>
+  <h1>{{ ('Your first ' ~ n_img ~ ' ads are free.') if free else 'Make your first ads.' if paid else 'Your first ads are on us.' }}</h1>
+  <p class="ob-sub">{% if free %}{{ n_img }} image ad{{ '' if n_img == 1 else 's' }} for {{ p.name }}, made from your page. Change any headline, then make them. They use none of your credits, and there is nothing to pay or pick first.{% elif n_img and has_talk %}{{ n_img }} image ad{{ '' if n_img == 1 else 's' }} and {{ an }} {{ seconds }}-second talking video{% elif n_img %}{{ n_img }} image ad{{ '' if n_img == 1 else 's' }}{% else %}{{ an|capitalize }} {{ seconds }}-second talking video{% endif %}{% if not free %} for {{ p.name }}, drafted from what you just checked. Change any of the words, then make them. {% if paid %}They're made with your free credits.{% else %}They use none of your plan's credits.{% endif %}{% endif %}</p>
 </div>
 <form method="post" action="{{ url_for('onboarding.first') }}" class="fa" data-first>
   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
@@ -31,7 +44,7 @@
     <section class="bb-card fa-card" aria-labelledby="fa-h{{ i }}">
       <div class="fa-top">
         <h2 id="fa-h{{ i }}">Image ad {{ loop.index }}</h2>
-        <label class="fa-on"><input type="checkbox" name="image{{ i }}" value="1" {{ 'checked' if not kept or kept.get('image' ~ i) }}><span>Make it</span></label>
+        {% if free %}<input type="hidden" name="image{{ i }}" value="1">{% else %}<label class="fa-on"><input type="checkbox" name="image{{ i }}" value="1" {{ 'checked' if not kept or kept.get('image' ~ i) }}><span>Make it</span></label>{% endif %}
       </div>
       {% if p.primary_photo_id %}<figure class="fa-media"><img src="{{ url_for('onboarding.first_preview', tid=t.id, h=(kept.get('headline' ~ i) if kept else t.headline)) }}" alt="A preview of image ad {{ loop.index }} with {{ p.name }}" data-preview="{{ url_for('onboarding.first_preview', tid=t.id) }}" data-for="fa-hl{{ i }}"><figcaption>Your photo, words and colours in this look. The finished ad puts {{ p.name }} in the scene.</figcaption></figure>
       {% elif t.preview %}<figure class="fa-media"><img src="{{ t.preview }}" alt="" loading="lazy"><figcaption>An example of this look. Yours shows {{ p.name }}.</figcaption></figure>{% endif %}
@@ -61,8 +74,9 @@
     {% endif %}
   </div>
   <div class="bb-done fa-done">
-    <button class="btn lg" name="do" value="make">Make my first ads</button>
-    {% if paid %}<p class="bb-note" data-first-paid>{% if cost.total %}{{ '{:,}'.format(cost.total) }} of your {{ '{:,}'.format(balance) }} free credits. {% endif %}After these, you see the price before anything is made.</p>
+    <button class="btn lg" name="do" value="make">{{ 'Make my free ads' if free else 'Make my first ads' }}</button>
+    {% if free %}<p class="bb-note" data-first-free>Free{% if cost.total %}: {{ '{:,}'.format(cost.total) }} credits of ads, on us{% endif %}. You see them before you are asked to pick a plan.</p>
+    {% elif paid %}<p class="bb-note" data-first-paid>{% if cost.total %}{{ '{:,}'.format(cost.total) }} of your {{ '{:,}'.format(balance) }} free credits. {% endif %}After these, you see the price before anything is made.</p>
     {% else %}<p class="bb-note">On us{% if cost.total %}: {{ '{:,}'.format(cost.total) }} credits of ads{% endif %}. Your plan's credits stay as they are. After these, you see the price before anything is made.</p>{% endif %}
     <button class="ob-link" name="do" value="skip">Skip for now</button>
   </div>

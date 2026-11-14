@@ -31,6 +31,18 @@ talking video only while it has made no talking video outside it. So a member wh
 Studio at the shown price has used "first" for that kind; one who made image ads but never a talking video still
 has the video on us. A site admin is let past this rule (still once per slot), so the step can be looked at on an
 account that has made ads before.
+
+The free first result, before the plan step (Koby, Nov 14 2026). Most sign-ups stopped at the plan step having seen
+nothing of theirs. So a new workspace with no plan that gave us a product link (pasted before signing up, typed as its
+website, or read on the brand brief: link_of) gets FREE_IMAGES image ads made from that page, free, before it is asked
+to pick a plan (free_open). It is the same walk and the same make() as above: the same slots in first_gifts, the same
+grant of exactly what the ads cost (2 image ads at today's price, 24 credits at 12 each) and the same take-back of
+anything that did not start. What is new: the workspace is marked first (workspaces.first_free_at, and what was granted
+in first_free_credits), so it can never be taken twice there; the plan gate is lifted for that one request only
+(plan_gate.free_pass), so the granted credits can't be spent on anything else; and the member then sees the ads on
+the first-result screen (onboarding.first_result), with the plan step after it. No talking video: videos come with a
+plan. A sign-up who came from the presenter pages (came_for_presenters) also sees one presenter still with a line
+from their product, labelled as a preview of the video (presenter_preview); nothing is generated for it.
 """
 import json
 import logging
@@ -47,6 +59,10 @@ log = logging.getLogger("campaignify.first_ads")
 
 IMAGES, TALKS = 2, 1
 ALLOW = {"image": IMAGES, "talk": TALKS}
+FREE_IMAGES = 2                 # the free first result, before the plan step (free_open; Koby, Nov 14 2026: 2, not 3)
+FREE = {"image": FREE_IMAGES, "talk": 0}
+# Landing pages whose visitors came for presenter videos (users.first_touch "lp"): they also see a presenter preview
+PRESENTER_PAGES = ("/ai-ugc-ad-generator", "/arcads-alternative")
 TALK_SECONDS = 8                # the shortest talking video (catalog.TOOLS["ugc_video"]["durations"][0])
 REASON = "first_ads"            # the ledger rows: the grant, and anything taken back
 TITLE = "Your first campaign"
@@ -75,8 +91,40 @@ def _admin(user) -> bool:
 
 
 def paid(conn, ws, user=None) -> bool:
-    """The first ads are made with the welcome credits, not on us: the workspace is on them (no plan yet)."""
-    return ws is not None and plan_gate.on_welcome(conn, ws) and not _admin(user)
+    """The first ads are made with the welcome credits, not on us: the workspace is on them (no plan yet), and the
+    free first result is not open for it."""
+    return (ws is not None and plan_gate.on_welcome(conn, ws) and not _admin(user)
+            and not free_open(conn, ws, user))
+
+
+def link_of(conn, ws, user=None) -> str:
+    """The product link the free first result is made from: the page the workspace's product was imported from,
+    else (no product yet) the link the member gave us, not read yet (onboarding.first_link). "" for none: a product
+    added by hand, or no link at all, keeps the walk as it was."""
+    import onboarding
+    import products
+    if ws is None:
+        return ""
+    p = products.get_product(conn, ws["id"], ws["product_id"]) if plan_gate._key(ws, "product_id") else None
+    if p is not None:
+        info = products.import_info(p)
+        return str((info.get("url") if isinstance(info, dict) else "") or (p["url"] if "url" in p.keys() else "") or "")
+    return onboarding.first_link(user)
+
+
+def free_open(conn, ws, user=None) -> bool:
+    """The free first result is still open for this workspace: on, no plan, a product link, not taken here (the mark
+    on the workspace, or any first ad already gifted) nor by the same person in another workspace, and no image ad
+    made outside it (first means first; a site admin may look)."""
+    if ws is None or plans.plan_code(ws) != "free" or not on():
+        return False
+    row = conn.execute("SELECT first_free_at FROM workspaces WHERE id=?", (ws["id"],)).fetchone()
+    if row is None or row["first_free_at"] or started(conn, ws["id"]):
+        return False
+    if not link_of(conn, ws, user) or used_elsewhere(conn, ws, user):
+        return False
+    return _admin(user) or conn.execute("SELECT 1 FROM jobs WHERE workspace_id=? AND tool='ad_image' LIMIT 1",
+                                        (ws["id"],)).fetchone() is None
 
 
 def left(conn, ws_id, user=None) -> dict:
@@ -84,6 +132,8 @@ def left(conn, ws_id, user=None) -> dict:
     no longer a first), except for a site admin looking at the step. On the welcome credits: no talking video."""
     out = dict(ALLOW)
     ws_row = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+    if free_open(conn, ws_row, user):
+        return dict(FREE)
     if paid(conn, ws_row, user):
         out["talk"] = 0
     for r in conn.execute("SELECT kind, COUNT(*) AS n FROM first_gifts WHERE workspace_id=? GROUP BY kind", (ws_id,)):
@@ -106,7 +156,11 @@ def used_elsewhere(conn, ws, user=None) -> bool:
 
 def open_for(conn, ws, user=None) -> bool:
     """Something is still on us for this workspace, and it may take it now."""
-    if ws is None or not on() or plan_gate.needs_plan(conn, ws, user):
+    if ws is None or not on():
+        return False
+    if free_open(conn, ws, user):
+        return True
+    if plan_gate.needs_plan(conn, ws, user):
         return False
     return any(left(conn, ws["id"], user).values()) and not used_elsewhere(conn, ws, user)
 
@@ -135,14 +189,14 @@ def thread_of(conn, ws_id):
 
 # ---------------------------------------------------------------- the drafts
 
-def draft(conn, product) -> dict:
-    """What the step opens with, from what the brand step saved: two different looks with their own headline, a
+def draft(conn, product, n=IMAGES) -> dict:
+    """What the step opens with, from what the brand step saved: `n` different looks with their own headline, a
     short script from the product's description, and who can say it. Nothing here is written by AI or costs."""
     import studio_v2
     if product is None:
         return {"looks": [], "script": "", "cast": [], "words": words_max()}
     looks = []
-    for t in studio_v2.scene_templates(conn, product["id"], n=IMAGES):
+    for t in studio_v2.scene_templates(conn, product["id"], n=n):
         ex = studio_v2.example_of(t["id"], "")
         looks.append(dict(t, preview=ex.get("preview") or ""))
     cast = [{"id": c["id"], "name": c["name"], "portrait": c["portrait"], "look": c["look"] or c["vibe"]}
@@ -151,13 +205,14 @@ def draft(conn, product) -> dict:
             "words": words_max()}
 
 
-def _parts(conn, product, form, room) -> tuple[list, str]:
-    """The Studio parts for what was ticked, within what is still on us. ([(kind, part)], a problem or "")."""
+def _parts(conn, product, form, room, every=False) -> tuple[list, str]:
+    """The Studio parts for what was ticked, within what is still on us (`every`: all the looks, as the free first
+    result makes them). ([(kind, part)], a problem or "")."""
     import studio_v2
     out = []
-    looks = studio_v2.scene_templates(conn, product["id"], n=IMAGES)
+    looks = studio_v2.scene_templates(conn, product["id"], n=max(IMAGES, room.get("image", 0)))
     for i, t in enumerate(looks[:room.get("image", 0)]):
-        if not form.get(f"image{i}"):
+        if not (every or form.get(f"image{i}")):
             continue
         text = studio_v2._clean(form.get(f"headline{i}"), 120) or t["headline"]
         out.append(("image", studio_v2._scene_part({"product": product["id"]}, t, text=text)))
@@ -180,11 +235,11 @@ def _parts(conn, product, form, room) -> tuple[list, str]:
     return out, ""
 
 
-def price(conn, product) -> dict:
+def price(conn, product, n=IMAGES) -> dict:
     """What the first ads would cost, for the "on us" line: {"image": each, "talk": credits, "total"} (zeros when it
     can not be priced right now, and the page then leaves the numbers out)."""
     import studio_v2
-    d = draft(conn, product)
+    d = draft(conn, product, n)
     out = {"image": 0, "talk": 0, "total": 0}
     try:
         if d["looks"]:
@@ -229,14 +284,15 @@ def _claims(parts) -> str:
     return ""
 
 
-def _claim(conn, ws, kinds, email) -> list:
-    """Take a slot for each ad about to be made. Returns the row ids, or [] when any of them was already taken (then
-    none is kept)."""
+def _claim(conn, ws, kinds, email, allow=None) -> list:
+    """Take a slot for each ad about to be made (`allow`: how many slots each kind has, ALLOW unless said).
+    Returns the row ids, or [] when any of them was already taken (then none is kept)."""
+    allow = allow or ALLOW
     ids, now = [], db.now()
     nth = {}
     for kind in kinds:
         got = None
-        for slot in range(1, ALLOW[kind] + 1):
+        for slot in range(1, allow.get(kind, 0) + 1):
             if slot <= nth.get(kind, 0):
                 continue
             cur = conn.execute("INSERT OR IGNORE INTO first_gifts (workspace_id, kind, slot, email_norm, created_at) "
@@ -260,11 +316,14 @@ def _bucket(ws) -> str:
 
 def make(conn, ws, user, product, form) -> dict:
     """Start the ticked first ads, on us. {"ok", "url"} or {"error"}; nothing is granted or kept unless ads started."""
+    import contextlib
+
     import desk
     import studio_v2
     if not open_for(conn, ws, user):
         return {"error": "Your first ads have already been made. Anything more is made from your desk."}
-    parts, why = _parts(conn, product, form, left(conn, ws["id"], user))
+    free_result = free_open(conn, ws, user)
+    parts, why = _parts(conn, product, form, left(conn, ws["id"], user), every=free_result)
     if why:
         return {"error": why}
     only = [p for _k, p in parts]
@@ -277,17 +336,31 @@ def make(conn, ws, user, product, form) -> dict:
     total = int(q["total"])
     if paid(conn, ws, user):
         return _make_paid(conn, ws, product, only, total)
-    rows = _claim(conn, ws, [k for k, _p in parts], _owner_email(conn, ws, user))
+    taken = "Your first ads have already been made. Anything more is made from your desk."
+    if free_result:        # the mark on the workspace comes first: one request takes the free first result, never two
+        if conn.execute("UPDATE workspaces SET first_free_at=? WHERE id=? AND first_free_at IS NULL",
+                        (db.now(), ws["id"])).rowcount != 1:
+            conn.commit()
+            return {"error": taken}
+        conn.commit()
+    rows = _claim(conn, ws, [k for k, _p in parts], _owner_email(conn, ws, user), FREE if free_result else ALLOW)
     if not rows:
-        return {"error": "Your first ads have already been made. Anything more is made from your desk."}
+        if free_result:
+            conn.execute("UPDATE workspaces SET first_free_at=NULL WHERE id=? AND first_free_credits IS NULL", (ws["id"],))
+            conn.commit()
+        return {"error": taken}
     bucket = _bucket(ws)
     db.adjust_credits(conn, ws["id"], total, REASON, None, bucket=bucket)
     conn.commit()
+    if g.get("ws") is not None and g.ws["id"] == ws["id"]:     # Studio checks the balance on the request's row
+        g.ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws["id"],)).fetchone()
     data, status, charged, jobs = {}, 500, 0, []
     try:
-        data, status = _json(studio_v2.generate_parts(only, {"total": total, "confirm_many": True}, TITLE,
-                                                      {"first": True, "templates": [p.get("template") or
-                                                                                    p["payload"]["mode"] for p in only]}))
+        # the free first result is made before a plan: the plan gate steps aside for this request's ads only
+        with plan_gate.free_pass(ws["id"]) if free_result else contextlib.nullcontext():
+            data, status = _json(studio_v2.generate_parts(only, {"total": total, "confirm_many": True}, TITLE,
+                                                          {"first": True, "templates": [p.get("template") or
+                                                                                        p["payload"]["mode"] for p in only]}))
         if status == 200 and data.get("ok") and data.get("batch"):
             jobs = conn.execute("SELECT id, tool, credits FROM jobs WHERE batch_id=? AND workspace_id=? ORDER BY id",
                                 (data["batch"], ws["id"])).fetchall()
@@ -310,6 +383,11 @@ def make(conn, ws, user, product, form) -> dict:
         back = total - charged
         if back > 0 and not db.adjust_credits(conn, ws["id"], -back, REASON, None, hold_ok=True):
             log.error("first ads: could not take back %s unused credits from workspace %s", back, ws["id"])
+        if free_result:    # kept with what it was granted, or given back when no ad started (so it can be tried again)
+            if charged:
+                conn.execute("UPDATE workspaces SET first_free_credits=? WHERE id=?", (charged, ws["id"]))
+            else:
+                conn.execute("UPDATE workspaces SET first_free_at=NULL WHERE id=?", (ws["id"],))
         conn.commit()
     if not jobs:
         return {"error": data.get("error") or "The ads could not be started just now. Nothing was used. Try again.",
@@ -319,7 +397,7 @@ def make(conn, ws, user, product, form) -> dict:
     names = ([desk._plural(images, "image ad")] if images else []) + (["1 talking video"] if talks else [])
     made = [{"kind": "ads", "name": " and ".join(names), "state": "Being made",
              "href": url_for("studio_v2.page", made=data["batch"])}]
-    notes = ["On us: these did not use your plan's credits."]
+    notes = ["Free: these used none of your credits." if free_result else "On us: these did not use your plan's credits."]
     if data.get("note"):
         notes.append(data["note"])
     tid = desk._new_thread(conn, product, TITLE)
@@ -329,8 +407,42 @@ def make(conn, ws, user, product, form) -> dict:
     conn.execute("INSERT INTO desk_runs (workspace_id, user_id, product_id, ask, made_json, credits, created_at, thread_id) "
                  "VALUES (?,?,?,?,?,?,?,?)", (ws["id"], g.user["id"], product["id"], TITLE, json.dumps(made), 0, db.now(), tid))
     conn.commit()
-    return {"ok": True, "thread": tid, "batch": data["batch"], "images": images, "talks": talks,
-            "url": url_for("desk.thread", tid=tid) + f"#t{turn}"}
+    return {"ok": True, "thread": tid, "batch": data["batch"], "images": images, "talks": talks, "free": free_result,
+            "url": url_for("onboarding.first_result") if free_result else url_for("desk.thread", tid=tid) + f"#t{turn}"}
+
+
+def free_jobs(conn, ws_id) -> list:
+    """The image ads of the free first result (or of the first ads on us), oldest first."""
+    return conn.execute("SELECT j.* FROM first_gifts f JOIN jobs j ON j.id = f.job_id WHERE f.workspace_id=? "
+                        "AND f.kind='image' AND j.workspace_id=? AND j.deleted_at IS NULL ORDER BY j.id",
+                        (ws_id, ws_id)).fetchall()
+
+
+def came_for_presenters(user) -> bool:
+    """The account's first touch landed on a presenter page (PRESENTER_PAGES; users.first_touch, gads.py)."""
+    raw = user["first_touch"] if user is not None and "first_touch" in user.keys() else None
+    try:
+        lp = str((json.loads(raw or "{}") or {}).get("lp") or "")
+    except (TypeError, ValueError, AttributeError):
+        return False
+    return lp.split("?")[0].rstrip("/").lower() in PRESENTER_PAGES
+
+
+def presenter_preview(product) -> dict | None:
+    """One AI presenter's still and a line written from the product, for the first-result screen: a picture of what
+    the video would be, not the video (nothing is generated). None without a product or a presenter with a still."""
+    import studio_v2
+    if product is None:
+        return None
+    who = next((c for c in studio_v2.roster() if c.get("portrait")), None)
+    if who is None:
+        return None
+    line = studio_v2.starter_script(product, words_max())
+    if not line:
+        desc = " ".join(str(product["description"] or "").split()).split()
+        line = " ".join(desc[:words_max()]) if desc else ""
+    return {"id": who["id"], "name": who["name"], "portrait": who["portrait"], "line": line or product["name"],
+            "seconds": TALK_SECONDS}
 
 
 def _make_paid(conn, ws, product, only, total) -> dict:
