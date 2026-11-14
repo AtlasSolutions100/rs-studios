@@ -291,6 +291,22 @@
       });
     };
   }
+  // The dots behind the app (ui_v2.css .shell .main::before) show only around the pointer.
+  (function dots(){
+    var main = document.querySelector('[data-ui="v2"] .shell .main');
+    if(!main || !window.matchMedia || window.matchMedia('(hover:none)').matches) return;
+    var root = document.documentElement, raf = 0, x = 0, y = 0;
+    function left(){ root.style.setProperty('--ml', Math.max(0, main.getBoundingClientRect().left) + 'px'); }
+    left(); window.addEventListener('resize', left);
+    document.addEventListener('pointermove', function(e){
+      if(e.pointerType === 'touch') return;
+      x = e.clientX; y = e.clientY;
+      if(raf) return;
+      raf = requestAnimationFrame(function(){ raf = 0; root.style.setProperty('--mx', x + 'px'); root.style.setProperty('--my', y + 'px'); main.classList.add('dots-on'); });
+    }, {passive: true});
+    document.addEventListener('pointerleave', function(){ main.classList.remove('dots-on'); });
+    document.documentElement.addEventListener('mouseleave', function(){ main.classList.remove('dots-on'); });
+  })();
   function upauto(){ var d = document.querySelector('[data-upgrade-auto]'); if(d) window.cfyUpgrade(); }
 
   function ready(){ localTimes(); flashes(); players(); liveCards(); [].forEach.call(document.querySelectorAll('[data-verify-open]'), function(b){ b.hidden = !window.CFY_VERIFY; }); vauto(); upauto(); }
