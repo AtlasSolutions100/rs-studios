@@ -582,6 +582,11 @@ def _line_label(part, label) -> str:
     return f"{part['name']} · {label.split(' · ')[0]}" if part["kind"] == "image" else f"{part['name']} · {label}"
 
 
+def _upgrade_instead() -> bool:
+    import plan_gate
+    return plan_gate.upgrade_instead(g.ws)
+
+
 def quote_parts(parts) -> dict:
     """The price of every part, each from Create's own quote, as one answer in the same shape (plus `parts`, the
     total of each part in order, and `ads`, how many finished ads that is)."""
@@ -603,6 +608,7 @@ def quote_parts(parts) -> dict:
             "warn": videos > create_routes.WARN_VIDEOS, "confirm": videos > create_routes.CONFIRM_VIDEOS,
             "max": create_routes.MAX_BATCH, "balance": bal, "short": max(0, total - bal),
             "pack": create_routes.suggest_pack(total - bal), "lines": lines, "parts": totals,
+            "upgrade": bool(total > bal and _upgrade_instead()),
             "names": [p["name"] for p in parts]}
 
 
@@ -656,6 +662,10 @@ def generate_parts(parts, d, title, extra):
         return jsonify({"error": f"The total changed to {q['total']:,} credits. Check it and confirm again.",
                         "total": q["total"]}), 409
     if q["short"]:
+        import plan_gate
+        if plan_gate.upgrade_instead(g.ws):       # no plan yet: the upgrade box, not a pack
+            return jsonify({"error": plan_gate.short_message(q["total"], q["balance"]), "plan_required": True,
+                            "url": url_for("plangate.page")}), 402
         return jsonify({"error": f"That needs {q['total']:,} credits and you have {q['balance']:,}. Pick fewer or top up "
                                  "on Billing.", "billing": url_for("billing_page"), "pack": q["pack"]}), 402
     if q["confirm"] and not d.get("confirm_many"):

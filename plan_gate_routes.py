@@ -96,3 +96,36 @@ def _welcome_banner():
     if left is None:
         return {}
     return {"welcome_banner": {"left": left, "plans": url_for("plangate.page")}}
+
+
+UPGRADE_AUTO_ENDPOINTS = ("desk.page", "desk.thread")
+
+
+@bp.app_context_processor
+def _upgrade_box():
+    """The upgrade box on app pages of a workspace with no plan (web/_upgrade_dialog.html). It opens by itself once,
+    on the desk, after the first ads on the welcome credits (the member's answers keep upgrade_seen); otherwise it
+    waits for a refused spend (static/app.js cfyUpgrade)."""
+    if not plan_gate.on() or g.get("ws") is None or g.get("user") is None or g.get("viewing") is not None:
+        return {}
+    ep = request.endpoint or ""
+    if ep in ("", "static") or ep.startswith(("plangate.", "onboarding.", "confirm.")) or not request.path.startswith("/app"):
+        return {}
+    if plans.plan_code(g.ws) != "free" or g.user["is_admin"]:
+        return {}
+    import onboarding
+    with db.connect() as conn:
+        ws = conn.execute("SELECT * FROM workspaces WHERE id=?", (g.ws["id"],)).fetchone() or g.ws
+        left = plan_gate.welcome_left(conn, ws)
+        auto = False
+        if left is not None and ep in UPGRADE_AUTO_ENDPOINTS and onboarding.answers(g.user).get("upgrade_seen") != "1" \
+                and conn.execute("SELECT 1 FROM jobs WHERE workspace_id=? LIMIT 1", (ws["id"],)).fetchone():
+            auto = True
+            onboarding.save(conn, g.user, upgrade_seen="1")
+            conn.commit()
+        trials = {code: plan_gate.trial_days(conn, ws, g.user, code) for code in plan_gate.TRIAL_PLANS}
+    msg = (f"You have {left:,} free credits left for image ads. A plan adds videos and a full month of credits, "
+           "and Starter and Growth start with a free trial." if left else
+           "A plan adds videos and a full month of credits. Starter and Growth start with a free trial.")
+    return {"upgrade_box": {"auto": auto, "left": left or 0, "message": msg, "trials": trials,
+                            "plans": [plans.PLANS[c] for c in plan_gate.TRIAL_PLANS], "owner": is_owner()}}

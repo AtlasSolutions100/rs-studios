@@ -261,6 +261,7 @@ def price(parts, product, cast=None) -> dict:
     total, bal = ads + copy_max, db.balance(g.ws)
     return {"parts": views, "total": total, "ads": ads, "copy": copy_max, "count": len(on), "balance": bal,
             "short": max(0, total - bal), "pack": create_routes.suggest_pack(total - bal) if total > bal else None,
+            "upgrade": bool(total > bal and studio_v2._upgrade_instead()),
             "confirm": videos > create_routes.CONFIRM_VIDEOS, "videos": videos, "product": product["id"]}
 
 
@@ -750,8 +751,10 @@ def guide(conn, ws, user, product, market, campaigns, shown) -> dict:
         are = "is" if (room["image"] == 1 and not room["talk"]) or (not room["image"] and room["talk"]) else "are"
         return {"state": "first", "also": also,
                 "acts": [{"label": "Review my first ads", "href": url_for("onboarding.first")}],
-                "text": hi + f"Your first {what} {are} on us. I drafted {'it' if are == 'is' else 'them'} for {name} from "
-                             "your page. Change any of the words, then make them."}
+                "text": hi + (f"Your first {what} {are} ready to make with your free credits. " if first_ads.paid(conn, ws, user)
+                              else f"Your first {what} {are} on us. ")
+                        + f"I drafted {'it' if are == 'is' else 'them'} for {name} from "
+                          "your page. Change any of the words, then make them."}
     import plan_gate
     left = plan_gate.welcome_left(conn, ws)
     if left is not None and not campaigns:      # on the welcome credits, nothing planned yet

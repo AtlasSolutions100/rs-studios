@@ -20,9 +20,11 @@ not start is given back, and credits granted for it are taken back. One person g
 same owner email in another workspace closes it here too.
 
 Who. A workspace with a plan (a trial counts: plan_gate.exempt), or a site admin looking at the step. Never a
-workspace that still has to pick a plan: the gate (plan_gate_routes) sends it to the plan step first. Not a workspace
-on its welcome credits either (plan_gate.grant_welcome, Nov 13 2026): those credits are what its first image ads
-are made with; the gift comes with the plan.
+workspace that still has to pick a plan: the gate (plan_gate_routes) sends it to the plan step first.
+
+On the welcome credits (plan_gate.grant_welcome, Koby Nov 13 2026) the step is the same walk, but paid: the two image
+ads are made with those credits at the shown price (paid()), and there is no talking video (videos come with a plan).
+After them the desk opens with the upgrade box once (plan_gate_routes.upgrade_box).
 
 First means first. The image ads are on us only while the workspace has made no image ad outside the gift, and the
 talking video only while it has made no talking video outside it. So a member who skips the step and makes ads in
@@ -72,10 +74,18 @@ def _admin(user) -> bool:
     return bool(user is not None and plan_gate._key(user, "is_admin"))
 
 
+def paid(conn, ws, user=None) -> bool:
+    """The first ads are made with the welcome credits, not on us: the workspace is on them (no plan yet)."""
+    return ws is not None and plan_gate.on_welcome(conn, ws) and not _admin(user)
+
+
 def left(conn, ws_id, user=None) -> dict:
     """How many of each are still on us. A kind the workspace has already made outside the gift is closed (it is
-    no longer a first), except for a site admin looking at the step."""
+    no longer a first), except for a site admin looking at the step. On the welcome credits: no talking video."""
     out = dict(ALLOW)
+    ws_row = conn.execute("SELECT * FROM workspaces WHERE id=?", (ws_id,)).fetchone()
+    if paid(conn, ws_row, user):
+        out["talk"] = 0
     for r in conn.execute("SELECT kind, COUNT(*) AS n FROM first_gifts WHERE workspace_id=? GROUP BY kind", (ws_id,)):
         if r["kind"] in out:
             out[r["kind"]] = max(0, out[r["kind"]] - r["n"])
@@ -97,8 +107,6 @@ def used_elsewhere(conn, ws, user=None) -> bool:
 def open_for(conn, ws, user=None) -> bool:
     """Something is still on us for this workspace, and it may take it now."""
     if ws is None or not on() or plan_gate.needs_plan(conn, ws, user):
-        return False
-    if plan_gate.on_welcome(conn, ws) and not _admin(user):      # the welcome credits pay for these; the gift is the plan's
         return False
     return any(left(conn, ws["id"], user).values()) and not used_elsewhere(conn, ws, user)
 
@@ -267,6 +275,8 @@ def make(conn, ws, user, product, form) -> dict:
     if why:
         return {"error": why}
     total = int(q["total"])
+    if paid(conn, ws, user):
+        return _make_paid(conn, ws, product, only, total)
     rows = _claim(conn, ws, [k for k, _p in parts], _owner_email(conn, ws, user))
     if not rows:
         return {"error": "Your first ads have already been made. Anything more is made from your desk."}
@@ -320,4 +330,31 @@ def make(conn, ws, user, product, form) -> dict:
                  "VALUES (?,?,?,?,?,?,?,?)", (ws["id"], g.user["id"], product["id"], TITLE, json.dumps(made), 0, db.now(), tid))
     conn.commit()
     return {"ok": True, "thread": tid, "batch": data["batch"], "images": images, "talks": talks,
+            "url": url_for("desk.thread", tid=tid) + f"#t{turn}"}
+
+
+def _make_paid(conn, ws, product, only, total) -> dict:
+    """The first image ads on the welcome credits: made through Studio at the shown price, from those credits."""
+    import desk
+    import studio_v2
+    data, status = _json(studio_v2.generate_parts(only, {"total": total, "confirm_many": True}, TITLE,
+                                                  {"first": True, "templates": [p.get("template") or
+                                                                                p["payload"]["mode"] for p in only]}))
+    if status != 200 or not data.get("ok") or not data.get("batch"):
+        return {"error": data.get("error") or "The ads could not be started just now. Nothing was used. Try again.",
+                "verify": bool(data.get("verify")), "plan_required": bool(data.get("plan_required"))}
+    n = conn.execute("SELECT COUNT(*) FROM jobs WHERE batch_id=? AND workspace_id=?", (data["batch"], ws["id"])).fetchone()[0]
+    made = [{"kind": "ads", "name": desk._plural(n, "image ad"), "state": "Being made",
+             "href": url_for("studio_v2.page", made=data["batch"])}]
+    notes = [f"Made with your free credits: {total:,} credits."]
+    if data.get("note"):
+        notes.append(data["note"])
+    tid = desk._new_thread(conn, product, TITLE)
+    desk._turn(conn, tid, "member", "said", {"text": "Make my first ads."})
+    turn = desk._turn(conn, tid, "desk", "made", {"made": made, "notes": notes, "batch": data["batch"], "credits": total,
+                                                 "first": True})
+    conn.execute("INSERT INTO desk_runs (workspace_id, user_id, product_id, ask, made_json, credits, created_at, thread_id) "
+                 "VALUES (?,?,?,?,?,?,?,?)", (ws["id"], g.user["id"], product["id"], TITLE, json.dumps(made), total, db.now(), tid))
+    conn.commit()
+    return {"ok": True, "thread": tid, "batch": data["batch"], "images": n, "talks": 0,
             "url": url_for("desk.thread", tid=tid) + f"#t{turn}"}

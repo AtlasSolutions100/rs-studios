@@ -9,7 +9,8 @@ image ads. Videos wait for a plan; when the credits run out the plan step (with 
   * while it holds some: not sent to pick a plan, the plan page can be looked at and skipped, a banner shows what's left
   * a video is refused with the plan message; an image ad goes through
   * out of credits: the plan step again, with the "used your free credits" message
-  * the first ads "on us" are the plan's, not the welcome credits'
+  * the first ads are offered paid from the welcome credits (two image ads, no video); the upgrade box opens
+    once on the desk after them, and short of credits it's the upgrade, not a pack
   * WELCOME_CREDITS=0 puts the trial-only sign-up back
 """
 import os
@@ -184,13 +185,38 @@ with appmod.app.test_request_context("/auth/google/callback"):
         conn.commit()
 check(int(ws_of("dee@example.com")["credits"]) == 500, "a Google sign-up gets the 500 at once")
 
-print("== the first ads on us are the plan's")
+print("== the first ads, paid from the welcome credits")
 os.environ["UI_V2"] = "1"
 with appmod.app.test_request_context("/app/welcome/first"), db.connect() as conn:
     check(first_ads.on(), "the first ads step is on (new look)")
-    check(not first_ads.open_for(conn, ws_of("dee@example.com"), user_of("dee@example.com")),
-          "not offered on the welcome credits")
+    dws, du = ws_of("dee@example.com"), user_of("dee@example.com")
+    check(first_ads.open_for(conn, dws, du) and first_ads.paid(conn, dws, du),
+          "offered on the welcome credits, paid from them")
+    check(first_ads.left(conn, dws["id"], du) == {"image": 2, "talk": 0}, "two image ads, no talking video")
 os.environ.pop("UI_V2")
+
+print("== the upgrade box")
+import plan_gate_routes  # noqa: E402
+with appmod.app.test_request_context("/app/desk"):
+    from flask import g
+    g.ws, g.user, g.viewing = ws_of("dee@example.com"), user_of("dee@example.com"), None
+    ctx = plan_gate_routes._upgrade_box()
+check(ctx.get("upgrade_box") and not ctx["upgrade_box"]["auto"], "the box is on the page, closed before any ad")
+run_sql("INSERT INTO jobs (workspace_id, user_id, tool, brief, params_json, status, credits, created_at, updated_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?)", ws_of("dee@example.com")["id"], user_of("dee@example.com")["id"], "ad_image", "x",
+        "{}", "done", 22, db.now(), db.now())
+with appmod.app.test_request_context("/app/desk"):
+    from flask import g
+    g.ws, g.user, g.viewing = ws_of("dee@example.com"), user_of("dee@example.com"), None
+    ctx = plan_gate_routes._upgrade_box()
+check(ctx["upgrade_box"]["auto"], "after the first ads it opens by itself on the desk")
+check(ctx["upgrade_box"]["trials"] == {"starter": 3, "growth": 3}, "with the 3-day trial on Starter and Growth")
+with appmod.app.test_request_context("/app/desk"):
+    from flask import g
+    g.ws, g.user, g.viewing = ws_of("dee@example.com"), user_of("dee@example.com"), None
+    ctx = plan_gate_routes._upgrade_box()
+check(not ctx["upgrade_box"]["auto"], "only once")
+check(plan_gate.upgrade_instead(ws_of("dee@example.com")), "short of credits with no plan: upgrade, not a pack")
 
 print("== the sign-up offer")
 with appmod.app.test_request_context("/"):

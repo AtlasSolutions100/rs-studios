@@ -138,12 +138,13 @@
     var q = S.q || {total: 0, count: 0, balance: B.balance, short: 0, copy: 0};
     $('[data-total]').textContent = !q.count ? 'Nothing ticked' : q.total ? (q.copy ? 'Up to ' : '') + credits(q.total) : 'No credits';
     var sum = $('[data-sum]');
-    if(q.short) sum.innerHTML = 'You have ' + esc(credits(q.balance)) + ', so you need ' + esc(credits(q.short)) + ' more. ' + (q.pack ? 'The ' + esc(q.pack.name) + ' pack ($' + esc(q.pack.usd) + ') covers it. ' : '') + '<a href="' + esc(B.urls.billing) + '">Get credits</a>';
+    if(q.short && q.upgrade) sum.innerHTML = 'You have ' + esc(credits(q.balance)) + ', so you need ' + esc(credits(q.short)) + ' more. <button type="button" class="linkbtn" data-upgrade-open>Upgrade your plan</button>';
+    else if(q.short) sum.innerHTML = 'You have ' + esc(credits(q.balance)) + ', so you need ' + esc(credits(q.short)) + ' more. ' + (q.pack ? 'The ' + esc(q.pack.name) + ' pack ($' + esc(q.pack.usd) + ') covers it. ' : '') + '<a href="' + esc(B.urls.billing) + '">Get credits</a>';
     else sum.textContent = (q.count === 1 ? '1 part ticked' : q.count + ' parts ticked') + '. You have ' + credits(q.balance) + '.';
     var many = $('[data-many-wrap]'); many.hidden = !q.confirm;
     if(q.confirm) $('[data-many-text]').textContent = 'Yes, make all ' + q.videos + ' videos.'; else $('[data-many]').checked = false;
     runBtn.textContent = !q.count ? 'Nothing ticked' : q.total ? 'Make it · ' + credits(q.total) : 'Set it up';
-    runBtn.disabled = S.busy || !q.count || !!q.short || (!!q.confirm && !$('[data-many]').checked);
+    runBtn.disabled = S.busy || !q.count || (!!q.short && !q.upgrade) || (!!q.confirm && !$('[data-many]').checked);
     runBtn.dataset.total = q.total;
   }
   function menu(){
@@ -217,6 +218,7 @@
   // make it
   function ads(){ return S.parts.filter(function(p){ return p.on && MAKES[p.kind]; }).map(function(p){ return {make: p.kind, text: p.text, count: p.count, presenter: p.presenter, situation: p.situation}; }); }
   function run(){
+    var Q = S.q || {}; if(Q.short && Q.upgrade && window.cfyUpgrade){ window.cfyUpgrade('That needs ' + credits(Q.total) + ' and you have ' + credits(Q.balance) + '. Pick a plan to keep going.'); return; }
     if(S.busy || !S.q || !S.q.count) return;
     var total = +runBtn.dataset.total, label = runBtn.textContent, set = ads();
     S.busy = true; runBtn.disabled = true; runBtn.textContent = 'Starting'; err('');

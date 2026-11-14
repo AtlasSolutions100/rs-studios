@@ -550,7 +550,8 @@
     var many = $('[data-q-many-wrap]'); many.hidden = !q.confirm; $('[data-q-many]').checked = false;
     if(q.confirm) $('[data-q-many-text]').textContent = 'Yes, make all ' + q.count + ' videos.';
     var short = $('[data-q-short]'); short.hidden = !q.short;
-    if(q.short){ short.innerHTML = 'You need ' + credits(q.short) + ' more. ' + (q.pack ? 'The ' + esc(q.pack.name) + ' pack ($' + q.pack.usd + ', ' + credits(q.pack.credits) + ') covers it. ' : '') + '<a href="' + esc(B.urls.billing) + '">Get credits</a>'; }
+    if(q.short && q.upgrade){ short.innerHTML = 'You need ' + credits(q.short) + ' more. <button type="button" class="linkbtn" data-upgrade-open>Upgrade your plan</button>'; if(window.cfyUpgrade) window.cfyUpgrade('That needs ' + credits(q.total) + ' and you have ' + credits(q.balance) + '. Pick a plan to keep going.'); }
+    else if(q.short){ short.innerHTML = 'You need ' + credits(q.short) + ' more. ' + (q.pack ? 'The ' + esc(q.pack.name) + ' pack ($' + q.pack.usd + ', ' + credits(q.pack.credits) + ') covers it. ' : '') + '<a href="' + esc(B.urls.billing) + '">Get credits</a>'; }
     var ok = $('[data-confirm-make]'); ok.textContent = !n ? 'Nothing ticked' : (n === 1 ? 'Make it' : 'Make them') + ' · ' + credits(q.total);
     ok.disabled = !n || !!q.short || !!q.confirm; ok.dataset.total = q.total;
     $('[data-q-err]').hidden = true;
