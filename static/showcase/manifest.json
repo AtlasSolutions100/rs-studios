@@ -22,6 +22,38 @@
   },
   "items": [
     {
+      "file": "clip-sneaker.mp4",
+      "kind": "video",
+      "poster": "clip-sneaker.webp",
+      "aspect": "4:5",
+      "title": "Product video",
+      "caption": "Running shoe in a paint burst",
+      "alt": "A white and orange running shoe spins mid-air as orange and magenta powder paint bursts behind it."
+    },
+    {
+      "file": "pop-energy.webp",
+      "kind": "image",
+      "title": "Offer ad",
+      "caption": "Energy drink, splash shot",
+      "alt": "A green energy can bursting from a water splash with lime slices on cobalt blue; headline Zero sugar. Full charge., a NEW badge and a Grab a 12-pack button."
+    },
+    {
+      "file": "clip-headphones-nc.mp4",
+      "kind": "video",
+      "poster": "clip-headphones-nc.webp",
+      "aspect": "9:16",
+      "title": "Explainer video",
+      "caption": "How noise cancelling works",
+      "alt": "Black headphones on yellow: red noise waves rush in, the camera flies inside the ear cup to the microphones and chip, an opposite wave flattens the noise to a line, and music flows out. Captions explain each step."
+    },
+    {
+      "file": "pop-coffee.webp",
+      "kind": "image",
+      "title": "Headline ad",
+      "caption": "Coffee subscription",
+      "alt": "A kraft coffee bag with beans flying and a latte on teal; headline Wake up to better beans and a Start a subscription button."
+    },
+    {
       "file": "team-skincare.mp4",
       "kind": "video",
       "poster": "team-skincare.webp",
@@ -31,6 +63,236 @@
       "title": "Presenter video",
       "presenter": true,
       "sound": true
+    },
+    {
+      "file": "pop-headphones.webp",
+      "kind": "image",
+      "title": "Callouts ad",
+      "caption": "Headphones, three features",
+      "alt": "Black headphones on sunflower yellow with the headline Hear nothing but the music and the callouts Noise cancelling, All-day battery and Folds flat."
+    },
+    {
+      "file": "clip-watch-exploded.mp4",
+      "kind": "video",
+      "poster": "clip-watch-exploded.webp",
+      "aspect": "9:16",
+      "title": "Exploded view",
+      "caption": "Every part of an automatic watch",
+      "alt": "A green-dial automatic watch separates into its parts, crystal, dial and hands, the gold automatic movement, the steel case and the open case back, with a caption naming each, then comes back together."
+    },
+    {
+      "file": "pop-barber.webp",
+      "kind": "image",
+      "title": "Story ad",
+      "caption": "Barbershop, walk-ins",
+      "alt": "An AI-made barber with clippers in a warm-lit shop, a client in the chair behind; headline Fresh fade. Walk-ins welcome. and a Book a chair button.",
+      "group": "local"
+    },
+    {
+      "file": "team-desk-talk.mp4",
+      "kind": "video",
+      "poster": "team-desk-talk.webp",
+      "aspect": "9:16",
+      "caption": "Desk talk",
+      "alt": "An AI presenter at a desk with a laptop and a ring light talks to the camera and points down at the laptop.",
+      "title": "Presenter video",
+      "presenter": true,
+      "sound": true
+    },
+    {
+      "file": "pop-sunscreen.webp",
+      "kind": "image",
+      "title": "Story ad",
+      "caption": "Sunscreen, beach day",
+      "alt": "An AI-made woman in sunglasses laughing as she puts on sunscreen at a bright beach; headline SPF that keeps up with summer and a Shop sun care button."
+    },
+    {
+      "file": "team-streamer.mp4",
+      "kind": "video",
+      "poster": "team-streamer.webp",
+      "aspect": "9:16",
+      "caption": "Streamer to camera",
+      "alt": "An AI presenter with a headset around his neck, in a room lit purple and blue, points at a phone and talks to the camera.",
+      "title": "Presenter video",
+      "presenter": true,
+      "sound": true
+    },
+    {
+      "file": "pop-icecream.webp",
+      "kind": "image",
+      "title": "Offer ad",
+      "caption": "Ice cream pints",
+      "alt": "Three pastel ice cream pints with a scoop and sprinkles on violet; headline Three pints. Zero regrets., a NEW badge and a Build your trio button."
+    },
+    {
+      "file": "clip-hotsauce-burst.mp4",
+      "kind": "video",
+      "poster": "clip-hotsauce-burst.webp",
+      "aspect": "9:16",
+      "title": "Product video",
+      "caption": "Hot sauce, chili burst",
+      "alt": "Jalapeños split and fly through flames, chilies spiral on cracked stone, green sauce pours, and the hot sauce bottle lands among bursting peppers on red."
+    },
+    {
+      "file": "team-app-demo.mp4",
+      "kind": "video",
+      "poster": "team-app-demo.webp",
+      "aspect": "9:16",
+      "caption": "App demo, selfie style",
+      "alt": "An AI presenter in a navy hoodie holds up a phone showing a to-do list, ticks a box and talks to the camera.",
+      "title": "Presenter video",
+      "presenter": true,
+      "sound": true,
+      "group": "apps"
+    },
+    {
+      "file": "pop-finance-app.webp",
+      "kind": "image",
+      "title": "Story ad",
+      "caption": "Budgeting app",
+      "alt": "A hand holding a phone with a colorful budgeting screen on mint green with gold coins; headline See where every dollar goes and a Download free button.",
+      "group": "apps"
+    },
+    {
+      "file": "preset-pov-unboxing.mp4",
+      "kind": "video",
+      "poster": "preset-pov-unboxing.webp",
+      "aspect": "9:16",
+      "caption": "Unboxing, no presenter",
+      "alt": "Two hands open a plain cardboard box and lift out a candle in an amber jar.",
+      "preset": "pov-unboxing",
+      "sound": true,
+      "group": "unboxing"
+    },
+    {
+      "file": "pop-serum-ugc.webp",
+      "kind": "image",
+      "title": "Story ad",
+      "caption": "Serum, selfie style",
+      "alt": "An AI-made woman in a pink headband holding a serum bottle by her cheek at a vanity; headline One drop, morning glow and a Shop the serum button."
+    },
+    {
+      "file": "clip-energy-ugc.mp4",
+      "kind": "video",
+      "poster": "clip-energy-ugc.webp",
+      "aspect": "9:16",
+      "title": "Lifestyle video",
+      "caption": "Energy drink, selfie style",
+      "alt": "An AI-made woman in a yellow hoodie on a neon street laughs, pushes a green can toward the camera and takes a sip."
+    },
+    {
+      "file": "pop-hotsauce.webp",
+      "kind": "image",
+      "title": "Offer ad",
+      "caption": "Hot sauce, small batch",
+      "alt": "A green hot sauce bottle among flying chili peppers and sparks on red; headline Green heat. Real flavor., a HOT badge and an Add to cart button."
+    },
+    {
+      "file": "clip-burger.mp4",
+      "kind": "video",
+      "poster": "clip-burger.webp",
+      "aspect": "4:5",
+      "title": "Product video",
+      "caption": "Smash burger, local restaurant",
+      "alt": "Melted cheddar drips down a double smash burger as sesame seeds fall and the camera pushes in.",
+      "group": "local"
+    },
+    {
+      "file": "pop-perfume.webp",
+      "kind": "image",
+      "title": "Headline ad",
+      "caption": "Fragrance, after dark",
+      "alt": "An amber perfume bottle in a swirl of rose petals on emerald green; headline Bottled after dark and a Discover the scent button."
+    },
+    {
+      "file": "clip-runner.mp4",
+      "kind": "video",
+      "poster": "clip-runner.webp",
+      "aspect": "9:16",
+      "title": "Lifestyle video",
+      "caption": "Protein shake, track sprint",
+      "alt": "An AI-made athlete sprints toward the camera on a running track at sunset holding a blue shaker bottle."
+    },
+    {
+      "file": "pop-candle.webp",
+      "kind": "image",
+      "title": "Offer ad",
+      "caption": "Candle, gift season",
+      "alt": "An amber glass candle with orange slices and cinnamon on tomato red; headline Spiced orange, all season long, a GIFT badge and a Light one up button."
+    },
+    {
+      "file": "clip-smoothie.mp4",
+      "kind": "video",
+      "poster": "clip-smoothie.webp",
+      "aspect": "4:5",
+      "title": "Product video",
+      "caption": "Smoothie splash",
+      "alt": "Mango cubes and dragonfruit burst out of a layered smoothie cup and splash back on pink and yellow."
+    },
+    {
+      "file": "pop-serum.webp",
+      "kind": "image",
+      "title": "Headline ad",
+      "caption": "Face serum",
+      "alt": "A frosted serum bottle in rippling water on pink with a falling drop; headline Glow that shows up in daylight and a Shop the serum button."
+    },
+    {
+      "file": "clip-pizza.mp4",
+      "kind": "video",
+      "poster": "clip-pizza.webp",
+      "aspect": "9:16",
+      "title": "Product video",
+      "caption": "Pizza cheese pull",
+      "alt": "A pepperoni slice lifts away from a wood-fired pizza with long strings of melted mozzarella and steam.",
+      "group": "local"
+    },
+    {
+      "file": "pop-cleaning.webp",
+      "kind": "image",
+      "title": "Story ad",
+      "caption": "Home cleaning visit",
+      "alt": "An AI-made cleaner in a teal polo in a sparkling white kitchen; headline Come home to clean and a Book a visit button.",
+      "group": "local"
+    },
+    {
+      "file": "clip-dog.mp4",
+      "kind": "video",
+      "poster": "clip-dog.webp",
+      "aspect": "4:5",
+      "title": "Product video",
+      "caption": "Dog treats",
+      "alt": "A golden retriever leaps and catches a bone-shaped biscuit beside a kraft treat bag on bright blue."
+    },
+    {
+      "file": "pop-burger.webp",
+      "kind": "image",
+      "title": "Offer ad",
+      "caption": "Smash burger, local restaurant",
+      "alt": "A double smash burger with melting cheddar on black and red; headline The double worth the drive, a NEW badge and an Order now button.",
+      "group": "local"
+    },
+    {
+      "file": "clip-energy.mp4",
+      "kind": "video",
+      "poster": "clip-energy.webp",
+      "aspect": "4:5",
+      "title": "Product video",
+      "caption": "Energy drink splash",
+      "alt": "A green energy can turns slowly in a bursting water splash as lime and lemon slices fly on cobalt blue."
+    },
+    {
+      "file": "pop-sneaker.webp",
+      "kind": "image",
+      "title": "Headline ad",
+      "caption": "Running shoe, paint burst",
+      "alt": "A white and orange running shoe in front of an orange and magenta powder burst; headline Built for the first mile and the last and a Shop the drop button."
+    },
+    {
+      "file": "pop-smoothie.webp",
+      "kind": "image",
+      "title": "Comparison ad",
+      "caption": "Smoothie against a vending snack",
+      "alt": "A mango and dragonfruit smoothie splashing on pink and yellow; headline Swap the snack over two columns comparing a vending snack with the smoothie."
     },
     {
       "file": "ex2-tryon-denim-jacket.mp4",
@@ -78,7 +340,11 @@
       "aspect": "9:16",
       "title": "Running shoes",
       "caption": "Running shoes splashing through a puddle at dawn.",
-      "alt": "A runner's shoes splashing through a puddle on a path at dawn."
+      "alt": "A runner's shoes splashing through a puddle on a path at dawn.",
+      "store": {
+        "sha256": "88d15ded73bb3a802898b6c87dd123a65a15a2c751e9903bd15df725b885ded1",
+        "bytes": 444771
+      }
     },
     {
       "file": "compare.webp",
@@ -111,7 +377,11 @@
       "title": "Roof replacement",
       "caption": "A new shingle roof as a roofer nails the last shingle.",
       "alt": "A newly shingled house roof while a roofer nails down the last shingle.",
-      "group": "local"
+      "group": "local",
+      "store": {
+        "sha256": "27d62c636e6c7ec5ebb294cd63436c1c96e8001629a7cdfa89ee236d5912107f",
+        "bytes": 439896
+      }
     },
     {
       "file": "callouts.webp",
@@ -129,7 +399,11 @@
       "caption": "A woman in her kitchen talks about a bag of coffee beans.",
       "alt": "An AI presenter: a woman standing in a home kitchen holds a bag of coffee beans and talks to the camera.",
       "presenter": true,
-      "sound": true
+      "sound": true,
+      "store": {
+        "sha256": "463a2935face9307f83ca65c9345ccf452ff654fba516aa7b2690baa0e36e472",
+        "bytes": 299567
+      }
     },
     {
       "file": "ex2-showcase-steel-bottle.mp4",
@@ -160,7 +434,11 @@
       "title": "Taco truck",
       "caption": "Tacos made and handed out of a food truck window.",
       "alt": "Tacos being assembled inside a food truck and handed out through the service window.",
-      "group": "local"
+      "group": "local",
+      "store": {
+        "sha256": "a81b14a9f2ec58e4e6b215bcec19ccfdd0664c3f1878e88269289a69dd4a15e6",
+        "bytes": 493951
+      }
     },
     {
       "file": "ex2-tryon-midi-dress.mp4",
@@ -195,30 +473,11 @@
       "alt": "An AI presenter: a man standing on a freshly mowed lawn talks to the camera about a weekly lawn care service.",
       "presenter": true,
       "sound": true,
-      "group": "local"
-    },
-    {
-      "file": "preset-pov-unboxing.mp4",
-      "kind": "video",
-      "poster": "preset-pov-unboxing.webp",
-      "aspect": "9:16",
-      "caption": "Unboxing, no presenter",
-      "alt": "Two hands open a plain cardboard box and lift out a candle in an amber jar.",
-      "preset": "pov-unboxing",
-      "sound": true,
-      "group": "unboxing"
-    },
-    {
-      "file": "team-app-demo.mp4",
-      "kind": "video",
-      "poster": "team-app-demo.webp",
-      "aspect": "9:16",
-      "caption": "App demo, selfie style",
-      "alt": "An AI presenter in a navy hoodie holds up a phone showing a to-do list, ticks a box and talks to the camera.",
-      "title": "Presenter video",
-      "presenter": true,
-      "sound": true,
-      "group": "apps"
+      "group": "local",
+      "store": {
+        "sha256": "a20d74423057f90dfca587ffdb06fe744742cb325090cc4abc26e33adbebdb96",
+        "bytes": 257569
+      }
     },
     {
       "file": "ex-serum.mp4",
@@ -243,7 +502,11 @@
       "alt": "An AI presenter: a woman standing in a clean living room talks to the camera about a home cleaning visit.",
       "presenter": true,
       "sound": true,
-      "group": "local"
+      "group": "local",
+      "store": {
+        "sha256": "67c43cea51919fbbdf682e3e1adddb36b75e7ad54eacecbea76631b5065b6b9b",
+        "bytes": 309714
+      }
     },
     {
       "file": "ex-hair-salon.mp4",
@@ -253,7 +516,11 @@
       "title": "Hair salon",
       "caption": "Hair trimmed, blow-dried and shown in a hand mirror at a small salon.",
       "alt": "Long brown hair being trimmed with scissors, blow-dried into soft waves, then shown from behind in a hand mirror.",
-      "group": "local"
+      "group": "local",
+      "store": {
+        "sha256": "8946939a65baade13066228fdaf4517cd73ca5ce57cdf75f277c9844389392bd",
+        "bytes": 382303
+      }
     },
     {
       "file": "ex2-tryon-wool-coat.mp4",
@@ -345,7 +612,11 @@
       "title": "Plumbing repair",
       "caption": "A new pipe fitting under a kitchen sink is tightened, then the tap runs clean.",
       "alt": "Gloved hands open the cabinet under a kitchen sink, tighten a new chrome pipe fitting with a wrench, then the tap runs into a clean sink.",
-      "group": "local"
+      "group": "local",
+      "store": {
+        "sha256": "0ef022f79dacbefb39a4c8d4974b69caaa08f124c2b1d4cbb76f4a26d0dd3d58",
+        "bytes": 355732
+      }
     },
     {
       "file": "ex-pressure-washing.mp4",
@@ -375,17 +646,6 @@
       }
     },
     {
-      "file": "team-streamer.mp4",
-      "kind": "video",
-      "poster": "team-streamer.webp",
-      "aspect": "9:16",
-      "caption": "Streamer to camera",
-      "alt": "An AI presenter with a headset around his neck, in a room lit purple and blue, points at a phone and talks to the camera.",
-      "title": "Presenter video",
-      "presenter": true,
-      "sound": true
-    },
-    {
       "file": "ex-bakery.mp4",
       "kind": "video",
       "poster": "ex-bakery.webp",
@@ -393,7 +653,11 @@
       "title": "Neighborhood bakery",
       "caption": "Croissants from the oven, tarts dusted with sugar, bread handed over the counter.",
       "alt": "A tray of croissants comes out of the oven, fruit tarts are dusted with powdered sugar, and a loaf in a paper bag is handed across a bakery counter.",
-      "group": "local"
+      "group": "local",
+      "store": {
+        "sha256": "9638225dc286731460f1eeb84590864cb1d00e5749dc45692a36fb298a0c0873",
+        "bytes": 424868
+      }
     },
     {
       "file": "ex-pizza-oven.mp4",
@@ -440,7 +704,11 @@
       "title": "Car detailing",
       "caption": "Foam rinsed off a dark blue SUV, then the hood is buffed.",
       "alt": "Soap foam rinsed off a dark blue SUV and the hood buffed by hand.",
-      "group": "local"
+      "group": "local",
+      "store": {
+        "sha256": "ef6baf937cebae4200b361cc6172f60e1493b505f2880c5faad38d57d3d2114e",
+        "bytes": 469892
+      }
     },
     {
       "file": "ex-realtor-presenter.mp4",
@@ -499,17 +767,6 @@
       }
     },
     {
-      "file": "team-desk-talk.mp4",
-      "kind": "video",
-      "poster": "team-desk-talk.webp",
-      "aspect": "9:16",
-      "caption": "Desk talk",
-      "alt": "An AI presenter at a desk with a laptop and a ring light talks to the camera and points down at the laptop.",
-      "title": "Presenter video",
-      "presenter": true,
-      "sound": true
-    },
-    {
       "file": "ex-coffee-shop.mp4",
       "kind": "video",
       "poster": "ex-coffee-shop.webp",
@@ -517,7 +774,11 @@
       "title": "Coffee shop",
       "caption": "Espresso pulled and latte art poured in a small cafe.",
       "alt": "An espresso shot being pulled and latte art poured in a small cafe.",
-      "group": "local"
+      "group": "local",
+      "store": {
+        "sha256": "202535520a05c3e3f8e0606b22f9ab5f4d7518a82a5a9da55500b0f15d77c4f9",
+        "bytes": 323674
+      }
     },
     {
       "file": "ex-pet-grooming.mp4",
