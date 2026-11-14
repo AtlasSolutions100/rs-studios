@@ -3,24 +3,67 @@
    (desk.guide: worked out from the workspace's own state, no model call) and the box to say what you are launching.
    The sentence starts a campaign, which opens as a conversation (v2/desk_thread.html) with the priced plan in it. #}
 {% block body %}
-<div class="page full dk dk-home" data-desk>
+<div class="page full dk dk-home dk-agent" data-desk>
+  {% set first = ((g.user['name'] or '').split() or [''])[0] %}
   <div class="dk-main">
     <h1 id="dk-h" class="sr">Your desk</h1>
-    <div class="dk-top">
-      {% if campaigns %}
-      <section class="dk-camps" aria-labelledby="dk-runs-h">
-        <h2 id="dk-runs-h">Your campaigns</h2>
-        <ul>
-          {% for c in campaigns[:4] %}
-          <li><a href="{{ c.href }}">
-            <b>{{ c.title }}</b>
-            <span class="dk-camp-made">{% if c.made %}{% for m in c.made[:2] %}<span>{{ m.name }} · {{ m.state }}</span>{% endfor %}{% else %}Planned, nothing made yet{% endif %}</span>
-            <span class="dk-camp-at">{{ c.at|localtime }}</span>
-          </a></li>
-          {% endfor %}
-        </ul>
+    <div class="dk-hero">
+      <span class="dk-mark" aria-hidden="true"><svg viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#0B0C0E"/><path d="M32 9C33.6 25 39 30.4 55 32C39 33.6 33.6 39 32 55C30.4 39 25 33.6 9 32C25 30.4 30.4 25 32 9Z" fill="#BDFA25"/></svg></span>
+      <h2 class="dk-hello">What are we launching{{ ', ' ~ first if first }}?</h2>
+
+      <section class="dk-guide" aria-label="Your Campaignify agent" data-guide="{{ guide.state }}">
+        <div class="dk-guide-body">
+          <p class="dk-guide-who sr">Campaignify</p>
+          <p class="dk-guide-text">{{ guide.text }}</p>
+          {% if guide.also %}<p class="dk-guide-also" role="status">{{ guide.also }}</p>{% endif %}
+        </div>
+        {% if guide.acts %}
+        <div class="dk-guide-acts">
+          {% for a in guide.acts %}{% if a.href %}<a class="btn sm" href="{{ a.href }}">{{ a.label }}</a>{% else %}<button type="button" class="dk-chip" data-try="{{ a.ask }}">{{ a.label }}</button>{% endif %}{% endfor %}
+        </div>
+        {% endif %}
       </section>
+      {% if nudge %}
+      <div class="dk-nudge" data-nudge>
+        <span>{{ nudge.text }}</span>
+        <a class="btn dark sm" href="{{ nudge.href }}">{{ nudge.cta }}</a>
+        <form method="post" action="{{ url_for('desk.nudge_off') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="dk-nudge-x" aria-label="Dismiss this suggestion" title="Dismiss">&times;</button></form>
+      </div>
       {% endif %}
+
+      {% if product %}
+      <form class="dk-ask" data-ask-form>
+        <label class="sr" for="dk-ask">Say what you want to launch</label>
+        <textarea id="dk-ask" rows="3" maxlength="600" placeholder="Say what you're launching, or what you want made" data-ask>{{ ask }}</textarea>
+        <div class="dk-ask-foot">
+          <div class="dk-chips">
+            <button type="button" class="dk-chip" data-sw-open aria-haspopup="dialog" aria-controls="sw-panel">{% if product.primary_photo_id %}<img src="{{ url_for('photo', pid=product.primary_photo_id) }}" alt="">{% endif %}{{ product.name }}</button>
+            {% if brief.offer %}<span class="dk-chip quiet">Offer: {{ brief.offer|truncate(48, true) }}</span>{% endif %}
+          </div>
+          <button class="btn dk-send" data-plan aria-label="Plan it"><span>Plan it</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+      </form>
+      <p class="dk-say" data-say role="status" hidden></p>
+      <div class="dk-quick" role="group" aria-label="Ideas to start from">
+        <button type="button" class="dk-q" data-try="Three image ads for {{ product.name }}, each with a different headline">Image ads</button>
+        <button type="button" class="dk-q" data-try="A 15-second presenter video for {{ product.name }}">Presenter video</button>
+        <button type="button" class="dk-q" data-try="Ad copy for Meta and TikTok for {{ product.name }}">Ad copy</button>
+        <button type="button" class="dk-q" data-try="A page with a sign-up form for {{ product.name }}, and an email follow-up">Landing page</button>
+        <button type="button" class="dk-q" data-try="Launch {{ product.name }}: three image ads, one presenter video, the ad copy, a page to collect emails and a follow-up">The whole campaign</button>
+      </div>
+      {% endif %}
+      <nav class="dk-manual" aria-label="Open a tool yourself">
+        <span>Or do it yourself:</span>
+        <a href="{{ url_for('studio_v2.page') }}">Ad studio</a>
+        <a href="{{ url_for('clone.page') }}">Clone an ad</a>
+        <a href="{{ url_for('competitors.index') }}">Competitor research</a>
+        <a href="{{ url_for('copy.studio') }}">Copy</a>
+        <a href="{{ url_for('pages.index') }}">Landing pages</a>
+        <a href="{{ url_for('tools.page') }}">All tools</a>
+      </nav>
+    </div>
+
+    <div class="dk-top">
       {% if product %}
       <section class="dk-exs" aria-labelledby="dk-ex-h" data-insp>
         <div class="dk-exs-top">
@@ -53,54 +96,31 @@
         {% if has_tools %}<p class="dk-exs-more"><a href="{{ url_for('tools.page') }}#inspiration">More examples</a></p>{% endif %}
       </section>
       {% endif %}
-    </div>
-
-    <div class="dk-dock">
-      <section class="dk-guide" aria-label="Your Campaignify agent" data-guide="{{ guide.state }}">
-        <span class="dk-guide-mark" aria-hidden="true"><svg viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0B0C0E"/><path d="M32 9C33.6 25 39 30.4 55 32C39 33.6 33.6 39 32 55C30.4 39 25 33.6 9 32C25 30.4 30.4 25 32 9Z" fill="#BDFA25"/></svg></span>
-        <div class="dk-guide-body">
-          <p class="dk-guide-who">Campaignify</p>
-          <p class="dk-guide-text">{{ guide.text }}</p>
-          {% if guide.also %}<p class="dk-guide-also" role="status">{{ guide.also }}</p>{% endif %}
-          {% if guide.acts %}
-          <div class="dk-guide-acts">
-            {% for a in guide.acts %}{% if a.href %}<a class="btn sm" href="{{ a.href }}">{{ a.label }}</a>{% else %}<button type="button" class="dk-chip" data-try="{{ a.ask }}">{{ a.label }}</button>{% endif %}{% endfor %}
-          </div>
-          {% endif %}
-        </div>
+      {% if campaigns %}
+      <section class="dk-camps" aria-labelledby="dk-runs-h">
+        <h2 id="dk-runs-h">Your campaigns</h2>
+        <ul>
+          {% for c in campaigns[:4] %}
+          <li><a href="{{ c.href }}">
+            <b>{{ c.title }}</b>
+            <span class="dk-camp-made">{% if c.made %}{% for m in c.made[:2] %}<span>{{ m.name }} · {{ m.state }}</span>{% endfor %}{% else %}Planned, nothing made yet{% endif %}</span>
+            <span class="dk-camp-at">{{ c.at|localtime }}</span>
+          </a></li>
+          {% endfor %}
+        </ul>
       </section>
-      {% if nudge %}
-      <div class="dk-nudge" data-nudge>
-        <span>{{ nudge.text }}</span>
-        <a class="btn dark sm" href="{{ nudge.href }}">{{ nudge.cta }}</a>
-        <form method="post" action="{{ url_for('desk.nudge_off') }}"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="dk-nudge-x" aria-label="Dismiss this suggestion" title="Dismiss">&times;</button></form>
-      </div>
-      {% endif %}
-      {% if product %}
-      <form class="dk-ask" data-ask-form>
-        <label class="sr" for="dk-ask">Say what you want to launch</label>
-        <textarea id="dk-ask" rows="2" maxlength="600" placeholder="Say what you're launching" data-ask>{{ ask }}</textarea>
-        <div class="dk-ask-foot">
-          <div class="dk-chips">
-            <button type="button" class="dk-chip" data-sw-open aria-haspopup="dialog" aria-controls="sw-panel">{% if product.primary_photo_id %}<img src="{{ url_for('photo', pid=product.primary_photo_id) }}" alt="">{% endif %}{{ product.name }}</button>
-            {% if brief.offer %}<span class="dk-chip quiet">Offer: {{ brief.offer|truncate(48, true) }}</span>{% endif %}
-          </div>
-          <button class="btn" data-plan>Plan it</button>
-        </div>
-      </form>
-      <p class="dk-say" data-say role="status" hidden></p>
       {% endif %}
     </div>
   </div>
 
   <aside class="dk-side" aria-label="Your brand and what is waiting">
-    {% include "v2/_desk_brand.html" %}
     {% if now %}
     <section class="dk-now" aria-labelledby="dk-now-h">
       <h2 id="dk-now-h">Waiting for you</h2>
       {% for n in now %}<a href="{{ n.href }}"><span>{{ n.line }}</span><span aria-hidden="true">Open</span></a>{% endfor %}
     </section>
     {% endif %}
+    {% include "v2/_desk_brand.html" %}
   </aside>
 </div>
 {% endblock %}

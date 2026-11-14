@@ -2,7 +2,7 @@
 {# One campaign as a conversation (desk.thread): what was said, each plan, what was made, and a box to go on.
    The newest plan that hasn't been made is open (v2/_desk_plan.html, drawn by static/desk.js); the rest is as it was. #}
 {% block body %}
-<div class="page full dk dk-thread" data-desk>
+<div class="page full dk dk-thread dk-chat" data-desk>
   <div class="dk-main">
     <div class="dk-thread-top">
       <p class="eyebrow">Campaign</p>
@@ -17,6 +17,7 @@
           <p class="dk-note">{{ x.body.text }}</p>
           {% if x.body.also %}<div class="dk-also"><span>It lives in</span>{% for a in x.body.also %}<a href="{{ a.href }}"><b>{{ a.name }}</b><span>{{ a.line }}</span></a>{% endfor %}</div>{% endif %}
         {% elif x.kind == 'plan' and x.live %}
+          <p class="dk-worked"><span aria-hidden="true"></span>Read your brand and priced each part</p>
           {% include "v2/_desk_plan.html" %}
         {% elif x.kind == 'plan' %}
           <section class="dk-was" aria-label="An earlier plan">
@@ -61,6 +62,8 @@
   </div>
 
   <aside class="dk-side" aria-label="This campaign and your brand">
+    <p class="dk-board-h">Board</p>
+    {% if not made %}<p class="dk-board-empty">Nothing made yet. Each part shows up here as it's made.</p>{% endif %}
     {% if made %}
     <section class="dk-now" aria-labelledby="dk-in-h" data-in-campaign>
       <h2 id="dk-in-h">In this campaign</h2>

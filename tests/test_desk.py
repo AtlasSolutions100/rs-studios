@@ -182,7 +182,7 @@ print("== new look on: where the desk lives")
 os.environ["UI_V2"] = "1"
 home = page(a, "/app")
 check("data-desk" not in home and "CFY_STUDIO" in home, "the first run keeps Studio as Home")
-check('href="/app/desk"' in home and "<span>Desk</span></a>" in home, "the desk has its own link above the tabs")
+check('href="/app/desk"' in home and "<span>Agent</span></a>" in home, "the desk has its own link above the tabs")
 d = page(a, "/app/desk")
 check("data-desk" in d and "Your desk" in d and "desk.js" in d, "the desk opens at /app/desk")
 check(re.search(r'<a class="nav v2-desk on" href="/app/desk" aria-current=page>', d) is not None
@@ -308,7 +308,7 @@ check(f'href="/app/desk/c/{T}"' in page(a, "/app/desk") and "Your campaigns" in 
 print("== one sidebar in the new look")
 lib = page(a, "/app/library")
 side = re.search(r'<aside class="side".*?</aside>', lib, re.S).group(0)
-marks = ["New campaign", "<span>Desk</span>", "<span>Library</span>", "<span>Brand</span>", "<span>Tools</span>",
+marks = ["New campaign", "<span>Agent</span>", "<span>Library</span>", "<span>Brand</span>", "<span>Tools</span>",
          'id="side-camps-h"']
 at = [side.find(m) for m in marks]
 check(min(at) >= 0 and at == sorted(at), "New campaign, Desk, Library, Brand, Tools, then the campaigns, in that order on every page")
