@@ -393,3 +393,5 @@ html[data-ui="v2"][data-theme="dark"]{--hp-sky:#1B2636;--hp-pink:#2F1E27;--hp-su
 @media (max-width:860px){.hp-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:560px){.hp-cards{grid-template-columns:minmax(0,1fr)}.hp-card a{min-height:0}}
 @media (prefers-reduced-motion:reduce){.hp-card a,.hp-peek{transition:none}.hp-card a:hover{transform:none}}
+/* the clips now carry captions near the bottom, so the sound button sits up top, across from the AI tag */
+.lv-show .lv-clip-snd{top:8px;bottom:auto}
